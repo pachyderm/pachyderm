@@ -437,13 +437,10 @@ func (ls LogService) authPipelineLogs(ctx context.Context, pipeline, project str
 			return pass
 		}
 	}
-	var pass bool
-	err := ls.AuthServer.CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_READ)
-	if err != nil && !auth.IsErrNotActivated(err) {
+	pass := true
+	if err := ls.AuthServer.CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_READ); err != nil && !auth.IsErrNotActivated(err) {
 		log.Info(ctx, "unauthorized to retrieve logs for pipeline", zap.Error(err), zap.String("pipeline", project+"@"+pipeline))
 		pass = false
-	} else {
-		pass = true
 	}
 	if cache != nil {
 		cache[repo.String()] = pass
@@ -479,9 +476,19 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
 	if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
 		log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
 		msg.Object = nil
-	} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
-		if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
-			msg.NativeTimestamp = timestamppb.New(t)
+	} else {
+		if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
+			if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
+				msg.NativeTimestamp = timestamppb.New(t)
+			}
+		}
+		if val := msg.Object.Fields["log"].GetStringValue(); val != "" {
+			obj := new(structpb.Struct)
+			if err := obj.UnmarshalJSON([]byte(val)); err != nil {
+				log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("log", val))
+			} else {
+				msg.Object = obj
+			}
 		}
 	}
 	msg.PpsLogMessage = new(pps.LogMessage)
