@@ -76,6 +76,21 @@ func addProjectRequest(req *logs.GetLogsRequest, project string) {
 	}
 }
 
+func addJobDatumRequest(req *logs.GetLogsRequest, job, datum string) {
+	req.Query = &logs.LogQuery{
+		QueryType: &logs.LogQuery_User{
+			User: &logs.UserLogQuery{
+				UserType: &logs.UserLogQuery_JobDatum{
+					JobDatum: &logs.JobDatumLogQuery{
+						Job:   job,
+						Datum: datum,
+					},
+				},
+			},
+		},
+	}
+}
+
 func addDatumRequest(req *logs.GetLogsRequest, datum string) {
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_User{
@@ -127,17 +142,28 @@ func addAppRequest(req *logs.GetLogsRequest, app string) {
 	}
 }
 
+func hasDisallowedFlags(cmd *cobra.Command, flags ...string) bool {
+	for _, f := range flags {
+		if cmd.Flag(f).Changed {
+			return true
+		}
+	}
+	return false
+}
+
 func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var (
-		commands        []*cobra.Command
-		logQL, pipeline string
-		project         = pachCtx.Project
-		datum           string
-		from            = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
-		to              = cmdutil.TimeFlag(time.Now())
-		pod             string
-		container       string
-		app             string
+		commands  []*cobra.Command
+		logQL     string
+		project   = pachCtx.Project
+		pipeline  string
+		job       string
+		datum     string
+		from      = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
+		to        = cmdutil.TimeFlag(time.Now())
+		pod       string
+		container string
+		app       string
 	)
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): Remove references to “new” and unhide.
@@ -166,25 +192,31 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 			switch {
 			case cmd.Flag("logql").Changed:
-				if cmd.Flag("project").Changed || cmd.Flag("pipeline").Changed || cmd.Flag("datum").Changed || cmd.Flag("app").Changed {
+				if hasDisallowedFlags(cmd, "project", "pipeline", "datum", "app", "job") {
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
 					os.Exit(1)
 				}
 				addLogQLRequest(req, logQL)
 			case cmd.Flag("pipeline").Changed:
-				if cmd.Flag("datum").Changed || cmd.Flag("app").Changed {
+				if hasDisallowedFlags(cmd, "datum", "app") {
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
 					os.Exit(1)
 				}
 				addPipelineRequest(req, project, pipeline)
 			case cmd.Flag("project").Changed:
-				if cmd.Flag("datum").Changed || cmd.Flag("app").Changed {
+				if hasDisallowedFlags(cmd, "datum", "app") {
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
 					os.Exit(1)
 				}
 				addProjectRequest(req, project)
+			case cmd.Flag("datum").Changed && cmd.Flag("job").Changed:
+				if hasDisallowedFlags(cmd, "app") {
+					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
+					os.Exit(1)
+				}
+				addJobDatumRequest(req, job, datum)
 			case cmd.Flag("datum").Changed:
-				if cmd.Flag("app").Changed {
+				if hasDisallowedFlags(cmd, "app") {
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
 					os.Exit(1)
 				}
@@ -258,6 +290,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().StringVar(&logQL, "logql", "", "LogQL query")
 	logsCmd.Flags().StringVar(&project, "project", project, "Project for pipeline query.")
 	logsCmd.Flags().StringVar(&pipeline, "pipeline", pipeline, "Pipeline for pipeline query.")
+	logsCmd.Flags().StringVar(&job, "job", job, "Job for job query.")
 	logsCmd.Flags().StringVar(&datum, "datum", datum, "Datum for datum query.")
 	logsCmd.Flags().Var(&from, "from", "Return logs at or after this time.")
 	logsCmd.Flags().Var(&to, "to", "Return logs before  this time.")
