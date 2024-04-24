@@ -1,102 +1,87 @@
-import React, {useEffect} from 'react';
+import React from 'react';
 import {showErrorMessage} from '@jupyterlab/apputils';
 
-import {Repo, Mount, ListMountsResponse} from '../../types';
+import {Repo, Repos, MountedRepo, Branch} from '../../types';
 import {DropdownCombobox} from '../../../../utils/components/DropdownCombobox/DropdownCombobox';
-import {unmountAll, mount, getMountedStatus, getDefaultBranch} from '../../api';
 
 type ExploreProps = {
-  mounted: Mount[];
-  unmounted: Repo[];
-  updateData: (response: ListMountsResponse) => void;
-  changeDirectory: (directory: string) => Promise<void>;
+  repos: Repos;
+  mountedRepo: MountedRepo | null;
+  updateMountedRepo: (repo: Repo | null, mountedBranch: Branch | null) => void;
 };
 
 const Explore: React.FC<ExploreProps> = ({
-  mounted,
-  unmounted,
-  updateData,
-  changeDirectory,
+  repos,
+  mountedRepo,
+  updateMountedRepo,
 }) => {
-  useEffect(() => {
-    if (mounted.length === 1) {
-      changeDirectory(`/${mounted[0].name}`);
-    }
-  }, [mounted.length]);
-
   // Avoids rendering the dropdowns until mount information is loaded.
-  if (mounted.length === 0 && unmounted.length === 0) {
+  if (!mountedRepo && Object.keys(repos).length === 0) {
     return <></>;
   }
-
-  // In the event of some how multiple repos being mounted we should unmount all to reset to the default state.
-  if (mounted.length > 1) {
-    unmountAll().then((response) => updateData(response));
-    showErrorMessage(
-      'Unexpected Error',
-      'Multiple repos have been mounted somehow so all repos have been unmounted.',
-    );
-    return <></>;
-  }
-
-  const {
-    projectRepos,
-    selectedProjectRepo,
-    branches,
-    selectedBranch,
-    projectRepoToBranches,
-  } = getMountedStatus(mounted, unmounted);
 
   return (
     <div className="pachyderm-explore-view">
       <DropdownCombobox
         testIdPrefix="ProjectRepo-"
-        initialSelectedItem={selectedProjectRepo}
-        items={projectRepos}
+        initialSelectedItem={mountedRepo?.repo.uri}
+        items={Object.keys(repos)}
         placeholder="project/repo"
-        onSelectedItemChange={(projectRepo, selectItem) => {
+        onSelectedItemChange={(repoUri, selectItem) => {
           (async () => {
-            if (!projectRepo) {
-              updateData(await unmountAll());
-              await changeDirectory('/');
+            if (!repoUri) {
+              updateMountedRepo(null, null);
               return;
             }
 
-            const defaultBranch = getDefaultBranch(
-              projectRepoToBranches[projectRepo],
-            );
-            if (!defaultBranch) {
+            const repo = repos[repoUri];
+            if (repo.branches.length === 0) {
+              updateMountedRepo(null, null);
               showErrorMessage(
                 'No Branches',
-                `${projectRepo} has no branches to mount`,
+                `${repo.name} has no branches to mount`,
               );
               selectItem(null);
               return;
             }
 
-            const response = await mount(projectRepo, defaultBranch);
-            updateData(response);
-            await changeDirectory(`/${response.mounted[0].name}`);
+            updateMountedRepo(repo, null);
           })();
         }}
       />
-      {!branches || !selectedProjectRepo ? (
+      {!mountedRepo ? (
         <></>
       ) : (
         <DropdownCombobox
           testIdPrefix="Branch-"
-          initialSelectedItem={selectedBranch}
-          items={branches}
+          initialSelectedItem={mountedRepo.mountedBranch.name}
+          items={mountedRepo.repo.branches.map((branch) => branch.name)}
           placeholder="branch"
-          onSelectedItemChange={(selectedBranch) => {
+          onSelectedItemChange={(mountedBranchName) => {
             (async () => {
-              if (!selectedBranch) {
+              // When clicking the dropdown that causes the selected item to be cleared. We should do nothing in that case.
+              if (!mountedBranchName) {
                 return;
               }
 
-              const response = await mount(selectedProjectRepo, selectedBranch);
-              updateData(response);
-              await changeDirectory(`/${response.mounted[0].name}`);
+              let mountedBranch: Branch | null = null;
+              for (const branch of mountedRepo.repo.branches) {
+                if (branch.name === mountedBranchName) {
+                  mountedBranch = branch;
+                  break;
+                }
+              }
+
+              if (!mountedBranch) {
+                showErrorMessage(
+                  'Explore View Reset',
+                  'A branch that was removed was selected. Resetting explore view.',
+                );
+                updateMountedRepo(null, null);
+                return;
+              }
+
+              updateMountedRepo(mountedRepo.repo, mountedBranch);
             })();
           }}
         />

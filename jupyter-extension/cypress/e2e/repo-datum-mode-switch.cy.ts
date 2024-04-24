@@ -23,9 +23,7 @@ describe('switching between repo and datum mode', () => {
     cy.findAllByRole('tab').filter('.pachyderm-explore-tab').click();
 
     cy.wait(3000);
-    cy.get('#jupyterlab-pachyderm-browser-pfs')
-      .findByText('default_images')
-      .dblclick();
+    cy.get('#jupyterlab-pachyderm-browser-pfs').findByText('images').dblclick();
     cy.findAllByText('liberty.png').should('have.length', 1);
   });
 
