@@ -8,6 +8,7 @@ etcd:
 
 pachd:
   storage:
+    storageURL: s3://blah
     amazon:
       bucket: blah
       region: some-region
