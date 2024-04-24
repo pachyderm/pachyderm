@@ -145,3 +145,9 @@ export type PpsContext = {
 export type CreatePipelineResponse = {
   message: string | null;
 };
+
+export interface IPachydermModel extends Contents.IModel {
+  // The pachyderm uri for a file. This is not originally defined as a property in Contents.IModel, but
+  // our endpoint for that model adds this.
+  readonly file_uri: string;
+}
