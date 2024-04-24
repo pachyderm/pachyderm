@@ -71,7 +71,7 @@ func EnterpriseConfigPostgresMigration(ctx context.Context, tx *pachsql.Tx, etcd
 		return err
 	}
 	if config != nil {
-		return errors.EnsureStack(EnterpriseConfigCollection(nil, nil).ReadWrite(tx).Put(configKey, config))
+		return errors.EnsureStack(EnterpriseConfigCollection(nil, nil).ReadWrite(tx).Put(ctx, configKey, config))
 	}
 	return nil
 }

@@ -261,7 +261,7 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 
 	etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &enterprise.EnterpriseConfig{}, nil, nil)
 	_, err := col.NewSTM(ctx, etcd, func(stm col.STM) error {
-		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Put("config", config))
+		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Put(ctx, "config", config))
 	})
 	require.NoError(t, err)
 

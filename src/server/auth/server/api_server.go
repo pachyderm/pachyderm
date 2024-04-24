@@ -532,7 +532,7 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 	// Store a new Pachyderm token (as the caller is authenticating) and
 	// initialize the root user as a cluster admin
 	roleBindings := a.roleBindings.ReadWrite(txCtx.SqlTx)
-	if err := roleBindings.Put(auth.ClusterRoleBindingKey, &auth.RoleBinding{
+	if err := roleBindings.Put(ctx, auth.ClusterRoleBindingKey, &auth.RoleBinding{
 		Entries: map[string]*auth.Roles{
 			auth.RootUser:               {Roles: map[string]bool{auth.ClusterAdminRole: true}},
 			authdb.InternalUser:         {Roles: map[string]bool{auth.ClusterAdminRole: true}},
@@ -1113,7 +1113,7 @@ func (a *apiServer) setUserRoleBindingInTransaction(ctx context.Context, txnCtx 
 	} else {
 		bindings.Entries[principal] = roles
 	}
-	return errors.EnsureStack(roleBindings.Put(key, &bindings))
+	return errors.EnsureStack(roleBindings.Put(ctx, key, &bindings))
 }
 
 // ModifyRoleBinding implements the protobuf auth.ModifyRoleBinding RPC
@@ -1284,7 +1284,7 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 		}
 
 		// Set groups for user
-		if err := members.Put(subject, &auth.Groups{
+		if err := members.Put(ctx, subject, &auth.Groups{
 			Groups: addToSet(nil, groups...),
 		}); err != nil {
 			return errors.EnsureStack(err)
@@ -1608,7 +1608,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *auth.SetConfigura
 
 	// set the new config
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		return errors.EnsureStack(a.authConfig.ReadWrite(sqlTx).Put(configKey, configToStore))
+		return errors.EnsureStack(a.authConfig.ReadWrite(sqlTx).Put(ctx, configKey, configToStore))
 	}); err != nil {
 		return nil, err
 	}

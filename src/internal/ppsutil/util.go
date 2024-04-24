@@ -229,7 +229,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 		}
 		pipelineInfo.State = to
 		pipelineInfo.Reason = reason
-		return errors.EnsureStack(pipelines.Put(specCommit, pipelineInfo))
+		return errors.EnsureStack(pipelines.Put(ctx, specCommit, pipelineInfo))
 	})
 	if resultMessage != "" {
 		if warn {
@@ -296,7 +296,7 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 }
 
 // UpdateJobState performs the operations involved with a job state transition.
-func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWriteCollection, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
+func UpdateJobState(ctx context.Context, pipelines col.PostgresReadWriteCollection, jobs col.ReadWriteCollection, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
 	// Check if this is a new job
 	if jobInfo.State != pps.JobState_JOB_STATE_UNKNOWN {
 		if pps.IsTerminal(jobInfo.State) {
@@ -316,7 +316,7 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 	}
 	jobInfo.State = state
 	jobInfo.Reason = reason
-	return errors.Wrapf(jobs.Put(ppsdb.JobKey(jobInfo.Job), jobInfo), "put job %v", ppsdb.JobKey(jobInfo.Job))
+	return errors.Wrapf(jobs.Put(ctx, ppsdb.JobKey(jobInfo.Job), jobInfo), "put job %v", ppsdb.JobKey(jobInfo.Job))
 }
 
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) (retErr error) {

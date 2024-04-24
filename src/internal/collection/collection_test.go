@@ -42,7 +42,7 @@ func (te TestError) Error() string {
 }
 
 type ReadCallback func(context.Context) col.ReadOnlyCollection
-type WriteCallback func(context.Context, func(col.ReadWriteCollection) error) error
+type WriteCallback func(context.Context, func(context.Context, col.ReadWriteCollection) error) error
 
 func idRange(start int, end int) []string {
 	result := make([]string, 0, end-start)
@@ -52,9 +52,9 @@ func idRange(start int, end int) []string {
 	return result
 }
 
-func putItem(item *col.TestItem) func(rw col.ReadWriteCollection) error {
-	return func(rw col.ReadWriteCollection) error {
-		return errors.EnsureStack(rw.Put(item.Id, item))
+func putItem(item *col.TestItem) func(ctx context.Context, rw col.ReadWriteCollection) error {
+	return func(ctx context.Context, rw col.ReadWriteCollection) error {
+		return errors.EnsureStack(rw.Put(ctx, item.Id, item))
 	}
 }
 
@@ -67,9 +67,9 @@ func canceledContext() context.Context {
 
 // populateCollection writes a standard set of rows to the collection for use by
 // individual tests.
-func populateCollection(rw col.ReadWriteCollection) error {
+func populateCollection(ctx context.Context, rw col.ReadWriteCollection) error {
 	for _, id := range idRange(0, defaultCollectionSize) {
-		if err := putItem(makeProto(id, originalValue))(rw); err != nil {
+		if err := putItem(makeProto(id, originalValue))(ctx, rw); err != nil {
 			return err
 		}
 	}
@@ -261,11 +261,11 @@ func collectionTests(
 					"d": idRange(9, 12),
 				}
 
-				require.NoError(t, partitionedWriter(ctx, func(rw col.ReadWriteCollection) error {
+				require.NoError(t, partitionedWriter(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					for idxVal, ids := range expected {
 						for _, id := range ids {
 							testProto := &col.TestItem{Id: id, Value: idxVal}
-							if err := rw.Put(id, testProto); err != nil {
+							if err := rw.Put(ctx, id, testProto); err != nil {
 								return errors.EnsureStack(err)
 							}
 						}
@@ -374,7 +374,7 @@ func collectionTests(
 
 					createKeys := []string{"0", "6", "7", "9", "3", "8", "4", "1", "2", "5"}
 					for _, k := range createKeys {
-						err := writer(ctx, func(rw col.ReadWriteCollection) error {
+						err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 							testProto := &col.TestItem{Id: k, Value: originalValue}
 							return errors.EnsureStack(rw.Create(k, testProto))
 						})
@@ -393,7 +393,7 @@ func collectionTests(
 
 					modKeys := []string{"5", "7", "2", "9", "1", "0", "8", "4", "3", "6"}
 					for _, k := range modKeys {
-						err := writer(ctx, func(rw col.ReadWriteCollection) error {
+						err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 							testProto := &col.TestItem{}
 							if err := rw.Update(k, testProto, func() error {
 								testProto.Value = changedValue
@@ -456,10 +456,10 @@ func collectionTests(
 
 	parent.Run("ReadWrite", func(suite *testing.T) {
 		suite.Parallel()
-		testRollback := func(t *testing.T, cb func(rw col.ReadWriteCollection) error) error {
+		testRollback := func(t *testing.T, cb func(ctx context.Context, rw col.ReadWriteCollection) error) error {
 			readOnly, writer := initCollection(ctx, t, newCollection)
-			err := writer(ctx, func(rw col.ReadWriteCollection) error {
-				return cb(rw)
+			err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
+				return cb(ctx, rw)
 			})
 			require.YesError(t, err)
 			checkDefaultCollection(t, readOnly, RowDiff{})
@@ -472,7 +472,7 @@ func collectionTests(
 				t.Parallel()
 				readOnly, writer := initCollection(ctx, t, newCollection)
 
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					if err := rw.Get(ctx, makeID(8), testProto); err != nil {
 						return errors.EnsureStack(err)
@@ -490,7 +490,7 @@ func collectionTests(
 				t.Parallel()
 				readOnly, writer := initCollection(ctx, t, newCollection)
 
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					if err := rw.Get(ctx, makeID(1), testProto); err != nil {
 						return errors.EnsureStack(err)
@@ -524,7 +524,7 @@ func collectionTests(
 				t.Parallel()
 				newID := makeID(10)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := makeProto(newID)
 					return errors.EnsureStack(rw.Create(testProto.Id, testProto))
 				})
@@ -536,7 +536,7 @@ func collectionTests(
 				t.Parallel()
 				overwriteID := makeID(5)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := makeProto(overwriteID)
 					return errors.EnsureStack(rw.Create(testProto.Id, testProto))
 				})
@@ -552,7 +552,7 @@ func collectionTests(
 					t.Parallel()
 					newID := makeID(10)
 					overwriteID := makeID(6)
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := makeProto(newID)
 						if err := rw.Create(testProto.Id, testProto); err != nil {
 							return errors.EnsureStack(err)
@@ -566,7 +566,7 @@ func collectionTests(
 
 				subsuite.Run("UserError", func(t *testing.T) {
 					t.Parallel()
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := makeProto(makeID(10))
 						if err := rw.Create(testProto.Id, testProto); err != nil {
 							return errors.EnsureStack(err)
@@ -581,7 +581,7 @@ func collectionTests(
 					overwriteID := makeID(5)
 					newID := makeID(10)
 					readOnly, writer := initCollection(ctx, t, newCollection)
-					err := writer(ctx, func(rw col.ReadWriteCollection) error {
+					err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := makeProto(overwriteID)
 						if err := rw.Create(testProto.Id, testProto); err == nil {
 							return errors.New("Expected col.ErrExists, but got no error")
@@ -603,9 +603,9 @@ func collectionTests(
 				t.Parallel()
 				newID := makeID(10)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := makeProto(newID)
-					return errors.EnsureStack(rw.Put(testProto.Id, testProto))
+					return errors.EnsureStack(rw.Put(ctx, testProto.Id, testProto))
 				})
 				require.NoError(t, err)
 				checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
@@ -615,9 +615,9 @@ func collectionTests(
 				t.Parallel()
 				overwriteID := makeID(5)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := makeProto(overwriteID)
-					return errors.EnsureStack(rw.Put(testProto.Id, testProto))
+					return errors.EnsureStack(rw.Put(ctx, testProto.Id, testProto))
 				})
 				require.NoError(t, err)
 				checkDefaultCollection(t, readOnly, RowDiff{Changed: []string{overwriteID}})
@@ -627,13 +627,13 @@ func collectionTests(
 				subsuite.Parallel()
 				subsuite.Run("UserError", func(t *testing.T) {
 					t.Parallel()
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := makeProto(makeID(10))
-						if err := rw.Put(testProto.Id, testProto); err != nil {
+						if err := rw.Put(ctx, testProto.Id, testProto); err != nil {
 							return errors.EnsureStack(err)
 						}
 						testProto = makeProto(makeID(8))
-						if err := rw.Put(testProto.Id, testProto); err != nil {
+						if err := rw.Put(ctx, testProto.Id, testProto); err != nil {
 							return errors.EnsureStack(err)
 						}
 						return &TestError{}
@@ -649,7 +649,7 @@ func collectionTests(
 				t.Parallel()
 				updateID := makeID(1)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					if err := rw.Upsert(updateID, testProto, func() error {
 						if err := checkItem(t, testProto, updateID, originalValue); err != nil {
@@ -673,7 +673,7 @@ func collectionTests(
 				t.Parallel()
 				updateID := makeID(2)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					return errors.EnsureStack(rw.Update(updateID, testProto, func() error {
 						return &TestError{}
@@ -688,7 +688,7 @@ func collectionTests(
 				t.Parallel()
 				notExistsID := makeID(10)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					return errors.EnsureStack(rw.Update(notExistsID, testProto, func() error {
 						return nil
@@ -705,7 +705,7 @@ func collectionTests(
 
 				subsuite.Run("ErrorInCallback", func(t *testing.T) {
 					t.Parallel()
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
 						if err := rw.Update(makeID(2), testProto, func() error {
 							testProto.Value = changedValue
@@ -723,7 +723,7 @@ func collectionTests(
 				subsuite.Run("UpdateError", func(t *testing.T) {
 					t.Parallel()
 					notExistsID := makeID(10)
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
 						if err := rw.Update(makeID(3), testProto, func() error {
 							testProto.Value = changedValue
@@ -742,7 +742,7 @@ func collectionTests(
 
 				subsuite.Run("UserError", func(t *testing.T) {
 					t.Parallel()
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
 						if err := rw.Update(makeID(6), testProto, func() error {
 							testProto.Value = changedValue
@@ -764,7 +764,7 @@ func collectionTests(
 				t.Parallel()
 				newID := makeID(10)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					return errors.EnsureStack(rw.Upsert(newID, testProto, func() error {
 						if testProto.Id != "" {
@@ -786,7 +786,7 @@ func collectionTests(
 				t.Parallel()
 				newID := makeID(10)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					return errors.EnsureStack(rw.Upsert(newID, testProto, func() error {
 						return &TestError{}
@@ -801,7 +801,7 @@ func collectionTests(
 				t.Parallel()
 				overwriteID := makeID(5)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					err := rw.Upsert(overwriteID, testProto, func() error {
 						if testProto.Id != overwriteID {
@@ -825,7 +825,7 @@ func collectionTests(
 				subsuite.Run("UpsertError", func(t *testing.T) {
 					t.Parallel()
 					existsID := makeID(3)
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
 						if err := rw.Upsert(makeID(6), testProto, func() error {
 							return nil
@@ -840,7 +840,7 @@ func collectionTests(
 
 				subsuite.Run("UserError", func(t *testing.T) {
 					t.Parallel()
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
 						if err := rw.Upsert(makeID(6), testProto, func() error {
 							return nil
@@ -854,7 +854,7 @@ func collectionTests(
 
 				subsuite.Run("UserErrorInCallback", func(t *testing.T) {
 					t.Parallel()
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
 						if err := rw.Upsert(makeID(5), testProto, func() error {
 							testProto.Value = changedValue
@@ -879,7 +879,7 @@ func collectionTests(
 				t.Parallel()
 				deleteID := makeID(3)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					return errors.EnsureStack(rw.Delete(deleteID))
 				})
 				require.NoError(t, err)
@@ -890,7 +890,7 @@ func collectionTests(
 				t.Parallel()
 				notExistsID := makeID(10)
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					return errors.EnsureStack(rw.Delete(notExistsID))
 				})
 				require.YesError(t, err)
@@ -905,7 +905,7 @@ func collectionTests(
 				subsuite.Run("DeleteError", func(t *testing.T) {
 					t.Parallel()
 					notExistsID := makeID(10)
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						if err := rw.Delete(makeID(6)); err != nil {
 							return errors.EnsureStack(err)
 						}
@@ -917,7 +917,7 @@ func collectionTests(
 
 				subsuite.Run("UserError", func(t *testing.T) {
 					t.Parallel()
-					err := testRollback(t, func(rw col.ReadWriteCollection) error {
+					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						if err := rw.Delete(makeID(6)); err != nil {
 							return errors.EnsureStack(err)
 						}
@@ -934,7 +934,7 @@ func collectionTests(
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
 				readOnly, writer := initCollection(ctx, t, newCollection)
-				err := writer(ctx, func(rw col.ReadWriteCollection) error {
+				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					return errors.EnsureStack(rw.DeleteAll())
 				})
 				require.NoError(t, err)
@@ -946,7 +946,7 @@ func collectionTests(
 
 			subsuite.Run("TransactionRollback", func(t *testing.T) {
 				t.Parallel()
-				err := testRollback(t, func(rw col.ReadWriteCollection) error {
+				err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					if err := rw.DeleteAll(); err != nil {
 						return errors.EnsureStack(err)
 					}

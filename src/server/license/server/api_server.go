@@ -123,7 +123,7 @@ func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp
 	}
 
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord))
+		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(ctx, licenseRecordKey, newRecord))
 	}); err != nil {
 		return nil, err
 	}

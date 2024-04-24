@@ -237,7 +237,7 @@ func (c *etcdReadWriteCollection) getIndexPath(val proto.Message, index *Index, 
 	return c.indexPath(index, index.Extract(val), key)
 }
 
-func (c *etcdReadWriteCollection) Put(maybeKey interface{}, val proto.Message) error {
+func (c *etcdReadWriteCollection) Put(ctx context.Context, maybeKey interface{}, val proto.Message) error {
 	key, ok := maybeKey.(string)
 	if !ok {
 		return errors.New("key must be a string")
@@ -361,7 +361,7 @@ func (c *etcdReadWriteCollection) Upsert(maybeKey interface{}, val proto.Message
 	if err := f(); err != nil {
 		return err
 	}
-	return c.Put(key, val)
+	return c.Put(pctx.TODO(), key, val)
 }
 
 func (c *etcdReadWriteCollection) Create(maybeKey interface{}, val proto.Message) error {
@@ -380,7 +380,7 @@ func (c *etcdReadWriteCollection) Create(maybeKey interface{}, val proto.Message
 	if err == nil {
 		return ErrExists{Type: c.prefix, Key: key}
 	}
-	return c.Put(key, val)
+	return c.Put(pctx.TODO(), key, val)
 }
 
 func (c *etcdReadWriteCollection) Delete(maybeKey interface{}) error {

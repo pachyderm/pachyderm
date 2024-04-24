@@ -174,7 +174,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 			log.Error(ctx, "enterprise license heartbeat had invalid id or secret; disabling enterprise", zap.Error(err))
 			_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 				e := a.enterpriseTokenCol.ReadWrite(stm)
-				err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
+				err := e.Put(ctx, enterpriseTokenKey, &ec.EnterpriseRecord{
 					LastHeartbeat:   timestamppb.Now(),
 					HeartbeatFailed: true,
 				})
@@ -187,7 +187,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 
 	_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		e := a.enterpriseTokenCol.ReadWrite(stm)
-		err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
+		err := e.Put(ctx, enterpriseTokenKey, &ec.EnterpriseRecord{
 			LastHeartbeat:   timestamppb.Now(),
 			License:         resp.License,
 			HeartbeatFailed: false,
@@ -256,7 +256,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 
 	// If the test heartbeat succeeded, write the state and config to etcd
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txCtx *txncontext.TransactionContext) error {
-		if err := a.configCol.ReadWrite(txCtx.SqlTx).Put(configKey, &ec.EnterpriseConfig{
+		if err := a.configCol.ReadWrite(txCtx.SqlTx).Put(ctx, configKey, &ec.EnterpriseConfig{
 			LicenseServer: req.LicenseServer,
 			Id:            req.Id,
 			Secret:        req.Secret,
@@ -269,7 +269,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	}
 
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-		return errors.EnsureStack(a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record))
+		return errors.EnsureStack(a.enterpriseTokenCol.ReadWrite(stm).Put(ctx, enterpriseTokenKey, record))
 	}); err != nil {
 		return nil, err
 	}

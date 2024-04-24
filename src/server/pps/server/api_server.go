@@ -453,7 +453,7 @@ func (a *apiServer) UpdateJobStateInTransaction(ctx context.Context, txnCtx *txn
 	jobInfo.DataTotal = request.DataTotal
 	jobInfo.Stats = request.Stats
 
-	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, jobInfo, request.State, request.Reason)
+	return ppsutil.UpdateJobState(ctx, a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, jobInfo, request.State, request.Reason)
 }
 
 // InspectJob implements the protobuf pps.InspectJob RPC
@@ -1004,7 +1004,7 @@ func (a *apiServer) stopJob(ctx context.Context, txnCtx *txncontext.TransactionC
 	// TODO: We can still not update a job's state if we fail here. This is
 	// probably fine for now since we are likely to have a more comprehensive
 	// solution to this with global ids.
-	if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, jobInfo, pps.JobState_JOB_KILLED, reason); err != nil && !ppsServer.IsJobFinishedErr(err) {
+	if err := ppsutil.UpdateJobState(ctx, a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, jobInfo, pps.JobState_JOB_KILLED, reason); err != nil && !ppsServer.IsJobFinishedErr(err) {
 		return err
 	}
 	return nil
@@ -3478,7 +3478,7 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 			AuthToken:       token,
 			Created:         timestamppb.Now(),
 		}
-		if err := ppsutil.UpdateJobState(pipelines, jobs, jobPtr, pps.JobState_JOB_CREATED, ""); err != nil {
+		if err := ppsutil.UpdateJobState(ctx, pipelines, jobs, jobPtr, pps.JobState_JOB_CREATED, ""); err != nil {
 			return err
 		}
 	}
@@ -4006,7 +4006,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", &ppsdb.ClusterDefaultsWrapper{Json: req.GetClusterDefaultsJson()}); err != nil {
+		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put(ctx, "", &ppsdb.ClusterDefaultsWrapper{Json: req.GetClusterDefaultsJson()}); err != nil {
 			return err
 		}
 		for _, p := range pp {
@@ -4127,7 +4127,7 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(req.GetProject().String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
+		if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(ctx, req.GetProject().String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
 			return err
 		}
 		for _, p := range pp {

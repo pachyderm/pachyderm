@@ -75,7 +75,7 @@ type Index struct {
 // operations.
 type ReadWriteCollection interface {
 	Get(ctx context.Context, key interface{}, val proto.Message) error
-	Put(key interface{}, val proto.Message) error
+	Put(ctx context.Context, key interface{}, val proto.Message) error
 	// Update reads the current value associated with 'key', calls 'f' to update
 	// the value, and writes the new value back to the collection. 'key' must be
 	// present in the collection, or a 'Not Found' error is returned

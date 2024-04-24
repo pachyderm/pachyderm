@@ -338,7 +338,7 @@ func sortOrderOperator(order SortOrder) string {
 	return ">"
 }
 
-func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, last *model, offset int) (string, []interface{}, error) {
+func (c *postgresCollection) listQueryStr(withFields map[string]string, opts *Options, last *model, offset int) (string, []interface{}, error) {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
 	var args []interface{}
@@ -421,7 +421,7 @@ func (c *postgresCollection) list(
 	// (2) apply f(), the client's callback, to results in the buffer
 	// (3) if the buffer was full, re-execute the query, offset by key, and repeat (1)
 	bufferResults := func(last *model, offset int) ([]*model, bool, error) {
-		query, args, err := c.listQueryStr(ctx, withFields, opts, last, offset)
+		query, args, err := c.listQueryStr(withFields, opts, last, offset)
 		if err != nil {
 			return nil, false, err
 		}
@@ -691,9 +691,9 @@ func (c *postgresReadWriteCollection) Get(ctx context.Context, key interface{}, 
 	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
 }
 
-func (c *postgresReadWriteCollection) Put(key interface{}, val proto.Message) error {
+func (c *postgresReadWriteCollection) Put(ctx context.Context, key interface{}, val proto.Message) error {
 	return c.withKey(key, func(rawKey string) error {
-		return c.insert(rawKey, val, true)
+		return c.insert(ctx, rawKey, val, true)
 	})
 }
 
@@ -742,7 +742,7 @@ func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message,
 	})
 }
 
-func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
+func (c *postgresReadWriteCollection) insert(ctx context.Context, key string, val proto.Message, upsert bool) error {
 	if c.keyCheck != nil {
 		if err := c.keyCheck(key); err != nil {
 			return errors.Wrap(err, "bad key")
@@ -774,7 +774,7 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		query += " on conflict do nothing"
 	}
 
-	result, err := c.tx.Exec(query, params...)
+	result, err := c.tx.ExecContext(ctx, query, params...)
 	if err != nil {
 		return c.mapSQLError(err, key)
 	}
@@ -803,12 +803,12 @@ func (c *postgresReadWriteCollection) Upsert(key interface{}, val proto.Message,
 	if err := f(); err != nil {
 		return err
 	}
-	return c.Put(key, val)
+	return c.Put(pctx.TODO(), key, val)
 }
 
 func (c *postgresReadWriteCollection) Create(key interface{}, val proto.Message) error {
 	return c.withKey(key, func(rawKey string) error {
-		return c.insert(rawKey, val, false)
+		return c.insert(pctx.TODO(), rawKey, val, false)
 	})
 }
 

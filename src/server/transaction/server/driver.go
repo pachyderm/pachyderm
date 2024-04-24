@@ -77,6 +77,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 
 	if err := dbutil.WithTx(ctx, d.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(d.transactions.ReadWrite(sqlTx).Put(
+			ctx,
 			info.Transaction.Id,
 			info,
 		))

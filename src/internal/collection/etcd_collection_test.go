@@ -52,9 +52,9 @@ func TestEtcdCollections(suite *testing.T) {
 			return testCol.ReadOnly(ctx)
 		}
 
-		writeCallback := func(ctx context.Context, f func(col.ReadWriteCollection) error) error {
+		writeCallback := func(ctx context.Context, f func(context.Context, col.ReadWriteCollection) error) error {
 			_, err := col.NewSTM(ctx, etcdEnv.EtcdClient, func(stm col.STM) (retErr error) {
-				return f(testCol.ReadWrite(stm))
+				return f(ctx, testCol.ReadWrite(stm))
 			})
 			return errors.EnsureStack(err)
 		}
@@ -78,7 +78,7 @@ func TestDryRun(t *testing.T) {
 		Job: client.NewJob(pfs.DefaultProjectName, "p1", "j1"),
 	}
 	err := col.NewDryRunSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
-		return errors.EnsureStack(jobInfos.ReadWrite(stm).Put(ppsdb.JobKey(job.Job), job))
+		return errors.EnsureStack(jobInfos.ReadWrite(stm).Put(ctx, ppsdb.JobKey(job.Job), job))
 	})
 	require.NoError(t, err)
 
@@ -109,16 +109,16 @@ func TestDeletePrefix(t *testing.T) {
 
 	_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 		rw := jobInfos.ReadWrite(stm)
-		if err := rw.Put(ppsdb.JobKey(j1.Job), j1); err != nil {
+		if err := rw.Put(ctx, ppsdb.JobKey(j1.Job), j1); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Put(ppsdb.JobKey(j2.Job), j2); err != nil {
+		if err := rw.Put(ctx, ppsdb.JobKey(j2.Job), j2); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Put(ppsdb.JobKey(j3.Job), j3); err != nil {
+		if err := rw.Put(ctx, ppsdb.JobKey(j3.Job), j3); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Put(ppsdb.JobKey(j4.Job), j4); err != nil {
+		if err := rw.Put(ctx, ppsdb.JobKey(j4.Job), j4); err != nil {
 			return errors.EnsureStack(err)
 		}
 		return nil
@@ -161,7 +161,7 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.EnsureStack(err)
 		}
 
-		if err := rw.Put(ppsdb.JobKey(j1.Job), j1); err != nil {
+		if err := rw.Put(ctx, ppsdb.JobKey(j1.Job), j1); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := rw.Get(ctx, ppsdb.JobKey(j1.Job), job); err != nil {
@@ -175,7 +175,7 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.Id)
 		}
 
-		if err := rw.Put(ppsdb.JobKey(j2.Job), j2); err != nil {
+		if err := rw.Put(ctx, ppsdb.JobKey(j2.Job), j2); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := rw.Get(ctx, ppsdb.JobKey(j2.Job), job); err != nil {
@@ -215,13 +215,13 @@ func TestIndex(t *testing.T) {
 	}
 	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		rw := jobInfos.ReadWrite(stm)
-		if err := rw.Put(ppsdb.JobKey(j1.Job), j1); err != nil {
+		if err := rw.Put(ctx, ppsdb.JobKey(j1.Job), j1); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Put(ppsdb.JobKey(j2.Job), j2); err != nil {
+		if err := rw.Put(ctx, ppsdb.JobKey(j2.Job), j2); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Put(ppsdb.JobKey(j3.Job), j3); err != nil {
+		if err := rw.Put(ctx, ppsdb.JobKey(j3.Job), j3); err != nil {
 			return errors.EnsureStack(err)
 		}
 		return nil
@@ -279,10 +279,10 @@ func TestBoolIndex(t *testing.T) {
 	}
 	_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 		boolValues := boolValues.ReadWrite(stm)
-		if err := boolValues.Put("true", r1); err != nil {
+		if err := boolValues.Put(ctx, "true", r1); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := boolValues.Put("false", r2); err != nil {
+		if err := boolValues.Put(ctx, "false", r2); err != nil {
 			return errors.EnsureStack(err)
 		}
 		return nil
@@ -397,7 +397,7 @@ func TestIteration(t *testing.T) {
 		for i := 0; i < numVals; i++ {
 			_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 				testProto := makeProto(makeID(i))
-				return errors.EnsureStack(c.ReadWrite(stm).Put(testProto.Id, testProto))
+				return errors.EnsureStack(c.ReadWrite(stm).Put(ctx, testProto.Id, testProto))
 			})
 			require.NoError(t, err)
 		}
@@ -419,7 +419,7 @@ func TestIteration(t *testing.T) {
 			_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 				for j := 0; j < valsPerBatch; j++ {
 					testProto := makeProto(makeID(i*valsPerBatch + j))
-					if err := c.ReadWrite(stm).Put(testProto.Id, testProto); err != nil {
+					if err := c.ReadWrite(stm).Put(ctx, testProto.Id, testProto); err != nil {
 						return errors.EnsureStack(err)
 					}
 				}
@@ -445,7 +445,7 @@ func TestIteration(t *testing.T) {
 		for i := 0; i < numVals; i++ {
 			_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 				id := fmt.Sprintf("%d", i)
-				return errors.EnsureStack(c.ReadWrite(stm).Put(id, &col.TestItem{Id: id, Value: longString}))
+				return errors.EnsureStack(c.ReadWrite(stm).Put(ctx, id, &col.TestItem{Id: id, Value: longString}))
 			})
 			require.NoError(t, err)
 		}
