@@ -149,7 +149,7 @@ export const useDatum = (
           'Poorly formatted input spec- must be either YAML or JSON',
         );
       } else if (e instanceof ServerConnection.ResponseError) {
-        setErrorMessage('Bad data in input spec');
+        setErrorMessage('Bad data in input spec: ' + e.response.statusText);
       } else {
         setErrorMessage('Error mounting datums');
       }

@@ -569,6 +569,14 @@ class DatumManager(FileContentsManager):
                 self._reset()
                 raise ValueError("input produced no datums to mount")
             self._update_mount()
+        except grpc.RpcError as e:
+            if (
+                e.code() == grpc.StatusCode.NOT_FOUND
+                or e.code() == grpc.StatusCode.UNKNOWN
+                and "not found" in e.details()
+            ):
+                self._reset()
+                raise ValueError("non-existent branch or repo in input")
         except Exception as e:
             self._reset()
             raise e
