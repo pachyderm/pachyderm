@@ -529,7 +529,7 @@ func TestGetLogs_offset(t *testing.T) {
 				}
 			}
 			if len(publisher.responses)-len(hints) != len(tc.want) {
-				t.Fatalf("got %d responses; want %d", len(publisher.responses), len(tc.want))
+				t.Fatalf("got %d responses; want %d", len(publisher.responses)-len(hints), len(tc.want))
 			}
 			for i, hint := range hints {
 				if hint == nil || (hint.Older == nil && hint.Newer == nil) {
@@ -541,6 +541,11 @@ func TestGetLogs_offset(t *testing.T) {
 					}
 					if got, want := hint.Older.Filter.TimeRange.Until.AsTime(), now.Add(tc.wantHint.olderUntil); !got.Equal(want) {
 						t.Errorf("wanted older hint until = %v; got %v", want, got)
+					}
+				}
+				if hint.Newer != nil {
+					if got, want := hint.Newer.Filter.TimeRange.From.AsTime(), now.Add(tc.wantHint.newerFrom); !got.Equal(want) {
+						t.Errorf("wanted newer hint from = %v; got %v", want, got)
 					}
 					if got, want := hint.Newer.Filter.TimeRange.Until.AsTime(), now.Add(tc.wantHint.newerUntil); !got.Equal(want) {
 						t.Errorf("wanted newer hint until = %v; got %v", want, got)
