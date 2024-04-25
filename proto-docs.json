@@ -9501,6 +9501,42 @@
           ]
         },
         {
+          "name": "JobDatumLogQuery",
+          "longName": "JobDatumLogQuery",
+          "fullName": "logs.JobDatumLogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "datum",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "LogFilter",
           "longName": "LogFilter",
           "fullName": "logs.LogFilter",
@@ -9937,6 +9973,18 @@
               "type": "PipelineJobLogQuery",
               "longType": "PipelineJobLogQuery",
               "fullType": "logs.PipelineJobLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "user_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "job_datum",
+              "description": "One datum in one job",
+              "label": "",
+              "type": "JobDatumLogQuery",
+              "longType": "JobDatumLogQuery",
+              "fullType": "logs.JobDatumLogQuery",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "user_type",

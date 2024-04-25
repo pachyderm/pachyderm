@@ -82,6 +82,11 @@ func (x *UserLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("pipeline_job", x.GetPipelineJob())
 	}
+	if obj, ok := interface{}(x.GetJobDatum()).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("job_datum", obj)
+	} else {
+		enc.AddReflected("job_datum", x.GetJobDatum())
+	}
 	return nil
 }
 
@@ -104,6 +109,15 @@ func (x *PipelineJobLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		enc.AddReflected("pipeline", x.Pipeline)
 	}
 	enc.AddString("job", x.Job)
+	return nil
+}
+
+func (x *JobDatumLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("job", x.Job)
+	enc.AddString("datum", x.Datum)
 	return nil
 }
 

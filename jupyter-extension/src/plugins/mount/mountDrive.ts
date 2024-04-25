@@ -7,6 +7,7 @@ import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {URLExt} from '@jupyterlab/coreutils';
 import {requestAPI} from '../../handler';
 import {MOUNT_BROWSER_PREFIX} from './mount';
+import {MountedRepo} from './types';
 
 // How many Content li are visible at a given time for the user to scroll.
 const VISIBLE_CONTENT_LI_COUNT = 500;
@@ -52,6 +53,8 @@ export class MountDrive implements Contents.IDrive {
   private _id: string;
   // Forces a re-render of the FileBrowser using this Drive.
   private _rerenderFileBrowser: () => Promise<void>;
+  // Retrieves the latest mounted repo to specify the branch which pfs should query.
+  private _getMountedRepo: () => MountedRepo | null;
   // Previous search filter value as of the previous _get call.
   private _previousFilter: string | null;
   // The index determining which set of cached Contents is visible to the user. Changed by scrolling the Contents DOM node.
@@ -65,7 +68,8 @@ export class MountDrive implements Contents.IDrive {
     path: string,
     nameSuffix: string,
     id: string,
-    _rerenderFileBrowser: () => Promise<void>,
+    rerenderFileBrowser: () => Promise<void>,
+    getMountedRepo: () => MountedRepo | null,
   ) {
     this._registry = registry;
     this._cache = {
@@ -78,7 +82,8 @@ export class MountDrive implements Contents.IDrive {
     this._path = path;
     this._nameSuffix = nameSuffix;
     this._id = id;
-    this._rerenderFileBrowser = _rerenderFileBrowser;
+    this._rerenderFileBrowser = rerenderFileBrowser;
+    this._getMountedRepo = getMountedRepo;
     this._previousFilter = null;
     this._index = 0;
     this._hasScrollEventListener = false;
@@ -112,6 +117,7 @@ export class MountDrive implements Contents.IDrive {
     this.setupScrollingHandler();
 
     const url = URLExt.join(this._path, localPath);
+    const branchUri = this._getMountedRepo()?.mountedBranch.uri;
 
     // If we have cached content return that
     if (localPath === this._cache.key && localPath) {
@@ -135,7 +141,13 @@ export class MountDrive implements Contents.IDrive {
     //   and not paginate the results.
     let shallowResponse;
     try {
-      shallowResponse = await this._get(url, {content: '0'});
+      const shallowOptions: {content: string; branch_uri?: string} = {
+        content: '0',
+      };
+      if (branchUri) {
+        shallowOptions.branch_uri = branchUri;
+      }
+      shallowResponse = await this._get(url, shallowOptions);
     } catch (e) {
       showErrorMessage('Get Error', url + ' not found');
       return DEFAULT_CONTENT_MODEL;
@@ -161,6 +173,7 @@ export class MountDrive implements Contents.IDrive {
       ...options,
       number: PAGINATION_NUMBER,
       content,
+      branch_uri: branchUri,
     };
     this._loading.emit(true);
     await this._fetchNextPage(null, now, url, getOptions);

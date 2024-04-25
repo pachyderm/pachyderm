@@ -25,6 +25,11 @@
                     "$ref": "#/definitions/logs.PipelineJobLogQuery",
                     "additionalProperties": false,
                     "description": "One job in one pipeline"
+                },
+                "jobDatum": {
+                    "$ref": "#/definitions/logs.JobDatumLogQuery",
+                    "additionalProperties": false,
+                    "description": "One datum in one job"
                 }
             },
             "additionalProperties": false,
@@ -54,10 +59,28 @@
                     "required": [
                         "pipeline_job"
                     ]
+                },
+                {
+                    "required": [
+                        "job_datum"
+                    ]
                 }
             ],
             "title": "User Log Query",
             "description": "Only returns \"user\" logs"
+        },
+        "logs.JobDatumLogQuery": {
+            "properties": {
+                "job": {
+                    "type": "string"
+                },
+                "datum": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Job Datum Log Query"
         },
         "logs.PipelineJobLogQuery": {
             "properties": {

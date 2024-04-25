@@ -86,6 +86,9 @@ class UserLogQuery(betterproto.Message):
     )
     """One job in one pipeline"""
 
+    job_datum: "JobDatumLogQuery" = betterproto.message_field(6, group="user_type")
+    """One datum in one job"""
+
 
 @dataclass(eq=False, repr=False)
 class PipelineLogQuery(betterproto.Message):
@@ -97,6 +100,12 @@ class PipelineLogQuery(betterproto.Message):
 class PipelineJobLogQuery(betterproto.Message):
     pipeline: "PipelineLogQuery" = betterproto.message_field(1)
     job: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class JobDatumLogQuery(betterproto.Message):
+    job: str = betterproto.string_field(1)
+    datum: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)

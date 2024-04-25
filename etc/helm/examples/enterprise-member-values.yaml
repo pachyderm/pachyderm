@@ -22,6 +22,7 @@ pachd:
   oauthClientSecret: "oauth-secret"
 
   storage:
+    storageURL: s3://pachyderm-test
     backend: MINIO
     minio:
       bucket: "pachyderm-test"

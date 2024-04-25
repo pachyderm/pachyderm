@@ -274,6 +274,7 @@
     - [AdminLogQuery](#logs-AdminLogQuery)
     - [GetLogsRequest](#logs-GetLogsRequest)
     - [GetLogsResponse](#logs-GetLogsResponse)
+    - [JobDatumLogQuery](#logs-JobDatumLogQuery)
     - [LogFilter](#logs-LogFilter)
     - [LogMessage](#logs-LogMessage)
     - [LogQuery](#logs-LogQuery)
@@ -4504,6 +4505,22 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 
 
 
+<a name="logs-JobDatumLogQuery"></a>
+
+### JobDatumLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| job | [string](#string) |  |  |
+| datum | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="logs-LogFilter"></a>
 
 ### LogFilter
@@ -4665,6 +4682,7 @@ Only returns &#34;user&#34; logs
 | datum | [string](#string) |  | One datum. |
 | job | [string](#string) |  | One job, across pipelines and projects |
 | pipeline_job | [PipelineJobLogQuery](#logs-PipelineJobLogQuery) |  | One job in one pipeline |
+| job_datum | [JobDatumLogQuery](#logs-JobDatumLogQuery) |  | One datum in one job |
 
 
 

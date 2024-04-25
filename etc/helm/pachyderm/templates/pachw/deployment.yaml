@@ -58,9 +58,9 @@ spec:
           value: "true"
         - name: GOCDK_ENABLED
           value: {{ .Values.pachd.storage.gocdkEnabled | default true | quote }}
-        {{- if .Values.pachd.storage.storageURL }}
+        {{- if and (ne .Values.deployTarget "LOCAL") .Values.pachd.storage.gocdkEnabled  }}
         - name: STORAGE_URL
-          value: {{ .Values.pachd.storage.storageURL }}
+          value: {{ required "storage URL required" .Values.pachd.storage.storageURL | quote }}
         {{- end }}
         - name: POSTGRES_HOST
           value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}

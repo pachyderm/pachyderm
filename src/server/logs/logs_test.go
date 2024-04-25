@@ -208,12 +208,12 @@ func TestGetProjectLogs(t *testing.T) {
 	var (
 		ctx             = pctx.TestContext(t)
 		foundQuery      bool
-		projectName     = testutil.UniqueString("projectName")
+		projectName     = testutil.UniqueString("pipelineProject")
 		datumMiddleware = func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 				q := req.URL.Query()
 				if q := q.Get("query"); q != "" {
-					if strings.Contains(q, fmt.Sprintf(`projectName="%s"`, projectName)) {
+					if strings.Contains(q, fmt.Sprintf(`pipelineProject="%s"`, projectName)) {
 						foundQuery = true
 					}
 				}
@@ -259,6 +259,7 @@ func TestPipelineLogs(t *testing.T) {
 	labels := map[string]string{
 		"app":             "pipeline",
 		"component":       "worker",
+		"container":       "user",
 		"pipelineName":    "edges",
 		"pipelineProject": "default",
 		"pipelineVersion": "1",
@@ -283,7 +284,7 @@ func TestPipelineLogs(t *testing.T) {
 	}
 	pipelineLogs := []*testloki.Log{
 		{
-			Time: time.Date(2024, 04, 16, 21, 10, 36, 717965399, time.UTC),
+			Time: now,
 			Labels: map[string]string{
 				"app":   "pachd",
 				"suite": "pachyderm",
@@ -377,11 +378,14 @@ func TestPipelineLogs(t *testing.T) {
 			Ts:           wants[i].GetLog().NativeTimestamp,
 			Message:      messageTexts[i],
 		}
+	}
+	for _, log := range pipelineLogs {
 		if err := aloki.AddLog(ctx, log); err != nil {
 			t.Fatalf("add log: %v", err)
 		}
 	}
-	ctx, c := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
 	ls := logservice.LogService{
 		GetLokiClient: func() (*loki.Client, error) {
@@ -403,6 +407,5 @@ func TestPipelineLogs(t *testing.T) {
 			},
 		},
 	}, publisher), "GetLogs should succeed")
-	c()
 	require.NoDiff(t, wants, publisher.responses, []cmp.Option{protocmp.Transform()})
 }

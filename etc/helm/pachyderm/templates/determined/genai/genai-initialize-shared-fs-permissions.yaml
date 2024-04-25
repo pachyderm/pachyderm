@@ -1,0 +1,64 @@
+{{- if .Values.determined.genai }}
+{{- if .Values.determined.genai.version }}
+{{- if .Values.determined.genai.shouldInitializeSharedFSGroupPermissions }}
+
+{{- /* Helm Job to make sure that the shared filesystem sets up group permissions for */ -}}
+{{- /* the all members of the group defined in .Values.determined.genai.agentGroupID. */ -}}
+{{- /* If your cluster disallows root pods, disable this job by setting */ -}}
+{{- /* .Values.determined.genai.shouldInitializeSharedFSGroupPermissions to false and have */ -}}
+{{- /* your sys admin run the chmod and chgrp commands on the drive manually. */ -}}
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: genai-initialize-shared-fs-permissions-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: genai-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+  annotations:
+    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    metadata:
+      name: genai-initialize-shared-fs-permissions-{{ .Release.Name }}
+      labels:
+        app: genai-initialize-shared-fs-permissions-{{ .Release.Name }}
+        release: {{ .Release.Name }}
+    spec:
+      serviceAccount: determined-master-{{ .Release.Name }}
+      restartPolicy: Never
+      {{ $gid := (required "A valid .Values.determined.genai.agentGroupID entry required!" .Values.determined.genai.agentGroupID) }}
+      securityContext:
+        runAsUser: 0
+        runAsGroup: {{ $gid }}
+        fsGroup: {{ $gid }}
+        fsGroupChangePolicy: "OnRootMismatch"
+      containers:
+      - name: initialize-shared-fs
+        image: ubuntu
+        imagePullPolicy: "Always"
+        volumeMounts:
+          - name: genai-pvc-storage
+            mountPath: /shared_fs
+            readOnly: false
+        command:
+          - bash
+          - -exc
+          - |
+            apt-get update -y && apt-get install acl -y;
+            echo "whoami: $(whoami)";
+            chmod 2775 /shared_fs;
+            GROUP_ID={{ (required "A valid .Values.determined.genai.agentGroupID entry required!" .Values.determined.genai.agentGroupID) }};
+            chgrp +${GROUP_ID} /shared_fs;
+            setfacl -d -m g::rwX /shared_fs;
+            ls -l / | grep shared_fs;
+      volumes:
+        - name: genai-pvc-storage
+          persistentVolumeClaim:
+            claimName: {{ include "determined.genai.PVCName" . }}
+{{- end }}
+{{- end }}
+{{- end }}

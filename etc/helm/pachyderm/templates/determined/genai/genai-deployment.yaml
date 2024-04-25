@@ -1,0 +1,92 @@
+{{- if .Values.determined.genai }}
+{{- if .Values.determined.genai.version }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: genai-deployment-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: genai-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: genai-{{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: genai-{{ .Release.Name }}
+        determined-system: master
+    spec:
+      priorityClassName: determined-system-priority
+      serviceAccount: genai-{{ .Release.Name }}
+      containers:
+      - name: genai-{{ .Release.Name }}
+        {{ $tag := (required "A valid .Values.determined.genai.version entry required!" .Values.determined.genai.version) }}
+        {{- /* genai.version is used for CI to override the appVersion. */ -}}
+        image: {{ .Values.determined.imageRegistry }}/genai:{{ $tag }}
+        imagePullPolicy: "Always"
+        env:
+          - name: DET_MASTER
+            value: determined-master-service-{{ .Release.Name }}:{{ .Values.determined.masterPort }}
+          - name: DB_NAME
+            value: lore
+          - name: DB_USER
+            value: {{ .Values.determined.db.user | quote }}
+          - name: DB_PASSWORD
+            value: {{ .Values.determined.db.password | quote }}
+          - name: DB_PORT
+            value: {{ .Values.determined.db.port | quote }}
+          - name: DB_HOST
+            value: {{ include "determined.dbHost" . }}
+          - name: LORE_DOCKER_TAG_SUFFIX
+            value: {{ $tag }}
+          - name: K8S_SHARED_PVC_NAME
+            value: {{ include "determined.genai.PVCName" . }}
+          - name: RESOURCE_POOL_EXTRA_METADATA_PATH
+            value: /run/determined/workdir/rp_config/resource_pool_metadata.yaml
+          - name: MESSAGE_QUEUE_HOST
+            value: genai-queue-service-{{ .Release.Name }}.{{ .Release.Namespace }}
+          - name: MESSAGE_QUEUE_PORT
+            value: {{ .Values.determined.genai.messageQueuePort | quote }}
+          - name: GENAI_HOST
+            value: genai-backend-service-{{ .Release.Name }}.{{ .Release.Namespace }}
+          - name: GENAI_HOST_PORT
+            value: {{ .Values.determined.genai.port | quote }}
+        volumeMounts:
+          - name: genai-pvc-storage
+            mountPath: /run/determined/workdir/shared_fs
+            readOnly: false
+          - name: genai-resource-pool-metadata
+            mountPath: /run/determined/workdir/rp_config
+        resources:
+          requests:
+            {{- if .Values.determined.genai.cpuRequest }}
+            cpu: {{ .Values.determined.genai.cpuRequest  | quote }}
+            {{- end }}
+            {{- if .Values.determined.genai.memRequest }}
+            memory: {{ .Values.determined.genai.memRequest  | quote }}
+            {{- end}}
+          {{- if or .Values.determined.genai.cpuLimit .Values.determined.genai.memLimit }}
+          limits:
+            {{- if .Values.determined.genai.cpuLimit }}
+            cpu: {{ .Values.determined.genai.cpuLimit  | quote }}
+            {{- end }}
+            {{- if .Values.determined.genai.memLimit }}
+            memory: {{ .Values.determined.genai.memLimit  | quote }}
+            {{- end}}
+          {{- end}}
+      {{- if .Values.determined.imagePullSecretName}}
+      imagePullSecrets:
+        - name: {{ .Values.determined.imagePullSecretName }}
+      {{- end}}
+      volumes:
+        - name: genai-pvc-storage
+          persistentVolumeClaim:
+            claimName: {{ include "determined.genai.PVCName" . }}
+        - name: genai-resource-pool-metadata
+          configMap:
+            name: genai-resource-pool-metadata-{{ .Release.Name }}
+{{ end }}
+{{ end }}
