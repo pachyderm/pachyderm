@@ -146,6 +146,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 
 	txStartedMetric.Inc()
 	err := backoff.RetryUntilCancel(ctx, func() (retErr error) {
+		attemptStart := time.Now()
 		ctx, cf := pctx.WithCancel(ctx)
 		defer cf()
 
@@ -187,6 +188,18 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 			doneFields = append(doneFields, zap.Uint32("xact_id", xactId), zap.Uint32("pid", pid))
 			ctx = pctx.Child(ctx, "", pctx.WithFields(doneFields...))
 		}
+
+		// Report long transactions.
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(10 * time.Second):
+					log.Info(ctx, "ongoing long database transaction", zap.Duration("attempt_duration", time.Since(attemptStart)), zap.Duration("total_duration", time.Since(start)))
+				}
+			}
+		}()
 
 		return tryTxFunc(ctx, tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
