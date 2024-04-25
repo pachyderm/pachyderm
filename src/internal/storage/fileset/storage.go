@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"math"
 	"strings"
 	"time"
@@ -107,6 +108,7 @@ func (s *Storage) NewWriter(ctx context.Context, opts ...WriterOption) *Writer {
 }
 
 func (s *Storage) newWriter(ctx context.Context, opts ...WriterOption) *Writer {
+	ctx = pctx.Child(ctx, "fileSetWriter")
 	return newWriter(ctx, s, opts...)
 }
 
