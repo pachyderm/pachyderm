@@ -23,8 +23,14 @@ def pachyderm_resources():
     client = Client.from_config()
     for repo in repos:
         for branch in branches:
-            client.pfs.delete_branch(branch=pfs.Branch.from_uri(f"{repo}@{branch}"))
-        client.pfs.delete_repo(repo=pfs.Repo(name=repo))
+            try:
+                client.pfs.delete_branch(branch=pfs.Branch.from_uri(f"{repo}@{branch}"))
+            finally:
+                continue
+        try:
+            client.pfs.delete_repo(repo=pfs.Repo(name=repo))
+        finally:
+            continue
 
     for repo in repos:
         client.pfs.create_repo(repo=pfs.Repo(name=repo))
