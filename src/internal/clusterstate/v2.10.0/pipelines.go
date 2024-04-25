@@ -16,14 +16,14 @@ var createUniqueIndex = "CREATE UNIQUE INDEX pip_version_idx ON collections.pipe
 
 // collect all pipeline versions for pipelines with duplicate versions
 var duplicatePipelinesQuery = `
-  SELECT key, version, proto
+  SELECT key, idx_version, proto
   FROM collections.pipelines
   WHERE name
     IN (SELECT a.name
         FROM collections.pipelines a
           INNER JOIN collections.pipelines b
         WHERE a.name = b.name
-          AND a.version = b.version
+          AND a.idx_version = b.idx_version
        )
   ORDER BY name, createdat
 `
@@ -34,9 +34,9 @@ var listJobInfos = `
 `
 
 type pipRow struct {
-	key     string
-	version uint64
-	proto   []byte
+	key         string
+	idx_version uint64
+	proto       []byte
 }
 
 type jobRow struct {
@@ -52,14 +52,14 @@ func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error 
 	if len(pipUpdates) != 0 {
 		var pipValues string
 		for _, u := range pipUpdates {
-			pipValues += fmt.Sprintf(" ('%s', %v, decode('%v', 'hex')),", u.key, u.version, hex.EncodeToString(u.proto))
+			pipValues += fmt.Sprintf(" ('%s', %v, decode('%v', 'hex')),", u.key, u.idx_version, hex.EncodeToString(u.proto))
 		}
 		pipValues = pipValues[:len(pipValues)-1]
 		stmt := fmt.Sprintf(`
                  UPDATE collections.pipelines AS p SET
-                   p.version = v.version,
+                   p.idx_version = v.idx_version,
                    p.proto = v.proto
-                 FROM (VALUES%s) AS v(key, version, proto)
+                 FROM (VALUES%s) AS v(key, idx_version, proto)
                  WHERE p.key = v.key;`, pipValues)
 		if _, err := env.Tx.ExecContext(ctx, stmt); err != nil {
 			return errors.Wrapf(err, "update pipeline rows statement: %v", stmt)
@@ -125,7 +125,7 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "marshal pipeline info %v", pi)
 			}
-			updates = append(updates, &pipRow{key: row.key, version: correctVersion, proto: data})
+			updates = append(updates, &pipRow{key: row.key, idx_version: correctVersion, proto: data})
 		}
 		pipLatestVersion[pi.Pipeline.Name] = correctVersion
 		changes, ok := pipVersionChanges[pi.Pipeline.Name]
