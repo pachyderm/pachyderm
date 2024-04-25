@@ -211,7 +211,7 @@ func (c *etcdReadWriteCollection) Get(ctx context.Context, maybeKey interface{},
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	valStr, err := c.stm.Get(c.path(key))
+	valStr, err := c.stm.Get(ctx, c.path(key))
 	if err != nil {
 		if IsErrNotFound(err) {
 			return ErrNotFound{Type: c.prefix, Key: key}
@@ -245,7 +245,7 @@ func (c *etcdReadWriteCollection) Put(ctx context.Context, maybeKey interface{},
 }
 
 func (c *etcdReadWriteCollection) TTL(ctx context.Context, key string) (int64, error) {
-	ttl, err := c.stm.TTL(c.path(key))
+	ttl, err := c.stm.TTL(ctx, c.path(key))
 	if IsErrNotFound(err) {
 		return ttl, ErrNotFound{Type: c.prefix, Key: key}
 	}
@@ -254,7 +254,7 @@ func (c *etcdReadWriteCollection) TTL(ctx context.Context, key string) (int64, e
 
 func (c *etcdReadWriteCollection) PutTTL(ctx context.Context, key string, val proto.Message, ttl int64) error {
 	return c.put(ctx, key, val, func(key string, val string, ptr uintptr) error {
-		return errors.EnsureStack(c.stm.Put(key, val, ttl, ptr))
+		return errors.EnsureStack(c.stm.Put(ctx, key, val, ttl, ptr))
 	})
 }
 
@@ -372,7 +372,7 @@ func (c *etcdReadWriteCollection) Create(ctx context.Context, maybeKey interface
 		return err
 	}
 	fullKey := c.path(key)
-	_, err := c.stm.Get(fullKey)
+	_, err := c.stm.Get(ctx, fullKey)
 	if err != nil && !IsErrNotFound(err) {
 		return errors.EnsureStack(err)
 	}
@@ -388,7 +388,7 @@ func (c *etcdReadWriteCollection) Delete(ctx context.Context, maybeKey interface
 		return errors.New("key must be a string")
 	}
 	fullKey := c.path(key)
-	if _, err := c.stm.Get(fullKey); err != nil {
+	if _, err := c.stm.Get(ctx, fullKey); err != nil {
 		return errors.EnsureStack(err)
 	}
 	if c.indexes != nil && c.template != nil {

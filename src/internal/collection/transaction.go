@@ -34,30 +34,29 @@ import (
 type STM interface {
 	// Get returns the value for a key and inserts the key in the txn's read set.
 	// If Get fails, it aborts the transaction with an error, never returning.
-	Get(key string) (string, error)
+	Get(ctx context.Context, key string) (string, error)
 	// Put adds a value for a key to the write set.
-	Put(key, val string, ttl int64, ptr uintptr) error
+	Put(ctx context.Context, key, val string, ttl int64, ptr uintptr) error
 	PutLease(key, val string, lease v3.LeaseID, ptr uintptr) error
 	PutIgnoreLease(key, val string, ptr uintptr) error
 	// Del deletes a key.
 	Del(key string)
 	// TTL returns the remaining time to live for 'key', or 0 if 'key' has no TTL
-	TTL(key string) (int64, error)
+	TTL(ctx context.Context, key string) (int64, error)
 	// DelAll deletes all keys with the given prefix
 	// Note that the current implementation of DelAll is incomplete.
 	// To use DelAll safely, do not issue any Get/Put operations after
 	// DelAll is called.
 	DelAll(key string)
-	Context() context.Context
 	// SetSafePutCheck sets the bit pattern to check if a put is safe.
 	SetSafePutCheck(key string, ptr uintptr)
 	// IsSafePut checks against the bit pattern for a key to see if it is safe to put.
 	IsSafePut(key string, ptr uintptr) bool
 
 	// commit attempts to apply the txn's changes to the server.
-	commit() *v3.TxnResponse
+	commit(ctx context.Context) *v3.TxnResponse
 	reset()
-	fetch(key string) *v3.GetResponse
+	fetch(ctx context.Context, key string) *v3.GetResponse
 }
 
 // stmError safely passes STM errors through panic to the STM error channel.
@@ -79,10 +78,10 @@ func NewDryRunSTM(ctx context.Context, c *v3.Client, apply func(STM) error) erro
 // same transaction attempt to return data from the revision of the first read.
 func newSTMSerializable(ctx context.Context, c *v3.Client, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) {
 	s := &stmSerializable{
-		stm:      stm{client: c, ctx: ctx},
+		stm:      stm{client: c},
 		prefetch: make(map[string]*v3.GetResponse),
 	}
-	return runSTM(s, apply, dryrun)
+	return runSTM(ctx, s, apply, dryrun)
 }
 
 type stmResponse struct {
@@ -90,7 +89,7 @@ type stmResponse struct {
 	err  error
 }
 
-func runSTM(s STM, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) {
+func runSTM(ctx context.Context, s STM, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) {
 	outc := make(chan stmResponse, 1)
 	go func() {
 		defer func() {
@@ -112,7 +111,7 @@ func runSTM(s STM, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) 
 			}
 			if dryrun {
 				break
-			} else if out.resp = s.commit(); out.resp != nil {
+			} else if out.resp = s.commit(ctx); out.resp != nil {
 				break
 			}
 		}
@@ -125,7 +124,6 @@ func runSTM(s STM, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) 
 // stm implements repeatable-read software transactional memory over etcd
 type stm struct {
 	client *v3.Client
-	ctx    context.Context
 	// rset holds read key values and revisions
 	rset map[string]*v3.GetResponse
 	// wset holds overwritten keys and their values
@@ -156,11 +154,7 @@ type stmPut struct {
 	safePutPtr uintptr
 }
 
-func (s *stm) Context() context.Context {
-	return s.ctx
-}
-
-func (s *stm) Get(key string) (string, error) {
+func (s *stm) Get(ctx context.Context, key string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 	if wv, ok := s.wset[key]; ok {
@@ -169,7 +163,7 @@ func (s *stm) Get(key string) (string, error) {
 	if s.isKeyRangeDeleted(key) {
 		return "", ErrNotFound{Key: key}
 	}
-	return respToValue(key, s.fetch(key))
+	return respToValue(key, s.fetch(ctx, key))
 }
 
 func (s *stm) SetSafePutCheck(key string, ptr uintptr) {
@@ -199,14 +193,14 @@ func (s *stm) isKeyRangeDeleted(key string) bool {
 	return false
 }
 
-func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
+func (s *stm) Put(ctx context.Context, key, val string, ttl int64, ptr uintptr) error {
 	s.Lock()
 	defer s.Unlock()
 	var options []v3.OpOption
 	if ttl > 0 {
 		lease, ok := s.newLeases[ttl]
 		if !ok {
-			span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/GrantLease")
+			span, ctx := tracing.AddSpanToAnyExisting(ctx, "/etcd/GrantLease")
 			defer tracing.FinishAnySpan(span)
 			leaseResp, err := s.client.Grant(ctx, ttl)
 			if err != nil {
@@ -272,17 +266,17 @@ func (s *stm) DelAll(prefix string) {
 	}
 }
 
-func (s *stm) Rev(key string) int64 {
+func (s *stm) Rev(ctx context.Context, key string) int64 {
 	s.Lock()
 	defer s.Unlock()
-	if resp := s.fetch(key); resp != nil && len(resp.Kvs) != 0 {
+	if resp := s.fetch(ctx, key); resp != nil && len(resp.Kvs) != 0 {
 		return resp.Kvs[0].ModRevision
 	}
 	return 0
 }
 
-func (s *stm) commit() *v3.TxnResponse {
-	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Txn")
+func (s *stm) commit(ctx context.Context) *v3.TxnResponse {
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/etcd/Txn")
 	defer tracing.FinishAnySpan(span)
 
 	cmps := s.cmps()
@@ -313,12 +307,12 @@ func (s *stm) cmps() []v3.Cmp {
 	return cmps
 }
 
-func (s *stm) fetch(key string) *v3.GetResponse {
+func (s *stm) fetch(ctx context.Context, key string) *v3.GetResponse {
 	if resp, ok := s.rset[key]; ok {
 		return resp
 	}
 
-	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd.stm/Get", "key", key)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/etcd.stm/Get", "key", key)
 	defer tracing.FinishAnySpan(span)
 	resp, err := s.client.Get(ctx, key, s.getOpts...)
 	if err != nil {
@@ -384,7 +378,7 @@ type stmSerializable struct {
 	prefetch map[string]*v3.GetResponse
 }
 
-func (s *stmSerializable) Get(key string) (string, error) {
+func (s *stmSerializable) Get(ctx context.Context, key string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 	if wv, ok := s.wset[key]; ok {
@@ -393,16 +387,16 @@ func (s *stmSerializable) Get(key string) (string, error) {
 	if s.isKeyRangeDeleted(key) {
 		return "", ErrNotFound{Key: key}
 	}
-	return respToValue(key, s.fetch(key))
+	return respToValue(key, s.fetch(ctx, key))
 }
 
-func (s *stmSerializable) fetch(key string) *v3.GetResponse {
+func (s *stmSerializable) fetch(ctx context.Context, key string) *v3.GetResponse {
 	firstRead := len(s.rset) == 0
 	if resp, ok := s.prefetch[key]; ok {
 		delete(s.prefetch, key)
 		s.rset[key] = resp
 	}
-	resp := s.stm.fetch(key)
+	resp := s.stm.fetch(ctx, key)
 	if firstRead {
 		// txn's base revision is defined by the first read
 		s.getOpts = []v3.OpOption{
@@ -423,8 +417,8 @@ func (s *stmSerializable) gets() ([]string, []v3.Op) {
 	return keys, ops
 }
 
-func (s *stmSerializable) commit() *v3.TxnResponse {
-	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Txn")
+func (s *stmSerializable) commit(ctx context.Context) *v3.TxnResponse {
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/etcd/Txn")
 	defer tracing.FinishAnySpan(span)
 	if span != nil {
 		keys := make([]byte, 0, 512)
@@ -486,7 +480,7 @@ func respToValue(key string, resp *v3.GetResponse) (string, error) {
 // is because fetchTTL calls iface.fetch(), and the implementation of 'fetch' is
 // different for stm and stmSerializeable. Passing the interface ensures the
 // correct version of fetch() is called
-func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
+func (s *stm) fetchTTL(ctx context.Context, iface STM, key string) (int64, error) {
 	// check wset cache
 	if wv, ok := s.wset[key]; ok {
 		return wv.ttl, nil
@@ -501,7 +495,7 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 	}
 
 	// Read kv and lease ID, and cache new TTL
-	getResp := iface.fetch(key) // call correct implementation of fetch()
+	getResp := iface.fetch(ctx, key) // call correct implementation of fetch()
 	if len(getResp.Kvs) == 0 {
 		return 0, ErrNotFound{Key: key}
 	}
@@ -510,7 +504,7 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 		s.ttlset[key] = 0 // 0 is default value, but now 'ok' will be true on check
 		return 0, nil
 	}
-	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd.stm/TimeToLive", "key", key)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/etcd.stm/TimeToLive", "key", key)
 	defer tracing.FinishAnySpan(span)
 	leaseResp, err := s.client.TimeToLive(ctx, leaseID)
 	if err != nil {
@@ -523,14 +517,14 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 	return leaseResp.TTL, nil
 }
 
-func (s *stm) TTL(key string) (int64, error) {
+func (s *stm) TTL(ctx context.Context, key string) (int64, error) {
 	s.Lock()
 	defer s.Unlock()
-	return s.fetchTTL(s, key)
+	return s.fetchTTL(ctx, s, key)
 }
 
-func (s *stmSerializable) TTL(key string) (int64, error) {
+func (s *stmSerializable) TTL(ctx context.Context, key string) (int64, error) {
 	s.Lock()
 	defer s.Unlock()
-	return s.fetchTTL(s, key)
+	return s.fetchTTL(ctx, s, key)
 }
