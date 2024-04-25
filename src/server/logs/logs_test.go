@@ -20,7 +20,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/testloki"
@@ -36,15 +35,6 @@ type testPublisher struct {
 func (tp *testPublisher) Publish(ctx context.Context, response *logs.GetLogsResponse) error {
 	tp.responses = append(tp.responses, response)
 	return nil
-}
-
-type errPublisher struct {
-	count int
-}
-
-func (ep *errPublisher) Publish(context.Context, *logs.GetLogsResponse) error {
-	ep.count++
-	return errors.New("errPublisher cannot publish")
 }
 
 func TestGetDatumLogs(t *testing.T) {
