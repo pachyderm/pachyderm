@@ -63,11 +63,11 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 		bs := batchSize
 		// We want to truncate the batch size if the remaining number
 		// of items needed to reach the limit is less than the batch size
-		if limit-total < batchSize {
+		if limit-total+int(offset) < batchSize {
 			// Truncated batchsize is limit - total, however we add to this
 			// the length of the overlap from the last query to make sure we get the
 			// correct amount of new logs knowing there will be some overlapping logs returned.
-			bs = limit - total + len(lastEntry)
+			bs = limit - total + int(offset) + len(lastEntry)
 		}
 		resp, err := client.QueryRange(ctx, logQL, bs, start, end, string(direction), 0, 0, true)
 		if err != nil {

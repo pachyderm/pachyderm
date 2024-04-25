@@ -293,6 +293,7 @@ type testCase struct {
 	logs        []time.Duration // offsets from time.Now()
 	limit       uint
 	from, until time.Duration // ditto
+	offset      uint
 	want        []time.Duration
 	wantHint    *hintCase
 }
@@ -440,10 +441,31 @@ func TestGetLogs_offset(t *testing.T) {
 			until: time.Second * 12,
 			want:  []time.Duration{time.Second * 2},
 		},
+		"logs outside a window should not be returned": {
+			logs:  []time.Duration{time.Nanosecond, time.Second * 3 / 2, time.Second * 2, time.Second * 14},
+			limit: 0,
+			from:  time.Second,
+			until: time.Second * 12,
+			want:  []time.Duration{time.Second * 3 / 2, time.Second * 2},
+		},
+		"from is inclusive; until is exclusive": {
+			logs:  []time.Duration{time.Nanosecond, time.Second, time.Second * 3 / 2, time.Second * 2, time.Second * 12, time.Second * 14},
+			limit: 0,
+			from:  time.Second,
+			until: time.Second * 12,
+			want:  []time.Duration{time.Second, time.Second * 3 / 2, time.Second * 2},
+		},
+		"from after until is backwards": {
+			logs:  []time.Duration{time.Nanosecond, time.Second, time.Second * 3 / 2, time.Second * 2, time.Second * 12, time.Second * 14},
+			limit: 0,
+			from:  time.Second * 12,
+			until: time.Second,
+			want:  []time.Duration{time.Second * 2, time.Second * 3 / 2, time.Second},
+		},
 		// If there is a log in the window without a limit, then the
 		// older window ends at the request from and the newer window
 		// starts at the request until, with no offset.
-		"hint works": {
+		"hinting works": {
 			logs:  []time.Duration{time.Second * 2},
 			limit: 0,
 			from:  time.Second,
@@ -460,8 +482,8 @@ func TestGetLogs_offset(t *testing.T) {
 		// window still ends at the request from, but the newer window
 		// starts at the same time as the last log, with an offset of
 		// one.
-		"hint works with limit": {
-			logs:  []time.Duration{time.Second * 2, time.Second * 3},
+		"hinting works with limit": {
+			logs:  []time.Duration{1, time.Second * 2, time.Second * 3},
 			limit: 1,
 			from:  time.Second,
 			until: time.Second * 12,
@@ -474,28 +496,62 @@ func TestGetLogs_offset(t *testing.T) {
 				newerOffset: 1,
 			},
 		},
+		// // check that the older hint above works
+		// "returned older hint works": {
+		// 	logs:  []time.Duration{1, time.Second * 2, time.Second * 3},
+		// 	limit: 1,
+		// 	from:  time.Second,
+		// 	until: time.Second * -10,
+		// 	want:  []time.Duration{1},
+		// },
+		// check that the newer hint above works
+		"returned hint works": {
+			logs:   []time.Duration{1, time.Second * 2, time.Second * 3},
+			limit:  1,
+			from:   time.Second * 2,
+			until:  time.Second * 13,
+			offset: 1,
+			want:   []time.Duration{time.Second * 3},
+		},
+		// If there is a run _within_ a window without a limit, then the
+		// newer hint should not have an offset.
+		"hinting works after run": {
+			logs:  []time.Duration{time.Second * 3 / 2, time.Second * 2, time.Second * 2},
+			limit: 0,
+			from:  time.Second,
+			until: time.Second * 12,
+			want:  []time.Duration{time.Second * 3 / 2, time.Second * 2, time.Second * 2},
+			wantHint: &hintCase{
+				olderFrom:  time.Second,
+				olderUntil: time.Second * -10,
+				newerFrom:  time.Second * 12,
+				newerUntil: time.Second * 23,
+			},
+		},
 
-		// If there is a log in the window WITH a limit, then the older window ends at the request from and the newer window
-		// "limit works": {
-		// 	logs:  []time.Duration{time.Second * 2, time.Second * 3, time.Second * 4},
-		// 	limit: 2,
-		// 	from:  time.Second,
-		// 	until: time.Second * 12,
-		// 	want:  []time.Duration{time.Second * 2, time.Second * 3},
-		// },
-		// "limit works with hint": {
-		// 	logs:  []time.Duration{time.Second * 2, time.Second * 3, time.Second * 4},
-		// 	limit: 2,
-		// 	from:  time.Second,
-		// 	until: time.Second * 12,
-		// 	want:  []time.Duration{time.Second * 2, time.Second * 3},
-		// 	wantHint: &hintCase{
-		// 		olderFrom:  time.Second * -10,
-		// 		olderUntil: time.Second,
-		// 		newerFrom:  time.Second * 4,
-		// 		newerUntil: time.Second * 15,
-		// 	},
-		// },
+		// If there is a log in the window WITH a limit, then the older
+		// window ends at the request from and the newer window.
+		"limit works": {
+			logs:  []time.Duration{time.Second * 2, time.Second * 3, time.Second * 4},
+			limit: 2,
+			from:  time.Second,
+			until: time.Second * 12,
+			want:  []time.Duration{time.Second * 2, time.Second * 3},
+		},
+		"limit works with hint": {
+			logs:  []time.Duration{time.Second * 2, time.Second * 3, time.Second * 4},
+			limit: 2,
+			from:  time.Second,
+			until: time.Second * 12,
+			want:  []time.Duration{time.Second * 2, time.Second * 3},
+			wantHint: &hintCase{
+				olderFrom:   time.Second,
+				olderUntil:  time.Second * -10,
+				newerFrom:   time.Second * 3,
+				newerUntil:  time.Second * 14,
+				newerOffset: 1,
+			},
+		},
 		// "offset works": {
 		// 	logs:  []time.Duration{time.Second * 2, time.Second * 3, time.Second * 3},
 		// 	limit: 2,
@@ -528,8 +584,9 @@ func TestGetLogs_offset(t *testing.T) {
 					Filter: &logs.LogFilter{
 						Limit: uint64(tc.limit),
 						TimeRange: &logs.TimeRangeLogFilter{
-							From:  timestamppb.New(now.Add(tc.from)),
-							Until: timestamppb.New(now.Add(tc.until)),
+							From:   timestamppb.New(now.Add(tc.from)),
+							Until:  timestamppb.New(now.Add(tc.until)),
+							Offset: uint64(tc.offset),
 						},
 					},
 					Query: &logs.LogQuery{
