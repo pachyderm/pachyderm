@@ -12,20 +12,21 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var createUniqueIndex = "CREATE UNIQUE INDEX pip_version_idx ON collections.pipelines(name,version)"
+var createUniqueIndex = "CREATE UNIQUE INDEX pip_version_idx ON collections.pipelines(idx_name,idx_version)"
 
 // collect all pipeline versions for pipelines with duplicate versions
 var duplicatePipelinesQuery = `
-  SELECT key, idx_version, proto
+SELECT key, idx_version, proto
   FROM collections.pipelines
-  WHERE name
-    IN (SELECT a.name
+  WHERE idx_name
+    IN (SELECT a.idx_name
         FROM collections.pipelines a
           INNER JOIN collections.pipelines b
-        WHERE a.name = b.name
-          AND a.idx_version = b.idx_version
+          ON a.idx_name = b.idx_name
+           AND a.idx_version = b.idx_version
+           AND a.key != b.key
        )
-  ORDER BY name, createdat
+  ORDER BY idx_name, createdat;
 `
 
 var listJobInfos = `
@@ -40,8 +41,8 @@ type pipRow struct {
 }
 
 type jobRow struct {
-	key   string
-	proto []byte
+	Key   string `db:"key"`
+	Proto []byte `db:"proto"`
 }
 
 func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error {
@@ -72,7 +73,7 @@ func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error 
 	if len(jobUpdates) != 0 {
 		var jobValues string
 		for _, u := range jobUpdates {
-			jobValues += fmt.Sprintf(" ('%s', decode('%v', 'hex')),", u.key, hex.EncodeToString(u.proto))
+			jobValues += fmt.Sprintf(" ('%s', decode('%v', 'hex')),", u.Key, hex.EncodeToString(u.Proto))
 		}
 		jobValues = jobValues[:len(jobValues)-1]
 		stmt := fmt.Sprintf(`
@@ -93,7 +94,7 @@ func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error 
 func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*pipRow,
 	pipelineVersionChanges map[string]map[uint64]uint64,
 	retErr error) {
-	rr, err := tx.QueryContext(ctx, duplicatePipelinesQuery)
+	rr, err := tx.QueryxContext(ctx, duplicatePipelinesQuery)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "query duplicates in collections.pipelines")
 	}
@@ -107,7 +108,7 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 		if err := rr.Err(); err != nil {
 			return nil, nil, errors.Wrap(err, "row error")
 		}
-		if err := rr.Scan(&row); err != nil {
+		if err := rr.StructScan(&row); err != nil {
 			return nil, nil, errors.Wrap(err, "scan pipeline row")
 		}
 		if err := proto.Unmarshal(row.proto, pi); err != nil {
@@ -139,7 +140,7 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 }
 
 func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges map[string]map[uint64]uint64) ([]*jobRow, error) {
-	rr, err := tx.QueryContext(ctx, listJobInfos)
+	rr, err := tx.QueryxContext(ctx, listJobInfos)
 	if err != nil {
 		return nil, errors.Wrap(err, "list jobs")
 	}
@@ -151,10 +152,10 @@ func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges ma
 		if err := rr.Err(); err != nil {
 			return nil, errors.Wrap(err, "row error")
 		}
-		if err := rr.Scan(&row); err != nil {
+		if err := rr.StructScan(&row); err != nil {
 			return nil, errors.Wrap(err, "scan job row")
 		}
-		if err := proto.Unmarshal(row.proto, ji); err != nil {
+		if err := proto.Unmarshal(row.Proto, ji); err != nil {
 			return nil, errors.Wrapf(err, "unmarshal proto")
 		}
 		if changes, ok := pipVersionChanges[ji.Job.Pipeline.String()]; ok {
@@ -164,7 +165,7 @@ func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges ma
 				if err != nil {
 					return nil, errors.Wrapf(err, "marshal job info %v", ji)
 				}
-				updates = append(updates, &jobRow{key: row.key, proto: data})
+				updates = append(updates, &jobRow{Key: row.Key, Proto: data})
 			}
 		}
 	}
