@@ -58,7 +58,6 @@ func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Optio
 func ctxWithMetrics(ctx context.Context) context.Context {
 	return pctx.Child(ctx, "indexReader.Iterate",
 		pctx.WithCounter("skippedFiles", 0),
-		pctx.WithCounter("skippedRanges", 0),
 		pctx.WithCounter("emittedFiles", 0),
 		pctx.WithCounter("traversedRanges", 0),
 		pctx.WithCounter("chunks", 0))
@@ -88,7 +87,6 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 			return false, cb(idx)
 		}
 		if !atStart(idx.Range.LastPath, r.filter) {
-			meters.Inc(ctx, "skippedRanges", 1)
 			return false, nil
 		}
 		meters.Inc(ctx, "traversedRanges", 1)
@@ -256,9 +254,7 @@ func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
 		}
 		numFiles += idx.NumFiles
 		sizeBytes += idx.SizeBytes
-		if idx.Range != nil {
-			meters.Inc(ctx, "skippedRanges", 1)
-		} else {
+		if idx.File != nil {
 			meters.Inc(ctx, "skippedFiles", 1)
 		}
 		return false, nil
