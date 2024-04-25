@@ -40,7 +40,8 @@ func TestMicrosoft(t *testing.T) {
 		expectedStorageBackend = "MICROSOFT"
 	)
 	helmValues := map[string]string{
-		"deployTarget": expectedStorageBackend,
+		"deployTarget":             expectedStorageBackend,
+		"pachd.storage.storageURL": "azblob://fake-bucket",
 	}
 	for _, tc := range testCases {
 		helmValues[tc.helmKey] = tc.value

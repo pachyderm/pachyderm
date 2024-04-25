@@ -293,6 +293,9 @@ func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.Use
 			}
 		}
 		return ls.compilePipelineLogsReq(project, pipeline)
+	case *logs.UserLogQuery_JobDatum:
+		authCache := make(map[string]bool)
+		return ls.compileJobDatumsLogsReq(ctx, query.JobDatum.Job, query.JobDatum.Datum, checkAuth, authCache)
 	case *logs.UserLogQuery_Datum:
 		authCache := make(map[string]bool)
 		return ls.compileDatumsLogsReq(ctx, query.Datum, checkAuth, authCache)
@@ -342,6 +345,40 @@ func (ls LogService) compilePipelineLogsReq(project, pipeline string) (string, f
 		}, nil
 }
 
+func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum string, checkAuth bool, authCache map[string]bool) (string, func(*logs.LogMessage) bool, error) {
+	if job == "" {
+		return "", nil, userLogQueryValidateErr("JobDatum", "Job")
+	}
+	if datum == "" {
+		return "", nil, userLogQueryValidateErr("JobDatum", "Datum")
+	}
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), func(msg *logs.LogMessage) bool {
+		logDatumId := msg.GetPpsLogMessage().GetDatumId()
+		logJobId := msg.GetPpsLogMessage().GetJobId()
+		if logJobId != "" && logDatumId != "" {
+			if logDatumId != datum && logJobId != job {
+				return false
+			}
+		} else {
+			ff := msg.GetObject().GetFields()
+			if ff != nil {
+				d, okDatum := ff["datumId"]
+				j, okJob := ff["jobId"]
+				if !okJob || !okDatum {
+					return false
+				}
+				if d.GetStringValue() != datum || j.GetStringValue() != job {
+					return false
+				}
+			}
+		}
+		if checkAuth {
+			return ls.authLogMessage(ctx, msg, authCache)
+		}
+		return true
+	}, nil
+}
+
 func (ls LogService) compileDatumsLogsReq(ctx context.Context, datum string, checkAuth bool, authCache map[string]bool) (string, func(*logs.LogMessage) bool, error) {
 	if datum == "" {
 		return "", nil, userLogQueryValidateErr("Datum", "Datum")
@@ -353,11 +390,10 @@ func (ls LogService) compileDatumsLogsReq(ctx context.Context, datum string, che
 		ff := msg.GetObject().GetFields()
 		if ff != nil {
 			v, ok := ff["datumId"]
-			if ok {
-				if v.GetStringValue() != datum {
-					return false
-				}
-			} else {
+			if !ok {
+				return false
+			}
+			if v.GetStringValue() != datum {
 				return false
 			}
 		}
@@ -391,11 +427,10 @@ func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAut
 		ff := msg.GetObject().GetFields()
 		if ff != nil {
 			v, ok := ff["jobId"]
-			if ok {
-				if v.GetStringValue() != job {
-					return false
-				}
-			} else {
+			if !ok {
+				return false
+			}
+			if v.GetStringValue() != job {
 				return false
 			}
 		}
