@@ -62,9 +62,9 @@ func (es *etcdService) List(ctx context.Context, namespace, group string, cb fun
 	etcdCols := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, prefix)
 	var taskData Task
 	var claim Claim
-	return errors.EnsureStack(etcdCols.taskCol.ReadOnly(ctx).List(ctx, &taskData, col.DefaultOptions(), func(key string) error {
+	return errors.EnsureStack(etcdCols.taskCol.ReadOnly().List(ctx, &taskData, col.DefaultOptions(), func(key string) error {
 		var claimed bool
-		if taskData.State == State_RUNNING && etcdCols.claimCol.ReadOnly(ctx).Get(ctx, key, &claim) == nil {
+		if taskData.State == State_RUNNING && etcdCols.claimCol.ReadOnly().Get(ctx, key, &claim) == nil {
 			claimed = true
 		}
 		return cb(namespace, group, &taskData, claimed)
@@ -73,7 +73,7 @@ func (es *etcdService) List(ctx context.Context, namespace, group string, cb fun
 
 func (es *etcdService) Count(ctx context.Context, namespace string) (int64, error) {
 	etcdCols := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	return etcdCols.taskCol.ReadOnly(ctx).Count(ctx)
+	return etcdCols.taskCol.ReadOnly().Count(ctx)
 }
 
 type namespaceEtcd struct {
@@ -127,7 +127,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *anypb.Any, cb Collec
 			eg.Wait() //nolint:errcheck
 		}()
 		eg.Go(func() error {
-			err := ed.taskCol.ReadOnly(ctx).WatchOneF(ctx, prefix, func(e *watch.Event) error {
+			err := ed.taskCol.ReadOnly().WatchOneF(ctx, prefix, func(e *watch.Event) error {
 				if e.Type == watch.EventDelete {
 					return errors.New("task was deleted while waiting for results")
 				}
@@ -288,7 +288,7 @@ func newEtcdSource(namespaceEtcd *namespaceEtcd) Source {
 func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 	groups := make(map[string]map[string]struct{})
 	tq := newTaskQueue(ctx)
-	err := es.groupCol.ReadOnly(ctx).WatchF(ctx, func(e *watch.Event) error {
+	err := es.groupCol.ReadOnly().WatchF(ctx, func(e *watch.Event) error {
 		group, uuid := path.Split(string(e.Key))
 		group = strings.TrimRight(group, "/")
 		groupMap, ok := groups[group]
@@ -327,12 +327,12 @@ func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 }
 
 func (es *etcdSource) forEachTask(ctx context.Context, group string, cb func(string) error) error {
-	claimWatch, err := es.claimCol.ReadOnly(ctx).WatchOne(ctx, group, watch.IgnorePut)
+	claimWatch, err := es.claimCol.ReadOnly().WatchOne(ctx, group, watch.IgnorePut)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	defer claimWatch.Close()
-	taskWatch, err := es.taskCol.ReadOnly(ctx).WatchOne(ctx, group, watch.IgnoreDelete)
+	taskWatch, err := es.taskCol.ReadOnly().WatchOne(ctx, group, watch.IgnoreDelete)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

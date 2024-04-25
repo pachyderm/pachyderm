@@ -74,7 +74,7 @@ func NewEnterpriseServer(env *Env, config Config) (*apiServer, error) {
 	s := &apiServer{
 		env:                  env,
 		config:               config,
-		enterpriseTokenCache: keycache.NewCache(enterpriseTokenCol.ReadOnly(env.BackgroundContext), enterpriseTokenKey, defaultEnterpriseRecord),
+		enterpriseTokenCache: keycache.NewCache(enterpriseTokenCol.ReadOnly(), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
 		configCol:            EnterpriseConfigCollection(env.DB, env.Listener),
 	}
@@ -158,7 +158,7 @@ func (a *apiServer) heartbeatRoutine(ctx context.Context) {
 func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 	// If we can't get the license server address, skip heartbeating
 	var config ec.EnterpriseConfig
-	if err := a.configCol.ReadOnly(ctx).Get(ctx, configKey, &config); err != nil {
+	if err := a.configCol.ReadOnly().Get(ctx, configKey, &config); err != nil {
 		if col.IsErrNotFound(err) {
 			return lc.ErrNotActivated
 		}

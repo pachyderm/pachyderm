@@ -84,10 +84,9 @@ func (c *etcdCollection) ReadWrite(stm STM) EtcdReadWriteCollection {
 	}
 }
 
-func (c *etcdCollection) ReadOnly(ctx context.Context) EtcdReadOnlyCollection {
+func (c *etcdCollection) ReadOnly() EtcdReadOnlyCollection {
 	return &etcdReadOnlyCollection{
 		etcdCollection: c,
-		ctx:            ctx,
 	}
 }
 
@@ -421,7 +420,6 @@ func (c *etcdReadWriteCollection) DeleteAllPrefix(ctx context.Context, prefix st
 
 type etcdReadOnlyCollection struct {
 	*etcdCollection
-	ctx context.Context
 }
 
 // get is an internal wrapper around etcdClient.Get that wraps the call in a

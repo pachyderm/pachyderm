@@ -142,7 +142,7 @@ func (a *apiServer) GetActivationCode(ctx context.Context, req *lc.GetActivation
 
 func (a *apiServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCodeResponse, error) {
 	var record ec.LicenseRecord
-	if err := a.license.ReadOnly(ctx).Get(ctx, licenseRecordKey, &record); err != nil {
+	if err := a.license.ReadOnly().Get(ctx, licenseRecordKey, &record); err != nil {
 		if col.IsErrNotFound(err) {
 			return &lc.GetActivationCodeResponse{State: ec.State_NONE}, nil
 		}
@@ -236,7 +236,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 	}
 
 	var record ec.LicenseRecord
-	if err := a.license.ReadOnly(ctx).Get(ctx, licenseRecordKey, &record); err != nil {
+	if err := a.license.ReadOnly().Get(ctx, licenseRecordKey, &record); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 

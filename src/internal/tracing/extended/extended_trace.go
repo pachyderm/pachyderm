@@ -122,7 +122,7 @@ func AddSpanToAnyPipelineTrace(ctx context.Context, c *etcd.Client,
 	}
 
 	traceProto := &TraceProto{}
-	tracesCol := TracesCol(c).ReadOnly(ctx)
+	tracesCol := TracesCol(c).ReadOnly()
 	if err := tracesCol.Get(ctx, pipeline, traceProto); err != nil {
 		if !col.IsErrNotFound(err) {
 			log.Error(ctx, "error getting trace for pipeline", zap.String("pipeline", pipeline.GetName()), zap.Error(err))

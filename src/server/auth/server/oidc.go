@@ -190,7 +190,7 @@ func (a *apiServer) OIDCStateToEmail(ctx context.Context, state string) (email s
 	}()
 	// reestablish watch in a loop, in case there's a watch error
 	if err := backoff.RetryNotify(func() error {
-		watcher, err := a.oidcStates.ReadOnly(ctx).WatchOne(ctx, state)
+		watcher, err := a.oidcStates.ReadOnly().WatchOne(ctx, state)
 		if err != nil {
 			log.Error(ctx, "error watching OIDC state token during authorization",
 				zap.String("state", state), zap.Error(err))

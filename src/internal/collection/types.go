@@ -24,7 +24,7 @@ type PostgresCollection interface {
 	ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollection
 
 	// For read-only operations, use the ReadOnly for better performance
-	ReadOnly(ctx context.Context) PostgresReadOnlyCollection
+	ReadOnly() PostgresReadOnlyCollection
 }
 
 type EtcdCollection interface {
@@ -37,7 +37,7 @@ type EtcdCollection interface {
 	ReadWrite(stm STM) EtcdReadWriteCollection
 
 	// For read-only operations, use the ReadOnly for better performance
-	ReadOnly(ctx context.Context) EtcdReadOnlyCollection
+	ReadOnly() EtcdReadOnlyCollection
 
 	// Claim attempts to claim a key and run the passed in callback with
 	// the context for the claim.

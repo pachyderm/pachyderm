@@ -89,7 +89,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 
 func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
-	if err := d.transactions.ReadOnly(ctx).Get(ctx, txn.Id, info); err != nil {
+	if err := d.transactions.ReadOnly().Get(ctx, txn.Id, info); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return info, nil
@@ -104,7 +104,7 @@ func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transac
 func (d *driver) listTransaction(ctx context.Context) ([]*transaction.TransactionInfo, error) {
 	var result []*transaction.TransactionInfo
 	transactionInfo := &transaction.TransactionInfo{}
-	transactions := d.transactions.ReadOnly(ctx)
+	transactions := d.transactions.ReadOnly()
 	if err := transactions.List(ctx, transactionInfo, col.DefaultOptions(), func(string) error {
 		result = append(result, proto.Clone(transactionInfo).(*transaction.TransactionInfo))
 		return nil

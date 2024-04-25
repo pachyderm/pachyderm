@@ -49,7 +49,7 @@ func TestEtcdCollections(suite *testing.T) {
 		testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, index, &col.TestItem{}, nil, nil)
 
 		readCallback := func(ctx context.Context) col.ReadOnlyCollection {
-			return testCol.ReadOnly(ctx)
+			return testCol.ReadOnly()
 		}
 
 		writeCallback := func(ctx context.Context, f func(context.Context, col.ReadWriteCollection) error) error {
@@ -82,7 +82,7 @@ func TestDryRun(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = jobInfos.ReadOnly(context.Background()).Get(ctx, "j1", job)
+	err = jobInfos.ReadOnly().Get(ctx, "j1", job)
 	require.True(t, col.IsErrNotFound(err))
 }
 
@@ -187,7 +187,7 @@ func TestDeletePrefix(t *testing.T) {
 	require.NoError(t, err)
 
 	job := &pps.JobInfo{}
-	ro := jobInfos.ReadOnly(ctx)
+	ro := jobInfos.ReadOnly()
 	require.True(t, col.IsErrNotFound(ro.Get(ctx, ppsdb.JobKey(j1.Job), job)))
 	require.NoError(t, ro.Get(ctx, ppsdb.JobKey(j2.Job), job))
 	require.Equal(t, j2, job)
@@ -228,7 +228,7 @@ func TestIndex(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ro := jobInfos.ReadOnly(context.Background())
+	ro := jobInfos.ReadOnly()
 
 	job := &pps.JobInfo{}
 	i := 1
@@ -342,7 +342,7 @@ func TestTTLExpire(t *testing.T) {
 
 	time.Sleep((TTL + 1) * time.Second)
 	value := &wrapperspb.BoolValue{}
-	err = clxn.ReadOnly(ctx).Get(ctx, "key", value)
+	err = clxn.ReadOnly().Get(ctx, "key", value)
 	require.NotNil(t, err)
 	require.True(t, errutil.IsNotFoundError(err))
 }
@@ -401,7 +401,7 @@ func TestIteration(t *testing.T) {
 			})
 			require.NoError(t, err)
 		}
-		ro := c.ReadOnly(ctx)
+		ro := c.ReadOnly()
 		testProto := &col.TestItem{}
 		i := numVals - 1
 		require.NoError(t, ro.List(ctx, testProto, col.DefaultOptions(), func(string) error {
@@ -428,7 +428,7 @@ func TestIteration(t *testing.T) {
 			require.NoError(t, err)
 		}
 		vals := make(map[string]bool)
-		ro := c.ReadOnly(ctx)
+		ro := c.ReadOnly()
 		testProto := &col.TestItem{}
 		require.NoError(t, ro.List(ctx, testProto, col.DefaultOptions(), func(string) error {
 			require.False(t, vals[testProto.Id], "saw value %s twice", testProto.Id)
@@ -449,7 +449,7 @@ func TestIteration(t *testing.T) {
 			})
 			require.NoError(t, err)
 		}
-		ro := c.ReadOnly(context.Background())
+		ro := c.ReadOnly()
 		val := &col.TestItem{}
 		vals := make(map[string]bool)
 		valsOrder := []string{}

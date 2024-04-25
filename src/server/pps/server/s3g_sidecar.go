@@ -305,7 +305,7 @@ func (h *handleJobsCtx) start(ctx context.Context) {
 		var watcher watch.Watcher
 		backoff.Retry(func() error { //nolint:errcheck
 			var err error
-			watcher, err = h.s.apiServer.jobs.ReadOnly(ctx).WatchByIndex(
+			watcher, err = h.s.apiServer.jobs.ReadOnly().WatchByIndex(
 				ctx, ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(h.s.pipelineInfo.Pipeline))
 			if err != nil {
 				return errors.Wrapf(err, "error creating watch")

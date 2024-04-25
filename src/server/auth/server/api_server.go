@@ -121,8 +121,8 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 	}
 
 	if watchesEnabled {
-		s.configCache = keycache.NewCache(s.authConfig.ReadOnly(env.BackgroundContext), configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(s.roleBindings.ReadOnly(env.BackgroundContext), auth.ClusterRoleBindingKey, &auth.RoleBinding{})
+		s.configCache = keycache.NewCache(s.authConfig.ReadOnly(), configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(s.roleBindings.ReadOnly(), auth.ClusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
 		go s.configCache.Watch(env.BackgroundContext)
@@ -370,7 +370,7 @@ func (a *apiServer) getClusterRoleBinding(ctx context.Context) (*auth.RoleBindin
 	}
 
 	var binding auth.RoleBinding
-	if err := a.roleBindings.ReadOnly(ctx).Get(ctx, auth.ClusterRoleBindingKey, &binding); err != nil {
+	if err := a.roleBindings.ReadOnly().Get(ctx, auth.ClusterRoleBindingKey, &binding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, auth.ErrNotActivated
 		}
@@ -1400,7 +1400,7 @@ func removeFromSet(set map[string]bool, elems ...string) map[string]bool {
 // getGroups is a helper function used primarily by the GRPC API GetGroups, but
 // also by Authorize() and isAdmin().
 func (a *apiServer) getGroups(ctx context.Context, subject string) ([]string, error) {
-	members := a.members.ReadOnly(ctx)
+	members := a.members.ReadOnly()
 	var groupsProto auth.Groups
 	if err := members.Get(ctx, subject, &groupsProto); err != nil {
 		if col.IsErrNotFound(err) {
@@ -1466,7 +1466,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *auth.GetUsersRequest) (re
 		return &auth.GetUsersResponse{Usernames: setToList(membersProto.Usernames)}, nil
 	}
 
-	membersCol := a.members.ReadOnly(ctx)
+	membersCol := a.members.ReadOnly()
 	groups := &auth.Groups{}
 	var users []string
 	if err := membersCol.List(ctx, groups, col.DefaultOptions(), func(user string) error {

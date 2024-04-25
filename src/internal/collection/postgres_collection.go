@@ -136,8 +136,8 @@ func (c *postgresCollection) indexWatchChannel(field string, value string) strin
 	return c.tableWatchChannel() + "_" + fmt.Sprintf("%x", md5.Sum([]byte(data)))
 }
 
-func (c *postgresCollection) ReadOnly(ctx context.Context) PostgresReadOnlyCollection {
-	return &postgresReadOnlyCollection{c, ctx}
+func (c *postgresCollection) ReadOnly() PostgresReadOnlyCollection {
+	return &postgresReadOnlyCollection{c}
 }
 
 func (c *postgresCollection) ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollection {
@@ -185,7 +185,6 @@ func (c *postgresCollection) mapSQLError(err error, key string) error {
 
 type postgresReadOnlyCollection struct {
 	*postgresCollection
-	ctx context.Context
 }
 
 func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.QueryerContext) (*model, error) {

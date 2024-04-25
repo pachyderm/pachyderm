@@ -462,7 +462,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		return nil, errors.Errorf("must specify a job")
 	}
 	ensurePipelineProject(request.Job.Pipeline)
-	jobs := a.jobs.ReadOnly(ctx)
+	jobs := a.jobs.ReadOnly()
 	// Make sure the job exists
 	// TODO: there's a race condition between this check and the watch below where
 	// a deleted job could make this block forever.
@@ -548,7 +548,7 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 			// Load all the jobs eagerly to avoid a nested query
 			pipelines := []*pps.Pipeline{}
 			jobInfo := &pps.JobInfo{}
-			if err := a.jobs.ReadOnly(pachClient.Ctx()).GetByIndex(pachClient.Ctx(), ppsdb.JobsJobSetIndex, request.JobSet.Id, jobInfo, col.DefaultOptions(), func(string) error {
+			if err := a.jobs.ReadOnly().GetByIndex(pachClient.Ctx(), ppsdb.JobsJobSetIndex, request.JobSet.Id, jobInfo, col.DefaultOptions(), func(string) error {
 				pipelines = append(pipelines, jobInfo.Job.Pipeline)
 				return nil
 			}); err != nil {
@@ -616,7 +616,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	if request.Reverse {
 		opts.Order = col.SortAscend
 	}
-	if err := a.jobs.ReadOnly(serv.Context()).List(serv.Context(), jobInfo, opts, func(string) error {
+	if err := a.jobs.ReadOnly().List(serv.Context(), jobInfo, opts, func(string) error {
 		if number == 0 {
 			return errutil.ErrBreak
 		}
@@ -710,7 +710,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	// was created, this prevents races between updating a pipeline and
 	// previous jobs running.
 	pipelineInfo := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).GetUniqueByIndex(
+	if err := a.pipelines.ReadOnly().GetUniqueByIndex(
 		ctx,
 		ppsdb.PipelinesVersionIndex,
 		ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion),
@@ -804,7 +804,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		return err
 	}
 
-	jobs := a.jobs.ReadOnly(ctx)
+	jobs := a.jobs.ReadOnly()
 	jobInfo := &pps.JobInfo{}
 	_f := func(string) error {
 		if number == 0 {
@@ -890,7 +890,7 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 	// keep track of the jobs that have been sent
 	seen := map[string]struct{}{}
 
-	err := a.jobs.ReadOnly(ctx).WatchByIndexF(ctx, ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(request.Pipeline, false), func(ev *watch.Event) error {
+	err := a.jobs.ReadOnly().WatchByIndexF(ctx, ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(request.Pipeline, false), func(ev *watch.Event) error {
 		var key string
 		jobInfo := &pps.JobInfo{}
 		if err := ev.Unmarshal(&key, jobInfo); err != nil {
@@ -1462,7 +1462,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			// If user provides a job, lookup the pipeline from the JobInfo, and then
 			// get the pipeline RC
 			jobInfo := &pps.JobInfo{}
-			err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(apiGetLogsServer.Context(), ppsdb.JobKey(request.Job), jobInfo)
+			err = a.jobs.ReadOnly().Get(apiGetLogsServer.Context(), ppsdb.JobKey(request.Job), jobInfo)
 			if err != nil {
 				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.Id)
 			}
@@ -1612,7 +1612,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		// If user provides a job, lookup the pipeline from the JobInfo, and then
 		// get the pipeline RC
 		jobInfo := &pps.JobInfo{}
-		err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(apiGetLogsServer.Context(), ppsdb.JobKey(request.Job), jobInfo)
+		err = a.jobs.ReadOnly().Get(apiGetLogsServer.Context(), ppsdb.JobKey(request.Job), jobInfo)
 		if err != nil {
 			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.Id)
 		}
@@ -1914,7 +1914,7 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 	}
 	var info pps.PipelineInfo
 	seen := make(map[string]struct{})
-	if err := a.pipelines.ReadOnly(ctx).List(ctx, &info, col.DefaultOptions(), func(_ string) error {
+	if err := a.pipelines.ReadOnly().List(ctx, &info, col.DefaultOptions(), func(_ string) error {
 		seen[info.Pipeline.Name] = struct{}{}
 		return nil
 	}); err != nil {
@@ -2963,7 +2963,7 @@ func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInf
 	opts := col.DefaultOptions()
 	opts.Limit = 1
 	var job pps.JobInfo
-	err := a.jobs.ReadOnly(ctx).GetByIndex(
+	err := a.jobs.ReadOnly().GetByIndex(
 		ctx,
 		ppsdb.JobsPipelineIndex,
 		ppsdb.JobsPipelineKey(info.Pipeline),
@@ -3242,7 +3242,7 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 	dr.Pipeline = &pps.Pipeline{}
 	pipelineInfo := &pps.PipelineInfo{}
 	deleted := make(map[string]struct{})
-	if err := a.pipelines.ReadOnly(ctx).List(ctx, pipelineInfo, col.DefaultOptions(), func(string) error {
+	if err := a.pipelines.ReadOnly().List(ctx, pipelineInfo, col.DefaultOptions(), func(string) error {
 		if _, ok := deleted[pipelineInfo.Pipeline.String()]; ok {
 			// while the delete pipeline call will delete historical versions,
 			// they could still show up in the list.  Ignore them.
@@ -3864,7 +3864,7 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 
 func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
 	var clusterDefaults ppsdb.ClusterDefaultsWrapper
-	if err := a.clusterDefaults.ReadOnly(ctx).Get(ctx, "", &clusterDefaults); err != nil {
+	if err := a.clusterDefaults.ReadOnly().Get(ctx, "", &clusterDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, unknownError(ctx, "could not read cluster defaults", err)
 		}
@@ -4033,7 +4033,7 @@ func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectD
 	if _, err := a.env.PFSServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: req.Project}); err != nil {
 		return nil, err
 	}
-	if err := a.projectDefaults.ReadOnly(ctx).Get(ctx, req.Project.String(), &projectDefaults); err != nil {
+	if err := a.projectDefaults.ReadOnly().Get(ctx, req.Project.String(), &projectDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, unknownError(ctx, "could not read project defaults", err)
 		}

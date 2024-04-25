@@ -73,7 +73,7 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col
 		}))
 
 		readCallback := func(ctx context.Context) col.ReadOnlyCollection {
-			return testCol.ReadOnly(ctx)
+			return testCol.ReadOnly()
 		}
 
 		writeCallback := func(ctx context.Context, f func(context.Context, col.ReadWriteCollection) error) error {
