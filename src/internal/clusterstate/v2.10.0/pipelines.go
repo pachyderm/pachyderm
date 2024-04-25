@@ -35,9 +35,9 @@ var listJobInfos = `
 `
 
 type pipRow struct {
-	key         string
-	idx_version uint64
-	proto       []byte
+	Key        string `db:"key"`
+	IdxVersion uint64 `db:"idx_version"`
+	Proto      []byte `db:"proto"`
 }
 
 type jobRow struct {
@@ -53,7 +53,7 @@ func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error 
 	if len(pipUpdates) != 0 {
 		var pipValues string
 		for _, u := range pipUpdates {
-			pipValues += fmt.Sprintf(" ('%s', %v, decode('%v', 'hex')),", u.key, u.idx_version, hex.EncodeToString(u.proto))
+			pipValues += fmt.Sprintf(" ('%s', %v, decode('%v', 'hex')),", u.Key, u.IdxVersion, hex.EncodeToString(u.Proto))
 		}
 		pipValues = pipValues[:len(pipValues)-1]
 		stmt := fmt.Sprintf(`
@@ -111,7 +111,7 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 		if err := rr.StructScan(&row); err != nil {
 			return nil, nil, errors.Wrap(err, "scan pipeline row")
 		}
-		if err := proto.Unmarshal(row.proto, pi); err != nil {
+		if err := proto.Unmarshal(row.Proto, pi); err != nil {
 			return nil, nil, errors.Wrapf(err, "unmarshal proto")
 		}
 		lastChange, ok := pipLatestVersion[pi.Pipeline.Name]
@@ -126,7 +126,7 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "marshal pipeline info %v", pi)
 			}
-			updates = append(updates, &pipRow{key: row.key, idx_version: correctVersion, proto: data})
+			updates = append(updates, &pipRow{Key: row.Key, IdxVersion: correctVersion, Proto: data})
 		}
 		pipLatestVersion[pi.Pipeline.Name] = correctVersion
 		changes, ok := pipVersionChanges[pi.Pipeline.Name]
