@@ -18,28 +18,28 @@ type APIServer interface {
 	CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error
 	CheckProjectIsAuthorized(context.Context, *pfs.Project, ...auth.Permission) error
 	CheckRepoIsAuthorized(context.Context, *pfs.Repo, ...auth.Permission) error
-	CheckClusterIsAuthorizedInTransaction(*txncontext.TransactionContext, ...auth.Permission) error
-	CheckProjectIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Project, ...auth.Permission) error
-	CheckRepoIsAuthorizedInTransaction(*txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error
+	CheckClusterIsAuthorizedInTransaction(context.Context, *txncontext.TransactionContext, ...auth.Permission) error
+	CheckProjectIsAuthorizedInTransaction(context.Context, *txncontext.TransactionContext, *pfs.Project, ...auth.Permission) error
+	CheckRepoIsAuthorizedInTransaction(context.Context, *txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error
 
-	AuthorizeInTransaction(*txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
-	ModifyRoleBindingInTransaction(*txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
-	GetRoleBindingInTransaction(*txncontext.TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
+	AuthorizeInTransaction(context.Context, *txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
+	ModifyRoleBindingInTransaction(context.Context, *txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
+	GetRoleBindingInTransaction(context.Context, *txncontext.TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
 
 	// Methods to add and remove pipelines from input and output repos. These do their own auth checks
 	// for specific permissions required to use a repo as a pipeline input/output.
-	AddPipelineReaderToRepoInTransaction(*txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
-	AddPipelineWriterToRepoInTransaction(*txncontext.TransactionContext, *pps.Pipeline) error
-	AddPipelineWriterToSourceRepoInTransaction(*txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
-	RemovePipelineReaderFromRepoInTransaction(*txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
+	AddPipelineReaderToRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
+	AddPipelineWriterToRepoInTransaction(context.Context, *txncontext.TransactionContext, *pps.Pipeline) error
+	AddPipelineWriterToSourceRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
+	RemovePipelineReaderFromRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
 
 	// Create and Delete are internal-only APIs used by other services when creating/destroying resources.
-	CreateRoleBindingInTransaction(*txncontext.TransactionContext, string, []string, *auth.Resource) error
-	DeleteRoleBindingInTransaction(*txncontext.TransactionContext, *auth.Resource) error
+	CreateRoleBindingInTransaction(context.Context, *txncontext.TransactionContext, string, []string, *auth.Resource) error
+	DeleteRoleBindingInTransaction(context.Context, *txncontext.TransactionContext, *auth.Resource) error
 
 	// GetPipelineAuthTokenInTransaction is an internal API used by PPS to generate tokens for pipelines
-	GetPipelineAuthTokenInTransaction(*txncontext.TransactionContext, *pps.Pipeline) (string, error)
-	RevokeAuthTokenInTransaction(*txncontext.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
+	GetPipelineAuthTokenInTransaction(context.Context, *txncontext.TransactionContext, *pps.Pipeline) (string, error)
+	RevokeAuthTokenInTransaction(context.Context, *txncontext.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
 
-	GetPermissionsInTransaction(*txncontext.TransactionContext, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
+	GetPermissionsInTransaction(context.Context, *txncontext.TransactionContext, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
 }

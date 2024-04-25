@@ -1,6 +1,7 @@
 package authdb
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -86,17 +87,17 @@ func CollectionsV0() []col.PostgresCollection {
 }
 
 // InternalAuthUserPermissions adds the Internal Auth User as a cluster admin
-func InternalAuthUserPermissions(tx *pachsql.Tx) error {
+func InternalAuthUserPermissions(ctx context.Context, tx *pachsql.Tx) error {
 	roleBindings := RoleBindingCollection(nil, nil)
 	var binding auth.RoleBinding
-	if err := roleBindings.ReadWrite(tx).Get(auth.ClusterRoleBindingKey, &binding); err != nil {
+	if err := roleBindings.ReadWrite(tx).Get(ctx, auth.ClusterRoleBindingKey, &binding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil
 		}
 		return errors.Wrapf(err, "getting the cluster role binding")
 	}
 	binding.Entries[InternalUser] = &auth.Roles{Roles: map[string]bool{auth.ClusterAdminRole: true}}
-	return errors.EnsureStack(roleBindings.ReadWrite(tx).Put(auth.ClusterRoleBindingKey, &binding))
+	return errors.EnsureStack(roleBindings.ReadWrite(tx).Put(ctx, auth.ClusterRoleBindingKey, &binding))
 }
 
 // ResourceKey generates the key for a resource in the role bindings collection.

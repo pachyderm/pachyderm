@@ -36,11 +36,11 @@ type PFSAuth interface {
 	WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 	GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
 
-	CheckProjectIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error
-	CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error
-	CreateRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error
-	DeleteRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, resource *auth.Resource) error
-	GetPermissionsInTransaction(txnCtx *txncontext.TransactionContext, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
+	CheckProjectIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error
+	CheckRepoIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error
+	CreateRoleBindingInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error
+	DeleteRoleBindingInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, resource *auth.Resource) error
+	GetPermissionsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
 }
 
 // Env is the dependencies needed to run the PFS API server

@@ -77,6 +77,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 
 	if err := dbutil.WithTx(ctx, d.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return errors.EnsureStack(d.transactions.ReadWrite(sqlTx).Put(
+			ctx,
 			info.Transaction.Id,
 			info,
 		))
@@ -88,7 +89,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 
 func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
-	if err := d.transactions.ReadOnly(ctx).Get(txn.Id, info); err != nil {
+	if err := d.transactions.ReadOnly().Get(ctx, txn.Id, info); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return info, nil
@@ -96,15 +97,15 @@ func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transa
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
 	return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.Id))
+		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Delete(ctx, txn.Id))
 	})
 }
 
 func (d *driver) listTransaction(ctx context.Context) ([]*transaction.TransactionInfo, error) {
 	var result []*transaction.TransactionInfo
 	transactionInfo := &transaction.TransactionInfo{}
-	transactions := d.transactions.ReadOnly(ctx)
-	if err := transactions.List(transactionInfo, col.DefaultOptions(), func(string) error {
+	transactions := d.transactions.ReadOnly()
+	if err := transactions.List(ctx, transactionInfo, col.DefaultOptions(), func(string) error {
 		result = append(result, proto.Clone(transactionInfo).(*transaction.TransactionInfo))
 		return nil
 	}); err != nil {
@@ -124,7 +125,7 @@ func (d *driver) deleteAll(ctx context.Context, sqlTx *pachsql.Tx, running *tran
 	transactions := d.transactions.ReadWrite(sqlTx)
 	for _, info := range txns {
 		if running == nil || info.Transaction.Id != running.Id {
-			err := transactions.Delete(info.Transaction.Id)
+			err := transactions.Delete(ctx, info.Transaction.Id)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -185,7 +186,7 @@ func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transac
 		if err != nil {
 			return info, err
 		}
-		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.Id); err != nil {
+		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Delete(ctx, txn.Id); err != nil {
 			return info, errors.EnsureStack(err)
 		}
 		// no need to update the transaction, since it's gone
@@ -237,7 +238,7 @@ func (d *driver) updateTransaction(
 	attempt := func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		storedInfo := new(transaction.TransactionInfo)
 		var err error
-		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.Id, storedInfo); err != nil {
+		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(ctx, txn.Id, storedInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
 		restarted := localInfo == nil || storedInfo.Version != localInfo.Version
@@ -258,7 +259,7 @@ func (d *driver) updateTransaction(
 	// prefetch transaction info and add data to refresher ahead of time
 	var prefetch transaction.TransactionInfo
 	if err := d.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.Id, &prefetch))
+		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Get(ctx, txn.Id, &prefetch))
 	}); err != nil {
 		return nil, err
 	}
@@ -280,7 +281,7 @@ func (d *driver) updateTransaction(
 			var storedInfo transaction.TransactionInfo
 			if err = dbutil.WithTx(ctx, d.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 				// Update the existing transaction with the new requests/responses
-				err := d.transactions.ReadWrite(sqlTx).Update(txn.Id, &storedInfo, func() error {
+				err := d.transactions.ReadWrite(sqlTx).Update(ctx, txn.Id, &storedInfo, func() error {
 					if storedInfo.Version != localInfo.Version {
 						return &transactionModifiedError{}
 					}

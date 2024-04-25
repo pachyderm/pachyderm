@@ -25,8 +25,8 @@ const (
 	projectCreatorRole = "projectCreator"
 )
 
-func authIsActive(c collection.PostgresReadWriteCollection) bool {
-	return !errors.Is(c.Get(clusterRoleBindingKey, &auth.RoleBinding{}), collection.ErrNotFound{})
+func authIsActive(ctx context.Context, c collection.PostgresReadWriteCollection) bool {
+	return !errors.Is(c.Get(ctx, clusterRoleBindingKey, &auth.RoleBinding{}), collection.ErrNotFound{})
 }
 
 // migrateAuth migrates auth to be fully project-aware with a default project.
@@ -42,13 +42,13 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 
 	// If auth is already activated, then run the migrations below because they wouldn't have gotten the new role bindings via activation.
 	roleBindingsCol := authdb.RoleBindingCollection(nil, nil).ReadWrite(tx)
-	if !authIsActive(roleBindingsCol) {
+	if !authIsActive(ctx, roleBindingsCol) {
 		return nil
 	}
 
 	// Grant all users the ProjectCreator role at the cluster level
 	clusterRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
-	if err := roleBindingsCol.Upsert(clusterRoleBindingKey, clusterRbs, func() error {
+	if err := roleBindingsCol.Upsert(ctx, clusterRoleBindingKey, clusterRbs, func() error {
 		if _, ok := clusterRbs.Entries[allUsersPrincipalKey]; !ok {
 			clusterRbs.Entries[allUsersPrincipalKey] = &auth.Roles{Roles: make(map[string]bool)}
 		}
@@ -61,7 +61,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	// TODO CORE-1048, grant all users the ProjectWriter role for default project
 	log.Info(ctx, "Creating initial empty role binding for default project")
 	defaultProjectRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
-	if err := roleBindingsCol.Upsert(projectRoleBindingKeyPrefix+defaultProjectName, defaultProjectRbs, func() error {
+	if err := roleBindingsCol.Upsert(ctx, projectRoleBindingKeyPrefix+defaultProjectName, defaultProjectRbs, func() error {
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "could not update default project's role bindings")

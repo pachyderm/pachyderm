@@ -109,8 +109,8 @@ func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger,
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return errors.EnsureStack(td.inner.RunUserErrorHandlingCode(ctx, logger, env))
 }
-func (td *testDriver) DeleteJob(sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
-	return errors.EnsureStack(td.inner.DeleteJob(sqlTx, ji))
+func (td *testDriver) DeleteJob(ctx context.Context, sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
+	return errors.EnsureStack(td.inner.DeleteJob(ctx, sqlTx, ji))
 }
 func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return errors.EnsureStack(td.inner.UpdateJobState(job, state, reason))
