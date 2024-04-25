@@ -36,7 +36,7 @@ func NewLRUCache(slow, fast Store, size int) *LRUCache {
 }
 
 func (c *LRUCache) Get(ctx context.Context, key []byte, buf []byte) (int, error) {
-	pctx.Child(ctx, "lruCache", pctx.WithCounter("hits", 0), pctx.WithCounter("misses", 0))
+	ctx = pctx.Child(ctx, "lruCache", pctx.WithCounter("hits", 0), pctx.WithCounter("misses", 0))
 	// note that we don't need a lock here because stores are thread-safe and Put/Deletes are atomic.
 	n, err := c.fast.Get(ctx, key, buf)
 	if err == nil {

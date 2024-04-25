@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"io"
 	"time"
 
@@ -105,7 +106,8 @@ type DataReader struct {
 
 func newDataReader(ctx context.Context, s *Storage, client Client, dataRef *DataRef, offset int64) *DataReader {
 	return &DataReader{
-		ctx: pctx.Child(ctx, fmt.Sprintf("dataReader('%s')", Base64Hash(dataRef)),
+		ctx: pctx.Child(ctx, fmt.Sprintf("dataReader('chunk_id':'%s','data_ref_hash':'%s')", pfs.EncodeHash(dataRef.Ref.Id),
+			pfs.EncodeHash(dataRef.Hash)),
 			pctx.WithCounter("tx_bytes", 0)),
 		client:   client,
 		memCache: s.memCache,

@@ -70,7 +70,7 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...Re
 }
 
 func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) *DataReader {
-	ctx = pctx.Child(ctx, "chunkLazyDataReader")
+	ctx = pctx.Child(ctx, "chunkDataReader")
 	client := NewClient(s.store, s.db, s.tracker, nil, s.pool)
 	return newDataReader(ctx, s, client, dataRef, 0)
 }

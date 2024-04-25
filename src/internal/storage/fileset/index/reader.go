@@ -57,8 +57,9 @@ func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Optio
 // ctxWithMetrics returns a child context with relevant reader metrics.
 func ctxWithMetrics(ctx context.Context) context.Context {
 	return pctx.Child(ctx, "indexReader.Iterate",
-		pctx.WithCounter("skippedIndices", 0),
-		pctx.WithCounter("readFiles", 0),
+		pctx.WithCounter("skippedFiles", 0),
+		pctx.WithCounter("skippedRanges", 0),
+		pctx.WithCounter("emittedFiles", 0),
 		pctx.WithCounter("traversedRanges", 0),
 		pctx.WithCounter("chunks", 0))
 }
@@ -73,21 +74,21 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	traverseCb := func(idx *Index) (bool, error) {
 		if idx.File != nil {
 			if atEnd(idx.Path, r.filter) {
-				meters.Inc(ctx, "skippedIndices", 1)
+				meters.Inc(ctx, "skippedFiles", 1)
 				if !peek {
 					return false, errutil.ErrBreak
 				}
 				peek = false
 			}
 			if !atStart(idx.Path, r.filter) || !(r.datum == "" || r.datum == idx.File.Datum) {
-				meters.Inc(ctx, "skippedIndices", 1)
+				meters.Inc(ctx, "skippedFiles", 1)
 				return false, nil
 			}
-			meters.Inc(ctx, "readFiles", 1)
+			meters.Inc(ctx, "emittedFiles", 1)
 			return false, cb(idx)
 		}
 		if !atStart(idx.Range.LastPath, r.filter) {
-			meters.Inc(ctx, "skippedIndices", 1)
+			meters.Inc(ctx, "skippedRanges", 1)
 			return false, nil
 		}
 		meters.Inc(ctx, "traversedRanges", 1)
@@ -232,7 +233,7 @@ type ShardConfig struct {
 // A subtree is traversed only when a split point exists within it, which we know based on the NumFiles and SizeBytes
 // values at the root of each subtree.
 func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
-	ctx = ctxWithMetrics(ctx)
+	ctx = pctx.Child(ctxWithMetrics(ctx), "shards")
 	if r.topIdx == nil || (r.topIdx.NumFiles == 0 && r.topIdx.SizeBytes == 0) {
 		return []*PathRange{{}}, nil
 	}
@@ -255,7 +256,11 @@ func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
 		}
 		numFiles += idx.NumFiles
 		sizeBytes += idx.SizeBytes
-		meters.Inc(ctx, "skippedIndices", 1)
+		if idx.Range != nil {
+			meters.Inc(ctx, "skippedRanges", 1)
+		} else {
+			meters.Inc(ctx, "skippedFiles", 1)
+		}
 		return false, nil
 	}
 	_, err := r.traverse(ctx, r.topIdx, []byte{}, traverseCb)

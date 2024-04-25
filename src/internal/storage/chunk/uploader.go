@@ -182,8 +182,7 @@ func (u *Uploader) CopyByReference(meta interface{}, dataRefs []*DataRef) error 
 }
 
 func upload(ctx context.Context, client Client, chunkBytes []byte, pointsTo []ID, noUpload bool) (*DataRef, error) {
-	ctx = pctx.Child(ctx, "upload", pctx.WithCounter("bytes", 0))
-	meters.Inc(ctx, "tx_bytes", len(chunkBytes))
+	ctx = pctx.Child(ctx, "upload", pctx.WithCounter("tx_bytes", 0))
 	md := Metadata{
 		Size:     len(chunkBytes),
 		PointsTo: pointsTo,
@@ -202,6 +201,7 @@ func upload(ctx context.Context, client Client, chunkBytes []byte, pointsTo []ID
 		return nil, err
 	}
 	contentHash := Hash(chunkBytes)
+	meters.Inc(ctx, "tx_bytes", len(chunkBytes))
 	return &DataRef{
 		Hash:      contentHash,
 		Ref:       ref,

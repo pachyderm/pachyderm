@@ -19,7 +19,7 @@ import (
 
 // DoOrdered processes tasks in parallel, but returns outputs in order via the provided callback cb.
 func DoOrdered(ctx context.Context, doer Doer, inputs chan *anypb.Any, parallelism int, cb CollectFunc) error {
-	pctx.Child(ctx, "doOrdered")
+	ctx = pctx.Child(ctx, "doOrdered")
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(parallelism)))
 	for {
 		select {

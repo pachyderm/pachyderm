@@ -28,11 +28,15 @@ func newReader(store MetadataStore, chunks *chunk.Storage, idxCache *index.Cache
 }
 
 func (r *Reader) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
-	return r.withPrimitive(ctx, func(ctx context.Context, prim *Primitive) error {
-		ir := index.NewReader(r.chunks, r.idxCache, prim.Additive, opts...)
-		return ir.Iterate(ctx, func(idx *index.Index) error {
-			return cb(newFileReader(r.chunks, idx))
-		})
+	ctx = pctx.Child(ctx, "reader.iterate")
+	prim, err := r.getPrimitive(ctx)
+	if err != nil {
+		return err
+	}
+	ctx = pctx.Child(ctx, "", pctx.WithFields(LogIndex(prim.Additive, "startIdx")))
+	ir := index.NewReader(r.chunks, r.idxCache, prim.Additive, opts...)
+	return ir.Iterate(ctx, func(idx *index.Index) error {
+		return cb(newFileReader(r.chunks, idx))
 	})
 }
 
@@ -48,35 +52,28 @@ func (r *Reader) getPrimitive(ctx context.Context) (*Primitive, error) {
 	return prim, nil
 }
 
-// withPrimitive retrieves a primitive and passes it in to the user supplied callback. It also spawns a child
-// context that is enriched with fields related to the primitive.
-func (r *Reader) withPrimitive(ctx context.Context, cb func(ctx context.Context, prim *Primitive) error) error {
-	ctx = pctx.Child(ctx, "reader")
+func (r *Reader) IterateDeletes(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	ctx = pctx.Child(ctx, "reader.iterateDeletes")
 	prim, err := r.getPrimitive(ctx)
 	if err != nil {
 		return err
 	}
-	ctx = pctx.Child(ctx, "", pctx.WithFields(LogIndex(prim.Additive, "startIdx")))
-	return cb(ctx, prim)
-}
-
-func (r *Reader) IterateDeletes(ctx context.Context, cb func(File) error, opts ...index.Option) error {
-	return r.withPrimitive(ctx, func(ctx context.Context, prim *Primitive) error {
-		ir := index.NewReader(r.chunks, r.idxCache, prim.Deletive, opts...)
-		return ir.Iterate(ctx, func(idx *index.Index) error {
-			return cb(newFileReader(r.chunks, idx))
-		})
+	ir := index.NewReader(r.chunks, r.idxCache, prim.Deletive, opts...)
+	ctx = pctx.Child(ctx, "", pctx.WithFields(LogIndex(prim.Deletive, "startIdx")))
+	return ir.Iterate(ctx, func(idx *index.Index) error {
+		return cb(newFileReader(r.chunks, idx))
 	})
 }
 
 func (r *Reader) Shards(ctx context.Context, opts ...index.Option) (pathRanges []*index.PathRange, err error) {
-	if err := r.withPrimitive(ctx, func(ctx context.Context, prim *Primitive) error {
-		ir := index.NewReader(r.chunks, nil, prim.Additive, opts...)
-		pathRanges, err = ir.Shards(ctx)
-		return err
-	}); err != nil {
+	ctx = pctx.Child(ctx, "reader.shard")
+	prim, err := r.getPrimitive(ctx)
+	if err != nil {
 		return nil, err
 	}
+	ctx = pctx.Child(ctx, "", pctx.WithFields(LogIndex(prim.Additive, "startIdx")))
+	ir := index.NewReader(r.chunks, nil, prim.Additive, opts...)
+	pathRanges, err = ir.Shards(ctx)
 	return pathRanges, nil
 }
 
