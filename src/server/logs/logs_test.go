@@ -496,14 +496,14 @@ func TestGetLogs_offset(t *testing.T) {
 				newerOffset: 1,
 			},
 		},
-		// // check that the older hint above works
-		// "returned older hint works": {
-		// 	logs:  []time.Duration{1, time.Second * 2, time.Second * 3},
-		// 	limit: 1,
-		// 	from:  time.Second,
-		// 	until: time.Second * -10,
-		// 	want:  []time.Duration{1},
-		// },
+		// check that the older hint above works
+		"returned older hint works": {
+			logs:  []time.Duration{1, time.Second * 2, time.Second * 3},
+			limit: 1,
+			from:  time.Second,
+			until: time.Second * -10,
+			want:  []time.Duration{1},
+		},
 		// check that the newer hint above works
 		"returned hint works": {
 			logs:   []time.Duration{1, time.Second * 2, time.Second * 3},
