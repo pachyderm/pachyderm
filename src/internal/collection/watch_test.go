@@ -345,7 +345,7 @@ func watchTests(
 			t.Parallel()
 			reader, writer := newCollection(rctx, t)
 			ctx := canceledContext()
-			watchRead := reader(ctx)
+			watchRead := reader()
 			require.NoError(t, writer(rctx, putItem(makeProto(makeID(3)))))
 			testInterruptionPreemptive(t, func() (watch.Watcher, error) {
 				res, err := watchRead.Watch(ctx)
@@ -354,7 +354,7 @@ func watchTests(
 		})
 
 		watchAllTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback) watch.Watcher {
-			watcher, err := reader(ctx).Watch(ctx)
+			watcher, err := reader().Watch(ctx)
 			require.NoError(t, err)
 			t.Cleanup(watcher.Close)
 			return watcher
@@ -367,12 +367,11 @@ func watchTests(
 		suite.Run("InterruptionPreemptive", func(t *testing.T) {
 			t.Parallel()
 			reader, writer := newCollection(rctx, t)
-			ctx := canceledContext()
-			watchRead := reader(ctx)
+			watchRead := reader()
 			require.NoError(t, writer(rctx, putItem(makeProto(makeID(1)))))
 
 			events := []*watch.Event{}
-			err := watchRead.WatchF(ctx, func(ev *watch.Event) error {
+			err := watchRead.WatchF(canceledContext(), func(ev *watch.Event) error {
 				return errors.New("should have been canceled before receiving event")
 			})
 			require.YesError(t, err)
@@ -384,7 +383,7 @@ func watchTests(
 		suite.Run("ErrBreak", func(t *testing.T) {
 			t.Parallel()
 			reader, writer := newCollection(rctx, t)
-			watchRead := reader(rctx)
+			watchRead := reader()
 			rowA := makeProto(makeID(1))
 			rowB := makeProto(makeID(2))
 			require.NoError(t, writer(rctx, putItem(rowA)))
@@ -401,7 +400,7 @@ func watchTests(
 
 		watchAllTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback) watch.Watcher {
 			return NewWatchShim(ctx, t, func(ctx context.Context, cb func(*watch.Event) error) error {
-				return errors.EnsureStack(reader(ctx).WatchF(ctx, cb))
+				return errors.EnsureStack(reader().WatchF(ctx, cb))
 			})
 		})
 	})
@@ -524,18 +523,17 @@ func watchTests(
 		suite.Run("InterruptionPreemptive", func(t *testing.T) {
 			t.Parallel()
 			reader, writer := newCollection(rctx, t)
-			ctx := canceledContext()
-			watchRead := reader(ctx)
+			watchRead := reader()
 			row := makeProto(makeID(1))
 			require.NoError(t, writer(rctx, putItem(row)))
 			testInterruptionPreemptive(t, func() (watch.Watcher, error) {
-				res, err := watchRead.WatchOne(ctx, row.Id)
+				res, err := watchRead.WatchOne(canceledContext(), row.Id)
 				return res, errors.EnsureStack(err)
 			})
 		})
 
 		watchOneTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, key string) watch.Watcher {
-			watcher, err := reader(ctx).WatchOne(ctx, key)
+			watcher, err := reader().WatchOne(ctx, key)
 			require.NoError(t, err)
 			t.Cleanup(watcher.Close)
 			return watcher
@@ -549,7 +547,7 @@ func watchTests(
 			t.Parallel()
 			reader, writer := newCollection(rctx, t)
 			ctx := canceledContext()
-			watchRead := reader(ctx)
+			watchRead := reader()
 			row := makeProto(makeID(1))
 			require.NoError(t, writer(rctx, putItem(row)))
 
@@ -565,7 +563,7 @@ func watchTests(
 		suite.Run("ErrBreak", func(t *testing.T) {
 			t.Parallel()
 			reader, writer := newCollection(rctx, t)
-			watchRead := reader(rctx)
+			watchRead := reader()
 			rowA := makeProto(makeID(1))
 			rowB := makeProto(makeID(2))
 			require.NoError(t, writer(rctx, putItem(rowA)))
@@ -582,7 +580,7 @@ func watchTests(
 
 		watchOneTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, key string) watch.Watcher {
 			return NewWatchShim(ctx, t, func(ctx context.Context, cb func(ev *watch.Event) error) error {
-				return errors.EnsureStack(reader(ctx).WatchOneF(ctx, key, cb))
+				return errors.EnsureStack(reader().WatchOneF(ctx, key, cb))
 			})
 		})
 	})
@@ -716,7 +714,7 @@ func watchTests(
 			t.Parallel()
 			reader, writer := newCollection(rctx, t)
 			ctx := canceledContext()
-			watchRead := reader(ctx)
+			watchRead := reader()
 			row := makeProto(makeID(1), originalValue)
 			require.NoError(t, writer(rctx, putItem(row)))
 			testInterruptionPreemptive(t, func() (watch.Watcher, error) {
@@ -726,7 +724,7 @@ func watchTests(
 		})
 
 		watchByIndexTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, value string) watch.Watcher {
-			watcher, err := reader(ctx).WatchByIndex(ctx, TestSecondaryIndex, value)
+			watcher, err := reader().WatchByIndex(ctx, TestSecondaryIndex, value)
 			require.NoError(t, err)
 			t.Cleanup(watcher.Close)
 			return watcher
@@ -740,7 +738,7 @@ func watchTests(
 			t.Parallel()
 			reader, writer := newCollection(rctx, t)
 			ctx := canceledContext()
-			watchRead := reader(ctx)
+			watchRead := reader()
 			row := makeProto(makeID(1), originalValue)
 			require.NoError(t, writer(rctx, putItem(row)))
 
@@ -756,7 +754,7 @@ func watchTests(
 		suite.Run("ErrBreak", func(t *testing.T) {
 			t.Parallel()
 			reader, writer := newCollection(rctx, t)
-			watchRead := reader(rctx)
+			watchRead := reader()
 			rowA := makeProto(makeID(1), originalValue)
 			rowB := makeProto(makeID(2), originalValue)
 			require.NoError(t, writer(rctx, putItem(rowA)))
@@ -772,7 +770,7 @@ func watchTests(
 		})
 
 		watchByIndexTests(suite, func(ctx context.Context, t *testing.T, reader ReadCallback, value string) watch.Watcher {
-			watcher, err := reader(ctx).WatchByIndex(ctx, TestSecondaryIndex, value)
+			watcher, err := reader().WatchByIndex(ctx, TestSecondaryIndex, value)
 			require.NoError(t, err)
 			t.Cleanup(watcher.Close)
 			return watcher

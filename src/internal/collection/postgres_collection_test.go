@@ -72,7 +72,7 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col
 			return col.SetupPostgresCollections(ctx, sqlTx, testCol)
 		}))
 
-		readCallback := func(ctx context.Context) col.ReadOnlyCollection {
+		readCallback := func() col.ReadOnlyCollection {
 			return testCol.ReadOnly()
 		}
 
@@ -109,7 +109,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 				return errors.EnsureStack(err)
 			})
 			require.NoError(t, err)
-			count, err := emptyRead(ctx).Count(ctx)
+			count, err := emptyRead().Count(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), count)
 		})

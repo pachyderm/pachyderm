@@ -41,7 +41,7 @@ func (te TestError) Error() string {
 	return "TestError"
 }
 
-type ReadCallback func(context.Context) col.ReadOnlyCollection
+type ReadCallback func() col.ReadOnlyCollection
 type WriteCallback func(context.Context, func(context.Context, col.ReadWriteCollection) error) error
 
 func idRange(start int, end int) []string {
@@ -83,7 +83,7 @@ func initCollection(
 ) (col.ReadOnlyCollection, WriteCallback) {
 	reader, writer := newCollection(pctx.Child(ctx, "collection"), t)
 	require.NoError(t, writer(pctx.Child(ctx, "writer"), populateCollection))
-	return reader(pctx.Child(ctx, "reader")), writer
+	return reader(), writer
 }
 
 // Helper function to turn an int ID into a string so we don't need to use string literals
@@ -137,7 +137,7 @@ func checkDefaultCollection(t *testing.T, ctx context.Context, ro col.ReadOnlyCo
 	checkCollection(t, ctx, ro, expected)
 }
 
-func checkItem(t *testing.T, item *col.TestItem, id string, value string) error {
+func checkItem(item *col.TestItem, id string, value string) error {
 	if item.Id != id {
 		return errors.Errorf("Item has incorrect ID, expected: %s, actual: %s", id, item.Id)
 	}
@@ -178,7 +178,7 @@ func collectionTests(
 	parent.Run("ReadOnly", func(suite *testing.T) {
 		suite.Parallel()
 		emptyReader, _ := newCollection(ctx, suite)
-		emptyRead := emptyReader(ctx)
+		emptyRead := emptyReader()
 		defaultRead, _ := initCollection(ctx, suite, newCollection)
 
 		suite.Run("Get", func(subsuite *testing.T) {
@@ -251,7 +251,7 @@ func collectionTests(
 			subsuite.Run("Partitioned", func(t *testing.T) {
 				t.Parallel()
 				partitionedReader, partitionedWriter := newCollection(ctx, suite)
-				partitionedRead := partitionedReader(ctx)
+				partitionedRead := partitionedReader()
 				require.NoError(t, partitionedWriter(ctx, populateCollection))
 
 				expected := map[string][]string{
@@ -370,7 +370,7 @@ func collectionTests(
 					// The default collection was written in a single transaction, so all
 					// the rows have the same created time - make our own
 					createReader, writer := newCollection(ctx, t)
-					createCol := createReader(ctx)
+					createCol := createReader()
 
 					createKeys := []string{"0", "6", "7", "9", "3", "8", "4", "1", "2", "5"}
 					for _, k := range createKeys {
@@ -388,7 +388,7 @@ func collectionTests(
 				subsuite.Run("UpdatedAt", func(t *testing.T) {
 					// Create a new collection that we can modify to get a different ordering here
 					reader, writer := newCollection(ctx, t, true)
-					modRead := reader(ctx)
+					modRead := reader()
 					require.NoError(suite, writer(ctx, populateCollection))
 
 					modKeys := []string{"5", "7", "2", "9", "1", "0", "8", "4", "3", "6"}
@@ -652,7 +652,7 @@ func collectionTests(
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
 					if err := rw.Upsert(ctx, updateID, testProto, func() error {
-						if err := checkItem(t, testProto, updateID, originalValue); err != nil {
+						if err := checkItem(testProto, updateID, originalValue); err != nil {
 							return err
 						}
 						testProto.Value = changedValue
@@ -663,7 +663,7 @@ func collectionTests(
 					if err := rw.Get(ctx, updateID, testProto); err != nil {
 						return errors.EnsureStack(err)
 					}
-					return checkItem(t, testProto, updateID, changedValue)
+					return checkItem(testProto, updateID, changedValue)
 				})
 				require.NoError(t, err)
 				checkDefaultCollection(t, ctx, readOnly, RowDiff{Changed: []string{updateID}})

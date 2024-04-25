@@ -48,7 +48,7 @@ func TestEtcdCollections(suite *testing.T) {
 		}
 		testCol := col.NewEtcdCollection(etcdEnv.EtcdClient, prefix, index, &col.TestItem{}, nil, nil)
 
-		readCallback := func(ctx context.Context) col.ReadOnlyCollection {
+		readCallback := func() col.ReadOnlyCollection {
 			return testCol.ReadOnly()
 		}
 
