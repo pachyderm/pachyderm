@@ -105,7 +105,7 @@ func (d *driver) listTransaction(ctx context.Context) ([]*transaction.Transactio
 	var result []*transaction.TransactionInfo
 	transactionInfo := &transaction.TransactionInfo{}
 	transactions := d.transactions.ReadOnly(ctx)
-	if err := transactions.List(transactionInfo, col.DefaultOptions(), func(string) error {
+	if err := transactions.List(ctx, transactionInfo, col.DefaultOptions(), func(string) error {
 		result = append(result, proto.Clone(transactionInfo).(*transaction.TransactionInfo))
 		return nil
 	}); err != nil {

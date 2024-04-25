@@ -133,7 +133,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			})
 			require.NoError(t, err)
 			require.ElementsEqual(t, keys, idRange(0, defaultCollectionSize))
-			checkDefaultCollection(t, defaultRead, RowDiff{})
+			checkDefaultCollection(t, ctx, defaultRead, RowDiff{})
 		})
 
 		subsuite.Run("NoResults", func(t *testing.T) {
@@ -147,7 +147,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 				return errors.EnsureStack(err)
 			})
 			require.NoError(t, err)
-			checkDefaultCollection(t, defaultRead, RowDiff{})
+			checkDefaultCollection(t, ctx, defaultRead, RowDiff{})
 		})
 
 		subsuite.Run("InvalidIndex", func(t *testing.T) {
@@ -161,7 +161,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			})
 			require.YesError(t, err)
 			require.Matches(t, "Unknown collection index", err.Error())
-			checkDefaultCollection(t, defaultRead, RowDiff{})
+			checkDefaultCollection(t, ctx, defaultRead, RowDiff{})
 		})
 
 		subsuite.Run("Nested", func(t *testing.T) {
@@ -194,7 +194,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			}
 
 			require.ElementsEqual(t, expectedInnerKeys, innerKeys)
-			checkDefaultCollection(t, defaultRead, RowDiff{})
+			checkDefaultCollection(t, ctx, defaultRead, RowDiff{})
 		})
 	})
 

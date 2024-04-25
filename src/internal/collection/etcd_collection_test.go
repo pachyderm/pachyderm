@@ -401,10 +401,10 @@ func TestIteration(t *testing.T) {
 			})
 			require.NoError(t, err)
 		}
-		ro := c.ReadOnly(context.Background())
+		ro := c.ReadOnly(ctx)
 		testProto := &col.TestItem{}
 		i := numVals - 1
-		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func(string) error {
+		require.NoError(t, ro.List(ctx, testProto, col.DefaultOptions(), func(string) error {
 			require.Equal(t, fmt.Sprintf("%d", i), testProto.Id)
 			i--
 			return nil
@@ -430,7 +430,7 @@ func TestIteration(t *testing.T) {
 		vals := make(map[string]bool)
 		ro := c.ReadOnly(ctx)
 		testProto := &col.TestItem{}
-		require.NoError(t, ro.List(testProto, col.DefaultOptions(), func(string) error {
+		require.NoError(t, ro.List(ctx, testProto, col.DefaultOptions(), func(string) error {
 			require.False(t, vals[testProto.Id], "saw value %s twice", testProto.Id)
 			vals[testProto.Id] = true
 			return nil
@@ -453,7 +453,7 @@ func TestIteration(t *testing.T) {
 		val := &col.TestItem{}
 		vals := make(map[string]bool)
 		valsOrder := []string{}
-		require.NoError(t, ro.List(val, col.DefaultOptions(), func(string) error {
+		require.NoError(t, ro.List(ctx, val, col.DefaultOptions(), func(string) error {
 			require.False(t, vals[val.Id], "saw value %s twice", val.Id)
 			vals[val.Id] = true
 			valsOrder = append(valsOrder, val.Id)
@@ -465,7 +465,7 @@ func TestIteration(t *testing.T) {
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
 		vals = make(map[string]bool)
 		valsOrder = []string{}
-		require.NoError(t, ro.List(val, &col.Options{Target: col.SortByCreateRevision, Order: col.SortAscend}, func(string) error {
+		require.NoError(t, ro.List(ctx, val, &col.Options{Target: col.SortByCreateRevision, Order: col.SortAscend}, func(string) error {
 			require.False(t, vals[val.Id], "saw value %s twice", val.Id)
 			vals[val.Id] = true
 			valsOrder = append(valsOrder, val.Id)

@@ -458,12 +458,12 @@ func (c *etcdReadOnlyCollection) Get(ctx context.Context, maybeKey interface{}, 
 }
 
 func (c *etcdReadOnlyCollection) GetByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message, opts *Options, f func(key string) error) error {
-	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetByIndex", "col", c.prefix, "index", index, "indexVal", indexVal)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/etcd.RO/GetByIndex", "col", c.prefix, "index", index, "indexVal", indexVal)
 	defer tracing.FinishAnySpan(span)
 	if atomic.LoadInt64(&index.limit) == 0 {
 		atomic.CompareAndSwapInt64(&index.limit, 0, defaultLimit)
 	}
-	return c.list(c.indexDir(index, indexVal), &index.limit, opts, func(kv *mvccpb.KeyValue) error {
+	return c.list(ctx, c.indexDir(index, indexVal), &index.limit, opts, func(kv *mvccpb.KeyValue) error {
 		key := path.Base(string(kv.Key))
 		if err := c.Get(ctx, key, val); err != nil {
 			if IsErrNotFound(err) {
@@ -502,13 +502,13 @@ func (c *etcdReadOnlyCollection) TTL(ctx context.Context, key string) (int64, er
 // argument to f because that would require f to perform a cast before it could
 // be used.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func(key string) error) error {
-	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
+func (c *etcdReadOnlyCollection) List(ctx context.Context, val proto.Message, opts *Options, f func(key string) error) error {
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/etcd.RO/List", "col", c.prefix)
 	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	return c.list(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
+	return c.list(ctx, c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -516,8 +516,8 @@ func (c *etcdReadOnlyCollection) List(val proto.Message, opts *Options, f func(k
 	})
 }
 
-func (c *etcdReadOnlyCollection) list(prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
-	return listRevision(c, prefix, limitPtr, opts, f)
+func (c *etcdReadOnlyCollection) list(ctx context.Context, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+	return listRevision(ctx, c, prefix, limitPtr, opts, f)
 }
 
 var (

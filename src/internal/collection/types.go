@@ -124,7 +124,7 @@ type EtcdReadWriteCollection interface {
 type ReadOnlyCollection interface {
 	Get(ctx context.Context, key interface{}, val proto.Message) error
 	GetByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
-	List(val proto.Message, opts *Options, f func(string) error) error
+	List(ctx context.Context, val proto.Message, opts *Options, f func(string) error) error
 	Count(ctx context.Context) (int64, error)
 	Watch(opts ...watch.Option) (watch.Watcher, error)
 	WatchF(f func(*watch.Event) error, opts ...watch.Option) error

@@ -477,14 +477,14 @@ func (c *postgresCollection) list(
 	return nil
 }
 
-func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
-	return c.postgresCollection.list(c.ctx, withFields, opts, c.db, f)
+func (c *postgresReadOnlyCollection) list(ctx context.Context, withFields map[string]string, opts *Options, f func(*model) error) error {
+	return c.postgresCollection.list(ctx, withFields, opts, c.db, f)
 }
 
 // NOTE: Internally, List scans the collection over multiple transactions,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
-	return c.list(nil, opts, func(m *model) error {
+func (c *postgresReadOnlyCollection) List(ctx context.Context, val proto.Message, opts *Options, f func(string) error) error {
+	return c.list(ctx, nil, opts, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -516,7 +516,7 @@ func (c *postgresReadOnlyCollection) Count(ctx context.Context) (int64, error) {
 
 // This blocking function sends watch events to the client. It first sends a list of the existing elements
 // in the collection, followed by new events.
-func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, options watch.WatchOptions, withFields map[string]string) {
+func (c *postgresReadOnlyCollection) watchRoutine(ctx context.Context, watcher *postgresWatcher, options watch.WatchOptions, withFields map[string]string) {
 	// Do a list of the collection to get the initial state
 	val := cloneProtoMsg(c.template)
 
@@ -531,7 +531,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 	// Since list is not a snapshot of the DB, we break out early and hand-off
 	// event emition to the watcher if we encounter a listed record that is
 	// in the future of a buffered event
-	if err := c.list(withFields, &Options{Target: options.SortTarget, Order: etcd.SortAscend}, func(m *model) error {
+	if err := c.list(ctx, withFields, &Options{Target: options.SortTarget, Order: etcd.SortAscend}, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -548,7 +548,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			return errutil.ErrBreak
 		}
 
-		return watcher.sendInitial(c.ctx, &watch.Event{
+		return watcher.sendInitial(ctx, &watch.Event{
 			Key:      []byte(m.Key),
 			Value:    m.Proto,
 			Type:     watch.EventPut,
@@ -557,15 +557,15 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 		})
 	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
 		// use a background context in case we failed with context cancelled
-		watcher.sendInitial(context.Background(), &watch.Event{Type: watch.EventError, Err: err}) //nolint:errcheck // already sending the error from c.list()
-		watcher.listener.Unregister(watcher)                                                      //nolint:errcheck
+		watcher.sendInitial(pctx.Background("watchRoutine.err"), &watch.Event{Type: watch.EventError, Err: err}) //nolint:errcheck // already sending the error from c.list()
+		watcher.listener.Unregister(watcher)                                                                     //nolint:errcheck
 		return
 	}
 
 	if bufEvent != nil {
-		if err := watcher.sendInitial(c.ctx, bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
-			watcher.sendInitial(context.Background(), &watch.Event{Type: watch.EventError, Err: err}) //nolint:errcheck
-			watcher.listener.Unregister(watcher)                                                      //nolint:errcheck
+		if err := watcher.sendInitial(ctx, bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
+			watcher.sendInitial(ctx, &watch.Event{Type: watch.EventError, Err: err}) //nolint:errcheck
+			watcher.listener.Unregister(watcher)                                     //nolint:errcheck
 			return
 		}
 	}
@@ -588,7 +588,7 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 		return nil, err
 	}
 
-	go c.watchRoutine(watcher, options, nil)
+	go c.watchRoutine(c.ctx, watcher, options, nil)
 
 	return watcher, nil
 }
@@ -623,7 +623,7 @@ func (c *postgresReadOnlyCollection) watchOne(key string, opts ...watch.Option) 
 	}
 
 	withFields := map[string]string{"key": key}
-	go c.watchRoutine(watcher, options, withFields)
+	go c.watchRoutine(c.ctx, watcher, options, withFields)
 
 	return watcher, nil
 }
@@ -657,7 +657,7 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 	}
 
 	withFields := map[string]string{indexFieldName(index): indexVal}
-	go c.watchRoutine(watcher, options, withFields)
+	go c.watchRoutine(c.ctx, watcher, options, withFields)
 
 	return watcher, nil
 }

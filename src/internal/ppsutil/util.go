@@ -522,7 +522,7 @@ func ListPipelineInfo(ctx context.Context,
 		}
 		return nil
 	}
-	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(p, opts, checkPipelineVersion))
+	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(ctx, p, opts, checkPipelineVersion))
 }
 
 func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, send func(*pps.LogMessage) error) error {

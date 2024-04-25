@@ -616,7 +616,7 @@ func (a *apiServer) ListJobSet(request *pps.ListJobSetRequest, serv pps.API_List
 	if request.Reverse {
 		opts.Order = col.SortAscend
 	}
-	if err := a.jobs.ReadOnly(serv.Context()).List(jobInfo, opts, func(string) error {
+	if err := a.jobs.ReadOnly(serv.Context()).List(serv.Context(), jobInfo, opts, func(string) error {
 		if number == 0 {
 			return errutil.ErrBreak
 		}
@@ -862,7 +862,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	if pipeline != nil {
 		err = jobs.GetByIndex(ctx, ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
 	} else {
-		err = jobs.List(jobInfo, opts, _f)
+		err = jobs.List(ctx, jobInfo, opts, _f)
 	}
 	if err != nil && err != errutil.ErrBreak {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -1914,7 +1914,7 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 	}
 	var info pps.PipelineInfo
 	seen := make(map[string]struct{})
-	if err := a.pipelines.ReadOnly(ctx).List(&info, col.DefaultOptions(), func(_ string) error {
+	if err := a.pipelines.ReadOnly(ctx).List(ctx, &info, col.DefaultOptions(), func(_ string) error {
 		seen[info.Pipeline.Name] = struct{}{}
 		return nil
 	}); err != nil {
@@ -3242,7 +3242,7 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 	dr.Pipeline = &pps.Pipeline{}
 	pipelineInfo := &pps.PipelineInfo{}
 	deleted := make(map[string]struct{})
-	if err := a.pipelines.ReadOnly(ctx).List(pipelineInfo, col.DefaultOptions(), func(string) error {
+	if err := a.pipelines.ReadOnly(ctx).List(ctx, pipelineInfo, col.DefaultOptions(), func(string) error {
 		if _, ok := deleted[pipelineInfo.Pipeline.String()]; ok {
 			// while the delete pipeline call will delete historical versions,
 			// they could still show up in the list.  Ignore them.
