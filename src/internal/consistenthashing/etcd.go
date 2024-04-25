@@ -140,7 +140,7 @@ func (ring *Ring) createNode(ctx context.Context, col collection.EtcdCollection,
 // on delete happens by default since each member attempts to retrieve all locks. When a member is deleted,
 // the pending calls to Lock by each member will go through on the nodes that associates to given lock.
 func (ring *Ring) watch(ctx context.Context, col collection.EtcdCollection) error {
-	if err := col.ReadOnly(ctx).WatchF(func(event *watch.Event) error {
+	if err := col.ReadOnly(ctx).WatchF(ctx, func(event *watch.Event) error {
 		ring.stateLock.Lock()
 		defer ring.stateLock.Unlock()
 		nodeKey := string(event.Key)

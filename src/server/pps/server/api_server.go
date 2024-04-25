@@ -471,7 +471,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		return nil, errors.EnsureStack(err)
 	}
 	if request.Wait {
-		watcher, err := jobs.WatchOne(ppsdb.JobKey(request.Job))
+		watcher, err := jobs.WatchOne(ctx, ppsdb.JobKey(request.Job))
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}
@@ -890,7 +890,7 @@ func (a *apiServer) SubscribeJob(request *pps.SubscribeJobRequest, stream pps.AP
 	// keep track of the jobs that have been sent
 	seen := map[string]struct{}{}
 
-	err := a.jobs.ReadOnly(ctx).WatchByIndexF(ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(request.Pipeline, false), func(ev *watch.Event) error {
+	err := a.jobs.ReadOnly(ctx).WatchByIndexF(ctx, ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(request.Pipeline, false), func(ev *watch.Event) error {
 		var key string
 		jobInfo := &pps.JobInfo{}
 		if err := ev.Unmarshal(&key, jobInfo); err != nil {

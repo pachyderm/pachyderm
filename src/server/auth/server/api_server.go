@@ -121,14 +121,14 @@ func NewAuthServer(env Env, public, requireNoncriticalServers, watchesEnabled bo
 	}
 
 	if watchesEnabled {
-		s.configCache = keycache.NewCache(env.BackgroundContext, s.authConfig.ReadOnly(env.BackgroundContext), configKey, &DefaultOIDCConfig)
-		s.clusterRoleBindingCache = keycache.NewCache(env.BackgroundContext, s.roleBindings.ReadOnly(env.BackgroundContext), auth.ClusterRoleBindingKey, &auth.RoleBinding{})
+		s.configCache = keycache.NewCache(s.authConfig.ReadOnly(env.BackgroundContext), configKey, &DefaultOIDCConfig)
+		s.clusterRoleBindingCache = keycache.NewCache(s.roleBindings.ReadOnly(env.BackgroundContext), auth.ClusterRoleBindingKey, &auth.RoleBinding{})
 
 		// Watch for new auth config options
-		go s.configCache.Watch()
+		go s.configCache.Watch(env.BackgroundContext)
 
 		// Watch for changes to the cluster role binding
-		go s.clusterRoleBindingCache.Watch()
+		go s.clusterRoleBindingCache.Watch(env.BackgroundContext)
 	}
 
 	if err := s.deleteExpiredTokensRoutine(env.BackgroundContext); err != nil {

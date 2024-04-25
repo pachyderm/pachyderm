@@ -74,11 +74,11 @@ func NewEnterpriseServer(env *Env, config Config) (*apiServer, error) {
 	s := &apiServer{
 		env:                  env,
 		config:               config,
-		enterpriseTokenCache: keycache.NewCache(env.BackgroundContext, enterpriseTokenCol.ReadOnly(env.BackgroundContext), enterpriseTokenKey, defaultEnterpriseRecord),
+		enterpriseTokenCache: keycache.NewCache(enterpriseTokenCol.ReadOnly(env.BackgroundContext), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
 		configCol:            EnterpriseConfigCollection(env.DB, env.Listener),
 	}
-	go s.enterpriseTokenCache.Watch()
+	go s.enterpriseTokenCache.Watch(env.BackgroundContext)
 
 	if config.Heartbeat {
 		go s.heartbeatRoutine(env.BackgroundContext)

@@ -110,7 +110,7 @@ func (sd *stateDriver) TransitionState(ctx context.Context, specCommit *pfs.Comm
 }
 
 func (sd *stateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
-	pipelineWatcher, err := sd.pipelines.ReadOnly(ctx).Watch()
+	pipelineWatcher, err := sd.pipelines.ReadOnly(ctx).Watch(ctx)
 	if err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}

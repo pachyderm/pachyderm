@@ -127,7 +127,7 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *anypb.Any, cb Collec
 			eg.Wait() //nolint:errcheck
 		}()
 		eg.Go(func() error {
-			err := ed.taskCol.ReadOnly(ctx).WatchOneF(prefix, func(e *watch.Event) error {
+			err := ed.taskCol.ReadOnly(ctx).WatchOneF(ctx, prefix, func(e *watch.Event) error {
 				if e.Type == watch.EventDelete {
 					return errors.New("task was deleted while waiting for results")
 				}
@@ -288,7 +288,7 @@ func newEtcdSource(namespaceEtcd *namespaceEtcd) Source {
 func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 	groups := make(map[string]map[string]struct{})
 	tq := newTaskQueue(ctx)
-	err := es.groupCol.ReadOnly(ctx).WatchF(func(e *watch.Event) error {
+	err := es.groupCol.ReadOnly(ctx).WatchF(ctx, func(e *watch.Event) error {
 		group, uuid := path.Split(string(e.Key))
 		group = strings.TrimRight(group, "/")
 		groupMap, ok := groups[group]
@@ -327,12 +327,12 @@ func (es *etcdSource) Iterate(ctx context.Context, cb ProcessFunc) error {
 }
 
 func (es *etcdSource) forEachTask(ctx context.Context, group string, cb func(string) error) error {
-	claimWatch, err := es.claimCol.ReadOnly(ctx).WatchOne(group, watch.IgnorePut)
+	claimWatch, err := es.claimCol.ReadOnly(ctx).WatchOne(ctx, group, watch.IgnorePut)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	defer claimWatch.Close()
-	taskWatch, err := es.taskCol.ReadOnly(ctx).WatchOne(group, watch.IgnoreDelete)
+	taskWatch, err := es.taskCol.ReadOnly(ctx).WatchOne(ctx, group, watch.IgnoreDelete)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

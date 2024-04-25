@@ -126,12 +126,12 @@ type ReadOnlyCollection interface {
 	GetByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
 	List(ctx context.Context, val proto.Message, opts *Options, f func(string) error) error
 	Count(ctx context.Context) (int64, error)
-	Watch(opts ...watch.Option) (watch.Watcher, error)
-	WatchF(f func(*watch.Event) error, opts ...watch.Option) error
-	WatchOne(key interface{}, opts ...watch.Option) (watch.Watcher, error)
-	WatchOneF(key interface{}, f func(*watch.Event) error, opts ...watch.Option) error
-	WatchByIndex(index *Index, val string, opts ...watch.Option) (watch.Watcher, error)
-	WatchByIndexF(index *Index, val string, f func(*watch.Event) error, opts ...watch.Option) error
+	Watch(ctx context.Context, opts ...watch.Option) (watch.Watcher, error)
+	WatchF(ctx context.Context, f func(*watch.Event) error, opts ...watch.Option) error
+	WatchOne(ctx context.Context, key interface{}, opts ...watch.Option) (watch.Watcher, error)
+	WatchOneF(ctx context.Context, key interface{}, f func(*watch.Event) error, opts ...watch.Option) error
+	WatchByIndex(ctx context.Context, index *Index, val string, opts ...watch.Option) (watch.Watcher, error)
+	WatchByIndexF(ctx context.Context, index *Index, val string, f func(*watch.Event) error, opts ...watch.Option) error
 }
 
 type PostgresReadOnlyCollection interface {
