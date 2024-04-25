@@ -103,108 +103,20 @@ class BaseHandler(APIHandler):
         return pps_client
 
 
-class MountsHandler(BaseHandler):
+class ReposHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
         try:
-            mounts = self.pfs_manager.list_mounts()
+            mounts = self.pfs_manager.list_repos()
             response = json.dumps(mounts)
-            get_logger().debug(f"Mounts: {response}")
+            get_logger().debug(f"Repos: {response}")
             self.finish(response)
         except Exception as e:
-            get_logger().error("Error listing mounts.", exc_info=True)
+            get_logger().error("Error listing repos.", exc_info=True)
             raise tornado.web.HTTPError(
                 status_code=getattr(e, "code", 500),
                 reason=f"Error listing mounts: {e}.",
             )
-
-
-class ProjectsHandler(BaseHandler):
-    @tornado.web.authenticated
-    async def get(self):
-        try:
-            projects = self.client.pfs.list_project()
-            response = json.dumps([p.to_dict() for p in projects])
-            get_logger().debug(f"Projects: {response}")
-            self.finish(response)
-        except Exception as e:
-            get_logger().error("Error listing projects.", exc_info=True)
-            raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500),
-                reason=f"Error listing projects: {e}.",
-            )
-
-
-class MountHandler(BaseHandler):
-    @tornado.web.authenticated
-    async def put(self):
-        try:
-            body = self.get_json_body()
-            for m in body["mounts"]:
-                repo = m["repo"]
-                branch = m["branch"]
-                project = m["project"] if "project" in m else "default"
-                name = m["name"] if "name" in m else None
-                self.pfs_manager.mount_repo(
-                    repo=repo, branch=branch, project=project, name=name
-                )
-            response = self.pfs_manager.list_mounts()
-            get_logger().debug(f"Mount: {response}")
-            self.finish(response)
-        except ValueError as e:
-            get_logger().debug(f"Bad mount request {body}: {e}")
-            raise tornado.web.HTTPError(
-                status_code=400, reason=f"Bad mount request: {e}"
-            )
-        except Exception as e:
-            get_logger().error(f"Error mounting {body}.", exc_info=True)
-            raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500),
-                reason=f"Error mounting {body}: {e}.",
-            )
-
-
-class UnmountHandler(BaseHandler):
-    @tornado.web.authenticated
-    async def put(self):
-        try:
-            body = self.get_json_body()
-            for name in body["mounts"]:
-                self.pfs_manager.unmount_repo(name=name)
-            response = self.pfs_manager.list_mounts()
-            get_logger().debug(f"Unmount: {response}")
-            self.finish(response)
-        except ValueError as e:
-            get_logger().debug(f"Bad unmount request {body}: {e}")
-            raise tornado.web.HTTPError(
-                status_code=400, reason=f"Bad unmount request: {e}"
-            )
-        except Exception as e:
-            get_logger().error(f"Error unmounting {body}.", exc_info=True)
-            raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500),
-                reason=f"Error unmounting {body}: {e}.",
-            )
-
-
-# only used in tests now
-class UnmountAllHandler(BaseHandler):
-    """Unmounts all repos"""
-
-    @tornado.web.authenticated
-    async def put(self):
-        try:
-            self.pfs_manager.unmount_all()
-            response = self.pfs_manager.list_mounts()
-            get_logger().debug(f"Unmount all: {response}")
-            self.finish(response)
-        except Exception as e:
-            get_logger().error("Error unmounting all.", exc_info=True)
-            raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500),
-                reason=f"Error unmounting all: {e}.",
-            )
-
 
 class MountDatumsHandler(BaseHandler):
     @tornado.web.authenticated
@@ -311,36 +223,49 @@ class PFSHandler(ContentsHandler):
         Serves files rooted at PFS_MOUNT_DIR instead of the default content manager's root_dir
         The reason for this is that we want the ability to serve the browser files rooted outside of the default root_dir without overriding it.
         """
-        path = path or ""
-        type = self.get_query_argument("type", default=None)
-        if type not in {None, "directory", "file", "notebook"}:
-            raise tornado.web.HTTPError(400, "Type %r is invalid" % type)
-        format = self.get_query_argument("format", default=None)
-        if format not in {None, "text", "base64"}:
-            raise tornado.web.HTTPError(400, "Format %r is invalid" % format)
-        content = self.get_query_argument("content", default="1")
-        if content not in {"0", "1"}:
-            raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
-        content = bool(int(content))
-        pagination_marker = None
-        pagination_marker_uri = self.get_query_argument(
-            "pagination_marker", default=None
-        )
-        if pagination_marker_uri:
-            pagination_marker = pfs.File.from_uri(pagination_marker_uri)
-        number = int(self.get_query_argument("number", default="100"))
+        try:
+            path = path or ""
+            type = self.get_query_argument("type", default=None)
+            if type not in {None, "directory", "file", "notebook"}:
+                raise tornado.web.HTTPError(400, "Type %r is invalid" % type)
+            format = self.get_query_argument("format", default=None)
+            if format not in {None, "text", "base64"}:
+                raise tornado.web.HTTPError(400, "Format %r is invalid" % format)
+            content = self.get_query_argument("content", default="1")
+            if content not in {"0", "1"}:
+                raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
+            content = bool(int(content))
+            pagination_marker = None
+            pagination_marker_uri = self.get_query_argument(
+                "pagination_marker", default=None
+            )
+            if pagination_marker_uri:
+                pagination_marker = pfs.File.from_uri(pagination_marker_uri)
+            number = int(self.get_query_argument("number", default="100"))
+            branch_uri = self.get_query_argument(
+                "branch_uri", default=None
+            )
+            branch: pfs.Branch = None
+            if branch_uri:
+                branch = pfs.Branch.from_uri(branch_uri)
+                if not self.pfs_manager.branch_exists(branch=branch):
+                    raise ValueError("branch_uri does not exist")
 
-        model = self.pfs_manager.get(
-            path=path,
-            type=type,
-            format=format,
-            content=content,
-            pagination_marker=pagination_marker,
-            number=number,
-        )
-        validate_model(model, expect_content=content)
-        self._finish_model(model, location=False)
-
+            model = self.pfs_manager.get(
+                path=path,
+                branch=branch,
+                type=type,
+                format=format,
+                content=content,
+                pagination_marker=pagination_marker,
+                number=number,
+            )
+            validate_model(model, expect_content=content)
+            self._finish_model(model, location=False)
+        except ValueError as e:
+            raise tornado.web.HTTPError(status_code=400, reason=repr(e))
+        except Exception as e:
+            raise tornado.web.HTTPError(status_code=500, reason=repr(e))
 
 class ViewDatumHandler(ContentsHandler):
     @property
@@ -572,16 +497,26 @@ class ExploreDownloadHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self, path):
         try:
-            self.pfs_manager.download_file(path=path)
+            branch_uri = self.get_query_argument(
+                "branch_uri", default=None
+            )
+            branch: pfs.Branch = None
+            if not branch_uri:
+                raise ValueError("branch_uri must be defined to download")
+            if branch_uri:
+                branch = pfs.Branch.from_uri(branch_uri)
+                if not self.pfs_manager.branch_exists(branch=branch):
+                    raise ValueError("branch_uri does not exist")
+            self.pfs_manager.download_file(path=path, branch=branch)
         except FileExistsError:
             raise tornado.web.HTTPError(
                 status_code=400,
                 reason=f"Downloading {Path(path).name} which already exists in the current working directory",
             )
         except ValueError as e:
-            raise tornado.web.HTTPError(status_code=400, reason=e)
+            raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:
-            raise tornado.web.HTTPError(status_code=500, reason=e)
+            raise tornado.web.HTTPError(status_code=500, reason=repr(e))
         await self.finish()
 
 
@@ -596,9 +531,9 @@ class TestDownloadHandler(BaseHandler):
                 reason=f"Downloading {Path(path).name} which already exists in the current working directory",
             )
         except ValueError as e:
-            raise tornado.web.HTTPError(status_code=400, reason=e)
+            raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:
-            raise tornado.web.HTTPError(status_code=500, reason=e)
+            raise tornado.web.HTTPError(status_code=500, reason=repr(e))
         await self.finish()
 
 
@@ -694,11 +629,7 @@ def setup_handlers(
     web_app.settings["pachyderm_config_file"] = config_file
 
     _handlers = [
-        ("/mounts", MountsHandler),
-        ("/projects", ProjectsHandler),
-        ("/_mount", MountHandler),
-        ("/_unmount", UnmountHandler),
-        ("/_unmount_all", UnmountAllHandler),
+        ("/repos", ReposHandler),
         ("/datums/_mount", MountDatumsHandler),
         ("/datums/_next", DatumNextHandler),
         ("/datums/_prev", DatumPrevHandler),

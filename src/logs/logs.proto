@@ -59,6 +59,8 @@ message UserLogQuery {
     string job = 4;
     // One job in one pipeline
     PipelineJobLogQuery pipeline_job = 5;
+    // One datum in one job
+    JobDatumLogQuery job_datum = 6;
   }
 }
 
@@ -70,6 +72,11 @@ message PipelineLogQuery {
 message PipelineJobLogQuery {
   PipelineLogQuery pipeline = 1;
   string job = 2;
+}
+
+message JobDatumLogQuery {
+  string job = 1;
+  string datum = 2;
 }
 
 message LogFilter {

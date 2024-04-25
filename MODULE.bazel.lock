@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "568e7d43327241e219ccefaacdff563d031352e4fce2985bb8bf79bf1869ab3c",
+  "moduleFileHash": "5f0940b8166f8e621c9d974e340fba24aa0dd158e21e3d1758e51327c14e6c90",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -79,6 +79,7 @@
           "imports": {
             "com_github_adrg_xdg": "com_github_adrg_xdg",
             "com_github_alecthomas_jsonschema": "com_github_alecthomas_jsonschema",
+            "com_github_alecthomas_participle_v2": "com_github_alecthomas_participle_v2",
             "com_github_alessio_shellescape": "com_github_alessio_shellescape",
             "com_github_aws_aws_lambda_go": "com_github_aws_aws_lambda_go",
             "com_github_aws_aws_sdk_go": "com_github_aws_aws_sdk_go",
@@ -524,7 +525,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 288,
+            "line": 289,
             "column": 32
           },
           "imports": {
@@ -607,7 +608,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 362,
+            "line": 363,
             "column": 20
           },
           "imports": {
@@ -632,7 +633,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 365,
+                "line": 366,
                 "column": 9
               }
             },
@@ -650,7 +651,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 376,
+                "line": 377,
                 "column": 9
               }
             },
@@ -664,7 +665,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 387,
+                "line": 388,
                 "column": 9
               }
             },
@@ -678,7 +679,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 392,
+                "line": 393,
                 "column": 9
               }
             }
@@ -692,7 +693,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 400,
+            "line": 401,
             "column": 23
           },
           "imports": {},
@@ -706,7 +707,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 401,
+                "line": 402,
                 "column": 17
               }
             }
@@ -720,7 +721,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 406,
+            "line": 407,
             "column": 20
           },
           "imports": {
@@ -739,7 +740,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 407,
+                "line": 408,
                 "column": 10
               }
             },
@@ -755,7 +756,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 412,
+                "line": 413,
                 "column": 10
               }
             }
@@ -3829,6 +3830,31 @@
         ]
       }
     },
+    "@@buildozer~//:buildozer_binary.bzl%buildozer_binary": {
+      "general": {
+        "bzlTransitiveDigest": "EleDU/FQ1+e/RgkW3aIDmdaxZEthvoWQhsqFTxiSgMI=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "buildozer_binary": {
+            "bzlFile": "@@buildozer~//private:buildozer_binary.bzl",
+            "ruleClassName": "_buildozer_binary_repo",
+            "attributes": {
+              "sha256": {
+                "darwin-amd64": "d29e347ecd6b5673d72cb1a8de05bf1b06178dd229ff5eb67fad5100c840cc8e",
+                "darwin-arm64": "9b9e71bdbec5e7223871e913b65d12f6d8fa026684daf991f00e52ed36a6978d",
+                "linux-amd64": "8dfd6345da4e9042daa738d7fdf34f699c5dfce4632f7207956fceedd8494119",
+                "linux-arm64": "6559558fded658c8fa7432a9d011f7c4dcbac6b738feae73d2d5c352e5f605fa",
+                "windows-amd64": "e7f05bf847f7c3689dd28926460ce6e1097ae97380ac8e6ae7147b7b706ba19b"
+              },
+              "version": "6.4.0"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
     "@@container_structure_test~//:repositories.bzl%extension": {
       "general": {
         "bzlTransitiveDigest": "/vl5vOyGN/nxHtUF3SxoDZnTDgDklt4HUpLQD5LE8+k=",
@@ -3901,11 +3927,11 @@
       "general": {
         "bzlTransitiveDigest": "D1+rhhbwX4ufoTmeUVxDpPg+Sknv3QzVXZnyK2zOjj4=",
         "recordedFileInputs": {
-          "@@//go.mod": "1b0eec7d9fb69542885759723e31b2c1780cf2ca45e9809de0c002ac53197acf",
+          "@@//go.mod": "f2e4c2ef5d8557509a07ada747c33cb10297f5c5b9fb8c58a090e7a6a6b02362",
           "@@rules_go~//go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
           "@@gazelle~//go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@jsonnet_go~//go.mod": "35238699c0cd09f5e79619863a0014f01129615f811c8a30239b80e8e3a58145",
-          "@@//go.sum": "9f761a5807987fdac8160efba2d756ec735570e20a31f55b18e84198f0c3acd5",
+          "@@//go.sum": "6f473374cc4e7b9e5fb643e2af3c3746e22f3411de6dee13ed656c571492656a",
           "@@rules_go~//go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
           "@@gazelle~//go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@jsonnet_go~//go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4"
@@ -6812,6 +6838,7 @@
                 "com_github_azure_azure_sdk_for_go": "github.com/Azure/azure-sdk-for-go",
                 "com_github_data_dog_go_sqlmock": "github.com/DATA-DOG/go-sqlmock",
                 "com_github_adrg_xdg": "github.com/adrg/xdg",
+                "com_github_alecthomas_participle_v2": "github.com/alecthomas/participle/v2",
                 "com_github_aws_aws_lambda_go": "github.com/aws/aws-lambda-go",
                 "com_github_aws_aws_sdk_go": "github.com/aws/aws-sdk-go",
                 "@rules_go~": "github.com/bazelbuild/rules_go",
@@ -8876,6 +8903,21 @@
               "version": "v1.4.0"
             }
           },
+          "com_github_alecthomas_participle_v2": {
+            "bzlFile": "@@gazelle~//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/alecthomas/participle/v2",
+              "build_directives": [],
+              "build_file_generation": "auto",
+              "build_extra_args": [],
+              "patches": [],
+              "patch_args": [],
+              "sum": "h1:hrjKESvSqGHzRb4yW1ciisFJ4p3MGYih6icjJvbsmV8=",
+              "replace": "",
+              "version": "v2.1.1"
+            }
+          },
           "com_github_fatih_camelcase": {
             "bzlFile": "@@gazelle~//internal:go_repository.bzl",
             "ruleClassName": "go_repository",
@@ -9897,6 +9939,7 @@
             "com_github_azure_azure_sdk_for_go",
             "com_github_data_dog_go_sqlmock",
             "com_github_adrg_xdg",
+            "com_github_alecthomas_participle_v2",
             "com_github_aws_aws_lambda_go",
             "com_github_aws_aws_sdk_go",
             "com_github_c_bata_go_prompt",

@@ -42,6 +42,7 @@ func TestGoogle(t *testing.T) {
 		"deployTarget": expectedStorageBackend,
 		`pachd.serviceAccount.additionalAnnotations.iam\.gke\.io/gcp-service-account`:        expectedServiceAccount,
 		`pachd.worker.serviceAccount.additionalAnnotations.iam\.gke\.io/gcp-service-account`: expectedServiceAccount,
+		"pachd.storage.storageURL": "gs://fake-bucket",
 	}
 	for _, tc := range testCases {
 		helmValues[tc.helmKey] = tc.value

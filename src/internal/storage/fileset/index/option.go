@@ -24,6 +24,12 @@ func WithDatum(datum string) Option {
 	}
 }
 
+func WithPeek() Option {
+	return func(r *Reader) {
+		r.peek = true
+	}
+}
+
 // WithShardConfig sets the sharding configuration.
 func WithShardConfig(config *ShardConfig) Option {
 	return func(r *Reader) {

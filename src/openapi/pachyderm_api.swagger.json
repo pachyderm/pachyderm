@@ -8055,6 +8055,17 @@
         }
       }
     },
+    "logsJobDatumLogQuery": {
+      "type": "object",
+      "properties": {
+        "job": {
+          "type": "string"
+        },
+        "datum": {
+          "type": "string"
+        }
+      }
+    },
     "logsLogFilter": {
       "type": "object",
       "properties": {
@@ -8208,6 +8219,10 @@
         "pipelineJob": {
           "$ref": "#/definitions/logsPipelineJobLogQuery",
           "title": "One job in one pipeline"
+        },
+        "jobDatum": {
+          "$ref": "#/definitions/logsJobDatumLogQuery",
+          "title": "One datum in one job"
         }
       },
       "title": "Only returns \"user\" logs"
