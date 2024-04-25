@@ -136,8 +136,8 @@ func (c *postgresCollection) indexWatchChannel(field string, value string) strin
 	return c.tableWatchChannel() + "_" + fmt.Sprintf("%x", md5.Sum([]byte(data)))
 }
 
-func (c *postgresCollection) ReadOnly(ctx context.Context) PostgresReadOnlyCollection {
-	return &postgresReadOnlyCollection{c, ctx}
+func (c *postgresCollection) ReadOnly() PostgresReadOnlyCollection {
+	return &postgresReadOnlyCollection{c}
 }
 
 func (c *postgresCollection) ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollection {
@@ -185,7 +185,6 @@ func (c *postgresCollection) mapSQLError(err error, key string) error {
 
 type postgresReadOnlyCollection struct {
 	*postgresCollection
-	ctx context.Context
 }
 
 func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.QueryerContext) (*model, error) {
@@ -209,11 +208,11 @@ func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.Queryer
 	return result, nil
 }
 
-func (c *postgresReadOnlyCollection) Get(key interface{}, val proto.Message) error {
+func (c *postgresReadOnlyCollection) Get(ctx context.Context, key interface{}, val proto.Message) error {
 	var result *model
 	var err error
 	err = c.withKey(key, func(rawKey string) error {
-		result, err = c.get(c.ctx, rawKey, c.db)
+		result, err = c.get(ctx, rawKey, c.db)
 		return err
 	})
 	if err != nil {
@@ -261,14 +260,14 @@ func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, 
 
 // NOTE: Internally, GetByIndex scans the collection over multiple transactions,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
-	return c.getByIndex(c.ctx, c.db, index, indexVal, val, opts, f)
+func (c *postgresReadOnlyCollection) GetByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+	return c.getByIndex(ctx, c.db, index, indexVal, val, opts, f)
 }
 
 // NOTE: Internally, GetByIndex scans the collection using multiple queries,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadWriteCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
-	return c.getByIndex(context.Background(), c.tx, index, indexVal, val, opts, f)
+func (c *postgresReadWriteCollection) GetByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+	return c.getByIndex(ctx, c.tx, index, indexVal, val, opts, f)
 }
 
 func (c *postgresCollection) getUniqueByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message) error {
@@ -288,12 +287,12 @@ func (c *postgresCollection) getUniqueByIndex(ctx context.Context, q sqlx.ExtCon
 	return nil
 }
 
-func (c *postgresReadOnlyCollection) GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error {
-	return c.getUniqueByIndex(c.ctx, c.db, index, indexVal, val)
+func (c *postgresReadOnlyCollection) GetUniqueByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message) error {
+	return c.getUniqueByIndex(ctx, c.db, index, indexVal, val)
 }
 
-func (c *postgresReadWriteCollection) GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error {
-	return c.getUniqueByIndex(context.Background(), c.tx, index, indexVal, val)
+func (c *postgresReadWriteCollection) GetUniqueByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message) error {
+	return c.getUniqueByIndex(ctx, c.tx, index, indexVal, val)
 }
 
 func orderToSQL(order etcd.SortOrder) (string, error) {
@@ -338,7 +337,7 @@ func sortOrderOperator(order SortOrder) string {
 	return ">"
 }
 
-func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[string]string, opts *Options, last *model, offset int) (string, []interface{}, error) {
+func (c *postgresCollection) listQueryStr(withFields map[string]string, opts *Options, last *model, offset int) (string, []interface{}, error) {
 	query := fmt.Sprintf("select key, createdat, updatedat, proto from collections.%s", c.table)
 
 	var args []interface{}
@@ -421,7 +420,7 @@ func (c *postgresCollection) list(
 	// (2) apply f(), the client's callback, to results in the buffer
 	// (3) if the buffer was full, re-execute the query, offset by key, and repeat (1)
 	bufferResults := func(last *model, offset int) ([]*model, bool, error) {
-		query, args, err := c.listQueryStr(ctx, withFields, opts, last, offset)
+		query, args, err := c.listQueryStr(withFields, opts, last, offset)
 		if err != nil {
 			return nil, false, err
 		}
@@ -477,14 +476,14 @@ func (c *postgresCollection) list(
 	return nil
 }
 
-func (c *postgresReadOnlyCollection) list(withFields map[string]string, opts *Options, f func(*model) error) error {
-	return c.postgresCollection.list(c.ctx, withFields, opts, c.db, f)
+func (c *postgresReadOnlyCollection) list(ctx context.Context, withFields map[string]string, opts *Options, f func(*model) error) error {
+	return c.postgresCollection.list(ctx, withFields, opts, c.db, f)
 }
 
 // NOTE: Internally, List scans the collection over multiple transactions,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
-	return c.list(nil, opts, func(m *model) error {
+func (c *postgresReadOnlyCollection) List(ctx context.Context, val proto.Message, opts *Options, f func(string) error) error {
+	return c.list(ctx, nil, opts, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -494,8 +493,8 @@ func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f fu
 
 // NOTE: Internally, List scans the collection using multiple queries,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadWriteCollection) List(val proto.Message, opts *Options, f func(string) error) error {
-	ctx, cf := pctx.WithCancel(context.Background())
+func (c *postgresReadWriteCollection) List(ctx context.Context, val proto.Message, opts *Options, f func(string) error) error {
+	ctx, cf := pctx.WithCancel(ctx)
 	defer cf()
 	return c.postgresCollection.list(ctx, nil, opts, c.tx, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
@@ -505,9 +504,9 @@ func (c *postgresReadWriteCollection) List(val proto.Message, opts *Options, f f
 	})
 }
 
-func (c *postgresReadOnlyCollection) Count() (int64, error) {
+func (c *postgresReadOnlyCollection) Count(ctx context.Context) (int64, error) {
 	query := fmt.Sprintf("select count(*) from collections.%s", c.table)
-	row := c.db.QueryRowContext(c.ctx, query)
+	row := c.db.QueryRowContext(ctx, query)
 
 	var result int64
 	err := row.Scan(&result)
@@ -516,7 +515,7 @@ func (c *postgresReadOnlyCollection) Count() (int64, error) {
 
 // This blocking function sends watch events to the client. It first sends a list of the existing elements
 // in the collection, followed by new events.
-func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, options watch.WatchOptions, withFields map[string]string) {
+func (c *postgresReadOnlyCollection) watchRoutine(ctx context.Context, watcher *postgresWatcher, options watch.WatchOptions, withFields map[string]string) {
 	// Do a list of the collection to get the initial state
 	val := cloneProtoMsg(c.template)
 
@@ -531,7 +530,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 	// Since list is not a snapshot of the DB, we break out early and hand-off
 	// event emition to the watcher if we encounter a listed record that is
 	// in the future of a buffered event
-	if err := c.list(withFields, &Options{Target: options.SortTarget, Order: etcd.SortAscend}, func(m *model) error {
+	if err := c.list(ctx, withFields, &Options{Target: options.SortTarget, Order: etcd.SortAscend}, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -548,7 +547,7 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 			return errutil.ErrBreak
 		}
 
-		return watcher.sendInitial(c.ctx, &watch.Event{
+		return watcher.sendInitial(ctx, &watch.Event{
 			Key:      []byte(m.Key),
 			Value:    m.Proto,
 			Type:     watch.EventPut,
@@ -557,26 +556,26 @@ func (c *postgresReadOnlyCollection) watchRoutine(watcher *postgresWatcher, opti
 		})
 	}); err != nil && !errors.Is(err, errutil.ErrBreak) {
 		// use a background context in case we failed with context cancelled
-		watcher.sendInitial(context.Background(), &watch.Event{Type: watch.EventError, Err: err}) //nolint:errcheck // already sending the error from c.list()
-		watcher.listener.Unregister(watcher)                                                      //nolint:errcheck
+		watcher.sendInitial(pctx.Background("watchRoutine.err"), &watch.Event{Type: watch.EventError, Err: err}) //nolint:errcheck // already sending the error from c.list()
+		watcher.listener.Unregister(watcher)                                                                     //nolint:errcheck
 		return
 	}
 
 	if bufEvent != nil {
-		if err := watcher.sendInitial(c.ctx, bufEvent.WatchEvent(c.ctx, watcher.db, watcher.template)); err != nil {
-			watcher.sendInitial(context.Background(), &watch.Event{Type: watch.EventError, Err: err}) //nolint:errcheck
-			watcher.listener.Unregister(watcher)                                                      //nolint:errcheck
+		if err := watcher.sendInitial(ctx, bufEvent.WatchEvent(ctx, watcher.db, watcher.template)); err != nil {
+			watcher.sendInitial(ctx, &watch.Event{Type: watch.EventError, Err: err}) //nolint:errcheck
+			watcher.listener.Unregister(watcher)                                     //nolint:errcheck
 			return
 		}
 	}
 
 	// Forward all buffered notifications until the watcher is closed
-	watcher.forwardNotifications(c.ctx)
+	watcher.forwardNotifications(ctx)
 }
 
 // NOTE: Internally, Watch scans the collection's initial state over multiple transactions,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher, error) {
+func (c *postgresReadOnlyCollection) Watch(ctx context.Context, opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
 	if options.SortOrder == SortDescend {
@@ -588,33 +587,33 @@ func (c *postgresReadOnlyCollection) Watch(opts ...watch.Option) (watch.Watcher,
 		return nil, err
 	}
 
-	go c.watchRoutine(watcher, options, nil)
+	go c.watchRoutine(ctx, watcher, options, nil)
 
 	return watcher, nil
 }
 
 // NOTE: Internally, WatchF scans the collection's initial state over multiple transactions,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadOnlyCollection) WatchF(f func(*watch.Event) error, opts ...watch.Option) error {
-	watcher, err := c.Watch(opts...)
+func (c *postgresReadOnlyCollection) WatchF(ctx context.Context, f func(*watch.Event) error, opts ...watch.Option) error {
+	watcher, err := c.Watch(ctx, opts...)
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
-	return watchF(c.ctx, watcher, f)
+	return watchF(ctx, watcher, f)
 }
 
-func (c *postgresReadOnlyCollection) WatchOne(key interface{}, opts ...watch.Option) (watch.Watcher, error) {
+func (c *postgresReadOnlyCollection) WatchOne(ctx context.Context, key interface{}, opts ...watch.Option) (watch.Watcher, error) {
 	var watcher watch.Watcher
 	var err error
 	err = c.withKey(key, func(rawKey string) error {
-		watcher, err = c.watchOne(rawKey, opts...)
+		watcher, err = c.watchOne(ctx, rawKey, opts...)
 		return err
 	})
 	return watcher, err
 }
 
-func (c *postgresReadOnlyCollection) watchOne(key string, opts ...watch.Option) (watch.Watcher, error) {
+func (c *postgresReadOnlyCollection) watchOne(ctx context.Context, key string, opts ...watch.Option) (watch.Watcher, error) {
 	options := watch.SumOptions(opts...)
 
 	watcher, err := newPostgresWatcher(c.db, c.listener, c.indexWatchChannel("key", key), c.template, nil, nil, options)
@@ -623,23 +622,23 @@ func (c *postgresReadOnlyCollection) watchOne(key string, opts ...watch.Option) 
 	}
 
 	withFields := map[string]string{"key": key}
-	go c.watchRoutine(watcher, options, withFields)
+	go c.watchRoutine(ctx, watcher, options, withFields)
 
 	return watcher, nil
 }
 
-func (c *postgresReadOnlyCollection) WatchOneF(key interface{}, f func(*watch.Event) error, opts ...watch.Option) error {
-	watcher, err := c.WatchOne(key, opts...)
+func (c *postgresReadOnlyCollection) WatchOneF(ctx context.Context, key interface{}, f func(*watch.Event) error, opts ...watch.Option) error {
+	watcher, err := c.WatchOne(ctx, key, opts...)
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
-	return watchF(c.ctx, watcher, f)
+	return watchF(ctx, watcher, f)
 }
 
 // NOTE: Internally, WatchByIndex scans the collection's initial state over multiple transactions,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string, opts ...watch.Option) (watch.Watcher, error) {
+func (c *postgresReadOnlyCollection) WatchByIndex(ctx context.Context, index *Index, indexVal string, opts ...watch.Option) (watch.Watcher, error) {
 	if err := c.validateIndex(index); err != nil {
 		return nil, err
 	}
@@ -657,20 +656,20 @@ func (c *postgresReadOnlyCollection) WatchByIndex(index *Index, indexVal string,
 	}
 
 	withFields := map[string]string{indexFieldName(index): indexVal}
-	go c.watchRoutine(watcher, options, withFields)
+	go c.watchRoutine(ctx, watcher, options, withFields)
 
 	return watcher, nil
 }
 
 // NOTE: Internally, WatchByIndexF scans the collection's initial state over multiple transactions,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadOnlyCollection) WatchByIndexF(index *Index, indexVal string, f func(*watch.Event) error, opts ...watch.Option) error {
-	watcher, err := c.WatchByIndex(index, indexVal, opts...)
+func (c *postgresReadOnlyCollection) WatchByIndexF(ctx context.Context, index *Index, indexVal string, f func(*watch.Event) error, opts ...watch.Option) error {
+	watcher, err := c.WatchByIndex(ctx, index, indexVal, opts...)
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
-	return watchF(c.ctx, watcher, f)
+	return watchF(ctx, watcher, f)
 }
 
 type postgresReadWriteCollection struct {
@@ -678,11 +677,11 @@ type postgresReadWriteCollection struct {
 	tx *pachsql.Tx
 }
 
-func (c *postgresReadWriteCollection) Get(key interface{}, val proto.Message) error {
+func (c *postgresReadWriteCollection) Get(ctx context.Context, key interface{}, val proto.Message) error {
 	var result *model
 	var err error
 	err = c.withKey(key, func(rawKey string) error {
-		result, err = c.get(context.Background(), rawKey, c.tx)
+		result, err = c.get(ctx, rawKey, c.tx)
 		return err
 	})
 	if err != nil {
@@ -691,9 +690,9 @@ func (c *postgresReadWriteCollection) Get(key interface{}, val proto.Message) er
 	return errors.EnsureStack(proto.Unmarshal(result.Proto, val))
 }
 
-func (c *postgresReadWriteCollection) Put(key interface{}, val proto.Message) error {
+func (c *postgresReadWriteCollection) Put(ctx context.Context, key interface{}, val proto.Message) error {
 	return c.withKey(key, func(rawKey string) error {
-		return c.insert(rawKey, val, true)
+		return c.insert(ctx, rawKey, val, true)
 	})
 }
 
@@ -716,8 +715,8 @@ func (c *postgresReadWriteCollection) getWriteParams(key string, val proto.Messa
 	return params, nil
 }
 
-func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message, f func() error) error {
-	if err := c.Get(key, val); err != nil {
+func (c *postgresReadWriteCollection) Update(ctx context.Context, key interface{}, val proto.Message, f func() error) error {
+	if err := c.Get(ctx, key, val); err != nil {
 		return err
 	}
 	if err := f(); err != nil {
@@ -737,12 +736,12 @@ func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message,
 
 		query := fmt.Sprintf("update collections.%s set %s where key = :key", c.table, strings.Join(updateFields, ", "))
 
-		_, err = c.tx.NamedExec(query, params)
+		_, err = c.tx.NamedExecContext(ctx, query, params)
 		return c.mapSQLError(err, rawKey)
 	})
 }
 
-func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upsert bool) error {
+func (c *postgresReadWriteCollection) insert(ctx context.Context, key string, val proto.Message, upsert bool) error {
 	if c.keyCheck != nil {
 		if err := c.keyCheck(key); err != nil {
 			return errors.Wrap(err, "bad key")
@@ -774,7 +773,7 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 		query += " on conflict do nothing"
 	}
 
-	result, err := c.tx.Exec(query, params...)
+	result, err := c.tx.ExecContext(ctx, query, params...)
 	if err != nil {
 		return c.mapSQLError(err, key)
 	}
@@ -796,31 +795,31 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 	return nil
 }
 
-func (c *postgresReadWriteCollection) Upsert(key interface{}, val proto.Message, f func() error) error {
-	if err := c.Get(key, val); err != nil && !IsErrNotFound(err) {
+func (c *postgresReadWriteCollection) Upsert(ctx context.Context, key interface{}, val proto.Message, f func() error) error {
+	if err := c.Get(ctx, key, val); err != nil && !IsErrNotFound(err) {
 		return err
 	}
 	if err := f(); err != nil {
 		return err
 	}
-	return c.Put(key, val)
+	return c.Put(ctx, key, val)
 }
 
-func (c *postgresReadWriteCollection) Create(key interface{}, val proto.Message) error {
+func (c *postgresReadWriteCollection) Create(ctx context.Context, key interface{}, val proto.Message) error {
 	return c.withKey(key, func(rawKey string) error {
-		return c.insert(rawKey, val, false)
+		return c.insert(ctx, rawKey, val, false)
 	})
 }
 
-func (c *postgresReadWriteCollection) Delete(key interface{}) error {
+func (c *postgresReadWriteCollection) Delete(ctx context.Context, key interface{}) error {
 	return c.withKey(key, func(rawKey string) error {
-		return c.delete(rawKey)
+		return c.delete(ctx, rawKey)
 	})
 }
 
-func (c *postgresReadWriteCollection) delete(key string) error {
+func (c *postgresReadWriteCollection) delete(ctx context.Context, key string) error {
 	query := fmt.Sprintf("delete from collections.%s where key = $1", c.table)
-	res, err := c.tx.Exec(query, key)
+	res, err := c.tx.ExecContext(ctx, query, key)
 	if err != nil {
 		return c.mapSQLError(err, key)
 	}
@@ -833,17 +832,17 @@ func (c *postgresReadWriteCollection) delete(key string) error {
 	return nil
 }
 
-func (c *postgresReadWriteCollection) DeleteAll() error {
+func (c *postgresReadWriteCollection) DeleteAll(ctx context.Context) error {
 	query := fmt.Sprintf("delete from collections.%s", c.table)
-	_, err := c.tx.Exec(query)
+	_, err := c.tx.ExecContext(ctx, query)
 	return c.mapSQLError(err, "")
 }
 
-func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal string) error {
+func (c *postgresReadWriteCollection) DeleteByIndex(ctx context.Context, index *Index, indexVal string) error {
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
 	query := fmt.Sprintf("delete from collections.%s where %s = $1", c.table, indexFieldName(index))
-	_, err := c.tx.Exec(query, indexVal)
+	_, err := c.tx.ExecContext(ctx, query, indexVal)
 	return c.mapSQLError(err, "")
 }

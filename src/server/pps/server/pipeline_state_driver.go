@@ -110,7 +110,7 @@ func (sd *stateDriver) TransitionState(ctx context.Context, specCommit *pfs.Comm
 }
 
 func (sd *stateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
-	pipelineWatcher, err := sd.pipelines.ReadOnly(ctx).Watch()
+	pipelineWatcher, err := sd.pipelines.ReadOnly().Watch(ctx)
 	if err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
@@ -123,7 +123,8 @@ func (sd *stateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.Pipelin
 
 func (sd *stateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error) {
 	var pipelineInfo pps.PipelineInfo
-	if err := sd.pipelines.ReadOnly(ctx).GetUniqueByIndex(
+	if err := sd.pipelines.ReadOnly().GetUniqueByIndex(
+		ctx,
 		ppsdb.PipelinesVersionIndex,
 		ppsdb.VersionKey(pipeline, uint64(version)),
 		&pipelineInfo); err != nil {
@@ -158,7 +159,7 @@ func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline *pps
 	if err != nil {
 		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
 	}
-	if err := sd.pipelines.ReadOnly(ctx).Get(specCommit, message); err != nil {
+	if err := sd.pipelines.ReadOnly().Get(ctx, specCommit, message); err != nil {
 		return errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
 	return nil

@@ -31,6 +31,7 @@ go_test(
         "internal_test.go",
         "logs_test.go",
     ],
+    data = glob(["testdata/**"]),
     embed = [":logs"],
     deps = [
         "//src/internal/errors",
