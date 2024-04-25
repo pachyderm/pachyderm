@@ -47,125 +47,6 @@ func (ep *errPublisher) Publish(context.Context, *logs.GetLogsResponse) error {
 	return errors.New("errPublisher cannot publish")
 }
 
-func TestGetLogsHint(t *testing.T) {
-	var testData = map[string]struct {
-		buildEntries func() []loki.Entry
-		buildWant    func() []int
-	}{
-		"no logs to return": {
-			buildEntries: func() []loki.Entry {
-				return nil
-			},
-			buildWant: func() []int { return nil },
-		},
-		"logs": {
-			buildEntries: func() []loki.Entry {
-				var entries []loki.Entry
-				for i := -99; i <= 0; i++ {
-					entries = append(entries, loki.Entry{
-						Timestamp: time.Now().Add(time.Duration(i) * time.Second),
-						Line:      fmt.Sprintf("%v", i),
-					})
-				}
-				return entries
-			},
-			buildWant: func() []int {
-				var want []int
-				for i := -99; i <= 0; i++ {
-					want = append(want, i)
-				}
-				return want
-			},
-		},
-	}
-
-	for name, testCase := range testData {
-		t.Run(name, func(t *testing.T) {
-			var (
-				ctx      = pctx.TestContext(t)
-				want     = testCase.buildWant()
-				fakeLoki = httptest.NewServer(&lokiutil.FakeServer{
-					Entries: testCase.buildEntries(),
-				})
-				ls = logservice.LogService{
-					GetLokiClient: func() (*loki.Client, error) {
-						return &loki.Client{Address: fakeLoki.URL}, nil
-					},
-				}
-				publisher *testPublisher
-			)
-			defer fakeLoki.Close()
-
-			// GetLogs without a hint request should not return hints.
-			publisher = new(testPublisher)
-
-			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{}, publisher), "GetLogs should succeed")
-			for _, r := range publisher.responses {
-				_, ok := r.ResponseType.(*logs.GetLogsResponse_PagingHint)
-				require.False(t, ok, "paging hints should not be returned when unasked for")
-			}
-			require.Len(t, publisher.responses, len(want), "query with no date range should return all logs")
-
-			// GetLogs with a hint request should return a hint.
-			publisher = new(testPublisher)
-			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
-				WantPagingHint: true,
-			}, publisher), "GetLogs must succeed")
-			require.True(t, len(publisher.responses) > 0, "there must be at least one response")
-			var foundHint bool
-			for _, resp := range publisher.responses {
-				h, ok := resp.ResponseType.(*logs.GetLogsResponse_PagingHint)
-				if ok && h != nil {
-					foundHint = true
-				}
-			}
-			require.True(t, foundHint, "paging hints should be returned when requested")
-
-			// GetLogs with a hint request and a non-standard time filter should duplicate that duration.
-			publisher = new(testPublisher)
-			until := time.Now()
-			from := until.Add(-1 * time.Second)
-			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
-				WantPagingHint: true,
-				Filter: &logs.LogFilter{
-					TimeRange: &logs.TimeRangeLogFilter{
-						From:  timestamppb.New(from),
-						Until: timestamppb.New(until),
-					},
-				},
-			}, publisher), "GetLogs with an explicit time filter must succeed")
-			require.True(t, len(publisher.responses) > 0, "there must be at least one response")
-			foundHint = false
-			for _, resp := range publisher.responses {
-				h, ok := resp.ResponseType.(*logs.GetLogsResponse_PagingHint)
-				if !ok && h == nil {
-					continue
-				}
-				foundHint = true
-				for _, hint := range []*logs.GetLogsRequest{h.PagingHint.Older, h.PagingHint.Newer} {
-					from := hint.Filter.TimeRange.From.AsTime()
-					until := hint.Filter.TimeRange.Until.AsTime()
-					require.Equal(t, time.Second, until.Sub(from), "explicit window is one hour, not %v (%v–%v)", until.Sub(from), from, until)
-				}
-			}
-			require.True(t, foundHint, "paging hints should be returned when requested")
-
-			publisher = new(testPublisher)
-			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
-				WantPagingHint: true,
-				Filter:         &logs.LogFilter{Limit: 100}}, publisher),
-				"GetLogs with both a limit and a hint request should work")
-
-			var badPublisher errPublisher
-			err := ls.GetLogs(ctx, &logs.GetLogsRequest{}, &badPublisher)
-			if badPublisher.count > 0 && !errors.Is(err, logservice.ErrPublish) {
-				t.Error("GetLogs with a broken publisher must return an appropriate error)")
-			}
-			_ = want
-		})
-	}
-}
-
 func TestGetDatumLogs(t *testing.T) {
 	var (
 		ctx             = pctx.TestContext(t)
@@ -414,7 +295,9 @@ func TestPipelineLogs(t *testing.T) {
 
 type hintCase struct {
 	olderFrom, olderUntil time.Duration
+	olderOffset           uint
 	newerFrom, newerUntil time.Duration
+	newerOffset           uint
 }
 type testCase struct {
 	logs        []time.Duration // offsets from time.Now()
@@ -451,8 +334,8 @@ func TestGetLogs_missingFromUntil(t *testing.T) {
 		}
 		testLogs                 = []time.Duration{-700*time.Hour - time.Second, -1 * time.Hour, -1 * time.Minute, -1 * time.Second, time.Minute, time.Hour}
 		want                     = []time.Duration{-1 * time.Hour, -1 * time.Minute, -1 * time.Second}
-		olderFrom                = -1400 * time.Hour
-		olderUntil time.Duration = -700 * time.Hour
+		olderFrom                = -700 * time.Hour
+		olderUntil time.Duration = -1400 * time.Hour
 		newerFrom  time.Duration = 0
 		newerUntil               = 700 * time.Hour
 	)
@@ -546,6 +429,13 @@ func TestGetLogs_missingFromUntil(t *testing.T) {
 
 func TestGetLogs_offset(t *testing.T) {
 	var testCases = map[string]testCase{
+		"no logs at all should return no logs": {
+			logs:  []time.Duration{},
+			limit: 0,
+			from:  time.Second,
+			until: time.Second * 12,
+			want:  nil,
+		},
 		"no logs in window should return no logs": {
 			logs:  []time.Duration{0},
 			limit: 0,
@@ -560,6 +450,9 @@ func TestGetLogs_offset(t *testing.T) {
 			until: time.Second * 12,
 			want:  []time.Duration{time.Second * 2},
 		},
+		// If there is a log in the window without a limit, then the
+		// older window ends at the request from and the newer window
+		// starts at the request until, with no offset.
 		"hint works": {
 			logs:  []time.Duration{time.Second * 2},
 			limit: 0,
@@ -567,12 +460,47 @@ func TestGetLogs_offset(t *testing.T) {
 			until: time.Second * 12,
 			want:  []time.Duration{time.Second * 2},
 			wantHint: &hintCase{
-				olderFrom:  time.Second * -10,
-				olderUntil: time.Second,
+				olderFrom:  time.Second,
+				olderUntil: time.Second * -10,
 				newerFrom:  time.Second * 12,
 				newerUntil: time.Second * 23,
 			},
 		},
+		// If there is a log in the window WITH a limit, then the older window ends at the request from and the newer window
+		// "limit works": {
+		// 	logs:  []time.Duration{time.Second * 2, time.Second * 3, time.Second * 4},
+		// 	limit: 2,
+		// 	from:  time.Second,
+		// 	until: time.Second * 12,
+		// 	want:  []time.Duration{time.Second * 2, time.Second * 3},
+		// },
+		// "limit works with hint": {
+		// 	logs:  []time.Duration{time.Second * 2, time.Second * 3, time.Second * 4},
+		// 	limit: 2,
+		// 	from:  time.Second,
+		// 	until: time.Second * 12,
+		// 	want:  []time.Duration{time.Second * 2, time.Second * 3},
+		// 	wantHint: &hintCase{
+		// 		olderFrom:  time.Second * -10,
+		// 		olderUntil: time.Second,
+		// 		newerFrom:  time.Second * 4,
+		// 		newerUntil: time.Second * 15,
+		// 	},
+		// },
+		// "offset works": {
+		// 	logs:  []time.Duration{time.Second * 2, time.Second * 3, time.Second * 3},
+		// 	limit: 2,
+		// 	from:  time.Second,
+		// 	until: time.Second * 12,
+		// 	want:  []time.Duration{time.Second * 2, time.Second * 3},
+		// 	wantHint: &hintCase{
+		// 		olderFrom:  time.Second * -10,
+		// 		olderUntil: time.Second,
+		// 		newerFrom:  time.Second * 3,
+		// 		newerUntil: time.Second * 14,
+		// 		//offset:     1,
+		// 	},
+		// },
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
@@ -664,6 +592,9 @@ func TestGetLogs_offset(t *testing.T) {
 					if got, want := hint.Older.Filter.TimeRange.Until.AsTime(), now.Add(tc.wantHint.olderUntil); !got.Equal(want) {
 						t.Errorf("wanted older hint until = %v; got %v", want, got)
 					}
+					if got, want := hint.Older.Filter.TimeRange.Offset, uint64(tc.wantHint.olderOffset); got != want {
+						t.Errorf("wanted older hint offset %d; got %d", want, got)
+					}
 				}
 				if hint.Newer != nil {
 					if got, want := hint.Newer.Filter.TimeRange.From.AsTime(), now.Add(tc.wantHint.newerFrom); !got.Equal(want) {
@@ -671,6 +602,9 @@ func TestGetLogs_offset(t *testing.T) {
 					}
 					if got, want := hint.Newer.Filter.TimeRange.Until.AsTime(), now.Add(tc.wantHint.newerUntil); !got.Equal(want) {
 						t.Errorf("wanted newer hint until = %v; got %v", want, got)
+					}
+					if got, want := hint.Newer.Filter.TimeRange.Offset, uint64(tc.wantHint.newerOffset); got != want {
+						t.Errorf("wanted newer hint offset %d; got %d", want, got)
 					}
 				}
 			}

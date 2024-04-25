@@ -119,53 +119,75 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		}
 	}
 	if request.WantPagingHint {
-		var newer, older time.Time
-		newer = end
-		// request a record immediately prior to the page
-		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, 0, backwardLogDirection, func(ctx context.Context, entry loki.Entry) (bool, error) {
-
-			var msg = &logs.LogMessage{
-				Verbatim: &logs.VerbatimLogMessage{
-					Line:      []byte(entry.Line),
-					Timestamp: timestamppb.New(entry.Timestamp),
-				},
-			}
-
-			older = msg.Verbatim.Timestamp.AsTime()
-			return false, nil
-		})
-		if err != nil {
-			return errors.Wrap(err, "hint doQuery failed")
-		}
-		if older.IsZero() {
-			older = request.GetFilter().TimeRange.From.AsTime()
-		}
-		if newer.IsZero() {
-			newer = request.GetFilter().TimeRange.Until.AsTime()
-		}
 		hint := &logs.PagingHint{
 			Older: proto.Clone(request).(*logs.GetLogsRequest),
 			Newer: proto.Clone(request).(*logs.GetLogsRequest),
 		}
-		hint.Older.Filter.TimeRange.Until = timestamppb.New(older)
-		hint.Newer.Filter.TimeRange.From = timestamppb.New(newer)
-		hint.Newer.Filter.TimeRange.Offset = uint64(adapter.offset) + 1
-		if request.Filter.TimeRange.From != nil && request.Filter.TimeRange.Until != nil {
-			delta := request.Filter.TimeRange.Until.AsTime().Sub(request.Filter.TimeRange.From.AsTime())
-			if !older.IsZero() {
-				hint.Older.Filter.TimeRange.From = timestamppb.New(older.Add(-delta))
-			}
-			if !newer.IsZero() {
-				hint.Newer.Filter.TimeRange.Until = timestamppb.New(newer.Add(delta))
-			}
+		window := end.Sub(start)
+		// The older hint should run backwards from the request from time.
+		hint.Older.Filter.TimeRange.From = timestamppb.New(start)
+		hint.Older.Filter.TimeRange.Until = timestamppb.New(start.Add(-window))
+		// If there was a limit,
+		if filter.Limit == 0 {
+			hint.Newer.Filter.TimeRange.From = timestamppb.New(end)
+			hint.Newer.Filter.TimeRange.Until = timestamppb.New(end.Add(window))
 		}
 		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
 			ResponseType: &logs.GetLogsResponse_PagingHint{
 				PagingHint: hint,
 			},
 		}); err != nil {
-			return errors.WithStack(fmt.Errorf("%w paging hint: %w", ErrPublish, err))
+			return errors.Errorf("%w paging hint: %w", ErrPublish, err)
 		}
+		// var newer, older time.Time
+		// newer = end
+		// // request a record immediately prior to the page
+		// err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, 0, backwardLogDirection, func(ctx context.Context, entry loki.Entry) (bool, error) {
+
+		// 	var msg = &logs.LogMessage{
+		// 		Verbatim: &logs.VerbatimLogMessage{
+		// 			Line:      []byte(entry.Line),
+		// 			Timestamp: timestamppb.New(entry.Timestamp),
+		// 		},
+		// 	}
+
+		// 	older = msg.Verbatim.Timestamp.AsTime()
+		// 	return false, nil
+		// })
+		// if err != nil {
+		// 	return errors.Wrap(err, "hint doQuery failed")
+		// }
+		// if older.IsZero() {
+		// 	older = request.GetFilter().TimeRange.From.AsTime()
+		// }
+		// if newer.IsZero() {
+		// 	newer = request.GetFilter().TimeRange.Until.AsTime()
+		// }
+		// hint := &logs.PagingHint{
+		// 	Older: proto.Clone(request).(*logs.GetLogsRequest),
+		// 	Newer: proto.Clone(request).(*logs.GetLogsRequest),
+		// }
+		// hint.Older.Filter.TimeRange.Until = timestamppb.New(older)
+		// hint.Newer.Filter.TimeRange.From = timestamppb.New(newer)
+		// if adapter.count > 0 && adapter.count == uint(filter.Limit) {
+		// 	hint.Newer.Filter.TimeRange.Offset = uint64(adapter.offset) + 1
+		// }
+		// if request.Filter.TimeRange.From != nil && request.Filter.TimeRange.Until != nil {
+		// 	delta := request.Filter.TimeRange.Until.AsTime().Sub(request.Filter.TimeRange.From.AsTime())
+		// 	if !older.IsZero() {
+		// 		hint.Older.Filter.TimeRange.From = timestamppb.New(older.Add(-delta))
+		// 	}
+		// 	if !newer.IsZero() {
+		// 		hint.Newer.Filter.TimeRange.Until = timestamppb.New(newer.Add(delta))
+		// 	}
+		// }
+		// if err := publisher.Publish(ctx, &logs.GetLogsResponse{
+		// 	ResponseType: &logs.GetLogsResponse_PagingHint{
+		// 		PagingHint: hint,
+		// 	},
+		// }); err != nil {
+		// 	return errors.WithStack(fmt.Errorf("%w paging hint: %w", ErrPublish, err))
+		// }
 	}
 
 	return nil
@@ -467,6 +489,7 @@ type adapter struct {
 	gotFirst          bool
 	pass              func(*logs.LogMessage) bool
 	offset            uint
+	count             uint
 }
 
 func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
@@ -507,6 +530,7 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
 	}); err != nil {
 		return false, errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
+	a.count++
 	if !a.gotFirst {
 		a.gotFirst = true
 		a.first = msg.Verbatim.Timestamp.AsTime()
