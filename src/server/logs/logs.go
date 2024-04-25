@@ -127,11 +127,12 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		// The older hint should run backwards from the request from time.
 		hint.Older.Filter.TimeRange.From = timestamppb.New(start)
 		hint.Older.Filter.TimeRange.Until = timestamppb.New(start.Add(-window))
-		// If there was a limit,
-		if filter.Limit == 0 {
-			hint.Newer.Filter.TimeRange.From = timestamppb.New(end)
-			hint.Newer.Filter.TimeRange.Until = timestamppb.New(end.Add(window))
+		if filter.Limit != 0 {
+			end = adapter.last
+			hint.Newer.Filter.TimeRange.Offset = uint64(adapter.offset) + 1
 		}
+		hint.Newer.Filter.TimeRange.From = timestamppb.New(end)
+		hint.Newer.Filter.TimeRange.Until = timestamppb.New(end.Add(window))
 		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
 			ResponseType: &logs.GetLogsResponse_PagingHint{
 				PagingHint: hint,

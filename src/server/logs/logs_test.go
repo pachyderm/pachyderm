@@ -466,6 +466,25 @@ func TestGetLogs_offset(t *testing.T) {
 				newerUntil: time.Second * 23,
 			},
 		},
+		// If there is a log in the window with a limit, then the older
+		// window still ends at the request from, but the newer window
+		// starts at the same time as the last log, with an offset of
+		// one.
+		"hint works with limit": {
+			logs:  []time.Duration{time.Second * 2, time.Second * 3},
+			limit: 1,
+			from:  time.Second,
+			until: time.Second * 12,
+			want:  []time.Duration{time.Second * 2},
+			wantHint: &hintCase{
+				olderFrom:   time.Second,
+				olderUntil:  time.Second * -10,
+				newerFrom:   time.Second * 2,
+				newerUntil:  time.Second * 13,
+				newerOffset: 1,
+			},
+		},
+
 		// If there is a log in the window WITH a limit, then the older window ends at the request from and the newer window
 		// "limit works": {
 		// 	logs:  []time.Duration{time.Second * 2, time.Second * 3, time.Second * 4},
