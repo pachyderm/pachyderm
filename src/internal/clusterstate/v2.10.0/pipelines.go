@@ -4,11 +4,15 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -16,7 +20,7 @@ var createUniqueIndex = "CREATE UNIQUE INDEX pip_version_idx ON collections.pipe
 
 // collect all pipeline versions for pipelines with duplicate versions
 var duplicatePipelinesQuery = `
-SELECT key, idx_version, proto
+SELECT key, proto
   FROM collections.pipelines
   WHERE idx_name
     IN (SELECT a.idx_name
@@ -36,8 +40,8 @@ var listJobInfos = `
 
 type pipRow struct {
 	Key        string `db:"key"`
-	IdxVersion uint64 `db:"idx_version"`
 	Proto      []byte `db:"proto"`
+	IdxVersion string
 }
 
 type jobRow struct {
@@ -45,11 +49,40 @@ type jobRow struct {
 	Proto []byte `db:"proto"`
 }
 
+// COPIED from src/internal/ppsdb/ppsdb.go
+func versionKey(project, pipeline string, version uint64) string {
+	// zero pad in case we want to sort
+	return fmt.Sprintf("%s/%s@%08d", project, pipeline, version)
+}
+
+// COPIED from src/internal/ppsdb/ppsdb.go
+//
+// ParsePipelineKey expects keys to either be of the form <pipeline>@<id> or
+// <project>/<pipeline>@<id>.
+func ParsePipelineKey(key string) (projectName, pipelineName, id string, err error) {
+	parts := strings.Split(key, "@")
+	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>", key)
+	}
+	id = parts[1]
+	parts = strings.Split(parts[0], "/")
+	if len(parts) == 0 {
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>")
+	}
+	pipelineName = parts[len(parts)-1]
+	if len(parts) == 1 {
+		return
+	}
+	projectName = strings.Join(parts[0:len(parts)-1], "/")
+	return
+}
+
 func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error {
 	pipUpdates, pipVersionChanges, err := collectPipelineUpdates(ctx, env.Tx)
 	if err != nil {
 		return err
 	}
+	log.Info(ctx, "detected updates for pipeline versions", zap.Int("updates_cout", len(pipUpdates)))
 	if len(pipUpdates) != 0 {
 		var pipValues string
 		for _, u := range pipUpdates {
@@ -62,6 +95,7 @@ func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error 
                    p.proto = v.proto
                  FROM (VALUES%s) AS v(key, idx_version, proto)
                  WHERE p.key = v.key;`, pipValues)
+		log.Info(ctx, "deduplicate pipeline versions statement", zap.String("stmt", stmt))
 		if _, err := env.Tx.ExecContext(ctx, stmt); err != nil {
 			return errors.Wrapf(err, "update pipeline rows statement: %v", stmt)
 		}
@@ -126,7 +160,12 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "marshal pipeline info %v", pi)
 			}
-			updates = append(updates, &pipRow{Key: row.Key, IdxVersion: correctVersion, Proto: data})
+			project, pipeline, _, err := ParsePipelineKey(row.Key)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "parse key %q", row.Key)
+			}
+			idxVersion := versionKey(project, pipeline, correctVersion)
+			updates = append(updates, &pipRow{Key: row.Key, IdxVersion: idxVersion, Proto: data})
 		}
 		pipLatestVersion[pi.Pipeline.Name] = correctVersion
 		changes, ok := pipVersionChanges[pi.Pipeline.Name]
