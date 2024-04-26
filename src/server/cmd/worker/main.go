@@ -78,13 +78,13 @@ func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 	}
 
 	// grpc logger
-	interceptor := logging.NewLoggingInterceptor(ctx)
-	interceptor.Level = log.DebugLevel
+	logs := logging.NewLoggingInterceptor(ctx)
+	logs.Level = log.DebugLevel
 
 	// Start worker api server
 	server, err := grpcutil.NewServer(ctx, false,
-		grpc.ChainUnaryInterceptor(interceptor.UnaryServerInterceptor),
-		grpc.ChainStreamInterceptor(interceptor.StreamServerInterceptor),
+		grpc.ChainUnaryInterceptor(logs.UnarySetup, logs.UnaryAnnounce),
+		grpc.ChainStreamInterceptor(logs.StreamSetup, logs.StreamAnnounce),
 	)
 	if err != nil {
 		return err

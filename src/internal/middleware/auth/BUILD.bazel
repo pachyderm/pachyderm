@@ -12,10 +12,10 @@ go_library(
         "//src/auth",
         "//src/internal/errors",
         "//src/internal/log",
+        "//src/internal/pctx",
         "//src/server/auth",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//metadata",
-        "@org_golang_google_grpc//peer",
         "@org_uber_go_zap//:zap",
     ],
 )
