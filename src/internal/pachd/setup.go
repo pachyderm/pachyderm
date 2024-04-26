@@ -238,21 +238,23 @@ func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener,
 		loggingInterceptor.Level = log.DebugLevel
 		gs := grpc.NewServer(
 			grpc.ChainUnaryInterceptor(
+				baseContextInterceptor.UnaryServerInterceptor,
+				loggingInterceptor.UnarySetup,
 				errorsmw.UnaryServerInterceptor,
 				version_middleware.UnaryServerInterceptor,
 				tracing.UnaryServerInterceptor(),
 				authInterceptor.InterceptUnary,
-				baseContextInterceptor.UnaryServerInterceptor,
-				loggingInterceptor.UnaryServerInterceptor,
+				loggingInterceptor.UnaryAnnounce,
 				validation.UnaryServerInterceptor,
 			),
 			grpc.ChainStreamInterceptor(
+				baseContextInterceptor.StreamServerInterceptor,
+				loggingInterceptor.StreamSetup,
 				errorsmw.StreamServerInterceptor,
 				version_middleware.StreamServerInterceptor,
 				tracing.StreamServerInterceptor(),
 				authInterceptor.InterceptStream,
-				baseContextInterceptor.StreamServerInterceptor,
-				loggingInterceptor.StreamServerInterceptor,
+				loggingInterceptor.StreamAnnounce,
 				validation.StreamServerInterceptor,
 			),
 		)
