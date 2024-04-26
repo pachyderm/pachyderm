@@ -70,6 +70,8 @@ func testRPC(ctx context.Context, t *testing.T, sd protoreflect.ServiceDescripto
 			switch {
 			case s.Code() == codes.Aborted && strings.Contains(s.Message(), "panic: "):
 				t.Fatal(err)
+			case strings.Contains(s.Message(), "this is a bug"):
+				t.Fatal(err)
 			case strings.Contains(s.Message(), "pachd mock"):
 				t.Skip("skipping method that has no mock")
 			case strings.Contains(s.Message(), "not activated"):

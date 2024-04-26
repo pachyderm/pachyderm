@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	client "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -402,10 +402,10 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 
 	workerImage := kd.config.WorkerImage
 	pachSecurityCtx := &v1.SecurityContext{
-		RunAsUser:                int64Ptr(1000),
-		RunAsGroup:               int64Ptr(1000),
-		AllowPrivilegeEscalation: pointer.Bool(false),
-		ReadOnlyRootFilesystem:   pointer.Bool(true),
+		RunAsUser:                ptr.To[int64](1000),
+		RunAsGroup:               ptr.To[int64](1000),
+		AllowPrivilegeEscalation: ptr.To(false),
+		ReadOnlyRootFilesystem:   ptr.To(true),
 		Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 	}
 	var userSecurityCtx *v1.SecurityContext
@@ -415,8 +415,8 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		pachSecurityCtx = nil
 		podSecurityContext = nil
 	} else if kd.config.WorkerUsesRoot {
-		pachSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
-		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
+		pachSecurityCtx = &v1.SecurityContext{RunAsUser: ptr.To[int64](0)}
+		userSecurityCtx = &v1.SecurityContext{RunAsUser: ptr.To[int64](0)}
 		podSecurityContext = nil
 	} else if userStr != "" {
 		// This is to allow the user to be set in the pipeline spec.
@@ -425,18 +425,18 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		} else {
 			// hard coded security settings besides uid/gid.
 			podSecurityContext = &v1.PodSecurityContext{
-				RunAsUser:    int64Ptr(i),
-				RunAsGroup:   int64Ptr(i),
-				FSGroup:      int64Ptr(i),
-				RunAsNonRoot: pointer.Bool(true),
+				RunAsUser:    ptr.To(i),
+				RunAsGroup:   ptr.To(i),
+				FSGroup:      ptr.To(i),
+				RunAsNonRoot: ptr.To(true),
 				SeccompProfile: &v1.SeccompProfile{
 					Type: v1.SeccompProfileType("RuntimeDefault"),
 				}}
 			userSecurityCtx = &v1.SecurityContext{
-				RunAsUser:                int64Ptr(i),
-				RunAsGroup:               int64Ptr(i),
-				AllowPrivilegeEscalation: pointer.Bool(false),
-				ReadOnlyRootFilesystem:   pointer.Bool(true),
+				RunAsUser:                ptr.To(i),
+				RunAsGroup:               ptr.To(i),
+				AllowPrivilegeEscalation: ptr.To(false),
+				ReadOnlyRootFilesystem:   ptr.To(true),
 				Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 			}
 		}
@@ -505,11 +505,11 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
-		AutomountServiceAccountToken:  pointer.Bool(true),
+		AutomountServiceAccountToken:  ptr.To(true),
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
-		TerminationGracePeriodSeconds: int64Ptr(0),
+		TerminationGracePeriodSeconds: ptr.To[int64](0),
 		SecurityContext:               podSecurityContext,
 		Tolerations:                   options.tolerations,
 	}
@@ -1193,8 +1193,4 @@ func GetBackendSecretVolumeAndMount() (v1.Volume, v1.VolumeMount) {
 			Name:      client.StorageSecretName,
 			MountPath: "/" + client.StorageSecretName,
 		}
-}
-
-func int64Ptr(x int64) *int64 {
-	return &x
 }

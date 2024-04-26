@@ -1,0 +1,10 @@
+filegroup(
+    name = "examples",
+    srcs = glob(["*.yaml"]),
+    visibility = ["//etc/helm:__subpackages__"],
+)
+
+exports_files(
+    glob(["*.yaml"]),
+    visibility = ["//etc/helm:__subpackages__"],
+)

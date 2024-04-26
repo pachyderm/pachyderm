@@ -8,9 +8,12 @@ go_library(
     deps = [
         "//src/admin",
         "//src/auth",
+        "//src/internal/coredb",
+        "//src/internal/dbutil",
         "//src/internal/errors",
         "//src/internal/log",
         "//src/internal/pachconfig",
+        "//src/internal/pachsql",
         "//src/internal/weblinker",
         "//src/pfs",
         "//src/version",

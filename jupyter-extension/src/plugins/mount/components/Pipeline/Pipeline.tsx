@@ -239,7 +239,9 @@ const Pipeline: React.FC<PipelineProps> = ({
           }}
         >
           {(Object.keys(GpuMode) as Array<GpuMode>).map((mode) => (
-            <option value={mode}>{mode}</option>
+            <option key={mode} value={mode}>
+              {mode}
+            </option>
           ))}
         </select>
       </div>

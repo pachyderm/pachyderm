@@ -36,6 +36,12 @@
                 "trigger": {
                     "$ref": "#/definitions/pfs_v2.Trigger",
                     "additionalProperties": false
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
                 }
             },
             "additionalProperties": false,

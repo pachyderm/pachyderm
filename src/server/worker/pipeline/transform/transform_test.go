@@ -108,7 +108,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig pachconfig.C
 	// Put the pipeline info into the collection (which is read by the master)
 	err = testEnv.driver.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		rw := testEnv.driver.Pipelines().ReadWrite(sqlTx)
-		err := rw.Put(specCommit, pipelineInfo) // pipeline/info needs to contain spec
+		err := rw.Put(ctx, specCommit, pipelineInfo) // pipeline/info needs to contain spec
 		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)

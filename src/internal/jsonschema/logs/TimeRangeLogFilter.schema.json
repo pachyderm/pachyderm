@@ -1,0 +1,23 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/TimeRangeLogFilter",
+    "definitions": {
+        "TimeRangeLogFilter": {
+            "properties": {
+                "from": {
+                    "type": "string",
+                    "description": "Can be null",
+                    "format": "date-time"
+                },
+                "until": {
+                    "type": "string",
+                    "description": "Can be null",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Time Range Log Filter"
+        }
+    }
+}

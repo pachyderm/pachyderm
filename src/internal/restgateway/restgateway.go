@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -48,6 +49,9 @@ func NewMux(ctx context.Context, grpcConn *grpc.ClientConn) (http.Handler, error
 	}
 	if err := proxy.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
 		errors.JoinInto(&errs, errors.Wrap(err, "register proxy"))
+	}
+	if err := logs.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register logs"))
 	}
 	if err := admin.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
 		errors.JoinInto(&errs, errors.Wrap(err, "register admin"))

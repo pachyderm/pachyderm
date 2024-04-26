@@ -19,10 +19,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
@@ -138,15 +141,33 @@ func initTransactionServer(out *transaction.APIServer, env func() txn_server.Env
 	}
 }
 
-func initPFSAPIServer(out *pfs.APIServer, env func() pfs_server.Env) setupStep {
+func initPFSAPIServer(out *pfs.APIServer, outMaster **pfs_server.Master, env func() pfs_server.Env) setupStep {
 	return setupStep{
 		Name: "initPFSAPIServer",
 		Fn: func(ctx context.Context) error {
-			apiServer, err := pfs_server.NewAPIServer(env())
+			apiServer, err := pfs_server.NewAPIServer(ctx, env())
+			if err != nil {
+				return errors.Wrap(err, "pfs api server")
+			}
+			*out = apiServer
+			master, err := pfs_server.NewMaster(ctx, env())
+			if err != nil {
+				return errors.Wrap(err, "pfs master")
+			}
+			*outMaster = master
+			return nil
+		},
+	}
+}
+func initStorageServer(out **storage.Server, env func() storage.Env) setupStep {
+	return setupStep{
+		Name: "initStorageServer",
+		Fn: func(ctx context.Context) error {
+			s, err := storage.New(ctx, env())
 			if err != nil {
 				return err
 			}
-			*out = apiServer
+			*out = s
 			return nil
 		},
 	}
@@ -156,7 +177,7 @@ func initPPSAPIServer(out *pps.APIServer, env func() pps_server.Env) setupStep {
 	return setupStep{
 		Name: "initPPSServer",
 		Fn: func(ctx context.Context) error {
-			s, err := pps_server.NewAPIServerNoMaster(env())
+			s, err := pps_server.NewAPIServer(env())
 			if err != nil {
 				return err
 			}
@@ -170,7 +191,7 @@ func initPFSWorker(out **pfs_server.Worker, config pachconfig.StorageConfigurati
 	return setupStep{
 		Name: "initPFSWorker",
 		Fn: func(ctx context.Context) error {
-			w, err := pfs_server.NewWorker(env(), pfs_server.WorkerConfig{Storage: config})
+			w, err := pfs_server.NewWorker(ctx, env(), pfs_server.WorkerConfig{Storage: config})
 			if err != nil {
 				return err
 			}
@@ -197,17 +218,31 @@ func initAuthServer(out *auth.APIServer, env func() authserver.Env) setupStep {
 	}
 }
 
+func initMetadataServer(out *metadata.APIServer, env func() metadata_server.Env) setupStep {
+	return setupStep{
+		Name: "initMetadataServer",
+		Fn: func(ctx context.Context) error {
+			server := metadata_server.NewMetadataServer(env())
+			*out = server
+			return nil
+		},
+	}
+}
+
 // newServeGRPC returns a background runner which servers gRPC on l.
 // reg is called to register functions with the server.
 func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener, reg func(gs grpc.ServiceRegistrar)) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
-		loggingInterceptor := log_interceptor.NewBaseContextInterceptor(ctx)
+		baseContextInterceptor := log_interceptor.NewBaseContextInterceptor(ctx)
+		loggingInterceptor := log_interceptor.NewLoggingInterceptor(ctx)
+		loggingInterceptor.Level = log.DebugLevel
 		gs := grpc.NewServer(
 			grpc.ChainUnaryInterceptor(
 				errorsmw.UnaryServerInterceptor,
 				version_middleware.UnaryServerInterceptor,
 				tracing.UnaryServerInterceptor(),
 				authInterceptor.InterceptUnary,
+				baseContextInterceptor.UnaryServerInterceptor,
 				loggingInterceptor.UnaryServerInterceptor,
 				validation.UnaryServerInterceptor,
 			),
@@ -216,6 +251,7 @@ func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener,
 				version_middleware.StreamServerInterceptor,
 				tracing.StreamServerInterceptor(),
 				authInterceptor.InterceptStream,
+				baseContextInterceptor.StreamServerInterceptor,
 				loggingInterceptor.StreamServerInterceptor,
 				validation.StreamServerInterceptor,
 			),

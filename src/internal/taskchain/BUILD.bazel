@@ -7,6 +7,7 @@ go_library(
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/internal/errors",
+        "//src/internal/pctx",
         "@org_golang_x_sync//errgroup",
         "@org_golang_x_sync//semaphore",
     ],

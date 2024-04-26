@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"io"
 	"strings"
 
@@ -31,6 +32,7 @@ func NewIndexFilter(fs FileSet, predicate func(idx *index.Index) bool, full ...b
 }
 
 func (idxf *indexFilter) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	ctx = pctx.Child(ctx, "indexFilter")
 	var dir string
 	err := idxf.fs.Iterate(ctx, func(f File) error {
 		idx := f.Index()
@@ -72,6 +74,7 @@ func NewIndexMapper(x FileSet, fn func(*index.Index) *index.Index) FileSet {
 }
 
 func (im *indexMapper) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	ctx = pctx.Child(ctx, "indexMapper")
 	err := im.x.Iterate(ctx, func(fr File) error {
 		y := im.fn(fr.Index())
 		return cb(&indexMap{

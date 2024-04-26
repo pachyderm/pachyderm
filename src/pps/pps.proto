@@ -670,16 +670,29 @@ message ListDatumRequest {
   bool reverse = 6;
 }
 
+message StartCreateDatumRequest {
+  // Input is the input to list datums from. The datums listed are the ones 
+  // that would be run if a pipeline was created with the provided input.
+  Input input = 1 [(validate.rules).message.required = true];
+  // Number of datums to return in first batch. If 0, default batch size
+  // is returned.
+  int32 number = 2 [(validate.rules).int32.gte = 0];
+}
+message ContinueCreateDatumRequest {
+  // Number of datums to return in next batch. If 0, default batch size
+  // is returned.
+  int32 number = 1 [(validate.rules).int32.gte = 0];
+}
+
 // Emits a stream of datums as they are created from the given input. Client
 // must cancel the stream when it no longer wants to receive datums.
 message CreateDatumRequest {
-  // Input is the input to list datums from. The datums listed are the ones 
-  // that would be run if a pipeline was created with the provided input.
-  // The input field is only required for the first request. The server
-  // ignores subsequent requests' input field.
-  Input input = 1;
-  // Number of datums to return in next response
-  int64 number = 2;
+  // Use StartCreateDatumRequest for the first request and 
+  // ContinueCreateDatumRequest for subsequent requests.
+  oneof body {
+     StartCreateDatumRequest start = 1;
+     ContinueCreateDatumRequest continue = 2;
+  }
 }
 
 // DatumSetSpec specifies how a pipeline should split its datums into datum sets.
@@ -802,6 +815,19 @@ message ListPipelineRequest {
 
   // Projects to filter on. Empty list means no filter, so return all pipelines.
   repeated pfs_v2.Project projects = 6;
+
+  // Page indicates which page of a certain size to return. If page is left empty,
+  // all of the selected pipelines will be returned.
+  PipelinePage page = 7; 
+}
+
+message PipelinePage {
+  enum Ordering {
+    RECENT = 0;
+  }
+  Ordering order = 1;
+  int64 page_size = 2;
+  int64 page_index = 3;
 }
 
 // Delete a pipeline.  If the deprecated all member is true, then delete all
@@ -1001,6 +1027,29 @@ message SetProjectDefaultsResponse {
   repeated Pipeline affected_pipelines = 1;
 }
 
+message PipelinesSummaryRequest {
+  // a PipelinesSummary will be returned for each of the requests projects
+  repeated pfs_v2.ProjectPicker projects = 1;
+}
+
+message PipelinesSummaryResponse {
+  // the pipeline summaries for the requested projects
+  repeated PipelinesSummary summaries = 1;
+}
+
+message PipelinesSummary {
+  // the project the PipelinesSummary corresponds to
+  pfs_v2.Project project = 1;
+  // count of active pipelines
+  int64 active_pipelines = 2;
+  // count of paused pipelines
+  int64 paused_pipelines = 3;
+  // count of failed pipelines
+  int64 failed_pipelines = 4;
+  // count of pipelines with a failed latest job
+  int64 unhealthy_pipelines = 5;
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -1013,6 +1062,8 @@ service API {
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
   // ListDatum returns information about each datum fed to a Pachyderm job
   rpc ListDatum(ListDatumRequest) returns (stream DatumInfo) {}
+  // CreateDatum prioritizes time to first datum. Each request returns a batch
+  // of datums.
   rpc CreateDatum(stream CreateDatumRequest) returns (stream DatumInfo) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
@@ -1074,4 +1125,7 @@ service API {
 
   // SetProjectDefaults sets the defaults for a particular project.
   rpc SetProjectDefaults(SetProjectDefaultsRequest) returns (SetProjectDefaultsResponse) {}
+
+  // PipelinesSummary summarizes the pipelines for each requested project.
+  rpc PipelinesSummary(PipelinesSummaryRequest) returns (PipelinesSummaryResponse) {}
 }

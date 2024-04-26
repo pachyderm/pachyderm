@@ -29,8 +29,6 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 		// Behavior of `pachctl mount` with no args is to mount everything. Make
 		// that explicit here before we pass in the configuration to avoid
 		// needing to special-case this deep within the FUSE implementation.
-		// (`pachctl mount-server` does _not_ have the same behavior. It mounts
-		// nothing to begin with.)
 		ris, err := c.ListRepo()
 		if err != nil {
 			return err
@@ -40,9 +38,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 				continue
 			}
 			// Behavior here is that we explicitly mount repos to mounts named
-			// by the repo name. This is different to `pachctl mount-server`
-			// which supports mounting different versions of the same repo at
-			// different named paths.
+			// by the repo name.
 			branch := "master"
 			bi, err := c.InspectBranch(ri.Repo.Project.GetName(), ri.Repo.Name, branch)
 			if err != nil && !errutil.IsNotFoundError(err) {

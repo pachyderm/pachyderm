@@ -1,6 +1,6 @@
 import {requestAPI} from '../../../../../handler';
 import {useEffect, useState} from 'react';
-import {AuthConfig, clusterStatus} from 'plugins/mount/types';
+import {AuthConfig, HealthCheck, HealthCheckStatus} from 'plugins/mount/types';
 
 export type useConfigResponse = {
   addressField: string;
@@ -12,7 +12,7 @@ export type useConfigResponse = {
   updatePachdAddress: () => Promise<void>;
   callLogin: () => Promise<void>;
   callLogout: () => Promise<void>;
-  clusterStatus: clusterStatus;
+  status: HealthCheckStatus;
   loading: boolean;
   showAdvancedOptions: boolean;
   setShowAdvancedOptions: (show: boolean) => void;
@@ -22,25 +22,29 @@ export type useConfigResponse = {
 
 export const useConfig = (
   updateConfig: (shouldShow: AuthConfig) => void,
-  authConfig: AuthConfig,
+  healthCheck: HealthCheck,
   refresh: () => Promise<void>,
 ): useConfigResponse => {
   const [loading, setLoading] = useState(false);
   const [addressField, setAddressField] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [clusterStatus, setClusterStatus] = useState('NONE' as clusterStatus);
+  const [status, setStatus] = useState(
+    'HEALTHY_INVALID_CLUSTER' as HealthCheckStatus,
+  );
   const [shouldShowAddressInput, setShouldShowAddressInput] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [serverCa, setServerCa] = useState('');
 
   useEffect(() => {
-    setClusterStatus(authConfig.cluster_status);
-    setShouldShowAddressInput(authConfig.cluster_status === 'INVALID');
+    setShouldShowAddressInput(
+      ['UNHEALTHY', 'HEALTHY_INVALID_CLUSTER'].includes(healthCheck.status),
+    );
     setErrorMessage('');
     setAddressField('');
     setServerCa('');
     setShowAdvancedOptions(false);
-  }, [authConfig]);
+    setStatus(healthCheck.status);
+  }, [healthCheck]);
 
   const updatePachdAddress = async () => {
     setLoading(true);
@@ -60,10 +64,15 @@ export const useConfig = (
             : {pachd_address: tmpAddress},
         );
 
-        if (response.cluster_status === 'INVALID') {
+        if (status === 'HEALTHY_INVALID_CLUSTER') {
           setErrorMessage('Invalid address.');
+        } else if (status === 'UNHEALTHY') {
+          setErrorMessage(
+            'An unexpected error occurred when attempting to set the address.',
+          );
         } else {
           updateConfig(response);
+          setShouldShowAddressInput(false);
         }
       } else {
         setErrorMessage(
@@ -120,7 +129,7 @@ export const useConfig = (
     updatePachdAddress,
     callLogin,
     callLogout,
-    clusterStatus,
+    status,
     loading,
     showAdvancedOptions,
     setShowAdvancedOptions,

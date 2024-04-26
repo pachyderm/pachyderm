@@ -21,6 +21,8 @@ message ClusterInfo {
   bool paused = 7;
   // Any HTTP links that the client might want to be aware of.
   WebResource web_resources = 8;
+  // Cluster-level metadata.
+  map<string, string> metadata = 9;
 }
 
 message InspectClusterRequest {

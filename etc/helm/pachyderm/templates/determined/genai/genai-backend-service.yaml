@@ -1,0 +1,20 @@
+{{- if .Values.determined.genai }}
+{{- if .Values.determined.genai.version }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: genai-backend-service-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: genai-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  ports:
+  - port: {{ required "A valid Values.determined.genai.port entry required!" .Values.determined.genai.port }}
+    targetPort: {{ .Values.determined.genai.port }}
+    protocol: TCP
+  type: ClusterIP
+  selector:
+    app: genai-{{ .Release.Name }}
+{{ end }}
+{{ end }}

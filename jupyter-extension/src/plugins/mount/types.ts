@@ -1,42 +1,18 @@
 import {Contents} from '@jupyterlab/services';
 import {TabPanel} from '@lumino/widgets';
-import {JSONObject, ReadonlyJSONObject} from '@lumino/coreutils';
+import {JSONObject} from '@lumino/coreutils';
 
-export type mountState =
-  | 'unmounting'
-  | 'mounted'
-  | 'mounting'
-  | 'error'
-  | 'gone'
-  | 'discovering'
-  | 'unmounted'
-  | '';
-
-export type clusterStatus =
-  | 'NONE'
-  | 'INVALID'
-  | 'VALID_NO_AUTH'
-  | 'VALID_LOGGED_IN'
-  | 'VALID_LOGGED_OUT';
+export type HealthCheckStatus =
+  | 'UNHEALTHY'
+  | 'HEALTHY_INVALID_CLUSTER'
+  | 'HEALTHY_NO_AUTH'
+  | 'HEALTHY_LOGGED_IN'
+  | 'HEALTHY_LOGGED_OUT';
 
 export type authorization = 'off' | 'none' | 'read' | 'write';
 
 export type MountSettings = {
   defaultPipelineImage: string;
-};
-
-export type Mount = {
-  name: string;
-  repo: string;
-  project: string;
-  branch: string;
-};
-
-export type Repo = {
-  repo: string;
-  project: string;
-  authorization: authorization;
-  branches: string[];
 };
 
 export type PfsInput = {
@@ -64,6 +40,10 @@ export type CurrentDatumResponse = {
   all_datums_received: boolean;
 };
 
+export type DownloadPath = {
+  path: string;
+};
+
 export type MountDatumResponse = {
   id: string;
   idx: number;
@@ -71,9 +51,25 @@ export type MountDatumResponse = {
   all_datums_received: boolean;
 };
 
-export type ListMountsResponse = {
-  mounted: {[key: string]: Mount};
-  unmounted: {[key: string]: Repo};
+export type Repo = {
+  name: string;
+  project: string;
+  uri: string;
+  branches: Branch[];
+};
+
+export type Branch = {
+  name: string;
+  uri: string;
+};
+
+export type Repos = {
+  [uri: string]: Repo;
+};
+
+export type MountedRepo = {
+  mountedBranch: Branch;
+  repo: Repo;
 };
 
 export type Project = {
@@ -85,22 +81,19 @@ export type ProjectAuthInfo = {
   roles: string[];
 };
 
-export type ProjectInfo = {
-  project: Project;
-  description: string;
-  auth_info: ProjectAuthInfo;
-  created_at: string;
+export type HealthCheck = {
+  status: HealthCheckStatus;
+  message?: string;
 };
 
 export type AuthConfig = {
-  cluster_status: clusterStatus;
   pachd_address?: string;
   server_cas?: string;
 };
 
 export interface IMountPlugin {
-  mountedRepos: Mount[];
-  unmountedRepos: Repo[];
+  repos: Repos;
+  mountedRepo: MountedRepo | null;
   layout: TabPanel;
   ready: Promise<void>;
 }
@@ -152,3 +145,9 @@ export type PpsContext = {
 export type CreatePipelineResponse = {
   message: string | null;
 };
+
+export interface IPachydermModel extends Contents.IModel {
+  // The pachyderm uri for a file. This is not originally defined as a property in Contents.IModel, but
+  // our endpoint for that model adds this.
+  readonly file_uri: string;
+}

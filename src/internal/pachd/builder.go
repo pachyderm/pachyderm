@@ -32,9 +32,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -45,11 +48,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/http"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
+	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
+	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pachw "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	transactionserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -256,12 +262,25 @@ func (b *builder) registerPFSServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	apiServer, err := pfs_server.NewAPIServer(*env)
+	apiServer, err := pfs_server.NewAPIServer(ctx, *env)
 	if err != nil {
 		return err
 	}
 	b.forGRPCServer(func(s *grpc.Server) { pfs.RegisterAPIServer(s, apiServer) })
 	b.env.SetPfsServer(apiServer)
+	return nil
+}
+
+func (b *builder) registerStorageServer(ctx context.Context) error {
+	env, err := StorageEnv(b.env)
+	if err != nil {
+		return err
+	}
+	server, err := storageserver.New(ctx, *env)
+	if err != nil {
+		return err
+	}
+	b.forGRPCServer(func(s *grpc.Server) { storage.RegisterFilesetServer(s, server) })
 	return nil
 }
 
@@ -320,6 +339,27 @@ func (b *builder) registerProxyServer(ctx context.Context) error {
 		Listener: b.env.GetPostgresListener(),
 	})
 	b.forGRPCServer(func(s *grpc.Server) { proxy.RegisterAPIServer(s, apiServer) })
+	return nil
+}
+
+func (b *builder) registerLogsServer(ctx context.Context) error {
+	apiServer, err := logsserver.NewAPIServer(logsserver.Env{
+		GetLokiClient: b.env.GetLokiClient,
+		AuthServer:    b.env.AuthServer(),
+	})
+	if err != nil {
+		return err
+	}
+	b.forGRPCServer(func(s *grpc.Server) { logs.RegisterAPIServer(s, apiServer) })
+	return nil
+}
+
+func (b *builder) registerMetadataServer(_ context.Context) error {
+	apiServer := metadata_server.NewMetadataServer(metadata_server.Env{
+		Auth:   b.env.AuthServer(),
+		TxnEnv: b.txnEnv,
+	})
+	b.forGRPCServer(func(s *grpc.Server) { metadata.RegisterAPIServer(s, apiServer) })
 	return nil
 }
 
@@ -408,7 +448,7 @@ func (b *builder) startPFSWorker(ctx context.Context) error {
 	config := pfs_server.WorkerConfig{
 		Storage: b.env.Config().StorageConfiguration,
 	}
-	w, err := pfs_server.NewWorker(*env, config)
+	w, err := pfs_server.NewWorker(ctx, *env, config)
 	if err != nil {
 		return err
 	}
@@ -426,7 +466,7 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	m, err := pfs_server.NewMaster(*env)
+	m, err := pfs_server.NewMaster(ctx, *env)
 	if err != nil {
 		return err
 	}

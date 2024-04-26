@@ -1,5 +1,5 @@
 import React from 'react';
-import {AuthConfig} from 'plugins/mount/types';
+import {AuthConfig, HealthCheck} from 'plugins/mount/types';
 import {useConfig} from './hooks/useConfig';
 import {infoIcon} from '../../../../utils/icons';
 
@@ -9,11 +9,17 @@ import {KubernetesElephant} from '../../../../utils/components/Svgs';
 
 type ConfigProps = {
   updateConfig: (shouldShow: AuthConfig) => void;
+  healthCheck: HealthCheck;
   authConfig: AuthConfig;
   refresh: () => Promise<void>;
 };
 
-const Config: React.FC<ConfigProps> = ({updateConfig, authConfig, refresh}) => {
+const Config: React.FC<ConfigProps> = ({
+  updateConfig,
+  healthCheck,
+  authConfig,
+  refresh,
+}) => {
   const {
     addressField,
     setAddressField,
@@ -24,17 +30,15 @@ const Config: React.FC<ConfigProps> = ({updateConfig, authConfig, refresh}) => {
     updatePachdAddress,
     callLogin,
     callLogout,
-    clusterStatus,
+    status,
     loading,
     showAdvancedOptions,
     setShowAdvancedOptions,
     serverCa,
     setServerCa,
-  } = useConfig(updateConfig, authConfig, refresh);
+  } = useConfig(updateConfig, healthCheck, refresh);
   const authEnabled =
-    clusterStatus === 'VALID_LOGGED_IN' || clusterStatus === 'VALID_LOGGED_OUT';
-  const connectedToCluster =
-    clusterStatus === 'VALID_NO_AUTH' || clusterStatus === 'VALID_LOGGED_IN';
+    status === 'HEALTHY_LOGGED_IN' || status === 'HEALTHY_LOGGED_OUT';
   return (
     <>
       <div className="pachyderm-mount-config-form-base">
@@ -83,7 +87,10 @@ const Config: React.FC<ConfigProps> = ({updateConfig, authConfig, refresh}) => {
                   marginBottom: '1rem',
                 }}
               >
-                <span className="pachyderm-mount-config-subheading">
+                <span
+                  className="pachyderm-mount-config-subheading"
+                  data-testid="Config__mountConfigSubheading"
+                >
                   {authConfig.pachd_address
                     ? 'Update Configuration'
                     : 'Connect To a Cluster'}
@@ -202,7 +209,7 @@ const Config: React.FC<ConfigProps> = ({updateConfig, authConfig, refresh}) => {
         </div>
         {authEnabled && !shouldShowAddressInput && (
           <div className="pachyderm-mount-login-container">
-            {clusterStatus === 'VALID_LOGGED_IN' ? (
+            {status === 'HEALTHY_LOGGED_IN' ? (
               <button
                 data-testid="Config__logout"
                 className="pachyderm-button"

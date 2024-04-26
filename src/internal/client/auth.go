@@ -37,8 +37,8 @@ func (c APIClient) GetClusterRoleBinding(ctx context.Context) (*auth.RoleBinding
 	return resp.Binding, nil
 }
 
-func (c APIClient) ModifyClusterRoleBinding(principal string, roles []string) error {
-	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+func (c APIClient) ModifyClusterRoleBinding(ctx context.Context, principal string, roles []string) error {
+	_, err := c.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
 		Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
 		Principal: principal,
 		Roles:     roles,
@@ -49,8 +49,8 @@ func (c APIClient) ModifyClusterRoleBinding(principal string, roles []string) er
 	return nil
 }
 
-func (c APIClient) GetProjectRoleBinding(project string) (*auth.RoleBinding, error) {
-	resp, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
+func (c APIClient) GetProjectRoleBinding(ctx context.Context, project string) (*auth.RoleBinding, error) {
+	resp, err := c.GetRoleBinding(ctx, &auth.GetRoleBindingRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
 	})
 	if err != nil {
@@ -60,8 +60,8 @@ func (c APIClient) GetProjectRoleBinding(project string) (*auth.RoleBinding, err
 }
 
 // Return the roles bound to a repo within a project.
-func (c APIClient) GetRepoRoleBinding(projectName, repoName string) (*auth.RoleBinding, error) {
-	resp, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
+func (c APIClient) GetRepoRoleBinding(ctx context.Context, projectName, repoName string) (*auth.RoleBinding, error) {
+	resp, err := c.GetRoleBinding(ctx, &auth.GetRoleBindingRequest{
 		Resource: NewRepo(projectName, repoName).AuthResource(),
 	})
 	if err != nil {
@@ -71,8 +71,8 @@ func (c APIClient) GetRepoRoleBinding(projectName, repoName string) (*auth.RoleB
 }
 
 // Update the roles bound to a repo within a project.
-func (c APIClient) ModifyRepoRoleBinding(projectName, repoName, principal string, roles []string) error {
-	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+func (c APIClient) ModifyRepoRoleBinding(ctx context.Context, projectName, repoName, principal string, roles []string) error {
+	_, err := c.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
 		Resource:  NewRepo(projectName, repoName).AuthResource(),
 		Principal: principal,
 		Roles:     roles,
@@ -81,8 +81,8 @@ func (c APIClient) ModifyRepoRoleBinding(projectName, repoName, principal string
 }
 
 // ModifyProjectRoleBinding binds a user's roles to a project.
-func (c APIClient) ModifyProjectRoleBinding(projectName, principal string, roles []string) error {
-	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+func (c APIClient) ModifyProjectRoleBinding(ctx context.Context, projectName, principal string, roles []string) error {
+	_, err := c.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
 		Resource:  NewProject(projectName).AuthResource(),
 		Principal: principal,
 		Roles:     roles,

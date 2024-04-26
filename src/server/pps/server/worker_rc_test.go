@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/utils/ptr"
 )
 
 func mergeDefaultOptions(project, name string, add *workerOptions) *workerOptions {
@@ -189,7 +190,7 @@ func TestGetWorkerOptions(t *testing.T) {
 						Operator:          v1.TolerationOpEqual,
 						Value:             "bar",
 						Effect:            v1.TaintEffectNoExecute,
-						TolerationSeconds: int64Ptr(100),
+						TolerationSeconds: ptr.To[int64](100),
 					},
 				},
 			}),

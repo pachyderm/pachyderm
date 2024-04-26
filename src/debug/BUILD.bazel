@@ -15,6 +15,7 @@ go_library(
         "//src/pfs",
         "//src/pps",
         "//src/protoextensions",
+        "@com_github_envoyproxy_protoc_gen_validate//validate",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//utilities",
         "@org_golang_google_grpc//:grpc",

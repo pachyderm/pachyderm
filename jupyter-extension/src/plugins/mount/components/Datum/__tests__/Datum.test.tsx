@@ -38,6 +38,7 @@ describe('datum screen', () => {
 
       const {getByTestId, queryByTestId, findByTestId} = render(
         <Datum
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -84,6 +85,7 @@ describe('datum screen', () => {
 
       const {getByTestId, findByTestId} = render(
         <Datum
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -127,6 +129,7 @@ describe('datum screen', () => {
     it('error if bad syntax in input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -154,6 +157,7 @@ describe('datum screen', () => {
 
       const {getByTestId, findByTestId} = render(
         <Datum
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -179,6 +183,7 @@ describe('datum screen', () => {
     it('valid json input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -202,6 +207,7 @@ describe('datum screen', () => {
     it('valid yaml input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -220,6 +226,53 @@ describe('datum screen', () => {
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
         'This could take a few minutes...',
       );
+    });
+
+    it('executes command for datum order warning if not pfs mount.', async () => {
+      const executeCommand = jest.fn();
+      const {findByTestId} = render(
+        <Datum
+          executeCommand={executeCommand}
+          open={jest.fn()}
+          pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
+        />,
+      );
+
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__loadDatums');
+      userEvent.type(
+        input,
+        YAML.stringify({cross: [{pfs: 'repo'}, {pfs: 'repo'}]}),
+      );
+      submit.click();
+
+      expect(executeCommand).toHaveBeenCalledWith('apputils:notify', {
+        message: 'Datum order not guaranteed when loading datums.',
+        type: 'info',
+        options: {
+          autoClose: 10000, // 10 seconds
+        },
+      });
+    });
+
+    it('does not execute command for datum order warning if pfs mount.', async () => {
+      const executeCommand = jest.fn();
+      const {findByTestId} = render(
+        <Datum
+          executeCommand={executeCommand}
+          open={jest.fn()}
+          pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
+        />,
+      );
+
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__loadDatums');
+      userEvent.type(input, YAML.stringify({pfs: 'repo'}));
+      submit.click();
+
+      expect(executeCommand).not.toHaveBeenCalled();
     });
   });
 });

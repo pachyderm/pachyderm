@@ -57,6 +57,7 @@ describe('telemetry plugin', () => {
   });
 
   it('should track clicks', () => {
+    jest.useFakeTimers();
     const {getByTestId, getByText} = render(
       <>
         <button data-testid="Custom__contactUs">Contact Us</button>
@@ -77,5 +78,6 @@ describe('telemetry plugin', () => {
     userEvent.click(contactButton);
     jest.advanceTimersByTime(CLICK_TIMEOUT);
     expect(track).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
   });
 });

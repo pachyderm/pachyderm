@@ -1,14 +1,11 @@
 package main
 
 import (
-	"os/signal"
-
 	"github.com/spf13/cobra"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachdev"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 )
 
 var verbose bool
@@ -37,7 +34,7 @@ func main() {
 
 	// Run a command.
 	log.InitPachctlLogger()
-	ctx, c := signal.NotifyContext(pctx.Background(""), signals.TerminationSignals...)
+	ctx, c := pctx.Interactive()
 	defer c()
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		log.Exit(ctx, err.Error())

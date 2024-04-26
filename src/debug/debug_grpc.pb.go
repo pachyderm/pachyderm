@@ -27,6 +27,7 @@ const (
 	Debug_SetLogLevel_FullMethodName           = "/debug_v2.Debug/SetLogLevel"
 	Debug_GetDumpV2Template_FullMethodName     = "/debug_v2.Debug/GetDumpV2Template"
 	Debug_DumpV2_FullMethodName                = "/debug_v2.Debug/DumpV2"
+	Debug_Trace_FullMethodName                 = "/debug_v2.Debug/Trace"
 	Debug_RunPFSLoadTest_FullMethodName        = "/debug_v2.Debug/RunPFSLoadTest"
 	Debug_RunPFSLoadTestDefault_FullMethodName = "/debug_v2.Debug/RunPFSLoadTestDefault"
 )
@@ -41,6 +42,7 @@ type DebugClient interface {
 	SetLogLevel(ctx context.Context, in *SetLogLevelRequest, opts ...grpc.CallOption) (*SetLogLevelResponse, error)
 	GetDumpV2Template(ctx context.Context, in *GetDumpV2TemplateRequest, opts ...grpc.CallOption) (*GetDumpV2TemplateResponse, error)
 	DumpV2(ctx context.Context, in *DumpV2Request, opts ...grpc.CallOption) (Debug_DumpV2Client, error)
+	Trace(ctx context.Context, in *TraceRequest, opts ...grpc.CallOption) (Debug_TraceClient, error)
 	// RunLoadTest runs a load test.
 	RunPFSLoadTest(ctx context.Context, in *RunPFSLoadTestRequest, opts ...grpc.CallOption) (*RunPFSLoadTestResponse, error)
 	// RunLoadTestDefault runs the default load tests.
@@ -201,6 +203,38 @@ func (x *debugDumpV2Client) Recv() (*DumpChunk, error) {
 	return m, nil
 }
 
+func (c *debugClient) Trace(ctx context.Context, in *TraceRequest, opts ...grpc.CallOption) (Debug_TraceClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Debug_ServiceDesc.Streams[4], Debug_Trace_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &debugTraceClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Debug_TraceClient interface {
+	Recv() (*TraceChunk, error)
+	grpc.ClientStream
+}
+
+type debugTraceClient struct {
+	grpc.ClientStream
+}
+
+func (x *debugTraceClient) Recv() (*TraceChunk, error) {
+	m := new(TraceChunk)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *debugClient) RunPFSLoadTest(ctx context.Context, in *RunPFSLoadTestRequest, opts ...grpc.CallOption) (*RunPFSLoadTestResponse, error) {
 	out := new(RunPFSLoadTestResponse)
 	err := c.cc.Invoke(ctx, Debug_RunPFSLoadTest_FullMethodName, in, out, opts...)
@@ -229,6 +263,7 @@ type DebugServer interface {
 	SetLogLevel(context.Context, *SetLogLevelRequest) (*SetLogLevelResponse, error)
 	GetDumpV2Template(context.Context, *GetDumpV2TemplateRequest) (*GetDumpV2TemplateResponse, error)
 	DumpV2(*DumpV2Request, Debug_DumpV2Server) error
+	Trace(*TraceRequest, Debug_TraceServer) error
 	// RunLoadTest runs a load test.
 	RunPFSLoadTest(context.Context, *RunPFSLoadTestRequest) (*RunPFSLoadTestResponse, error)
 	// RunLoadTestDefault runs the default load tests.
@@ -257,6 +292,9 @@ func (UnimplementedDebugServer) GetDumpV2Template(context.Context, *GetDumpV2Tem
 }
 func (UnimplementedDebugServer) DumpV2(*DumpV2Request, Debug_DumpV2Server) error {
 	return status.Errorf(codes.Unimplemented, "method DumpV2 not implemented")
+}
+func (UnimplementedDebugServer) Trace(*TraceRequest, Debug_TraceServer) error {
+	return status.Errorf(codes.Unimplemented, "method Trace not implemented")
 }
 func (UnimplementedDebugServer) RunPFSLoadTest(context.Context, *RunPFSLoadTestRequest) (*RunPFSLoadTestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunPFSLoadTest not implemented")
@@ -397,6 +435,27 @@ func (x *debugDumpV2Server) Send(m *DumpChunk) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Debug_Trace_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(TraceRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DebugServer).Trace(m, &debugTraceServer{stream})
+}
+
+type Debug_TraceServer interface {
+	Send(*TraceChunk) error
+	grpc.ServerStream
+}
+
+type debugTraceServer struct {
+	grpc.ServerStream
+}
+
+func (x *debugTraceServer) Send(m *TraceChunk) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _Debug_RunPFSLoadTest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RunPFSLoadTestRequest)
 	if err := dec(in); err != nil {
@@ -476,6 +535,11 @@ var Debug_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "DumpV2",
 			Handler:       _Debug_DumpV2_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Trace",
+			Handler:       _Debug_Trace_Handler,
 			ServerStreams: true,
 		},
 	},

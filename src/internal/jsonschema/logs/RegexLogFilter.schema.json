@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/RegexLogFilter",
+    "definitions": {
+        "RegexLogFilter": {
+            "properties": {
+                "pattern": {
+                    "type": "string"
+                },
+                "negate": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Regex Log Filter"
+        }
+    }
+}

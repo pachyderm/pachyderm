@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -33,6 +34,7 @@ const (
 			branch.name,
 			branch.created_at,
 			branch.updated_at,
+			branch.metadata,
 			repo.id as "repo.id",
 			repo.name as "repo.name",
 			repo.type as "repo.type",
@@ -154,7 +156,7 @@ func NewBranchIterator(ctx context.Context, ext sqlx.ExtContext, startPage, page
 	query += "\n" + OrderByQuery[branchColumn](orderByGeneric...)
 	query = ext.Rebind(query)
 	return &BranchIterator{
-		paginator: newPageIterator[Branch](ctx, query, values, startPage, pageSize),
+		paginator: newPageIterator[Branch](ctx, query, values, startPage, pageSize, 0),
 		ext:       ext,
 	}, nil
 }
@@ -287,13 +289,16 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	// Instead, construct the commit_id based on existing project, repo, and commit_set_id fields.
 	if err := tx.QueryRowContext(ctx,
 		`
-		INSERT INTO pfs.branches(repo_id, name, head)
+		INSERT INTO pfs.branches(repo_id, name, head, metadata)
 		VALUES (
 			(SELECT repo.id FROM pfs.repos repo JOIN core.projects project ON repo.project_id = project.id WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3),
 			$4,
-			(SELECT int_id FROM pfs.commits WHERE commit_id = $5)
+			(SELECT int_id FROM pfs.commits WHERE commit_id = $5),
+			$6
 		)
-		ON CONFLICT (repo_id, name) DO UPDATE SET head = EXCLUDED.head
+		ON CONFLICT (repo_id, name) DO UPDATE SET
+			head = EXCLUDED.head,
+			metadata = EXCLUDED.metadata
 		RETURNING id
 		`,
 		branchInfo.Branch.Repo.Project.Name,
@@ -301,6 +306,7 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 		branchInfo.Branch.Repo.Type,
 		branchInfo.Branch.Name,
 		CommitKey(branchInfo.Head),
+		pgjsontypes.StringMap{Data: branchInfo.Metadata},
 	).Scan(&branchID); err != nil {
 		return 0, errors.Wrap(err, "could not create branch")
 	}
@@ -429,36 +435,70 @@ func GetDirectBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id Bran
 }
 
 // GetBranchProvenance returns the full provenance of a branch, i.e. all branches that it either directly or transitively depends on.
-func GetBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*pfs.Branch, error) {
-	var branches []Branch
-	if err := sqlx.SelectContext(ctx, ext, &branches, `
-		WITH RECURSIVE prov(from_id, to_id) AS (
-		    SELECT from_id, to_id
-		    FROM pfs.branch_provenance
-		    WHERE from_id = $1
-		  UNION ALL
-		    SELECT bp.from_id, bp.to_id
-		    FROM prov JOIN pfs.branch_provenance bp ON prov.to_id = bp.from_id
-		)
-		SELECT DISTINCT
-		    branch.id,
-			branch.name,
-			repo.name as "repo.name",
-			repo.type as "repo.type",
-			project.name as "repo.project.name"
-		FROM pfs.branches branch
-		    JOIN prov ON branch.id = prov.to_id
-			JOIN pfs.repos repo ON branch.repo_id = repo.id
-		    JOIN core.projects project ON repo.project_id = project.id
-		WHERE branch.id != $1
-	`, id); err != nil {
-		return nil, errors.Wrap(err, "could not get branch provenance")
+func GetBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*pfs.Branch, error) {
+	branches, err := getBranchProvenance(ctx, ext, id, opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "get branch provenance")
 	}
 	var branchPbs []*pfs.Branch
 	for _, branch := range branches {
 		branchPbs = append(branchPbs, branch.Pb())
 	}
 	return branchPbs, nil
+}
+
+// GetBranchInfoWithIDProvenance is like GetBranchProvenance but returns a slice of BranchInfoWithID instead.
+func GetBranchInfoWithIDProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*BranchInfoWithID, error) {
+	branches, err := getBranchProvenance(ctx, ext, id, opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "get branch with id provenance")
+	}
+	var branchWithIDs []*BranchInfoWithID
+	for _, branch := range branches {
+		branchInfo, err := fetchBranchInfoByBranch(ctx, ext, branch)
+		if err != nil {
+			return nil, errors.Wrap(err, "get branch with ID provenance")
+		}
+		branchWithIDs = append(branchWithIDs, &BranchInfoWithID{
+			ID:         branch.ID,
+			BranchInfo: branchInfo,
+		})
+	}
+	return branchWithIDs, nil
+}
+
+func getBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*Branch, error) {
+	graphOpts := defaultGraphOptions()
+	for _, opt := range opts {
+		opt(graphOpts)
+	}
+	var branches []*Branch
+	if err := sqlx.SelectContext(ctx, ext, &branches, `
+		WITH RECURSIVE prov(from_id, to_id) AS (
+		    SELECT from_id, to_id, 1 as depth
+		    FROM pfs.branch_provenance
+		    WHERE from_id = $1
+		UNION ALL
+		    SELECT DISTINCT bp.from_id, bp.to_id, depth+1
+		    FROM prov JOIN pfs.branch_provenance bp ON prov.to_id = bp.from_id
+		    WHERE depth < $2
+		)
+		SELECT
+		    branch.id,
+			branch.name,
+			repo.name as "repo.name",
+			repo.type as "repo.type",
+			project.name as "repo.project.name"
+		FROM pfs.branches branch
+		JOIN prov p ON branch.id = p.to_id
+		JOIN pfs.repos repo ON branch.repo_id = repo.id
+		JOIN core.projects project ON repo.project_id = project.id
+		GROUP BY branch.id, branch.name, repo.name, repo.type, project.name
+		ORDER BY MIN(depth) ASC LIMIT $3;`,
+		id, graphOpts.maxDepth, graphOpts.limit); err != nil {
+		return nil, errors.Wrap(err, "could not get branch provenance")
+	}
+	return branches, nil
 }
 
 func GetDirectBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*pfs.Branch, error) {
@@ -486,30 +526,10 @@ func GetDirectBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id Bran
 }
 
 // GetBranchSubvenance returns the full subvenance of a branch, i.e. all branches that either directly or transitively depend on it.
-func GetBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*pfs.Branch, error) {
-	var branches []Branch
-	if err := sqlx.SelectContext(ctx, ext, &branches, `
-		WITH RECURSIVE subv(from_id, to_id) AS (
-		    SELECT from_id, to_id
-		    FROM pfs.branch_provenance
-		    WHERE to_id = $1
-		  UNION ALL
-		    SELECT bp.from_id, bp.to_id
-		    FROM subv JOIN pfs.branch_provenance bp ON subv.from_id = bp.to_id
-		)
-		SELECT DISTINCT
-		    branch.id,
-			branch.name,
-			repo.name as "repo.name",
-			repo.type as "repo.type",
-			project.name as "repo.project.name"
-		FROM pfs.branches branch
-		    JOIN subv ON branch.id = subv.from_id
-			JOIN pfs.repos repo ON branch.repo_id = repo.id
-		    JOIN core.projects project ON repo.project_id = project.id
-		WHERE branch.id != $1
-	`, id); err != nil {
-		return nil, errors.Wrap(err, "could not get branch provenance")
+func GetBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*pfs.Branch, error) {
+	branches, err := getBranchSubvenance(ctx, ext, id, opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "get branch subvenance")
 	}
 	var branchPbs []*pfs.Branch
 	for _, branch := range branches {
@@ -518,10 +538,64 @@ func GetBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) 
 	return branchPbs, nil
 }
 
+// GetBranchInfoWithIDSubvenance is like GetBranchSubvenance but returns a slice of BranchInfoWithID instead.
+func GetBranchInfoWithIDSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*BranchInfoWithID, error) {
+	branches, err := getBranchSubvenance(ctx, ext, id, opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "get branch with ID subvenance")
+	}
+	var branchWithIDs []*BranchInfoWithID
+	for _, branch := range branches {
+		branchInfo, err := fetchBranchInfoByBranch(ctx, ext, branch)
+		if err != nil {
+			return nil, errors.Wrap(err, "get branch with ID subvenance")
+		}
+		branchWithIDs = append(branchWithIDs, &BranchInfoWithID{
+			ID:         branch.ID,
+			BranchInfo: branchInfo,
+		})
+	}
+	return branchWithIDs, nil
+}
+
+func getBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*Branch, error) {
+	graphOpts := defaultGraphOptions()
+	for _, opt := range opts {
+		opt(graphOpts)
+	}
+	var branches []*Branch
+	if err := sqlx.SelectContext(ctx, ext, &branches, `
+		WITH RECURSIVE subv(from_id, to_id) AS (
+		    SELECT from_id, to_id, 1 as depth
+		    FROM pfs.branch_provenance
+		    WHERE to_id = $1
+		UNION ALL
+		    SELECT DISTINCT bp.from_id, bp.to_id, depth+1
+		    FROM subv JOIN pfs.branch_provenance bp ON subv.from_id = bp.to_id
+		    WHERE depth < $2
+		)
+		SELECT
+		    branch.id,
+			branch.name,
+			repo.name as "repo.name",
+			repo.type as "repo.type",
+			project.name as "repo.project.name"
+		FROM pfs.branches branch
+		JOIN subv s ON branch.id = s.from_id
+		JOIN pfs.repos repo ON branch.repo_id = repo.id
+		JOIN core.projects project ON repo.project_id = project.id
+		GROUP BY branch.id, branch.name, repo.name, repo.type, project.name
+		ORDER BY MIN(depth) ASC LIMIT $3;`,
+		id, graphOpts.maxDepth, graphOpts.limit); err != nil {
+		return nil, errors.Wrap(err, "could not get branch subvenance")
+	}
+	return branches, nil
+}
+
 // CreateBranchProvenance creates a provenance relationship between two branches.
 func CreateDirectBranchProvenance(ctx context.Context, ext sqlx.ExtContext, from, to BranchID) error {
 	if _, err := ext.ExecContext(ctx, `
-		INSERT INTO pfs.branch_provenance(from_id, to_id)	
+		INSERT INTO pfs.branch_provenance(from_id, to_id)
 		VALUES ($1, $2)
 		ON CONFLICT DO NOTHING
 	`, from, to); err != nil {
@@ -644,7 +718,7 @@ func fetchBranchInfoByBranch(ctx context.Context, ext sqlx.ExtContext, branch *B
 	if branch == nil {
 		return nil, errors.Errorf("branch cannot be nil")
 	}
-	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb()}
+	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb(), Metadata: branch.Metadata.Data}
 	var err error
 	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, ext, branch.ID)
 	if err != nil {
@@ -679,7 +753,7 @@ func WatchBranchesInRepo(ctx context.Context, db *pachsql.DB, listener collectio
 	// Optimized query for getting branches in a repo.
 	query := getBranchBaseQuery + fmt.Sprintf("\nWHERE %s = ?\nORDER BY %s ASC", BranchColumnRepoID, BranchColumnID)
 	query = db.Rebind(query)
-	snapshot := &BranchIterator{paginator: newPageIterator[Branch](ctx, query, []any{repoID}, 0, branchesPageSize), ext: db}
+	snapshot := &BranchIterator{paginator: newPageIterator[Branch](ctx, query, []any{repoID}, 0, branchesPageSize, 0), ext: db}
 	return watchBranches(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
 }
 
@@ -727,5 +801,29 @@ func watchBranches(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator
 		case <-ctx.Done():
 			return errors.Wrap(ctx.Err(), "watch branches")
 		}
+	}
+}
+
+func PickBranch(ctx context.Context, branchPicker *pfs.BranchPicker, tx *pachsql.Tx) (*BranchInfoWithID, error) {
+	if branchPicker == nil || branchPicker.Picker == nil {
+		return nil, errors.New("branch picker cannot be nil")
+	}
+	switch branchPicker.Picker.(type) {
+	case *pfs.BranchPicker_Name:
+		picker := branchPicker.GetName()
+		repo, err := PickRepo(ctx, picker.Repo, tx)
+		if err != nil {
+			return nil, errors.Wrap(err, "picking branch")
+		}
+		branchInfoWithID, err := GetBranchInfoWithID(ctx, tx, &pfs.Branch{
+			Repo: repo.RepoInfo.Repo,
+			Name: picker.Name,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "picking branch")
+		}
+		return branchInfoWithID, nil
+	default:
+		return nil, errors.Errorf("branch picker is of an unknown type: %T", branchPicker.Picker)
 	}
 }

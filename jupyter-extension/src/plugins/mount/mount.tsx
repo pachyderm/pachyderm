@@ -4,7 +4,7 @@ import {
   ILayoutRestorer,
   JupyterFrontEnd,
 } from '@jupyterlab/application';
-import {ReactWidget, showErrorMessage, UseSignal} from '@jupyterlab/apputils';
+import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
@@ -20,8 +20,8 @@ import createCustomFileBrowser from './customFileBrowser';
 import {
   AuthConfig,
   IMountPlugin,
-  Repo,
-  Mount,
+  Repos,
+  MountedRepo,
   CurrentDatumResponse,
   PfsInput,
   CrossInputSpec,
@@ -35,7 +35,6 @@ import Explore from './components/Explore/Explore';
 import Pipeline from './components/Pipeline/Pipeline';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
-import {requestAPI} from '../../handler';
 
 export const MOUNT_BROWSER_PREFIX = 'mount-browser-';
 export const PFS_MOUNT_BROWSER_NAME = 'mount-browser-pfs:';
@@ -61,7 +60,6 @@ export class MountPlugin implements IMountPlugin {
   private _widgetTracker: ILabShell;
   private _readyPromise: Promise<void> = Promise.resolve();
 
-  private _keepMounted = false;
   private _currentDatumInfo: CurrentDatumResponse | undefined;
   private _repoViewInputSpec: CrossInputSpec | PfsInput = {};
   private _saveInputSpecSignal = new Signal<this, CrossInputSpec | PfsInput>(
@@ -83,33 +81,31 @@ export class MountPlugin implements IMountPlugin {
     this._widgetTracker = widgetTracker;
 
     // Setup Poller signals.
-    this._poller.mountedSignal.connect(this.verifyBrowserPath);
-    this._poller.mountedSignal.connect(this.refresh);
-    this._poller.mountedSignal.connect(this.saveMountedReposList);
-    this._poller.unmountedSignal.connect(this.refresh);
+    this._poller.reposSignal.connect(this.refresh);
+    this._poller.mountedRepoSignal.connect(this.refresh);
+    this._poller.mountedRepoSignal.connect(this.updateMountedRepoInputSpec);
+    this._poller.mountedRepoSignal.connect(
+      this.resetDirectoryOnMountedRepoChange,
+    );
+
+    // Call this initially to setup the input spec from localStorage if need be.
+    this.updateMountedRepoInputSpec();
 
     // This is used to detect if the config goes bad (pachd address changes)
-    this._poller.configSignal.connect((_, config) => {
-      const status = config.cluster_status;
-      if (status === 'INVALID' || status === 'VALID_LOGGED_OUT') {
+    this._poller.healthSignal.connect((_, healthCheck) => {
+      const status = healthCheck ? healthCheck.status : this._poller.health;
+      if (
+        status === 'HEALTHY_INVALID_CLUSTER' ||
+        status === 'HEALTHY_LOGGED_OUT'
+      ) {
         this._panel.tabBar.hide();
         this.setCurrentView(this._configScreen);
+      } else if (status === 'UNHEALTHY') {
+        this._panel.tabBar.hide();
+        this.setCurrentView(this._fullPageError);
       } else {
         this._panel.tabBar.show();
         this._panel.currentWidget = this._exploreScreen;
-      }
-    });
-
-    // This is used to detect if the user becomes unauthenticated of there are errors on the server
-    this._poller.statusSignal.connect((_, status) => {
-      if (status.code === 500) {
-        this._panel.tabBar.hide();
-        this.setCurrentView(this._fullPageError);
-      }
-
-      if (status.code === 401) {
-        this._panel.tabBar.hide();
-        this.setCurrentView(this._configScreen);
       }
     });
 
@@ -117,13 +113,18 @@ export class MountPlugin implements IMountPlugin {
 
     // Instantiate all of the Screens.
     this._configScreen = ReactWidget.create(
-      <UseSignal signal={this._poller.configSignal}>
-        {(_, authConfig) => (
-          <Config
-            updateConfig={this.updateConfig}
-            authConfig={authConfig ? authConfig : this._poller.config}
-            refresh={this._poller.refresh}
-          />
+      <UseSignal signal={this._poller.healthSignal}>
+        {(_, healthCheck) => (
+          <UseSignal signal={this._poller.configSignal}>
+            {(_, config) => (
+              <Config
+                updateConfig={this.updateConfig}
+                healthCheck={healthCheck ? healthCheck : this._poller.health}
+                authConfig={config ? config : this._poller.config}
+                refresh={this._poller.refresh}
+              />
+            )}
+          </UseSignal>
         )}
       </UseSignal>,
     );
@@ -138,26 +139,21 @@ export class MountPlugin implements IMountPlugin {
       'pfs',
       'explore',
       'pfs',
+      () => this.mountedRepo,
     );
 
     this._exploreScreen = new SplitPanel({orientation: 'vertical'});
     this._exploreScreen.addWidget(
       ReactWidget.create(
-        <UseSignal signal={this._poller.mountedSignal}>
-          {(_, mounted) => (
-            <UseSignal signal={this._poller.unmountedSignal}>
-              {(_, unmounted) => (
-                <UseSignal signal={this._poller.projectSignal}>
-                  {(_, projects) => (
-                    <Explore
-                      mounted={mounted || this._poller.mounted}
-                      unmounted={unmounted || this._poller.unmounted}
-                      projects={projects || this._poller.projects}
-                      openPFS={this.openPFS}
-                      updateData={this._poller.updateData}
-                    />
-                  )}
-                </UseSignal>
+        <UseSignal signal={this._poller.reposSignal}>
+          {(_, repos) => (
+            <UseSignal signal={this._poller.mountedRepoSignal}>
+              {(_, mountedRepo) => (
+                <Explore
+                  repos={repos || this._poller.repos}
+                  mountedRepo={mountedRepo || this._poller.mountedRepo}
+                  updateMountedRepo={this._poller.updateMountedRepo.bind(this)}
+                />
               )}
             </UseSignal>
           )}
@@ -167,7 +163,7 @@ export class MountPlugin implements IMountPlugin {
     this._exploreScreen.addWidget(this._pfsBrowser);
     this._exploreScreen.title.label = 'Explore';
     this._exploreScreen.title.className = 'pachyderm-explore-tab';
-
+    this._exploreScreen.widgets[0].addClass('pachyderm-explore-widget');
     this._datumBrowser = createCustomFileBrowser(
       app,
       manager,
@@ -175,6 +171,7 @@ export class MountPlugin implements IMountPlugin {
       'view_datum',
       'test',
       'datum',
+      () => this.mountedRepo,
     );
 
     this._datumScreen = new SplitPanel({orientation: 'vertical'});
@@ -183,6 +180,9 @@ export class MountPlugin implements IMountPlugin {
         <UseSignal signal={this._saveInputSpecSignal}>
           {(_, repoViewInputSpec) => (
             <Datum
+              executeCommand={(command, options) => {
+                this._app.commands.execute(command, options);
+              }}
               open={this.openDatum}
               pollRefresh={this._poller.refresh}
               currentDatumInfo={this._currentDatumInfo}
@@ -221,9 +221,11 @@ export class MountPlugin implements IMountPlugin {
     this._loader.title.label = 'Loading';
 
     this._fullPageError = ReactWidget.create(
-      <UseSignal signal={this._poller.statusSignal}>
-        {(_, status) => (
-          <FullPageError status={status ? status : this._poller.status} />
+      <UseSignal signal={this._poller.healthSignal}>
+        {(_, healthCheck) => (
+          <FullPageError
+            healthCheck={healthCheck ? healthCheck : this._poller.health}
+          />
         )}
       </UseSignal>,
     );
@@ -368,75 +370,21 @@ export class MountPlugin implements IMountPlugin {
     });
   };
 
-  refresh = async (_: PollMounts, _data: Mount[] | Repo[]): Promise<void> => {
+  // _data is any because the data passed to this callback is not used. This allows it to be used
+  // with any signal.
+  // eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+  refresh = async (_: PollMounts, _data: any): Promise<void> => {
     await this._pfsBrowser.model.refresh();
     await this._datumBrowser.model.refresh();
   };
 
-  // Change back to root directory if in a mount that no longer exists
-  verifyBrowserPath = (_: PollMounts, mounted: Mount[]): void => {
-    if (this._pfsBrowser.model.path === this._pfsBrowser.model.rootPath) {
-      return;
-    }
-
-    if (!this.isValidBrowserPath(this._pfsBrowser.model.path, mounted)) {
-      this.openPFS('');
-    }
-  };
-
-  isValidBrowserPath = (path: string, mounted: Mount[]): boolean => {
-    const currentMountDir = path.split(PFS_MOUNT_BROWSER_NAME)[1].split('/')[0];
-    if (currentMountDir === 'out') {
-      return true;
-    }
-    for (let i = 0; i < mounted.length; i++) {
-      if (currentMountDir === mounted[i].name) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  saveMountedReposList = (): void => {
-    const mounted = this._poller.mounted;
-    const pfsInputs: PfsInput[] = [];
-
-    for (let i = 0; i < mounted.length; i++) {
-      const pfsInput: PfsInput = {
-        pfs: {
-          name: `${mounted[i].project}_${mounted[i].repo}`,
-          ...(mounted[i].branch !== 'master' && {
-            name: `${mounted[i].project}_${mounted[i].repo}_${mounted[i].branch}`,
-          }),
-          repo: mounted[i].repo,
-          ...(mounted[i].project !== 'default' && {
-            project: mounted[i].project,
-          }),
-          ...(mounted[i].branch !== 'master' && {branch: mounted[i].branch}),
-          glob: '/',
-        },
-      };
-      pfsInputs.push(pfsInput);
-    }
-
-    if (mounted.length === 0) {
-      // No mounted repos to save
-      this._repoViewInputSpec = {};
-    } else if (mounted.length === 1) {
-      // Single mounted repo to save
-      this._repoViewInputSpec = pfsInputs[0];
-    } else {
-      // Multiple mounted repos to save; use cross
-      this._repoViewInputSpec = {
-        cross: pfsInputs,
-      };
-    }
-
+  updateMountedRepoInputSpec = (): void => {
+    this._repoViewInputSpec = this._poller.getMountedRepoInputSpec();
     this._saveInputSpecSignal.emit(this._repoViewInputSpec);
   };
 
-  setKeepMounted = (keep: boolean): void => {
-    this._keepMounted = keep;
+  resetDirectoryOnMountedRepoChange = (): void => {
+    this._pfsBrowser.model.cd('');
   };
 
   updateConfig = (config: AuthConfig): void => {
@@ -445,34 +393,17 @@ export class MountPlugin implements IMountPlugin {
 
   setup = async (): Promise<void> => {
     await this._poller.refresh();
-
-    if (this._poller.status.code === 500) {
-      await showErrorMessage('Server Error', this._poller.status.message);
-    } else {
-      if (this._poller.status.code === 200) {
-        try {
-          const res = await requestAPI<CurrentDatumResponse>('datums', 'GET');
-          if (res['num_datums'] > 0) {
-            this._keepMounted = true;
-            this._currentDatumInfo = res;
-            this.setCurrentView(this._datumScreen);
-          }
-        } catch (e) {
-          console.log(e);
-        }
-      }
-    }
     this._loader.setHidden(true);
   };
 
-  get mountedRepos(): Mount[] {
+  get mountedRepo(): MountedRepo | null {
     this._poller.poll.tick;
-    return this._poller.mounted;
+    return this._poller.mountedRepo;
   }
 
-  get unmountedRepos(): Repo[] {
+  get repos(): Repos {
     this._poller.poll.tick;
-    return this._poller.unmounted;
+    return this._poller.repos;
   }
 
   get layout(): TabPanel {
@@ -483,7 +414,7 @@ export class MountPlugin implements IMountPlugin {
     return this._readyPromise;
   }
 
-  private setCurrentView(widget: Widget) {
+  setCurrentView(widget: Widget): void {
     this._panel.currentWidget = widget;
   }
 }

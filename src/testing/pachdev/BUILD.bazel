@@ -9,7 +9,6 @@ go_library(
         "//src/internal/log",
         "//src/internal/pachdev",
         "//src/internal/pctx",
-        "//src/internal/signals",
         "@com_github_spf13_cobra//:cobra",
     ],
 )

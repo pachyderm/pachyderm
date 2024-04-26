@@ -116,6 +116,54 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "Cluster-level metadata.",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "ClusterInfo.MetadataEntry",
+              "fullType": "admin_v2.ClusterInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "ClusterInfo.MetadataEntry",
+          "fullName": "admin_v2.ClusterInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -463,6 +511,11 @@
             {
               "name": "SECRET_INSPECT",
               "number": "146",
+              "description": ""
+            },
+            {
+              "name": "CLUSTER_EDIT_CLUSTER_METADATA",
+              "number": "151",
               "description": ""
             },
             {
@@ -2725,7 +2778,7 @@
           "description": "",
           "hasExtensions": false,
           "hasFields": true,
-          "hasOneofs": false,
+          "hasOneofs": true,
           "extensions": [],
           "fields": [
             {
@@ -2774,6 +2827,30 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "loki_args",
+              "description": "",
+              "label": "",
+              "type": "LokiArgs",
+              "longType": "LokiArgs",
+              "fullType": "debug_v2.LokiArgs",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "extra_args",
+              "defaultValue": ""
+            },
+            {
+              "name": "profile_args",
+              "description": "",
+              "label": "",
+              "type": "ProfileArgs",
+              "longType": "ProfileArgs",
+              "fullType": "debug_v2.ProfileArgs",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "extra_args",
               "defaultValue": ""
             }
           ]
@@ -3163,6 +3240,30 @@
           ]
         },
         {
+          "name": "LokiArgs",
+          "longName": "LokiArgs",
+          "fullName": "debug_v2.LokiArgs",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "max_logs",
+              "description": "",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "Pipeline",
           "longName": "Pipeline",
           "fullName": "debug_v2.Pipeline",
@@ -3275,6 +3376,30 @@
               "type": "Duration",
               "longType": "google.protobuf.Duration",
               "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ProfileArgs",
+          "longName": "ProfileArgs",
+          "fullName": "debug_v2.ProfileArgs",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "profiles",
+              "description": "",
+              "label": "repeated",
+              "type": "Profile",
+              "longType": "Profile",
+              "fullType": "debug_v2.Profile",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -3751,6 +3876,70 @@
           ]
         },
         {
+          "name": "TraceChunk",
+          "longName": "TraceChunk",
+          "fullName": "debug_v2.TraceChunk",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "content",
+              "description": "",
+              "label": "",
+              "type": "BytesValue",
+              "longType": "google.protobuf.BytesValue",
+              "fullType": "google.protobuf.BytesValue",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "reply",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "TraceRequest",
+          "longName": "TraceRequest",
+          "fullName": "debug_v2.TraceRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "duration",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "duration.required",
+                    "value": true
+                  },
+                  {
+                    "name": "duration.gt.seconds",
+                    "value": 0
+                  },
+                  {
+                    "name": "duration.gt.nanos",
+                    "value": 0
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Worker",
           "longName": "Worker",
           "fullName": "debug_v2.Worker",
@@ -3864,6 +4053,18 @@
               "responseType": "DumpChunk",
               "responseLongType": "DumpChunk",
               "responseFullType": "debug_v2.DumpChunk",
+              "responseStreaming": true
+            },
+            {
+              "name": "Trace",
+              "description": "",
+              "requestType": "TraceRequest",
+              "requestLongType": "TraceRequest",
+              "requestFullType": "debug_v2.TraceRequest",
+              "requestStreaming": false,
+              "responseType": "TraceChunk",
+              "responseLongType": "TraceChunk",
+              "responseFullType": "debug_v2.TraceChunk",
               "responseStreaming": true
             },
             {
@@ -9073,6 +9274,1254 @@
       ]
     },
     {
+      "name": "logs/logs.proto",
+      "description": "",
+      "package": "logs",
+      "hasEnums": true,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [
+        {
+          "name": "LogLevel",
+          "longName": "LogLevel",
+          "fullName": "logs.LogLevel",
+          "description": "",
+          "values": [
+            {
+              "name": "LOG_LEVEL_DEBUG",
+              "number": "0",
+              "description": ""
+            },
+            {
+              "name": "LOG_LEVEL_INFO",
+              "number": "1",
+              "description": ""
+            },
+            {
+              "name": "LOG_LEVEL_ERROR",
+              "number": "2",
+              "description": ""
+            }
+          ]
+        }
+      ],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "AdminLogQuery",
+          "longName": "AdminLogQuery",
+          "fullName": "logs.AdminLogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "logql",
+              "description": "Arbitrary LogQL query",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "admin_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "pod",
+              "description": "A pod's logs (all containers)",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "admin_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "pod_container",
+              "description": "One container",
+              "label": "",
+              "type": "PodContainer",
+              "longType": "PodContainer",
+              "fullType": "logs.PodContainer",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "admin_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "app",
+              "description": "One \"app\" (logql -\u003e {app=X})",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "admin_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "master",
+              "description": "All master worker lines from a pipeline",
+              "label": "",
+              "type": "PipelineLogQuery",
+              "longType": "PipelineLogQuery",
+              "fullType": "logs.PipelineLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "admin_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "storage",
+              "description": "All storage container lines from a pipeline",
+              "label": "",
+              "type": "PipelineLogQuery",
+              "longType": "PipelineLogQuery",
+              "fullType": "logs.PipelineLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "admin_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "user",
+              "description": "All worker lines from a pipeline/job",
+              "label": "",
+              "type": "UserLogQuery",
+              "longType": "UserLogQuery",
+              "fullType": "logs.UserLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "admin_type",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "GetLogsRequest",
+          "longName": "GetLogsRequest",
+          "fullName": "logs.GetLogsRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "query",
+              "description": "",
+              "label": "",
+              "type": "LogQuery",
+              "longType": "LogQuery",
+              "fullType": "logs.LogQuery",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "filter",
+              "description": "",
+              "label": "",
+              "type": "LogFilter",
+              "longType": "LogFilter",
+              "fullType": "logs.LogFilter",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "tail",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "want_paging_hint",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "GetLogsResponse",
+          "longName": "GetLogsResponse",
+          "fullName": "logs.GetLogsResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "paging_hint",
+              "description": "",
+              "label": "",
+              "type": "PagingHint",
+              "longType": "PagingHint",
+              "fullType": "logs.PagingHint",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "response_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "log",
+              "description": "",
+              "label": "",
+              "type": "LogMessage",
+              "longType": "LogMessage",
+              "fullType": "logs.LogMessage",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "response_type",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "JobDatumLogQuery",
+          "longName": "JobDatumLogQuery",
+          "fullName": "logs.JobDatumLogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "datum",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "LogFilter",
+          "longName": "LogFilter",
+          "fullName": "logs.LogFilter",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "time_range",
+              "description": "",
+              "label": "",
+              "type": "TimeRangeLogFilter",
+              "longType": "TimeRangeLogFilter",
+              "fullType": "logs.TimeRangeLogFilter",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "limit",
+              "description": "",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "regex",
+              "description": "",
+              "label": "",
+              "type": "RegexLogFilter",
+              "longType": "RegexLogFilter",
+              "fullType": "logs.RegexLogFilter",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "level",
+              "description": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior",
+              "label": "",
+              "type": "LogLevel",
+              "longType": "LogLevel",
+              "fullType": "logs.LogLevel",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "LogMessage",
+          "longName": "LogMessage",
+          "fullName": "logs.LogMessage",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "verbatim",
+              "description": "The verbatim line from Loki",
+              "label": "",
+              "type": "VerbatimLogMessage",
+              "longType": "VerbatimLogMessage",
+              "fullType": "logs.VerbatimLogMessage",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "object",
+              "description": "A raw JSON parse of the entire line",
+              "label": "",
+              "type": "Struct",
+              "longType": "google.protobuf.Struct",
+              "fullType": "google.protobuf.Struct",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "native_timestamp",
+              "description": "If a parseable timestamp was found in `fields`",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "pps_log_message",
+              "description": "For code that wants to filter on pipeline/job/etc",
+              "label": "",
+              "type": "LogMessage",
+              "longType": "pps_v2.LogMessage",
+              "fullType": "pps_v2.LogMessage",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "LogQuery",
+          "longName": "LogQuery",
+          "fullName": "logs.LogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "user",
+              "description": "",
+              "label": "",
+              "type": "UserLogQuery",
+              "longType": "UserLogQuery",
+              "fullType": "logs.UserLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "admin",
+              "description": "",
+              "label": "",
+              "type": "AdminLogQuery",
+              "longType": "AdminLogQuery",
+              "fullType": "logs.AdminLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query_type",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PagingHint",
+          "longName": "PagingHint",
+          "fullName": "logs.PagingHint",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "older",
+              "description": "",
+              "label": "",
+              "type": "GetLogsRequest",
+              "longType": "GetLogsRequest",
+              "fullType": "logs.GetLogsRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "newer",
+              "description": "",
+              "label": "",
+              "type": "GetLogsRequest",
+              "longType": "GetLogsRequest",
+              "fullType": "logs.GetLogsRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelineJobLogQuery",
+          "longName": "PipelineJobLogQuery",
+          "fullName": "logs.PipelineJobLogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "pipeline",
+              "description": "",
+              "label": "",
+              "type": "PipelineLogQuery",
+              "longType": "PipelineLogQuery",
+              "fullType": "logs.PipelineLogQuery",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelineLogQuery",
+          "longName": "PipelineLogQuery",
+          "fullName": "logs.PipelineLogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PodContainer",
+          "longName": "PodContainer",
+          "fullName": "logs.PodContainer",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "pod",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "container",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RegexLogFilter",
+          "longName": "RegexLogFilter",
+          "fullName": "logs.RegexLogFilter",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "pattern",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "negate",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "TimeRangeLogFilter",
+          "longName": "TimeRangeLogFilter",
+          "fullName": "logs.TimeRangeLogFilter",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "from",
+              "description": "Can be null",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "until",
+              "description": "Can be null",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "UserLogQuery",
+          "longName": "UserLogQuery",
+          "fullName": "logs.UserLogQuery",
+          "description": "Only returns \"user\" logs",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "All pipelines in the project",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "user_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline",
+              "description": "One pipeline in a project",
+              "label": "",
+              "type": "PipelineLogQuery",
+              "longType": "PipelineLogQuery",
+              "fullType": "logs.PipelineLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "user_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "datum",
+              "description": "One datum.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "user_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "One job, across pipelines and projects",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "user_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline_job",
+              "description": "One job in one pipeline",
+              "label": "",
+              "type": "PipelineJobLogQuery",
+              "longType": "PipelineJobLogQuery",
+              "fullType": "logs.PipelineJobLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "user_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "job_datum",
+              "description": "One datum in one job",
+              "label": "",
+              "type": "JobDatumLogQuery",
+              "longType": "JobDatumLogQuery",
+              "fullType": "logs.JobDatumLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "user_type",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "VerbatimLogMessage",
+          "longName": "VerbatimLogMessage",
+          "fullName": "logs.VerbatimLogMessage",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "line",
+              "description": "",
+              "label": "",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "timestamp",
+              "description": "",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "name": "API",
+          "longName": "API",
+          "fullName": "logs.API",
+          "description": "",
+          "methods": [
+            {
+              "name": "GetLogs",
+              "description": "",
+              "requestType": "GetLogsRequest",
+              "requestLongType": "GetLogsRequest",
+              "requestFullType": "logs.GetLogsRequest",
+              "requestStreaming": false,
+              "responseType": "GetLogsResponse",
+              "responseLongType": "GetLogsResponse",
+              "responseFullType": "logs.GetLogsResponse",
+              "responseStreaming": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "metadata/metadata.proto",
+      "description": "",
+      "package": "metadata",
+      "hasEnums": false,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "ClusterPicker",
+          "longName": "ClusterPicker",
+          "fullName": "metadata.ClusterPicker",
+          "description": "ClusterPicker selects a cluster.  Since clusters will never \"cascade\", there is only one cluster\nthat can be selected, the one running this API server.",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
+          "name": "Edit",
+          "longName": "Edit",
+          "fullName": "metadata.Edit",
+          "description": "Edit represents editing one piece of metadata.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "project targets a named project's metadata.",
+              "label": "",
+              "type": "ProjectPicker",
+              "longType": "pfs_v2.ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "commit",
+              "description": "commit targets a commit's metadata.",
+              "label": "",
+              "type": "CommitPicker",
+              "longType": "pfs_v2.CommitPicker",
+              "fullType": "pfs_v2.CommitPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "branch",
+              "description": "branch targets a branch's metadata.",
+              "label": "",
+              "type": "BranchPicker",
+              "longType": "pfs_v2.BranchPicker",
+              "fullType": "pfs_v2.BranchPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "repo",
+              "description": "repo targets a repo's metadata.",
+              "label": "",
+              "type": "RepoPicker",
+              "longType": "pfs_v2.RepoPicker",
+              "fullType": "pfs_v2.RepoPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "cluster",
+              "description": "cluster targets the cluster's metadata.",
+              "label": "",
+              "type": "ClusterPicker",
+              "longType": "ClusterPicker",
+              "fullType": "metadata.ClusterPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "replace",
+              "description": "replace replaces a target's metadata with a new metadata mapping.",
+              "label": "",
+              "type": "Replace",
+              "longType": "Edit.Replace",
+              "fullType": "metadata.Edit.Replace",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "add_key",
+              "description": "add_key adds a new key to the target object's metadata.",
+              "label": "",
+              "type": "AddKey",
+              "longType": "Edit.AddKey",
+              "fullType": "metadata.Edit.AddKey",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "edit_key",
+              "description": "edit_key adds or changes a key in the target object's metadata.",
+              "label": "",
+              "type": "EditKey",
+              "longType": "Edit.EditKey",
+              "fullType": "metadata.Edit.EditKey",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "delete_key",
+              "description": "delete_key removes a key from the target object's metadata.",
+              "label": "",
+              "type": "DeleteKey",
+              "longType": "Edit.DeleteKey",
+              "fullType": "metadata.Edit.DeleteKey",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "AddKey",
+          "longName": "Edit.AddKey",
+          "fullName": "metadata.Edit.AddKey",
+          "description": "AddKey is an operation that adds a new metadata key.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "key is the metadata key to add.  It may not be the empty string.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            {
+              "name": "value",
+              "description": "value is the value to assign to the metadata key.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DeleteKey",
+          "longName": "Edit.DeleteKey",
+          "fullName": "metadata.Edit.DeleteKey",
+          "description": "DeleteKey is an operation that removes a metadata key.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "key is the metadata key to remove.  It may not be the empty string.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EditKey",
+          "longName": "Edit.EditKey",
+          "fullName": "metadata.Edit.EditKey",
+          "description": "EditKey is an operation that changes or adds a metadata key.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "key is the metadata key to change or add.  It may not be the empty string.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            {
+              "name": "value",
+              "description": "value is the value to assign to the metadata key.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Replace",
+          "longName": "Edit.Replace",
+          "fullName": "metadata.Edit.Replace",
+          "description": "Replace is an operation that replaces metadata.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "replacement",
+              "description": "replacement is the map to replace the object's metadata with.",
+              "label": "repeated",
+              "type": "ReplacementEntry",
+              "longType": "Edit.Replace.ReplacementEntry",
+              "fullType": "metadata.Edit.Replace.ReplacementEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "map.keys.string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ReplacementEntry",
+          "longName": "Edit.Replace.ReplacementEntry",
+          "fullName": "metadata.Edit.Replace.ReplacementEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "EditMetadataRequest",
+          "longName": "EditMetadataRequest",
+          "fullName": "metadata.EditMetadataRequest",
+          "description": "EditMetadataRequest is a sequence of edits to apply to metadata.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "edits",
+              "description": "edits is the ordered list of metadata edits to perform.",
+              "label": "repeated",
+              "type": "Edit",
+              "longType": "Edit",
+              "fullType": "metadata.Edit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "repeated.items.message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EditMetadataResponse",
+          "longName": "EditMetadataResponse",
+          "fullName": "metadata.EditMetadataResponse",
+          "description": "EditMetadataResponse is the result of editing metadata.",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        }
+      ],
+      "services": [
+        {
+          "name": "API",
+          "longName": "API",
+          "fullName": "metadata.API",
+          "description": "API is the public API of the metadata service.",
+          "methods": [
+            {
+              "name": "EditMetadata",
+              "description": "EditMetadata edits metadata according to the request.  All edits are applied atomically at\nonce.  All edits are attempted, but any failing edit fails the entire request.",
+              "requestType": "EditMetadataRequest",
+              "requestLongType": "EditMetadataRequest",
+              "requestFullType": "metadata.EditMetadataRequest",
+              "requestStreaming": false,
+              "responseType": "EditMetadataResponse",
+              "responseLongType": "EditMetadataResponse",
+              "responseFullType": "metadata.EditMetadataResponse",
+              "responseStreaming": false
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "pfs/pfs.proto",
       "description": "",
       "package": "pfs_v2",
@@ -9171,6 +10620,24 @@
           ]
         },
         {
+          "name": "FileSetType",
+          "longName": "GetFileSetRequest.FileSetType",
+          "fullName": "pfs_v2.GetFileSetRequest.FileSetType",
+          "description": "",
+          "values": [
+            {
+              "name": "TOTAL",
+              "number": "0",
+              "description": ""
+            },
+            {
+              "name": "DIFF",
+              "number": "1",
+              "description": ""
+            }
+          ]
+        },
+        {
           "name": "OriginKind",
           "longName": "OriginKind",
           "fullName": "pfs_v2.OriginKind",
@@ -9194,6 +10661,19 @@
             {
               "name": "FSCK",
               "number": "3",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "Ordering",
+          "longName": "RepoPage.Ordering",
+          "fullName": "pfs_v2.RepoPage.Ordering",
+          "description": "",
+          "values": [
+            {
+              "name": "PROJECT_REPO",
+              "number": "0",
               "description": ""
             }
           ]
@@ -9548,6 +11028,114 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "BranchInfo.MetadataEntry",
+              "fullType": "pfs_v2.BranchInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "BranchInfo.MetadataEntry",
+          "fullName": "pfs_v2.BranchInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "BranchPicker",
+          "longName": "BranchPicker",
+          "fullName": "pfs_v2.BranchPicker",
+          "description": "BranchPicker defines mutually exclusive pickers that resolve to a single branch.\nCurrently, the only way to pick a branch is by composing a branch name with a repo.\nPicker messages should only be used as request parameters.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "BranchName",
+              "longType": "BranchPicker.BranchName",
+              "fullType": "pfs_v2.BranchPicker.BranchName",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "BranchName",
+          "longName": "BranchPicker.BranchName",
+          "fullName": "pfs_v2.BranchPicker.BranchName",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "repo",
+              "description": "",
+              "label": "",
+              "type": "RepoPicker",
+              "longType": "RepoPicker",
+              "fullType": "pfs_v2.RepoPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -9723,7 +11311,7 @@
           "name": "CommitInfo",
           "longName": "CommitInfo",
           "fullName": "pfs_v2.CommitInfo",
-          "description": "CommitInfo is the main data structure representing a commit in etcd",
+          "description": "CommitInfo is the main data structure representing a commit in postgres",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -9838,6 +11426,18 @@
               "defaultValue": ""
             },
             {
+              "name": "direct_subvenance",
+              "description": "",
+              "label": "repeated",
+              "type": "Commit",
+              "longType": "Commit",
+              "fullType": "pfs_v2.Commit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
               "name": "error",
               "description": "",
               "label": "",
@@ -9869,6 +11469,18 @@
               "longType": "CommitInfo.Details",
               "fullType": "pfs_v2.CommitInfo.Details",
               "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "Metadata is user-applied annotations.",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "CommitInfo.MetadataEntry",
+              "fullType": "pfs_v2.CommitInfo.MetadataEntry",
+              "ismap": true,
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
@@ -9924,6 +11536,42 @@
           ]
         },
         {
+          "name": "MetadataEntry",
+          "longName": "CommitInfo.MetadataEntry",
+          "fullName": "pfs_v2.CommitInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "CommitOrigin",
           "longName": "CommitOrigin",
           "fullName": "pfs_v2.CommitOrigin",
@@ -9940,6 +11588,174 @@
               "type": "OriginKind",
               "longType": "OriginKind",
               "fullType": "pfs_v2.OriginKind",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CommitPicker",
+          "longName": "CommitPicker",
+          "fullName": "pfs_v2.CommitPicker",
+          "description": "CommitPicker defines mutually exclusive pickers that resolve to a single commit.\nCommits can be picked relatively from some other commit like a parent or start of branch.\nAlternatively, they can be picked via their global Id, which is composed of a repo picker and an id.\nPicker messages should only be used as request parameters.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "branch_head",
+              "description": "",
+              "label": "",
+              "type": "BranchPicker",
+              "longType": "BranchPicker",
+              "fullType": "pfs_v2.BranchPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            },
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "CommitByGlobalId",
+              "longType": "CommitPicker.CommitByGlobalId",
+              "fullType": "pfs_v2.CommitPicker.CommitByGlobalId",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            },
+            {
+              "name": "ancestor",
+              "description": "",
+              "label": "",
+              "type": "AncestorOf",
+              "longType": "CommitPicker.AncestorOf",
+              "fullType": "pfs_v2.CommitPicker.AncestorOf",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            },
+            {
+              "name": "branch_root",
+              "description": "",
+              "label": "",
+              "type": "BranchRoot",
+              "longType": "CommitPicker.BranchRoot",
+              "fullType": "pfs_v2.CommitPicker.BranchRoot",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "AncestorOf",
+          "longName": "CommitPicker.AncestorOf",
+          "fullName": "pfs_v2.CommitPicker.AncestorOf",
+          "description": "This models ^ syntax recursively.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "offset",
+              "description": "",
+              "label": "",
+              "type": "uint32",
+              "longType": "uint32",
+              "fullType": "uint32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "start",
+              "description": "",
+              "label": "",
+              "type": "CommitPicker",
+              "longType": "CommitPicker",
+              "fullType": "pfs_v2.CommitPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "BranchRoot",
+          "longName": "CommitPicker.BranchRoot",
+          "fullName": "pfs_v2.CommitPicker.BranchRoot",
+          "description": "This models .N syntax.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "offset",
+              "description": "",
+              "label": "",
+              "type": "uint32",
+              "longType": "uint32",
+              "fullType": "uint32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "branch",
+              "description": "",
+              "label": "",
+              "type": "BranchPicker",
+              "longType": "BranchPicker",
+              "fullType": "pfs_v2.BranchPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CommitByGlobalId",
+          "longName": "CommitPicker.CommitByGlobalId",
+          "fullName": "pfs_v2.CommitPicker.CommitByGlobalId",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "repo",
+              "description": "",
+              "label": "",
+              "type": "RepoPicker",
+              "longType": "RepoPicker",
+              "fullType": "pfs_v2.RepoPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -11391,6 +13207,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "type",
+              "description": "",
+              "label": "",
+              "type": "FileSetType",
+              "longType": "GetFileSetRequest.FileSetType",
+              "fullType": "pfs_v2.GetFileSetRequest.FileSetType",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -11937,7 +13765,7 @@
           "fields": [
             {
               "name": "type",
-              "description": "type is the type of (system) repos that should be returned\nan empty string requests all repos",
+              "description": "Type is the type of (system) repo that should be returned.\nAn empty string requests all repos.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -11949,11 +13777,23 @@
             },
             {
               "name": "projects",
-              "description": "projects filters out repos that do not belong in the list, while no projects means list all repos.",
+              "description": "Filters out repos whos project isn't represented.\nAn empty list of projects doesn't filter repos by their project.",
               "label": "repeated",
               "type": "Project",
               "longType": "Project",
               "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "page",
+              "description": "Specifies which page of repos should be returned.\nIf page isn't specified, a single page containing all the relevant repos is returned.",
+              "label": "",
+              "type": "RepoPage",
+              "longType": "RepoPage",
+              "fullType": "pfs_v2.RepoPage",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -12193,6 +14033,78 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "ProjectInfo.MetadataEntry",
+              "fullType": "pfs_v2.ProjectInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "ProjectInfo.MetadataEntry",
+          "fullName": "pfs_v2.ProjectInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ProjectPicker",
+          "longName": "ProjectPicker",
+          "fullName": "pfs_v2.ProjectPicker",
+          "description": "ProjectPicker defines mutually exclusive pickers that resolve to a single project.\nCurrently, the only way to pick a project is by using a project name.\nPicker messages should only be used as request parameters.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
               "defaultValue": ""
             }
           ]
@@ -12434,6 +14346,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "Metadata are user-defined key-value pairs.",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "RepoInfo.MetadataEntry",
+              "fullType": "pfs_v2.RepoInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -12454,6 +14378,258 @@
               "type": "int64",
               "longType": "int64",
               "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "RepoInfo.MetadataEntry",
+          "fullName": "pfs_v2.RepoInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RepoPage",
+          "longName": "RepoPage",
+          "fullName": "pfs_v2.RepoPage",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "order",
+              "description": "",
+              "label": "",
+              "type": "Ordering",
+              "longType": "RepoPage.Ordering",
+              "fullType": "pfs_v2.RepoPage.Ordering",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "page_size",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "page_index",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RepoPicker",
+          "longName": "RepoPicker",
+          "fullName": "pfs_v2.RepoPicker",
+          "description": "Repo defines mutually exclusive pickers that resolve to a single repository.\nCurrently, the only way to pick a repo is by composing a repo name and type with a project.\nIf the type is omitted, the 'user' type will be used as a default.\nPicker messages should only be used as request parameters.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "RepoName",
+              "longType": "RepoPicker.RepoName",
+              "fullType": "pfs_v2.RepoPicker.RepoName",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RepoName",
+          "longName": "RepoPicker.RepoName",
+          "fullName": "pfs_v2.RepoPicker.RepoName",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "ProjectPicker",
+              "longType": "ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "type",
+              "description": "type is optional. If omitted, the default type is 'user'.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummary",
+          "longName": "ReposSummary",
+          "fullName": "pfs_v2.ReposSummary",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "the project the ReposSummary corresponds to",
+              "label": "",
+              "type": "Project",
+              "longType": "Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "user_repo_count",
+              "description": "the count of user repos in the summary",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "size_bytes",
+              "description": "aggregate size of all the repos returned in the summary",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummaryRequest",
+          "longName": "ReposSummaryRequest",
+          "fullName": "pfs_v2.ReposSummaryRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "projects",
+              "description": "a ReposSummary will be returned for every specified project",
+              "label": "repeated",
+              "type": "ProjectPicker",
+              "longType": "ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummaryResponse",
+          "longName": "ReposSummaryResponse",
+          "fullName": "pfs_v2.ReposSummaryResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "summaries",
+              "description": "repo summaries for the requested projects",
+              "label": "repeated",
+              "type": "ReposSummary",
+              "longType": "ReposSummary",
+              "fullType": "pfs_v2.ReposSummary",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -12585,7 +14761,7 @@
           "name": "ShardFileSetRequest",
           "longName": "ShardFileSetRequest",
           "fullName": "pfs_v2.ShardFileSetRequest",
-          "description": "",
+          "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used.",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -12598,6 +14774,30 @@
               "type": "string",
               "longType": "string",
               "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "num_files",
+              "description": "Number of files targeted in each shard",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "size_bytes",
+              "description": "Size (in bytes) targeted for each shard",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -12917,6 +15117,198 @@
           ]
         },
         {
+          "name": "WalkBranchProvenanceRequest",
+          "longName": "WalkBranchProvenanceRequest",
+          "fullName": "pfs_v2.WalkBranchProvenanceRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "start",
+              "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker.",
+              "label": "repeated",
+              "type": "BranchPicker",
+              "longType": "BranchPicker",
+              "fullType": "pfs_v2.BranchPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "max_branches",
+              "description": "defaults to 10,000 if unspecified",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "max_depth",
+              "description": "defaults to 1000 if unspecified",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "WalkBranchSubvenanceRequest",
+          "longName": "WalkBranchSubvenanceRequest",
+          "fullName": "pfs_v2.WalkBranchSubvenanceRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "start",
+              "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker.",
+              "label": "repeated",
+              "type": "BranchPicker",
+              "longType": "BranchPicker",
+              "fullType": "pfs_v2.BranchPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "max_branches",
+              "description": "defaults to 10,000 if unspecified",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "max_depth",
+              "description": "defaults to 1000 if unspecified",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "WalkCommitProvenanceRequest",
+          "longName": "WalkCommitProvenanceRequest",
+          "fullName": "pfs_v2.WalkCommitProvenanceRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "start",
+              "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker.",
+              "label": "repeated",
+              "type": "CommitPicker",
+              "longType": "CommitPicker",
+              "fullType": "pfs_v2.CommitPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "max_commits",
+              "description": "defaults to 10,000 if unspecified",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "max_depth",
+              "description": "defaults to 1000 if unspecified",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "WalkCommitSubvenanceRequest",
+          "longName": "WalkCommitSubvenanceRequest",
+          "fullName": "pfs_v2.WalkCommitSubvenanceRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "start",
+              "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker.",
+              "label": "repeated",
+              "type": "CommitPicker",
+              "longType": "CommitPicker",
+              "fullType": "pfs_v2.CommitPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "max_commits",
+              "description": "defaults to 10,000 if unspecified",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "max_depth",
+              "description": "defaults to 1000 if unspecified",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "WalkFileRequest",
           "longName": "WalkFileRequest",
           "fullName": "pfs_v2.WalkFileRequest",
@@ -13201,6 +15593,30 @@
               "responseStreaming": true
             },
             {
+              "name": "WalkCommitProvenance",
+              "description": "WalkCommitProvenance traverses a commit's provenance graph and streams back each commit encountered.",
+              "requestType": "WalkCommitProvenanceRequest",
+              "requestLongType": "WalkCommitProvenanceRequest",
+              "requestFullType": "pfs_v2.WalkCommitProvenanceRequest",
+              "requestStreaming": false,
+              "responseType": "CommitInfo",
+              "responseLongType": "CommitInfo",
+              "responseFullType": "pfs_v2.CommitInfo",
+              "responseStreaming": true
+            },
+            {
+              "name": "WalkCommitSubvenance",
+              "description": "WalkCommitSubvenance traverses a commit's subvenance graph and streams back each commit encountered.",
+              "requestType": "WalkCommitSubvenanceRequest",
+              "requestLongType": "WalkCommitSubvenanceRequest",
+              "requestFullType": "pfs_v2.WalkCommitSubvenanceRequest",
+              "requestStreaming": false,
+              "responseType": "CommitInfo",
+              "responseLongType": "CommitInfo",
+              "responseFullType": "pfs_v2.CommitInfo",
+              "responseStreaming": true
+            },
+            {
               "name": "CreateBranch",
               "description": "CreateBranch creates a new branch.",
               "requestType": "CreateBranchRequest",
@@ -13247,6 +15663,30 @@
               "responseLongType": ".google.protobuf.Empty",
               "responseFullType": "google.protobuf.Empty",
               "responseStreaming": false
+            },
+            {
+              "name": "WalkBranchProvenance",
+              "description": "WalkBranchProvenance traverses a branch's provenance graph and streams back each branch encountered.",
+              "requestType": "WalkBranchProvenanceRequest",
+              "requestLongType": "WalkBranchProvenanceRequest",
+              "requestFullType": "pfs_v2.WalkBranchProvenanceRequest",
+              "requestStreaming": false,
+              "responseType": "BranchInfo",
+              "responseLongType": "BranchInfo",
+              "responseFullType": "pfs_v2.BranchInfo",
+              "responseStreaming": true
+            },
+            {
+              "name": "WalkBranchSubvenance",
+              "description": "WalkBranchSubvenance traverses a branch's subvenance graph and streams back each branch encountered.",
+              "requestType": "WalkBranchSubvenanceRequest",
+              "requestLongType": "WalkBranchSubvenanceRequest",
+              "requestFullType": "pfs_v2.WalkBranchSubvenanceRequest",
+              "requestStreaming": false,
+              "responseType": "BranchInfo",
+              "responseLongType": "BranchInfo",
+              "responseFullType": "pfs_v2.BranchInfo",
+              "responseStreaming": true
             },
             {
               "name": "ModifyFile",
@@ -13582,6 +16022,18 @@
               "responseType": "Empty",
               "responseLongType": ".google.protobuf.Empty",
               "responseFullType": "google.protobuf.Empty",
+              "responseStreaming": false
+            },
+            {
+              "name": "ReposSummary",
+              "description": "Summary API\nReposSummary returns a list of summaries about the repos for each of the requested projects.",
+              "requestType": "ReposSummaryRequest",
+              "requestLongType": "ReposSummaryRequest",
+              "requestFullType": "pfs_v2.ReposSummaryRequest",
+              "requestStreaming": false,
+              "responseType": "ReposSummaryResponse",
+              "responseLongType": "ReposSummaryResponse",
+              "responseFullType": "pfs_v2.ReposSummaryResponse",
               "responseStreaming": false
             }
           ]
@@ -14747,6 +17199,19 @@
           ]
         },
         {
+          "name": "Ordering",
+          "longName": "PipelinePage.Ordering",
+          "fullName": "pps_v2.PipelinePage.Ordering",
+          "description": "",
+          "values": [
+            {
+              "name": "RECENT",
+              "number": "0",
+              "description": ""
+            }
+          ]
+        },
+        {
           "name": "PipelineState",
           "longName": "PipelineState",
           "fullName": "pps_v2.PipelineState",
@@ -15146,6 +17611,74 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ContinueCreateDatumRequest",
+          "longName": "ContinueCreateDatumRequest",
+          "fullName": "pps_v2.ContinueCreateDatumRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "number",
+              "description": "Number of datums to return in next batch. If 0, default batch size\nis returned.",
+              "label": "",
+              "type": "int32",
+              "longType": "int32",
+              "fullType": "int32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "int32.gte",
+                    "value": 0
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CreateDatumRequest",
+          "longName": "CreateDatumRequest",
+          "fullName": "pps_v2.CreateDatumRequest",
+          "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "start",
+              "description": "",
+              "label": "",
+              "type": "StartCreateDatumRequest",
+              "longType": "StartCreateDatumRequest",
+              "fullType": "pps_v2.StartCreateDatumRequest",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
+              "defaultValue": ""
+            },
+            {
+              "name": "continue",
+              "description": "",
+              "label": "",
+              "type": "ContinueCreateDatumRequest",
+              "longType": "ContinueCreateDatumRequest",
+              "fullType": "pps_v2.ContinueCreateDatumRequest",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
               "defaultValue": ""
             }
           ]
@@ -17880,6 +20413,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "page",
+              "description": "Page indicates which page of a certain size to return. If page is left empty,\nall of the selected pipelines will be returned.",
+              "label": "",
+              "type": "PipelinePage",
+              "longType": "PipelinePage",
+              "fullType": "pps_v2.PipelinePage",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -19068,6 +21613,174 @@
           ]
         },
         {
+          "name": "PipelinePage",
+          "longName": "PipelinePage",
+          "fullName": "pps_v2.PipelinePage",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "order",
+              "description": "",
+              "label": "",
+              "type": "Ordering",
+              "longType": "PipelinePage.Ordering",
+              "fullType": "pps_v2.PipelinePage.Ordering",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "page_size",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "page_index",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelinesSummary",
+          "longName": "PipelinesSummary",
+          "fullName": "pps_v2.PipelinesSummary",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "the project the PipelinesSummary corresponds to",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "active_pipelines",
+              "description": "count of active pipelines",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "paused_pipelines",
+              "description": "count of paused pipelines",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "failed_pipelines",
+              "description": "count of failed pipelines",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "unhealthy_pipelines",
+              "description": "count of pipelines with a failed latest job",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelinesSummaryRequest",
+          "longName": "PipelinesSummaryRequest",
+          "fullName": "pps_v2.PipelinesSummaryRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "projects",
+              "description": "a PipelinesSummary will be returned for each of the requests projects",
+              "label": "repeated",
+              "type": "ProjectPicker",
+              "longType": "pfs_v2.ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelinesSummaryResponse",
+          "longName": "PipelinesSummaryResponse",
+          "fullName": "pps_v2.PipelinesSummaryResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "summaries",
+              "description": "the pipeline summaries for the requested projects",
+              "label": "repeated",
+              "type": "PipelinesSummary",
+              "longType": "PipelinesSummary",
+              "fullType": "pps_v2.PipelinesSummary",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ProcessStats",
           "longName": "ProcessStats",
           "fullName": "pps_v2.ProcessStats",
@@ -20104,6 +22817,58 @@
           ]
         },
         {
+          "name": "StartCreateDatumRequest",
+          "longName": "StartCreateDatumRequest",
+          "fullName": "pps_v2.StartCreateDatumRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "input",
+              "description": "Input is the input to list datums from. The datums listed are the ones \nthat would be run if a pipeline was created with the provided input.",
+              "label": "",
+              "type": "Input",
+              "longType": "Input",
+              "fullType": "pps_v2.Input",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "number",
+              "description": "Number of datums to return in first batch. If 0, default batch size\nis returned.",
+              "label": "",
+              "type": "int32",
+              "longType": "int32",
+              "fullType": "int32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "int32.gte",
+                    "value": 0
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "StartPipelineRequest",
           "longName": "StartPipelineRequest",
           "fullName": "pps_v2.StartPipelineRequest",
@@ -20900,6 +23665,18 @@
               "responseStreaming": true
             },
             {
+              "name": "CreateDatum",
+              "description": "CreateDatum prioritizes time to first datum. Each request returns a batch\nof datums.",
+              "requestType": "CreateDatumRequest",
+              "requestLongType": "CreateDatumRequest",
+              "requestFullType": "pps_v2.CreateDatumRequest",
+              "requestStreaming": true,
+              "responseType": "DatumInfo",
+              "responseLongType": "DatumInfo",
+              "responseFullType": "pps_v2.DatumInfo",
+              "responseStreaming": true
+            },
+            {
               "name": "RestartDatum",
               "description": "",
               "requestType": "RestartDatumRequest",
@@ -21269,6 +24046,18 @@
               "responseType": "SetProjectDefaultsResponse",
               "responseLongType": "SetProjectDefaultsResponse",
               "responseFullType": "pps_v2.SetProjectDefaultsResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "PipelinesSummary",
+              "description": "PipelinesSummary summarizes the pipelines for each requested project.",
+              "requestType": "PipelinesSummaryRequest",
+              "requestLongType": "PipelinesSummaryRequest",
+              "requestFullType": "pps_v2.PipelinesSummaryRequest",
+              "requestStreaming": false,
+              "responseType": "PipelinesSummaryResponse",
+              "responseLongType": "PipelinesSummaryResponse",
+              "responseFullType": "pps_v2.PipelinesSummaryResponse",
               "responseStreaming": false
             }
           ]
@@ -25845,6 +28634,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "auth_token",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -25937,6 +28738,18 @@
               "type": "PathRange",
               "longType": "pfs_v2.PathRange",
               "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "auth_token",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -26057,6 +28870,18 @@
               "type": "PathRange",
               "longType": "pfs_v2.PathRange",
               "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "auth_token",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -26234,6 +29059,533 @@
         }
       ],
       "services": []
+    },
+    {
+      "name": "storage/fileset.proto",
+      "description": "",
+      "package": "storage",
+      "hasEnums": false,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "AppendFile",
+          "longName": "AppendFile",
+          "fullName": "storage.AppendFile",
+          "description": "AppendFile will append the provided data to the file with the specified path. If\na file with the specified path doesn't exist, it will be created.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "path",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "data",
+              "description": "",
+              "label": "",
+              "type": "BytesValue",
+              "longType": "google.protobuf.BytesValue",
+              "fullType": "google.protobuf.BytesValue",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ComposeFilesetRequest",
+          "longName": "ComposeFilesetRequest",
+          "fullName": "storage.ComposeFilesetRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_ids",
+              "description": "",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "ttl_seconds",
+              "description": "The TTL, in seconds, for the composite fileset that is created.",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ComposeFilesetResponse",
+          "longName": "ComposeFilesetResponse",
+          "fullName": "storage.ComposeFilesetResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateFilesetRequest",
+          "longName": "CreateFilesetRequest",
+          "fullName": "storage.CreateFilesetRequest",
+          "description": "A CreateFilesetRequest corresponds to a single file modification.\nSupported file modifications are append and delete.\nA put / overwrite file modification can be performed by a delete followed by an\nappend.\n TODO: Decide how to handle datums.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "append_file",
+              "description": "",
+              "label": "",
+              "type": "AppendFile",
+              "longType": "AppendFile",
+              "fullType": "storage.AppendFile",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "modification",
+              "defaultValue": ""
+            },
+            {
+              "name": "delete_file",
+              "description": "",
+              "label": "",
+              "type": "DeleteFile",
+              "longType": "DeleteFile",
+              "fullType": "storage.DeleteFile",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "modification",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateFilesetResponse",
+          "longName": "CreateFilesetResponse",
+          "fullName": "storage.CreateFilesetResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DeleteFile",
+          "longName": "DeleteFile",
+          "fullName": "storage.DeleteFile",
+          "description": "DeleteFile will delete the file with the specified path. If a file with the\nspecified path doesn't exist, the delete will be a no-op.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "path",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "FileFilter",
+          "longName": "FileFilter",
+          "fullName": "storage.FileFilter",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "path_range",
+              "description": "Only emit files with paths in the provided path range.",
+              "label": "",
+              "type": "PathRange",
+              "longType": "PathRange",
+              "fullType": "storage.PathRange",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "filter",
+              "defaultValue": ""
+            },
+            {
+              "name": "path_regex",
+              "description": "Only emit files with paths that match the provided regular expression.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "filter",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PathRange",
+          "longName": "PathRange",
+          "fullName": "storage.PathRange",
+          "description": "PathRange is a range of paths.\nThe range is inclusive, exclusive: [Lower, Upper).",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "lower",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "upper",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReadFilesetRequest",
+          "longName": "ReadFilesetRequest",
+          "fullName": "storage.ReadFilesetRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "filters",
+              "description": "Filters constrain which files are emitted.\nA file is only emitted if it makes it through all of the filters sequentially.",
+              "label": "repeated",
+              "type": "FileFilter",
+              "longType": "FileFilter",
+              "fullType": "storage.FileFilter",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "empty_files",
+              "description": "If true, then the file data will be omitted from the stream.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReadFilesetResponse",
+          "longName": "ReadFilesetResponse",
+          "fullName": "storage.ReadFilesetResponse",
+          "description": "A ReadFilesetResponse corresponds to a single chunk of data in a file. \nSmall or empty files will be contained within a single message, while large\nfiles may be spread across multiple messages.\nFor files spread across multiple messages, each message will have the same\npath and the content will be returned in append order.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "path",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "data",
+              "description": "",
+              "label": "",
+              "type": "BytesValue",
+              "longType": "google.protobuf.BytesValue",
+              "fullType": "google.protobuf.BytesValue",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RenewFilesetRequest",
+          "longName": "RenewFilesetRequest",
+          "fullName": "storage.RenewFilesetRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "ttl_seconds",
+              "description": "The TTL, in seconds, for the fileset after renewal.",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ShardFilesetRequest",
+          "longName": "ShardFilesetRequest",
+          "fullName": "storage.ShardFilesetRequest",
+          "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "num_files",
+              "description": "Number of files targeted in each shard.",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "size_bytes",
+              "description": "Size (in bytes) targeted for each shard.",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ShardFilesetResponse",
+          "longName": "ShardFilesetResponse",
+          "fullName": "storage.ShardFilesetResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "shards",
+              "description": "",
+              "label": "repeated",
+              "type": "PathRange",
+              "longType": "PathRange",
+              "fullType": "storage.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "name": "Fileset",
+          "longName": "Fileset",
+          "fullName": "storage.Fileset",
+          "description": "",
+          "methods": [
+            {
+              "name": "CreateFileset",
+              "description": "CreateFileset creates a fileset based on a stream of file modifications.\nA string identifier for the created fileset will be returned that can be used for subsequent fileset operations.\nFilesets have a fixed time-to-live (ttl), which is currently 10 minutes.\nFilesets needed longer than the ttl will need to be renewed.",
+              "requestType": "CreateFilesetRequest",
+              "requestLongType": "CreateFilesetRequest",
+              "requestFullType": "storage.CreateFilesetRequest",
+              "requestStreaming": true,
+              "responseType": "CreateFilesetResponse",
+              "responseLongType": "CreateFilesetResponse",
+              "responseFullType": "storage.CreateFilesetResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "ReadFileset",
+              "description": "ReadFileset reads a fileset.",
+              "requestType": "ReadFilesetRequest",
+              "requestLongType": "ReadFilesetRequest",
+              "requestFullType": "storage.ReadFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "ReadFilesetResponse",
+              "responseLongType": "ReadFilesetResponse",
+              "responseFullType": "storage.ReadFilesetResponse",
+              "responseStreaming": true
+            },
+            {
+              "name": "RenewFileset",
+              "description": "RenewFileset renews a fileset.",
+              "requestType": "RenewFilesetRequest",
+              "requestLongType": "RenewFilesetRequest",
+              "requestFullType": "storage.RenewFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "Empty",
+              "responseLongType": ".google.protobuf.Empty",
+              "responseFullType": "google.protobuf.Empty",
+              "responseStreaming": false
+            },
+            {
+              "name": "ComposeFileset",
+              "description": "ComposeFileset composes a fileset.\nComposing a fileset involves combining one or more filesets into a single fileset.\nTODO: Explain how the filesets are layered and what that means for the order of file modifications.",
+              "requestType": "ComposeFilesetRequest",
+              "requestLongType": "ComposeFilesetRequest",
+              "requestFullType": "storage.ComposeFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "ComposeFilesetResponse",
+              "responseLongType": "ComposeFilesetResponse",
+              "responseFullType": "storage.ComposeFilesetResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "ShardFileset",
+              "description": "ShardFileset shards a fileset.\nThe shards of a fileset are returned as a list of path ranges that are disjoint\nand account for the full set of paths in the fileset.",
+              "requestType": "ShardFilesetRequest",
+              "requestLongType": "ShardFilesetRequest",
+              "requestFullType": "storage.ShardFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "ShardFilesetResponse",
+              "responseLongType": "ShardFilesetResponse",
+              "responseFullType": "storage.ShardFilesetResponse",
+              "responseStreaming": false
+            }
+          ]
+        }
+      ]
     },
     {
       "name": "task/task.proto",

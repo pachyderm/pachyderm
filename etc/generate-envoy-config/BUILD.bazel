@@ -1,0 +1,31 @@
+load("@aspect_bazel_lib//lib:tar.bzl", "tar")
+
+files = [
+    "envoy",
+    "envoy-tls",
+]
+
+[
+    genrule(
+        name = "gen_" + x,
+        srcs = [
+            "envoy.libsonnet",
+            "pachyderm-services.libsonnet",
+            x + ".jsonnet",
+        ],
+        outs = [x + ".json"],
+        cmd = "$(location @jsonnet_go//cmd/jsonnet) $(location :" + x + ".jsonnet) > $@",
+        tools = ["@jsonnet_go//cmd/jsonnet"],
+    )
+    for x in files
+]
+
+tar(
+    name = "envoy_config_bundle",
+    srcs = [x + ".json" for x in files],
+    mtree = [
+        "etc/helm/pachyderm/envoy.json uid=0 gid=0 time=0 mode=0644 type=file content=$(location envoy.json)",
+        "etc/helm/pachyderm/envoy-tls.json uid=0 gid=0 time=0 mode=0644 type=file content=$(location envoy-tls.json)",
+    ],
+    visibility = ["//etc/helm/pachyderm:__pkg__"],
+)

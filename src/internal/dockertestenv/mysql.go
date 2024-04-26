@@ -22,13 +22,13 @@ const (
 )
 
 func NewEphemeralMySQLDB(ctx context.Context, t testing.TB) (*pachsql.DB, string) {
-	name := testutil.GenerateEphemeralDBName(t)
+	name := testutil.GenerateEphemeralDBName()
 	return testutil.OpenDBURL(t, newMySQLEphemeralURL(ctx, t, name), MySQLPassword), name
 }
 
 // NewMySQLURL returns a pachsql.URL to an ephemeral database.
 func NewMySQLURL(ctx context.Context, t testing.TB) pachsql.URL {
-	dbName := testutil.GenerateEphemeralDBName(t)
+	dbName := testutil.GenerateEphemeralDBName()
 	return newMySQLEphemeralURL(ctx, t, dbName)
 }
 

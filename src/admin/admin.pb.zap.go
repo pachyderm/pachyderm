@@ -5,6 +5,7 @@
 package admin
 
 import (
+	fmt "fmt"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -26,6 +27,12 @@ func (x *ClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("proxy_tls", x.ProxyTls)
 	enc.AddBool("paused", x.Paused)
 	enc.AddObject("web_resources", x.WebResources)
+	enc.AddObject("metadata", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for k, v := range x.Metadata {
+			enc.AddString(fmt.Sprintf("%v", k), v)
+		}
+		return nil
+	}))
 	return nil
 }
 

@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "server",
+    srcs = ["api_server.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/logs/server",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/lokiutil/client",
+        "//src/logs",
+        "//src/server/auth",
+        "//src/server/logs",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)
+
+go_test(
+    name = "server_test",
+    srcs = ["api_server_test.go"],
+    deps = [
+        "//src/internal/dockertestenv",
+        "//src/internal/lokiutil",
+        "//src/internal/lokiutil/client",
+        "//src/internal/pachconfig",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/logs",
+    ],
+)

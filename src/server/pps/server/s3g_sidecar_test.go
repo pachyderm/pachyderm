@@ -645,7 +645,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 
 		pipeline := tu.UniqueString("Pipeline")
 		// 'pipeline' needs access to the 'background' repo to run successfully
-		require.NoError(t, c.ModifyRepoRoleBinding(projectName, background,
+		require.NoError(t, c.ModifyRepoRoleBinding(c.Ctx(), projectName, background,
 			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
 
 		pipelineCommit := client.NewCommit(projectName, pipeline, "master", "")
@@ -820,7 +820,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 
 		pipeline := tu.UniqueString("Pipeline")
 		// 'pipeline' needs access to the 'background' repo to run successfully
-		require.NoError(t, c.ModifyRepoRoleBinding(projectName, background,
+		require.NoError(t, c.ModifyRepoRoleBinding(c.Ctx(), projectName, background,
 			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
 
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{

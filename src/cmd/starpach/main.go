@@ -22,6 +22,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	// Starlark modules.
+	_ "github.com/pachyderm/pachyderm/v2/src/internal/starlark/lib/template"
 	_ "github.com/pachyderm/pachyderm/v2/src/server/debug/server/debugstar"
 )
 

@@ -4,6 +4,7 @@ package client
 import (
 	"context"
 	"io"
+	"runtime/trace"
 	"strings"
 	"sync/atomic"
 
@@ -19,12 +20,14 @@ type loggingStream struct {
 	grpc.ClientStream
 	done       func(...log.Field)
 	desc       *grpc.StreamDesc
+	task       *trace.Task
 	closedSend atomic.Bool
 }
 
 var _ grpc.ClientStream = new(loggingStream)
 
 func (s *loggingStream) RecvMsg(m any) error {
+	trace.Logf(s.Context(), "grpc client", "grpc client recv %T", m)
 	if err := s.ClientStream.RecvMsg(m); err != nil {
 		if err == io.EOF {
 			s.done(log.Metadata("trailer", s.Trailer()))
@@ -52,6 +55,7 @@ func (s *loggingStream) RecvMsg(m any) error {
 }
 
 func (s *loggingStream) SendMsg(m any) (retErr error) {
+	trace.Logf(s.Context(), "grpc client", "grpc client send %T", m)
 	var field log.Field
 	if p, ok := m.(proto.Message); ok {
 		field = log.Proto("request", p)
@@ -67,6 +71,7 @@ func (s *loggingStream) SendMsg(m any) (retErr error) {
 }
 
 func (s *loggingStream) CloseSend() error {
+	trace.Log(s.Context(), "grpc client", "grpc client CloseSend")
 	err := s.ClientStream.CloseSend()
 	log.Debug(s.Context(), "send side of stream closed", zap.Error(err))
 	s.closedSend.Store(true)
@@ -75,6 +80,8 @@ func (s *loggingStream) CloseSend() error {
 
 func LogStream(rctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 	ctx, done := log.SpanContext(pctx.Child(rctx, "grpcClient.stream", pctx.WithOptions(zap.WithCaller(false))), strings.TrimPrefix(method, "/"))
+	ctx, task := trace.NewTask(ctx, "grpc client stream"+method)
+	defer task.End()
 	underlying, err := streamer(ctx, desc, cc, method, opts...)
 	if err != nil {
 		return underlying, err
@@ -83,6 +90,7 @@ func LogStream(rctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn,
 		ClientStream: underlying,
 		desc:         desc,
 		done:         done,
+		task:         task,
 	}
 	log.Debug(ctx, "stream started", log.OutgoingMetadata(ctx))
 	go func() {
