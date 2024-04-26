@@ -18,3 +18,4 @@ npm install
 | initialPageloadDelay | Number | 1 |
 | noHeadless | Boolean | false |
 | debug | Boolean | false |
+| auth | Boolean | false |

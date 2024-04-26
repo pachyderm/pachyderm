@@ -8,6 +8,7 @@ const {values} = parseArgs({
     distributed: {type: 'boolean'},
     mode: {type: 'string'},
     numProjects: {type: 'string', default: '10'},
+    numInaccessibleProjects: {type: 'string', default: '0'},
     numRepos: {type: 'string', default: '10'},
     numPipelines: {type: 'string', default: '10'},
     numCommits: {type: 'string', default: '10'},
@@ -26,6 +27,7 @@ const {values} = parseArgs({
 const MODE = String(values.mode);
 const DISTRIBUTED = Boolean(values.distributed);
 const NUM_PROJECTS = Number(values.numProjects);
+const NUM_INACCESSIBLE_PROJECTS = Number(values.numInaccessibleProjects);
 const NUM_REPOS = Number(values.numRepos);
 const NUM_PIPELINES = Number(values.numPipelines);
 const NUM_COMMITS = Number(values.numCommits);
@@ -147,7 +149,6 @@ const createFiles = async () => {
         `echo "0" | pachctl put file perf-repo-small-${j}@master:/input-0.txt --project perf-project-${i}`,
       );
     }
-
   }
 };
 
@@ -155,6 +156,25 @@ const createProjects = async () => {
   for (const i of range(NUM_PROJECTS)) {
     await execCommand(`pachctl create project perf-project-${i}`);
   }
+};
+
+const assignProjectRoles = async () => {
+  for (const i of range(NUM_PROJECTS - NUM_INACCESSIBLE_PROJECTS)) {
+    await execCommand(
+      `pachctl auth set project perf-project-${i} projectOwner user:kilgore@kilgore.trout`,
+    );
+  }
+  for (const i of range(NUM_INACCESSIBLE_PROJECTS)) {
+    await execCommand(
+      `pachctl auth set project perf-project-${
+        NUM_PROJECTS - 1 - i
+      } none user:kilgore@kilgore.trout`,
+    );
+  }
+  if (NUM_INACCESSIBLE_PROJECTS > 0)
+    await execCommand(
+      `pachctl auth set cluster none user:kilgore@kilgore.trout`,
+    );
 };
 
 const deleteProjects = async () => {
@@ -174,6 +194,7 @@ const setupCluster = async () => {
   console.log({
     DISTRIBUTED,
     NUM_PROJECTS,
+    NUM_INACCESSIBLE_PROJECTS,
     NUM_REPOS,
     NUM_PIPELINES,
     NUM_COMMITS,
@@ -192,6 +213,7 @@ const setupCluster = async () => {
   });
 
   await createProjects();
+  await assignProjectRoles();
   await createRepos();
   await createPipelines();
   await createFiles();

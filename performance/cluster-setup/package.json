@@ -9,7 +9,7 @@
     "cluster:large": "npm run cluster:setup -- --numPipelines=1000 --numRepos=1000 --numCommits=1000 --sizeFileLarge=1e9 --sizeLogsLarge=1e7 --sizePipelineWorkersSmall=4",
     "cluster:small:distributed": "npm run cluster:small -- --distributed",
     "cluster:medium:distributed": "npm run cluster:medium -- --distributed",
-    "cluster:large:distributed": "npm run cluster:large -- --distributed"
+    "cluster:large:distributed": "npm run cluster:large -- --distributed --numProjects=30 --numInaccessibleProjects=5"
   },
   "license": "ISC",
   "dependencies": {

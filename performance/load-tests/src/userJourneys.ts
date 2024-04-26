@@ -7,7 +7,9 @@ import {wait} from './utils';
 export const loadLandingPage = async (page: Page) => {
   await page.goto('./');
 
-  await expect(page).toHaveTitle(/Projects - (HPE ML Data Management|Pachyderm Console)/);
+  await expect(page).toHaveTitle(
+    /Projects - (HPE ML Data Management|Pachyderm Console)/,
+  );
 
   await expect(page.getByRole('heading', {name: /projects/i})).toHaveText(
     'Projects',
@@ -17,13 +19,15 @@ export const loadLandingPage = async (page: Page) => {
 const idleLandingPage: Journey = async (page: Page) => {
   await page.goto('./');
 
-  await expect(page).toHaveTitle(/Projects - [HPE ML Data Management|Pachyderm Console]/);
+  await expect(page).toHaveTitle(
+    /Projects - [HPE ML Data Management|Pachyderm Console]/,
+  );
   await wait(60 * 1000); // one minute
 };
 
 const idleLogsPage: Journey = async (page: Page) => {
   await page.goto(
-    './lineage/perf-project-0/pipelines/perf-pipeline-small-files/logs'
+    './lineage/perf-project-0/pipelines/perf-pipeline-small-files/logs',
   );
 
   page.getByText('Log Retrieval Limitation'); // Logs are very old and might not exist
@@ -33,13 +37,17 @@ const idleLogsPage: Journey = async (page: Page) => {
 
 const pageThroughDatums: Journey = async (page: Page) => {
   await page.goto(
-    './lineage/perf-project-0/pipelines/perf-pipeline-small-files/logs'
+    './lineage/perf-project-0/pipelines/perf-pipeline-small-files/logs',
   );
 
   await page.getByTestId('JobList__listItem').first().click();
 
-  const pageForward = page.getByTestId('DatumList__list').getByTestId('Pager__forward');
-  const pageBack = page.getByTestId('DatumList__list').getByTestId('Pager__backward');
+  const pageForward = page
+    .getByTestId('DatumList__list')
+    .getByTestId('Pager__forward');
+  const pageBack = page
+    .getByTestId('DatumList__list')
+    .getByTestId('Pager__backward');
   const MAX_PAGES = 10;
 
   for (let i = 0; i < MAX_PAGES; i++) {
@@ -54,9 +62,7 @@ const pageThroughDatums: Journey = async (page: Page) => {
 };
 
 const pageThroughFiles: Journey = async (page: Page) => {
-  await page.goto(
-    './lineage/perf-project-0/repos/perf-repo-1/latest',
-  );
+  await page.goto('./lineage/perf-project-0/repos/perf-repo-1/latest');
   const pageForward = page
     .getByTestId('Pager__pager')
     .getByTestId('Pager__forward');
@@ -66,7 +72,7 @@ const pageThroughFiles: Journey = async (page: Page) => {
   const MAX_PAGES = 10;
 
   for (let i = 0; i < MAX_PAGES; i++) {
-    await pageForward.click()
+    await pageForward.click();
   }
 
   for (let i = 0; i < MAX_PAGES; i++) {
@@ -74,13 +80,16 @@ const pageThroughFiles: Journey = async (page: Page) => {
   }
 };
 
+// project should have more than 15 repos
 const pageThroughRepos: Journey = async (page: Page) => {
-  await page.goto(
-    './project/perf-project-1/repos'
-  );
+  await page.goto('./project/perf-project-1/repos');
 
-  const pageForward = page.getByTestId('ReposTable__table').getByTestId('Pager__forward');
-  const pageBack = page.getByTestId('ReposTable__table').getByTestId('Pager__backward');
+  const pageForward = page
+    .getByTestId('ReposTable__table')
+    .getByTestId('Pager__forward');
+  const pageBack = page
+    .getByTestId('ReposTable__table')
+    .getByTestId('Pager__backward');
   const MAX_PAGES = 8;
 
   for (let i = 0; i < MAX_PAGES; i++) {
@@ -94,13 +103,16 @@ const pageThroughRepos: Journey = async (page: Page) => {
   }
 };
 
+// project should have more than 15 pipelines
 const pageThroughPipelines: Journey = async (page: Page) => {
-  await page.goto(
-    './project/perf-project-1/pipelines'
-  );
+  await page.goto('./project/perf-project-1/pipelines');
 
-  const pageForward = page.getByTestId('PipelineStepsTable__table').getByTestId('Pager__forward');
-  const pageBack = page.getByTestId('PipelineStepsTable__table').getByTestId('Pager__backward');
+  const pageForward = page
+    .getByTestId('PipelineStepsTable__table')
+    .getByTestId('Pager__forward');
+  const pageBack = page
+    .getByTestId('PipelineStepsTable__table')
+    .getByTestId('Pager__backward');
   const MAX_PAGES = 8;
 
   for (let i = 0; i < MAX_PAGES; i++) {
@@ -185,6 +197,16 @@ const idleOnDagPipelineOutputSidebar: Journey = async (page: Page) => {
   await wait(60 * 1000);
 };
 
+const checkAllProjectSummaries: Journey = async (page: Page) => {
+  await page.goto('./');
+  await page.getByRole('button', {name: /view: your projects/i}).click();
+  await page.getByRole('menuitem', {name: /all projects/i}).click();
+  const projectRows = await page.getByRole('row').count();
+  for (const index of Array(projectRows).keys()) {
+    await page.getByRole('row').nth(index).click();
+  }
+};
+
 export const journeys: JourneyObject[] = [
   {name: 'Load the landing page.', journey: loadLandingPage},
   {name: 'Page through datums', journey: pageThroughDatums},
@@ -203,4 +225,17 @@ export const journeys: JourneyObject[] = [
     name: 'Idle on DAG pipeline output sidebar',
     journey: idleOnDagPipelineOutputSidebar,
   },
+  {
+    name: 'Click through projects on the landing page',
+    journey: checkAllProjectSummaries,
+  },
 ];
+
+export const loginWithMockAdmin: Journey = async (page: Page) => {
+  await page.goto('./');
+  await page.getByRole('textbox', {name: 'username'}).type('admin');
+  await page.getByLabel('Password').type('password');
+
+  await page.getByRole('button', {name: /login/i}).click();
+  await page.close();
+};

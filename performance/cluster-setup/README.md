@@ -27,3 +27,4 @@ npm install
 | sizePipelineCPULarge | Number | 1 |
 | sizePipelineMemorySmall | String | 100MB |
 | sizePipelineMemoryLarge | String | 1GB |
+| numInaccessibleProjects | Number | 0 |

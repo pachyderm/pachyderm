@@ -7,7 +7,7 @@ import {
   HEADLESS,
   INITIAL_PAGELOAD_SECONDS_MULTIPLIER,
 } from './constants';
-import {journeys} from './userJourneys';
+import {journeys, loginWithMockAdmin} from './userJourneys';
 import {statsLogger} from './logger';
 
 let shutdownFlag = false;
@@ -50,18 +50,27 @@ const createContexts = async (
   return contexts;
 };
 
-const configureContexts = (contexts: BrowserContext[]): void => {
+const configureContexts = async (
+  contexts: BrowserContext[],
+  authEnabled?: boolean,
+): Promise<void> => {
   for (const context of contexts) {
     context.setDefaultNavigationTimeout(EXPECT_TIMEOUT);
     context.setDefaultTimeout(EXPECT_TIMEOUT);
+
+    if (authEnabled) {
+      const page = await context.newPage();
+      await loginWithMockAdmin(page);
+    }
   }
 };
 
 export const setupContexts = async (
   browsers: Browser[],
+  authEnabled?: boolean,
 ): Promise<BrowserContext[]> => {
   const contexts = await createContexts(browsers);
-  configureContexts(contexts);
+  await configureContexts(contexts, authEnabled);
   return contexts;
 };
 

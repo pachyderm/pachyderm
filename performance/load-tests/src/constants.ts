@@ -10,6 +10,7 @@ const {values} = parseArgs({
     initialPageloadDelay: {type: 'string'},
     noHeadless: {type: 'boolean'},
     debug: {type: 'boolean'},
+    auth: {type: 'boolean'},
   },
 });
 
@@ -27,6 +28,7 @@ export const INITIAL_PAGELOAD_SECONDS_MULTIPLIER = Number(
 export const HEADLESS = Boolean(values.noHeadless ? false : true);
 
 export const DEBUG = Boolean(values.debug);
+export const AUTH = Boolean(values.auth);
 
 DEBUG &&
   console.log({
@@ -37,4 +39,5 @@ DEBUG &&
     ADDED_SLOWMOTION,
     INITIAL_PAGELOAD_SECONDS_MULTIPLIER,
     HEADLESS,
+    AUTH,
   });

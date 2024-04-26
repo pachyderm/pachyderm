@@ -1,4 +1,4 @@
-import {BROWSER_COUNT, TEST_RUNTIME} from './src/constants';
+import {BROWSER_COUNT, TEST_RUNTIME, AUTH} from './src/constants';
 import {
   enableShutDownFlag,
   runJourney,
@@ -41,7 +41,7 @@ const loadTest = async () => {
   try {
     // Setup
     browsers = await startBrowsers(BROWSER_COUNT);
-    contexts = await setupContexts(browsers);
+    contexts = await setupContexts(browsers, AUTH);
 
     // This will run all journeys in parallel as well as the test timeout fn.
     // Test timeout will fire after x minutes and end the test!
