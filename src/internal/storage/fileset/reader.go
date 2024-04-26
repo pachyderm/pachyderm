@@ -74,6 +74,9 @@ func (r *Reader) Shards(ctx context.Context, opts ...index.Option) (pathRanges [
 	ctx = pctx.Child(ctx, "", pctx.WithFields(LogIndex(prim.Additive, "startIdx")))
 	ir := index.NewReader(r.chunks, nil, prim.Additive, opts...)
 	pathRanges, err = ir.Shards(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "sharding fileset")
+	}
 	return pathRanges, nil
 }
 
