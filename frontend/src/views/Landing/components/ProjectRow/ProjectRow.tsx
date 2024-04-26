@@ -1,6 +1,6 @@
 import classNames from 'classnames';
 import noop from 'lodash/noop';
-import React from 'react';
+import React, {useEffect} from 'react';
 import {useHistory} from 'react-router';
 
 import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
@@ -42,6 +42,8 @@ type ProjectRowProps = {
   project: ProjectInfo;
   isSelected: boolean;
   setSelectedProject: () => void;
+  setMyProjectsCount: React.Dispatch<React.SetStateAction<number>>;
+  setAllProjectsCount: React.Dispatch<React.SetStateAction<number>>;
   showOnlyAccessible?: boolean;
 };
 
@@ -50,6 +52,8 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   project,
   isSelected = false,
   setSelectedProject = noop,
+  setMyProjectsCount,
+  setAllProjectsCount,
   showOnlyAccessible,
 }) => {
   const {projectStatus} = useProjectStatus(project.project?.name || '');
@@ -91,7 +95,18 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
     resource: {type: ResourceType.PROJECT, name: project.project?.name || ''},
   });
 
-  const show = showOnlyAccessible ? hasProjectListRepo || hasRepoRead : true;
+  const hasPermissions = hasProjectListRepo || hasRepoRead;
+  const show = showOnlyAccessible ? hasPermissions : true;
+
+  useEffect(() => {
+    hasPermissions && setMyProjectsCount((count: number) => count + 1);
+    setAllProjectsCount((count: number) => count + 1);
+
+    return () => {
+      hasPermissions && setMyProjectsCount((count: number) => count - 1);
+      setAllProjectsCount((count: number) => count - 1);
+    };
+  }, [setAllProjectsCount, setMyProjectsCount, hasPermissions]);
 
   const onViewDAGClick = () =>
     browserHistory.push(lineageRoute({projectId: project.project?.name || ''}));
@@ -178,6 +193,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
             })}
             onClick={() => setSelectedProject()}
             role="row"
+            id="ProjectRow"
           >
             <Group vertical className={styles.gap10}>
               <Group justify="between" align="baseline" spacing={16}>

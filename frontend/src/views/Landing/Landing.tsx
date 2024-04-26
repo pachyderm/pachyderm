@@ -5,7 +5,6 @@ import {Route, Switch} from 'react-router-dom';
 
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import ClusterRolesModal from '@dash-frontend/components/ClusterRolesModal';
-import EmptyState from '@dash-frontend/components/EmptyState';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import {TabView} from '@dash-frontend/components/TabView';
 import View from '@dash-frontend/components/View';
@@ -30,7 +29,7 @@ import ClusterConfig from './components/ClusterConfig';
 import CreateProjectModal from './components/CreateProjectModal';
 import LandingHeader from './components/LandingHeader';
 import ProjectPreview from './components/ProjectPreview';
-import ProjectRow from './components/ProjectRow';
+import ProjectTab from './components/ProjectTab';
 import {useLandingView} from './hooks/useLandingView';
 import styles from './Landing.module.css';
 
@@ -67,17 +66,16 @@ export const Landing: React.FC = () => {
     handleSortSelect,
     noProjects,
     filteredProjects,
-    showOnlyAccessible,
-    projectCount,
+    myProjectsCount,
+    setMyProjectsCount,
+    allProjectsCount,
+    setAllProjectsCount,
     searchValue,
     setSearchValue,
     sortButtonText,
     selectedProject,
     setSelectedProject,
     sortDropdown,
-    viewButtonText,
-    handleViewSelect,
-    viewDropdown,
   } = useLandingView();
   const browserHistory = useHistory();
   const {
@@ -127,7 +125,7 @@ export const Landing: React.FC = () => {
               <Button onClick={openCreateModal}>Create Project</Button>
             )}
           </TabView.Header>
-          <TabView.Body initialActiveTabId={'Projects'} showSkeleton={false}>
+          <TabView.Body initialActiveTabId="myProjects" showSkeleton={false}>
             <TabView.Body.Header>
               <TabView.Body.Tabs
                 placeholder=""
@@ -135,9 +133,17 @@ export const Landing: React.FC = () => {
                 onSearch={setSearchValue}
                 showSearch
               >
-                <TabView.Body.Tabs.Tab id="Projects" count={projectCount}>
-                  Projects
+                <TabView.Body.Tabs.Tab id="myProjects" count={myProjectsCount}>
+                  Your Projects
                 </TabView.Body.Tabs.Tab>
+                {isAuthActive && (
+                  <TabView.Body.Tabs.Tab
+                    id="allProjects"
+                    count={allProjectsCount}
+                  >
+                    All Projects
+                  </TabView.Body.Tabs.Tab>
+                )}
               </TabView.Body.Tabs>
 
               <Group spacing={32}>
@@ -150,16 +156,6 @@ export const Landing: React.FC = () => {
                   Sort by: {sortButtonText}
                 </DefaultDropdown>
 
-                {isAuthActive && (
-                  <DefaultDropdown
-                    storeSelected
-                    initialSelectId="Your Projects"
-                    onSelect={handleViewSelect}
-                    items={viewDropdown}
-                  >
-                    View: {viewButtonText}
-                  </DefaultDropdown>
-                )}
                 <TabView.Body.Dropdown
                   formCtx={filterFormCtx}
                   buttonText={filterStatus}
@@ -177,37 +173,30 @@ export const Landing: React.FC = () => {
                 </TabView.Body.Dropdown>
               </Group>
             </TabView.Body.Header>
-            <TabView.Body.Content id={'Projects'}>
-              <Group className={styles.projectsList} spacing={16} vertical>
-                {noProjects ? (
-                  <EmptyState
-                    title="No projects exist."
-                    message="Create a project to get started."
-                  />
-                ) : filteredProjects.length === 0 ? (
-                  <EmptyState
-                    title="No projects match your current filters."
-                    message="Try adjusting or resetting your filters to see more projects."
-                  />
-                ) : (
-                  filteredProjects.map((project) => (
-                    <ProjectRow
-                      showOnlyAccessible={showOnlyAccessible}
-                      multiProject={true}
-                      project={project}
-                      key={project?.project?.name}
-                      setSelectedProject={() => setSelectedProject(project)}
-                      isSelected={
-                        project?.project?.name ===
-                        selectedProject?.project?.name
-                      }
-                    />
-                  ))
-                )}
-              </Group>
+            <TabView.Body.Content id="myProjects">
+              <ProjectTab
+                noProjects={noProjects}
+                filteredProjects={filteredProjects}
+                selectedProject={selectedProject}
+                showOnlyAccessible={true}
+                setSelectedProject={setSelectedProject}
+                setMyProjectsCount={setMyProjectsCount}
+                setAllProjectsCount={setAllProjectsCount}
+              />
             </TabView.Body.Content>
-            <TabView.Body.Content id="Personal" />
-            <TabView.Body.Content id="Playground" />
+            {isAuthActive && (
+              <TabView.Body.Content id="allProjects">
+                <ProjectTab
+                  noProjects={noProjects}
+                  filteredProjects={filteredProjects}
+                  selectedProject={selectedProject}
+                  showOnlyAccessible={false}
+                  setSelectedProject={setSelectedProject}
+                  setMyProjectsCount={setMyProjectsCount}
+                  setAllProjectsCount={setAllProjectsCount}
+                />
+              </TabView.Body.Content>
+            )}
           </TabView.Body>
         </TabView>
       </View>

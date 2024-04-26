@@ -53,13 +53,7 @@ Cypress.Commands.add(
 );
 
 Cypress.Commands.add('viewAllLandingPageProjects', () => {
-  // Show all projects
-  cy.findByRole('button', {name: /view: your projects/i}).click({
-    force: true,
-  });
-  cy.findByRole('menuitem', {name: /all projects/i}).click({force: true});
-  // Close the menu
-  cy.findByRole('button', {name: /view: all projects/i}).click({
+  cy.findByRole('tab', {name: /all projects/i}).click({
     force: true,
   });
 });

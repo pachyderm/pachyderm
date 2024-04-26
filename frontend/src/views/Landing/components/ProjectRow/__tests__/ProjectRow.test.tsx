@@ -50,6 +50,8 @@ describe('ProjectRow RBAC', () => {
         isSelected={true}
         multiProject={true}
         setSelectedProject={() => null}
+        setMyProjectsCount={() => null}
+        setAllProjectsCount={() => null}
       />
     );
   });

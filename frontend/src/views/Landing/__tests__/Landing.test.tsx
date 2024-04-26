@@ -436,29 +436,6 @@ describe('Landing', () => {
   });
 
   describe('Hides nonaccessible projects', () => {
-    it('the toggle is on your projects by default', async () => {
-      server.use(
-        rest.post<AuthorizeRequest, Empty, AuthorizeResponse>(
-          '/api/auth_v2.API/Authorize',
-          (_req, res, ctx) => {
-            return res(
-              ctx.json({
-                authorized: true,
-                satisfied: [Permission.PROJECT_CREATE_REPO],
-                missing: [],
-                principal: '',
-              }),
-            );
-          },
-        ),
-      );
-      render(<Landing />);
-
-      expect(
-        await screen.findByText(/view: your projects/i),
-      ).toBeInTheDocument();
-    });
-
     it('the toggle hides the correct projects', async () => {
       server.use(
         rest.post<AuthorizeRequest, Empty, AuthorizeResponse>(
@@ -508,9 +485,7 @@ describe('Landing', () => {
         }),
       ).not.toBeInTheDocument();
 
-      await click(await screen.findByText(/view: your projects/i));
-      await click(await screen.findByText(/all projects/i));
-      expect(await screen.findByText(/view: all/i)).toBeInTheDocument();
+      await click(await screen.findByRole('tab', {name: /all projects/i}));
 
       expect(
         await screen.findByRole('heading', {
@@ -663,7 +638,7 @@ describe('Landing', () => {
       ).not.toBeInTheDocument();
     });
 
-    it.skip('the project counter is correct', async () => {
+    it('the project counter is correct', async () => {
       server.use(
         rest.post<AuthorizeRequest, Empty, AuthorizeResponse>(
           '/api/auth_v2.API/Authorize',
@@ -674,7 +649,7 @@ describe('Landing', () => {
                 ctx.json({
                   authorized: false,
                   satisfied: [],
-                  missing: [Permission.PROJECT_CREATE_REPO],
+                  missing: [],
                   principal: '',
                 }),
               );
@@ -682,7 +657,7 @@ describe('Landing', () => {
               return res(
                 ctx.json({
                   authorized: true,
-                  satisfied: [Permission.PROJECT_CREATE_REPO],
+                  satisfied: [Permission.REPO_READ],
                   missing: [],
                   principal: '',
                 }),
@@ -692,7 +667,21 @@ describe('Landing', () => {
         ),
       );
       render(<Landing />);
-      expect(await screen.findByText(/2\/3/i)).toBeInTheDocument();
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'ProjectA',
+          level: 5,
+        }),
+      ).toBeInTheDocument();
+
+      expect((await screen.findAllByRole('tab'))[0]).toHaveTextContent(
+        'Your Projects(2)',
+      );
+
+      expect((await screen.findAllByRole('tab'))[1]).toHaveTextContent(
+        'All Projects(3)',
+      );
     });
 
     it('the toggle is not present when auth is not activated', async () => {
@@ -706,10 +695,7 @@ describe('Landing', () => {
         }),
       ).toBeInTheDocument();
 
-      expect(
-        screen.queryByText(/view: your projects/i),
-      ).not.toBeInTheDocument();
-      expect(screen.queryByText(/view: all/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/all projects/i)).not.toBeInTheDocument();
     });
   });
 });

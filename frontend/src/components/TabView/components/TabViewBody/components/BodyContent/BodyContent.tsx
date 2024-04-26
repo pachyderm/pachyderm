@@ -8,7 +8,11 @@ export type BodyContentProps = {
 };
 
 const BodyContent: React.FC<BodyContentProps> = ({id, children}) => {
-  return <Tabs.TabPanel id={id}>{children}</Tabs.TabPanel>;
+  return (
+    <Tabs.TabPanel id={id} renderWhenHidden={false}>
+      {children}
+    </Tabs.TabPanel>
+  );
 };
 
 export default BodyContent;

@@ -1,18 +1,8 @@
 .count {
-  background-color: var(--pachyderm-plum);
-  color: var(--white);
-  padding: 0rem 0.25rem 0rem 0.25rem;
-  border-radius: 6px;
-  font-size: 0.5625rem;
-  line-height: 1rem;
-  font-weight: 800;
-  font-family: 'Montserrat', sans-serif;
-  margin-left: 0.3125rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  margin-left: 0.25rem;
 }
 
 .container {
   display: flex;
+  white-space: nowrap;
 }

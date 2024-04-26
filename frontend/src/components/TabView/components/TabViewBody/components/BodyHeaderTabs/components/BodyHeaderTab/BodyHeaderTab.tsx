@@ -11,7 +11,7 @@ export interface BodyHeaderTabProps extends TabProps {
 
 const BodyHeaderTab: React.FC<BodyHeaderTabProps> = ({
   id,
-  // count,
+  count,
   children,
   ...rest
 }) => {
@@ -19,8 +19,7 @@ const BodyHeaderTab: React.FC<BodyHeaderTabProps> = ({
     <Tabs.Tab id={id} {...rest}>
       <div className={styles.container}>
         {children}
-        {/* FRON: https://pachyderm.atlassian.net/browse/FRON-1318 */}
-        {/* <div className={styles.count}>{count}</div> */}
+        <b className={styles.count}>({count})</b>
       </div>
     </Tabs.Tab>
   );

@@ -68,6 +68,8 @@ export const useLandingView = () => {
   const [sortButtonText, setSortButtonText] = useState('Name A-Z');
   const [selectedProject, setSelectedProject] = useState<ProjectInfo>();
   const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [myProjectsCount, setMyProjectsCount] = useState(0);
+  const [allProjectsCount, setAllProjectsCount] = useState(0);
 
   const handleSortSelect = useCallback(
     (id: string) => {
@@ -87,24 +89,6 @@ export const useLandingView = () => {
       })),
     [],
   );
-
-  type ViewType = 'Your Projects' | 'All Projects';
-  const [viewButtonText, setViewButtonText] =
-    useState<ViewType>('Your Projects');
-
-  const handleViewSelect = useCallback(
-    (id: string) => {
-      if (id !== viewButtonText) {
-        setViewButtonText(id as ViewType);
-      }
-    },
-    [viewButtonText],
-  );
-
-  const viewDropdown = [
-    {content: 'Your Projects', id: 'Your Projects'},
-    {content: 'All Projects', id: 'All Projects'},
-  ];
 
   const filterFormCtx = useForm<statusFormType>({
     defaultValues: {
@@ -174,17 +158,16 @@ export const useLandingView = () => {
     filterStatus,
     handleSortSelect,
     noProjects: projects.length === 0,
-    showOnlyAccessible: viewButtonText === 'Your Projects',
     filteredProjects,
-    projectCount: filteredProjects.length + '/' + projects.length,
+    myProjectsCount,
+    setMyProjectsCount,
+    allProjectsCount,
+    setAllProjectsCount,
     searchValue,
     setSearchValue,
     sortButtonText,
     selectedProject,
     setSelectedProject,
     sortDropdown,
-    viewButtonText,
-    handleViewSelect,
-    viewDropdown,
   };
 };
