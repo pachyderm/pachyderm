@@ -11,10 +11,13 @@ go_library(
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/internal/errors",
+        "//src/internal/log",
         "//src/internal/migrations",
         "//src/internal/pachsql",
+        "//src/internal/uuid",
         "//src/pps",
         "@org_golang_google_protobuf//proto",
+        "@org_uber_go_zap//:zap",
     ],
 )
 
