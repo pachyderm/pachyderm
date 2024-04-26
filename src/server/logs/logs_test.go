@@ -599,8 +599,8 @@ func TestGetLogs_offset(t *testing.T) {
 			until: time.Second * -1,
 			want:  []time.Duration{time.Second * 2, time.Second},
 			wantHint: &hintCase{
-				olderFrom:  time.Second * -1,
-				olderUntil: time.Second * -12,
+				olderFrom:  time.Second,
+				olderUntil: time.Second * -10,
 				newerFrom:  time.Second * 10,
 				newerUntil: time.Second * 21,
 			},
