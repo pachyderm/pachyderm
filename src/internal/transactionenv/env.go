@@ -90,8 +90,8 @@ type PPSBackend interface {
 }
 
 type AuthBackend interface {
-	ModifyRoleBindingInTransaction(*txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
-	DeleteRoleBindingInTransaction(*txncontext.TransactionContext, *auth.Resource) error
+	ModifyRoleBindingInTransaction(context.Context, *txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
+	DeleteRoleBindingInTransaction(context.Context, *txncontext.TransactionContext, *auth.Resource) error
 	WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 }
 
@@ -218,7 +218,7 @@ func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) 
 
 func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
 	req := proto.Clone(original).(*auth.ModifyRoleBindingRequest)
-	res, err := t.txnEnv.getAuth().ModifyRoleBindingInTransaction(t.txnCtx, req)
+	res, err := t.txnEnv.getAuth().ModifyRoleBindingInTransaction(t.ctx, t.txnCtx, req)
 	return res, errors.EnsureStack(err)
 }
 
@@ -229,7 +229,7 @@ func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineTransacti
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
 	req := proto.Clone(original).(*auth.Resource)
-	return errors.EnsureStack(t.txnEnv.getAuth().DeleteRoleBindingInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.getAuth().DeleteRoleBindingInTransaction(t.ctx, t.txnCtx, req))
 }
 
 type appendTransaction struct {

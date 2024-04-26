@@ -123,7 +123,7 @@ func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp
 	}
 
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord))
+		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(ctx, licenseRecordKey, newRecord))
 	}); err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (a *apiServer) GetActivationCode(ctx context.Context, req *lc.GetActivation
 
 func (a *apiServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCodeResponse, error) {
 	var record ec.LicenseRecord
-	if err := a.license.ReadOnly(ctx).Get(licenseRecordKey, &record); err != nil {
+	if err := a.license.ReadOnly().Get(ctx, licenseRecordKey, &record); err != nil {
 		if col.IsErrNotFound(err) {
 			return &lc.GetActivationCodeResponse{State: ec.State_NONE}, nil
 		}
@@ -236,7 +236,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *lc.HeartbeatRequest) (re
 	}
 
 	var record ec.LicenseRecord
-	if err := a.license.ReadOnly(ctx).Get(licenseRecordKey, &record); err != nil {
+	if err := a.license.ReadOnly().Get(ctx, licenseRecordKey, &record); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 
@@ -253,7 +253,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 	}
 
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
+		err := a.license.ReadWrite(sqlTx).Delete(ctx, licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}

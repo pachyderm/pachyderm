@@ -71,7 +71,7 @@ func EnterpriseConfigPostgresMigration(ctx context.Context, tx *pachsql.Tx, etcd
 		return err
 	}
 	if config != nil {
-		return errors.EnsureStack(EnterpriseConfigCollection(nil, nil).ReadWrite(tx).Put(configKey, config))
+		return errors.EnsureStack(EnterpriseConfigCollection(nil, nil).ReadWrite(tx).Put(ctx, configKey, config))
 	}
 	return nil
 }
@@ -79,7 +79,7 @@ func EnterpriseConfigPostgresMigration(ctx context.Context, tx *pachsql.Tx, etcd
 func checkForEtcdRecord(ctx context.Context, etcd *clientv3.Client) (*ec.EnterpriseConfig, error) {
 	etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &ec.EnterpriseConfig{}, nil, nil)
 	var config ec.EnterpriseConfig
-	if err := etcdConfigCol.ReadOnly(ctx).Get(configKey, &config); err != nil {
+	if err := etcdConfigCol.ReadOnly().Get(ctx, configKey, &config); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, nil
 		}
@@ -91,7 +91,7 @@ func checkForEtcdRecord(ctx context.Context, etcd *clientv3.Client) (*ec.Enterpr
 func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) error {
 	if _, err := col.NewSTM(ctx, etcd, func(stm col.STM) error {
 		etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &ec.EnterpriseConfig{}, nil, nil)
-		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Delete(configKey))
+		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Delete(ctx, configKey))
 	}); err != nil {
 		if !col.IsErrNotFound(err) {
 			return err

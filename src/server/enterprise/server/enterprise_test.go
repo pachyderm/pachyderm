@@ -261,7 +261,7 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 
 	etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &enterprise.EnterpriseConfig{}, nil, nil)
 	_, err := col.NewSTM(ctx, etcd, func(stm col.STM) error {
-		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Put("config", config))
+		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Put(ctx, "config", config))
 	})
 	require.NoError(t, err)
 
@@ -290,12 +290,12 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 
 	pgCol := server.EnterpriseConfigCollection(db, nil)
 	result := &enterprise.EnterpriseConfig{}
-	require.NoError(t, pgCol.ReadOnly(ctx).Get("config", result))
+	require.NoError(t, pgCol.ReadOnly().Get(ctx, "config", result))
 	require.Equal(t, config.Id, result.Id)
 	require.Equal(t, config.LicenseServer, result.LicenseServer)
 	require.Equal(t, config.Secret, result.Secret)
 
-	err = etcdConfigCol.ReadOnly(ctx).Get("config", &enterprise.EnterpriseConfig{})
+	err = etcdConfigCol.ReadOnly().Get(ctx, "config", &enterprise.EnterpriseConfig{})
 	require.YesError(t, err)
 	require.True(t, col.IsErrNotFound(err))
 }

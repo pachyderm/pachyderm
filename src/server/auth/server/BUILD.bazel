@@ -38,6 +38,7 @@ go_library(
         "//src/internal/watch",
         "//src/pfs",
         "//src/pps",
+        "//src/server/auth",
         "//src/server/enterprise",
         "//src/server/pfs",
         "//src/server/pps",

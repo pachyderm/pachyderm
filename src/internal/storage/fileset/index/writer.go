@@ -3,6 +3,8 @@ package index
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"sync"
 
 	"github.com/docker/go-units"
@@ -39,6 +41,10 @@ type Writer struct {
 
 // NewWriter create a new Writer.
 func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer {
+	ctx = pctx.Child(ctx, fmt.Sprintf("indexWriter(%s)", tmpID),
+		pctx.WithCounter("indices", 0),
+		pctx.WithCounter("levels", 0),
+		pctx.WithCounter("tx_bytes", 0))
 	ctx, cancel := pctx.WithCancel(ctx)
 	return &Writer{
 		ctx:    ctx,
@@ -71,10 +77,12 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 	}
 	l.buf.Reset()
 	pbw := pbutil.NewWriter(l.buf)
-	_, err := pbw.Write(idx)
+	writtenBytes, err := pbw.Write(idx)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
+	meters.Inc(w.ctx, "indices", 1)
+	meters.Inc(w.ctx, "bytes", writtenBytes)
 	return l.batcher.Add(idx, l.buf.Bytes(), pointsTo)
 }
 
@@ -142,6 +150,7 @@ func (w *Writer) createLevel(l *levelWriter) {
 	w.levelsMu.Lock()
 	defer w.levelsMu.Unlock()
 	w.levels = append(w.levels, l)
+	meters.Inc(w.ctx, "levels", 1)
 }
 
 func (w *Writer) getLevel(level int) *levelWriter {

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	fmt "fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"strconv"
 	"time"
 
@@ -53,6 +54,7 @@ func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewe
 // Create creates a new chunk from metadata and chunkData.
 // It returns the ID for the chunk
 func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byte) (_ ID, retErr error) {
+	ctx = pctx.Child(ctx, "trackedClient")
 	if c.renewer == nil {
 		panic("client must have a renewer to create chunks")
 	}

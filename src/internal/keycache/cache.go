@@ -16,7 +16,6 @@ import (
 // Cache watches a key in etcd and caches the value in an atomic value
 // This is useful for frequently read but infrequently updated values
 type Cache struct {
-	ctx          context.Context
 	readOnly     col.ReadOnlyCollection
 	defaultValue proto.Message
 	key          string
@@ -24,12 +23,11 @@ type Cache struct {
 }
 
 // NewCache returns a cache for the given key in the etcd collection
-func NewCache(ctx context.Context, readOnly col.ReadOnlyCollection, key string, defaultValue proto.Message) *Cache {
+func NewCache(readOnly col.ReadOnlyCollection, key string, defaultValue proto.Message) *Cache {
 	value := &atomic.Value{}
 	value.Store(defaultValue)
 	return &Cache{
 		readOnly:     readOnly,
-		ctx:          ctx,
 		value:        value,
 		key:          key,
 		defaultValue: defaultValue,
@@ -37,9 +35,9 @@ func NewCache(ctx context.Context, readOnly col.ReadOnlyCollection, key string, 
 }
 
 // Watch should be called in a goroutine to start the watcher
-func (c *Cache) Watch() {
+func (c *Cache) Watch(ctx context.Context) {
 	backoff.RetryNotify(func() error { //nolint:errcheck
-		err := c.readOnly.WatchOneF(c.key, func(ev *watch.Event) error {
+		err := c.readOnly.WatchOneF(ctx, c.key, func(ev *watch.Event) error {
 			switch ev.Type {
 			case watch.EventPut:
 				val := proto.Clone(c.defaultValue)
@@ -53,7 +51,7 @@ func (c *Cache) Watch() {
 			return nil
 		})
 		return errors.EnsureStack(err)
-	}, backoff.NewInfiniteBackOff(), backoff.NotifyCtx(c.ctx, fmt.Sprintf("watcher for %v", c.key)))
+	}, backoff.NewInfiniteBackOff(), backoff.NotifyCtx(ctx, fmt.Sprintf("watcher for %v", c.key)))
 }
 
 // Load retrieves the current cached value

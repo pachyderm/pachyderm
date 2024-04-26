@@ -37,7 +37,7 @@ func synthesizeClusterDefaults(ctx context.Context, env migrations.Env) error {
 		return errors.Wrap(err, "could not marshal cluster defaults to JSON")
 	}
 	wrapper := &ppsdb.ClusterDefaultsWrapper{Json: string(js)}
-	if err := ppsdb.CollectionsV2_7_0()[0].ReadWrite(env.Tx).Create("", wrapper); err != nil {
+	if err := ppsdb.CollectionsV2_7_0()[0].ReadWrite(env.Tx).Create(ctx, "", wrapper); err != nil {
 		return errors.Wrap(err, "could not create cluster defaults")
 	}
 

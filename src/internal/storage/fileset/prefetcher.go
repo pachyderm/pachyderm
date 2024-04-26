@@ -38,6 +38,7 @@ func NewPrefetcher(storage *Storage, fileSet FileSet, upper string) FileSet {
 }
 
 func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	ctx = pctx.Child(ctx, "prefetcher")
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(p.storage.prefetchLimit)))
@@ -90,7 +91,7 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 		return taskChain.Wait()
 	}
 	maxFilesBuf := p.storage.shardConfig.NumFiles / int64(p.storage.prefetchLimit)
-	if err := p.FileSet.Iterate(ctx, func(f File) error {
+	if err := p.FileSet.Iterate(pctx.Child(ctx, "iterate"), func(f File) error {
 		// Emit the files without prefetching if we are past the upper bound.
 		if p.upper != "" && f.Index().Path >= p.upper {
 			if err := finish(); err != nil {
