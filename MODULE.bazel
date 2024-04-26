@@ -5,10 +5,10 @@ module(
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.5.3")  # Needed for arm64 jq and rules_oci/#425.
 bazel_dep(name = "container_structure_test", version = "1.16.0")
-bazel_dep(name = "gazelle", version = "0.35.0")
+bazel_dep(name = "gazelle", version = "0.36.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
-bazel_dep(name = "rules_go", version = "0.46.0")
-bazel_dep(name = "rules_oci", version = "1.5.1")
+bazel_dep(name = "rules_go", version = "0.47.0")
+bazel_dep(name = "rules_oci", version = "1.7.5")
 bazel_dep(name = "rules_python", version = "0.31.0")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)

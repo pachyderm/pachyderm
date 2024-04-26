@@ -11,7 +11,7 @@ require (
 	github.com/alecthomas/participle/v2 v2.1.1
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
-	github.com/bazelbuild/rules_go v0.46.0
+	github.com/bazelbuild/rules_go v0.47.0
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -100,10 +100,10 @@ require (
 	gocloud.dev v0.27.0
 	golang.org/x/crypto v0.21.0
 	golang.org/x/exp v0.0.0-20240314144324-c7f7c6466f7f
-	golang.org/x/mod v0.15.0
+	golang.org/x/mod v0.16.0
 	golang.org/x/net v0.23.0
 	golang.org/x/oauth2 v0.13.0
-	golang.org/x/sync v0.5.0
+	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.18.0
 	golang.org/x/term v0.18.0
 	golang.org/x/text v0.14.0
