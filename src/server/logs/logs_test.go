@@ -565,9 +565,64 @@ func TestGetLogs_offset(t *testing.T) {
 				newerOffset: 1,
 			},
 		},
+		"backwards older hint is correct": {
+			logs:  []time.Duration{time.Second * -3, time.Second * -2, time.Second * -1, 0, time.Second, time.Second * 2},
+			limit: 0,
+			from:  time.Second * 10,
+			until: time.Second * -1,
+			want:  []time.Duration{time.Second * 2, time.Second, 0, time.Second * -1},
+			wantHint: &hintCase{
+				olderFrom:  time.Second * -1,
+				olderUntil: time.Second * -12,
+				newerFrom:  time.Second * 10,
+				newerUntil: time.Second * 21,
+			},
+		},
+		"backwards older hint works": {
+
+			logs:  []time.Duration{time.Second * -3, time.Second * -2, time.Second * -1, 0, time.Second, time.Second * 2},
+			limit: 0,
+			from:  time.Second * -1,
+			until: time.Second * -12,
+			want:  []time.Duration{time.Second * -2, time.Second * -3},
+			wantHint: &hintCase{
+				olderFrom:  time.Second * -12,
+				olderUntil: time.Second * -23,
+				newerFrom:  time.Second * -1,
+				newerUntil: time.Second * 10,
+			},
+		},
+		"backwards older hint with a limit is correct": {
+			logs:  []time.Duration{time.Second * -3, time.Second * -2, time.Second * -1, 0, time.Second, time.Second * 2},
+			limit: 2,
+			from:  time.Second * 10,
+			until: time.Second * -1,
+			want:  []time.Duration{time.Second * 2, time.Second},
+			wantHint: &hintCase{
+				olderFrom:  time.Second * -1,
+				olderUntil: time.Second * -12,
+				newerFrom:  time.Second * 10,
+				newerUntil: time.Second * 21,
+			},
+		},
+		"backwards older hint with a limit works": {
+
+			logs:  []time.Duration{time.Second * -3, time.Second * -2, time.Second * -1, 0, time.Second, time.Second * 2},
+			limit: 0,
+			from:  time.Second * -1,
+			until: time.Second * -12,
+			want:  []time.Duration{time.Second * -2, time.Second * -3},
+			wantHint: &hintCase{
+				olderFrom:  time.Second * -12,
+				olderUntil: time.Second * -23,
+				newerFrom:  time.Second * -1,
+				newerUntil: time.Second * 10,
+			},
+		},
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			var (
 				ctx        = pctx.TestContext(t)
 				now        = time.Now()

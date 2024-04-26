@@ -125,9 +125,12 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		}
 		window := end.Sub(start)
 		// The older hint should run backwards from the request from time.
+		if filter.Limit != 0 && direction == backwardLogDirection {
+			hint.Older.Filter.TimeRange.Offset = uint64(adapter.offset)
+		}
 		hint.Older.Filter.TimeRange.From = timestamppb.New(start)
 		hint.Older.Filter.TimeRange.Until = timestamppb.New(start.Add(-window))
-		if filter.Limit != 0 {
+		if filter.Limit != 0 && direction == forwardLogDirection {
 			end = adapter.last
 			hint.Newer.Filter.TimeRange.Offset = uint64(adapter.offset) + 1
 		}
