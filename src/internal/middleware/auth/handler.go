@@ -4,10 +4,12 @@ import (
 	"context"
 	"strings"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	authiface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 )
 
@@ -58,10 +60,10 @@ func clusterPermissions(permissions ...auth.Permission) authHandler {
 		}
 
 		if resp.Authorized {
-			return "", nil
+			return resp.Principal, nil
 		}
 
-		return "", &auth.ErrNotAuthorized{
+		return resp.Principal, &auth.ErrNotAuthorized{
 			Subject:  resp.Principal,
 			Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 			Required: permissions,
@@ -76,13 +78,12 @@ func GetWhoAmI(ctx context.Context) string {
 	return ""
 }
 
-// TODO: Unused. Remove?
-func ClearWhoAmI(ctx context.Context) context.Context {
-	return context.WithValue(ctx, whoAmIResultKey, "")
-}
-
+// setWhoAmI sets the username in the context, and also causes future log operations on this context
+// to include the username.
 func setWhoAmI(ctx context.Context, username string) context.Context {
-	return context.WithValue(ctx, whoAmIResultKey, username)
+	return pctx.Child(
+		context.WithValue(ctx, whoAmIResultKey, username), "",
+		pctx.WithFields(zap.String("user", username)))
 }
 
 // AsInternalUser should never be used during user requests, only internal background jobs.
@@ -91,5 +92,10 @@ func setWhoAmI(ctx context.Context, username string) context.Context {
 func AsInternalUser(ctx context.Context, username string) context.Context {
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 	ctx = metadata.NewOutgoingContext(ctx, metadata.MD{})
-	return context.WithValue(ctx, whoAmIResultKey, auth.InternalPrefix+strings.TrimPrefix(username, auth.InternalPrefix))
+	whoami := auth.InternalPrefix + strings.TrimPrefix(username, auth.InternalPrefix)
+	return pctx.Child(
+		context.WithValue(ctx, whoAmIResultKey, whoami),
+		"",
+		pctx.WithFields(zap.String("user", whoami)),
+	)
 }
