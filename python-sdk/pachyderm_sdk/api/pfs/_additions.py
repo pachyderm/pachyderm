@@ -7,6 +7,7 @@ This is done, as opposed to subclassing them, for these methods
 Note: These are internally patched and this file should
   not be imported directly by users.
 """
+
 import re
 
 from . import (
