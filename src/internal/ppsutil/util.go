@@ -177,7 +177,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 		warn = false
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
 		pipelineInfo := &pps.PipelineInfo{}
-		if err := pipelines.Get(specCommit, pipelineInfo); err != nil {
+		if err := pipelines.Get(ctx, specCommit, pipelineInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
 		tracing.TagAnySpan(cbCtx, "old-state", pipelineInfo.State)
@@ -229,7 +229,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 		}
 		pipelineInfo.State = to
 		pipelineInfo.Reason = reason
-		return errors.EnsureStack(pipelines.Put(specCommit, pipelineInfo))
+		return errors.EnsureStack(pipelines.Put(ctx, specCommit, pipelineInfo))
 	})
 	if resultMessage != "" {
 		if warn {
@@ -296,7 +296,7 @@ func PipelineReqFromInfo(pipelineInfo *pps.PipelineInfo) *pps.CreatePipelineRequ
 }
 
 // UpdateJobState performs the operations involved with a job state transition.
-func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWriteCollection, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
+func UpdateJobState(ctx context.Context, pipelines col.PostgresReadWriteCollection, jobs col.ReadWriteCollection, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
 	// Check if this is a new job
 	if jobInfo.State != pps.JobState_JOB_STATE_UNKNOWN {
 		if pps.IsTerminal(jobInfo.State) {
@@ -316,7 +316,7 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 	}
 	jobInfo.State = state
 	jobInfo.Reason = reason
-	return errors.Wrapf(jobs.Put(ppsdb.JobKey(jobInfo.Job), jobInfo), "put job %v", ppsdb.JobKey(jobInfo.Job))
+	return errors.Wrapf(jobs.Put(ctx, ppsdb.JobKey(jobInfo.Job), jobInfo), "put job %v", ppsdb.JobKey(jobInfo.Job))
 }
 
 func FinishJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, state pps.JobState, reason string) (retErr error) {
@@ -435,7 +435,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l col.P
 	// the pipeline in the image of a different verison.
 	specCommit := client.NewSystemRepo(pipeline.Project.GetName(), pipeline.Name, pfs.SpecRepoType).
 		NewCommit("master", specCommitID)
-	if err := pipelines.ReadOnly(ctx).Get(specCommit, pipelineInfo); err != nil {
+	if err := pipelines.ReadOnly().Get(ctx, specCommit, pipelineInfo); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	pachClient.SetAuthToken(pipelineInfo.AuthToken)
@@ -507,7 +507,8 @@ func ListPipelineInfo(ctx context.Context,
 	}
 	opts := col.DefaultOptions()
 	if filter != nil {
-		if err := pipelines.ReadOnly(ctx).GetByIndex(
+		if err := pipelines.ReadOnly().GetByIndex(
+			ctx,
 			ppsdb.PipelinesNameIndex,
 			ppsdb.PipelinesNameKey(filter),
 			p,
@@ -521,7 +522,7 @@ func ListPipelineInfo(ctx context.Context,
 		}
 		return nil
 	}
-	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(p, opts, checkPipelineVersion))
+	return errors.EnsureStack(pipelines.ReadOnly().List(ctx, p, opts, checkPipelineVersion))
 }
 
 func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, send func(*pps.LogMessage) error) error {

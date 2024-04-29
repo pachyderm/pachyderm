@@ -31,7 +31,6 @@ go_test(
         "@in_gopkg_yaml_v3//:yaml_v3",
         "@io_k8s_api//apps/v1:apps",
         "@io_k8s_api//core/v1:core",
-        "@io_k8s_api//networking/v1:networking",
         "@io_k8s_api//networking/v1beta1",
         "@io_k8s_api//rbac/v1:rbac",
         "@io_k8s_apimachinery//pkg/util/intstr",

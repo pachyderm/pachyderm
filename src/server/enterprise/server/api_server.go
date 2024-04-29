@@ -74,11 +74,11 @@ func NewEnterpriseServer(env *Env, config Config) (*apiServer, error) {
 	s := &apiServer{
 		env:                  env,
 		config:               config,
-		enterpriseTokenCache: keycache.NewCache(env.BackgroundContext, enterpriseTokenCol.ReadOnly(env.BackgroundContext), enterpriseTokenKey, defaultEnterpriseRecord),
+		enterpriseTokenCache: keycache.NewCache(enterpriseTokenCol.ReadOnly(), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
 		configCol:            EnterpriseConfigCollection(env.DB, env.Listener),
 	}
-	go s.enterpriseTokenCache.Watch()
+	go s.enterpriseTokenCache.Watch(env.BackgroundContext)
 
 	if config.Heartbeat {
 		go s.heartbeatRoutine(env.BackgroundContext)
@@ -158,7 +158,7 @@ func (a *apiServer) heartbeatRoutine(ctx context.Context) {
 func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 	// If we can't get the license server address, skip heartbeating
 	var config ec.EnterpriseConfig
-	if err := a.configCol.ReadOnly(ctx).Get(configKey, &config); err != nil {
+	if err := a.configCol.ReadOnly().Get(ctx, configKey, &config); err != nil {
 		if col.IsErrNotFound(err) {
 			return lc.ErrNotActivated
 		}
@@ -174,7 +174,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 			log.Error(ctx, "enterprise license heartbeat had invalid id or secret; disabling enterprise", zap.Error(err))
 			_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 				e := a.enterpriseTokenCol.ReadWrite(stm)
-				err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
+				err := e.Put(ctx, enterpriseTokenKey, &ec.EnterpriseRecord{
 					LastHeartbeat:   timestamppb.Now(),
 					HeartbeatFailed: true,
 				})
@@ -187,7 +187,7 @@ func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 
 	_, err = col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		e := a.enterpriseTokenCol.ReadWrite(stm)
-		err := e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
+		err := e.Put(ctx, enterpriseTokenKey, &ec.EnterpriseRecord{
 			LastHeartbeat:   timestamppb.Now(),
 			License:         resp.License,
 			HeartbeatFailed: false,
@@ -256,7 +256,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 
 	// If the test heartbeat succeeded, write the state and config to etcd
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txCtx *txncontext.TransactionContext) error {
-		if err := a.configCol.ReadWrite(txCtx.SqlTx).Put(configKey, &ec.EnterpriseConfig{
+		if err := a.configCol.ReadWrite(txCtx.SqlTx).Put(ctx, configKey, &ec.EnterpriseConfig{
 			LicenseServer: req.LicenseServer,
 			Id:            req.Id,
 			Secret:        req.Secret,
@@ -269,7 +269,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	}
 
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-		return errors.EnsureStack(a.enterpriseTokenCol.ReadWrite(stm).Put(enterpriseTokenKey, record))
+		return errors.EnsureStack(a.enterpriseTokenCol.ReadWrite(stm).Put(ctx, enterpriseTokenKey, record))
 	}); err != nil {
 		return nil, err
 	}
@@ -367,7 +367,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 		return nil, errors.New("cannot deactivate paused cluster; unpause first")
 	}
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(enterpriseTokenKey)
+		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(ctx, enterpriseTokenKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}
@@ -377,7 +377,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	}
 
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txCtx *txncontext.TransactionContext) error {
-		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(configKey)
+		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(ctx, configKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}

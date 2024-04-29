@@ -18,7 +18,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	mauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -89,9 +88,6 @@ func getCommonLogger(ctx context.Context, service, method string) context.Contex
 	var f []log.Field
 	f = append(f, zap.String("service", service), zap.String("method", method))
 
-	if user := mauth.GetWhoAmI(ctx); user != "" {
-		f = append(f, zap.String("user", user))
-	}
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		if rids := md.Get("x-request-id"); rids != nil {
 			// There shouldn't be multiple copies of the x-request-id header, but if
@@ -100,11 +96,6 @@ func getCommonLogger(ctx context.Context, service, method string) context.Contex
 		}
 		if command := md.Get("command"); command != nil {
 			f = append(f, zap.Strings("command", command))
-			if method != "InspectCluster" {
-				// InspectCluster is called by the client to get the deployment ID, so
-				// we don't want to log that.
-				log.Info(ctx, "audit log", f...)
-			}
 		}
 	}
 	if peer, ok := peer.FromContext(ctx); ok {
@@ -155,7 +146,7 @@ func getResponseLogger(ctx context.Context, res any, sent, rcvd int, err error) 
 		f = append(f, zap.Error(err))
 	}
 	// FromError is pretty weird.  It returns (status=nil, ok=true) for nil errors.  It's OK to
-	// call methods on a nil status, though.  It also returns stats=Unknown, ok=false if the
+	// call methods on a nil status, though.  It also returns status=Unknown, ok=false if the
 	// error doesn't have a gRPC code in it.  So we want to copy status information into the log
 	// even when ok is false.
 	s, _ := status.FromError(err)
@@ -178,18 +169,27 @@ func getResponseLogger(ctx context.Context, res any, sent, rcvd int, err error) 
 	return pctx.Child(ctx, "", pctx.WithFields(f...))
 }
 
-func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
+// UnarySetup is a grpc unary server interceptor that sets up the grpc request for logging.  It
+// should be near the top of the interceptor chain.
+func (li *LoggingInterceptor) UnarySetup(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
+	ctx, task := trace.NewTask(ctx, "grpc server "+info.FullMethod)
+	defer task.End()
+	service, method := parseMethod(info.FullMethod)
+	ctx = getCommonLogger(ctx, service, method)
+	return handler(ctx, req)
+}
+
+// UnaryAnnounce is a grpc unary server interceptor that announces the beginning and end of the
+// request.  It should be after the auth middleware in the interceptor chain.
+func (li *LoggingInterceptor) UnaryAnnounce(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
 	start := time.Now()
 	config := getConfig(info.FullMethod)
 	lvl := li.Level
-
 	logReq := req
 	if config.transformRequest != nil && !isNilInterface(req) {
 		logReq = config.transformRequest(req)
 	}
-
 	service, method := parseMethod(info.FullMethod)
-	ctx = getCommonLogger(ctx, service, method)
 
 	// NOTE(jonathan): We use service/method in the log messages so that rate limiting applies
 	// per-RPC instead of for all RPCs.  (Rate limiting algorithm looks at the message and the
@@ -206,19 +206,33 @@ func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req in
 		li.logUnaryAfter(getResponseLogger(ctx, logResp, 1, 1, retErr), lvl, service, method, start, retErr)
 	}()
 
-	ctx, task := trace.NewTask(ctx, "grpc server "+info.FullMethod)
-	defer task.End()
 	return handler(ctx, req)
 }
 
-func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
+// StreamSetup is a grpc stream server interceptor that sets up the grpc request for logging.  It
+// should be near the top of the interceptor chain.
+func (li *LoggingInterceptor) StreamSetup(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
+	ctx, task := trace.NewTask(stream.Context(), "grpc server stream "+info.FullMethod)
+	defer task.End()
+	service, method := parseMethod(info.FullMethod)
+	ctx = getCommonLogger(ctx, service, method)
+
+	wrapper := &streamSetupWrapper{
+		ServerStream: stream,
+		ctx:          ctx,
+	}
+	return handler(srv, wrapper)
+}
+
+// StreamAnnounce is a grpc stream server interceptor that announces the beginning and end of the
+// request.  It should be after the auth middleware in the interceptor chain.
+func (li *LoggingInterceptor) StreamAnnounce(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
 	start := time.Now()
 	config := getConfig(info.FullMethod)
 	service, method := parseMethod(info.FullMethod)
 	lvl := li.Level
 
-	ctx := getCommonLogger(stream.Context(), service, method)
-
+	ctx := stream.Context()
 	reqCtx := getRequestLogger(ctx, nil)
 	// If client streaming, then our "main" log message for this RPC is 'first message received'
 	// (which is one of many messages).  If not client streaming the main message is 'request'.
@@ -226,47 +240,41 @@ func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream gr
 	// a first message.
 	dolog(reqCtx, lvl, "stream started for "+service+"/"+method)
 
-	ctx, task := trace.NewTask(ctx, "grpc server stream "+info.FullMethod)
-	defer task.End()
-	wrapper := &streamWrapper{
-		stream: stream,
-		ctx:    ctx,
-		task:   task,
-	}
-
-	// Log the first received message as the request
-	wrapper.onFirstRecv = func(m any) {
-		logReq := m
-		if config.transformRequest != nil && !isNilInterface(m) {
-			logReq = config.transformRequest(m)
-		}
-		reqCtx := getRequestLogger(ctx, logReq)
-		if info.IsClientStream {
-			dolog(reqCtx, lvl, "first message received for "+service+"/"+method)
-		} else {
-			dolog(reqCtx, lvl, "request for "+service+"/"+method)
-		}
-	}
-
 	var resp any
-	wrapper.onFirstSend = func(m any) {
-		logResp := m
-		if config.transformResponse != nil && !isNilInterface(m) {
-			logResp = config.transformResponse(m)
-		}
+	wrapper := &streamAnnounceWrapper{
+		ServerStream: stream,
+		onFirstRecv: func(m any) {
+			// Log the first received message as the request
+			logReq := m
+			if config.transformRequest != nil && !isNilInterface(m) {
+				logReq = config.transformRequest(m)
+			}
+			reqCtx := getRequestLogger(ctx, logReq)
+			if info.IsClientStream {
+				dolog(reqCtx, lvl, "first message received for "+service+"/"+method)
+			} else {
+				dolog(reqCtx, lvl, "request for "+service+"/"+method)
+			}
+		},
+		onFirstSend: func(m any) {
+			logResp := m
+			if config.transformResponse != nil && !isNilInterface(m) {
+				logResp = config.transformResponse(m)
+			}
 
-		// If server stream, log the first message.  If not, the call should be ending soon,
-		// and we'll log it as the response.  The !IsServerStream case is for catching
-		// slowness between sending the first and only message, and actually returning.
-		if info.IsServerStream {
-			resCtx := getResponseLogger(ctx, logResp, 0, 0, nil)
-			dolog(resCtx, lvl, "first message sent for "+service+"/"+method)
-			resp = nil
-		} else {
-			resCtx := getResponseLogger(ctx, nil, 0, 0, nil)
-			dolog(resCtx, lvl, "first mesasge sent for "+service+"/"+method)
-			resp = logResp
-		}
+			// If server stream, log the first message.  If not, the call should be ending soon,
+			// and we'll log it as the response.  The !IsServerStream case is for catching
+			// slowness between sending the first and only message, and actually returning.
+			if info.IsServerStream {
+				resCtx := getResponseLogger(ctx, logResp, 0, 0, nil)
+				dolog(resCtx, lvl, "first message sent for "+service+"/"+method)
+				resp = nil
+			} else {
+				resCtx := getResponseLogger(ctx, nil, 0, 0, nil)
+				dolog(resCtx, lvl, "first mesasge sent for "+service+"/"+method)
+				resp = logResp
+			}
+		},
 	}
 
 	defer func() {
@@ -276,7 +284,6 @@ func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream gr
 		}
 		li.logUnaryAfter(resCtx, lvl, service, method, start, retErr)
 	}()
-
 	return handler(srv, wrapper)
 }
 
@@ -291,35 +298,26 @@ func dolog(ctx context.Context, lvl log.Level, msg string, f ...log.Field) {
 	}
 }
 
-type streamWrapper struct {
-	stream      grpc.ServerStream
-	ctx         context.Context
-	task        *trace.Task
+type streamSetupWrapper struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (sw *streamSetupWrapper) Context() context.Context {
+	return sw.ctx
+}
+
+type streamAnnounceWrapper struct {
+	grpc.ServerStream
 	received    int
 	sent        int
 	onFirstSend func(interface{})
 	onFirstRecv func(interface{})
 }
 
-func (sw *streamWrapper) SetHeader(m metadata.MD) error {
-	return sw.stream.SetHeader(m)
-}
-
-func (sw *streamWrapper) SendHeader(m metadata.MD) error {
-	return sw.stream.SendHeader(m)
-}
-
-func (sw *streamWrapper) SetTrailer(m metadata.MD) {
-	sw.stream.SetTrailer(m)
-}
-
-func (sw *streamWrapper) Context() context.Context {
-	return sw.ctx
-}
-
-func (sw *streamWrapper) SendMsg(m interface{}) error {
-	trace.Logf(sw.ctx, "grpc server", "grpc server send %T", m)
-	err := sw.stream.SendMsg(m)
+func (sw *streamAnnounceWrapper) SendMsg(m interface{}) error {
+	trace.Logf(sw.Context(), "grpc server", "grpc server send %T", m)
+	err := sw.ServerStream.SendMsg(m)
 	if err == nil {
 		if sw.sent == 0 && sw.onFirstSend != nil {
 			sw.onFirstSend(m)
@@ -329,9 +327,9 @@ func (sw *streamWrapper) SendMsg(m interface{}) error {
 	return err
 }
 
-func (sw *streamWrapper) RecvMsg(m interface{}) error {
-	trace.Logf(sw.ctx, "grpc server", "grpc server recv %T", m)
-	err := sw.stream.RecvMsg(m)
+func (sw *streamAnnounceWrapper) RecvMsg(m interface{}) error {
+	trace.Logf(sw.Context(), "grpc server", "grpc server recv %T", m)
+	err := sw.ServerStream.RecvMsg(m)
 	if err != io.EOF {
 		if sw.received == 0 && sw.onFirstRecv != nil {
 			sw.onFirstRecv(m)

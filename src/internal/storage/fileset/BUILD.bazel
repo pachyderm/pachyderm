@@ -47,6 +47,7 @@ go_library(
         "//src/internal/tarutil",
         "//src/internal/taskchain",
         "//src/internal/uuid",
+        "//src/pfs",
         "@com_github_docker_go_units//:go-units",
         "@com_github_hashicorp_golang_lru_v2//:golang-lru",
         "@com_github_jmoiron_sqlx//:sqlx",
