@@ -178,7 +178,7 @@ func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.E
 		case "add":
 			kv, err := kvparse.ParseOne(data)
 			if err != nil {
-				errors.JoinInto(&errs, errors.Errorf("arg set %d: parse error", err))
+				errors.JoinInto(&errs, errors.Wrapf(err, "arg set %d: parse error", i))
 				continue
 			}
 			edit.Op = &metadata.Edit_AddKey_{
@@ -190,7 +190,7 @@ func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.E
 		case "edit":
 			kv, err := kvparse.ParseOne(data)
 			if err != nil {
-				errors.JoinInto(&errs, errors.Errorf("arg set %d: parse error", err))
+				errors.JoinInto(&errs, errors.Wrapf(err, "arg set %d: parse error", i))
 				continue
 			}
 			edit.Op = &metadata.Edit_EditKey_{
