@@ -91,10 +91,10 @@ Key/value pair format:
   "key1"='value1';key2=value2;'key3'="value3".  You may also supply a normal JSON object.  Keys must
   be strings, and values must be strings.  No other JSON syntax is allowed.
 `,
-		Example: "\t- {{alias}} edit metadata cluster . add environment=production \n" +
-			"\t - {{alias}} edit metadata project myproject edit support_contact=you@example.com \n" +
-			"\t - {{alias}} edit metadata commit images@master add verified_by=you@example.com \\ \n" +
-			"\t \t \t commit edges@master add verified_by=you@example.com",
+		Example: "\t - {{alias}} cluster . add environment=production \n" +
+			"\t - {{alias}} project myproject edit support_contact=you@example.com \n" +
+			"\t - {{alias}} commit images@master add verified_by=you@example.com \\ \n" +
+			"\t\t\t\t commit edges@master add verified_by=you@example.com",
 		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
 			req, err := parseEditMetadataCmdline(args, pachCtx.Project)
 			if err != nil {
