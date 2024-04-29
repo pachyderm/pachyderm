@@ -2296,9 +2296,6 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(ctx)
 	unaryOpts := []grpc.UnaryServerInterceptor{
-		errorsmw.UnaryServerInterceptor,
-		loggingInterceptor.UnaryServerInterceptor,
-		validation.UnaryServerInterceptor,
 		func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
 			defer func() {
 				if err := recover(); err != nil {
@@ -2310,11 +2307,10 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 			}()
 			return handler(ctx, req)
 		},
+		errorsmw.UnaryServerInterceptor,
+		loggingInterceptor.UnarySetup,
 	}
 	streamOpts := []grpc.StreamServerInterceptor{
-		errorsmw.StreamServerInterceptor,
-		loggingInterceptor.StreamServerInterceptor,
-		validation.StreamServerInterceptor,
 		func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
 			defer func() {
 				if err := recover(); err != nil {
@@ -2325,6 +2321,8 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 			}()
 			return handler(srv, ss)
 		},
+		errorsmw.StreamServerInterceptor,
+		loggingInterceptor.StreamSetup,
 	}
 	for _, opt := range options {
 		interceptor := opt(mock)
@@ -2335,6 +2333,14 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 			streamOpts = append(streamOpts, interceptor.StreamServerInterceptor)
 		}
 	}
+	unaryOpts = append(unaryOpts,
+		loggingInterceptor.UnaryAnnounce,
+		validation.UnaryServerInterceptor,
+	)
+	streamOpts = append(streamOpts,
+		loggingInterceptor.StreamAnnounce,
+		validation.StreamServerInterceptor,
+	)
 	server, err := grpcutil.NewServer(ctx, false,
 		grpc.ChainUnaryInterceptor(
 			unaryOpts...,

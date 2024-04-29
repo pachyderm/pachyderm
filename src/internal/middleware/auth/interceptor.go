@@ -8,11 +8,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 )
 
 // authHandlers is a mapping of RPCs to authorization levels required to access them.
@@ -295,32 +294,12 @@ func NewInterceptor(getAuthServer func() authserver.APIServer) *Interceptor {
 
 // we use ServerStreamWrapper to set the stream's Context with added values
 type ServerStreamWrapper struct {
-	stream grpc.ServerStream
-	ctx    context.Context
+	grpc.ServerStream
+	ctx context.Context
 }
 
 func (s ServerStreamWrapper) Context() context.Context {
 	return s.ctx
-}
-
-func (s ServerStreamWrapper) SetHeader(md metadata.MD) error {
-	return errors.EnsureStack(s.stream.SetHeader(md))
-}
-
-func (s ServerStreamWrapper) SendHeader(md metadata.MD) error {
-	return errors.EnsureStack(s.stream.SendHeader(md))
-}
-
-func (s ServerStreamWrapper) SetTrailer(md metadata.MD) {
-	s.stream.SetTrailer(md)
-}
-
-func (s ServerStreamWrapper) SendMsg(m interface{}) error {
-	return errors.EnsureStack(s.stream.SendMsg(m))
-}
-
-func (s ServerStreamWrapper) RecvMsg(m interface{}) error {
-	return errors.EnsureStack(s.stream.RecvMsg(m))
 }
 
 // Interceptor checks the authentication metadata in unary and streaming RPCs
@@ -329,24 +308,17 @@ type Interceptor struct {
 	getAuthServer func() authserver.APIServer
 }
 
-func peerNameOrUnknown(ctx context.Context) string {
-	if p, ok := peer.FromContext(ctx); ok {
-		return p.Addr.String()
-	}
-	return "<unknown ip>"
-}
-
 // InterceptUnary applies authentication rules to unary RPCs
 func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
-		log.Error(ctx, "no auth function defined", zap.String("fullMethod", info.FullMethod))
+		log.DPanic(ctx, "no auth function defined")
 		return nil, errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
+	username, err := a(pctx.Child(ctx, "checkAuth"), i.getAuthServer(), info.FullMethod)
 	if err != nil {
-		log.Info(ctx, "denied unary call", zap.String("fullMethod", info.FullMethod), zap.String("username", nameOrUnauthenticated(username)), zap.String("remoteAddress", peerNameOrUnknown(ctx)))
+		log.Info(ctx, "denied unary call", zap.Error(err), zap.String("user", username))
 		return nil, err
 	}
 
@@ -362,13 +334,13 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 	ctx := stream.Context()
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
-		log.Error(ctx, "no auth function defined", zap.String("fullMethod", info.FullMethod))
+		log.DPanic(ctx, "no auth function defined")
 		return errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
+	username, err := a(pctx.Child(ctx, "checkAuth"), i.getAuthServer(), info.FullMethod)
 	if err != nil {
-		log.Info(ctx, "denied streaming call", zap.String("fullMethod", info.FullMethod), zap.String("username", nameOrUnauthenticated(username)), zap.String("remoteAddress", peerNameOrUnknown(ctx)))
+		log.Info(ctx, "denied streaming call", zap.Error(err), zap.String("user", username))
 		return err
 	}
 
@@ -377,11 +349,4 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 		stream = ServerStreamWrapper{stream, newCtx}
 	}
 	return handler(srv, stream)
-}
-
-func nameOrUnauthenticated(name string) string {
-	if name == "" {
-		return "unauthenticated"
-	}
-	return name
 }
