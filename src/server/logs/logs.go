@@ -416,7 +416,7 @@ func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (s
 		return "", nil, userLogQueryValidateErr("PipelineJob", "Job")
 	}
 	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), func(msg *logs.LogMessage) bool {
-		if msg.GetPpsLogMessage().JobId == job {
+		if msg.GetPpsLogMessage().GetJobId() == job {
 			return true
 		}
 		ff := msg.GetObject().GetFields()
