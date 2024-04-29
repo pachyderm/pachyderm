@@ -86,13 +86,7 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 		if resultLength, lastEntry, offset, err = publishEntries(ctx, streams, direction, lastEntry, publish, initial, offset); err != nil {
 			return errors.Wrap(err, "could not publish entries")
 		}
-		fmt.Println("QQQ rl", resultLength, "le", lastEntry, "offset", offset, "err", err)
-		if resultLength <= 0 {
-			fmt.Println("QQQ this should not happen but did")
-
-			// Was not a log stream query, or no results, no more batching
-			//break
-		} else if len(lastEntry) == 0 {
+		if len(lastEntry) == 0 {
 			// Also no result, wouldn't expect to hit this.
 			break
 		} else if resultLength == limit {
@@ -114,11 +108,18 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 		// Based on the query direction we either set the start or end for the next query.
 		// If there are multiple entries in `lastEntry` they have to have the same timestamp so we can pick just the first
 		if direction == forwardLogDirection {
+			if !start.Before(lastEntry[0].Timestamp) {
+				break
+			}
 			start = lastEntry[0].Timestamp
 		} else {
+			next := lastEntry[0].Timestamp.Add(1 * time.Nanosecond)
+			if !end.Before(next) {
+				break
+			}
 			// The end timestamp is exclusive on a backward query, so to make sure we get back an overlapping result
 			// fudge the timestamp forward in time to make sure to get the last entry from this batch in the next query
-			end = lastEntry[0].Timestamp.Add(1 * time.Nanosecond)
+			end = next
 		}
 	}
 	return nil

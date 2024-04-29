@@ -289,9 +289,7 @@ func (ls LogService) compilePipelineLogsReq(project, pipeline string) (string, f
 	}
 	return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline),
 		func(msg *logs.LogMessage) bool {
-			fmt.Printf("QQQ checking %v\n", msg)
 			if msg.GetPpsLogMessage().GetUser() {
-				fmt.Println("QQQ user log")
 				return true
 			}
 			ff := msg.GetObject().GetFields()
@@ -299,12 +297,10 @@ func (ls LogService) compilePipelineLogsReq(project, pipeline string) (string, f
 				v, ok := ff["user"]
 				if ok {
 					if v.GetBoolValue() {
-						fmt.Println("QQQ user log in object")
 						return true
 					}
 				}
 			}
-			fmt.Println("QQQ skipping")
 			return false
 		}, nil
 }
