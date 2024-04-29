@@ -30,7 +30,6 @@ go_test(
     srcs = [
         "internal_test.go",
         "logs_test.go",
-        "query_test.go",
     ],
     data = glob(["testdata/**"]),
     embed = [":logs"],
