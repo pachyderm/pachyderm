@@ -20,18 +20,20 @@ def pachyderm_resources():
     branches = ["master", "dev"]
     files = ["file1", "file2"]
 
-    client = Client.from_config()
-    for repo in repos:
-        for branch in branches:
+    def clean_test_data():
+        for repo in repos:
+            for branch in branches:
+                try:
+                    client.pfs.delete_branch(branch=pfs.Branch.from_uri(f"{repo}@{branch}"))
+                finally:
+                    continue
             try:
-                client.pfs.delete_branch(branch=pfs.Branch.from_uri(f"{repo}@{branch}"))
+                client.pfs.delete_repo(repo=pfs.Repo(name=repo))
             finally:
                 continue
-        try:
-            client.pfs.delete_repo(repo=pfs.Repo(name=repo))
-        finally:
-            continue
 
+    client = Client.from_config()
+    clean_test_data()
     for repo in repos:
         client.pfs.create_repo(repo=pfs.Repo(name=repo))
         for branch in branches:
@@ -43,10 +45,8 @@ def pachyderm_resources():
                 c.wait()
 
     yield repos, branches, files
-    for repo in repos:
-        for branch in branches:
-            client.pfs.delete_branch(branch=pfs.Branch.from_uri(f"{repo}@{branch}"))
-        client.pfs.delete_repo(repo=pfs.Repo(name=repo))
+
+    clean_test_data()
 
 async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
     repos, branches, _ = pachyderm_resources
