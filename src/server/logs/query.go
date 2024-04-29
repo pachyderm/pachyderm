@@ -86,6 +86,7 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 		if resultLength, lastEntry, offset, err = publishEntries(ctx, streams, direction, lastEntry, publish, initial, offset); err != nil {
 			return errors.Wrap(err, "could not publish entries")
 		}
+		fmt.Println("QQQ rl", resultLength, "le", lastEntry, "offset", offset, "err", err)
 		if resultLength <= 0 {
 			fmt.Println("QQQ this should not happen but did")
 
