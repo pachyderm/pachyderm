@@ -91,6 +91,7 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 			break
 		} else if len(lastEntry) == 0 {
 			// Also no result, wouldn't expect to hit this.
+			fmt.Println("QQQ this should not happen but did")
 			break
 		} else if resultLength == limit {
 			// Can only happen if all the results return in one request
