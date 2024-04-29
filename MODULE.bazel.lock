@@ -3927,11 +3927,11 @@
       "general": {
         "bzlTransitiveDigest": "D1+rhhbwX4ufoTmeUVxDpPg+Sknv3QzVXZnyK2zOjj4=",
         "recordedFileInputs": {
-          "@@//go.mod": "f2e4c2ef5d8557509a07ada747c33cb10297f5c5b9fb8c58a090e7a6a6b02362",
+          "@@//go.mod": "e055c8581b26b7df2e7f968b46a186769059d69c0ee0931935d4d67391dbc8bb",
           "@@rules_go~//go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
           "@@gazelle~//go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@jsonnet_go~//go.mod": "35238699c0cd09f5e79619863a0014f01129615f811c8a30239b80e8e3a58145",
-          "@@//go.sum": "6f473374cc4e7b9e5fb643e2af3c3746e22f3411de6dee13ed656c571492656a",
+          "@@//go.sum": "927df919d98de25dbbef873612f7bca586bd18d99107740906d6bd358c0ce821",
           "@@rules_go~//go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
           "@@gazelle~//go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@jsonnet_go~//go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4"
@@ -7662,9 +7662,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:JYCuMrWaVNophQTOrMMoSwudOVEfcegoZZrleKc1xwE=",
+              "sum": "h1:Id/ZooynV4ZlD6xX20RCd3SR0Ikn7r4QZDa2ECK2TgA=",
               "replace": "",
-              "version": "v20.10.17+incompatible"
+              "version": "v20.10.27+incompatible"
             }
           },
           "com_github_aws_aws_sdk_go_v2_service_internal_accept_encoding": {

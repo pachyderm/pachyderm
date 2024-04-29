@@ -468,3 +468,38 @@ func TestGetLogs_from_to(t *testing.T) {
 		"To", to.Format(time.RFC3339Nano),
 	).Run())
 }
+
+func TestGetLogs_limit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	var (
+		ctx          = pctx.TestContext(t)
+		buildEntries = func() []loki.Entry {
+			var entries []loki.Entry
+			for i := -99; i <= 0; i++ {
+				entries = append(entries, loki.Entry{
+					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
+					Line:      fmt.Sprintf("%v foo", i),
+				})
+			}
+			return entries
+		}
+		env = realEnvWithLoki(ctx, t, buildEntries())
+		c   = env.PachClient
+	)
+	mockInspectCluster(env)
+
+	to := time.Now().Add(-time.Second)
+	from := to.Add(-time.Hour)
+	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
+		pachctl logs2 --from {{.From}} --to {{.To}} --limit 1| match "99 foo"`,
+		"From", from.Format(time.RFC3339Nano),
+		"To", to.Format(time.RFC3339Nano),
+	).Run())
+	require.YesError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
+		pachctl logs2 --from {{.From}} --to {{.To}} --limit 1| match "98 foo"`,
+		"From", from.Format(time.RFC3339Nano),
+		"To", to.Format(time.RFC3339Nano),
+	).Run())
+}
