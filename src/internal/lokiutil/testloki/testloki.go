@@ -32,13 +32,25 @@ type TestLoki struct {
 	lokiErrCh <-chan error
 }
 
+type Option func(config *map[string]any)
+
+func WithoutOldSampleRejection(config *(map[string]any)) {
+	(*config)["limits_config"].(map[string]any)["reject_old_samples"] = false
+}
+
+func WithCreationGracePeriod(d time.Duration) func(config *(map[string]any)) {
+	return func(config *(map[string]any)) {
+		(*config)["limits_config"].(map[string]any)["creation_grace_period"] = d
+	}
+}
+
 // New starts a new Loki instance on the local machine.
-func New(ctx context.Context, tmp string) (*TestLoki, error) {
+func New(ctx context.Context, tmp string, opts ...Option) (*TestLoki, error) {
 	var errs error
 	attempts := 5
 	for i := 0; i < attempts; i++ {
 		log.Debug(ctx, "attempting to start loki", log.RetryAttempt(i, attempts))
-		l, err := buildAndStart(ctx, tmp)
+		l, err := buildAndStart(ctx, tmp, opts...)
 		if err != nil {
 			errors.JoinInto(&errs, errors.Wrapf(err, "startup attempt %d", i))
 			continue
@@ -50,7 +62,7 @@ func New(ctx context.Context, tmp string) (*TestLoki, error) {
 	return nil, errors.Wrapf(errs, "loki failed to start after %d attempts", attempts)
 }
 
-func buildAndStart(ctx context.Context, tmp string) (*TestLoki, error) {
+func buildAndStart(ctx context.Context, tmp string, opts ...Option) (*TestLoki, error) {
 	bin, ok := bazel.FindBinary("//tools/loki", "loki")
 	if !ok {
 		log.Debug(ctx, "can't find //tools/loki via bazel, using loki in $PATH")
@@ -106,6 +118,9 @@ func buildAndStart(ctx context.Context, tmp string) (*TestLoki, error) {
 	config["server"].(map[string]any)["http_listen_port"] = port
 	config["server"].(map[string]any)["grpc_listen_port"] = port + 1
 	config["schema_config"].(map[string]any)["configs"].([]any)[0].(map[string]any)["from"] = "2020-10-24"
+	for _, opt := range opts {
+		opt(&config)
+	}
 
 	configBytes, err := yaml.Marshal(config)
 	if err != nil {
