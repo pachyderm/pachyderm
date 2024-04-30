@@ -1474,6 +1474,8 @@ func (m *TimeRangeLogFilter) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for Offset
+
 	if len(errors) > 0 {
 		return TimeRangeLogFilterMultiError(errors)
 	}

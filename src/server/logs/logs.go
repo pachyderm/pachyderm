@@ -77,9 +77,9 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			From:  timestamppb.New(now.Add(-700 * time.Hour)),
 			Until: timestamppb.New(now),
 		}
-	case filter.TimeRange.From == nil:
+	case filter.TimeRange.From == nil || filter.TimeRange.From.AsTime().IsZero():
 		filter.TimeRange.From = timestamppb.New(filter.TimeRange.Until.AsTime().Add(-700 * time.Hour))
-	case filter.TimeRange.Until == nil:
+	case filter.TimeRange.Until == nil || filter.TimeRange.Until.AsTime().IsZero():
 		filter.TimeRange.Until = timestamppb.New(filter.TimeRange.From.AsTime().Add(700 * time.Hour))
 	}
 
@@ -105,12 +105,12 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if err != nil {
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
-	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, direction, adapter.publish); err != nil {
+	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, uint(filter.TimeRange.Offset), direction, adapter.publish); err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
 		case errors.As(err, &invalidBatchSizeErr):
 			// try to requery
-			err = doQuery(ctx, c, logQL, invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
+			err = doQuery(ctx, c, logQL, invalidBatchSizeErr.RecommendedBatchSize(), start, end, 0, direction, adapter.publish)
 			if err != nil {
 				return errors.Wrap(err, "invalid batch size requery failed")
 			}
@@ -119,48 +119,34 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		}
 	}
 	if request.WantPagingHint {
-		var newer, older loki.Entry
-		switch direction {
-		case forwardLogDirection:
-			newer = adapter.last
-		case backwardLogDirection:
-			newer = adapter.first
-		default:
-			return errors.Errorf("invalid direction %q", direction)
-		}
-		// request a record immediately prior to the page
-		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) (bool, error) {
-			older = e
-			return false, nil
-		})
-		if err != nil {
-			return errors.Wrap(err, "hint doQuery failed")
-		}
 		hint := &logs.PagingHint{
 			Older: proto.Clone(request).(*logs.GetLogsRequest),
 			Newer: proto.Clone(request).(*logs.GetLogsRequest),
 		}
-		if !older.Timestamp.IsZero() {
-			hint.Older.Filter.TimeRange.Until = timestamppb.New(older.Timestamp)
-		}
-		if !newer.Timestamp.IsZero() {
-			hint.Newer.Filter.TimeRange.From = timestamppb.New(newer.Timestamp)
-		}
-		if request.Filter.TimeRange.From != nil && request.Filter.TimeRange.Until != nil {
-			delta := request.Filter.TimeRange.Until.AsTime().Sub(request.Filter.TimeRange.From.AsTime())
-			if !older.Timestamp.IsZero() {
-				hint.Older.Filter.TimeRange.From = timestamppb.New(older.Timestamp.Add(-delta))
+		window := end.Sub(start)
+		// The older hint should run backwards from the request from time.
+		if filter.Limit != 0 && direction == backwardLogDirection {
+			if adapter.count > 0 {
+				start = adapter.last
 			}
-			if !newer.Timestamp.IsZero() {
-				hint.Newer.Filter.TimeRange.Until = timestamppb.New(newer.Timestamp.Add(delta))
-			}
+			hint.Older.Filter.TimeRange.Offset = uint64(adapter.offset)
 		}
+		hint.Older.Filter.TimeRange.From = timestamppb.New(start)
+		hint.Older.Filter.TimeRange.Until = timestamppb.New(start.Add(-window))
+		if filter.Limit != 0 && direction == forwardLogDirection {
+			if adapter.count > 0 {
+				end = adapter.last
+			}
+			hint.Newer.Filter.TimeRange.Offset = uint64(adapter.offset) + 1
+		}
+		hint.Newer.Filter.TimeRange.From = timestamppb.New(end)
+		hint.Newer.Filter.TimeRange.Until = timestamppb.New(end.Add(window))
 		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
 			ResponseType: &logs.GetLogsResponse_PagingHint{
 				PagingHint: hint,
 			},
 		}); err != nil {
-			return errors.WithStack(fmt.Errorf("%w paging hint: %w", ErrPublish, err))
+			return errors.Errorf("%w paging hint: %w", ErrPublish, err)
 		}
 	}
 
@@ -426,7 +412,7 @@ func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (s
 		return "", nil, userLogQueryValidateErr("PipelineJob", "Job")
 	}
 	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), func(msg *logs.LogMessage) bool {
-		if msg.GetPpsLogMessage().JobId == job {
+		if msg.GetPpsLogMessage().GetJobId() == job {
 			return true
 		}
 		ff := msg.GetObject().GetFields()
@@ -494,9 +480,11 @@ type ResponsePublisher interface {
 // An adapter publishes log entries to a ResponsePublisher in a specified format.
 type adapter struct {
 	responsePublisher ResponsePublisher
-	first, last       loki.Entry
+	first, last       time.Time
 	gotFirst          bool
 	pass              func(*logs.LogMessage) bool
+	offset            uint
+	count             uint
 }
 
 func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
@@ -505,10 +493,6 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
 			Line:      []byte(entry.Line),
 			Timestamp: timestamppb.New(entry.Timestamp),
 		},
-	}
-	if !a.gotFirst {
-		a.gotFirst = true
-		a.first = entry
 	}
 	msg.Object = new(structpb.Struct)
 	if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
@@ -541,5 +525,16 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
 	}); err != nil {
 		return false, errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
+	a.count++
+	if !a.gotFirst {
+		a.gotFirst = true
+		a.first = msg.Verbatim.Timestamp.AsTime()
+	}
+	if a.last.Equal(msg.Verbatim.Timestamp.AsTime()) {
+		a.offset++
+	} else {
+		a.offset = 0
+	}
+	a.last = msg.Verbatim.Timestamp.AsTime()
 	return false, nil
 }
