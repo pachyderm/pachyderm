@@ -104,12 +104,26 @@ export type Pod = {
     containers?: string[];
 };
 
-export type App = {
-    __typename?: "App";
+
+type BaseApp = {
+    __typename?: "BaseApp";
     name?: string;
     pods?: Pod[];
     timeout?: GoogleProtobufDuration.Duration;
     pipeline?: Pipeline;
+};
+
+export type App = BaseApp
+    & OneOf<{ lokiArgs: LokiArgs; profileArgs: ProfileArgs; }>;
+
+export type ProfileArgs = {
+    __typename?: "ProfileArgs";
+    profiles?: Profile[];
+};
+
+export type LokiArgs = {
+    __typename?: "LokiArgs";
+    maxLogs?: string;
 };
 
 export type System = {
@@ -203,7 +217,7 @@ type BaseTraceChunk = {
 };
 
 export type TraceChunk = BaseTraceChunk
-    & OneOf<{ bytes: GoogleProtobufWrappers.BytesValue; }>;
+    & OneOf<{ content: GoogleProtobufWrappers.BytesValue; }>;
 
 export class Debug {
     static Profile(req: ProfileRequest, entityNotifier?: fm.NotifyStreamEntityArrival<GoogleProtobufWrappers.BytesValue>, initReq?: fm.InitReq): Promise<void> {

@@ -1,6 +1,7 @@
 import {API as adminAPI} from '@dash-frontend/generated/proto/admin/admin.pb';
 import {API as authAPI} from '@dash-frontend/generated/proto/auth/auth.pb';
 import {API as enterpriseAPI} from '@dash-frontend/generated/proto/enterprise/enterprise.pb';
+import {API as metadataAPI} from '@dash-frontend/generated/proto/metadata/metadata.pb';
 import {API as pfsAPI} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {API as ppsAPI} from '@dash-frontend/generated/proto/pps/pps.pb';
 import {API as versionAPI} from '@dash-frontend/generated/proto/version/versionpb/version.pb';
@@ -39,6 +40,7 @@ const ignorePermissionDeniedProxy = <T extends {[key: string]: any}>(
 
 export const admin = adminAPI;
 export const auth = authAPI;
+export const metadata = metadataAPI;
 export const pps = ignorePermissionDeniedProxy(ppsAPI);
 export const pfs = ignorePermissionDeniedProxy(pfsAPI);
 export const enterprise = enterpriseAPI;

@@ -17,6 +17,7 @@ export type ClusterInfo = {
     proxyTls?: boolean;
     paused?: boolean;
     webResources?: WebResource;
+    metadata?: { [key: string]: string; };
 };
 
 export type InspectClusterRequest = {

@@ -21,6 +21,7 @@ const PACHYDERM_MODULES = [
   'enterprise/enterprise',
   'identity/identity',
   'license/license',
+  'metadata/metadata',
   'pfs/pfs',
   'pps/pps',
   'protoextensions/log',
