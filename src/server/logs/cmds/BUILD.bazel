@@ -26,7 +26,6 @@ go_test(
     embed = [":cmds"],
     pure = "on",
     deps = [
-        "//src/admin",
         "//src/auth",
         "//src/internal/dockertestenv",
         "//src/internal/lokiutil",
