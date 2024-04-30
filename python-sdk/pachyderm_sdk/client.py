@@ -12,6 +12,7 @@ from .api.debug.extension import ApiStub as _DebugStub
 from .api.enterprise import ApiStub as _EnterpriseStub
 from .api.identity import ApiStub as _IdentityStub
 from .api.license import ApiStub as _LicenseStub
+from .api.metadata import ApiStub as _MetadataApiStub
 from .api.pfs.extension import ApiStub as _PfsStub
 from .api.pps.extension import ApiStub as _PpsStub
 from .api.transaction.extension import ApiStub as _TransactionStub
@@ -100,8 +101,8 @@ class Client:
 
         self._auth_token = auth_token
         self._transaction_id = transaction_id
-        self._metadata = self._build_metadata()
-        self._channel = _apply_metadata_interceptor(channel, self._metadata)
+        self._grpc_metadata = self._build_metadata()
+        self._channel = _apply_metadata_interceptor(channel, self._grpc_metadata)
 
         # See implementation for api layout.
         self._init_api()
@@ -118,6 +119,7 @@ class Client:
         self.enterprise = _EnterpriseStub(self._channel)
         self.identity = _IdentityStub(self._channel)
         self.license = _LicenseStub(self._channel)
+        self.metadata = _MetadataApiStub(self._channel)
         self.pfs = _PfsStub(
             self._channel,
             get_transaction_id=lambda: self.transaction_id,
@@ -255,12 +257,12 @@ class Client:
     @auth_token.setter
     def auth_token(self, value):
         self._auth_token = value
-        self._metadata = self._build_metadata()
+        self._grpc_metadata = self._build_metadata()
         self._channel = _apply_metadata_interceptor(
             channel=_create_channel(
                 self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS
             ),
-            metadata=self._metadata,
+            metadata=self._grpc_metadata,
         )
         self._init_api()
 
@@ -272,12 +274,12 @@ class Client:
     @transaction_id.setter
     def transaction_id(self, value):
         self._transaction_id = value
-        self._metadata = self._build_metadata()
+        self._grpc_metadata = self._build_metadata()
         self._channel = _apply_metadata_interceptor(
             channel=_create_channel(
                 self.address, self.root_certs, options=GRPC_CHANNEL_OPTIONS
             ),
-            metadata=self._metadata,
+            metadata=self._grpc_metadata,
         )
         self._init_api()
 

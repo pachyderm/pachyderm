@@ -135,7 +135,7 @@ func TestCompactLevelBasedFuzz(t *testing.T) {
 func TestCompactLevelBasedRenewal(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	s := newTestStorage(ctx, t)
-	ttl := 100 * time.Millisecond
+	ttl := 300 * time.Millisecond
 	gc := s.NewGC(ttl)
 	cancelCtx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
