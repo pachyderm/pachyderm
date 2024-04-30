@@ -22,11 +22,6 @@ def pachyderm_resources():
 
     def clean_test_data():
         for repo in repos:
-            for branch in branches:
-                try:
-                    client.pfs.delete_branch(branch=pfs.Branch.from_uri(f"{repo}@{branch}"))
-                finally:
-                    continue
             try:
                 client.pfs.delete_repo(repo=pfs.Repo(name=repo))
             finally:
