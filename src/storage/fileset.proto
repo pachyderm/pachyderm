@@ -102,6 +102,14 @@ message ShardFilesetResponse {
   repeated PathRange shards = 1;
 }
 
+message GraphFilesetRequest {
+  string id = 1;
+}
+
+message GraphFilesetResponse {
+  string graph = 1;
+}
+
 service Fileset {
   // CreateFileset creates a fileset based on a stream of file modifications.
   // A string identifier for the created fileset will be returned that can be used for subsequent fileset operations.
@@ -120,4 +128,5 @@ service Fileset {
   // The shards of a fileset are returned as a list of path ranges that are disjoint
   // and account for the full set of paths in the fileset.
   rpc ShardFileset(ShardFilesetRequest) returns (ShardFilesetResponse) {}
+  rpc GraphFileset(GraphFilesetRequest) returns (GraphFilesetResponse) {}
 }

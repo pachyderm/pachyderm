@@ -161,3 +161,19 @@ func (x *ShardFilesetResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	enc.AddArray("shards", zapcore.ArrayMarshalerFunc(shardsArrMarshaller))
 	return nil
 }
+
+func (x *GraphFilesetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("id", x.Id)
+	return nil
+}
+
+func (x *GraphFilesetResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("graph", x.Graph)
+	return nil
+}

@@ -29300,6 +29300,54 @@
           ]
         },
         {
+          "name": "GraphFilesetRequest",
+          "longName": "GraphFilesetRequest",
+          "fullName": "storage.GraphFilesetRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "GraphFilesetResponse",
+          "longName": "GraphFilesetResponse",
+          "fullName": "storage.GraphFilesetResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "graph",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "PathRange",
           "longName": "PathRange",
           "fullName": "storage.PathRange",
@@ -29593,6 +29641,18 @@
               "responseType": "ShardFilesetResponse",
               "responseLongType": "ShardFilesetResponse",
               "responseFullType": "storage.ShardFilesetResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "GraphFileset",
+              "description": "",
+              "requestType": "GraphFilesetRequest",
+              "requestLongType": "GraphFilesetRequest",
+              "requestFullType": "storage.GraphFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "GraphFilesetResponse",
+              "responseLongType": "GraphFilesetResponse",
+              "responseFullType": "storage.GraphFilesetResponse",
               "responseStreaming": false
             }
           ]

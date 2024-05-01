@@ -680,6 +680,8 @@
     - [CreateFilesetResponse](#storage-CreateFilesetResponse)
     - [DeleteFile](#storage-DeleteFile)
     - [FileFilter](#storage-FileFilter)
+    - [GraphFilesetRequest](#storage-GraphFilesetRequest)
+    - [GraphFilesetResponse](#storage-GraphFilesetResponse)
     - [PathRange](#storage-PathRange)
     - [ReadFilesetRequest](#storage-ReadFilesetRequest)
     - [ReadFilesetResponse](#storage-ReadFilesetResponse)
@@ -10913,6 +10915,36 @@ specified path doesn&#39;t exist, the delete will be a no-op.
 
 
 
+<a name="storage-GraphFilesetRequest"></a>
+
+### GraphFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-GraphFilesetResponse"></a>
+
+### GraphFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| graph | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="storage-PathRange"></a>
 
 ### PathRange
@@ -11036,6 +11068,7 @@ storage&#39;s default value is used.
 | RenewFileset | [RenewFilesetRequest](#storage-RenewFilesetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | RenewFileset renews a fileset. |
 | ComposeFileset | [ComposeFilesetRequest](#storage-ComposeFilesetRequest) | [ComposeFilesetResponse](#storage-ComposeFilesetResponse) | ComposeFileset composes a fileset. Composing a fileset involves combining one or more filesets into a single fileset. TODO: Explain how the filesets are layered and what that means for the order of file modifications. |
 | ShardFileset | [ShardFilesetRequest](#storage-ShardFilesetRequest) | [ShardFilesetResponse](#storage-ShardFilesetResponse) | ShardFileset shards a fileset. The shards of a fileset are returned as a list of path ranges that are disjoint and account for the full set of paths in the fileset. |
+| GraphFileset | [GraphFilesetRequest](#storage-GraphFilesetRequest) | [GraphFilesetResponse](#storage-GraphFilesetResponse) |  |
 
  
 

@@ -25,6 +25,7 @@ const (
 	Fileset_RenewFileset_FullMethodName   = "/storage.Fileset/RenewFileset"
 	Fileset_ComposeFileset_FullMethodName = "/storage.Fileset/ComposeFileset"
 	Fileset_ShardFileset_FullMethodName   = "/storage.Fileset/ShardFileset"
+	Fileset_GraphFileset_FullMethodName   = "/storage.Fileset/GraphFileset"
 )
 
 // FilesetClient is the client API for Fileset service.
@@ -48,6 +49,7 @@ type FilesetClient interface {
 	// The shards of a fileset are returned as a list of path ranges that are disjoint
 	// and account for the full set of paths in the fileset.
 	ShardFileset(ctx context.Context, in *ShardFilesetRequest, opts ...grpc.CallOption) (*ShardFilesetResponse, error)
+	GraphFileset(ctx context.Context, in *GraphFilesetRequest, opts ...grpc.CallOption) (*GraphFilesetResponse, error)
 }
 
 type filesetClient struct {
@@ -151,6 +153,15 @@ func (c *filesetClient) ShardFileset(ctx context.Context, in *ShardFilesetReques
 	return out, nil
 }
 
+func (c *filesetClient) GraphFileset(ctx context.Context, in *GraphFilesetRequest, opts ...grpc.CallOption) (*GraphFilesetResponse, error) {
+	out := new(GraphFilesetResponse)
+	err := c.cc.Invoke(ctx, Fileset_GraphFileset_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FilesetServer is the server API for Fileset service.
 // All implementations must embed UnimplementedFilesetServer
 // for forward compatibility
@@ -172,6 +183,7 @@ type FilesetServer interface {
 	// The shards of a fileset are returned as a list of path ranges that are disjoint
 	// and account for the full set of paths in the fileset.
 	ShardFileset(context.Context, *ShardFilesetRequest) (*ShardFilesetResponse, error)
+	GraphFileset(context.Context, *GraphFilesetRequest) (*GraphFilesetResponse, error)
 	mustEmbedUnimplementedFilesetServer()
 }
 
@@ -193,6 +205,9 @@ func (UnimplementedFilesetServer) ComposeFileset(context.Context, *ComposeFilese
 }
 func (UnimplementedFilesetServer) ShardFileset(context.Context, *ShardFilesetRequest) (*ShardFilesetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ShardFileset not implemented")
+}
+func (UnimplementedFilesetServer) GraphFileset(context.Context, *GraphFilesetRequest) (*GraphFilesetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GraphFileset not implemented")
 }
 func (UnimplementedFilesetServer) mustEmbedUnimplementedFilesetServer() {}
 
@@ -308,6 +323,24 @@ func _Fileset_ShardFileset_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Fileset_GraphFileset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GraphFilesetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FilesetServer).GraphFileset(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Fileset_GraphFileset_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FilesetServer).GraphFileset(ctx, req.(*GraphFilesetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Fileset_ServiceDesc is the grpc.ServiceDesc for Fileset service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -326,6 +359,10 @@ var Fileset_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ShardFileset",
 			Handler:    _Fileset_ShardFileset_Handler,
+		},
+		{
+			MethodName: "GraphFileset",
+			Handler:    _Fileset_GraphFileset_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
