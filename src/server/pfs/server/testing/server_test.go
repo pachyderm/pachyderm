@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"io"
 	"math/rand"
 	"os"
@@ -23,6 +22,7 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
@@ -2088,11 +2088,11 @@ func TestWalkCommitProvenanceAndSubvenance(suite *testing.T) {
 
 	ACommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 	require.NoError(suite, err)
-	require.NoError(suite, finishCommit(env.PachClient, "A", ACommit.Branch.Name, ACommit.Id))
+	require.NoError(suite, finishCommit(env.PachClient, "A", "", ACommit.Id))
 
 	ECommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "E", "master")
 	require.NoError(suite, err)
-	require.NoError(suite, finishCommit(env.PachClient, "E", ECommit.Branch.Name, ECommit.Id))
+	require.NoError(suite, finishCommit(env.PachClient, "E", "", ECommit.Id))
 
 	tests := []struct {
 		clientFunc func() (grpcutil.ClientStream[*pfs.CommitInfo], error)
