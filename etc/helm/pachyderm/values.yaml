@@ -1176,15 +1176,25 @@ pgbouncer:
 
 # Note: Postgres values control the Bitnami Postgresql Subchart
 postgresql:
+  auth:
+    postgresPassword: "insecure-root-password"
+    username: "pachyderm"
+    password: "insecure-user-password"
+    database: "pachyderm"
+    # existingSecret: ""
+    # secretKeys:
+    #   adminPasswordKey: ""
+    #   userPasswordKey: ""
+    #   replicationPasswordKey: ""
   # enabled controls whether to install postgres or not.
   # If not using the built in Postgres, you must specify a Postgresql
   # database server to connect to in global.postgresql
   # The enabled value is watched by the 'condition' set on the Postgresql
   # dependency in Chart.yaml
-  enabled: true
+  enabled: true # TODO(LONNY)
   image:
     repository: pachyderm/postgresql
-    tag: "13.3.0"
+    tag: "15"
   # DEPRECATED from pachyderm 2.1.5
   initdbScripts:
     dex.sh: |
@@ -1211,7 +1221,7 @@ postgresql:
     labels:
       suite: pachyderm
   primary:
-    priorityClassName: ""
+    priorityClassName: "" # TODO(LONNY)
     nodeSelector: {}
     tolerations: []
   readReplicas:
