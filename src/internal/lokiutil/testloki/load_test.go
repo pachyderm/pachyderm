@@ -23,8 +23,12 @@ func TestAddLogFile(t *testing.T) {
 		}
 	})
 	in := `&map[key:value]
+
+> @pachyderm/dash-backend@0.0.1 start
 {"time":"2022-01-02T00:00:00.000Z","message":"message 1"}
 2022-01-02 00:00:00.123 UTC [1] LOG message 2
+[2022-01-02 00:00:01.003] message 3
+{"ts":1641081602.4,"message":"message 4"}
 `
 	if err := testloki.AddLogFile(ctx, strings.NewReader(in), loki); err != nil {
 		t.Fatalf("add log file: %v", err)
@@ -48,6 +52,14 @@ func TestAddLogFile(t *testing.T) {
 						{
 							Timestamp: time.Date(2022, 1, 2, 0, 0, 0, 123000000, time.UTC),
 							Line:      `2022-01-02 00:00:00.123 UTC [1] LOG message 2`,
+						},
+						{
+							Timestamp: time.Date(2022, 1, 2, 0, 0, 1, 3000000, time.UTC),
+							Line:      "[2022-01-02 00:00:01.003] message 3",
+						},
+						{
+							Timestamp: time.Date(2022, 1, 2, 0, 0, 2, 400000000, time.UTC),
+							Line:      `{"ts":1641081602.4,"message":"message 4"}`,
 						},
 					},
 				},
