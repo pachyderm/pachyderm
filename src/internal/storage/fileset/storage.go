@@ -2,6 +2,8 @@ package fileset
 
 import (
 	"context"
+	"fmt"
+	"github.com/emicklei/dot"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"math"
 	"strings"
@@ -176,6 +178,53 @@ func (s *Storage) CloneTx(tx *pachsql.Tx, id ID, ttl time.Duration) (*ID, error)
 	default:
 		return nil, errors.Errorf("cannot clone type %T", md.Value)
 	}
+}
+
+func (s *Storage) graph(ctx context.Context, childId ID, parentId *dot.Node, g *dot.Graph) error {
+	md, err := s.store.Get(ctx, childId)
+	if err != nil {
+		return err
+	}
+	filesetNameTemplate := `{"id":"%s", "type":"%s"}`
+	switch x := md.Value.(type) {
+	case *Metadata_Primitive:
+		fsNodeName := fmt.Sprintf(filesetNameTemplate, childId.HexString(), "primitive")
+		childNode := g.Node(fsNodeName)
+		childNode.Attr("color", "blue")
+		if parentId != nil {
+			g.Edge(*parentId, childNode)
+		}
+	case *Metadata_Composite:
+		fsNodeName := fmt.Sprintf(filesetNameTemplate, childId.HexString(), "composite")
+		compositeNode := g.Node(fsNodeName)
+		compositeNode.Attr("color", "green")
+		if parentId != nil {
+			g.Edge(*parentId, compositeNode)
+		}
+		layers, err := HexStringsToIDs(x.Composite.Layers)
+		if err != nil {
+			return errors.Wrap(err, "FileSetTree")
+		}
+		for _, cId := range layers {
+			err = s.graph(ctx, cId, &compositeNode, g)
+			if err != nil {
+				return errors.Wrap(err, "FileSetTree")
+			}
+		}
+	default:
+		// TODO: should it be?
+		return errors.Errorf("FileSetTree is not defined for empty filesets")
+	}
+	return nil
+}
+
+func (s *Storage) Graph(ctx context.Context, id ID) (string, error) {
+	g := dot.NewGraph(dot.Directed)
+	err := s.graph(ctx, id, nil, g)
+	if err != nil {
+		return "", errors.Wrap(err, "graph")
+	}
+	return g.String(), nil
 }
 
 // Flatten iterates through IDs and replaces references to composite file sets
