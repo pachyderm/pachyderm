@@ -21,7 +21,7 @@ require (
 	github.com/dexidp/dex v0.0.0-20230320125501-2bb4896d120e
 	github.com/dexidp/dex/api/v2 v2.1.0
 	github.com/dlmiddlecote/sqlstats v1.0.2
-	github.com/docker/docker v25.0.4+incompatible
+	github.com/docker/docker v26.1.1+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.5.0
 	github.com/dustin/go-humanize v1.0.1
@@ -131,6 +131,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
 	github.com/jackc/puddle v1.3.0 // indirect
+	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/sys/user v0.1.0 // indirect
