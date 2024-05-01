@@ -5,6 +5,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "testloki",
     srcs = [
+        "load.go",
         "logger.go",
         "testloki.go",
     ],
@@ -54,4 +55,11 @@ go_test(
         "//src/logs",
         "@org_golang_google_protobuf//encoding/protojson",
     ],
+)
+
+go_test(
+    name = "load_test",
+    srcs = ["load_test.go"],
+    embed = [":testloki"],
+    deps = ["//src/internal/require"],
 )
