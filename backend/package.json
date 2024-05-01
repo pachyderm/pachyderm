@@ -27,7 +27,7 @@
     "cookie-parser": "1.4.6",
     "dotenv-flow": "3.2.0",
     "dotenv-flow-cli": "1.0.0",
-    "ejs": "3.1.9",
+    "ejs": "3.1.10",
     "express": "4.19.2",
     "google-protobuf": "^3.21.2",
     "jsonwebtoken": "9.0.2",
