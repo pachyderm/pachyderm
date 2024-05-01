@@ -1,4 +1,5 @@
 """The Client used to interact with a Pachyderm instance."""
+
 import os
 from pathlib import Path
 from typing import Optional, Union
