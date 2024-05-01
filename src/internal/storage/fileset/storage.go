@@ -2,6 +2,9 @@ package fileset
 
 import (
 	"context"
+	"fmt"
+	"github.com/emicklei/dot"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"math"
 	"strings"
@@ -176,6 +179,81 @@ func (s *Storage) CloneTx(tx *pachsql.Tx, id ID, ttl time.Duration) (*ID, error)
 	default:
 		return nil, errors.Errorf("cannot clone type %T", md.Value)
 	}
+}
+
+func (s *Storage) graph(ctx context.Context, childId ID, parentId *dot.Node, g *dot.Graph) error {
+	relatedCommits := struct {
+		Diffs  []string `db:"diffs"`
+		Totals []string `db:"totals"`
+	}{Diffs: []string{}, Totals: []string{}}
+	var (
+		md  *Metadata
+		err error
+	)
+	if err = dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
+		md, err = s.store.GetTx(tx, childId)
+		if err != nil {
+			return errors.Wrap(err, "get fileset metadata in tx")
+		}
+		err = sqlx.SelectContext(ctx, tx, &relatedCommits.Diffs, `SELECT commit_id as "diffs" FROM pfs.commit_diffs WHERE fileset_id = $1`, childId)
+		if err != nil {
+			return errors.Wrap(err, "getting commit diffs")
+		}
+		err = sqlx.SelectContext(ctx, tx, &relatedCommits.Totals, `SELECT commit_id as "totals" FROM pfs.commit_totals WHERE fileset_id = $1`, childId)
+		if err != nil {
+			return errors.Wrap(err, "getting commit totals")
+		}
+		return nil
+	}, dbutil.WithReadOnly()); err != nil {
+		return errors.Wrap(err, "graph")
+	}
+	filesetNameTemplate := fmt.Sprintf(`{"id":"%s"`, childId.HexString())
+	if len(relatedCommits.Totals) > 0 {
+		filesetNameTemplate += fmt.Sprintf(` | "totalsFor": "%s"`, strings.Join(relatedCommits.Totals, ","))
+	}
+	if len(relatedCommits.Diffs) > 0 {
+		filesetNameTemplate += fmt.Sprintf(` | "diffsFor": "%s"`, strings.Join(relatedCommits.Diffs, ","))
+	}
+	filesetNameTemplate += ` | "type":"%s"}`
+	switch x := md.Value.(type) {
+	case *Metadata_Primitive:
+		fsNodeName := fmt.Sprintf(filesetNameTemplate, "primitive")
+		childNode := g.Node(fsNodeName)
+		childNode.Attrs("color", "blue", "shape", "Mrecord")
+		if parentId != nil {
+			g.Edge(*parentId, childNode)
+		}
+	case *Metadata_Composite:
+		fsNodeName := fmt.Sprintf(filesetNameTemplate, "composite")
+		compositeNode := g.Node(fsNodeName)
+		compositeNode.Attrs("color", "green", "shape", "Mrecord")
+		if parentId != nil {
+			g.Edge(*parentId, compositeNode)
+		}
+		layers, err := HexStringsToIDs(x.Composite.Layers)
+		if err != nil {
+			return errors.Wrap(err, "FileSetTree")
+		}
+		for _, cId := range layers {
+			err = s.graph(ctx, cId, &compositeNode, g)
+			if err != nil {
+				return errors.Wrap(err, "FileSetTree")
+			}
+		}
+	default:
+		// TODO: should it be?
+		return errors.Errorf("FileSetTree is not defined for empty filesets")
+	}
+	return nil
+}
+
+func (s *Storage) Graph(ctx context.Context, id ID) (string, error) {
+	g := dot.NewGraph(dot.Directed)
+	err := s.graph(ctx, id, nil, g)
+	if err != nil {
+		return "", errors.Wrap(err, "graph")
+	}
+	return g.String(), nil
 }
 
 // Flatten iterates through IDs and replaces references to composite file sets

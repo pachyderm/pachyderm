@@ -5743,6 +5743,35 @@
         ]
       }
     },
+    "/storage.Fileset/GraphFileset": {
+      "post": {
+        "operationId": "Fileset_GraphFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageGraphFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageGraphFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
     "/transaction_v2.API/BatchTransaction": {
       "post": {
         "summary": "Transaction rpcs",
@@ -12209,6 +12238,22 @@
         "pathRegex": {
           "type": "string",
           "description": "Only emit files with paths that match the provided regular expression."
+        }
+      }
+    },
+    "storageGraphFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "storageGraphFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "graph": {
+          "type": "string"
         }
       }
     },

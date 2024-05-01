@@ -152,6 +152,16 @@ class ShardFilesetResponse(betterproto.Message):
     shards: List["PathRange"] = betterproto.message_field(1)
 
 
+@dataclass(eq=False, repr=False)
+class GraphFilesetRequest(betterproto.Message):
+    id: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class GraphFilesetResponse(betterproto.Message):
+    graph: str = betterproto.string_field(1)
+
+
 class FilesetStub:
 
     def __init__(self, channel: "grpc.Channel"):
@@ -179,6 +189,11 @@ class FilesetStub:
             "/storage.Fileset/ShardFileset",
             request_serializer=ShardFilesetRequest.SerializeToString,
             response_deserializer=ShardFilesetResponse.FromString,
+        )
+        self.__rpc_graph_fileset = channel.unary_unary(
+            "/storage.Fileset/GraphFileset",
+            request_serializer=GraphFilesetRequest.SerializeToString,
+            response_deserializer=GraphFilesetResponse.FromString,
         )
 
     def create_fileset(
@@ -239,3 +254,10 @@ class FilesetStub:
         request.size_bytes = size_bytes
 
         return self.__rpc_shard_fileset(request)
+
+    def graph_fileset(self, *, id: str = "") -> "GraphFilesetResponse":
+
+        request = GraphFilesetRequest()
+        request.id = id
+
+        return self.__rpc_graph_fileset(request)

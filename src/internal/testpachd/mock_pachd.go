@@ -1536,18 +1536,21 @@ type readFilesetFunc func(request *storage.ReadFilesetRequest, server storage.Fi
 type renewFilesetFunc func(context.Context, *storage.RenewFilesetRequest) (*emptypb.Empty, error)
 type composeFilesetFunc func(context.Context, *storage.ComposeFilesetRequest) (*storage.ComposeFilesetResponse, error)
 type shardFilesetFunc func(context.Context, *storage.ShardFilesetRequest) (*storage.ShardFilesetResponse, error)
+type graphFilesetFunc func(context.Context, *storage.GraphFilesetRequest) (*storage.GraphFilesetResponse, error)
 
 type mockCreateFileset struct{ handler createFilesetFunc }
 type mockReadFileset struct{ handler readFilesetFunc }
 type mockRenewFileset struct{ handler renewFilesetFunc }
 type mockComposeFileset struct{ handler composeFilesetFunc }
 type mockShardFileset struct{ handler shardFilesetFunc }
+type mockGraphFileset struct{ handler graphFilesetFunc }
 
 func (mock *mockCreateFileset) Use(cb createFilesetFunc)   { mock.handler = cb }
 func (mock *mockReadFileset) Use(cb readFilesetFunc)       { mock.handler = cb }
 func (mock *mockRenewFileset) Use(cb renewFilesetFunc)     { mock.handler = cb }
 func (mock *mockComposeFileset) Use(cb composeFilesetFunc) { mock.handler = cb }
 func (mock *mockShardFileset) Use(cb shardFilesetFunc)     { mock.handler = cb }
+func (mock *mockGraphFileset) Use(cb graphFilesetFunc)     { mock.handler = cb }
 
 type storageServerAPI struct {
 	storage.UnimplementedFilesetServer
@@ -1561,6 +1564,7 @@ type mockStorageServer struct {
 	RenewFileset   mockRenewFileset
 	ComposeFileset mockComposeFileset
 	ShardFileset   mockShardFileset
+	GraphFileset   mockGraphFileset
 }
 
 func (api *storageServerAPI) CreateFileset(server storage.Fileset_CreateFilesetServer) error {
@@ -1596,6 +1600,13 @@ func (api *storageServerAPI) ShardFileset(ctx context.Context, request *storage.
 		return api.mock.ShardFileset.handler(ctx, request)
 	}
 	return nil, errors.Errorf("unhandled pachd mock storage.ShardFileset")
+}
+
+func (api *storageServerAPI) GraphFileset(ctx context.Context, request *storage.GraphFilesetRequest) (*storage.GraphFilesetResponse, error) {
+	if api.mock.GraphFileset.handler != nil {
+		return api.mock.GraphFileset.handler(ctx, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock storage.GraphFileset")
 }
 
 /* PPS Server Mocks */

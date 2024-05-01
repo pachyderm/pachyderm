@@ -109,7 +109,7 @@ func (cs *postgresCommitStore) GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Com
 	if id == nil {
 		return nil, errNoTotalFileSet
 	}
-	return cs.s.CloneTx(tx, *id, defaultTTL)
+	return id, nil
 }
 
 func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
@@ -123,6 +123,9 @@ func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.C
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+	if len(ids) == 1 {
+		return &ids[0], nil
 	}
 	return cs.s.Compose(ctx, ids, defaultTTL)
 }
