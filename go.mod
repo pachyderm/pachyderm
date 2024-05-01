@@ -21,7 +21,7 @@ require (
 	github.com/dexidp/dex v0.0.0-20230320125501-2bb4896d120e
 	github.com/dexidp/dex/api/v2 v2.1.0
 	github.com/dlmiddlecote/sqlstats v1.0.2
-	github.com/docker/docker v26.1.1+incompatible
+	github.com/docker/docker v24.0.9+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.5.0
 	github.com/dustin/go-humanize v1.0.1
@@ -30,7 +30,7 @@ require (
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/color v1.13.0
 	github.com/felixge/httpsnoop v1.0.4
-	github.com/fsouza/go-dockerclient v1.11.0
+	github.com/fsouza/go-dockerclient v1.10.1
 	github.com/go-logr/zapr v1.2.3
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/golang/protobuf v1.5.4
@@ -125,24 +125,21 @@ require (
 require (
 	github.com/BurntSushi/toml v1.3.0 // indirect
 	github.com/containerd/containerd v1.7.16 // indirect
-	github.com/containerd/log v0.1.0 // indirect
-	github.com/distribution/reference v0.6.0 // indirect
+	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
 	github.com/jackc/puddle v1.3.0 // indirect
-	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
-	github.com/moby/sys/user v0.1.0 // indirect
 	github.com/moby/term v0.0.0-20221205130635-1aeaba878587 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
+	github.com/opencontainers/runc v1.1.5 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.51.0 // indirect
 	go.opentelemetry.io/otel/metric v1.26.0 // indirect
 	golang.org/x/tools v0.18.0 // indirect
 )
