@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
@@ -21,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
 )
 
@@ -222,20 +226,33 @@ type stream struct {
 }
 
 // AddLog adds a log line to Loki.
-func (l *TestLoki) AddLog(ctx context.Context, lg *Log) (retErr error) {
-	pr := &pushRequest{
-		Streams: []stream{
-			{
-				Stream: lg.Labels,
-				Values: [][]string{
-					{
-						strconv.FormatInt(lg.Time.UnixNano(), 10),
-						lg.Message,
-					},
-				},
-			},
-		},
+func (l *TestLoki) AddLog(ctx context.Context, logs ...*Log) (retErr error) {
+	streams := map[string]*stream{}
+	for _, lg := range logs {
+		keybuilder := new(strings.Builder)
+		keys := maps.Keys(lg.Labels)
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Fprintf(keybuilder, "%v=%v\n", k, lg.Labels[k])
+		}
+		key := keybuilder.String()
+		s, ok := streams[key]
+		if !ok {
+			s = new(stream)
+			s.Stream = lg.Labels
+			streams[key] = s
+		}
+		s.Values = append(s.Values, []string{
+			strconv.FormatInt(lg.Time.UnixNano(), 10),
+			lg.Message,
+		})
+
 	}
+	pr := new(pushRequest)
+	for _, s := range streams {
+		pr.Streams = append(pr.Streams, *s)
+	}
+
 	js, err := json.Marshal(pr)
 	if err != nil {
 		return errors.Wrapf(err, "marshal request %#v", pr)
