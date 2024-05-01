@@ -1020,11 +1020,7 @@ func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryR
 				summaries[project] = summary
 			}
 			summary.UserRepoCount++
-			size, err := a.driver.repoSize(ctx, txnCtx, r)
-			if err != nil {
-				return errors.Wrapf(err, "get size of repo %q", r.Repo.String())
-			}
-			summary.SizeBytes += size
+			summary.SizeBytes += r.SizeBytesUpperBound
 		}
 		return nil
 	}); err != nil {
