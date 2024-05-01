@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -21,10 +23,12 @@ func AddLogFile(ctx context.Context, r io.Reader, l *TestLoki) error {
 			labels = parseLabels(line)
 		default:
 			log := parseLog(line)
+			if log.Time.IsZero() {
+				return errors.Errorf("line %d (%q): no time", i, line)
+			}
 			log.Labels = labels
 			if err := l.AddLog(ctx, log); err != nil {
 				return errors.Wrapf(err, "line %d: AddLog", i)
-
 			}
 		}
 	}
@@ -65,8 +69,20 @@ func parseLabels(line string) map[string]string {
 	return result
 }
 
+var (
+	findRFC3339 = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.]\d+Z)`)
+	findUnix    = regexp.MustCompile(`(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{3} UTC)`)
+)
+
 func parseLog(line string) *Log {
+	var ts time.Time
+	if matches := findRFC3339.FindStringSubmatch(line); len(matches) == 2 {
+		ts, _ = time.Parse(time.RFC3339Nano, matches[1])
+	} else if matches := findUnix.FindStringSubmatch(line); ts.IsZero() && len(matches) == 2 {
+		ts, _ = time.Parse("2006-01-02 15:04:05.999 MST", matches[1])
+	}
 	return &Log{
+		Time:    ts,
 		Message: line,
 	}
 }
