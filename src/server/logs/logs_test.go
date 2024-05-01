@@ -302,7 +302,7 @@ func TestGetLogs_missingFromUntil(t *testing.T) {
 	var (
 		ctx        = pctx.TestContext(t)
 		now        = time.Now()
-		aloki, err = testloki.New(ctx, t.TempDir(), testloki.WithoutOldSampleRejection, testloki.WithCreationGracePeriod(2*time.Hour))
+		aloki, err = testloki.New(ctx, t.TempDir())
 		ls         = logservice.LogService{
 			GetLokiClient: func() (*loki.Client, error) {
 				return aloki.Client, nil

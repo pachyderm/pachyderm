@@ -34,16 +34,6 @@ type TestLoki struct {
 
 type Option func(config *map[string]any)
 
-func WithoutOldSampleRejection(config *(map[string]any)) {
-	(*config)["limits_config"].(map[string]any)["reject_old_samples"] = false
-}
-
-func WithCreationGracePeriod(d time.Duration) func(config *(map[string]any)) {
-	return func(config *(map[string]any)) {
-		(*config)["limits_config"].(map[string]any)["creation_grace_period"] = d
-	}
-}
-
 // New starts a new Loki instance on the local machine.
 func New(ctx context.Context, tmp string, opts ...Option) (*TestLoki, error) {
 	var errs error
