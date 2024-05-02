@@ -32,7 +32,10 @@ func (pc *pachClient) WithCreateFileSetClient(ctx context.Context, cb func(clien
 func (pc *pachClient) AddFileSet(ctx context.Context, commit *pfs.Commit, filesetID string) error {
 	project := commit.Repo.Project.GetName()
 	repo := commit.Repo.Name
-	branch := commit.Branch.Name
+	branch := ""
+	if commit.Branch != nil {
+		branch = commit.Branch.Name
+	}
 	return client.AddFileSet(ctx, pc.pfs, project, repo, branch, commit.Id, filesetID)
 }
 

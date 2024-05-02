@@ -277,7 +277,7 @@ func testS3Chain(t *testing.T, c *client.APIClient, ns, projectName string) {
 	}
 
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("")))
-	commitInfo, err := c.InspectCommit(projectName, dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
+	commitInfo, err := c.InspectCommit(projectName, dataCommit.Repo.Name, "master", "")
 	require.NoError(t, err)
 
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
@@ -704,7 +704,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.Id))
+			require.NoError(t, c.FinishCommit(projectName, background, "", bgc.Id))
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewCommit(projectName, pfsin, "master", ""), iS, strings.NewReader(iS)))
@@ -745,7 +745,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
-		require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.Id))
+		require.NoError(t, c.FinishCommit(projectName, background, "", bgc.Id))
 
 		//  Put new file in 's3in', which will update every datum at once and
 		//  trigger a job that, correspondingly, updates the 'background' part of
@@ -754,7 +754,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
-		require.NoError(t, c.FinishCommit(projectName, s3in, s3c.Branch.Name, s3c.Id))
+		require.NoError(t, c.FinishCommit(projectName, s3in, "", s3c.Id))
 
 		_, err = c.WaitCommit(projectName, pipeline, "master", "")
 		require.NoError(t, err)
@@ -867,7 +867,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.Id))
+			require.NoError(t, c.FinishCommit(projectName, background, "", bgc.Id))
 
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))

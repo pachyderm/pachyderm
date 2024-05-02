@@ -3,7 +3,7 @@ package validation
 import (
 	"context"
 	"fmt"
-
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -17,7 +17,11 @@ type validatable interface {
 	ValidateAll() error
 }
 
-func UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+type branchNillable interface {
+	NilBranch()
+}
+
+func UnaryServerInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	if r, ok := req.(validatable); ok {
 		if err := r.ValidateAll(); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "validate request: %v", err)
@@ -29,13 +33,22 @@ func UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServer
 	} else {
 		log.DPanic(ctx, "no validation routine on request message", zap.String("type", fmt.Sprintf("%T", req)))
 	}
-	return handler(ctx, req)
+
+	resp, err := handler(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if b, ok := resp.(branchNillable); ok {
+		b.NilBranch()
+	}
+	return resp, nil
 }
 
 var _ grpc.UnaryServerInterceptor = UnaryServerInterceptor
 
 type streamWrapper struct {
 	grpc.ServerStream
+	IsServerStream bool
 }
 
 var _ grpc.ServerStream = new(streamWrapper)
@@ -55,8 +68,18 @@ func (w *streamWrapper) RecvMsg(m any) error {
 	return nil
 }
 
+func (w *streamWrapper) SendMsg(m any) error {
+	// google grpc library wraps client stream and puts server stream. We don't want our implementation to apply to client streams.
+	if w.IsServerStream {
+		if b, ok := m.(branchNillable); ok {
+			b.NilBranch()
+		}
+	}
+	return errors.EnsureStack(w.ServerStream.SendMsg(m))
+}
+
 func StreamServerInterceptor(srv any, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	return handler(srv, &streamWrapper{ServerStream: stream})
+	return handler(srv, &streamWrapper{ServerStream: stream, IsServerStream: info.IsServerStream})
 }
 
 var _ grpc.StreamServerInterceptor = StreamServerInterceptor
