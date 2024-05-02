@@ -20,15 +20,7 @@ def pachyderm_resources():
     branches = ["master", "dev"]
     files = ["file1", "file2"]
 
-    def clean_test_data():
-        for repo in repos:
-            try:
-                client.pfs.delete_repo(repo=pfs.Repo(name=repo))
-            finally:
-                continue
-
     client = Client.from_config()
-    clean_test_data()
     for repo in repos:
         client.pfs.create_repo(repo=pfs.Repo(name=repo))
         for branch in branches:
@@ -41,7 +33,11 @@ def pachyderm_resources():
 
     yield repos, branches, files
 
-    clean_test_data()
+    for repo in repos:
+        try:
+            client.pfs.delete_repo(repo=pfs.Repo(name=repo))
+        finally:
+            continue
 
 async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
     repos, branches, _ = pachyderm_resources
@@ -165,18 +161,20 @@ async def test_download_file(
     assert pfs_manager is not None
     pfs_manager.root_dir = str(tmp_path)
 
-    url_params = {'branch_uri': f'{repos[0]}@master'}
+    r = await http_client.put("/mount", json={"branch_uri": f'{repos[0]}@master'})
+    assert r.status_code == 200, r.text
     r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     local_file = tmp_path / files[0]
     assert local_file.exists()
     assert local_file.read_text() == "some data"
 
-    url_params = {'branch_uri': f'{repos[0]}@master'}
     r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 400, r.text
 
     url_params = {'branch_uri': f'{repos[1]}@master'}
+    r = await http_client.put("/mount", json={"branch_uri": f'{repos[0]}@master'})
+    assert r.status_code == 200, r.text
     r = await http_client.put(f"/download/explore/{repos[1]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     local_path = tmp_path / repos[1]
