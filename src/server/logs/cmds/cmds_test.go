@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
@@ -22,17 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
-
-func mockInspectCluster(env *realenv.RealEnv) {
-	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
-		clusterInfo := admin.ClusterInfo{
-			Id:           "dev",
-			DeploymentId: "dev",
-			WarningsOk:   true,
-		}
-		return &clusterInfo, nil
-	})
-}
 
 func realEnvWithLoki(ctx context.Context, t testing.TB, entries []loki.Entry) *realenv.RealEnv {
 	srv := httptest.NewServer(&lokiutil.FakeServer{
@@ -68,7 +56,6 @@ func TestGetLogs_default_noauth(t *testing.T) {
 		env = realEnvWithLoki(ctx, t, buildEntries())
 		c   = env.PachClient
 	)
-	mockInspectCluster(env)
 
 	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl logs2 | match "99 foo"`,
@@ -126,7 +113,6 @@ func TestGetLogs_default_admin(t *testing.T) {
 		env = realEnvWithLoki(ctx, t, buildEntries())
 		c   = env.PachClient
 	)
-	mockInspectCluster(env)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	adminClient := testutil.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
 
@@ -154,7 +140,6 @@ func TestGetLogs_pipeline_noauth(t *testing.T) {
 		env = realEnvWithLoki(ctx, t, buildEntries())
 		c   = env.PachClient
 	)
-	mockInspectCluster(env)
 
 	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo {{.RepoName}}
@@ -272,7 +257,6 @@ func TestGetLogs_project_noauth(t *testing.T) {
 		env = realEnvWithLoki(ctx, t, buildEntries())
 		c   = env.PachClient
 	)
-	mockInspectCluster(env)
 
 	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo {{.RepoName}}
@@ -392,7 +376,6 @@ func TestGetLogs_combination_error(t *testing.T) {
 		env = realEnvWithLoki(ctx, t, buildEntries())
 		c   = env.PachClient
 	)
-	mockInspectCluster(env)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	alice := testutil.UniqueString("robot:alice")
 	aliceClient := testutil.AuthenticatedPachClient(t, c, alice, peerPort)
@@ -458,12 +441,45 @@ func TestGetLogs_from_to(t *testing.T) {
 		env = realEnvWithLoki(ctx, t, buildEntries())
 		c   = env.PachClient
 	)
-	mockInspectCluster(env)
 
 	to := time.Now().Add(-time.Second)
 	from := to.Add(-time.Hour)
 	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl logs2 --from {{.From}} --to {{.To}}| match "99 foo"`,
+		"From", from.Format(time.RFC3339Nano),
+		"To", to.Format(time.RFC3339Nano),
+	).Run())
+}
+
+func TestGetLogs_limit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	var (
+		ctx          = pctx.TestContext(t)
+		buildEntries = func() []loki.Entry {
+			var entries []loki.Entry
+			for i := -99; i <= 0; i++ {
+				entries = append(entries, loki.Entry{
+					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
+					Line:      fmt.Sprintf("%v foo", i),
+				})
+			}
+			return entries
+		}
+		env = realEnvWithLoki(ctx, t, buildEntries())
+		c   = env.PachClient
+	)
+
+	to := time.Now().Add(-time.Second)
+	from := to.Add(-time.Hour)
+	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
+		pachctl logs2 --from {{.From}} --to {{.To}} --limit 1| match "99 foo"`,
+		"From", from.Format(time.RFC3339Nano),
+		"To", to.Format(time.RFC3339Nano),
+	).Run())
+	require.YesError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
+		pachctl logs2 --from {{.From}} --to {{.To}} --limit 1| match "98 foo"`,
 		"From", from.Format(time.RFC3339Nano),
 		"To", to.Format(time.RFC3339Nano),
 	).Run())

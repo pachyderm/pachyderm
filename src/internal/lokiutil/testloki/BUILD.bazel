@@ -5,6 +5,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "testloki",
     srcs = [
+        "load.go",
         "logger.go",
         "testloki.go",
     ],
@@ -24,6 +25,7 @@ go_library(
         "//src/internal/promutil",
         "//src/internal/randutil",
         "@in_gopkg_yaml_v3//:yaml_v3",
+        "@org_golang_x_exp//maps",
         "@org_uber_go_zap//:zap",
         "@org_uber_go_zap//zapcore",
         "@rules_go//go/runfiles:go_default_library",
@@ -54,4 +56,22 @@ go_test(
         "//src/logs",
         "@org_golang_google_protobuf//encoding/protojson",
     ],
+)
+
+go_test(
+    name = "load_test",
+    srcs = ["load_test.go"],
+    deps = [
+        ":testloki",
+        "//src/internal/lokiutil/client",
+        "//src/internal/pctx",
+        "//src/internal/require",
+    ],
+)
+
+go_test(
+    name = "parse_test",
+    srcs = ["parse_test.go"],
+    embed = [":testloki"],
+    deps = ["//src/internal/require"],
 )
