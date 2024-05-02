@@ -1,0 +1,37 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "aws_lib",
+    srcs = [
+        "app.go",
+        "cluster.go",
+        "database.go",
+        "main.go",
+        "storage.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/etc/testing/circle/workloads/pulumi/aws",
+    visibility = ["//visibility:private"],
+    deps = [
+        "@com_github_pkg_errors//:errors",
+        "@com_github_pulumi_pulumi_aws_sdk_v5//go/aws/eks",
+        "@com_github_pulumi_pulumi_aws_sdk_v5//go/aws/iam",
+        "@com_github_pulumi_pulumi_aws_sdk_v5//go/aws/rds",
+        "@com_github_pulumi_pulumi_aws_sdk_v5//go/aws/s3",
+        "@com_github_pulumi_pulumi_awsx_sdk//go/awsx/ec2",
+        "@com_github_pulumi_pulumi_eks_sdk//go/eks",
+        "@com_github_pulumi_pulumi_kubernetes_sdk_v3//go/kubernetes",
+        "@com_github_pulumi_pulumi_kubernetes_sdk_v3//go/kubernetes/core/v1:core",
+        "@com_github_pulumi_pulumi_kubernetes_sdk_v3//go/kubernetes/helm/v3:helm",
+        "@com_github_pulumi_pulumi_kubernetes_sdk_v3//go/kubernetes/meta/v1:meta",
+        "@com_github_pulumi_pulumi_kubernetes_sdk_v3//go/kubernetes/storage/v1:storage",
+        "@com_github_pulumi_pulumi_postgresql_sdk_v3//go/postgresql",
+        "@com_github_pulumi_pulumi_sdk_v3//go/pulumi",
+        "@com_github_pulumi_pulumi_sdk_v3//go/pulumi/config",
+    ],
+)
+
+go_binary(
+    name = "aws",
+    embed = [":aws_lib"],
+    visibility = ["//visibility:public"],
+)
