@@ -17,22 +17,6 @@ const (
 	ErrorLevel Level = 3
 )
 
-func (l Level) log(z *zap.Logger, msg string, fields ...Field) {
-	switch l { //exhaustive:enforce
-	case DebugLevel:
-		z.Debug(msg, fields...)
-		return
-	case InfoLevel:
-		z.Info(msg, fields...)
-		return
-	case ErrorLevel:
-		z.Error(msg, fields...)
-		return
-	}
-	z.DPanic("log: internal error: unknown level in Level.log call", zap.Int("level", int(l)), zap.Stack("stack"))
-	z.Debug(msg, fields...)
-}
-
 func (l Level) coreLevel() zapcore.Level {
 	switch l { //exhaustive:enforce
 	case DebugLevel:
@@ -123,7 +107,10 @@ func makeSpanEndFunc(ctx context.Context, l *zap.Logger, event string, level Lev
 			}
 			fields = append(fields, f)
 		}
-		level.log(l.With(ContextInfo(ctx)), event+": "+string(msg), fields...)
+		if e := l.Check(level.coreLevel(), event+": "+string(msg)); e != nil {
+			fields = append(fields, ContextInfo(ctx))
+			e.Write(fields...)
+		}
 	}
 }
 
@@ -142,9 +129,12 @@ func SpanContextL(rctx context.Context, event string, level Level, fields ...Fie
 
 func spanContextL(rctx context.Context, event string, level Level, startSkip, endSkip int, fields ...Field) (context.Context, EndSpanFunc) {
 	l := extractLogger(rctx).Named(event).With(fields...)
-	level.log(l.WithOptions(zap.AddCallerSkip(1+startSkip)).With(ContextInfo(rctx)), event+": "+string(spanStarting))
+	if e := l.WithOptions(zap.AddCallerSkip(startSkip)).Check(level.coreLevel(), event+": "+string(spanStarting)); e != nil {
+		fields = append(fields, ContextInfo(rctx))
+		e.Write(fields...)
+	}
 	ctx := withLogger(rctx, l)
-	return ctx, makeSpanEndFunc(ctx, l.WithOptions(zap.AddCallerSkip(1+endSkip)), event, level, time.Now())
+	return ctx, makeSpanEndFunc(ctx, l.WithOptions(zap.AddCallerSkip(endSkip)), event, level, time.Now())
 }
 
 // SpanContext starts a new span at level debug. See SpanContextL for details.
