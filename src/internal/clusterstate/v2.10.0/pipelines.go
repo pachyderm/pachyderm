@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -18,31 +19,49 @@ import (
 
 var createUniqueIndex = "CREATE UNIQUE INDEX pip_version_idx ON collections.pipelines(idx_name,idx_version)"
 
-// collect all pipeline versions for pipelines with duplicate versions
+// find pipelines with duplicate versions
+// each returned row has a pipeline with duplicate versions
+// the newest createdat timestamp is returned
+// all keys and protos are returned in arrays ordered by createdat
+// so newest duplicate is last entry in array
+// duplicated idx_version is returned whole and split into pipeline name and version number
+
+// select count(1) count, max(createdat) max_createdat, array_agg(key order by createdat) keys, array_agg(proto order by createdat) protos, idx_version, split_part(idx_version, '@', 1) pipeline_path, cast(split_part(idx_version, '@', 2) as int8) version_number from collections.pipelines group by idx_name, idx_version having count(1) > 1;
+
 var duplicatePipelinesQuery = `
-SELECT key, proto
-  FROM collections.pipelines
-  WHERE idx_name
-    IN (SELECT a.idx_name
-        FROM collections.pipelines a
-          INNER JOIN collections.pipelines b
-          ON a.idx_name = b.idx_name
-           AND a.idx_version = b.idx_version
-           AND a.key != b.key
-       )
-  ORDER BY idx_name, createdat;
+select
+  count(1) count,
+  max(createdat) max_createdat,
+  array_agg(key order by createdat) keys,
+  array_agg(proto order by createdat) protos,
+  idx_version,
+  split_part(idx_version, '@', 1) pipeline_path,
+  cast(split_part(idx_version, '@', 2) as int8) version_number
+from collections.pipelines
+group by idx_name, idx_version
+having count(1) > 1
 `
+
+type pipDBRow struct {
+	Count         int64     `db:"count"`
+	MaxCreatedAt  time.Time `db:"max_createdat"`
+	Keys          []string  `db:"keys"`
+	Protos        [][]byte  `db:"protos"`
+	IdxVersion    string    `db:"idx_version"`
+	PipelinePath  string    `db:"pipeline_path"`
+	VersionNumber int64     `db:"version_number"`
+}
+
+type pipUpdateRow struct {
+	Key        string
+	Proto      []byte
+	IdxVersion string
+}
 
 var listJobInfos = `
   SELECT key, proto
   FROM collections.jobs
 `
-
-type pipRow struct {
-	Key        string `db:"key"`
-	Proto      []byte `db:"proto"`
-	IdxVersion string
-}
 
 type jobRow struct {
 	Key   string `db:"key"`
@@ -82,7 +101,7 @@ func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error 
 	if err != nil {
 		return err
 	}
-	log.Info(ctx, "detected updates for pipeline versions", zap.Int("updates_cout", len(pipUpdates)))
+	log.Info(ctx, "detected updates for pipeline versions", zap.Int("updates_count", len(pipUpdates)))
 	if len(pipUpdates) != 0 {
 		var pipValues string
 		for _, u := range pipUpdates {
@@ -125,7 +144,7 @@ func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error 
 	return nil
 }
 
-func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*pipRow,
+func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*pipUpdateRow,
 	pipelineVersionChanges map[string]map[uint64]uint64,
 	retErr error) {
 	rr, err := tx.QueryxContext(ctx, duplicatePipelinesQuery)
@@ -136,16 +155,18 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 	pi := &pps.PipelineInfo{}
 	pipLatestVersion := make(map[string]uint64)
 	pipVersionChanges := make(map[string]map[uint64]uint64)
-	var updates []*pipRow
+	var updates []*pipUpdateRow
 	for rr.Next() {
-		var row pipRow
+		var row pipDBRow
 		if err := rr.Err(); err != nil {
 			return nil, nil, errors.Wrap(err, "row error")
 		}
 		if err := rr.StructScan(&row); err != nil {
 			return nil, nil, errors.Wrap(err, "scan pipeline row")
 		}
-		if err := proto.Unmarshal(row.Proto, pi); err != nil {
+		key := row.Keys[len(row.Keys)-1]
+		rowProto := row.Protos[len(row.Protos)-1]
+		if err := proto.Unmarshal(rowProto, pi); err != nil {
 			return nil, nil, errors.Wrapf(err, "unmarshal proto")
 		}
 		lastChange, ok := pipLatestVersion[pi.Pipeline.Name]
@@ -160,12 +181,12 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "marshal pipeline info %v", pi)
 			}
-			project, pipeline, _, err := ParsePipelineKey(row.Key)
+			project, pipeline, _, err := ParsePipelineKey(key)
 			if err != nil {
-				return nil, nil, errors.Wrapf(err, "parse key %q", row.Key)
+				return nil, nil, errors.Wrapf(err, "parse key %q", key)
 			}
 			idxVersion := versionKey(project, pipeline, correctVersion)
-			updates = append(updates, &pipRow{Key: row.Key, IdxVersion: idxVersion, Proto: data})
+			updates = append(updates, &pipUpdateRow{Key: key, IdxVersion: idxVersion, Proto: data})
 		}
 		pipLatestVersion[pi.Pipeline.Name] = correctVersion
 		changes, ok := pipVersionChanges[pi.Pipeline.Name]
