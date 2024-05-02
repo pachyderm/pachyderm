@@ -88,7 +88,7 @@ const (
 	spanFailed   spanStatus = "span failed"
 )
 
-func makeSpanEndFunc(l *zap.Logger, event string, level Level, start time.Time) EndSpanFunc {
+func makeSpanEndFunc(ctx context.Context, l *zap.Logger, event string, level Level, start time.Time) EndSpanFunc {
 	return func(rawFields ...Field) {
 		fields := []zap.Field{zap.Duration("spanDuration", time.Since(start))}
 		msg := spanOK
@@ -123,7 +123,7 @@ func makeSpanEndFunc(l *zap.Logger, event string, level Level, start time.Time) 
 			}
 			fields = append(fields, f)
 		}
-		level.log(l, event+": "+string(msg), fields...)
+		level.log(l.With(ContextInfo(ctx)), event+": "+string(msg), fields...)
 	}
 }
 
@@ -141,14 +141,10 @@ func SpanContextL(rctx context.Context, event string, level Level, fields ...Fie
 }
 
 func spanContextL(rctx context.Context, event string, level Level, startSkip, endSkip int, fields ...Field) (context.Context, EndSpanFunc) {
-	deadlineField := zap.Skip()
-	if dl, ok := rctx.Deadline(); ok {
-		deadlineField = zap.Duration("timeout", time.Until(dl))
-	}
 	l := extractLogger(rctx).Named(event).With(fields...)
-	level.log(l.WithOptions(zap.AddCallerSkip(1+startSkip)).With(deadlineField), event+": "+string(spanStarting))
+	level.log(l.WithOptions(zap.AddCallerSkip(1+startSkip)).With(ContextInfo(rctx)), event+": "+string(spanStarting))
 	ctx := withLogger(rctx, l)
-	return ctx, makeSpanEndFunc(l.WithOptions(zap.AddCallerSkip(1+endSkip)), event, level, time.Now())
+	return ctx, makeSpanEndFunc(ctx, l.WithOptions(zap.AddCallerSkip(1+endSkip)), event, level, time.Now())
 }
 
 // SpanContext starts a new span at level debug. See SpanContextL for details.

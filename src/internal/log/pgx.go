@@ -32,6 +32,7 @@ func (pl *pgxLogger) Log(ctx context.Context, level pgx.LogLevel, msg string, da
 	for k, v := range data {
 		fields = append(fields, zap.Any("pgx."+k, v))
 	}
+	fields = append(fields, ContextInfo(ctx))
 
 	// We always log at severity debug; pgx has the potential to cause alarm with its own
 	// definition of errors.

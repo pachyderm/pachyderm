@@ -17,6 +17,7 @@ type Field = zap.Field
 //
 // Most tracing and background operations are DEBUG logs.
 func Debug(ctx context.Context, msg string, fields ...Field) {
+	fields = append(fields, ContextInfo(ctx))
 	extractLogger(ctx).Debug(msg, fields...)
 }
 
@@ -26,23 +27,27 @@ func Debug(ctx context.Context, msg string, fields ...Field) {
 //
 // Most warnings and user-caused errors are INFO logs.
 func Info(ctx context.Context, msg string, fields ...Field) {
+	fields = append(fields, ContextInfo(ctx))
 	extractLogger(ctx).Info(msg, fields...)
 }
 
 // Error logs a message, with fields, at level ERROR.  Level error is appropriate for messages that
 // indicate a malfunction that an operator of Pachyderm can repair.
 func Error(ctx context.Context, msg string, fields ...Field) {
+	fields = append(fields, ContextInfo(ctx))
 	extractLogger(ctx).Error(msg, fields...)
 }
 
 // DPanic is a message that panics in development, but is only logged in production.
 func DPanic(ctx context.Context, msg string, fields ...Field) {
+	fields = append(fields, ContextInfo(ctx))
 	extractLogger(ctx).DPanic(msg, fields...)
 }
 
 // Exit logs a message, with fields, at level FATAL and then exits with status 1.  Level fatal is
 // only appropriate for use in interactive scripts.
 func Exit(ctx context.Context, msg string, fields ...Field) {
+	fields = append(fields, ContextInfo(ctx))
 	extractLogger(ctx).Fatal(msg, fields...)
 }
 
