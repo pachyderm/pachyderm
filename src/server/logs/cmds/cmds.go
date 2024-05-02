@@ -167,6 +167,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		pod       string
 		container string
 		app       string
+		limit     uint
 	)
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): Remove references to “new” and unhide.
@@ -188,7 +189,9 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 
 			var req = new(logs.GetLogsRequest)
-			req.Filter = new(logs.LogFilter)
+			req.Filter = &logs.LogFilter{
+				Limit: uint64(limit),
+			}
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
 				From:   timestamppb.New(time.Time(from)),
 				Until:  timestamppb.New(time.Time(to)),
@@ -300,6 +303,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().Var(&to, "to", "Return logs before  this time.")
 	logsCmd.Flags().UintVar(&offset, "offset", offset, "Number of logs to skip at beginning of time range.")
 	logsCmd.Flags().StringVar(&pod, "pod", pod, "Pod in the cluster.")
+	logsCmd.Flags().UintVar(&limit, "limit", limit, "Maximum number of logs to return (0 for unlimited).")
 	logsCmd.Flags().StringVar(&container, "container", container, "Container name belonging to the pod specified in the --pod argument.")
 	logsCmd.Flags().StringVar(&app, "app", app, "Return logs for all pods with a certain value for the label 'app'.")
 	commands = append(commands, logsCmd)
