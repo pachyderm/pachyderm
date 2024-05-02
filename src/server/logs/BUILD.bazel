@@ -34,6 +34,7 @@ go_test(
     data = glob(["testdata/**"]),
     embed = [":logs"],
     deps = [
+        "//src/internal/errors",
         "//src/internal/lokiutil",
         "//src/internal/lokiutil/client",
         "//src/internal/lokiutil/testloki",
