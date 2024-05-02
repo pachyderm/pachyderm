@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zapio"
 )
 
@@ -17,8 +18,11 @@ type Field = zap.Field
 //
 // Most tracing and background operations are DEBUG logs.
 func Debug(ctx context.Context, msg string, fields ...Field) {
-	fields = append(fields, ContextInfo(ctx))
-	extractLogger(ctx).Debug(msg, fields...)
+	l := extractLogger(ctx)
+	if e := l.Check(zapcore.DebugLevel, msg); e != nil {
+		fields = append(fields, ContextInfo(ctx))
+		e.Write(fields...)
+	}
 }
 
 // Info logs a message, with fields, at level INFO.  Level info is appropriate for messages that are

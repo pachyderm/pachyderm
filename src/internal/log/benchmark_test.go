@@ -109,18 +109,33 @@ func BenchmarkLogrusWrapper(b *testing.B) {
 	}
 }
 
-func BenchmarkContextInfo(b *testing.B) {
+func BenchmarkContextInfo_Logged(b *testing.B) {
 	ctx, w := NewBenchLogger(false)
 	dctx, c := context.WithCancelCause(ctx)
 	for i := 0; i < b.N/2; i++ {
-		Info(dctx, "this is a log message")
+		Debug(dctx, "this is a log message")
 	}
 	c(errors.New("we are done here"))
 	for i := b.N / 2; i < b.N; i++ {
-		Info(dctx, "this is a log message from an expired context")
+		Debug(dctx, "this is a log message from an expired context")
 	}
 	if w.Load() == 0 {
 		b.Fatal("no bytes added to logger")
+	}
+}
+
+func BenchmarkContextInfo_NotLogged(b *testing.B) {
+	ctx, w := newBenchInfoLogger(false)
+	dctx, c := context.WithCancelCause(ctx)
+	for i := 0; i < b.N/2; i++ {
+		Debug(dctx, "this is a log message")
+	}
+	c(errors.New("we are done here"))
+	for i := b.N / 2; i < b.N; i++ {
+		Debug(dctx, "this is a log message from an expired context")
+	}
+	if w.Load() != 0 {
+		b.Fatal("bytes unexpectedly added to logger")
 	}
 }
 
