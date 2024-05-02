@@ -139,7 +139,6 @@ export class MountPlugin implements IMountPlugin {
       'pfs',
       'explore',
       'pfs',
-      () => this.mountedRepo,
     );
 
     this._exploreScreen = new SplitPanel({orientation: 'vertical'});
@@ -171,7 +170,6 @@ export class MountPlugin implements IMountPlugin {
       'view_datum',
       'test',
       'datum',
-      () => this.mountedRepo,
     );
 
     this._datumScreen = new SplitPanel({orientation: 'vertical'});

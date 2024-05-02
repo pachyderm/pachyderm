@@ -29,6 +29,9 @@ export class PollMounts {
     try {
       const mountedRepo: MountedRepo = JSON.parse(mountedRepoString);
       this.mountedRepo = mountedRepo;
+      requestAPI<AuthConfig>('mount', 'PUT', {
+        branch_uri: mountedRepo.mountedBranch.uri,
+      });
     } catch (e) {
       localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
     }
@@ -123,14 +126,14 @@ export class PollMounts {
     return this._dataPoll;
   }
 
-  updateMountedRepo = (
+  updateMountedRepo = async (
     repo: Repo | null,
     mountedBranch: Branch | null,
-  ): void => {
+  ): Promise<void> => {
     if (repo === null) {
       localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
       this.mountedRepo = null;
-      return;
+      return Promise.resolve();
     }
 
     if (!mountedBranch) {
@@ -150,6 +153,10 @@ export class PollMounts {
       PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
       JSON.stringify(this.mountedRepo),
     );
+    await requestAPI<AuthConfig>('mount', 'PUT', {
+      branch_uri: mountedBranch.uri,
+    });
+    return Promise.resolve();
   };
 
   getMountedRepoInputSpec = (): CrossInputSpec | PfsInput => {

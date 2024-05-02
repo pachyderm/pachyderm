@@ -242,18 +242,8 @@ class PFSHandler(ContentsHandler):
             if pagination_marker_uri:
                 pagination_marker = pfs.File.from_uri(pagination_marker_uri)
             number = int(self.get_query_argument("number", default="100"))
-            branch_uri = self.get_query_argument(
-                "branch_uri", default=None
-            )
-            branch: pfs.Branch = None
-            if branch_uri:
-                branch = pfs.Branch.from_uri(branch_uri)
-                if not self.pfs_manager.branch_exists(branch=branch):
-                    raise ValueError("branch_uri does not exist")
-
             model = self.pfs_manager.get(
                 path=path,
-                branch=branch,
                 type=type,
                 format=format,
                 content=content,
@@ -497,17 +487,7 @@ class ExploreDownloadHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self, path):
         try:
-            branch_uri = self.get_query_argument(
-                "branch_uri", default=None
-            )
-            branch: pfs.Branch = None
-            if not branch_uri:
-                raise ValueError("branch_uri must be defined to download")
-            if branch_uri:
-                branch = pfs.Branch.from_uri(branch_uri)
-                if not self.pfs_manager.branch_exists(branch=branch):
-                    raise ValueError("branch_uri does not exist")
-            self.pfs_manager.download_file(path=path, branch=branch)
+            self.pfs_manager.download_file(path=path)
         except FileExistsError:
             raise tornado.web.HTTPError(
                 status_code=400,
@@ -530,6 +510,27 @@ class TestDownloadHandler(BaseHandler):
                 status_code=400,
                 reason=f"Downloading {Path(path).name} which already exists in the current working directory",
             )
+        except ValueError as e:
+            raise tornado.web.HTTPError(status_code=400, reason=repr(e))
+        except Exception as e:
+            raise tornado.web.HTTPError(status_code=500, reason=repr(e))
+        await self.finish()
+
+class MountPfsRepoHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self):
+        try:
+            body = self.get_json_body()
+            branch_uri = body.get("branch_uri", default=None)
+            if branch_uri is None:
+                raise ValueError("branch_uri does not exist")
+            if branch_uri == '':
+                self.pfs_manager.mount_branch(branch=None)
+            else:
+                branch = pfs.Branch.from_uri(branch_uri)
+                if not self.pfs_manager.branch_exists(branch=branch):
+                    raise ValueError("branch_uri exists but does not resolve a valid branch")
+                self.pfs_manager.mount_branch(branch=branch)
         except ValueError as e:
             raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:
@@ -630,6 +631,7 @@ def setup_handlers(
 
     _handlers = [
         ("/repos", ReposHandler),
+        ("/mount", MountPfsRepoHandler),
         ("/datums/_mount", MountDatumsHandler),
         ("/datums/_next", DatumNextHandler),
         ("/datums/_prev", DatumPrevHandler),

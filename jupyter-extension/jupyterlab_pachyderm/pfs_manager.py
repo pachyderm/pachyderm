@@ -184,6 +184,8 @@ def _default_name(branch: pfs.Branch) -> str:
 
 
 class PFSManager(FileContentsManager):
+    mounted_branch: pfs.Branch = None
+
     class Repo(typing.TypedDict):
         name: str
         project: str
@@ -197,6 +199,9 @@ class PFSManager(FileContentsManager):
     def __init__(self, client: Client, **kwargs):
         self._client = client
         super().__init__(**kwargs)
+
+    def mount_branch(self, branch: pfs.Branch):
+        self.mounted_branch = branch
 
     def list_repos(self) -> typing.List[Repo]:
         return {
@@ -229,17 +234,17 @@ class PFSManager(FileContentsManager):
         return str(Path(*Path(path).parts[1:]))
 
     # returns None for empty path, i.e. the top-level directory
-    def _get_file_from_path(self, path: str, branch: pfs.Branch) -> pfs.File:
+    def _get_file_from_path(self, path: str) -> pfs.File:
         name = self._get_name(path)
         if not name:
             return None
 
         path_str = self._get_path(path)
-        file_uri = f"{branch.as_uri()}:/{path_str}"
+        file_uri = f"{self.mounted_branch.as_uri()}:/{path_str}"
         return pfs.File.from_uri(file_uri)
 
-    def download_file(self, path: str, branch: pfs.Branch):
-        file = self._get_file_from_path(path=path, branch=branch)
+    def download_file(self, path: str):
+        file = self._get_file_from_path(path=path, branch=self.mounted_branch)
         _download_file(client=self._client, file=file, destination=Path(self.root_dir))
 
     def is_hidden(self, path):
@@ -275,14 +280,14 @@ class PFSManager(FileContentsManager):
             return True
         return self._client.pfs.path_exists(file=file)
 
-    def _get_repo_models(self, branch: pfs.Branch) -> typing.List[ContentModel]:
+    def _get_repo_models(self) -> typing.List[ContentModel]:
         time = self._client.pfs.inspect_commit(
-            commit=pfs.Commit(branch=branch, repo=branch.repo)
+            commit=pfs.Commit(branch=self.mounted_branch, repo=self.mounted_branch.repo)
         ).started
         return [
             ContentModel(
-                name=_default_name(branch),
-                path=_default_name(branch),
+                name=_default_name(self.mounted_branch),
+                path=_default_name(self.mounted_branch),
                 type="directory",
                 created=time,
                 last_modified=time,
@@ -294,10 +299,10 @@ class PFSManager(FileContentsManager):
             )
         ]
 
-    def _get_toplevel_model(self, content: bool, branch: pfs.Branch) -> ContentModel:
+    def _get_toplevel_model(self, content: bool) -> ContentModel:
         if content:
             format = "json"
-            content_model = self._get_repo_models(branch=branch)
+            content_model = self._get_repo_models()
         else:
             format = None
             content_model = None
@@ -314,8 +319,8 @@ class PFSManager(FileContentsManager):
             file_uri=None,
         )
 
-    def _get_empty_repo_model(self, name: str, content: bool, branch: pfs.Branch):
-        repo = self._client.pfs.inspect_repo(repo=branch.repo)
+    def _get_empty_repo_model(self, name: str, content: bool):
+        repo = self._client.pfs.inspect_repo(repo=self.mounted_branch.repo)
         return ContentModel(
             name=name,
             path=name,
@@ -332,7 +337,6 @@ class PFSManager(FileContentsManager):
     def get(
         self,
         path,
-        branch: pfs.Branch,
         content=True,
         type=None,
         format=None,
@@ -347,14 +351,14 @@ class PFSManager(FileContentsManager):
             )
 
         # Show an empty toplevel model if no branch is specified
-        if branch is None:
-            return self._get_toplevel_model(content=False, branch=branch)
+        if self.mounted_branch is None:
+            return self._get_toplevel_model(content=False)
 
-        file = self._get_file_from_path(path=path, branch=branch)
+        file = self._get_file_from_path(path=path)
 
         if file is None:
             # show top-level dir
-            return self._get_toplevel_model(content=content, branch=branch)
+            return self._get_toplevel_model(content=content)
 
         try:
             fileinfo = self._client.pfs.inspect_file(file=file)
@@ -365,7 +369,7 @@ class PFSManager(FileContentsManager):
                 or err.code() == grpc.StatusCode.UNKNOWN
             ) and not self._get_path(path=path):
                 return self._get_empty_repo_model(
-                    name=self._get_name(path), content=content, branch=branch
+                    name=self._get_name(path), content=content,
                 )
             else:
                 raise err
