@@ -19,7 +19,12 @@ import (
 type mocks struct{}
 
 func (mocks) NewResource(args pulumi.MockResourceArgs) (string, resource.PropertyMap, error) {
-	return args.Name + "_id", args.Inputs, nil
+	outputs := args.Inputs.Mappable()
+	switch args.TypeToken {
+	case "aws:rds/instance:Instance":
+		outputs["address"] = "postgres"
+	}
+	return args.Name + "_id", resource.NewPropertyMapFromMap(outputs), nil
 }
 
 func (mocks) Call(args pulumi.MockCallArgs) (resource.PropertyMap, error) {
