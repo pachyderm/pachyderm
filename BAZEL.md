@@ -294,11 +294,6 @@ Then use buildozer to adjust those targets:
 This will not print anything if everything is already fixed, so you can run this freely and know
 whether or not it affected anything.
 
-### pulumi
-
-Pulumi eventually depends on github.com/cloudflare/circl, which will require this workaround:
-https://github.com/bazelbuild/bazel-gazelle/issues/1421#issuecomment-1424075874
-
 ### Profiling
 
 Sometimes you want a whole-system profile of some tests running or something. Build the Go binaries
