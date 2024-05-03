@@ -536,7 +536,6 @@ class MountPfsRepoHandler(BaseHandler):
         except ValueError as e:
             raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:
-            print(e)
             raise tornado.web.HTTPError(status_code=500, reason=repr(e))
         await self.finish()
 
