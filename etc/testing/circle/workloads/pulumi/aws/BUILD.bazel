@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
     name = "aws_lib",
@@ -34,4 +34,21 @@ go_binary(
     name = "aws",
     embed = [":aws_lib"],
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "aws_test",
+    srcs = ["main_test.go"],
+    data = glob(["*.md"]) + ["//etc/helm/pachyderm"],
+    embed = [":aws_lib"],
+    deps = [
+        "@com_github_gruntwork_io_terratest//modules/helm",
+        "@com_github_gruntwork_io_terratest//modules/logger",
+        "@com_github_pulumi_pulumi_aws_sdk_v5//go/aws/iam",
+        "@com_github_pulumi_pulumi_kubernetes_sdk_v3//go/kubernetes",
+        "@com_github_pulumi_pulumi_sdk_v3//go/common/resource",
+        "@com_github_pulumi_pulumi_sdk_v3//go/pulumi",
+        "@com_github_stretchr_testify//require",
+        "@rules_go//go/runfiles:go_default_library",
+    ],
 )
