@@ -39,16 +39,20 @@ go_binary(
 go_test(
     name = "aws_test",
     srcs = ["main_test.go"],
-    data = glob(["*.md"]) + ["//etc/helm/pachyderm"],
+    data = glob(["*.md"]) + [
+        "//etc/helm/pachyderm",
+        "//tools/helm",
+    ],
     embed = [":aws_lib"],
     deps = [
         "@com_github_gruntwork_io_terratest//modules/helm",
         "@com_github_gruntwork_io_terratest//modules/logger",
-        "@com_github_pulumi_pulumi_aws_sdk_v5//go/aws/iam",
+        "@com_github_pkg_errors//:errors",
         "@com_github_pulumi_pulumi_kubernetes_sdk_v3//go/kubernetes",
         "@com_github_pulumi_pulumi_sdk_v3//go/common/resource",
         "@com_github_pulumi_pulumi_sdk_v3//go/pulumi",
         "@com_github_stretchr_testify//require",
         "@rules_go//go/runfiles:go_default_library",
+        "@rules_go//go/tools/bazel:go_default_library",
     ],
 )

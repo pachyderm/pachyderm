@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/pkg/errors"
@@ -36,6 +38,13 @@ func TestDeployApp(t *testing.T) {
 	if err != nil {
 		t.Logf("error resolving chart: %v, using etc/helm/pachyderm as the chart location", err)
 		chart = "etc/helm/pachyderm"
+	}
+	if helmPath, ok := bazel.FindBinary("//tools/helm", "_helm"); ok {
+		tmpdir := t.TempDir()
+		if err := os.Symlink(helmPath, filepath.Join(tmpdir, "helm")); err != nil {
+			t.Fatalf("symlink helm into $PATH: %v", err)
+		}
+		os.Setenv("PATH", fmt.Sprintf("%s:%s", tmpdir, os.Getenv("PATH")))
 	}
 
 	for _, stack := range []string{"dev1", "LOAD1", "LOAD2", "LOAD3", "LOAD4", "qa1", "qa2", "qa3", "qa4"} {
