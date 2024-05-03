@@ -133,7 +133,7 @@ func Test_adapter_publish(t *testing.T) {
 					responsePublisher: &p,
 				}
 			)
-			if _, err := a.publish(ctx, nil, c.entry); err != nil {
+			if _, err := a.publish(ctx, map[string]string{}, &c.entry); err != nil {
 				t.Fatalf("unexpected error %v", err)
 			}
 			require.NoDiff(t, c.want, p.last.GetLog(), []cmp.Option{protocmp.Transform()}, "published log should match expectation")

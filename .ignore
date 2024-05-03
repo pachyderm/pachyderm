@@ -1,1 +1,3 @@
+src/server/logs/testdata/*.txt
+src/internal/lokiutil/client/testdata/*.txt
 *.svg
