@@ -56,6 +56,9 @@ describe('PollMounts', () => {
     expect(
       localStorage.getItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY),
     ).toBeNull();
+    expect(mockedRequestAPI).toHaveBeenCalledWith('mount', 'PUT', {
+      branch_uri: '',
+    });
   });
 
   describe('updateMountedRepo()', () => {

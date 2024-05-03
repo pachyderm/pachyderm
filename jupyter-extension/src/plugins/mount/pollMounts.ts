@@ -34,6 +34,9 @@ export class PollMounts {
       });
     } catch (e) {
       localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+      requestAPI<AuthConfig>('mount', 'PUT', {
+        branch_uri: '',
+      });
     }
   }
   readonly name: string;
