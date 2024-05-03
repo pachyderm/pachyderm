@@ -53,6 +53,12 @@ async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
         for branch in repo['branches']:
             assert branch['name'] in branches
 
+async def test_mount_missing_body(pachyderm_resources, http_client: AsyncClient):
+    _, _, _ = pachyderm_resources
+
+    r = await http_client.put("/mount")
+    assert r.status_code == 400, r.text
+
 async def test_mount_missing_branch_uri(pachyderm_resources, http_client: AsyncClient):
     _, _, _ = pachyderm_resources
 

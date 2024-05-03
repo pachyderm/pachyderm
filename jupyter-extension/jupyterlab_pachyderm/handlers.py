@@ -521,7 +521,9 @@ class MountPfsRepoHandler(BaseHandler):
     async def put(self):
         try:
             body = self.get_json_body()
-            branch_uri = body.get("branch_uri", default=None)
+            if not body:
+                raise ValueError("branch_uri does not exist")
+            branch_uri = body.get("branch_uri")
             if branch_uri is None:
                 raise ValueError("branch_uri does not exist")
             if branch_uri == '':
@@ -534,6 +536,7 @@ class MountPfsRepoHandler(BaseHandler):
         except ValueError as e:
             raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:
+            print(e)
             raise tornado.web.HTTPError(status_code=500, reason=repr(e))
         await self.finish()
 
