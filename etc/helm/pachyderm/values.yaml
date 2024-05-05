@@ -1181,6 +1181,8 @@ postgresql:
     username: "pachyderm"
     password: "insecure-user-password"
     database: "pachyderm"
+  volumePermissions:
+    enabled: true
     # existingSecret: ""
     # secretKeys:
     #   adminPasswordKey: ""
@@ -1191,19 +1193,10 @@ postgresql:
   # database server to connect to in global.postgresql
   # The enabled value is watched by the 'condition' set on the Postgresql
   # dependency in Chart.yaml
-  enabled: true # TODO(LONNY)
+  enabled: true
   image:
     repository: pachyderm/postgresql
     tag: "15"
-  # DEPRECATED from pachyderm 2.1.5
-  initdbScripts:
-    dex.sh: |
-      #!/bin/bash
-      set -e
-      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-        CREATE DATABASE dex;
-        GRANT ALL PRIVILEGES ON DATABASE dex TO "$POSTGRES_USER";
-      EOSQL
   fullnameOverride: postgres
   persistence:
     # Specify the storage class for the postgresql Persistent Volume (PV)
@@ -1221,7 +1214,16 @@ postgresql:
     labels:
       suite: pachyderm
   primary:
-    priorityClassName: "" # TODO(LONNY)
+    initdb:
+      user: "pachyderm"
+      password: "insecure-root-password"
+      scripts:
+        dex.sh: |
+          #!/bin/bash
+          set -e
+          PGPASSWORD=$POSTGRES_PASSWORD psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER"  --dbname "$POSTGRES_DATABASE" -c "CREATE DATABASE dex;"          
+          PGPASSWORD=$POSTGRES_PASSWORD psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER"  --dbname "$POSTGRES_DATABASE" -c "GRANT ALL PRIVILEGES ON DATABASE dex TO pachyderm;"
+    priorityClassName: ""
     nodeSelector: {}
     tolerations: []
   readReplicas:

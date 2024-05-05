@@ -86,7 +86,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
-              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "password" }}
           {{- end }}
         image: "{{ .Values.global.image.registry }}{{ .Values.pgbouncer.image.repository }}:{{ .Values.pgbouncer.image.tag }}"
         imagePullPolicy: IfNotPresent
