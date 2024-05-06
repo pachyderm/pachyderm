@@ -88,7 +88,7 @@ spec:
               key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "password" }}
         {{- end }}
         - name: PG_BOUNCER_HOST
-          value: pg-bouncer # Must match pgbouncer service name
+          value: postgres # Must match pgbouncer service name
         - name: PG_BOUNCER_PORT
           value: "5432" # Must match pbouncer service port
         - name: LOKI_LOGGING
