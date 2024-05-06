@@ -24,6 +24,15 @@ go_library(
 go_test(
     name = "v2_10_0_test",
     srcs = ["pipelines_test.go"],
-    embed = [":v2_10_0"],
-    deps = ["//src/internal/require"],
+    deps = [
+        ":v2_10_0",
+        "//src/internal/clusterstate",
+        "//src/internal/migrations",
+        "//src/internal/pachd",
+        "//src/internal/pachsql",
+        "//src/internal/require",
+        "//src/pfs",
+        "//src/pps",
+        "@org_golang_google_protobuf//proto",
+    ],
 )
