@@ -106,9 +106,8 @@ func CSRFWrapper(h http.Handler) http.HandlerFunc {
 			return
 		}
 		if origin != r.Host {
-			log.Info(r.Context(), "csrf: origin/host mismatch; deny", zap.String("resolved_origin", origin), zap.Strings("origin", r.Header.Values("origin")), zap.Strings("referer", r.Header.Values("referer")), zap.String("host", r.Host))
-			http.Error(w, "csrf: origin/host mismatch", http.StatusForbidden)
-			return
+			log.Info(r.Context(), "csrf: origin/host mismatch; delete cookies", zap.String("resolved_origin", origin), zap.Strings("origin", r.Header.Values("origin")), zap.Strings("referer", r.Header.Values("referer")), zap.String("host", r.Host))
+			r.Header.Del("cookie")
 		}
 		// Origin and Host match; allow.
 		h.ServeHTTP(w, r)

@@ -4,18 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // ProjectNotFoundError is returned by GetProject() when a project is not found in postgres.
@@ -36,8 +36,7 @@ func (err *ProjectNotFoundError) Error() string {
 }
 
 func (err *ProjectNotFoundError) Is(other error) bool {
-	_, ok := other.(*ProjectNotFoundError)
-	return ok
+	return errors.As(other, &ProjectNotFoundError{})
 }
 
 func (err *ProjectNotFoundError) GRPCStatus() *status.Status {
@@ -87,9 +86,9 @@ type ProjectIterator struct {
 }
 
 type ProjectWithID struct {
-	ProjectInfo *pfs.ProjectInfo
-	ID          ProjectID
-	Revision    int64
+	*pfs.ProjectInfo
+	ID       ProjectID
+	Revision int64
 }
 
 func (i *ProjectIterator) Next(ctx context.Context, dst *ProjectWithID) error {
@@ -116,9 +115,9 @@ func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			values = append(values, filter.Name)
 		}
 	}
-	query := "SELECT id,name,description,created_at FROM core.projects project\n"
+	query := "SELECT id,name,description,metadata,created_at,updated_at FROM core.projects project"
 	if len(conditions) > 0 {
-		query += fmt.Sprintf("WHERE %s\n", strings.Join(conditions, " AND "))
+		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
 	// Compute ORDER BY
 	var orderByGeneric []OrderByColumn[projectColumn]
@@ -129,9 +128,10 @@ func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			orderByGeneric = append(orderByGeneric, OrderByColumn[projectColumn](orderBy))
 		}
 	}
-	query = extCtx.Rebind(query + OrderByQuery[projectColumn](orderByGeneric...))
+	query += "\n" + OrderByQuery[projectColumn](orderByGeneric...)
+	query = extCtx.Rebind(query)
 	return &ProjectIterator{
-		paginator: newPageIterator[Project](ctx, query, values, startPage, pageSize),
+		paginator: newPageIterator[Project](ctx, query, values, startPage, pageSize, 0),
 		extCtx:    extCtx,
 	}, nil
 }
@@ -160,7 +160,7 @@ func ListProject(ctx context.Context, tx *pachsql.Tx) ([]ProjectWithID, error) {
 
 // CreateProject creates an entry in the core.projects table.
 func CreateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo) error {
-	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description) VALUES ($1, $2);", project.Project.Name, project.Description)
+	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description, metadata) VALUES ($1, $2, $3);", project.Project.Name, project.Description, &pgjsontypes.StringMap{Data: project.Metadata})
 	//todo: insert project.authInfo into auth table.
 	if err != nil && IsErrProjectAlreadyExists(err) {
 		return &ProjectAlreadyExistsError{Name: project.Project.Name}
@@ -188,19 +188,34 @@ func DeleteProject(ctx context.Context, tx *pachsql.Tx, projectName string) erro
 
 // GetProject is like GetProjectByName, but retrieves an entry using the row id.
 func GetProject(ctx context.Context, tx *pachsql.Tx, id ProjectID) (*pfs.ProjectInfo, error) {
-	return getProject(ctx, tx, "id", id)
+	proj, err := getProject(ctx, tx, "id", id)
+	if err != nil {
+		return nil, errors.Wrap(err, "get project by name")
+	}
+	return proj.ProjectInfo, nil
 }
 
 // GetProjectByName retrieves an entry from the core.projects table by project name.
 func GetProjectByName(ctx context.Context, tx *pachsql.Tx, projectName string) (*pfs.ProjectInfo, error) {
+	proj, err := getProject(ctx, tx, "name", projectName)
+	if err != nil {
+		return nil, errors.Wrap(err, "get project by name")
+	}
+	return proj.ProjectInfo, nil
+}
+
+// GetProjectWithID is like GetProjectByName, but retrieves an entry along with its id.
+func GetProjectWithID(ctx context.Context, tx *pachsql.Tx, projectName string) (*ProjectWithID, error) {
 	return getProject(ctx, tx, "name", projectName)
 }
 
-func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*pfs.ProjectInfo, error) {
-	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at FROM core.projects WHERE %s = $1", where), whereVal)
+func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*ProjectWithID, error) {
+	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at, metadata, id FROM core.projects WHERE %s = $1", where), whereVal)
 	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
+	id := 0
 	var createdAt time.Time
-	err := row.Scan(&project.Project.Name, &project.Description, &createdAt)
+	metadata := &pgjsontypes.StringMap{Data: make(map[string]string)}
+	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &metadata, &id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {
@@ -211,7 +226,11 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 		return nil, errors.Wrap(err, "scanning project row")
 	}
 	project.CreatedAt = timestamppb.New(createdAt)
-	return project, nil
+	project.Metadata = metadata.Data
+	return &ProjectWithID{
+		ID:          ProjectID(id),
+		ProjectInfo: project,
+	}, nil
 }
 
 // UpsertProject updates all fields of an existing project entry in the core.projects table by name. If 'upsert' is set to true, UpsertProject()
@@ -226,8 +245,8 @@ func UpdateProject(ctx context.Context, tx *pachsql.Tx, id ProjectID, project *p
 }
 
 func updateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo, where string, whereVal interface{}, upsert bool) error {
-	res, err := tx.ExecContext(ctx, fmt.Sprintf("UPDATE core.projects SET name = $1, description = $2 WHERE %s = $3;", where),
-		project.Project.Name, project.Description, whereVal)
+	res, err := tx.ExecContext(ctx, fmt.Sprintf("UPDATE core.projects SET name = $1, description = $2, metadata = $3 WHERE %s = $4;", where),
+		project.Project.Name, project.Description, &pgjsontypes.StringMap{Data: project.Metadata}, whereVal)
 	if err != nil {
 		return errors.Wrap(err, "update project")
 	}
@@ -242,4 +261,20 @@ func updateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo
 		return errors.New(fmt.Sprintf("%s not found in core.projects", project.Project.Name))
 	}
 	return nil
+}
+
+func PickProject(ctx context.Context, projectPicker *pfs.ProjectPicker, tx *pachsql.Tx) (*ProjectWithID, error) {
+	if projectPicker == nil || projectPicker.Picker == nil {
+		return nil, errors.New("project picker cannot be nil")
+	}
+	switch projectPicker.Picker.(type) {
+	case *pfs.ProjectPicker_Name:
+		projectWithID, err := GetProjectWithID(ctx, tx, projectPicker.GetName())
+		if err != nil {
+			return nil, errors.Wrap(err, "picking project")
+		}
+		return projectWithID, nil
+	default:
+		return nil, errors.Errorf("project picker is of an unknown type: %T", projectPicker.Picker)
+	}
 }

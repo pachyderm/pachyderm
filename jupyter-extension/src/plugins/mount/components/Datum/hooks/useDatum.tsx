@@ -8,7 +8,7 @@ import {requestAPI} from '../../../../../handler';
 import {
   CrossInputSpec,
   CurrentDatumResponse,
-  ListMountsResponse,
+  DownloadPath,
   MountDatumResponse,
   PfsInput,
 } from 'plugins/mount/types';
@@ -16,22 +16,19 @@ import {
 export type useDatumResponse = {
   loading: boolean;
   shouldShowCycler: boolean;
+  shouldShowDownload: boolean;
   currDatum: MountDatumResponse;
   inputSpec: string;
   setInputSpec: (input: string) => void;
   callMountDatums: () => Promise<void>;
   callNextDatum: () => Promise<void>;
   callPrevDatum: () => Promise<void>;
-  callUnmountAll: () => Promise<void>;
+  callDownloadDatum: () => Promise<void>;
   errorMessage: string;
-  saveInputSpec: () => void;
   initialInputSpec: JSONObject;
 };
 
 export const useDatum = (
-  showDatum: boolean,
-  keepMounted: boolean,
-  setKeepMounted: (keep: boolean) => void,
   open: (path: string) => void,
   pollRefresh: () => Promise<void>,
   repoViewInputSpec: CrossInputSpec | PfsInput,
@@ -39,6 +36,7 @@ export const useDatum = (
 ): useDatumResponse => {
   const [loading, setLoading] = useState(false);
   const [shouldShowCycler, setShouldShowCycler] = useState(false);
+  const [shouldShowDownload, setShouldShowDownload] = useState(false);
   const [currDatum, setCurrDatum] = useState<MountDatumResponse>({
     id: '',
     idx: -1,
@@ -53,42 +51,36 @@ export const useDatum = (
   >({});
 
   useEffect(() => {
-    if (showDatum) {
-      if (!keepMounted) {
-        callUnmountAll();
-      }
-
-      // Executes when browser reloaded; resume at currently mounted datum
-      if (keepMounted && currentDatumInfo) {
-        setShouldShowCycler(true);
-        setCurrDatum({
-          id: '',
-          idx: currentDatumInfo.idx,
-          num_datums: currentDatumInfo.num_datums,
-          all_datums_received: currentDatumInfo.all_datums_received,
-        });
-        setInputSpec(inputSpecObjToText(currentDatumInfo.input));
-        setKeepMounted(false);
-      }
-      // Pre-populate input spec from mounted repos
-      else {
-        if (typeof datumViewInputSpec === 'string') {
-          setInputSpec(datumViewInputSpec);
+    // Executes when browser reloaded; resume at currently mounted datum
+    if (currentDatumInfo) {
+      setShouldShowCycler(true);
+      setShouldShowDownload(true);
+      setCurrDatum({
+        id: '',
+        idx: currentDatumInfo.idx,
+        num_datums: currentDatumInfo.num_datums,
+        all_datums_received: currentDatumInfo.all_datums_received,
+      });
+      setInputSpec(inputSpecObjToText(currentDatumInfo.input));
+    }
+    // Pre-populate input spec from mounted repos
+    else {
+      if (typeof datumViewInputSpec === 'string') {
+        setInputSpec(datumViewInputSpec);
+      } else {
+        let specToShow = {};
+        if (Object.keys(datumViewInputSpec).length === 0) {
+          specToShow = repoViewInputSpec;
         } else {
-          let specToShow = {};
-          if (Object.keys(datumViewInputSpec).length === 0) {
-            specToShow = repoViewInputSpec;
-          } else {
-            specToShow = datumViewInputSpec;
-          }
-          setInputSpec(inputSpecObjToText(specToShow));
-          setInitialInputSpec(specToShow);
+          specToShow = datumViewInputSpec;
         }
+        setInputSpec(inputSpecObjToText(specToShow));
+        setInitialInputSpec(specToShow);
       }
     }
-  }, [showDatum, repoViewInputSpec]);
+  }, [repoViewInputSpec]);
 
-  const saveInputSpec = (): void => {
+  useEffect(() => {
     try {
       const inputSpecObj = inputSpecTextToObj();
       if (isEqual(repoViewInputSpec, inputSpecObj)) {
@@ -103,7 +95,7 @@ export const useDatum = (
         throw e;
       }
     }
-  };
+  }, [inputSpec]);
 
   const inputSpecTextToObj = (): JSONObject => {
     let spec = {};
@@ -136,6 +128,7 @@ export const useDatum = (
     setLoading(true);
     setErrorMessage('This could take a few minutes...');
     setShouldShowCycler(false);
+    setShouldShowDownload(false);
 
     try {
       const spec = inputSpecTextToObj();
@@ -145,16 +138,16 @@ export const useDatum = (
       open('');
       setCurrDatum(res);
       setShouldShowCycler(true);
+      setShouldShowDownload(true);
       setInputSpec(inputSpecObjToText(spec));
       setErrorMessage('');
     } catch (e) {
-      console.log(e);
       if (e instanceof YAML.YAMLParseError) {
         setErrorMessage(
           'Poorly formatted input spec- must be either YAML or JSON',
         );
       } else if (e instanceof ServerConnection.ResponseError) {
-        setErrorMessage('Bad data in input spec');
+        setErrorMessage('Bad data in input spec: ' + e.response.statusText);
       } else {
         setErrorMessage('Error mounting datums');
       }
@@ -202,41 +195,32 @@ export const useDatum = (
     setLoading(false);
   };
 
-  const callUnmountAll = async () => {
+  const callDownloadDatum = async () => {
     setLoading(true);
+    setErrorMessage('');
 
     try {
-      open('');
-      await requestAPI<ListMountsResponse>('_unmount_all', 'PUT');
-      open('');
-      await pollRefresh();
-      setCurrDatum({
-        id: '',
-        idx: -1,
-        num_datums: 0,
-        all_datums_received: false,
-      });
-      setShouldShowCycler(false);
+      const res = await requestAPI<DownloadPath>('datums/_download', 'PUT');
+      setErrorMessage('Datum downloaded to ' + res.path);
     } catch (e) {
+      setErrorMessage('Error downloading datum: ' + e);
       console.log(e);
     }
-
-    setErrorMessage('');
     setLoading(false);
   };
 
   return {
     loading,
     shouldShowCycler,
+    shouldShowDownload,
     currDatum,
     inputSpec,
     setInputSpec,
     callMountDatums,
     callNextDatum,
     callPrevDatum,
-    callUnmountAll,
+    callDownloadDatum,
     errorMessage,
-    saveInputSpec,
     initialInputSpec,
   };
 };

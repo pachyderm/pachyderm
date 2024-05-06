@@ -1,0 +1,38 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "license",
+    srcs = [
+        "license.go",
+        "license.pb.go",
+        "license.pb.gw.go",
+        "license.pb.validate.go",
+        "license.pb.zap.go",
+        "license_grpc.pb.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/license",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/enterprise",
+        "//src/protoextensions",
+        "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime",
+        "@com_github_grpc_ecosystem_grpc_gateway_v2//utilities",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//grpclog",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/anypb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

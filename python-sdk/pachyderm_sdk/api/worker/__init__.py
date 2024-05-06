@@ -55,6 +55,7 @@ class NextDatumResponse(betterproto.Message):
 
 
 class WorkerStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_status = channel.unary_unary(
             "/pachyderm.worker.Worker/Status",
@@ -73,6 +74,7 @@ class WorkerStub:
         )
 
     def status(self) -> "_pps__.WorkerStatus":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_status(request)
@@ -89,53 +91,8 @@ class WorkerStub:
         return self.__rpc_cancel(request)
 
     def next_datum(self, *, error: str = "") -> "NextDatumResponse":
+
         request = NextDatumRequest()
         request.error = error
 
         return self.__rpc_next_datum(request)
-
-
-class WorkerBase:
-    def status(self, context: "grpc.ServicerContext") -> "_pps__.WorkerStatus":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def cancel(
-        self,
-        job_id: str,
-        data_filters: Optional[List[str]],
-        context: "grpc.ServicerContext",
-    ) -> "CancelResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def next_datum(
-        self, error: str, context: "grpc.ServicerContext"
-    ) -> "NextDatumResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "pachyderm.worker.Worker"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "Status": grpc.unary_unary_rpc_method_handler(
-                self.status,
-                request_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
-                response_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
-            ),
-            "Cancel": grpc.unary_unary_rpc_method_handler(
-                self.cancel,
-                request_deserializer=CancelRequest.FromString,
-                response_serializer=CancelRequest.SerializeToString,
-            ),
-            "NextDatum": grpc.unary_unary_rpc_method_handler(
-                self.next_datum,
-                request_deserializer=NextDatumRequest.FromString,
-                response_serializer=NextDatumRequest.SerializeToString,
-            ),
-        }

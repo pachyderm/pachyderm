@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package storage;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/storage";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+// AppendFile will append the provided data to the file with the specified path. If
+// a file with the specified path doesn't exist, it will be created.
+message AppendFile {
+  string path = 1;
+  google.protobuf.BytesValue data = 2;
+}
+
+// DeleteFile will delete the file with the specified path. If a file with the
+// specified path doesn't exist, the delete will be a no-op.
+message DeleteFile {
+  string path = 1;
+}
+
+// A CreateFilesetRequest corresponds to a single file modification.
+// Supported file modifications are append and delete.
+// A put / overwrite file modification can be performed by a delete followed by an
+// append.
+//  TODO: Decide how to handle datums.
+message CreateFilesetRequest {
+  oneof modification {
+    AppendFile append_file = 1;
+    DeleteFile delete_file = 2;
+  }
+}
+
+message CreateFilesetResponse {
+  string fileset_id = 1;
+}
+
+message FileFilter {
+  oneof filter {
+   // Only emit files with paths in the provided path range.
+   PathRange path_range = 1;
+   // Only emit files with paths that match the provided regular expression.
+   string path_regex = 2;
+  }
+}
+
+message ReadFilesetRequest {
+ string fileset_id = 1;
+ // Filters constrain which files are emitted.
+ // A file is only emitted if it makes it through all of the filters sequentially.
+ repeated FileFilter filters = 2;
+ // If true, then the file data will be omitted from the stream.
+ bool empty_files = 3;
+}
+
+// A ReadFilesetResponse corresponds to a single chunk of data in a file. 
+// Small or empty files will be contained within a single message, while large
+// files may be spread across multiple messages.
+// For files spread across multiple messages, each message will have the same
+// path and the content will be returned in append order.
+message ReadFilesetResponse {
+  string path = 1;
+  google.protobuf.BytesValue data = 2;
+}
+
+message RenewFilesetRequest {
+  string fileset_id = 1;
+  // The TTL, in seconds, for the fileset after renewal.
+  int64 ttl_seconds = 2;
+}
+
+message ComposeFilesetRequest {
+  repeated string fileset_ids = 1;
+  // The TTL, in seconds, for the composite fileset that is created.
+  int64 ttl_seconds = 2;
+}
+
+message ComposeFilesetResponse {
+  string fileset_id = 1;
+}
+
+// If both num_files and size_bytes are set, shards are created
+// based on whichever threshold is surpassed first. If a shard
+// configuration field (num_files, size_bytes) is unset, the
+// storage's default value is used.
+message ShardFilesetRequest {
+  string fileset_id = 1;
+  // Number of files targeted in each shard.
+  int64 num_files = 2;
+  // Size (in bytes) targeted for each shard.
+  int64 size_bytes = 3;
+}
+
+// PathRange is a range of paths.
+// The range is inclusive, exclusive: [Lower, Upper).
+message PathRange {
+  string lower = 1;
+  string upper = 2;
+}
+
+message ShardFilesetResponse {
+  repeated PathRange shards = 1;
+}
+
+service Fileset {
+  // CreateFileset creates a fileset based on a stream of file modifications.
+  // A string identifier for the created fileset will be returned that can be used for subsequent fileset operations.
+  // Filesets have a fixed time-to-live (ttl), which is currently 10 minutes.
+  // Filesets needed longer than the ttl will need to be renewed.
+  rpc CreateFileset(stream CreateFilesetRequest) returns (CreateFilesetResponse) {}
+  // ReadFileset reads a fileset.
+  rpc ReadFileset(ReadFilesetRequest) returns (stream ReadFilesetResponse) {}
+  // RenewFileset renews a fileset.
+  rpc RenewFileset(RenewFilesetRequest) returns (google.protobuf.Empty) {}
+  // ComposeFileset composes a fileset.
+  // Composing a fileset involves combining one or more filesets into a single fileset.
+  // TODO: Explain how the filesets are layered and what that means for the order of file modifications.
+  rpc ComposeFileset(ComposeFilesetRequest) returns (ComposeFilesetResponse) {}
+  // ShardFileset shards a fileset.
+  // The shards of a fileset are returned as a list of path ranges that are disjoint
+  // and account for the full set of paths in the fileset.
+  rpc ShardFileset(ShardFilesetRequest) returns (ShardFilesetResponse) {}
+}

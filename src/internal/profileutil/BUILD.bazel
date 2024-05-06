@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "profileutil",
+    srcs = ["profileutil.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/profileutil",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/log",
+        "//src/internal/pachconfig",
+        "//src/version",
+        "@com_google_cloud_go_profiler//:profiler",
+        "@org_uber_go_zap//:zap",
+    ],
+)

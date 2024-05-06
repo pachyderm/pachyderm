@@ -11,7 +11,9 @@ import (
 )
 
 func TestLogrus(t *testing.T) {
-	ctx, h := testWithCaptureParallel(t, zap.Development()) //nolint:staticcheck // "h is never used" because of the Fatal call.
+	// The next nolint is for "h is never used" because of the Fatal call.  Since we have
+	// overridden ExitFunc, we do actually use h.
+	ctx, h := testWithCaptureParallel(t, zap.Development()) //nolint:staticcheck
 	lr := NewLogrus(ctx)
 	lr.SetLevel(logrus.TraceLevel)
 	lr.ExitFunc = func(code int) {}

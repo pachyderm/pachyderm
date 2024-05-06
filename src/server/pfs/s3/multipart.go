@@ -66,7 +66,11 @@ func parentDirPath(bucket *Bucket, key string, uploadID string) string {
 	if commitID == "" {
 		commitID = "latest"
 	}
-	return path.Join(bucket.Commit.Repo.Name, bucket.Commit.Repo.Type, bucket.Commit.Branch.Name, commitID, key, uploadID)
+	branch := ""
+	if bucket.Commit.Branch != nil {
+		branch = bucket.Commit.Branch.Name
+	}
+	return path.Join(bucket.Commit.Repo.Name, bucket.Commit.Repo.Type, branch, commitID, key, uploadID)
 }
 
 func chunkPath(bucket *Bucket, key string, uploadID string, partNumber int) string {

@@ -121,6 +121,8 @@ func (m *CreateParallelDatumsTask) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for AuthToken
+
 	if len(errors) > 0 {
 		return CreateParallelDatumsTaskMultiError(errors)
 	}
@@ -450,6 +452,8 @@ func (m *CreateSerialDatumsTask) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for AuthToken
+
 	if len(errors) > 0 {
 		return CreateSerialDatumsTaskMultiError(errors)
 	}
@@ -749,6 +753,8 @@ func (m *CreateDatumSetsTask) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for AuthToken
 
 	if len(errors) > 0 {
 		return CreateDatumSetsTaskMultiError(errors)

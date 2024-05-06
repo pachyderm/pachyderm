@@ -3,7 +3,15 @@ package server
 import (
 	"context"
 
+	etcd "go.etcd.io/etcd/client/v3"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
@@ -11,10 +19,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	etcd "go.etcd.io/etcd/client/v3"
+
+	"gocloud.dev/blob"
 )
 
 type APIServer = *validatedAPIServer
@@ -30,16 +36,17 @@ type PFSAuth interface {
 	WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
 	GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
 
-	CheckProjectIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error
-	CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error
-	CreateRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error
-	DeleteRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, resource *auth.Resource) error
-	GetPermissionsInTransaction(txnCtx *txncontext.TransactionContext, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
+	CheckProjectIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error
+	CheckRepoIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error
+	CreateRoleBindingInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error
+	DeleteRoleBindingInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, resource *auth.Resource) error
+	GetPermissionsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
 }
 
 // Env is the dependencies needed to run the PFS API server
 type Env struct {
 	ObjectClient obj.Client
+	Bucket       *blob.Bucket
 	DB           *pachsql.DB
 	EtcdPrefix   string
 	EtcdClient   *etcd.Client
@@ -51,11 +58,12 @@ type Env struct {
 	GetPipelineInspector func() PipelineInspector
 
 	StorageConfig pachconfig.StorageConfiguration
+	GetPPSServer  func() pps_server.APIServer
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(env Env) (pfsserver.APIServer, error) {
-	a, err := newAPIServer(env)
+func NewAPIServer(ctx context.Context, env Env) (pfsserver.APIServer, error) {
+	a, err := newAPIServer(ctx, env)
 	if err != nil {
 		return nil, err
 	}

@@ -35,10 +35,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminapi "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
@@ -49,12 +52,15 @@ import (
 	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	identityserver "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
+	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
+	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	ppsapi "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -71,13 +77,16 @@ type RealEnv struct {
 	AuthServer               authapi.APIServer
 	IdentityServer           identity.APIServer
 	EnterpriseServer         enterprise.APIServer
+	LogsServer               logs.APIServer
 	LicenseServer            license.APIServer
 	PPSServer                ppsapi.APIServer
 	PFSServer                pfsapi.APIServer
+	StorageServer            storage.FilesetServer
 	DebugServer              debug.DebugServer
 	TransactionServer        txnserver.APIServer
 	VersionServer            pb.APIServer
 	ProxyServer              proxy.APIServer
+	MetadataServer           metadata.APIServer
 	MockPPSTransactionServer *testpachd.MockPPSTransactionServer
 }
 
@@ -158,6 +167,8 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 			require.NoError(t, cmdutil.PopulateDefaults(config))
 			config.StorageBackend = obj.Local
 			config.StorageRoot = path.Join(realEnv.Directory, "localStorage")
+			config.GoCDKEnabled = true
+			config.StorageURL = "file://" + config.StorageRoot
 		},
 		DefaultConfigOptions,
 		pachconfig.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
@@ -217,15 +228,20 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	pfsEnv, err := pachd.PFSEnv(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
 	pfsEnv.EtcdPrefix = ""
-	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv)
+	realEnv.PFSServer, err = pfsserver.NewAPIServer(ctx, *pfsEnv)
 	require.NoError(t, err)
-	w, err := pfsserver.NewWorker(pfsserver.WorkerEnv{
-		DB:          pfsEnv.DB,
-		ObjClient:   pfsEnv.ObjectClient,
-		TaskService: pfsEnv.TaskService,
-	}, pfsserver.WorkerConfig{
-		Storage: pfsEnv.StorageConfig,
-	})
+	w, err := pfsserver.NewWorker(
+		ctx,
+		pfsserver.WorkerEnv{
+			DB:          pfsEnv.DB,
+			ObjClient:   pfsEnv.ObjectClient,
+			Bucket:      pfsEnv.Bucket,
+			TaskService: pfsEnv.TaskService,
+		},
+		pfsserver.WorkerConfig{
+			Storage: pfsEnv.StorageConfig,
+		},
+	)
 	require.NoError(t, err)
 	go func() {
 		if err := w.Run(ctx); err != nil {
@@ -233,9 +249,15 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		}
 	}()
 	realEnv.ServiceEnv.SetPfsServer(realEnv.PFSServer)
-	pfsMaster, err := pfsserver.NewMaster(*pfsEnv)
+	pfsMaster, err := pfsserver.NewMaster(ctx, *pfsEnv)
 	require.NoError(t, err)
 	go pfsMaster.Run(ctx) //nolint:errcheck
+
+	// STORAGE
+	storageEnv, err := pachd.StorageEnv(realEnv.ServiceEnv)
+	require.NoError(t, err)
+	realEnv.StorageServer, err = storageserver.New(ctx, *storageEnv)
+	require.NoError(t, err)
 
 	// TRANSACTION
 	realEnv.TransactionServer, err = txnserver.NewAPIServer(txnserver.Env{
@@ -244,10 +266,6 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		TxnEnv:     txnEnv,
 	})
 	require.NoError(t, err)
-	realEnv.ProxyServer = proxyserver.NewAPIServer(proxyserver.Env{Listener: realEnv.ServiceEnv.GetPostgresListener()})
-
-	// VERSION
-	realEnv.VersionServer = version.NewAPIServer(version.Version, version.APIServerOptions{})
 
 	txnEnv.Initialize(
 		realEnv.ServiceEnv.GetDBClient(),
@@ -262,6 +280,18 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		},
 		realEnv.TransactionServer,
 	)
+
+	// PROXY
+	realEnv.ProxyServer = proxyserver.NewAPIServer(proxyserver.Env{Listener: realEnv.ServiceEnv.GetPostgresListener()})
+
+	// VERSION
+	realEnv.VersionServer = version.NewAPIServer(version.Version, version.APIServerOptions{})
+
+	// METADATA
+	realEnv.MetadataServer = metadata_server.NewMetadataServer(metadata_server.Env{
+		Auth:   realEnv.ServiceEnv.AuthServer(),
+		TxnEnv: txnEnv,
+	})
 
 	// PPS
 	if mockPPSTransactionServer {
@@ -287,8 +317,8 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	}
 
 	ppsWorker := ppsserver.NewWorker(ppsserver.WorkerEnv{
-		TaskService: realEnv.ServiceEnv.GetTaskService(path.Join(realEnv.ServiceEnv.Config().EtcdPrefix, realEnv.ServiceEnv.Config().PPSEtcdPrefix)),
 		PFS:         realEnv.ServiceEnv.GetPachClient(ctx).PfsAPIClient,
+		TaskService: realEnv.ServiceEnv.GetTaskService(path.Join(realEnv.ServiceEnv.Config().EtcdPrefix, realEnv.ServiceEnv.Config().PPSEtcdPrefix)),
 	})
 	go func() {
 		ctx := pctx.Child(ctx, "pps-worker")
@@ -309,7 +339,14 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	})
 	go debugWorker.Run(ctx) //nolint:errcheck
 
+	realEnv.LogsServer, err = logsserver.NewAPIServer(logsserver.Env{
+		GetLokiClient: realEnv.ServiceEnv.GetLokiClient,
+		AuthServer:    realEnv.AuthServer,
+	})
+	require.NoError(t, err)
+
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
+	linkServers(&realEnv.MockPachd.Storage, realEnv.StorageServer)
 	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
 	linkServers(&realEnv.MockPachd.Enterprise, realEnv.EnterpriseServer)
@@ -317,6 +354,8 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
 	linkServers(&realEnv.MockPachd.Version, realEnv.VersionServer)
 	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
+	linkServers(&realEnv.MockPachd.Logs, realEnv.LogsServer)
+	linkServers(&realEnv.MockPachd.Metadata, realEnv.MetadataServer)
 
 	return realEnv
 }

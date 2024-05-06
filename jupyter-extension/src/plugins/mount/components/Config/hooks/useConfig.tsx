@@ -1,7 +1,6 @@
 import {requestAPI} from '../../../../../handler';
 import {useEffect, useState} from 'react';
-import usePreviousValue from '../../../../../utils/hooks/usePreviousValue';
-import {AuthConfig} from 'plugins/mount/types';
+import {AuthConfig, HealthCheck, HealthCheckStatus} from 'plugins/mount/types';
 
 export type useConfigResponse = {
   addressField: string;
@@ -13,7 +12,7 @@ export type useConfigResponse = {
   updatePachdAddress: () => Promise<void>;
   callLogin: () => Promise<void>;
   callLogout: () => Promise<void>;
-  shouldShowLogin: boolean;
+  status: HealthCheckStatus;
   loading: boolean;
   showAdvancedOptions: boolean;
   setShowAdvancedOptions: (show: boolean) => void;
@@ -22,44 +21,30 @@ export type useConfigResponse = {
 };
 
 export const useConfig = (
-  showConfig: boolean,
-  setShowConfig: (shouldShow: boolean) => void,
   updateConfig: (shouldShow: AuthConfig) => void,
-  authConfig: AuthConfig,
+  healthCheck: HealthCheck,
   refresh: () => Promise<void>,
-  reposStatus?: number,
 ): useConfigResponse => {
   const [loading, setLoading] = useState(false);
   const [addressField, setAddressField] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [shouldShowLogin, setShouldShowLogin] = useState(false);
+  const [status, setStatus] = useState(
+    'HEALTHY_INVALID_CLUSTER' as HealthCheckStatus,
+  );
   const [shouldShowAddressInput, setShouldShowAddressInput] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [serverCa, setServerCa] = useState('');
 
   useEffect(() => {
-    if (showConfig) {
-      setShouldShowLogin(authConfig.cluster_status === 'AUTH_ENABLED');
-      setShouldShowAddressInput(authConfig.cluster_status === 'INVALID');
-    }
+    setShouldShowAddressInput(
+      ['UNHEALTHY', 'HEALTHY_INVALID_CLUSTER'].includes(healthCheck.status),
+    );
     setErrorMessage('');
     setAddressField('');
     setServerCa('');
     setShowAdvancedOptions(false);
-  }, [showConfig, authConfig]);
-
-  const previousStatus = usePreviousValue(reposStatus);
-
-  useEffect(() => {
-    if (
-      showConfig &&
-      previousStatus &&
-      previousStatus !== 200 &&
-      reposStatus === 200
-    ) {
-      setShowConfig(false);
-    }
-  }, [showConfig, reposStatus]);
+    setStatus(healthCheck.status);
+  }, [healthCheck]);
 
   const updatePachdAddress = async () => {
     setLoading(true);
@@ -79,11 +64,15 @@ export const useConfig = (
             : {pachd_address: tmpAddress},
         );
 
-        if (response.cluster_status === 'INVALID') {
+        if (status === 'HEALTHY_INVALID_CLUSTER') {
           setErrorMessage('Invalid address.');
+        } else if (status === 'UNHEALTHY') {
+          setErrorMessage(
+            'An unexpected error occurred when attempting to set the address.',
+          );
         } else {
           updateConfig(response);
-          setShouldShowLogin(response.cluster_status === 'AUTH_ENABLED');
+          setShouldShowAddressInput(false);
         }
       } else {
         setErrorMessage(
@@ -101,11 +90,11 @@ export const useConfig = (
     setLoading(true);
     try {
       const res = await requestAPI<any>('auth/_login', 'PUT');
-      if (res.auth_url) {
+      if (res.loginUrl) {
         const x = window.screenX + (window.outerWidth - 500) / 2;
         const y = window.screenY + (window.outerHeight - 500) / 2.5;
         const features = `width=${500},height=${500},left=${x},top=${y}`;
-        window.open(res.auth_url, '', features);
+        window.open(res.loginUrl, '', features);
       }
     } catch (e) {
       console.log(e);
@@ -116,6 +105,7 @@ export const useConfig = (
     setTimeout(() => {
       setLoading(false);
     }, 2000);
+    await refresh();
   };
 
   const callLogout = async () => {
@@ -139,7 +129,7 @@ export const useConfig = (
     updatePachdAddress,
     callLogin,
     callLogout,
-    shouldShowLogin,
+    status,
     loading,
     showAdvancedOptions,
     setShowAdvancedOptions,

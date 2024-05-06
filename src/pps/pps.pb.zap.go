@@ -775,6 +775,32 @@ func (x *ListDatumRequest_Filter) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	return nil
 }
 
+func (x *StartCreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("input", x.Input)
+	enc.AddInt32("number", x.Number)
+	return nil
+}
+
+func (x *ContinueCreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddInt32("number", x.Number)
+	return nil
+}
+
+func (x *CreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("start", x.GetStart())
+	enc.AddObject("continue", x.GetContinue())
+	return nil
+}
+
 func (x *DatumSetSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -898,6 +924,17 @@ func (x *ListPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
+	enc.AddObject("page", x.Page)
+	return nil
+}
+
+func (x *PipelinePage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("order", x.Order.String())
+	enc.AddInt64("page_size", x.PageSize)
+	enc.AddInt64("page_index", x.PageIndex)
 	return nil
 }
 
@@ -1253,5 +1290,45 @@ func (x *SetProjectDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 		return nil
 	}
 	enc.AddArray("affected_pipelines", zapcore.ArrayMarshalerFunc(affected_pipelinesArrMarshaller))
+	return nil
+}
+
+func (x *PipelinesSummaryRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	projectsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Projects {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
+	return nil
+}
+
+func (x *PipelinesSummaryResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	summariesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Summaries {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("summaries", zapcore.ArrayMarshalerFunc(summariesArrMarshaller))
+	return nil
+}
+
+func (x *PipelinesSummary) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	enc.AddInt64("active_pipelines", x.ActivePipelines)
+	enc.AddInt64("paused_pipelines", x.PausedPipelines)
+	enc.AddInt64("failed_pipelines", x.FailedPipelines)
+	enc.AddInt64("unhealthy_pipelines", x.UnhealthyPipelines)
 	return nil
 }

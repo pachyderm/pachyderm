@@ -35,12 +35,6 @@ const (
 	dirty                  // we have full content for this file and the user has written to it
 )
 
-func (l *loopbackRoot) setState(mountName, state string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.stateMap[mountName] = state
-}
-
 func (l *loopbackRoot) getState(mountName string) string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -117,7 +111,6 @@ func (n *loopbackNode) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.
 }
 
 func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
-
 	st := syscall.Stat_t{}
 	err := syscall.Stat(r.rootPath, &st)
 	if err != nil {
@@ -125,6 +118,10 @@ func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 	}
 	out.FromStat(&st)
 	return fs.OK
+}
+
+func (r *loopbackRoot) getRepoOptionCommit(repoName string) string {
+	return r.repoOpts[repoName].File.Commit.Id
 }
 
 func (n *loopbackNode) root() *loopbackRoot {
@@ -603,7 +600,7 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	// don't download while we're anything other than mounted
 	// TODO: we probably want some more locking/coordination (in the other
 	// direction) to stop the state machine changing state _during_ a download()
-	// NB: empty string case is to support pachctl mount as well as mount-server
+	// NB: empty string case is to support pachctl mount
 	if !(st == "" || st == "mounted") {
 		log.Info(pctx.TODO(), "Skipping download because of state", zap.String("origPath", origPath), zap.String("name", name), zap.String("state", st), zap.Int32("getFileState(origPath)", int32(n.getFileState(origPath))), zap.Int32("state", int32(state)))
 		// return an error to stop an empty directory listing being cached by
@@ -624,8 +621,8 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
-	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
-	repoName := ro.File.Commit.Branch.Repo.Name
+	projectName := ro.File.Commit.Repo.Project.GetName()
+	repoName := ro.File.Commit.Repo.Name
 	commit := client.NewCommit(projectName, repoName, branch, commitID)
 	filePath := filepath.Join(parts[1:]...)
 	// ListFile callback function
@@ -720,7 +717,7 @@ func (n *loopbackNode) branch(name string) string {
 	if branch, ok := n.root().branches[name]; ok {
 		return branch
 	}
-	return "master"
+	return ""
 }
 
 func (n *loopbackNode) commit(name string) (string, error) {
@@ -739,9 +736,16 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		// worth spamming the logs with this
 		return "", nil
 	}
-	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
-	repoName := ro.File.Commit.Branch.Repo.Name
+	projectName := ro.File.Commit.Repo.Project.GetName()
+	repoName := ro.File.Commit.Repo.Name
 	branch := n.root().branch(name)
+	if branch == "" {
+		commitId := n.root().getRepoOptionCommit(repoName)
+		if commitId == "" {
+			return "", errors.New("cannot resolve which commit to mount: not found in branch or repoOptions")
+		}
+		return commitId, nil
+	}
 	bi, err := n.root().c.InspectBranch(projectName, repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		return "", err

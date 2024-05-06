@@ -76,13 +76,6 @@ func WithValidator(validator func(string) error) UnorderedWriterOption {
 	}
 }
 
-// WithCompact sets the unordered writer to compact the created file sets if they exceed the passed in fan in.
-func WithCompact(maxFanIn int) UnorderedWriterOption {
-	return func(uw *UnorderedWriter) {
-		uw.maxFanIn = maxFanIn
-	}
-}
-
 // WriterOption configures a file set writer.
 type WriterOption func(w *Writer)
 

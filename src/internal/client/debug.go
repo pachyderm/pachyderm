@@ -10,11 +10,11 @@ import (
 )
 
 // Profile collects a set of pprof profiles.
-func (c APIClient) Profile(profile *debug.Profile, filter *debug.Filter, w io.Writer) (retErr error) {
+func (c APIClient) Profile(ctx context.Context, profile *debug.Profile, filter *debug.Filter, w io.Writer) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	profileC, err := c.DebugClient.Profile(c.Ctx(), &debug.ProfileRequest{
+	profileC, err := c.DebugClient.Profile(ctx, &debug.ProfileRequest{
 		Profile: profile,
 		Filter:  filter,
 	})

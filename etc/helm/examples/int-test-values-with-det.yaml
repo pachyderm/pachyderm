@@ -27,14 +27,11 @@ pachd:
   rootToken: "pizza"
   enterpriseLicenseKey: ""
   storage:
-    backend: MINIO
-    minio:
-      bucket: "pachyderm-test"
-      endpoint: "minio.default.svc.cluster.local:9000"
+    storageURL: "s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region"
+    backend: AMAZON
+    amazon:
       id: "minioadmin"
       secret: "minioadmin"
-      secure: "false"
-      signature: ""
     
 console:
   enabled: true
@@ -65,12 +62,12 @@ determined:
   enabled: true
   enterpriseEdition: true
   useNodePortForMaster: true
-  useNodePortForDB: true
-  detVersion: 0.26.2
+  detVersion: 0.31.0
   masterPort: 8282
   masterCpuRequest: 250m
   masterMemRequest: 512M # turn requests way down for automated smoke tests
   db:
+    useNodePortForDB: false
     storageSize: 2Gi
     cpuRequest: 250m
     memRequest: 512M

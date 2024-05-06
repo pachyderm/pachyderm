@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"io"
 	"path"
 	"strings"
@@ -26,6 +27,7 @@ func NewDirInserter(x FileSet, lower string) FileSet {
 
 // Iterate calls cb once for every file in lexicographical order by path
 func (s *dirInserter) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	ctx = pctx.Child(ctx, "dirInserter")
 	lastPath := ""
 	var emit func(p string, f File) error
 	emit = func(p string, f File) error {

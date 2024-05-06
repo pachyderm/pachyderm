@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "v2_7_0",
+    srcs = [
+        "clusterstate.go",
+        "collection.go",
+        "coredb.go",
+        "model.go",
+        "ppsdb.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/migrations",
+        "//src/internal/pachsql",
+        "//src/pfs",
+        "@com_github_jmoiron_sqlx//:sqlx",
+        "@org_golang_google_protobuf//proto",
+        "@org_uber_go_zap//:zap",
+    ],
+)

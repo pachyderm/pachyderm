@@ -31,13 +31,13 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 		// Store the originally-requested parameters because they will be overwritten by inspectCommit
 		branch := proto.Clone(commit.Branch).(*pfs.Branch)
 		commitID := commit.Id
-		if branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {
+		if branch != nil && branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {
 			branch.Name = commitID
 			commitID = ""
 		}
 		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 		if err != nil {
-			if !errutil.IsNotFoundError(err) || branch.Name == "" {
+			if !errutil.IsNotFoundError(err) || branch == nil || branch.Name == "" {
 				return err
 			}
 			return d.oneOffModifyFile(ctx, renewer, branch, cb)
@@ -68,7 +68,7 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer,
 	if err != nil {
 		return err
 	}
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		commit, err := d.startCommit(ctx, txnCtx, nil, branch, "")
 		if err != nil {
 			return err
@@ -193,11 +193,13 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.Pat
 	}
 	glob := pfsfile.CleanPath(file.Path)
 	opts := []SourceOption{
-		WithPrefix(globLiteralPrefix(glob)),
+		WithPrefix(storage.GlobLiteralPrefix(glob)),
 		WithDatum(file.Datum),
 	}
+	var upper string
 	if pathRange != nil {
 		opts = append(opts, WithPathRange(pathRange))
+		upper = pathRange.Upper
 	}
 	mf, err := globMatchFunction(glob)
 	if err != nil {
@@ -207,7 +209,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.Pat
 		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 			return mf(idx.Path)
 		}, true)
-		return fileset.NewPrefetcher(d.storage.Filesets, fs)
+		return fileset.NewPrefetcher(d.storage.Filesets, fs, upper)
 	}))
 	s := NewSource(commitInfo, fs, opts...)
 	return NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file}), nil
@@ -449,7 +451,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 	}
 	glob = pfsfile.CleanPath(glob)
 	opts := []SourceOption{
-		WithPrefix(globLiteralPrefix(glob)),
+		WithPrefix(storage.GlobLiteralPrefix(glob)),
 	}
 	if pathRange != nil {
 		opts = append(opts, WithPathRange(pathRange))
@@ -545,7 +547,7 @@ func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWr
 	var id *fileset.ID
 	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var err error
-		id, err = withUnorderedWriter(ctx, d.storage, renewer, cb, fileset.WithCompact(d.env.StorageConfig.StorageCompactionMaxFanIn))
+		id, err = withUnorderedWriter(ctx, d.storage, renewer, cb)
 		return err
 	}); err != nil {
 		return nil, err
@@ -604,12 +606,19 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	return d.storage.Filesets.Compose(ctx, ids, defaultTTL)
 }
 
-func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID) ([]*pfs.PathRange, error) {
+func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles, sizeBytes int64) ([]*pfs.PathRange, error) {
 	fs, err := d.storage.Filesets.Open(ctx, []fileset.ID{fsid})
 	if err != nil {
 		return nil, err
 	}
-	shards, err := fs.Shards(ctx, index.WithShardConfig(d.storage.Filesets.ShardConfig()))
+	shardConfig := d.storage.Filesets.ShardConfig()
+	if numFiles > 0 {
+		shardConfig.NumFiles = numFiles
+	}
+	if sizeBytes > 0 {
+		shardConfig.SizeBytes = sizeBytes
+	}
+	shards, err := fs.Shards(ctx, index.WithShardConfig(shardConfig))
 	if err != nil {
 		return nil, err
 	}

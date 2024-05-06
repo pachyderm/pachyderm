@@ -330,6 +330,7 @@ class InspectQueueResponse(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_create_job = channel.unary_unary(
             "/pjs.API/CreateJob",
@@ -386,6 +387,7 @@ class ApiStub:
         cache_read: bool = False,
         cache_write: bool = False
     ) -> "CreateJobResponse":
+
         request = CreateJobRequest()
         request.context = context
         if spec is not None:
@@ -400,6 +402,7 @@ class ApiStub:
     def cancel_job(
         self, *, context: str = "", job: "Job" = None
     ) -> "CancelJobResponse":
+
         request = CancelJobRequest()
         request.context = context
         if job is not None:
@@ -410,6 +413,7 @@ class ApiStub:
     def delete_job(
         self, *, context: str = "", job: "Job" = None
     ) -> "DeleteJobResponse":
+
         request = DeleteJobRequest()
         request.context = context
         if job is not None:
@@ -420,6 +424,7 @@ class ApiStub:
     def list_job(
         self, *, context: str = "", job: "Job" = None
     ) -> Iterator["ListJobResponse"]:
+
         request = ListJobRequest()
         request.context = context
         if job is not None:
@@ -431,6 +436,7 @@ class ApiStub:
     def walk_job(
         self, *, context: str = "", job: "Job" = None
     ) -> Iterator["ListJobResponse"]:
+
         request = WalkJobRequest()
         request.context = context
         if job is not None:
@@ -442,6 +448,7 @@ class ApiStub:
     def inspect_job(
         self, *, context: str = "", job: "Job" = None
     ) -> "InspectJobResponse":
+
         request = InspectJobRequest()
         request.context = context
         if job is not None:
@@ -455,143 +462,21 @@ class ApiStub:
             AsyncIterable["ProcessQueueRequest"], Iterable["ProcessQueueRequest"]
         ],
     ) -> Iterator["ProcessQueueResponse"]:
+
         for response in self.__rpc_process_queue(request_iterator):
             yield response
 
     def list_queue(self) -> Iterator["ListQueueResponse"]:
+
         request = ListQueueRequest()
 
         for response in self.__rpc_list_queue(request):
             yield response
 
     def inspect_queue(self, *, queue: "Queue" = None) -> "InspectQueueResponse":
+
         request = InspectQueueRequest()
         if queue is not None:
             request.queue = queue
 
         return self.__rpc_inspect_queue(request)
-
-
-class ApiBase:
-    def create_job(
-        self,
-        context: str,
-        spec: "betterproto_lib_google_protobuf.Any",
-        input: "QueueElement",
-        cache_read: bool,
-        cache_write: bool,
-        context: "grpc.ServicerContext",
-    ) -> "CreateJobResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def cancel_job(
-        self, context: str, job: "Job", context: "grpc.ServicerContext"
-    ) -> "CancelJobResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_job(
-        self, context: str, job: "Job", context: "grpc.ServicerContext"
-    ) -> "DeleteJobResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_job(
-        self, context: str, job: "Job", context: "grpc.ServicerContext"
-    ) -> Iterator["ListJobResponse"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def walk_job(
-        self, context: str, job: "Job", context: "grpc.ServicerContext"
-    ) -> Iterator["ListJobResponse"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_job(
-        self, context: str, job: "Job", context: "grpc.ServicerContext"
-    ) -> "InspectJobResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def process_queue(
-        self,
-        request_iterator: Iterator["ProcessQueueRequest"],
-        context: "grpc.ServicerContext",
-    ) -> Iterator["ProcessQueueResponse"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_queue(
-        self, context: "grpc.ServicerContext"
-    ) -> Iterator["ListQueueResponse"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_queue(
-        self, queue: "Queue", context: "grpc.ServicerContext"
-    ) -> "InspectQueueResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "pjs.API"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "CreateJob": grpc.unary_unary_rpc_method_handler(
-                self.create_job,
-                request_deserializer=CreateJobRequest.FromString,
-                response_serializer=CreateJobRequest.SerializeToString,
-            ),
-            "CancelJob": grpc.unary_unary_rpc_method_handler(
-                self.cancel_job,
-                request_deserializer=CancelJobRequest.FromString,
-                response_serializer=CancelJobRequest.SerializeToString,
-            ),
-            "DeleteJob": grpc.unary_unary_rpc_method_handler(
-                self.delete_job,
-                request_deserializer=DeleteJobRequest.FromString,
-                response_serializer=DeleteJobRequest.SerializeToString,
-            ),
-            "ListJob": grpc.unary_stream_rpc_method_handler(
-                self.list_job,
-                request_deserializer=ListJobRequest.FromString,
-                response_serializer=ListJobRequest.SerializeToString,
-            ),
-            "WalkJob": grpc.unary_stream_rpc_method_handler(
-                self.walk_job,
-                request_deserializer=WalkJobRequest.FromString,
-                response_serializer=WalkJobRequest.SerializeToString,
-            ),
-            "InspectJob": grpc.unary_unary_rpc_method_handler(
-                self.inspect_job,
-                request_deserializer=InspectJobRequest.FromString,
-                response_serializer=InspectJobRequest.SerializeToString,
-            ),
-            "ProcessQueue": grpc.stream_stream_rpc_method_handler(
-                self.process_queue,
-                request_deserializer=ProcessQueueRequest.FromString,
-                response_serializer=ProcessQueueRequest.SerializeToString,
-            ),
-            "ListQueue": grpc.unary_stream_rpc_method_handler(
-                self.list_queue,
-                request_deserializer=ListQueueRequest.FromString,
-                response_serializer=ListQueueRequest.SerializeToString,
-            ),
-            "InspectQueue": grpc.unary_unary_rpc_method_handler(
-                self.inspect_queue,
-                request_deserializer=InspectQueueRequest.FromString,
-                response_serializer=InspectQueueRequest.SerializeToString,
-            ),
-        }

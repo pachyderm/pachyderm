@@ -15,11 +15,7 @@ func (x *Meta) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddObject("job", x.Job)
 	inputsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Inputs {
-			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
-				enc.AppendObject(obj)
-			} else {
-				enc.AppendReflected(v)
-			}
+			enc.AppendObject(v)
 		}
 		return nil
 	}

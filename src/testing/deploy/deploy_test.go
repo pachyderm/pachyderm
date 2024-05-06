@@ -19,24 +19,27 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"golang.org/x/exp/maps"
 )
 
-var valueOverrides map[string]string = make(map[string]string)
+var globalValueOverrides map[string]string = make(map[string]string)
 
 func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	t.Parallel()
+	valueOverrides := make(map[string]string)
+	maps.Copy(valueOverrides, globalValueOverrides)
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
-		AuthUser:   auth.RootUser,
-		Enterprise: true,
-		PortOffset: portOffset,
-		Determined: true,
+		AuthUser:     auth.RootUser,
+		Enterprise:   true,
+		PortOffset:   portOffset,
+		Determined:   true,
+		CleanupAfter: false,
 	}
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
 	// Test Install
-	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -44,7 +47,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
 	// Test Upgrade
-	opts.CleanupAfter = false
+	opts.CleanupAfter = true
 	// set new root token via env
 	opts.AuthUser = ""
 	token := "new-root-token"
@@ -77,13 +80,21 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 
 func TestEnterpriseServerMember(t *testing.T) {
 	t.Parallel()
+	valueOverrides := make(map[string]string)
+	maps.Copy(valueOverrides, globalValueOverrides)
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
-	minikubetestenv.PutNamespace(t, "enterprise")
+	require.NoErrorWithinTRetryConstant(t, 300*time.Second, func() error {
+		if !minikubetestenv.LeaseNamespace(t, "enterprise") {
+			return errors.Errorf("Could not acquire Namespace lock on Enterprise namespace for deploy test.")
+		}
+		return nil
+	}, 5*time.Second)
 	valueOverrides["pachd.replicas"] = "2"
 	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseServer: true,
+		Enterprise:       true,
 		CleanupAfter:     true,
 		ValueOverrides:   valueOverrides,
 	})
@@ -91,7 +102,6 @@ func TestEnterpriseServerMember(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
 	mockIDPLogin(t, ec)
-	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseMember: true,
@@ -111,7 +121,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
-	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
+	require.NoErrorWithinTRetryConstant(t, 90*time.Second, func() error {
 		// login using mock IDP admin
 		hc := &http.Client{Timeout: 15 * time.Second}
 		c.SetAuthToken("")

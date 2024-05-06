@@ -15,3 +15,7 @@ npm = ["npm"]
 
 [tool.check-manifest]
 ignore = ["jupyterlab_pachyderm/labextension/**", ".*", "package-lock.json"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = ["no_config"]

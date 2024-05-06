@@ -2,15 +2,19 @@ package pfsdb_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -19,28 +23,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-func compareHead(expected, got *pfs.Commit) bool {
-	return expected.Id == got.Id &&
-		expected.Repo.Name == got.Repo.Name &&
-		expected.Repo.Type == got.Repo.Type &&
-		expected.Repo.Project.Name == got.Repo.Project.Name
-}
-
-func compareBranch(expected, got *pfs.Branch) bool {
-	return expected.Name == got.Name &&
-		expected.Repo.Name == got.Repo.Name &&
-		expected.Repo.Type == got.Repo.Type &&
-		expected.Repo.Project.Name == got.Repo.Project.Name
-}
-
 func compareBranchOpts() []cmp.Option {
 	return []cmp.Option{
-		cmpopts.IgnoreUnexported(pfs.BranchInfo{}),
 		cmpopts.SortSlices(func(a, b *pfs.Branch) bool { return a.Key() < b.Key() }), // Note that this is before compareBranch because we need to sort first.
 		cmpopts.SortMaps(func(a, b pfsdb.BranchID) bool { return a < b }),
 		cmpopts.EquateEmpty(),
-		cmp.Comparer(compareBranch),
-		cmp.Comparer(compareHead),
+		protocmp.Transform(),
+		protocmp.IgnoreEmptyMessages(),
 	}
 }
 
@@ -74,6 +63,7 @@ func newCommitInfo(repo *pfs.Repo, id string, parent *pfs.Commit) *pfs.CommitInf
 		Description:  "test commit",
 		ParentCommit: parent,
 		Origin:       &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Metadata:     map[string]string{"key": "value"},
 		Started:      timestamppb.New(time.Now()),
 	}
 }
@@ -91,7 +81,7 @@ func createRepoInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, rep
 	return &pfsdb.RepoInfoWithID{ID: id, RepoInfo: repoInfo}
 }
 
-func createCreateInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitWithID {
+func createCommitInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitWithID {
 	t.Helper()
 	createRepoInfoWithID(t, ctx, tx, newRepoInfo(commitInfo.Commit.Repo.Project, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type))
 	commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
@@ -122,7 +112,7 @@ func TestBranchUpsert(t *testing.T) {
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
-			commitInfoWithID1 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+			commitInfoWithID1 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
 			branchInfo := &pfs.BranchInfo{
 				Branch: &pfs.Branch{
 					Repo: repoInfo.Repo,
@@ -134,20 +124,83 @@ func TestBranchUpsert(t *testing.T) {
 			require.NoError(t, err)
 			gotBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, id)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchInfo, gotBranchInfo, compareBranchOpts())
 			gotBranchByName, err := pfsdb.GetBranchInfoWithID(ctx, tx, branchInfo.Branch)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchByName.BranchInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchInfo, gotBranchByName.BranchInfo, compareBranchOpts())
 
 			// Update branch to point to second commit
-			commitInfoWithID2 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitInfoWithID1.CommitInfo.Commit))
+			commitInfoWithID2 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitInfoWithID1.CommitInfo.Commit))
 			branchInfo.Head = commitInfoWithID2.CommitInfo.Commit
 			id2, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
 			require.Equal(t, id, id2, "UpsertBranch should keep id stable")
 			gotBranchInfo2, err := pfsdb.GetBranchInfo(ctx, tx, id2)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchInfo2, compareBranchOpts()...))
+			require.NoDiff(t, branchInfo, gotBranchInfo2, compareBranchOpts())
+
+			// Change metadata
+			branchInfo.Metadata = map[string]string{"new key": "new value"}
+			id3, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+			require.Equal(t, id, id3, "UpsertBranch should keep id stable")
+			gotBranchInfo3, err := pfsdb.GetBranchInfo(ctx, tx, id2)
+			require.NoError(t, err)
+			require.NoDiff(t, branchInfo, gotBranchInfo3, compareBranchOpts())
+		})
+	})
+}
+
+func TestBranchInfoWithIDProvenance(t *testing.T) {
+	t.Parallel()
+	size := 10
+	branches := make(map[int]*pfsdb.BranchInfoWithID)
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			for i := 1; i <= size; i++ { // row ID in postgres starts at 1.
+				commit := testCommit(ctx, t, tx, fmt.Sprintf("r%d", i))
+				_, err := pfsdb.CreateCommit(ctx, tx, commit)
+				require.NoError(t, err, "should be able to create commit")
+				branch := &pfs.BranchInfo{
+					Branch: &pfs.Branch{
+						Name: "master",
+						Repo: commit.Commit.Repo,
+					},
+					Head: commit.Commit,
+				}
+				if i > 1 { // make every branch provenant on the branch before it.
+					branch.DirectProvenance = []*pfs.Branch{branches[i-1].Branch}
+				}
+				id, err := pfsdb.UpsertBranch(ctx, tx, branch)
+				require.NoError(t, err, "should be able to upsert branch")
+				branches[i] = &pfsdb.BranchInfoWithID{
+					ID:         id,
+					BranchInfo: branch,
+				}
+			}
+			provenantBranches, err := pfsdb.GetBranchInfoWithIDProvenance(ctx, tx, pfsdb.BranchID(size))
+			require.NoError(t, err, "should be able to get branch info with provenance")
+			require.Equal(t, len(provenantBranches), size-1)
+			for _, branch := range provenantBranches {
+				_, ok := branches[int(branch.ID)]
+				require.True(t, ok, "found provenant branch should exist in map of created branches")
+			}
+			subvenantBranches, err := pfsdb.GetBranchInfoWithIDSubvenance(ctx, tx, pfsdb.BranchID(1))
+			require.NoError(t, err, "should be able to get branch info with subvenance")
+			require.Equal(t, len(subvenantBranches), size-1)
+			for _, branch := range subvenantBranches {
+				_, ok := branches[int(branch.ID)]
+				require.True(t, ok, "found subvenant branch should exist in map of created branches")
+			}
+			// test options
+			maxDepth := uint64(5)
+			provenantBranches, err = pfsdb.GetBranchInfoWithIDProvenance(ctx, tx, pfsdb.BranchID(size), pfsdb.WithMaxDepth(maxDepth))
+			require.NoError(t, err, "should be able to get branch info with provenance")
+			require.Equal(t, len(provenantBranches), int(maxDepth))
+			limit := uint64(2)
+			subvenantBranches, err = pfsdb.GetBranchInfoWithIDSubvenance(ctx, tx, pfsdb.BranchID(1), pfsdb.WithLimit(limit))
+			require.NoError(t, err, "should be able to get branch info with provenance")
+			require.Equal(t, len(subvenantBranches), int(limit))
 		})
 	})
 }
@@ -164,7 +217,7 @@ func TestBranchProvenance(t *testing.T) {
 			commitBInfo := newCommitInfo(repoBInfo.Repo, random.String(32), nil)
 			commitCInfo := newCommitInfo(repoCInfo.Repo, random.String(32), nil)
 			for _, commitInfo := range []*pfs.CommitInfo{commitAInfo, commitBInfo, commitCInfo} {
-				createCreateInfoWithID(t, ctx, tx, commitInfo)
+				createCommitInfoWithID(t, ctx, tx, commitInfo)
 			}
 			// Create 3 branches, one for each repo, pointing to the corresponding commit
 			branchAInfo := &pfs.BranchInfo{
@@ -208,13 +261,13 @@ func TestBranchProvenance(t *testing.T) {
 				branchInfo := branchInfoWithID.BranchInfo
 				gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts())
 				gotProv, err := pfsdb.GetBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Provenance, gotProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Provenance, gotProv, compareBranchOpts())
 				gotSubv, err := pfsdb.GetBranchSubvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Subvenance, gotSubv, compareBranchOpts())
 			}
 			// Update provenance DAG to A <- B -> C, to test adding and deleting prov relationships
 			branchAInfo.DirectProvenance = nil
@@ -242,13 +295,13 @@ func TestBranchProvenance(t *testing.T) {
 				branchInfo := branchInfoWithID.BranchInfo
 				gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts())
 				gotProv, err := pfsdb.GetBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Provenance, gotProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Provenance, gotProv, compareBranchOpts())
 				gotSubv, err := pfsdb.GetBranchSubvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Subvenance, gotSubv, compareBranchOpts())
 			}
 		})
 	})
@@ -274,7 +327,7 @@ func TestBranchIterator(t *testing.T) {
 				var newLevel []*pfs.BranchInfo
 				for _, parent := range currentLevel {
 					// create a commits and branches
-					createCreateInfoWithID(t, ctx, tx, newCommitInfo(parent.Head.Repo, parent.Head.Id, nil))
+					createCommitInfoWithID(t, ctx, tx, newCommitInfo(parent.Head.Repo, parent.Head.Id, nil))
 					id, err := pfsdb.UpsertBranch(ctx, tx, parent)
 					require.NoError(t, err)
 					allBranches[id] = parent
@@ -320,6 +373,57 @@ func TestBranchIterator(t *testing.T) {
 	})
 }
 
+func TestBranchIteratorOrderBy(t *testing.T) {
+	t.Parallel()
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		var branches []*pfs.BranchInfo
+
+		// Create two branches
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, "repo1", pfs.UserRepoType)
+			commitInfo := newCommitInfo(repoInfo.Repo, random.String(32), nil)
+			createCommitInfoWithID(t, ctx, tx, commitInfo)
+			// create first branch
+			branchInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoInfo.Repo,
+					Name: "master",
+				},
+				Head: commitInfo.Commit,
+			}
+			branches = append(branches, branchInfo)
+			_, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+			// create second branch
+			branchInfo = &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoInfo.Repo,
+					Name: "staging",
+				},
+				Head: commitInfo.Commit,
+			}
+			branches = append(branches, branchInfo)
+			_, err = pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+		})
+
+		// List all branches in reverse order
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, nil /* filter */, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderDesc})
+			require.NoError(t, err)
+			var gotBranches []*pfs.BranchInfo
+			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+				gotBranches = append(gotBranches, branchInfoWithID.BranchInfo)
+				return nil
+			}))
+			require.Equal(t, len(branches), len(gotBranches))
+			for i := range branches {
+				require.Equal(t, branches[i].Branch.Name, gotBranches[len(gotBranches)-1-i].Branch.Name)
+			}
+		})
+	})
+}
+
 func TestBranchDelete(t *testing.T) {
 	t.Parallel()
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
@@ -331,7 +435,7 @@ func TestBranchDelete(t *testing.T) {
 			commitBInfo := newCommitInfo(repoInfo.Repo, random.String(32), nil)
 			commitCInfo := newCommitInfo(repoInfo.Repo, random.String(32), nil)
 			for _, commitInfo := range []*pfs.CommitInfo{commitAInfo, commitBInfo, commitCInfo} {
-				createCreateInfoWithID(t, ctx, tx, commitInfo)
+				createCommitInfoWithID(t, ctx, tx, commitInfo)
 			}
 			// Create 3 branches, one for each repo, pointing to the corresponding commit
 			branchAInfo = &pfs.BranchInfo{
@@ -371,16 +475,23 @@ func TestBranchDelete(t *testing.T) {
 			_, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
 			require.NoError(t, err)
 		})
-		withFailedTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// Delete branch should fail because there exists branches that depend on it.
 			branchID, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
 			require.NoError(t, err)
-			require.ErrorContains(t, pfsdb.DeleteBranch(ctx, tx, branchID, false /* force */), "violates foreign key constraint")
+			branchInfoWithID := &pfsdb.BranchInfoWithID{ID: branchID, BranchInfo: branchBInfo}
+			err = pfsdb.DeleteBranch(ctx, tx, branchInfoWithID, false /* force */)
+			matchErr := fmt.Sprintf("branch %q cannot be deleted because it's in the direct provenance of %v",
+				branchBInfo.Branch,
+				[]*pfs.Branch{branchCInfo.Branch},
+			)
+			require.Equal(t, matchErr, err.Error())
 		})
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			branchID, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
 			require.NoError(t, err)
-			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchID, true /* force */))
+			branchInfoWithID := &pfsdb.BranchInfoWithID{ID: branchID, BranchInfo: branchBInfo}
+			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchInfoWithID, true /* force */))
 			_, err = pfsdb.GetBranchInfo(ctx, tx, branchID)
 			require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{}))
 			// Verify that BranchA no longer has BranchB in its subvenance
@@ -389,7 +500,7 @@ func TestBranchDelete(t *testing.T) {
 			require.NoError(t, err)
 			gotBranchAInfo, err := pfsdb.GetBranchInfo(ctx, tx, branchAID)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchAInfo, gotBranchAInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchAInfo, gotBranchAInfo, compareBranchOpts())
 			// Verify BranchC no longer has BranchB in its provenance, nor does it have the trigger
 			branchCInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch}
 			branchCInfo.Provenance = []*pfs.Branch{branchAInfo.Branch}
@@ -398,7 +509,7 @@ func TestBranchDelete(t *testing.T) {
 			require.NoError(t, err)
 			gotBranchCInfo, err := pfsdb.GetBranchInfo(ctx, tx, branchCID)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchCInfo, gotBranchCInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchCInfo, gotBranchCInfo, compareBranchOpts())
 		})
 	})
 }
@@ -411,11 +522,11 @@ func TestBranchTrigger(t *testing.T) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			var err error
 			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
-			commit1 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
+			commit1 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
 			masterBranchInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "master"}, Head: commit1}
 			masterBranchID, err = pfsdb.UpsertBranch(ctx, tx, masterBranchInfo)
 			require.NoError(t, err)
-			commit2 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
+			commit2 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
 			stagingBranchInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "staging"}, Head: commit2}
 			stagingBranchID, err = pfsdb.UpsertBranch(ctx, tx, stagingBranchInfo)
 			require.NoError(t, err)
@@ -467,12 +578,64 @@ func TestBranchTrigger(t *testing.T) {
 			require.NoError(t, err)
 		})
 		// Try to delete the staging branch, which should fail because master depends on it for triggering.
-		withFailedTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			require.ErrorContains(t, pfsdb.DeleteBranch(ctx, tx, stagingBranchID, false /* force */), "violates foreign key constraint")
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			stagingBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, stagingBranchID)
+			require.NoError(t, err)
+			masterBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			require.NoError(t, err)
+			err = pfsdb.DeleteBranch(ctx, tx,
+				&pfsdb.BranchInfoWithID{ID: stagingBranchID, BranchInfo: stagingBranchInfo},
+				false /* force */)
+			require.YesError(t, err)
+			msg := fmt.Sprintf("%q cannot be deleted because it is triggered by branches %v", stagingBranchInfo.Branch, []*pfs.Branch{masterBranchInfo.Branch})
+			require.ErrorContains(t, err, msg)
 		})
 		// Delete with force should work.
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, stagingBranchID, true /* force */))
+			stagingBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, stagingBranchID)
+			require.NoError(t, err)
+			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, &pfsdb.BranchInfoWithID{ID: stagingBranchID, BranchInfo: stagingBranchInfo}, true /* force */))
 		})
+	})
+}
+
+func testBranchPicker() *pfs.BranchPicker {
+	return &pfs.BranchPicker{
+		Picker: &pfs.BranchPicker_Name{
+			Name: &pfs.BranchPicker_BranchName{
+				Name: "test-branch",
+				Repo: testRepoPicker(),
+			},
+		},
+	}
+}
+
+func TestPickBranch(t *testing.T) {
+	t.Parallel()
+	namePicker := testBranchPicker()
+	badBranchPicker := proto.Clone(namePicker).(*pfs.BranchPicker)
+	badBranchPicker.GetName().Name = "does not exist"
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, testRepoName, testRepoType)
+		commitInfoWithID1 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+		branchInfo := &pfs.BranchInfo{
+			Branch: &pfs.Branch{
+				Repo: repoInfo.Repo,
+				Name: "test-branch",
+			},
+			Head: commitInfoWithID1.CommitInfo.Commit,
+		}
+		id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+		require.NoError(t, err, "should be able to upsert branch")
+		got, err := pfsdb.PickBranch(ctx, namePicker, tx)
+		require.NoError(t, err, "should be able to pick branch")
+		require.Equal(t, id, got.ID)
+		_, err = pfsdb.PickBranch(ctx, nil, tx)
+		require.YesError(t, err, "pick branch should error with a nil picker")
+		_, err = pfsdb.PickBranch(ctx, badBranchPicker, tx)
+		require.YesError(t, err, "pick branch should error with bad picker")
+		require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{}))
 	})
 }

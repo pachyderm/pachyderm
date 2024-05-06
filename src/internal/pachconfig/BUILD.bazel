@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "pachconfig",
+    srcs = [
+        "config.go",
+        "option.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pachconfig",
+    visibility = ["//src:__subpackages__"],
+    deps = ["@io_k8s_apimachinery//pkg/api/resource"],
+)

@@ -3,9 +3,10 @@ package pfsdb
 import (
 	"context"
 	"fmt"
-	"github.com/jmoiron/sqlx"
 	"strings"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -46,26 +47,33 @@ func OrderByQuery[T ColumnName](orderBys ...OrderByColumn[T]) string {
 }
 
 type pageIterator[T ModelType] struct {
-	query         string
-	values        []any
-	limit, offset uint64
-	page          []T
-	pageIdx       int
-	lastTimestamp time.Time
-	revision      int64
+	query                   string
+	values                  []any
+	limit, offset, maxPages uint64
+	page                    []T
+	pageIdx                 int
+	lastTimestamp           time.Time
+	revision                int64
+	pagesSeen               int
 }
 
-func newPageIterator[T ModelType](ctx context.Context, query string, values []any, startPage, pageSize uint64) pageIterator[T] {
+// if maxPages == 0, then interpret as unlimited pages
+func newPageIterator[T ModelType](ctx context.Context, query string, values []any, startPage, pageSize, maxPages uint64) pageIterator[T] {
 	return pageIterator[T]{
 		query:    query,
 		values:   values,
 		revision: -1, // first revision should be 0 and we increment before returning.
 		limit:    pageSize,
 		offset:   startPage * pageSize,
+		maxPages: maxPages,
 	}
 }
 
 func (i *pageIterator[T]) nextPage(ctx context.Context, extCtx sqlx.ExtContext) (err error) {
+	defer func() { i.pagesSeen++ }()
+	if i.maxPages > 0 && i.pagesSeen >= int(i.maxPages) {
+		return stream.EOS()
+	}
 	var page []T
 	query := i.query + fmt.Sprintf("\nLIMIT %d OFFSET %d", i.limit, i.offset)
 	if err := sqlx.SelectContext(ctx, extCtx, &page, query, i.values...); err != nil {
@@ -100,9 +108,40 @@ func (i *pageIterator[T]) next(ctx context.Context, extCtx sqlx.ExtContext) (*T,
 	return &t, i.revision, nil
 }
 
+type GraphOption func(g *graphOptions)
+
+// graphOptions are used to configure depth and limit parameters for provenance and subvenance queries.
+type graphOptions struct {
+	maxDepth uint64
+	limit    uint64
+}
+
 func IsNotFoundError(err error) bool {
 	return errors.As(err, &RepoNotFoundError{}) ||
 		errors.As(err, &ProjectNotFoundError{}) ||
 		errors.As(err, &CommitNotFoundError{}) ||
 		errors.As(err, &BranchNotFoundError{})
+}
+
+func WithMaxDepth(maxDepth uint64) GraphOption {
+	return func(g *graphOptions) {
+		if maxDepth > 0 {
+			g.maxDepth = maxDepth
+		}
+	}
+}
+
+func WithLimit(limit uint64) GraphOption {
+	return func(g *graphOptions) {
+		if limit > 0 {
+			g.limit = limit
+		}
+	}
+}
+
+func defaultGraphOptions() *graphOptions {
+	return &graphOptions{
+		maxDepth: uint64(MaxSearchDepth),
+		limit:    uint64(10_000),
+	}
 }

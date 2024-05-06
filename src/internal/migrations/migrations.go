@@ -165,8 +165,21 @@ func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
 			panic(err)
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`); err != nil {
-		return errors.EnsureStack(err)
+	rows, err := tx.QueryxContext(ctx, `SELECT CONCAT(table_schema, '.', table_name) AS schema_table_name 
+		FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema');`)
+	if err != nil {
+		return errors.Wrap(err, "getting tables to lock")
+	}
+	tables := make([]string, 0)
+	for rows.Next() {
+		table := ""
+		if err := rows.Scan(&table); err != nil {
+			return errors.Wrap(err, "scanning row into response")
+		}
+		tables = append(tables, table)
+	}
+	if err := env.LockTables(ctx, tables...); err != nil {
+		return errors.Wrap(err, "locking all tables before migration")
 	}
 	if finished, err := isFinished(ctx, tx, state); err != nil {
 		return err

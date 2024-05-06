@@ -14,8 +14,12 @@ import (
 )
 
 const (
-	// PrometheusPort is the port the aggregated metrics are served on for scraping
+	// PrometheusPort is the port the aggregated metrics are served on by
+	// the user container for scraping.
 	PrometheusPort = 9090
+	// SidecarPrometheusPort is the port the sidecar (storage) container
+	// serves metrics on.
+	SidecarPrometheusPort = 9091
 )
 
 func JobLabels(job *pps.Job) prometheus.Labels {

@@ -7,34 +7,55 @@ import {
   DirListing,
   FileBrowser,
 } from '@jupyterlab/filebrowser';
-import {Clipboard} from '@jupyterlab/apputils';
+import {Clipboard, showErrorMessage} from '@jupyterlab/apputils';
 import {CommandRegistry} from '@lumino/commands';
 import {each} from '@lumino/algorithm';
 
 import {MountDrive} from './mountDrive';
-import {MOUNT_BROWSER_NAME} from './mount';
-import {Paging} from './paging';
+import {MOUNT_BROWSER_PREFIX} from './mount';
+import {requestAPI} from '../../handler';
+import {IPachydermModel, MountedRepo} from './types';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
   manager: IDocumentManager,
   factory: IFileBrowserFactory,
+  path: string,
+  downloadPath: string,
+  nameSuffix: string,
+  getMountedRepo: () => MountedRepo | null,
 ): FileBrowser => {
-  const drive = new MountDrive(app.docRegistry);
+  const id = `jupyterlab-pachyderm-browser-${nameSuffix}`;
+  const drive = new MountDrive(
+    app.docRegistry,
+    path,
+    nameSuffix,
+    id,
+    async () => {
+      await browser.model.cd();
+    },
+    getMountedRepo,
+  );
   manager.services.contents.addDrive(drive);
 
-  const browser = factory.createFileBrowser('jupyterlab-pachyderm-browser', {
+  const browser = factory.createFileBrowser(id, {
     driveName: drive.name,
-    state: null,
     refreshInterval: 10000,
-  });
 
-  const filenameSearcher = browser.node
-    .getElementsByClassName('jp-FileBrowser-filterBox')
-    .item(0);
-  if (filenameSearcher) {
-    browser.node.removeChild(filenameSearcher);
-  }
+    // Restoring the state and path after a refresh causes issues with infinite scrolling since it attempts to
+    // select and scroll to the file opened on a delay. The file attempting to be selected may not be visible and
+    // if it is then it interferes with the user scrolling immediately.
+    state: null,
+
+    // Setting this to false fixes an issue where the file browser was making requests
+    // to our backend before the backend was capable of handling them, i.e. before the
+    // user is connected to their pachd instance. When set to false, the poller that
+    // refreshes the file browser contents every `refreshInterval` ms is initiated on
+    // the first `cd` call that the file browser handles. This is compatible with how
+    // the plugin currently utilizes the file browser.
+    auto: false,
+    restore: false,
+  });
 
   const toolbar = browser.node
     .getElementsByClassName('jp-FileBrowser-toolbar')
@@ -80,15 +101,119 @@ const createCustomFileBrowser = (
         execute: () => {
           each(browser.selectedItems(), (item) => {
             Clipboard.copyToSystem(
-              item.path.replace(MOUNT_BROWSER_NAME, '/pfs/'),
+              item.path.replace(MOUNT_BROWSER_PREFIX + nameSuffix, '/pfs/'),
             );
           });
+        },
+      });
+
+      commands.addCommand('file-download', {
+        label: 'Download',
+        icon: 'fa fa-download',
+        mnemonic: 0,
+        execute: () => {
+          each(browser.selectedItems(), (item) => {
+            // Unfortunately, copying between drives is not implemented:
+            // https://github.com/jupyterlab/jupyterlab/blob/main/packages/services/src/contents/index.ts#L916
+            // so we need to perform this logic within our implementation of the extension
+            // Once this is implemented, we should be able to just write something along the lines of
+            // manager.copy(item.path, "/home/jovyan/extension-wd")
+            const itemPath = item.path.replace(
+              MOUNT_BROWSER_PREFIX + nameSuffix + ':',
+              '',
+            );
+            requestAPI(
+              `download/${downloadPath}/${itemPath}?branch_uri=${
+                getMountedRepo()?.mountedBranch.uri
+              }`,
+              'PUT',
+            ).catch((e) => {
+              showErrorMessage('Download Error', e.response.statusText);
+            });
+          });
+        },
+      });
+
+      // We need to register this as an app command, but because this function is called multiple times we only want to register it once.
+      // This command must be registered as an app command to work with notification commandIds
+      if (!app.commands.hasCommand('open-pachyderm-sdk')) {
+        app.commands.addCommand('open-pachyderm-sdk', {
+          execute: () => {
+            window
+              ?.open('https://docs.pachyderm.com/latest/sdk/', '_blank')
+              ?.focus();
+          },
+        });
+      }
+
+      commands.addCommand('open-determined', {
+        label: 'Copy Pachyderm File URI',
+        icon: 'fa fa-link',
+        mnemonic: 0,
+        execute: () => {
+          if (navigator.clipboard && window.isSecureContext) {
+            let fileUris = '';
+            each(browser.selectedItems(), (item) => {
+              fileUris += `${(item as IPachydermModel).file_uri}\n`;
+            });
+            navigator.clipboard.writeText(fileUris);
+            app.commands.execute('apputils:notify', {
+              message: 'Pachyderm File URI copied to clipboard.',
+              type: 'success',
+              options: {
+                autoClose: 10000, // 10 seconds
+                actions: [
+                  {
+                    label: 'Open Pachyderm SDK Docs',
+                    commandId: 'open-pachyderm-sdk',
+                    displayType: 'link',
+                  },
+                ],
+              },
+            });
+          } else {
+            each(browser.selectedItems(), (item) => {
+              item = item as IPachydermModel;
+              app.commands.execute('apputils:notify', {
+                message: (item as IPachydermModel).file_uri,
+                type: 'success',
+                options: {
+                  autoClose: false, // disable autoclose since the user needs to copy the url manually.
+                  actions: [
+                    {
+                      label: 'Open Pachyderm SDK Docs',
+                      commandId: 'open-pachyderm-sdk',
+                      displayType: 'link',
+                    },
+                  ],
+                },
+              });
+            });
+            // Notifications have around a 400 character restriction. This should likely workaround the problem of too many urls overloading that limit
+            app.commands.execute('apputils:notify', {
+              message:
+                'Pachyderm File URI could not be copied to clipboard due to browser clipboard restrictions.',
+              type: 'warning',
+              options: {
+                autoClose: false, // disable autoclose since the user needs to copy the url manually.
+                actions: [
+                  {
+                    label: 'Open Pachyderm SDK Docs',
+                    commandId: 'open-pachyderm-sdk',
+                    displayType: 'link',
+                  },
+                ],
+              },
+            });
+          }
         },
       });
 
       const menu = new Menu({commands});
       menu.addItem({command: 'file-open'});
       menu.addItem({command: 'copy-path'});
+      menu.addItem({command: 'file-download'});
+      menu.addItem({command: 'open-determined'});
 
       const browserContent = dirListing.node.getElementsByClassName(
         'jp-DirListing-content',
@@ -114,17 +239,6 @@ const createCustomFileBrowser = (
   } catch (e) {
     console.log('Failed to edit default browser.');
   }
-
-  const paging = new Paging({
-    browser_model: browser.model,
-    page_model: drive.model,
-  });
-  browser.model.pathChanged.connect(async (_, __) => {
-    // If the FileBrowser path has changed, then the MountDrive has reset the pagination model.
-    // Therefore, the pagination widget needs to be re-rendered.
-    paging.update();
-  });
-  browser.layout.addWidget(paging);
 
   return browser;
 };

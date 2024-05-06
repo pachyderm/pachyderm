@@ -25,15 +25,7 @@ var PrintErrorStacks bool
 
 // RunFixedArgs wraps a function in a function that checks its exact argument
 // count.
-func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []string) {
-	return RunFixedArgsCmd(numArgs, func(_ *cobra.Command, args []string) error {
-		return run(args)
-	})
-}
-
-// RunFixedArgsCmd wraps a function in a function that checks its exact argument
-// count.
-func RunFixedArgsCmd(numArgs int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
+func RunFixedArgs(numArgs int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if expected, got := numArgs, len(args); expected != got {
 			fmt.Fprintf(cmd.OutOrStderr(), "expected %d arguments, got %d\n\n", expected, got)
@@ -46,40 +38,40 @@ func RunFixedArgsCmd(numArgs int, run func(*cobra.Command, []string) error) func
 	}
 }
 
-// RunBoundedArgs wraps a function in a function
-// that checks its argument count is within a range.
-func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Command, []string) {
+// RunBoundedArgs wraps a function in a function that checks its argument
+// count is within a range.
+func RunBoundedArgs(min int, max int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) < min || len(args) > max {
 			fmt.Fprintf(cmd.OutOrStderr(), "expected %d to %d arguments, got %d\n\n", min, max, len(args))
 			cmd.Usage()
 			os.Exit(1)
 		}
-		if err := run(args); err != nil {
+		if err := run(cmd, args); err != nil {
 			ErrorAndExitf("%v", err)
 		}
 	}
 }
 
-// RunMinimumArgs wraps a function in a function
-// that checks its argument count is above a minimum amount
-func RunMinimumArgs(min int, run func([]string) error) func(*cobra.Command, []string) {
+// RunMinimumArgs wraps a function in a function that checks its argument count
+// is above a minimum amount
+func RunMinimumArgs(min int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) < min {
 			fmt.Fprintf(cmd.OutOrStderr(), "expected at least %d arguments, got %d\n\n", min, len(args))
 			cmd.Usage()
 			os.Exit(1)
 		}
-		if err := run(args); err != nil {
+		if err := run(cmd, args); err != nil {
 			ErrorAndExitf("%v", err)
 		}
 	}
 }
 
 // Run makes a new cobra run function that wraps the given function.
-func Run(run func(args []string) error) func(*cobra.Command, []string) {
-	return func(_ *cobra.Command, args []string) {
-		if err := run(args); err != nil {
+func Run(run func(cmd *cobra.Command, args []string) error) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		if err := run(cmd, args); err != nil {
 			ErrorAndExitf("%v", err)
 		}
 	}

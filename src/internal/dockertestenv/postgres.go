@@ -3,18 +3,22 @@ package dockertestenv
 
 import (
 	"context"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cleanup"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"go.uber.org/zap"
 )
 
 const (
@@ -78,12 +82,12 @@ func (dbc DBConfig) PachConfigOption(c *pachconfig.Configuration) {
 // The environment will be torn down at the end of the test.
 func NewTestDBConfig(t testing.TB) DBConfig {
 	var (
-		ctx     = pctx.Background("testDB")
-		dbName  = testutil.GenerateEphemeralDBName(t)
+		ctx     = pctx.TestContext(t)
+		dbName  = testutil.GenerateEphemeralDBName()
 		dexName = testutil.UniqueString("dex")
 	)
 	err := backoff.Retry(func() error {
-		return ensureDBEnv(t, ctx)
+		return EnsureDBEnv(ctx)
 	}, backoff.NewConstantBackOff(time.Second*3))
 	require.NoError(t, err, "DB should be created")
 	db := testutil.OpenDB(t,
@@ -119,6 +123,66 @@ func NewTestDBConfig(t testing.TB) DBConfig {
 	}
 }
 
+// NewTestDBConfigCtx returns a DBConfig for an environment outside of tests.
+func NewTestDBConfigCtx(ctx context.Context) (config DBConfig, cleaner *cleanup.Cleaner, _ error) {
+	var (
+		dbName  = testutil.GenerateEphemeralDBName()
+		dexName = testutil.UniqueString("dex")
+	)
+	cleaner = new(cleanup.Cleaner)
+	if err := backoff.Retry(func() error {
+		return EnsureDBEnv(ctx)
+	}, backoff.NewConstantBackOff(time.Second*3)); err != nil {
+		return config, cleaner, errors.Wrap(err, "wait for database to be created")
+	}
+
+	db, err := dbutil.NewDB(
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
+		dbutil.WithDBName(DefaultPostgresDatabase))
+	if err != nil {
+		return config, cleaner, errors.Wrap(err, "NewDB")
+	}
+	cleaner.AddCleanup("close db connection", db.Close)
+
+	if err := testutil.CreateEphemeralDBNontest(ctx, db, dbName); err != nil {
+		return config, cleaner, errors.Wrapf(err, "CreateEphemeralDB(%v)", dbName)
+	}
+	cleaner.AddCleanupCtx("cleanup pach database", func(ctx context.Context) error {
+		return errors.Wrapf(testutil.CleanupEphemeralDB(ctx, db, dbName), "cleanup database %v", dbName)
+	})
+	if err := testutil.CreateEphemeralDBNontest(ctx, db, dexName); err != nil {
+		return config, cleaner, errors.Wrapf(err, "CreateEphemeralDB(%v)", dexName)
+	}
+	cleaner.AddCleanupCtx("cleanup dex database", func(ctx context.Context) error {
+		return errors.Wrapf(testutil.CleanupEphemeralDB(ctx, db, dexName), "cleanup database %v", dbName)
+	})
+	return DBConfig{
+		Direct: PostgresConfig{
+			Host:     postgresHost(),
+			Port:     postgresPort,
+			User:     DefaultPostgresUser,
+			Password: DefaultPostgresPassword,
+			DBName:   dbName,
+		},
+		PGBouncer: PostgresConfig{
+			Host:     PGBouncerHost(),
+			Port:     PGBouncerPort,
+			User:     DefaultPostgresUser,
+			Password: DefaultPostgresPassword,
+			DBName:   dbName,
+		},
+		Identity: PostgresConfig{
+			Host:     PGBouncerHost(),
+			Port:     PGBouncerPort,
+			User:     DefaultPostgresUser,
+			Password: DefaultPostgresPassword,
+			DBName:   dexName,
+		},
+	}, cleaner, nil
+}
+
 // NewTestDB creates a new database connection scoped to the test.
 func NewTestDB(t testing.TB) *pachsql.DB {
 	cfg := NewTestDBConfig(t)
@@ -142,10 +206,16 @@ var spawnLock sync.Mutex
 // TODO: use the docker client, instead of the bash script
 // TODO: use the bitnami pg_bouncer image
 // TODO: look into https://github.com/ory/dockertest
-func ensureDBEnv(t testing.TB, ctx context.Context) error {
+func EnsureDBEnv(ctx context.Context) error {
+	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
+	if got, want := os.Getenv("SKIP_DOCKER_POSTGRES_CREATE"), "1"; got == want {
+		log.Info(ctx, "not attempting to create docker container; SKIP_DOCKER_POSTGRES_CREATE=1")
+		return nil
+	}
+
 	spawnLock.Lock()
 	defer spawnLock.Unlock()
-	timeout := 30 * time.Second
+	timeout := 120 * time.Second
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
 
@@ -160,8 +230,8 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 		PortMap: map[uint16]uint16{
 			30228: 5432,
 		},
-		Image: "postgres:13.0-alpine",
-		Cmd:   []string{"postgres", "-c", "max_connections=500"},
+		Image: "postgres:15-alpine",
+		Cmd:   []string{"postgres", "-c", "max_connections=500", "-c", "fsync=off"},
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -199,11 +269,11 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 			dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		)
 		if err != nil {
-			t.Logf("error connecting to db: %v", err)
-			return err
+			log.Info(ctx, "failed to connect to database; retrying", zap.Error(err))
+			return errors.Wrap(err, "connect to db")
 		}
 		defer db.Close()
-		return errors.EnsureStack(db.PingContext(ctx))
+		return errors.Wrap(db.PingContext(ctx), "ping db")
 	}, backoff.RetryEvery(time.Second), func(err error, _ time.Duration) error {
 		return nil
 	})

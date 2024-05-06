@@ -28,7 +28,11 @@ function(version, pghost, pguser)
         }]
     },
     "parallelism_spec": {
-        "constant": 2
+        "constant": 4
     },
+    "resourceRequests": {
+        "cpu": 0.5,
+        "memory": "2G"
+    }
 }
 

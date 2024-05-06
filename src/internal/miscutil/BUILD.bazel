@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "miscutil",
+    srcs = [
+        "math.go",
+        "miscutil.go",
+        "work_deduper.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/miscutil",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/errutil",
+        "@com_github_hashicorp_golang_lru_v2//simplelru",
+        "@org_golang_x_exp//constraints",
+        "@org_golang_x_sync//errgroup",
+    ],
+)

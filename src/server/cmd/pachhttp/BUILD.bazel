@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "pachhttp_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/cmd/pachhttp",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/log",
+        "//src/internal/pachctl",
+        "//src/internal/pctx",
+        "//src/internal/signals",
+        "//src/server/http",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "pachhttp",
+    embed = [":pachhttp_lib"],
+    pure = "on",
+    visibility = ["//visibility:public"],
+)

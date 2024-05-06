@@ -6923,6 +6923,461 @@ var _ interface {
 	ErrorName() string
 } = ListDatumRequestValidationError{}
 
+// Validate checks the field values on StartCreateDatumRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *StartCreateDatumRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StartCreateDatumRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// StartCreateDatumRequestMultiError, or nil if none found.
+func (m *StartCreateDatumRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StartCreateDatumRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetInput() == nil {
+		err := StartCreateDatumRequestValidationError{
+			field:  "Input",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetInput()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StartCreateDatumRequestValidationError{
+					field:  "Input",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StartCreateDatumRequestValidationError{
+					field:  "Input",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetInput()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StartCreateDatumRequestValidationError{
+				field:  "Input",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if m.GetNumber() < 0 {
+		err := StartCreateDatumRequestValidationError{
+			field:  "Number",
+			reason: "value must be greater than or equal to 0",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return StartCreateDatumRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// StartCreateDatumRequestMultiError is an error wrapping multiple validation
+// errors returned by StartCreateDatumRequest.ValidateAll() if the designated
+// constraints aren't met.
+type StartCreateDatumRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StartCreateDatumRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StartCreateDatumRequestMultiError) AllErrors() []error { return m }
+
+// StartCreateDatumRequestValidationError is the validation error returned by
+// StartCreateDatumRequest.Validate if the designated constraints aren't met.
+type StartCreateDatumRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e StartCreateDatumRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e StartCreateDatumRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e StartCreateDatumRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e StartCreateDatumRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e StartCreateDatumRequestValidationError) ErrorName() string {
+	return "StartCreateDatumRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e StartCreateDatumRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStartCreateDatumRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = StartCreateDatumRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = StartCreateDatumRequestValidationError{}
+
+// Validate checks the field values on ContinueCreateDatumRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ContinueCreateDatumRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ContinueCreateDatumRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ContinueCreateDatumRequestMultiError, or nil if none found.
+func (m *ContinueCreateDatumRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ContinueCreateDatumRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetNumber() < 0 {
+		err := ContinueCreateDatumRequestValidationError{
+			field:  "Number",
+			reason: "value must be greater than or equal to 0",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return ContinueCreateDatumRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// ContinueCreateDatumRequestMultiError is an error wrapping multiple
+// validation errors returned by ContinueCreateDatumRequest.ValidateAll() if
+// the designated constraints aren't met.
+type ContinueCreateDatumRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ContinueCreateDatumRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ContinueCreateDatumRequestMultiError) AllErrors() []error { return m }
+
+// ContinueCreateDatumRequestValidationError is the validation error returned
+// by ContinueCreateDatumRequest.Validate if the designated constraints aren't met.
+type ContinueCreateDatumRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ContinueCreateDatumRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ContinueCreateDatumRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ContinueCreateDatumRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ContinueCreateDatumRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ContinueCreateDatumRequestValidationError) ErrorName() string {
+	return "ContinueCreateDatumRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ContinueCreateDatumRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sContinueCreateDatumRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ContinueCreateDatumRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ContinueCreateDatumRequestValidationError{}
+
+// Validate checks the field values on CreateDatumRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CreateDatumRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CreateDatumRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CreateDatumRequestMultiError, or nil if none found.
+func (m *CreateDatumRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CreateDatumRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	switch v := m.Body.(type) {
+	case *CreateDatumRequest_Start:
+		if v == nil {
+			err := CreateDatumRequestValidationError{
+				field:  "Body",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetStart()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CreateDatumRequestValidationError{
+						field:  "Start",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CreateDatumRequestValidationError{
+						field:  "Start",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetStart()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CreateDatumRequestValidationError{
+					field:  "Start",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *CreateDatumRequest_Continue:
+		if v == nil {
+			err := CreateDatumRequestValidationError{
+				field:  "Body",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetContinue()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CreateDatumRequestValidationError{
+						field:  "Continue",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CreateDatumRequestValidationError{
+						field:  "Continue",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetContinue()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CreateDatumRequestValidationError{
+					field:  "Continue",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
+
+	if len(errors) > 0 {
+		return CreateDatumRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// CreateDatumRequestMultiError is an error wrapping multiple validation errors
+// returned by CreateDatumRequest.ValidateAll() if the designated constraints
+// aren't met.
+type CreateDatumRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CreateDatumRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CreateDatumRequestMultiError) AllErrors() []error { return m }
+
+// CreateDatumRequestValidationError is the validation error returned by
+// CreateDatumRequest.Validate if the designated constraints aren't met.
+type CreateDatumRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CreateDatumRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CreateDatumRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CreateDatumRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CreateDatumRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CreateDatumRequestValidationError) ErrorName() string {
+	return "CreateDatumRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CreateDatumRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCreateDatumRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CreateDatumRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CreateDatumRequestValidationError{}
+
 // Validate checks the field values on DatumSetSpec with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -8494,6 +8949,35 @@ func (m *ListPipelineRequest) validate(all bool) error {
 
 	}
 
+	if all {
+		switch v := interface{}(m.GetPage()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListPipelineRequestValidationError{
+					field:  "Page",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListPipelineRequestValidationError{
+					field:  "Page",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPage()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListPipelineRequestValidationError{
+				field:  "Page",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return ListPipelineRequestMultiError(errors)
 	}
@@ -8573,6 +9057,111 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ListPipelineRequestValidationError{}
+
+// Validate checks the field values on PipelinePage with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *PipelinePage) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PipelinePage with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in PipelinePageMultiError, or
+// nil if none found.
+func (m *PipelinePage) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PipelinePage) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Order
+
+	// no validation rules for PageSize
+
+	// no validation rules for PageIndex
+
+	if len(errors) > 0 {
+		return PipelinePageMultiError(errors)
+	}
+
+	return nil
+}
+
+// PipelinePageMultiError is an error wrapping multiple validation errors
+// returned by PipelinePage.ValidateAll() if the designated constraints aren't met.
+type PipelinePageMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PipelinePageMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PipelinePageMultiError) AllErrors() []error { return m }
+
+// PipelinePageValidationError is the validation error returned by
+// PipelinePage.Validate if the designated constraints aren't met.
+type PipelinePageValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e PipelinePageValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e PipelinePageValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e PipelinePageValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e PipelinePageValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e PipelinePageValidationError) ErrorName() string { return "PipelinePageValidationError" }
+
+// Error satisfies the builtin error interface
+func (e PipelinePageValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sPipelinePage.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = PipelinePageValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = PipelinePageValidationError{}
 
 // Validate checks the field values on DeletePipelineRequest with the rules
 // defined in the proto definition for this message. If any rules are
@@ -12927,6 +13516,415 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = SetProjectDefaultsResponseValidationError{}
+
+// Validate checks the field values on PipelinesSummaryRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *PipelinesSummaryRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PipelinesSummaryRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// PipelinesSummaryRequestMultiError, or nil if none found.
+func (m *PipelinesSummaryRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PipelinesSummaryRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetProjects() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PipelinesSummaryRequestValidationError{
+						field:  fmt.Sprintf("Projects[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PipelinesSummaryRequestValidationError{
+						field:  fmt.Sprintf("Projects[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PipelinesSummaryRequestValidationError{
+					field:  fmt.Sprintf("Projects[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return PipelinesSummaryRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// PipelinesSummaryRequestMultiError is an error wrapping multiple validation
+// errors returned by PipelinesSummaryRequest.ValidateAll() if the designated
+// constraints aren't met.
+type PipelinesSummaryRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PipelinesSummaryRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PipelinesSummaryRequestMultiError) AllErrors() []error { return m }
+
+// PipelinesSummaryRequestValidationError is the validation error returned by
+// PipelinesSummaryRequest.Validate if the designated constraints aren't met.
+type PipelinesSummaryRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e PipelinesSummaryRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e PipelinesSummaryRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e PipelinesSummaryRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e PipelinesSummaryRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e PipelinesSummaryRequestValidationError) ErrorName() string {
+	return "PipelinesSummaryRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e PipelinesSummaryRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sPipelinesSummaryRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = PipelinesSummaryRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = PipelinesSummaryRequestValidationError{}
+
+// Validate checks the field values on PipelinesSummaryResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *PipelinesSummaryResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PipelinesSummaryResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// PipelinesSummaryResponseMultiError, or nil if none found.
+func (m *PipelinesSummaryResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PipelinesSummaryResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetSummaries() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PipelinesSummaryResponseValidationError{
+						field:  fmt.Sprintf("Summaries[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PipelinesSummaryResponseValidationError{
+						field:  fmt.Sprintf("Summaries[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PipelinesSummaryResponseValidationError{
+					field:  fmt.Sprintf("Summaries[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return PipelinesSummaryResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// PipelinesSummaryResponseMultiError is an error wrapping multiple validation
+// errors returned by PipelinesSummaryResponse.ValidateAll() if the designated
+// constraints aren't met.
+type PipelinesSummaryResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PipelinesSummaryResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PipelinesSummaryResponseMultiError) AllErrors() []error { return m }
+
+// PipelinesSummaryResponseValidationError is the validation error returned by
+// PipelinesSummaryResponse.Validate if the designated constraints aren't met.
+type PipelinesSummaryResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e PipelinesSummaryResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e PipelinesSummaryResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e PipelinesSummaryResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e PipelinesSummaryResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e PipelinesSummaryResponseValidationError) ErrorName() string {
+	return "PipelinesSummaryResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e PipelinesSummaryResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sPipelinesSummaryResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = PipelinesSummaryResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = PipelinesSummaryResponseValidationError{}
+
+// Validate checks the field values on PipelinesSummary with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *PipelinesSummary) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PipelinesSummary with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// PipelinesSummaryMultiError, or nil if none found.
+func (m *PipelinesSummary) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PipelinesSummary) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetProject()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, PipelinesSummaryValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, PipelinesSummaryValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetProject()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return PipelinesSummaryValidationError{
+				field:  "Project",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for ActivePipelines
+
+	// no validation rules for PausedPipelines
+
+	// no validation rules for FailedPipelines
+
+	// no validation rules for UnhealthyPipelines
+
+	if len(errors) > 0 {
+		return PipelinesSummaryMultiError(errors)
+	}
+
+	return nil
+}
+
+// PipelinesSummaryMultiError is an error wrapping multiple validation errors
+// returned by PipelinesSummary.ValidateAll() if the designated constraints
+// aren't met.
+type PipelinesSummaryMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PipelinesSummaryMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PipelinesSummaryMultiError) AllErrors() []error { return m }
+
+// PipelinesSummaryValidationError is the validation error returned by
+// PipelinesSummary.Validate if the designated constraints aren't met.
+type PipelinesSummaryValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e PipelinesSummaryValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e PipelinesSummaryValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e PipelinesSummaryValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e PipelinesSummaryValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e PipelinesSummaryValidationError) ErrorName() string { return "PipelinesSummaryValidationError" }
+
+// Error satisfies the builtin error interface
+func (e PipelinesSummaryValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sPipelinesSummary.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = PipelinesSummaryValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = PipelinesSummaryValidationError{}
 
 // Validate checks the field values on JobInfo_Details with the rules defined
 // in the proto definition for this message. If any rules are violated, the

@@ -2,6 +2,8 @@ package chunk
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -14,9 +16,14 @@ type Renewer struct {
 }
 
 func NewRenewer(ctx context.Context, tr track.Tracker, name string, ttl time.Duration) *Renewer {
+	ctx = pctx.Child(ctx, "trackerRenewer", pctx.WithCounter("renewals", 0))
 	renewFunc := func(ctx context.Context, x string, ttl time.Duration) error {
 		_, err := tr.SetTTL(ctx, x, ttl)
-		return errors.EnsureStack(err)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		meters.Inc(ctx, "renewals", 1)
+		return nil
 	}
 	composeFunc := renew.NewTmpComposer(tr, name)
 	return &Renewer{

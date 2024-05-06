@@ -33,6 +33,13 @@
                 "details": {
                     "$ref": "#/definitions/pfs_v2.RepoInfo.Details",
                     "additionalProperties": false
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object",
+                    "description": "Metadata are user-defined key-value pairs."
                 }
             },
             "additionalProperties": false,
@@ -92,6 +99,7 @@
                             "CLUSTER_LIST_SECRETS",
                             "SECRET_DELETE",
                             "SECRET_INSPECT",
+                            "CLUSTER_EDIT_CLUSTER_METADATA",
                             "CLUSTER_DELETE_ALL",
                             "REPO_READ",
                             "REPO_WRITE",

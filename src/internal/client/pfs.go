@@ -41,11 +41,14 @@ func NewBranch(projectName, repoName, branchName string) *pfs.Branch {
 
 // NewCommit creates a pfs.Commit in the given project, repo & branch.
 func NewCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
-	return &pfs.Commit{
-		Repo:   NewRepo(projectName, repoName),
-		Id:     commitID,
-		Branch: NewBranch(projectName, repoName, branchName),
+	commit := &pfs.Commit{
+		Repo: NewRepo(projectName, repoName),
+		Id:   commitID,
 	}
+	if branchName != "" {
+		commit.Branch = NewBranch(projectName, repoName, branchName)
+	}
+	return commit
 }
 
 // NewFile creates a pfs.File.

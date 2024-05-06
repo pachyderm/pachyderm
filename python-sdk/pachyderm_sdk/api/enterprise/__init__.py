@@ -200,6 +200,7 @@ class PauseStatusResponse(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_activate = channel.unary_unary(
             "/enterprise_v2.API/Activate",
@@ -245,6 +246,7 @@ class ApiStub:
     def activate(
         self, *, license_server: str = "", id: str = "", secret: str = ""
     ) -> "ActivateResponse":
+
         request = ActivateRequest()
         request.license_server = license_server
         request.id = id
@@ -253,129 +255,43 @@ class ApiStub:
         return self.__rpc_activate(request)
 
     def get_state(self) -> "GetStateResponse":
+
         request = GetStateRequest()
 
         return self.__rpc_get_state(request)
 
     def get_activation_code(self) -> "GetActivationCodeResponse":
+
         request = GetActivationCodeRequest()
 
         return self.__rpc_get_activation_code(request)
 
     def heartbeat(self) -> "HeartbeatResponse":
+
         request = HeartbeatRequest()
 
         return self.__rpc_heartbeat(request)
 
     def deactivate(self) -> "DeactivateResponse":
+
         request = DeactivateRequest()
 
         return self.__rpc_deactivate(request)
 
     def pause(self) -> "PauseResponse":
+
         request = PauseRequest()
 
         return self.__rpc_pause(request)
 
     def unpause(self) -> "UnpauseResponse":
+
         request = UnpauseRequest()
 
         return self.__rpc_unpause(request)
 
     def pause_status(self) -> "PauseStatusResponse":
+
         request = PauseStatusRequest()
 
         return self.__rpc_pause_status(request)
-
-
-class ApiBase:
-    def activate(
-        self, license_server: str, id: str, secret: str, context: "grpc.ServicerContext"
-    ) -> "ActivateResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_state(self, context: "grpc.ServicerContext") -> "GetStateResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_activation_code(
-        self, context: "grpc.ServicerContext"
-    ) -> "GetActivationCodeResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def heartbeat(self, context: "grpc.ServicerContext") -> "HeartbeatResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def deactivate(self, context: "grpc.ServicerContext") -> "DeactivateResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def pause(self, context: "grpc.ServicerContext") -> "PauseResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def unpause(self, context: "grpc.ServicerContext") -> "UnpauseResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def pause_status(self, context: "grpc.ServicerContext") -> "PauseStatusResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "enterprise_v2.API"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "Activate": grpc.unary_unary_rpc_method_handler(
-                self.activate,
-                request_deserializer=ActivateRequest.FromString,
-                response_serializer=ActivateRequest.SerializeToString,
-            ),
-            "GetState": grpc.unary_unary_rpc_method_handler(
-                self.get_state,
-                request_deserializer=GetStateRequest.FromString,
-                response_serializer=GetStateRequest.SerializeToString,
-            ),
-            "GetActivationCode": grpc.unary_unary_rpc_method_handler(
-                self.get_activation_code,
-                request_deserializer=GetActivationCodeRequest.FromString,
-                response_serializer=GetActivationCodeRequest.SerializeToString,
-            ),
-            "Heartbeat": grpc.unary_unary_rpc_method_handler(
-                self.heartbeat,
-                request_deserializer=HeartbeatRequest.FromString,
-                response_serializer=HeartbeatRequest.SerializeToString,
-            ),
-            "Deactivate": grpc.unary_unary_rpc_method_handler(
-                self.deactivate,
-                request_deserializer=DeactivateRequest.FromString,
-                response_serializer=DeactivateRequest.SerializeToString,
-            ),
-            "Pause": grpc.unary_unary_rpc_method_handler(
-                self.pause,
-                request_deserializer=PauseRequest.FromString,
-                response_serializer=PauseRequest.SerializeToString,
-            ),
-            "Unpause": grpc.unary_unary_rpc_method_handler(
-                self.unpause,
-                request_deserializer=UnpauseRequest.FromString,
-                response_serializer=UnpauseRequest.SerializeToString,
-            ),
-            "PauseStatus": grpc.unary_unary_rpc_method_handler(
-                self.pause_status,
-                request_deserializer=PauseStatusRequest.FromString,
-                response_serializer=PauseStatusRequest.SerializeToString,
-            ),
-        }

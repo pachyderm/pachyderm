@@ -976,6 +976,44 @@
         ]
       }
     },
+    "/debug_v2.Debug/Trace": {
+      "post": {
+        "operationId": "Debug_Trace",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/debug_v2TraceChunk"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of debug_v2TraceChunk"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/debug_v2TraceRequest"
+            }
+          }
+        ]
+      }
+    },
     "/debug_v2.Debug/RunPFSLoadTest": {
       "post": {
         "summary": "RunLoadTest runs a load test.",
@@ -1919,6 +1957,75 @@
         ]
       }
     },
+    "/logs.API/GetLogs": {
+      "post": {
+        "operationId": "API_GetLogs",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/logsGetLogsResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of logsGetLogsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/logsGetLogsRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/metadata.API/EditMetadata": {
+      "post": {
+        "summary": "EditMetadata edits metadata according to the request.  All edits are applied atomically at\nonce.  All edits are attempted, but any failing edit fails the entire request.",
+        "operationId": "API_EditMetadata",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/metadataEditMetadataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "EditMetadataRequest is a sequence of edits to apply to metadata.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/metadataEditMetadataRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pfs_v2.API/CreateRepo": {
       "post": {
         "summary": "CreateRepo creates a new repo.",
@@ -2519,6 +2626,84 @@
         ]
       }
     },
+    "/pfs_v2.API/WalkCommitProvenance": {
+      "post": {
+        "summary": "WalkCommitProvenance traverses a commit's provenance graph and streams back each commit encountered.",
+        "operationId": "API_WalkCommitProvenance",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pfs_v2CommitInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pfs_v2CommitInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2WalkCommitProvenanceRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pfs_v2.API/WalkCommitSubvenance": {
+      "post": {
+        "summary": "WalkCommitSubvenance traverses a commit's subvenance graph and streams back each commit encountered.",
+        "operationId": "API_WalkCommitSubvenance",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pfs_v2CommitInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pfs_v2CommitInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2WalkCommitSubvenanceRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pfs_v2.API/CreateBranch": {
       "post": {
         "summary": "CreateBranch creates a new branch.",
@@ -2645,6 +2830,84 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/pfs_v2DeleteBranchRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pfs_v2.API/WalkBranchProvenance": {
+      "post": {
+        "summary": "WalkBranchProvenance traverses a branch's provenance graph and streams back each branch encountered.",
+        "operationId": "API_WalkBranchProvenance",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pfs_v2BranchInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pfs_v2BranchInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2WalkBranchProvenanceRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pfs_v2.API/WalkBranchSubvenance": {
+      "post": {
+        "summary": "WalkBranchSubvenance traverses a branch's subvenance graph and streams back each branch encountered.",
+        "operationId": "API_WalkBranchSubvenance",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pfs_v2BranchInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pfs_v2BranchInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2WalkBranchSubvenanceRequest"
             }
           }
         ]
@@ -3218,6 +3481,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used.",
             "in": "body",
             "required": true,
             "schema": {
@@ -3476,6 +3740,36 @@
         ]
       }
     },
+    "/pfs_v2.API/InspectProjectV2": {
+      "post": {
+        "summary": "InspectProjectV2 returns info about and defaults for a project.",
+        "operationId": "API_InspectProjectV2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2InspectProjectV2Response"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2InspectProjectV2Request"
+            }
+          }
+        ]
+      }
+    },
     "/pfs_v2.API/ListProject": {
       "post": {
         "summary": "ListProject returns info about all projects.",
@@ -3541,6 +3835,36 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/pfs_v2DeleteProjectRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pfs_v2.API/ReposSummary": {
+      "post": {
+        "summary": "Summary API\nReposSummary returns a list of summaries about the repos for each of the requested projects.",
+        "operationId": "API_ReposSummary",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2ReposSummaryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2ReposSummaryRequest"
             }
           }
         ]
@@ -4158,6 +4482,46 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/pps_v2ListDatumRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pps_v2.API/CreateDatum": {
+      "post": {
+        "summary": "CreateDatum prioritizes time to first datum. Each request returns a batch\nof datums.",
+        "operationId": "API_CreateDatum",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pps_v2DatumInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pps_v2DatumInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums. (streaming inputs)",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2CreateDatumRequest"
             }
           }
         ]
@@ -5148,6 +5512,36 @@
         ]
       }
     },
+    "/pps_v2.API/PipelinesSummary": {
+      "post": {
+        "summary": "PipelinesSummary summarizes the pipelines for each requested project.",
+        "operationId": "API_PipelinesSummary",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pps_v2PipelinesSummaryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2PipelinesSummaryRequest"
+            }
+          }
+        ]
+      }
+    },
     "/proxy.API/Listen": {
       "post": {
         "summary": "Listen streams database events.\nIt signals that it is internally set up by sending an initial empty ListenResponse.",
@@ -5182,6 +5576,168 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/proxyListenRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/CreateFileset": {
+      "post": {
+        "summary": "CreateFileset creates a fileset based on a stream of file modifications.\nA string identifier for the created fileset will be returned that can be used for subsequent fileset operations.\nFilesets have a fixed time-to-live (ttl), which is currently 10 minutes.\nFilesets needed longer than the ttl will need to be renewed.",
+        "operationId": "Fileset_CreateFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageCreateFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "A CreateFilesetRequest corresponds to a single file modification.\nSupported file modifications are append and delete.\nA put / overwrite file modification can be performed by a delete followed by an\nappend.\n TODO: Decide how to handle datums. (streaming inputs)",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageCreateFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/ReadFileset": {
+      "post": {
+        "summary": "ReadFileset reads a fileset.",
+        "operationId": "Fileset_ReadFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/storageReadFilesetResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of storageReadFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageReadFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/RenewFileset": {
+      "post": {
+        "summary": "RenewFileset renews a fileset.",
+        "operationId": "Fileset_RenewFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageRenewFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/ComposeFileset": {
+      "post": {
+        "summary": "ComposeFileset composes a fileset.\nComposing a fileset involves combining one or more filesets into a single fileset.\nTODO: Explain how the filesets are layered and what that means for the order of file modifications.",
+        "operationId": "Fileset_ComposeFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageComposeFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageComposeFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/ShardFileset": {
+      "post": {
+        "summary": "ShardFileset shards a fileset.\nThe shards of a fileset are returned as a list of path ranges that are disjoint\nand account for the full set of paths in the fileset.",
+        "operationId": "Fileset_ShardFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageShardFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageShardFilesetRequest"
             }
           }
         ]
@@ -5530,6 +6086,54 @@
         }
       }
     },
+    "BranchPickerBranchName": {
+      "type": "object",
+      "properties": {
+        "repo": {
+          "$ref": "#/definitions/pfs_v2RepoPicker"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "CommitPickerAncestorOf": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "start": {
+          "$ref": "#/definitions/pfs_v2CommitPicker"
+        }
+      },
+      "description": "This models ^ syntax recursively."
+    },
+    "CommitPickerBranchRoot": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "branch": {
+          "$ref": "#/definitions/pfs_v2BranchPicker"
+        }
+      },
+      "description": "This models .N syntax."
+    },
+    "CommitPickerCommitByGlobalId": {
+      "type": "object",
+      "properties": {
+        "repo": {
+          "$ref": "#/definitions/pfs_v2RepoPicker"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
     "DumpV2RequestDefaults": {
       "type": "object",
       "properties": {
@@ -5538,6 +6142,57 @@
           "description": "If true, include the cluster defaults."
         }
       }
+    },
+    "EditAddKey": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "key is the metadata key to add.  It may not be the empty string."
+        },
+        "value": {
+          "type": "string",
+          "description": "value is the value to assign to the metadata key."
+        }
+      },
+      "description": "AddKey is an operation that adds a new metadata key."
+    },
+    "EditDeleteKey": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "key is the metadata key to remove.  It may not be the empty string."
+        }
+      },
+      "description": "DeleteKey is an operation that removes a metadata key."
+    },
+    "EditEditKey": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "key is the metadata key to change or add.  It may not be the empty string."
+        },
+        "value": {
+          "type": "string",
+          "description": "value is the value to assign to the metadata key."
+        }
+      },
+      "description": "EditKey is an operation that changes or adds a metadata key."
+    },
+    "EditReplace": {
+      "type": "object",
+      "properties": {
+        "replacement": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "replacement is the map to replace the object's metadata with."
+        }
+      },
+      "description": "Replace is an operation that replaces metadata."
     },
     "EgressResponseObjectStorageResult": {
       "type": "object",
@@ -5560,6 +6215,14 @@
         }
       }
     },
+    "GetFileSetRequestFileSetType": {
+      "type": "string",
+      "enum": [
+        "TOTAL",
+        "DIFF"
+      ],
+      "default": "TOTAL"
+    },
     "PauseStatusResponsePauseStatus": {
       "type": "string",
       "enum": [
@@ -5579,6 +6242,21 @@
       ],
       "default": "PIPELINT_TYPE_UNKNOWN",
       "description": "The pipeline type is stored here so that we can internally know the type of\nthe pipeline without loading the spec from PFS."
+    },
+    "RepoPickerRepoName": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2ProjectPicker"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "type is optional. If omitted, the default type is 'user'."
+        }
+      }
     },
     "SQLDatabaseEgressFileFormat": {
       "type": "object",
@@ -5603,18 +6281,6 @@
         "PARQUET"
       ],
       "default": "UNKNOWN"
-    },
-    "SetLogLevelRequestLogLevel": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEBUG",
-        "INFO",
-        "ERROR",
-        "OFF"
-      ],
-      "default": "UNKNOWN",
-      "description": " - OFF: Only GRPC logs can be turned off."
     },
     "admin_v2ClusterInfo": {
       "type": "object",
@@ -5651,6 +6317,13 @@
         "webResources": {
           "$ref": "#/definitions/admin_v2WebResource",
           "description": "Any HTTP links that the client might want to be aware of."
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Cluster-level metadata."
         }
       }
     },
@@ -6090,6 +6763,7 @@
         "CLUSTER_LIST_SECRETS",
         "SECRET_DELETE",
         "SECRET_INSPECT",
+        "CLUSTER_EDIT_CLUSTER_METADATA",
         "CLUSTER_DELETE_ALL",
         "REPO_READ",
         "REPO_WRITE",
@@ -6337,6 +7011,12 @@
         },
         "pipeline": {
           "$ref": "#/definitions/debug_v2Pipeline"
+        },
+        "lokiArgs": {
+          "$ref": "#/definitions/debug_v2LokiArgs"
+        },
+        "profileArgs": {
+          "$ref": "#/definitions/debug_v2ProfileArgs"
         }
       }
     },
@@ -6470,6 +7150,15 @@
         }
       }
     },
+    "debug_v2LokiArgs": {
+      "type": "object",
+      "properties": {
+        "maxLogs": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "debug_v2Pipeline": {
       "type": "object",
       "properties": {
@@ -6507,6 +7196,18 @@
         "duration": {
           "type": "string",
           "title": "only meaningful if name == \"cpu\""
+        }
+      }
+    },
+    "debug_v2ProfileArgs": {
+      "type": "object",
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/debug_v2Profile"
+          }
         }
       }
     },
@@ -6567,10 +7268,10 @@
       "type": "object",
       "properties": {
         "pachyderm": {
-          "$ref": "#/definitions/SetLogLevelRequestLogLevel"
+          "$ref": "#/definitions/debug_v2SetLogLevelRequestLogLevel"
         },
         "grpc": {
-          "$ref": "#/definitions/SetLogLevelRequestLogLevel"
+          "$ref": "#/definitions/debug_v2SetLogLevelRequestLogLevel"
         },
         "duration": {
           "type": "string"
@@ -6579,6 +7280,18 @@
           "type": "boolean"
         }
       }
+    },
+    "debug_v2SetLogLevelRequestLogLevel": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN",
+        "DEBUG",
+        "INFO",
+        "ERROR",
+        "OFF"
+      ],
+      "default": "UNKNOWN",
+      "description": " - OFF: Only GRPC logs can be turned off."
     },
     "debug_v2SetLogLevelResponse": {
       "type": "object",
@@ -6675,6 +7388,23 @@
             "type": "object",
             "$ref": "#/definitions/debug_v2App"
           }
+        }
+      }
+    },
+    "debug_v2TraceChunk": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "debug_v2TraceRequest": {
+      "type": "object",
+      "properties": {
+        "duration": {
+          "type": "string"
         }
       }
     },
@@ -7264,6 +7994,321 @@
         }
       }
     },
+    "logsAdminLogQuery": {
+      "type": "object",
+      "properties": {
+        "logql": {
+          "type": "string",
+          "title": "Arbitrary LogQL query"
+        },
+        "pod": {
+          "type": "string",
+          "title": "A pod's logs (all containers)"
+        },
+        "podContainer": {
+          "$ref": "#/definitions/logsPodContainer",
+          "title": "One container"
+        },
+        "app": {
+          "type": "string",
+          "title": "One \"app\" (logql -\u003e {app=X})"
+        },
+        "master": {
+          "$ref": "#/definitions/logsPipelineLogQuery",
+          "title": "All master worker lines from a pipeline"
+        },
+        "storage": {
+          "$ref": "#/definitions/logsPipelineLogQuery",
+          "title": "All storage container lines from a pipeline"
+        },
+        "user": {
+          "$ref": "#/definitions/logsUserLogQuery",
+          "title": "All worker lines from a pipeline/job"
+        }
+      }
+    },
+    "logsGetLogsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/logsLogQuery"
+        },
+        "filter": {
+          "$ref": "#/definitions/logsLogFilter"
+        },
+        "tail": {
+          "type": "boolean"
+        },
+        "wantPagingHint": {
+          "type": "boolean"
+        }
+      }
+    },
+    "logsGetLogsResponse": {
+      "type": "object",
+      "properties": {
+        "pagingHint": {
+          "$ref": "#/definitions/logsPagingHint"
+        },
+        "log": {
+          "$ref": "#/definitions/logsLogMessage"
+        }
+      }
+    },
+    "logsJobDatumLogQuery": {
+      "type": "object",
+      "properties": {
+        "job": {
+          "type": "string"
+        },
+        "datum": {
+          "type": "string"
+        }
+      }
+    },
+    "logsLogFilter": {
+      "type": "object",
+      "properties": {
+        "timeRange": {
+          "$ref": "#/definitions/logsTimeRangeLogFilter"
+        },
+        "limit": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "regex": {
+          "$ref": "#/definitions/logsRegexLogFilter"
+        },
+        "level": {
+          "$ref": "#/definitions/logsLogLevel",
+          "title": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior"
+        }
+      }
+    },
+    "logsLogLevel": {
+      "type": "string",
+      "enum": [
+        "LOG_LEVEL_DEBUG",
+        "LOG_LEVEL_INFO",
+        "LOG_LEVEL_ERROR"
+      ],
+      "default": "LOG_LEVEL_DEBUG"
+    },
+    "logsLogMessage": {
+      "type": "object",
+      "properties": {
+        "verbatim": {
+          "$ref": "#/definitions/logsVerbatimLogMessage",
+          "title": "The verbatim line from Loki"
+        },
+        "object": {
+          "type": "object",
+          "title": "A raw JSON parse of the entire line"
+        },
+        "nativeTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "title": "If a parseable timestamp was found in `fields`"
+        },
+        "ppsLogMessage": {
+          "$ref": "#/definitions/pps_v2LogMessage",
+          "title": "For code that wants to filter on pipeline/job/etc"
+        }
+      }
+    },
+    "logsLogQuery": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/logsUserLogQuery"
+        },
+        "admin": {
+          "$ref": "#/definitions/logsAdminLogQuery"
+        }
+      }
+    },
+    "logsPagingHint": {
+      "type": "object",
+      "properties": {
+        "older": {
+          "$ref": "#/definitions/logsGetLogsRequest"
+        },
+        "newer": {
+          "$ref": "#/definitions/logsGetLogsRequest"
+        }
+      }
+    },
+    "logsPipelineJobLogQuery": {
+      "type": "object",
+      "properties": {
+        "pipeline": {
+          "$ref": "#/definitions/logsPipelineLogQuery"
+        },
+        "job": {
+          "type": "string"
+        }
+      }
+    },
+    "logsPipelineLogQuery": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "pipeline": {
+          "type": "string"
+        }
+      }
+    },
+    "logsPodContainer": {
+      "type": "object",
+      "properties": {
+        "pod": {
+          "type": "string"
+        },
+        "container": {
+          "type": "string"
+        }
+      }
+    },
+    "logsRegexLogFilter": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string"
+        },
+        "negate": {
+          "type": "boolean"
+        }
+      }
+    },
+    "logsTimeRangeLogFilter": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Can be null"
+        },
+        "until": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Can be null"
+        },
+        "offset": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Offset from which to return results"
+        }
+      }
+    },
+    "logsUserLogQuery": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "title": "All pipelines in the project"
+        },
+        "pipeline": {
+          "$ref": "#/definitions/logsPipelineLogQuery",
+          "title": "One pipeline in a project"
+        },
+        "datum": {
+          "type": "string",
+          "description": "One datum."
+        },
+        "job": {
+          "type": "string",
+          "title": "One job, across pipelines and projects"
+        },
+        "pipelineJob": {
+          "$ref": "#/definitions/logsPipelineJobLogQuery",
+          "title": "One job in one pipeline"
+        },
+        "jobDatum": {
+          "$ref": "#/definitions/logsJobDatumLogQuery",
+          "title": "One datum in one job"
+        }
+      },
+      "title": "Only returns \"user\" logs"
+    },
+    "logsVerbatimLogMessage": {
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "string",
+          "format": "byte"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "metadataClusterPicker": {
+      "type": "object",
+      "description": "ClusterPicker selects a cluster.  Since clusters will never \"cascade\", there is only one cluster\nthat can be selected, the one running this API server."
+    },
+    "metadataEdit": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2ProjectPicker",
+          "description": "project targets a named project's metadata."
+        },
+        "commit": {
+          "$ref": "#/definitions/pfs_v2CommitPicker",
+          "description": "commit targets a commit's metadata."
+        },
+        "branch": {
+          "$ref": "#/definitions/pfs_v2BranchPicker",
+          "description": "branch targets a branch's metadata."
+        },
+        "repo": {
+          "$ref": "#/definitions/pfs_v2RepoPicker",
+          "description": "repo targets a repo's metadata."
+        },
+        "cluster": {
+          "$ref": "#/definitions/metadataClusterPicker",
+          "description": "cluster targets the cluster's metadata."
+        },
+        "replace": {
+          "$ref": "#/definitions/EditReplace",
+          "description": "replace replaces a target's metadata with a new metadata mapping."
+        },
+        "addKey": {
+          "$ref": "#/definitions/EditAddKey",
+          "description": "add_key adds a new key to the target object's metadata."
+        },
+        "editKey": {
+          "$ref": "#/definitions/EditEditKey",
+          "description": "edit_key adds or changes a key in the target object's metadata."
+        },
+        "deleteKey": {
+          "$ref": "#/definitions/EditDeleteKey",
+          "description": "delete_key removes a key from the target object's metadata."
+        }
+      },
+      "description": "Edit represents editing one piece of metadata."
+    },
+    "metadataEditMetadataRequest": {
+      "type": "object",
+      "properties": {
+        "edits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/metadataEdit"
+          },
+          "description": "edits is the ordered list of metadata edits to perform."
+        }
+      },
+      "description": "EditMetadataRequest is a sequence of edits to apply to metadata."
+    },
+    "metadataEditMetadataResponse": {
+      "type": "object",
+      "description": "EditMetadataResponse is the result of editing metadata."
+    },
     "pfs_v2ActivateAuthRequest": {
       "type": "object"
     },
@@ -7362,8 +8407,23 @@
         },
         "trigger": {
           "$ref": "#/definitions/pfs_v2Trigger"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
+    },
+    "pfs_v2BranchPicker": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/BranchPickerBranchName"
+        }
+      },
+      "description": "BranchPicker defines mutually exclusive pickers that resolve to a single branch.\nCurrently, the only way to pick a branch is by composing a branch name with a repo.\nPicker messages should only be used as request parameters."
     },
     "pfs_v2CheckStorageRequest": {
       "type": "object",
@@ -7464,6 +8524,13 @@
             "$ref": "#/definitions/pfs_v2Commit"
           }
         },
+        "directSubvenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2Commit"
+          }
+        },
         "error": {
           "type": "string"
         },
@@ -7473,9 +8540,16 @@
         },
         "details": {
           "$ref": "#/definitions/pfs_v2CommitInfoDetails"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata is user-applied annotations."
         }
       },
-      "title": "CommitInfo is the main data structure representing a commit in etcd"
+      "title": "CommitInfo is the main data structure representing a commit in postgres"
     },
     "pfs_v2CommitInfoDetails": {
       "type": "object",
@@ -7500,6 +8574,24 @@
           "$ref": "#/definitions/pfs_v2OriginKind"
         }
       }
+    },
+    "pfs_v2CommitPicker": {
+      "type": "object",
+      "properties": {
+        "branchHead": {
+          "$ref": "#/definitions/pfs_v2BranchPicker"
+        },
+        "id": {
+          "$ref": "#/definitions/CommitPickerCommitByGlobalId"
+        },
+        "ancestor": {
+          "$ref": "#/definitions/CommitPickerAncestorOf"
+        },
+        "branchRoot": {
+          "$ref": "#/definitions/CommitPickerBranchRoot"
+        }
+      },
+      "description": "CommitPicker defines mutually exclusive pickers that resolve to a single commit.\nCommits can be picked relatively from some other commit like a parent or start of branch.\nAlternatively, they can be picked via their global Id, which is composed of a repo picker and an id.\nPicker messages should only be used as request parameters."
     },
     "pfs_v2CommitSet": {
       "type": "object",
@@ -7954,6 +9046,9 @@
       "properties": {
         "commit": {
           "$ref": "#/definitions/pfs_v2Commit"
+        },
+        "type": {
+          "$ref": "#/definitions/GetFileSetRequestFileSetType"
         }
       }
     },
@@ -8016,6 +9111,25 @@
       "properties": {
         "project": {
           "$ref": "#/definitions/pfs_v2Project"
+        }
+      }
+    },
+    "pfs_v2InspectProjectV2Request": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project"
+        }
+      }
+    },
+    "pfs_v2InspectProjectV2Response": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "$ref": "#/definitions/pfs_v2ProjectInfo"
+        },
+        "defaultsJson": {
+          "type": "string"
         }
       }
     },
@@ -8112,7 +9226,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "title": "type is the type of (system) repos that should be returned\nan empty string requests all repos"
+          "description": "Type is the type of (system) repo that should be returned.\nAn empty string requests all repos."
         },
         "projects": {
           "type": "array",
@@ -8120,7 +9234,11 @@
             "type": "object",
             "$ref": "#/definitions/pfs_v2Project"
           },
-          "description": "projects filters out repos that do not belong in the list, while no projects means list all repos."
+          "description": "Filters out repos whos project isn't represented.\nAn empty list of projects doesn't filter repos by their project."
+        },
+        "page": {
+          "$ref": "#/definitions/pfs_v2RepoPage",
+          "description": "Specifies which page of repos should be returned.\nIf page isn't specified, a single page containing all the relevant repos is returned."
         }
       }
     },
@@ -8194,8 +9312,23 @@
         "createdAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
+    },
+    "pfs_v2ProjectPicker": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "description": "ProjectPicker defines mutually exclusive pickers that resolve to a single project.\nCurrently, the only way to pick a project is by using a project name.\nPicker messages should only be used as request parameters."
     },
     "pfs_v2PutCacheRequest": {
       "type": "object",
@@ -8273,6 +9406,13 @@
         },
         "details": {
           "$ref": "#/definitions/pfs_v2RepoInfoDetails"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata are user-defined key-value pairs."
         }
       },
       "title": "RepoInfo is the main data structure representing a Repo in etcd"
@@ -8286,6 +9426,83 @@
         }
       },
       "title": "Details are only provided when explicitly requested"
+    },
+    "pfs_v2RepoPage": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "$ref": "#/definitions/pfs_v2RepoPageOrdering"
+        },
+        "pageSize": {
+          "type": "string",
+          "format": "int64"
+        },
+        "pageIndex": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "pfs_v2RepoPageOrdering": {
+      "type": "string",
+      "enum": [
+        "PROJECT_REPO"
+      ],
+      "default": "PROJECT_REPO"
+    },
+    "pfs_v2RepoPicker": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/RepoPickerRepoName"
+        }
+      },
+      "description": "Repo defines mutually exclusive pickers that resolve to a single repository.\nCurrently, the only way to pick a repo is by composing a repo name and type with a project.\nIf the type is omitted, the 'user' type will be used as a default.\nPicker messages should only be used as request parameters."
+    },
+    "pfs_v2ReposSummary": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "the project the ReposSummary corresponds to"
+        },
+        "userRepoCount": {
+          "type": "string",
+          "format": "int64",
+          "title": "the count of user repos in the summary"
+        },
+        "sizeBytes": {
+          "type": "string",
+          "format": "int64",
+          "title": "aggregate size of all the repos returned in the summary"
+        }
+      }
+    },
+    "pfs_v2ReposSummaryRequest": {
+      "type": "object",
+      "properties": {
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2ProjectPicker"
+          },
+          "title": "a ReposSummary will be returned for every specified project"
+        }
+      }
+    },
+    "pfs_v2ReposSummaryResponse": {
+      "type": "object",
+      "properties": {
+        "summaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2ReposSummary"
+          },
+          "title": "repo summaries for the requested projects"
+        }
+      }
     },
     "pfs_v2SQLDatabaseEgress": {
       "type": "object",
@@ -8317,8 +9534,19 @@
       "properties": {
         "fileSetId": {
           "type": "string"
+        },
+        "numFiles": {
+          "type": "string",
+          "format": "int64",
+          "title": "Number of files targeted in each shard"
+        },
+        "sizeBytes": {
+          "type": "string",
+          "format": "int64",
+          "title": "Size (in bytes) targeted for each shard"
         }
-      }
+      },
+      "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used."
     },
     "pfs_v2ShardFileSetResponse": {
       "type": "object",
@@ -8428,6 +9656,98 @@
         }
       },
       "description": "Trigger defines the conditions under which a head is moved, and to which\nbranch it is moved."
+    },
+    "pfs_v2WalkBranchProvenanceRequest": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2BranchPicker"
+          },
+          "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker."
+        },
+        "maxBranches": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 10,000 if unspecified"
+        },
+        "maxDepth": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 1000 if unspecified"
+        }
+      }
+    },
+    "pfs_v2WalkBranchSubvenanceRequest": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2BranchPicker"
+          },
+          "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker."
+        },
+        "maxBranches": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 10,000 if unspecified"
+        },
+        "maxDepth": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 1000 if unspecified"
+        }
+      }
+    },
+    "pfs_v2WalkCommitProvenanceRequest": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2CommitPicker"
+          },
+          "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker."
+        },
+        "maxCommits": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 10,000 if unspecified"
+        },
+        "maxDepth": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 1000 if unspecified"
+        }
+      }
+    },
+    "pfs_v2WalkCommitSubvenanceRequest": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2CommitPicker"
+          },
+          "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker."
+        },
+        "maxCommits": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 10,000 if unspecified"
+        },
+        "maxDepth": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 1000 if unspecified"
+        }
+      }
     },
     "pfs_v2WalkFileRequest": {
       "type": "object",
@@ -8809,6 +10129,28 @@
         }
       },
       "description": "Response for check status request. Provides alerts if any."
+    },
+    "pps_v2ContinueCreateDatumRequest": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of datums to return in next batch. If 0, default batch size\nis returned."
+        }
+      }
+    },
+    "pps_v2CreateDatumRequest": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/definitions/pps_v2StartCreateDatumRequest"
+        },
+        "continue": {
+          "$ref": "#/definitions/pps_v2ContinueCreateDatumRequest"
+        }
+      },
+      "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums."
     },
     "pps_v2CreatePipelineRequest": {
       "type": "object",
@@ -9739,6 +11081,10 @@
             "$ref": "#/definitions/pfs_v2Project"
           },
           "description": "Projects to filter on. Empty list means no filter, so return all pipelines."
+        },
+        "page": {
+          "$ref": "#/definitions/pps_v2PipelinePage",
+          "description": "Page indicates which page of a certain size to return. If page is left empty,\nall of the selected pipelines will be returned."
         }
       }
     },
@@ -10072,6 +11418,29 @@
         }
       }
     },
+    "pps_v2PipelinePage": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "$ref": "#/definitions/pps_v2PipelinePageOrdering"
+        },
+        "pageSize": {
+          "type": "string",
+          "format": "int64"
+        },
+        "pageIndex": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "pps_v2PipelinePageOrdering": {
+      "type": "string",
+      "enum": [
+        "RECENT"
+      ],
+      "default": "RECENT"
+    },
     "pps_v2PipelineState": {
       "type": "string",
       "enum": [
@@ -10086,6 +11455,61 @@
       ],
       "default": "PIPELINE_STATE_UNKNOWN",
       "description": " - PIPELINE_STARTING: There is a PipelineInfo + spec commit, but no RC\nThis happens when a pipeline has been created but not yet picked up by a\nPPS server.\n - PIPELINE_RUNNING: A pipeline has a spec commit and a service + RC\nThis is the normal state of a pipeline.\n - PIPELINE_RESTARTING: Equivalent to STARTING (there is a PipelineInfo + commit, but no RC)\nAfter some error caused runPipeline to exit, but before the pipeline is\nre-run. This is when the exponential backoff is in effect.\n - PIPELINE_FAILURE: The pipeline has encountered unrecoverable errors and is no longer being\nretried. It won't leave this state until the pipeline is updated.\n - PIPELINE_PAUSED: The pipeline has been explicitly paused by the user (the pipeline spec's\nStopped field should be true if the pipeline is in this state)\n - PIPELINE_STANDBY: The pipeline is fully functional, but there are no commits to process.\n - PIPELINE_CRASHING: The pipeline's workers are crashing, or failing to come up, this may\nresolve itself, the pipeline may make progress while in this state if the\nproblem is only being experienced by some workers."
+    },
+    "pps_v2PipelinesSummary": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "the project the PipelinesSummary corresponds to"
+        },
+        "activePipelines": {
+          "type": "string",
+          "format": "int64",
+          "title": "count of active pipelines"
+        },
+        "pausedPipelines": {
+          "type": "string",
+          "format": "int64",
+          "title": "count of paused pipelines"
+        },
+        "failedPipelines": {
+          "type": "string",
+          "format": "int64",
+          "title": "count of failed pipelines"
+        },
+        "unhealthyPipelines": {
+          "type": "string",
+          "format": "int64",
+          "title": "count of pipelines with a failed latest job"
+        }
+      }
+    },
+    "pps_v2PipelinesSummaryRequest": {
+      "type": "object",
+      "properties": {
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2ProjectPicker"
+          },
+          "title": "a PipelinesSummary will be returned for each of the requests projects"
+        }
+      }
+    },
+    "pps_v2PipelinesSummaryResponse": {
+      "type": "object",
+      "properties": {
+        "summaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pps_v2PipelinesSummary"
+          },
+          "title": "the pipeline summaries for the requested projects"
+        }
+      }
     },
     "pps_v2ProcessStats": {
       "type": "object",
@@ -10409,6 +11833,20 @@
         }
       }
     },
+    "pps_v2StartCreateDatumRequest": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "$ref": "#/definitions/pps_v2Input",
+          "description": "Input is the input to list datums from. The datums listed are the ones \nthat would be run if a pipeline was created with the provided input."
+        },
+        "number": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of datums to return in first batch. If 0, default batch size\nis returned."
+        }
+      }
+    },
     "pps_v2StartPipelineRequest": {
       "type": "object",
       "properties": {
@@ -10646,7 +12084,7 @@
       "properties": {
         "@type": {
           "type": "string",
-          "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. This string must contain at least\none \"/\" character. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n`path/google.protobuf.Duration`). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme `http`, `https`, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n* If no scheme is provided, `https` is assumed.\n* An HTTP GET on the URL must yield a [google.protobuf.Type][]\n  value in binary format, or produce an error.\n* Applications are allowed to cache lookup results based on the\n  URL, or have them precompiled into a binary to avoid any\n  lookup. Therefore, binary compatibility needs to be preserved\n  on changes to types. (Use versioned type names to manage\n  breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com.\n\nSchemes other than `http`, `https` (or the empty scheme) might be\nused with implementation specific semantics."
+          "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. This string must contain at least\none \"/\" character. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n`path/google.protobuf.Duration`). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme `http`, `https`, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n* If no scheme is provided, `https` is assumed.\n* An HTTP GET on the URL must yield a [google.protobuf.Type][]\n  value in binary format, or produce an error.\n* Applications are allowed to cache lookup results based on the\n  URL, or have them precompiled into a binary to avoid any\n  lookup. Therefore, binary compatibility needs to be preserved\n  on changes to types. (Use versioned type names to manage\n  breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com. As of May 2023, there are no widely used type server\nimplementations and no plans to implement one.\n\nSchemes other than `http`, `https` (or the empty scheme) might be\nused with implementation specific semantics."
         }
       },
       "additionalProperties": {},
@@ -10691,6 +12129,174 @@
           "items": {
             "type": "object",
             "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "storageAppendFile": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "description": "AppendFile will append the provided data to the file with the specified path. If\na file with the specified path doesn't exist, it will be created."
+    },
+    "storageComposeFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ttlSeconds": {
+          "type": "string",
+          "format": "int64",
+          "description": "The TTL, in seconds, for the composite fileset that is created."
+        }
+      }
+    },
+    "storageComposeFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        }
+      }
+    },
+    "storageCreateFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "appendFile": {
+          "$ref": "#/definitions/storageAppendFile"
+        },
+        "deleteFile": {
+          "$ref": "#/definitions/storageDeleteFile"
+        }
+      },
+      "description": "A CreateFilesetRequest corresponds to a single file modification.\nSupported file modifications are append and delete.\nA put / overwrite file modification can be performed by a delete followed by an\nappend.\n TODO: Decide how to handle datums."
+    },
+    "storageCreateFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        }
+      }
+    },
+    "storageDeleteFile": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "description": "DeleteFile will delete the file with the specified path. If a file with the\nspecified path doesn't exist, the delete will be a no-op."
+    },
+    "storageFileFilter": {
+      "type": "object",
+      "properties": {
+        "pathRange": {
+          "$ref": "#/definitions/storagePathRange",
+          "description": "Only emit files with paths in the provided path range."
+        },
+        "pathRegex": {
+          "type": "string",
+          "description": "Only emit files with paths that match the provided regular expression."
+        }
+      }
+    },
+    "storagePathRange": {
+      "type": "object",
+      "properties": {
+        "lower": {
+          "type": "string"
+        },
+        "upper": {
+          "type": "string"
+        }
+      },
+      "description": "PathRange is a range of paths.\nThe range is inclusive, exclusive: [Lower, Upper)."
+    },
+    "storageReadFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/storageFileFilter"
+          },
+          "description": "Filters constrain which files are emitted.\nA file is only emitted if it makes it through all of the filters sequentially."
+        },
+        "emptyFiles": {
+          "type": "boolean",
+          "description": "If true, then the file data will be omitted from the stream."
+        }
+      }
+    },
+    "storageReadFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "description": "A ReadFilesetResponse corresponds to a single chunk of data in a file. \nSmall or empty files will be contained within a single message, while large\nfiles may be spread across multiple messages.\nFor files spread across multiple messages, each message will have the same\npath and the content will be returned in append order."
+    },
+    "storageRenewFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "ttlSeconds": {
+          "type": "string",
+          "format": "int64",
+          "description": "The TTL, in seconds, for the fileset after renewal."
+        }
+      }
+    },
+    "storageShardFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "numFiles": {
+          "type": "string",
+          "format": "int64",
+          "description": "Number of files targeted in each shard."
+        },
+        "sizeBytes": {
+          "type": "string",
+          "format": "int64",
+          "description": "Size (in bytes) targeted for each shard."
+        }
+      },
+      "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used."
+    },
+    "storageShardFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "shards": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/storagePathRange"
           }
         }
       }

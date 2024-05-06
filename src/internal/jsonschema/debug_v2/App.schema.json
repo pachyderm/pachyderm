@@ -22,11 +22,41 @@
                 "pipeline": {
                     "$ref": "#/definitions/debug_v2.Pipeline",
                     "additionalProperties": false
+                },
+                "lokiArgs": {
+                    "$ref": "#/definitions/debug_v2.LokiArgs",
+                    "additionalProperties": false
+                },
+                "profileArgs": {
+                    "$ref": "#/definitions/debug_v2.ProfileArgs",
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false,
             "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "loki_args"
+                    ]
+                },
+                {
+                    "required": [
+                        "profile_args"
+                    ]
+                }
+            ],
             "title": "App"
+        },
+        "debug_v2.LokiArgs": {
+            "properties": {
+                "maxLogs": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Loki Args"
         },
         "debug_v2.Pipeline": {
             "properties": {
@@ -59,6 +89,36 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Pod"
+        },
+        "debug_v2.Profile": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "duration": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "only meaningful if name == \"cpu\"",
+                    "format": "regex"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Profile"
+        },
+        "debug_v2.ProfileArgs": {
+            "properties": {
+                "profiles": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.Profile"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Profile Args"
         }
     }
 }

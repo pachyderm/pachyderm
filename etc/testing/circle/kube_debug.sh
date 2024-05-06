@@ -17,39 +17,32 @@ cmds=(
      pachctl list commit "${r}";
      echo;
    done'
+  'docker ps'
   'pachctl list pipeline'
   'pachctl list job --no-pager'
   'kubectl version'
   'kubectl get all --all-namespaces'
+  'kubectl get pvc --all-namespaces'
+  'kubectl get persistentvolume --all-namespaces'
+  'kubectl get secret --all-namespaces'
   'kubectl get pods -o wide --all-namespaces'
-  'kubectl describe pod -l suite=pachyderm --namespace=test-cluster-1'
-  'kubectl describe pod -l suite=pachyderm --namespace=test-cluster-2'
-  'kubectl describe pod -l suite=pachyderm --namespace=test-cluster-3'
-  'kubectl describe pod -l suite=pachyderm --namespace=test-cluster-4'
-  'kubectl describe pod -l suite=pachyderm --namespace=test-cluster-5'
+  'for i in {1..10}; do
+    kubectl describe pod -l suite=pachyderm --namespace="test-cluster-${i}"
+    kubectl describe pod -l determined-system=master --namespace="test-cluster-${i}"
+    kubectl describe pod -l determined-system=db --namespace="test-cluster-${i}"
+  done'
   'curl -s http://$(minikube ip):30656/metrics'
+
   # Set --tail b/c by default 'kubectl logs' only outputs 10 lines if -l is set
   'kubectl logs --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
-  'kubectl logs --namespace=test-cluster-1 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
-  'kubectl logs --namespace=test-cluster-2 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
-  'kubectl logs --namespace=test-cluster-3 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
-  'kubectl logs --namespace=test-cluster-4 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
-  'kubectl logs --namespace=test-cluster-5 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
-  'kubectl logs --namespace=test-cluster-6 --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true'
-  # if pachd restarted
-  'kubectl logs --tail=1500 -l suite=pachyderm --previous --prefix=true'
-  'kubectl logs --namespace=test-cluster-1 --tail=1500 -l suite=pachyderm --previous --prefix=true'
-  'kubectl logs --namespace=test-cluster-2 --tail=1500 -l suite=pachyderm --previous --prefix=true'
-  'kubectl logs --namespace=test-cluster-3 --tail=1500 -l suite=pachyderm --previous --prefix=true'
-  'kubectl logs --namespace=test-cluster-4 --tail=1500 -l suite=pachyderm --previous --prefix=true'
-  'kubectl logs --namespace=test-cluster-5 --tail=1500 -l suite=pachyderm --previous --prefix=true'
-  'kubectl logs --namespace=test-cluster-6 --tail=1500 -l suite=pachyderm --previous --prefix=true'
-  'kubectl logs postgres-0 --namespace=test-cluster-1 --tail=1500 --prefix=true'
-  'kubectl logs postgres-0 --namespace=test-cluster-2 --tail=1500 --prefix=true'
-  'kubectl logs postgres-0 --namespace=test-cluster-3 --tail=1500 --prefix=true'
-  'kubectl logs postgres-0 --namespace=test-cluster-4 --tail=1500 --prefix=true'
-  'kubectl logs postgres-0 --namespace=test-cluster-5 --tail=1500 --prefix=true'
-  'kubectl logs postgres-0 --namespace=test-cluster-6 --tail=1500 --prefix=true'
+  'kubectl logs --tail=1500 -l suite=pachyderm --previous --prefix=true' # if pachd restarted
+  'for i in {1..10}; do
+    kubectl logs --namespace="test-cluster-${i}" --tail=1500 -l suite=pachyderm --all-containers=true --prefix=true
+    kubectl logs --namespace="test-cluster-${i}" --tail=1500 -l suite=pachyderm --previous --prefix=true
+    kubectl logs --namespace="test-cluster-${i}" --tail=1500 -l determined-system=master --all-containers=true --prefix=true
+    kubectl logs --namespace="test-cluster-${i}" --tail=1500 -l determined-system=db --all-containers=true --prefix=true
+    kubectl logs postgres-0 --namespace="test-cluster-${i}" --tail=1500 --prefix=true
+  done'
   'kubectl logs -l k8s-app=kube-dns -n kube-system'
   'kubectl logs -l k8s-app=kube-dns -n kube-system --previous'
   'kubectl logs storage-provisioner -n kube-system'

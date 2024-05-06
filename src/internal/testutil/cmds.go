@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"text/template"
 	"unicode"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -77,6 +79,11 @@ func dedent(cmd string) string {
 // makes debugging failures much easier (i.e. you get an error message
 // rather than "exit status 1")
 func Command(name string, args ...string) *exec.Cmd {
+	if name == "pachctl" {
+		if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok {
+			name = pachctl
+		}
+	}
 	cmd := exec.Command(name, args...)
 	cmd.Stderr = os.Stderr
 	// for convenience, simulate hitting "enter" after any prompt. This can easily
@@ -96,25 +103,9 @@ func bashCmd(cmd string, subs ...string) io.Reader {
 	// this library, and enable 'pipefail' so that if any 'match' in a chain
 	// fails, the whole command fails.
 	buf := &bytes.Buffer{}
-	buf.WriteString(`
-set -e -o pipefail
-# Try to ignore pipefail errors (encountered when writing to a closed pipe).
-# Processes like 'yes' are essentially guaranteed to hit this, and because of
-# -e -o pipefail they will crash the whole script. We need these options,
-# though, for 'match' to work, so for now we work around pipefail errors on a
-# cmd-by-cmd basis. See "The Infamous SIGPIPE Signal"
-# http://www.tldp.org/LDP/lpg/node20.html
-pipeerr=141 # typical error code returned by unix utils when SIGPIPE is raised
-function yes {
-	/usr/bin/yes || test "$?" -eq "${pipeerr}"
-}
-export -f yes # use in subshells too
-which match >/dev/null || {
-	echo "You must have 'match' installed to run these tests. Please run:" >&2
-	echo "  go install ./src/testing/match" >&2
-	exit 1
-}`)
-	buf.WriteRune('\n')
+	if err := writeBashPrelude(buf); err != nil {
+		panic(errors.Wrap(err, "add bash prelude"))
+	}
 
 	// do the substitution
 	if err := template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, data); err != nil {
@@ -151,8 +142,7 @@ func subsToTemplateData(subs ...string) (map[string]string, error) {
 
 func PachctlBashCmd(t *testing.T, c *client.APIClient, scriptTemplate string, subs ...string) *exec.Cmd {
 	t.Helper()
-	ctx := pctx.TestContext(t)
-	return PachctlBashCmdCtx(ctx, t, c, scriptTemplate, subs...)
+	return PachctlBashCmdCtx(c.Ctx(), t, c, scriptTemplate, subs...)
 }
 
 func PachctlBashCmdCtx(ctx context.Context, t *testing.T, c *client.APIClient, scriptTemplate string, subs ...string) *exec.Cmd {
@@ -160,7 +150,7 @@ func PachctlBashCmdCtx(ctx context.Context, t *testing.T, c *client.APIClient, s
 	ctx = pctx.Child(ctx, "bash")
 	data, err := subsToTemplateData(subs...)
 	require.NoError(t, err, "could not convert subs to data")
-	config := fmt.Sprintf("test-pach-config-%s.json", t.Name())
+	config := fmt.Sprintf("test-pach-config-%s.json", url.QueryEscape(t.Name()))
 	p, err := NewPachctl(ctx, c, config)
 	// NOTE: p is not closed in order to retain config file between runs;
 	// for the same reason, it is okay if the config file already exists.

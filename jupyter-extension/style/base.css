@@ -4,6 +4,7 @@
 @import url('./components/input.css');
 
 @import url('../src/utils/components/Circle/circle.css');
+@import url('../src/utils/components/DropdownCombobox/DropdownCombobox.css');
 @import url('../src/utils/components/LoadingDots/loadingDots.css');
 
 :root {

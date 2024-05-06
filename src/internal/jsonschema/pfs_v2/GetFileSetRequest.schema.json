@@ -7,6 +7,14 @@
                 "commit": {
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
+                },
+                "type": {
+                    "enum": [
+                        "TOTAL",
+                        "DIFF"
+                    ],
+                    "type": "string",
+                    "title": "File Set Type"
                 }
             },
             "additionalProperties": false,

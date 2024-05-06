@@ -17,7 +17,7 @@ func TestLogRunningProcesses(t *testing.T) {
 	l := logs.NewTest(ctx)
 	logRunningProcesses(l, syscall.Getpgrp())
 	var found bool
-	finder := regexp.MustCompile(`^note: about to kill.*driver[.]test`)
+	finder := regexp.MustCompile(`^note: about to kill.*driver[._]test`)
 	for _, log := range l.Logs {
 		if finder.MatchString(log) {
 			found = true
@@ -33,6 +33,6 @@ func TestLogRunningProcesses(t *testing.T) {
 			logs.WriteString("    ")
 			logs.WriteString(log)
 		}
-		t.Errorf("did not get info about self (driver.test); all logs:\n%v", logs.String())
+		t.Errorf("did not get info about self (driver.test or driver_test); all logs:\n%v", logs.String())
 	}
 }

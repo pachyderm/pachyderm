@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "httpauth",
+    srcs = ["httpauth.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth/httpauth",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/constants",
+        "//src/internal/client",
+        "//src/internal/log",
+        "@org_uber_go_zap//:zap",
+    ],
+)

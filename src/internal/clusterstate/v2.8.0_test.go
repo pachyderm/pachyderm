@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 
 	v2_8_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0"
+	pfsdb "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0/pfsdb_28x"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"

@@ -40,7 +40,7 @@ done
 if [ "${1}" = "wp" ]; then
   # cloning wp-workload test repo
   git clone https://github.com/pachyderm/customer-success.git customer-success
-  cd ci-load-tests/
+  cd customer-success/ci-load-tests/
   make wp-test
   pachctl create pipeline -f ~/project/etc/testing/circle/workloads/aws-wp/metrics.json
 elif [ "${1}" = "btl" ]; then

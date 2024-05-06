@@ -119,6 +119,18 @@ class App(betterproto.Message):
     pods: List["Pod"] = betterproto.message_field(2)
     timeout: timedelta = betterproto.message_field(3)
     pipeline: "Pipeline" = betterproto.message_field(4)
+    loki_args: "LokiArgs" = betterproto.message_field(5, group="extra_args")
+    profile_args: "ProfileArgs" = betterproto.message_field(6, group="extra_args")
+
+
+@dataclass(eq=False, repr=False)
+class ProfileArgs(betterproto.Message):
+    profiles: List["Profile"] = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class LokiArgs(betterproto.Message):
+    max_logs: int = betterproto.uint64_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -228,7 +240,20 @@ class RunPfsLoadTestResponse(betterproto.Message):
     state_id: str = betterproto.string_field(6)
 
 
+@dataclass(eq=False, repr=False)
+class TraceRequest(betterproto.Message):
+    duration: timedelta = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class TraceChunk(betterproto.Message):
+    content: Optional[bytes] = betterproto.message_field(
+        1, wraps=betterproto.TYPE_BYTES, group="reply"
+    )
+
+
 class DebugStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_profile = channel.unary_stream(
             "/debug_v2.Debug/Profile",
@@ -260,6 +285,11 @@ class DebugStub:
             request_serializer=DumpV2Request.SerializeToString,
             response_deserializer=DumpChunk.FromString,
         )
+        self.__rpc_trace = channel.unary_stream(
+            "/debug_v2.Debug/Trace",
+            request_serializer=TraceRequest.SerializeToString,
+            response_deserializer=TraceChunk.FromString,
+        )
         self.__rpc_run_pfs_load_test = channel.unary_unary(
             "/debug_v2.Debug/RunPFSLoadTest",
             request_serializer=RunPfsLoadTestRequest.SerializeToString,
@@ -274,6 +304,7 @@ class DebugStub:
     def profile(
         self, *, profile: "Profile" = None, filter: "Filter" = None
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = ProfileRequest()
         if profile is not None:
             request.profile = profile
@@ -286,6 +317,7 @@ class DebugStub:
     def binary(
         self, *, filter: "Filter" = None
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = BinaryRequest()
         if filter is not None:
             request.filter = filter
@@ -296,6 +328,7 @@ class DebugStub:
     def dump(
         self, *, filter: "Filter" = None, limit: int = 0
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = DumpRequest()
         if filter is not None:
             request.filter = filter
@@ -312,6 +345,7 @@ class DebugStub:
         duration: timedelta = None,
         recurse: bool = False
     ) -> "SetLogLevelResponse":
+
         request = SetLogLevelRequest()
         request.pachyderm = pachyderm
         request.grpc = grpc
@@ -360,6 +394,15 @@ class DebugStub:
         for response in self.__rpc_dump_v2(request):
             yield response
 
+    def trace(self, *, duration: timedelta = None) -> Iterator["TraceChunk"]:
+
+        request = TraceRequest()
+        if duration is not None:
+            request.duration = duration
+
+        for response in self.__rpc_trace(request):
+            yield response
+
     def run_pfs_load_test(
         self,
         *,
@@ -368,6 +411,7 @@ class DebugStub:
         seed: int = 0,
         state_id: str = ""
     ) -> "RunPfsLoadTestResponse":
+
         request = RunPfsLoadTestRequest()
         request.spec = spec
         if branch is not None:
@@ -378,128 +422,7 @@ class DebugStub:
         return self.__rpc_run_pfs_load_test(request)
 
     def run_pfs_load_test_default(self) -> "RunPfsLoadTestResponse":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_run_pfs_load_test_default(request)
-
-
-class DebugBase:
-    def profile(
-        self, profile: "Profile", filter: "Filter", context: "grpc.ServicerContext"
-    ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def binary(
-        self, filter: "Filter", context: "grpc.ServicerContext"
-    ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def dump(
-        self, filter: "Filter", limit: int, context: "grpc.ServicerContext"
-    ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def set_log_level(
-        self,
-        pachyderm: "SetLogLevelRequestLogLevel",
-        grpc: "SetLogLevelRequestLogLevel",
-        duration: timedelta,
-        recurse: bool,
-        context: "grpc.ServicerContext",
-    ) -> "SetLogLevelResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_dump_v2_template(
-        self, filters: Optional[List[str]], context: "grpc.ServicerContext"
-    ) -> "GetDumpV2TemplateResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def dump_v2(
-        self,
-        system: "System",
-        pipelines: Optional[List["Pipeline"]],
-        input_repos: bool,
-        timeout: timedelta,
-        defaults: "DumpV2RequestDefaults",
-        starlark_scripts: Optional[List["Starlark"]],
-        context: "grpc.ServicerContext",
-    ) -> Iterator["DumpChunk"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def run_pfs_load_test(
-        self,
-        spec: str,
-        branch: "_pfs__.Branch",
-        seed: int,
-        state_id: str,
-        context: "grpc.ServicerContext",
-    ) -> "RunPfsLoadTestResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def run_pfs_load_test_default(
-        self, context: "grpc.ServicerContext"
-    ) -> "RunPfsLoadTestResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "debug_v2.Debug"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "Profile": grpc.unary_stream_rpc_method_handler(
-                self.profile,
-                request_deserializer=ProfileRequest.FromString,
-                response_serializer=ProfileRequest.SerializeToString,
-            ),
-            "Binary": grpc.unary_stream_rpc_method_handler(
-                self.binary,
-                request_deserializer=BinaryRequest.FromString,
-                response_serializer=BinaryRequest.SerializeToString,
-            ),
-            "Dump": grpc.unary_stream_rpc_method_handler(
-                self.dump,
-                request_deserializer=DumpRequest.FromString,
-                response_serializer=DumpRequest.SerializeToString,
-            ),
-            "SetLogLevel": grpc.unary_unary_rpc_method_handler(
-                self.set_log_level,
-                request_deserializer=SetLogLevelRequest.FromString,
-                response_serializer=SetLogLevelRequest.SerializeToString,
-            ),
-            "GetDumpV2Template": grpc.unary_unary_rpc_method_handler(
-                self.get_dump_v2_template,
-                request_deserializer=GetDumpV2TemplateRequest.FromString,
-                response_serializer=GetDumpV2TemplateRequest.SerializeToString,
-            ),
-            "DumpV2": grpc.unary_stream_rpc_method_handler(
-                self.dump_v2,
-                request_deserializer=DumpV2Request.FromString,
-                response_serializer=DumpV2Request.SerializeToString,
-            ),
-            "RunPFSLoadTest": grpc.unary_unary_rpc_method_handler(
-                self.run_pfs_load_test,
-                request_deserializer=RunPfsLoadTestRequest.FromString,
-                response_serializer=RunPfsLoadTestRequest.SerializeToString,
-            ),
-            "RunPFSLoadTestDefault": grpc.unary_unary_rpc_method_handler(
-                self.run_pfs_load_test_default,
-                request_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
-                response_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
-            ),
-        }

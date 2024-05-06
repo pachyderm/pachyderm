@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	fmt "fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"strconv"
 	"time"
 
@@ -53,6 +54,7 @@ func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewe
 // Create creates a new chunk from metadata and chunkData.
 // It returns the ID for the chunk
 func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byte) (_ ID, retErr error) {
+	ctx = pctx.Child(ctx, "trackedClient")
 	if c.renewer == nil {
 		panic("client must have a renewer to create chunks")
 	}
@@ -67,17 +69,34 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	if err := c.renewer.Add(ctx, chunkID); err != nil {
 		return nil, err
 	}
+	key := chunkKey(chunkID, gen)
 	if !needUpload {
+		if err := c.errIfNotExists(ctx, key); err != nil {
+			return nil, err
+		}
 		return chunkID, nil
 	}
-	key := chunkKey(chunkID, gen)
 	if err := c.store.Put(ctx, key, chunkData); err != nil {
 		return nil, errors.EnsureStack(err)
+	}
+	if err := c.errIfNotExists(ctx, key); err != nil {
+		return nil, err
 	}
 	if err := c.afterUpload(ctx, chunkID, gen); err != nil {
 		return nil, err
 	}
 	return chunkID, nil
+}
+
+func (c *trackedClient) errIfNotExists(ctx context.Context, key []byte) error {
+	ok, err := c.store.Exists(ctx, key)
+	if err != nil {
+		return errors.Wrap(err, "checking chunk existence")
+	}
+	if !ok {
+		return errors.Errorf("chunk %s does not exist after attempting to upload it to the backend.", string(key))
+	}
+	return nil
 }
 
 // beforeUpload checks the table in postgres to see if a chunk with chunkID already exists.
@@ -87,12 +106,12 @@ func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadat
 		pointsTo = append(pointsTo, cid.TrackerID())
 	}
 	chunkTID := chunkID.TrackerID()
+	var ents []Entry
 	if err := dbutil.WithTx(ctx, c.db, func(cbCtx context.Context, tx *pachsql.Tx) (retErr error) {
 		needUpload, gen = false, 0
 		if err := c.tracker.CreateTx(tx, chunkTID, pointsTo, c.ttl); err != nil {
 			return errors.EnsureStack(err)
 		}
-		var ents []Entry
 		if err := tx.SelectContext(cbCtx, &ents, `
 		SELECT chunk_id, gen
 		FROM storage.chunk_objects
@@ -114,6 +133,9 @@ func (c *trackedClient) beforeUpload(ctx context.Context, chunkID ID, md Metadat
 		return nil
 	}); err != nil {
 		return false, 0, err
+	}
+	if len(ents) > 0 {
+		return ents[0].Uploaded, ents[0].Gen, nil
 	}
 	return needUpload, gen, nil
 }

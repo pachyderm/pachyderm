@@ -1,22 +1,12 @@
 package server
 
 import (
-	"regexp"
 	"strings"
 
 	globlib "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 )
-
-var globRegex = regexp.MustCompile(`[*?[\]{}!()@+^]`)
-
-func globLiteralPrefix(glob string) string {
-	idx := globRegex.FindStringIndex(glob)
-	if idx == nil {
-		return glob
-	}
-	return glob[:idx[0]]
-}
 
 func globMatchFunction(glob string) (func(string) bool, error) {
 	g, err := globlib.Compile(glob, '/')
@@ -44,20 +34,6 @@ func pathIsChild(parent, child string) bool {
 	return !strings.Contains(rel, "/")
 }
 
-var validRangeRegex = regexp.MustCompile("^[ -~]+$")
-
 func ValidateFilename(p string) error {
-	pBytes := []byte(p)
-	if !validRangeRegex.Match(pBytes) {
-		return errors.Errorf("path (%v) invalid: only printable ASCII characters allowed", p)
-	}
-	if globRegex.Match(pBytes) {
-		return errors.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", p, globRegex.FindString(p))
-	}
-	for _, elem := range strings.Split(p, "/") {
-		if elem == "." || elem == ".." {
-			return errors.Errorf("path (%v) invalid: relative file paths are not allowed", p)
-		}
-	}
-	return nil
+	return storage.ValidateFilename(p)
 }

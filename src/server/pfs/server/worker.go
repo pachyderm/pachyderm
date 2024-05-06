@@ -16,6 +16,7 @@ import (
 
 type WorkerEnv struct {
 	DB          *sqlx.DB
+	Bucket      *obj.Bucket
 	ObjClient   obj.Client
 	TaskService task.Service
 }
@@ -31,11 +32,13 @@ type Worker struct {
 	storage *storage.Server
 }
 
-func NewWorker(env WorkerEnv, config WorkerConfig) (*Worker, error) {
-	ss, err := storage.New(storage.Env{
-		ObjectStore: env.ObjClient,
+func NewWorker(ctx context.Context, env WorkerEnv, config WorkerConfig) (*Worker, error) {
+	ss, err := storage.New(ctx, storage.Env{
 		DB:          env.DB,
-	}, config.Storage)
+		Bucket:      env.Bucket,
+		ObjectStore: env.ObjClient,
+		Config:      config.Storage,
+	})
 	if err != nil {
 		return nil, err
 	}

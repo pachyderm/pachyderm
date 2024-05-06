@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/constants"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -128,4 +129,30 @@ func OutgoingMetadata(ctx context.Context) Field {
 		return zap.Skip()
 	}
 	return Metadata("metadata", md)
+}
+
+type contextInfoWrapper struct {
+	context.Context
+}
+
+func (ctx *contextInfoWrapper) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if deadline, ok := ctx.Deadline(); ok {
+		enc.AddDuration("contextExpiresIn", time.Until(deadline))
+	}
+	select {
+	case <-ctx.Done():
+		enc.AddBool("contextDone", true)
+		if err := context.Cause(ctx.Context); err != nil {
+			enc.AddString("contextError", err.Error())
+		}
+	default:
+	}
+	return nil
+}
+
+func ContextInfo(ctx context.Context) Field {
+	if ctx == nil {
+		return zap.Skip()
+	}
+	return zap.Inline(&contextInfoWrapper{Context: ctx})
 }

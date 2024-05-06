@@ -4,6 +4,7 @@ deployTarget: GOOGLE
 
 pachd:
   storage:
+    storageURL: gs://fake-bucket
     google:
       bucket: "fake-bucket"
       # You can also pass the creds on the command line using helm install --set-file storage.google.cred=creds.json 

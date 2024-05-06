@@ -1,6 +1,9 @@
 package testing
 
 import (
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/testing/protocmp"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -18,7 +21,16 @@ func requireEmptyResponse(t *testing.T, response *transaction.TransactionRespons
 	require.Nil(t, response.Commit)
 }
 
+// Ignores branch field when comparing, bacause branch names are nilled out in responses.
+func commitDiffIgnoringBranchName(commit, commit2 *pfs.Commit) string {
+	return cmp.Diff(commit, commit2, protocmp.Transform(), cmpopts.EquateErrors(), protocmp.IgnoreFields((*pfs.Commit)(nil), "branch"))
+}
+
 func requireCommitResponse(t *testing.T, response *transaction.TransactionResponse, commit *pfs.Commit) {
+	diff := commitDiffIgnoringBranchName(response.Commit, commit)
+	if diff == "" {
+		return
+	}
 	require.Equal(t, commit, response.Commit)
 }
 
@@ -510,6 +522,10 @@ func TestTransactions(suite *testing.T) {
 
 		for _, branchInfo := range branchInfos {
 			if branchInfo.Branch.Name == "master" {
+				diff := commitDiffIgnoringBranchName(branchInfo.Head, info.Responses[1].Commit)
+				if diff == "" {
+					continue
+				}
 				require.Equal(t, branchInfo.Head, info.Responses[1].Commit)
 			}
 		}

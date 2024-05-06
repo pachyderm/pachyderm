@@ -5,6 +5,7 @@ from jupyter_server.auth.identity import IdentityProvider, User
 from jupyter_server.base.handlers import JupyterHandler
 
 from . import setup_handlers
+from .env import PACH_CONFIG, PACHD_ADDRESS, DEX_TOKEN
 
 
 class TestIdentityProvider(IdentityProvider):
@@ -17,15 +18,11 @@ class TestIdentityProvider(IdentityProvider):
 
 if __name__ == "__main__":
     app = tornado.web.Application(base_url="/")
-    setup_handlers(app)
+    setup_handlers(app, PACH_CONFIG, PACHD_ADDRESS, DEX_TOKEN)
 
     # Disable authorization checks between test API and dev-server
     app.settings["identity_provider"] = TestIdentityProvider()
     app.settings["disable_check_xsrf"] = True
-
-    # Increase the timeout on the MountServerClient
-    app.settings["pachyderm_mount_client"].client.configure(
-        None,defaults=dict(connect_timeout=20, request_timeout=60))
 
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()

@@ -98,6 +98,13 @@
                     "additionalProperties": false,
                     "type": "array"
                 },
+                "directSubvenance": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Commit"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
                 "error": {
                     "type": "string"
                 },
@@ -107,12 +114,19 @@
                 "details": {
                     "$ref": "#/definitions/pfs_v2.CommitInfo.Details",
                     "additionalProperties": false
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object",
+                    "description": "Metadata is user-applied annotations."
                 }
             },
             "additionalProperties": false,
             "type": "object",
             "title": "Commit Info",
-            "description": "CommitInfo is the main data structure representing a commit in etcd"
+            "description": "CommitInfo is the main data structure representing a commit in postgres"
         },
         "pfs_v2.CommitInfo.Details": {
             "properties": {

@@ -70,6 +70,15 @@ class Delimiter(betterproto.Enum):
     CSV = 4
 
 
+class RepoPageOrdering(betterproto.Enum):
+    PROJECT_REPO = 0
+
+
+class GetFileSetRequestFileSetType(betterproto.Enum):
+    TOTAL = 0
+    DIFF = 1
+
+
 class SqlDatabaseEgressFileFormatType(betterproto.Enum):
     UNKNOWN = 0
     CSV = 1
@@ -85,8 +94,46 @@ class Repo(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class RepoPicker(betterproto.Message):
+    """
+    Repo defines mutually exclusive pickers that resolve to a single
+    repository. Currently, the only way to pick a repo is by composing a repo
+    name and type with a project. If the type is omitted, the 'user' type will
+    be used as a default. Picker messages should only be used as request
+    parameters.
+    """
+
+    name: "RepoPickerRepoName" = betterproto.message_field(1, group="picker")
+
+
+@dataclass(eq=False, repr=False)
+class RepoPickerRepoName(betterproto.Message):
+    project: "ProjectPicker" = betterproto.message_field(1)
+    name: str = betterproto.string_field(2)
+    type: str = betterproto.string_field(3)
+
+
+@dataclass(eq=False, repr=False)
 class Branch(betterproto.Message):
     repo: "Repo" = betterproto.message_field(1)
+    name: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class BranchPicker(betterproto.Message):
+    """
+    BranchPicker defines mutually exclusive pickers that resolve to a single
+    branch. Currently, the only way to pick a branch is by composing a branch
+    name with a repo. Picker messages should only be used as request
+    parameters.
+    """
+
+    name: "BranchPickerBranchName" = betterproto.message_field(1, group="picker")
+
+
+@dataclass(eq=False, repr=False)
+class BranchPickerBranchName(betterproto.Message):
+    repo: "RepoPicker" = betterproto.message_field(1)
     name: str = betterproto.string_field(2)
 
 
@@ -114,6 +161,10 @@ class RepoInfo(betterproto.Message):
     """
 
     details: "RepoInfoDetails" = betterproto.message_field(7)
+    metadata: Dict[str, str] = betterproto.map_field(
+        8, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    """Metadata are user-defined key-value pairs."""
 
 
 @dataclass(eq=False, repr=False)
@@ -155,6 +206,9 @@ class BranchInfo(betterproto.Message):
     subvenance: List["Branch"] = betterproto.message_field(4)
     direct_provenance: List["Branch"] = betterproto.message_field(5)
     trigger: "Trigger" = betterproto.message_field(6)
+    metadata: Dict[str, str] = betterproto.map_field(
+        7, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
 
 
 @dataclass(eq=False, repr=False)
@@ -219,8 +273,48 @@ class Commit(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class CommitPicker(betterproto.Message):
+    """
+    CommitPicker defines mutually exclusive pickers that resolve to a single
+    commit. Commits can be picked relatively from some other commit like a
+    parent or start of branch. Alternatively, they can be picked via their
+    global Id, which is composed of a repo picker and an id. Picker messages
+    should only be used as request parameters.
+    """
+
+    branch_head: "BranchPicker" = betterproto.message_field(1, group="picker")
+    id: "CommitPickerCommitByGlobalId" = betterproto.message_field(2, group="picker")
+    ancestor: "CommitPickerAncestorOf" = betterproto.message_field(3, group="picker")
+    branch_root: "CommitPickerBranchRoot" = betterproto.message_field(4, group="picker")
+
+
+@dataclass(eq=False, repr=False)
+class CommitPickerCommitByGlobalId(betterproto.Message):
+    repo: "RepoPicker" = betterproto.message_field(1)
+    id: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class CommitPickerBranchRoot(betterproto.Message):
+    """This models .N syntax."""
+
+    offset: int = betterproto.uint32_field(1)
+    branch: "BranchPicker" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class CommitPickerAncestorOf(betterproto.Message):
+    """This models ^ syntax recursively."""
+
+    offset: int = betterproto.uint32_field(1)
+    start: "CommitPicker" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class CommitInfo(betterproto.Message):
-    """CommitInfo is the main data structure representing a commit in etcd"""
+    """
+    CommitInfo is the main data structure representing a commit in postgres
+    """
 
     commit: "Commit" = betterproto.message_field(1)
     origin: "CommitOrigin" = betterproto.message_field(2)
@@ -233,9 +327,14 @@ class CommitInfo(betterproto.Message):
     finishing: datetime = betterproto.message_field(7)
     finished: datetime = betterproto.message_field(8)
     direct_provenance: List["Commit"] = betterproto.message_field(13)
+    direct_subvenance: List["Commit"] = betterproto.message_field(15)
     error: str = betterproto.string_field(10)
     size_bytes_upper_bound: int = betterproto.int64_field(11)
     details: "CommitInfoDetails" = betterproto.message_field(12)
+    metadata: Dict[str, str] = betterproto.map_field(
+        14, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    """Metadata is user-applied annotations."""
 
 
 @dataclass(eq=False, repr=False)
@@ -278,6 +377,20 @@ class ProjectInfo(betterproto.Message):
     description: str = betterproto.string_field(2)
     auth_info: "AuthInfo" = betterproto.message_field(3)
     created_at: datetime = betterproto.message_field(4)
+    metadata: Dict[str, str] = betterproto.map_field(
+        5, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+
+
+@dataclass(eq=False, repr=False)
+class ProjectPicker(betterproto.Message):
+    """
+    ProjectPicker defines mutually exclusive pickers that resolve to a single
+    project. Currently, the only way to pick a project is by using a project
+    name. Picker messages should only be used as request parameters.
+    """
+
+    name: str = betterproto.string_field(1, group="picker")
 
 
 @dataclass(eq=False, repr=False)
@@ -296,15 +409,28 @@ class InspectRepoRequest(betterproto.Message):
 class ListRepoRequest(betterproto.Message):
     type: str = betterproto.string_field(1)
     """
-    type is the type of (system) repos that should be returned an empty string
-    requests all repos
+    Type is the type of (system) repo that should be returned. An empty string
+    requests all repos.
     """
 
     projects: List["Project"] = betterproto.message_field(2)
     """
-    projects filters out repos that do not belong in the list, while no
-    projects means list all repos.
+    Filters out repos whos project isn't represented. An empty list of projects
+    doesn't filter repos by their project.
     """
+
+    page: "RepoPage" = betterproto.message_field(3)
+    """
+    Specifies which page of repos should be returned. If page isn't specified,
+    a single page containing all the relevant repos is returned.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class RepoPage(betterproto.Message):
+    order: "RepoPageOrdering" = betterproto.enum_field(1)
+    page_size: int = betterproto.int64_field(2)
+    page_index: int = betterproto.int64_field(3)
 
 
 @dataclass(eq=False, repr=False)
@@ -464,6 +590,54 @@ class DropCommitRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class WalkCommitProvenanceRequest(betterproto.Message):
+    start: List["CommitPicker"] = betterproto.message_field(1)
+    """
+    if more than one picker is specified, the result stream is the
+    concatenation of the streams of each picker.
+    """
+
+    max_commits: int = betterproto.uint64_field(2)
+    max_depth: int = betterproto.uint64_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class WalkCommitSubvenanceRequest(betterproto.Message):
+    start: List["CommitPicker"] = betterproto.message_field(1)
+    """
+    if more than one picker is specified, the result stream is the
+    concatenation of the streams of each picker.
+    """
+
+    max_commits: int = betterproto.uint64_field(2)
+    max_depth: int = betterproto.uint64_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class WalkBranchProvenanceRequest(betterproto.Message):
+    start: List["BranchPicker"] = betterproto.message_field(1)
+    """
+    if more than one picker is specified, the result stream is the
+    concatenation of the streams of each picker.
+    """
+
+    max_branches: int = betterproto.uint64_field(2)
+    max_depth: int = betterproto.uint64_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class WalkBranchSubvenanceRequest(betterproto.Message):
+    start: List["BranchPicker"] = betterproto.message_field(1)
+    """
+    if more than one picker is specified, the result stream is the
+    concatenation of the streams of each picker.
+    """
+
+    max_branches: int = betterproto.uint64_field(2)
+    max_depth: int = betterproto.uint64_field(3)
+
+
+@dataclass(eq=False, repr=False)
 class DropCommitResponse(betterproto.Message):
     pass
 
@@ -518,6 +692,17 @@ class CreateProjectRequest(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class InspectProjectRequest(betterproto.Message):
     project: "Project" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class InspectProjectV2Request(betterproto.Message):
+    project: "Project" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class InspectProjectV2Response(betterproto.Message):
+    info: "ProjectInfo" = betterproto.message_field(1)
+    defaults_json: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -671,6 +856,7 @@ class CreateFileSetResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class GetFileSetRequest(betterproto.Message):
     commit: "Commit" = betterproto.message_field(1)
+    type: "GetFileSetRequestFileSetType" = betterproto.enum_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -694,7 +880,15 @@ class ComposeFileSetRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ShardFileSetRequest(betterproto.Message):
+    """
+    If both num_files and size_bytes are set, shards are created based on
+    whichever threshold is surpassed first. If a shard configuration field
+    (num_files, size_bytes) is unset, the storage's default value is used.
+    """
+
     file_set_id: str = betterproto.string_field(1)
+    num_files: int = betterproto.int64_field(2)
+    size_bytes: int = betterproto.int64_field(3)
 
 
 @dataclass(eq=False, repr=False)
@@ -806,7 +1000,25 @@ class EgressResponseSqlDatabaseResult(betterproto.Message):
     )
 
 
+@dataclass(eq=False, repr=False)
+class ReposSummaryRequest(betterproto.Message):
+    projects: List["ProjectPicker"] = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class ReposSummary(betterproto.Message):
+    project: "Project" = betterproto.message_field(1)
+    user_repo_count: int = betterproto.int64_field(2)
+    size_bytes: int = betterproto.int64_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class ReposSummaryResponse(betterproto.Message):
+    summaries: List["ReposSummary"] = betterproto.message_field(1)
+
+
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_create_repo = channel.unary_unary(
             "/pfs_v2.API/CreateRepo",
@@ -898,6 +1110,16 @@ class ApiStub:
             request_serializer=FindCommitsRequest.SerializeToString,
             response_deserializer=FindCommitsResponse.FromString,
         )
+        self.__rpc_walk_commit_provenance = channel.unary_stream(
+            "/pfs_v2.API/WalkCommitProvenance",
+            request_serializer=WalkCommitProvenanceRequest.SerializeToString,
+            response_deserializer=CommitInfo.FromString,
+        )
+        self.__rpc_walk_commit_subvenance = channel.unary_stream(
+            "/pfs_v2.API/WalkCommitSubvenance",
+            request_serializer=WalkCommitSubvenanceRequest.SerializeToString,
+            response_deserializer=CommitInfo.FromString,
+        )
         self.__rpc_create_branch = channel.unary_unary(
             "/pfs_v2.API/CreateBranch",
             request_serializer=CreateBranchRequest.SerializeToString,
@@ -917,6 +1139,16 @@ class ApiStub:
             "/pfs_v2.API/DeleteBranch",
             request_serializer=DeleteBranchRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+        )
+        self.__rpc_walk_branch_provenance = channel.unary_stream(
+            "/pfs_v2.API/WalkBranchProvenance",
+            request_serializer=WalkBranchProvenanceRequest.SerializeToString,
+            response_deserializer=BranchInfo.FromString,
+        )
+        self.__rpc_walk_branch_subvenance = channel.unary_stream(
+            "/pfs_v2.API/WalkBranchSubvenance",
+            request_serializer=WalkBranchSubvenanceRequest.SerializeToString,
+            response_deserializer=BranchInfo.FromString,
         )
         self.__rpc_modify_file = channel.stream_unary(
             "/pfs_v2.API/ModifyFile",
@@ -1043,6 +1275,11 @@ class ApiStub:
             request_serializer=InspectProjectRequest.SerializeToString,
             response_deserializer=ProjectInfo.FromString,
         )
+        self.__rpc_inspect_project_v2 = channel.unary_unary(
+            "/pfs_v2.API/InspectProjectV2",
+            request_serializer=InspectProjectV2Request.SerializeToString,
+            response_deserializer=InspectProjectV2Response.FromString,
+        )
         self.__rpc_list_project = channel.unary_stream(
             "/pfs_v2.API/ListProject",
             request_serializer=ListProjectRequest.SerializeToString,
@@ -1053,10 +1290,16 @@ class ApiStub:
             request_serializer=DeleteProjectRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
         )
+        self.__rpc_repos_summary = channel.unary_unary(
+            "/pfs_v2.API/ReposSummary",
+            request_serializer=ReposSummaryRequest.SerializeToString,
+            response_deserializer=ReposSummaryResponse.FromString,
+        )
 
     def create_repo(
         self, *, repo: "Repo" = None, description: str = "", update: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = CreateRepoRequest()
         if repo is not None:
             request.repo = repo
@@ -1066,6 +1309,7 @@ class ApiStub:
         return self.__rpc_create_repo(request)
 
     def inspect_repo(self, *, repo: "Repo" = None) -> "RepoInfo":
+
         request = InspectRepoRequest()
         if repo is not None:
             request.repo = repo
@@ -1073,7 +1317,11 @@ class ApiStub:
         return self.__rpc_inspect_repo(request)
 
     def list_repo(
-        self, *, type: str = "", projects: Optional[List["Project"]] = None
+        self,
+        *,
+        type: str = "",
+        projects: Optional[List["Project"]] = None,
+        page: "RepoPage" = None
     ) -> Iterator["RepoInfo"]:
         projects = projects or []
 
@@ -1081,6 +1329,8 @@ class ApiStub:
         request.type = type
         if projects is not None:
             request.projects = projects
+        if page is not None:
+            request.page = page
 
         for response in self.__rpc_list_repo(request):
             yield response
@@ -1088,6 +1338,7 @@ class ApiStub:
     def delete_repo(
         self, *, repo: "Repo" = None, force: bool = False
     ) -> "DeleteRepoResponse":
+
         request = DeleteRepoRequest()
         if repo is not None:
             request.repo = repo
@@ -1115,6 +1366,7 @@ class ApiStub:
     def start_commit(
         self, *, parent: "Commit" = None, description: str = "", branch: "Branch" = None
     ) -> "Commit":
+
         request = StartCommitRequest()
         if parent is not None:
             request.parent = parent
@@ -1132,6 +1384,7 @@ class ApiStub:
         error: str = "",
         force: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = FinishCommitRequest()
         if commit is not None:
             request.commit = commit
@@ -1144,6 +1397,7 @@ class ApiStub:
     def clear_commit(
         self, *, commit: "Commit" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = ClearCommitRequest()
         if commit is not None:
             request.commit = commit
@@ -1153,6 +1407,7 @@ class ApiStub:
     def inspect_commit(
         self, *, commit: "Commit" = None, wait: "CommitState" = None
     ) -> "CommitInfo":
+
         request = InspectCommitRequest()
         if commit is not None:
             request.commit = commit
@@ -1172,6 +1427,7 @@ class ApiStub:
         origin_kind: "OriginKind" = None,
         started_time: datetime = None
     ) -> Iterator["CommitInfo"]:
+
         request = ListCommitRequest()
         if repo is not None:
             request.repo = repo
@@ -1199,6 +1455,7 @@ class ApiStub:
         all: bool = False,
         origin_kind: "OriginKind" = None
     ) -> Iterator["CommitInfo"]:
+
         request = SubscribeCommitRequest()
         if repo is not None:
             request.repo = repo
@@ -1215,6 +1472,7 @@ class ApiStub:
     def squash_commit(
         self, *, commit: "Commit" = None, recursive: bool = False
     ) -> "SquashCommitResponse":
+
         request = SquashCommitRequest()
         if commit is not None:
             request.commit = commit
@@ -1225,6 +1483,7 @@ class ApiStub:
     def drop_commit(
         self, *, commit: "Commit" = None, recursive: bool = False
     ) -> "DropCommitResponse":
+
         request = DropCommitRequest()
         if commit is not None:
             request.commit = commit
@@ -1235,6 +1494,7 @@ class ApiStub:
     def inspect_commit_set(
         self, *, commit_set: "CommitSet" = None, wait: bool = False
     ) -> Iterator["CommitInfo"]:
+
         request = InspectCommitSetRequest()
         if commit_set is not None:
             request.commit_set = commit_set
@@ -1246,6 +1506,7 @@ class ApiStub:
     def list_commit_set(
         self, *, project: "Project" = None
     ) -> Iterator["CommitSetInfo"]:
+
         request = ListCommitSetRequest()
         if project is not None:
             request.project = project
@@ -1256,6 +1517,7 @@ class ApiStub:
     def squash_commit_set(
         self, *, commit_set: "CommitSet" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = SquashCommitSetRequest()
         if commit_set is not None:
             request.commit_set = commit_set
@@ -1265,6 +1527,7 @@ class ApiStub:
     def drop_commit_set(
         self, *, commit_set: "CommitSet" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DropCommitSetRequest()
         if commit_set is not None:
             request.commit_set = commit_set
@@ -1274,6 +1537,7 @@ class ApiStub:
     def find_commits(
         self, *, start: "Commit" = None, file_path: str = "", limit: int = 0
     ) -> Iterator["FindCommitsResponse"]:
+
         request = FindCommitsRequest()
         if start is not None:
             request.start = start
@@ -1281,6 +1545,42 @@ class ApiStub:
         request.limit = limit
 
         for response in self.__rpc_find_commits(request):
+            yield response
+
+    def walk_commit_provenance(
+        self,
+        *,
+        start: Optional[List["CommitPicker"]] = None,
+        max_commits: int = 0,
+        max_depth: int = 0
+    ) -> Iterator["CommitInfo"]:
+        start = start or []
+
+        request = WalkCommitProvenanceRequest()
+        if start is not None:
+            request.start = start
+        request.max_commits = max_commits
+        request.max_depth = max_depth
+
+        for response in self.__rpc_walk_commit_provenance(request):
+            yield response
+
+    def walk_commit_subvenance(
+        self,
+        *,
+        start: Optional[List["CommitPicker"]] = None,
+        max_commits: int = 0,
+        max_depth: int = 0
+    ) -> Iterator["CommitInfo"]:
+        start = start or []
+
+        request = WalkCommitSubvenanceRequest()
+        if start is not None:
+            request.start = start
+        request.max_commits = max_commits
+        request.max_depth = max_depth
+
+        for response in self.__rpc_walk_commit_subvenance(request):
             yield response
 
     def create_branch(
@@ -1308,6 +1608,7 @@ class ApiStub:
         return self.__rpc_create_branch(request)
 
     def inspect_branch(self, *, branch: "Branch" = None) -> "BranchInfo":
+
         request = InspectBranchRequest()
         if branch is not None:
             request.branch = branch
@@ -1317,6 +1618,7 @@ class ApiStub:
     def list_branch(
         self, *, repo: "Repo" = None, reverse: bool = False
     ) -> Iterator["BranchInfo"]:
+
         request = ListBranchRequest()
         if repo is not None:
             request.repo = repo
@@ -1328,6 +1630,7 @@ class ApiStub:
     def delete_branch(
         self, *, branch: "Branch" = None, force: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteBranchRequest()
         if branch is not None:
             request.branch = branch
@@ -1335,12 +1638,49 @@ class ApiStub:
 
         return self.__rpc_delete_branch(request)
 
+    def walk_branch_provenance(
+        self,
+        *,
+        start: Optional[List["BranchPicker"]] = None,
+        max_branches: int = 0,
+        max_depth: int = 0
+    ) -> Iterator["BranchInfo"]:
+        start = start or []
+
+        request = WalkBranchProvenanceRequest()
+        if start is not None:
+            request.start = start
+        request.max_branches = max_branches
+        request.max_depth = max_depth
+
+        for response in self.__rpc_walk_branch_provenance(request):
+            yield response
+
+    def walk_branch_subvenance(
+        self,
+        *,
+        start: Optional[List["BranchPicker"]] = None,
+        max_branches: int = 0,
+        max_depth: int = 0
+    ) -> Iterator["BranchInfo"]:
+        start = start or []
+
+        request = WalkBranchSubvenanceRequest()
+        if start is not None:
+            request.start = start
+        request.max_branches = max_branches
+        request.max_depth = max_depth
+
+        for response in self.__rpc_walk_branch_subvenance(request):
+            yield response
+
     def modify_file(
         self,
         request_iterator: Union[
             AsyncIterable["ModifyFileRequest"], Iterable["ModifyFileRequest"]
         ],
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         return self.__rpc_modify_file(request_iterator)
 
     def get_file(
@@ -1351,6 +1691,7 @@ class ApiStub:
         offset: int = 0,
         path_range: "PathRange" = None
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = GetFileRequest()
         if file is not None:
             request.file = file
@@ -1370,6 +1711,7 @@ class ApiStub:
         offset: int = 0,
         path_range: "PathRange" = None
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = GetFileRequest()
         if file is not None:
             request.file = file
@@ -1382,6 +1724,7 @@ class ApiStub:
             yield response
 
     def inspect_file(self, *, file: "File" = None) -> "FileInfo":
+
         request = InspectFileRequest()
         if file is not None:
             request.file = file
@@ -1396,6 +1739,7 @@ class ApiStub:
         number: int = 0,
         reverse: bool = False
     ) -> Iterator["FileInfo"]:
+
         request = ListFileRequest()
         if file is not None:
             request.file = file
@@ -1415,6 +1759,7 @@ class ApiStub:
         number: int = 0,
         reverse: bool = False
     ) -> Iterator["FileInfo"]:
+
         request = WalkFileRequest()
         if file is not None:
             request.file = file
@@ -1433,6 +1778,7 @@ class ApiStub:
         pattern: str = "",
         path_range: "PathRange" = None
     ) -> Iterator["FileInfo"]:
+
         request = GlobFileRequest()
         if commit is not None:
             request.commit = commit
@@ -1446,6 +1792,7 @@ class ApiStub:
     def diff_file(
         self, *, new_file: "File" = None, old_file: "File" = None, shallow: bool = False
     ) -> Iterator["DiffFileResponse"]:
+
         request = DiffFileRequest()
         if new_file is not None:
             request.new_file = new_file
@@ -1457,11 +1804,13 @@ class ApiStub:
             yield response
 
     def activate_auth(self) -> "ActivateAuthResponse":
+
         request = ActivateAuthRequest()
 
         return self.__rpc_activate_auth(request)
 
     def delete_all(self) -> "betterproto_lib_google_protobuf.Empty":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_delete_all(request)
@@ -1473,6 +1822,7 @@ class ApiStub:
         zombie_target: "Commit" = None,
         zombie_all: bool = False
     ) -> Iterator["FsckResponse"]:
+
         request = FsckRequest()
         request.fix = fix
         if zombie_target is not None:
@@ -1488,18 +1838,24 @@ class ApiStub:
             AsyncIterable["ModifyFileRequest"], Iterable["ModifyFileRequest"]
         ],
     ) -> "CreateFileSetResponse":
+
         return self.__rpc_create_file_set(request_iterator)
 
-    def get_file_set(self, *, commit: "Commit" = None) -> "CreateFileSetResponse":
+    def get_file_set(
+        self, *, commit: "Commit" = None, type: "GetFileSetRequestFileSetType" = None
+    ) -> "CreateFileSetResponse":
+
         request = GetFileSetRequest()
         if commit is not None:
             request.commit = commit
+        request.type = type
 
         return self.__rpc_get_file_set(request)
 
     def add_file_set(
         self, *, commit: "Commit" = None, file_set_id: str = ""
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = AddFileSetRequest()
         if commit is not None:
             request.commit = commit
@@ -1510,6 +1866,7 @@ class ApiStub:
     def renew_file_set(
         self, *, file_set_id: str = "", ttl_seconds: int = 0
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = RenewFileSetRequest()
         request.file_set_id = file_set_id
         request.ttl_seconds = ttl_seconds
@@ -1532,9 +1889,14 @@ class ApiStub:
 
         return self.__rpc_compose_file_set(request)
 
-    def shard_file_set(self, *, file_set_id: str = "") -> "ShardFileSetResponse":
+    def shard_file_set(
+        self, *, file_set_id: str = "", num_files: int = 0, size_bytes: int = 0
+    ) -> "ShardFileSetResponse":
+
         request = ShardFileSetRequest()
         request.file_set_id = file_set_id
+        request.num_files = num_files
+        request.size_bytes = size_bytes
 
         return self.__rpc_shard_file_set(request)
 
@@ -1545,6 +1907,7 @@ class ApiStub:
         chunk_begin: bytes = b"",
         chunk_end: bytes = b""
     ) -> "CheckStorageResponse":
+
         request = CheckStorageRequest()
         request.read_chunk_data = read_chunk_data
         request.chunk_begin = chunk_begin
@@ -1572,6 +1935,7 @@ class ApiStub:
         return self.__rpc_put_cache(request)
 
     def get_cache(self, *, key: str = "") -> "GetCacheResponse":
+
         request = GetCacheRequest()
         request.key = key
 
@@ -1580,12 +1944,14 @@ class ApiStub:
     def clear_cache(
         self, *, tag_prefix: str = ""
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = ClearCacheRequest()
         request.tag_prefix = tag_prefix
 
         return self.__rpc_clear_cache(request)
 
     def list_task(self, *, group: "Group" = None) -> Iterator["_taskapi__.TaskInfo"]:
+
         request = _taskapi__.ListTaskRequest()
         if group is not None:
             request.group = group
@@ -1600,6 +1966,7 @@ class ApiStub:
         object_storage: "ObjectStorageEgress" = None,
         sql_database: "SqlDatabaseEgress" = None
     ) -> "EgressResponse":
+
         request = EgressRequest()
         if commit is not None:
             request.commit = commit
@@ -1613,6 +1980,7 @@ class ApiStub:
     def create_project(
         self, *, project: "Project" = None, description: str = "", update: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = CreateProjectRequest()
         if project is not None:
             request.project = project
@@ -1622,13 +1990,25 @@ class ApiStub:
         return self.__rpc_create_project(request)
 
     def inspect_project(self, *, project: "Project" = None) -> "ProjectInfo":
+
         request = InspectProjectRequest()
         if project is not None:
             request.project = project
 
         return self.__rpc_inspect_project(request)
 
+    def inspect_project_v2(
+        self, *, project: "Project" = None
+    ) -> "InspectProjectV2Response":
+
+        request = InspectProjectV2Request()
+        if project is not None:
+            request.project = project
+
+        return self.__rpc_inspect_project_v2(request)
+
     def list_project(self) -> Iterator["ProjectInfo"]:
+
         request = ListProjectRequest()
 
         for response in self.__rpc_list_project(request):
@@ -1637,6 +2017,7 @@ class ApiStub:
     def delete_project(
         self, *, project: "Project" = None, force: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteProjectRequest()
         if project is not None:
             request.project = project
@@ -1644,694 +2025,13 @@ class ApiStub:
 
         return self.__rpc_delete_project(request)
 
+    def repos_summary(
+        self, *, projects: Optional[List["ProjectPicker"]] = None
+    ) -> "ReposSummaryResponse":
+        projects = projects or []
 
-class ApiBase:
-    def create_repo(
-        self,
-        repo: "Repo",
-        description: str,
-        update: bool,
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
+        request = ReposSummaryRequest()
+        if projects is not None:
+            request.projects = projects
 
-    def inspect_repo(self, repo: "Repo", context: "grpc.ServicerContext") -> "RepoInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_repo(
-        self,
-        type: str,
-        projects: Optional[List["Project"]],
-        context: "grpc.ServicerContext",
-    ) -> Iterator["RepoInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_repo(
-        self, repo: "Repo", force: bool, context: "grpc.ServicerContext"
-    ) -> "DeleteRepoResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_repos(
-        self,
-        projects: Optional[List["Project"]],
-        force: bool,
-        all: bool,
-        context: "grpc.ServicerContext",
-    ) -> "DeleteReposResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def start_commit(
-        self,
-        parent: "Commit",
-        description: str,
-        branch: "Branch",
-        context: "grpc.ServicerContext",
-    ) -> "Commit":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def finish_commit(
-        self,
-        commit: "Commit",
-        description: str,
-        error: str,
-        force: bool,
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def clear_commit(
-        self, commit: "Commit", context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_commit(
-        self, commit: "Commit", wait: "CommitState", context: "grpc.ServicerContext"
-    ) -> "CommitInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_commit(
-        self,
-        repo: "Repo",
-        from_: "Commit",
-        to: "Commit",
-        number: int,
-        reverse: bool,
-        all: bool,
-        origin_kind: "OriginKind",
-        started_time: datetime,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["CommitInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def subscribe_commit(
-        self,
-        repo: "Repo",
-        branch: str,
-        from_: "Commit",
-        state: "CommitState",
-        all: bool,
-        origin_kind: "OriginKind",
-        context: "grpc.ServicerContext",
-    ) -> Iterator["CommitInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def squash_commit(
-        self, commit: "Commit", recursive: bool, context: "grpc.ServicerContext"
-    ) -> "SquashCommitResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def drop_commit(
-        self, commit: "Commit", recursive: bool, context: "grpc.ServicerContext"
-    ) -> "DropCommitResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_commit_set(
-        self, commit_set: "CommitSet", wait: bool, context: "grpc.ServicerContext"
-    ) -> Iterator["CommitInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_commit_set(
-        self, project: "Project", context: "grpc.ServicerContext"
-    ) -> Iterator["CommitSetInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def squash_commit_set(
-        self, commit_set: "CommitSet", context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def drop_commit_set(
-        self, commit_set: "CommitSet", context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def find_commits(
-        self,
-        start: "Commit",
-        file_path: str,
-        limit: int,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["FindCommitsResponse"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def create_branch(
-        self,
-        head: "Commit",
-        branch: "Branch",
-        provenance: Optional[List["Branch"]],
-        trigger: "Trigger",
-        new_commit_set: bool,
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_branch(
-        self, branch: "Branch", context: "grpc.ServicerContext"
-    ) -> "BranchInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_branch(
-        self, repo: "Repo", reverse: bool, context: "grpc.ServicerContext"
-    ) -> Iterator["BranchInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_branch(
-        self, branch: "Branch", force: bool, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def modify_file(
-        self,
-        request_iterator: Iterator["ModifyFileRequest"],
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_file(
-        self,
-        file: "File",
-        url: str,
-        offset: int,
-        path_range: "PathRange",
-        context: "grpc.ServicerContext",
-    ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_file_tar(
-        self,
-        file: "File",
-        url: str,
-        offset: int,
-        path_range: "PathRange",
-        context: "grpc.ServicerContext",
-    ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_file(self, file: "File", context: "grpc.ServicerContext") -> "FileInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_file(
-        self,
-        file: "File",
-        pagination_marker: "File",
-        number: int,
-        reverse: bool,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["FileInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def walk_file(
-        self,
-        file: "File",
-        pagination_marker: "File",
-        number: int,
-        reverse: bool,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["FileInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def glob_file(
-        self,
-        commit: "Commit",
-        pattern: str,
-        path_range: "PathRange",
-        context: "grpc.ServicerContext",
-    ) -> Iterator["FileInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def diff_file(
-        self,
-        new_file: "File",
-        old_file: "File",
-        shallow: bool,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["DiffFileResponse"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def activate_auth(self, context: "grpc.ServicerContext") -> "ActivateAuthResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_all(
-        self, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def fsck(
-        self,
-        fix: bool,
-        zombie_target: "Commit",
-        zombie_all: bool,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["FsckResponse"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def create_file_set(
-        self,
-        request_iterator: Iterator["ModifyFileRequest"],
-        context: "grpc.ServicerContext",
-    ) -> "CreateFileSetResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_file_set(
-        self, commit: "Commit", context: "grpc.ServicerContext"
-    ) -> "CreateFileSetResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def add_file_set(
-        self, commit: "Commit", file_set_id: str, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def renew_file_set(
-        self, file_set_id: str, ttl_seconds: int, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def compose_file_set(
-        self,
-        file_set_ids: Optional[List[str]],
-        ttl_seconds: int,
-        compact: bool,
-        context: "grpc.ServicerContext",
-    ) -> "CreateFileSetResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def shard_file_set(
-        self, file_set_id: str, context: "grpc.ServicerContext"
-    ) -> "ShardFileSetResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def check_storage(
-        self,
-        read_chunk_data: bool,
-        chunk_begin: bytes,
-        chunk_end: bytes,
-        context: "grpc.ServicerContext",
-    ) -> "CheckStorageResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def put_cache(
-        self,
-        key: str,
-        value: "betterproto_lib_google_protobuf.Any",
-        file_set_ids: Optional[List[str]],
-        tag: str,
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_cache(
-        self, key: str, context: "grpc.ServicerContext"
-    ) -> "GetCacheResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def clear_cache(
-        self, tag_prefix: str, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_task(
-        self, group: "Group", context: "grpc.ServicerContext"
-    ) -> Iterator["_taskapi__.TaskInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def egress(
-        self,
-        commit: "Commit",
-        object_storage: "ObjectStorageEgress",
-        sql_database: "SqlDatabaseEgress",
-        context: "grpc.ServicerContext",
-    ) -> "EgressResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def create_project(
-        self,
-        project: "Project",
-        description: str,
-        update: bool,
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_project(
-        self, project: "Project", context: "grpc.ServicerContext"
-    ) -> "ProjectInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_project(self, context: "grpc.ServicerContext") -> Iterator["ProjectInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_project(
-        self, project: "Project", force: bool, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "pfs_v2.API"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "CreateRepo": grpc.unary_unary_rpc_method_handler(
-                self.create_repo,
-                request_deserializer=CreateRepoRequest.FromString,
-                response_serializer=CreateRepoRequest.SerializeToString,
-            ),
-            "InspectRepo": grpc.unary_unary_rpc_method_handler(
-                self.inspect_repo,
-                request_deserializer=InspectRepoRequest.FromString,
-                response_serializer=InspectRepoRequest.SerializeToString,
-            ),
-            "ListRepo": grpc.unary_stream_rpc_method_handler(
-                self.list_repo,
-                request_deserializer=ListRepoRequest.FromString,
-                response_serializer=ListRepoRequest.SerializeToString,
-            ),
-            "DeleteRepo": grpc.unary_unary_rpc_method_handler(
-                self.delete_repo,
-                request_deserializer=DeleteRepoRequest.FromString,
-                response_serializer=DeleteRepoRequest.SerializeToString,
-            ),
-            "DeleteRepos": grpc.unary_unary_rpc_method_handler(
-                self.delete_repos,
-                request_deserializer=DeleteReposRequest.FromString,
-                response_serializer=DeleteReposRequest.SerializeToString,
-            ),
-            "StartCommit": grpc.unary_unary_rpc_method_handler(
-                self.start_commit,
-                request_deserializer=StartCommitRequest.FromString,
-                response_serializer=StartCommitRequest.SerializeToString,
-            ),
-            "FinishCommit": grpc.unary_unary_rpc_method_handler(
-                self.finish_commit,
-                request_deserializer=FinishCommitRequest.FromString,
-                response_serializer=FinishCommitRequest.SerializeToString,
-            ),
-            "ClearCommit": grpc.unary_unary_rpc_method_handler(
-                self.clear_commit,
-                request_deserializer=ClearCommitRequest.FromString,
-                response_serializer=ClearCommitRequest.SerializeToString,
-            ),
-            "InspectCommit": grpc.unary_unary_rpc_method_handler(
-                self.inspect_commit,
-                request_deserializer=InspectCommitRequest.FromString,
-                response_serializer=InspectCommitRequest.SerializeToString,
-            ),
-            "ListCommit": grpc.unary_stream_rpc_method_handler(
-                self.list_commit,
-                request_deserializer=ListCommitRequest.FromString,
-                response_serializer=ListCommitRequest.SerializeToString,
-            ),
-            "SubscribeCommit": grpc.unary_stream_rpc_method_handler(
-                self.subscribe_commit,
-                request_deserializer=SubscribeCommitRequest.FromString,
-                response_serializer=SubscribeCommitRequest.SerializeToString,
-            ),
-            "SquashCommit": grpc.unary_unary_rpc_method_handler(
-                self.squash_commit,
-                request_deserializer=SquashCommitRequest.FromString,
-                response_serializer=SquashCommitRequest.SerializeToString,
-            ),
-            "DropCommit": grpc.unary_unary_rpc_method_handler(
-                self.drop_commit,
-                request_deserializer=DropCommitRequest.FromString,
-                response_serializer=DropCommitRequest.SerializeToString,
-            ),
-            "InspectCommitSet": grpc.unary_stream_rpc_method_handler(
-                self.inspect_commit_set,
-                request_deserializer=InspectCommitSetRequest.FromString,
-                response_serializer=InspectCommitSetRequest.SerializeToString,
-            ),
-            "ListCommitSet": grpc.unary_stream_rpc_method_handler(
-                self.list_commit_set,
-                request_deserializer=ListCommitSetRequest.FromString,
-                response_serializer=ListCommitSetRequest.SerializeToString,
-            ),
-            "SquashCommitSet": grpc.unary_unary_rpc_method_handler(
-                self.squash_commit_set,
-                request_deserializer=SquashCommitSetRequest.FromString,
-                response_serializer=SquashCommitSetRequest.SerializeToString,
-            ),
-            "DropCommitSet": grpc.unary_unary_rpc_method_handler(
-                self.drop_commit_set,
-                request_deserializer=DropCommitSetRequest.FromString,
-                response_serializer=DropCommitSetRequest.SerializeToString,
-            ),
-            "FindCommits": grpc.unary_stream_rpc_method_handler(
-                self.find_commits,
-                request_deserializer=FindCommitsRequest.FromString,
-                response_serializer=FindCommitsRequest.SerializeToString,
-            ),
-            "CreateBranch": grpc.unary_unary_rpc_method_handler(
-                self.create_branch,
-                request_deserializer=CreateBranchRequest.FromString,
-                response_serializer=CreateBranchRequest.SerializeToString,
-            ),
-            "InspectBranch": grpc.unary_unary_rpc_method_handler(
-                self.inspect_branch,
-                request_deserializer=InspectBranchRequest.FromString,
-                response_serializer=InspectBranchRequest.SerializeToString,
-            ),
-            "ListBranch": grpc.unary_stream_rpc_method_handler(
-                self.list_branch,
-                request_deserializer=ListBranchRequest.FromString,
-                response_serializer=ListBranchRequest.SerializeToString,
-            ),
-            "DeleteBranch": grpc.unary_unary_rpc_method_handler(
-                self.delete_branch,
-                request_deserializer=DeleteBranchRequest.FromString,
-                response_serializer=DeleteBranchRequest.SerializeToString,
-            ),
-            "ModifyFile": grpc.stream_unary_rpc_method_handler(
-                self.modify_file,
-                request_deserializer=ModifyFileRequest.FromString,
-                response_serializer=ModifyFileRequest.SerializeToString,
-            ),
-            "GetFile": grpc.unary_stream_rpc_method_handler(
-                self.get_file,
-                request_deserializer=GetFileRequest.FromString,
-                response_serializer=GetFileRequest.SerializeToString,
-            ),
-            "GetFileTAR": grpc.unary_stream_rpc_method_handler(
-                self.get_file_tar,
-                request_deserializer=GetFileRequest.FromString,
-                response_serializer=GetFileRequest.SerializeToString,
-            ),
-            "InspectFile": grpc.unary_unary_rpc_method_handler(
-                self.inspect_file,
-                request_deserializer=InspectFileRequest.FromString,
-                response_serializer=InspectFileRequest.SerializeToString,
-            ),
-            "ListFile": grpc.unary_stream_rpc_method_handler(
-                self.list_file,
-                request_deserializer=ListFileRequest.FromString,
-                response_serializer=ListFileRequest.SerializeToString,
-            ),
-            "WalkFile": grpc.unary_stream_rpc_method_handler(
-                self.walk_file,
-                request_deserializer=WalkFileRequest.FromString,
-                response_serializer=WalkFileRequest.SerializeToString,
-            ),
-            "GlobFile": grpc.unary_stream_rpc_method_handler(
-                self.glob_file,
-                request_deserializer=GlobFileRequest.FromString,
-                response_serializer=GlobFileRequest.SerializeToString,
-            ),
-            "DiffFile": grpc.unary_stream_rpc_method_handler(
-                self.diff_file,
-                request_deserializer=DiffFileRequest.FromString,
-                response_serializer=DiffFileRequest.SerializeToString,
-            ),
-            "ActivateAuth": grpc.unary_unary_rpc_method_handler(
-                self.activate_auth,
-                request_deserializer=ActivateAuthRequest.FromString,
-                response_serializer=ActivateAuthRequest.SerializeToString,
-            ),
-            "DeleteAll": grpc.unary_unary_rpc_method_handler(
-                self.delete_all,
-                request_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
-                response_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
-            ),
-            "Fsck": grpc.unary_stream_rpc_method_handler(
-                self.fsck,
-                request_deserializer=FsckRequest.FromString,
-                response_serializer=FsckRequest.SerializeToString,
-            ),
-            "CreateFileSet": grpc.stream_unary_rpc_method_handler(
-                self.create_file_set,
-                request_deserializer=ModifyFileRequest.FromString,
-                response_serializer=ModifyFileRequest.SerializeToString,
-            ),
-            "GetFileSet": grpc.unary_unary_rpc_method_handler(
-                self.get_file_set,
-                request_deserializer=GetFileSetRequest.FromString,
-                response_serializer=GetFileSetRequest.SerializeToString,
-            ),
-            "AddFileSet": grpc.unary_unary_rpc_method_handler(
-                self.add_file_set,
-                request_deserializer=AddFileSetRequest.FromString,
-                response_serializer=AddFileSetRequest.SerializeToString,
-            ),
-            "RenewFileSet": grpc.unary_unary_rpc_method_handler(
-                self.renew_file_set,
-                request_deserializer=RenewFileSetRequest.FromString,
-                response_serializer=RenewFileSetRequest.SerializeToString,
-            ),
-            "ComposeFileSet": grpc.unary_unary_rpc_method_handler(
-                self.compose_file_set,
-                request_deserializer=ComposeFileSetRequest.FromString,
-                response_serializer=ComposeFileSetRequest.SerializeToString,
-            ),
-            "ShardFileSet": grpc.unary_unary_rpc_method_handler(
-                self.shard_file_set,
-                request_deserializer=ShardFileSetRequest.FromString,
-                response_serializer=ShardFileSetRequest.SerializeToString,
-            ),
-            "CheckStorage": grpc.unary_unary_rpc_method_handler(
-                self.check_storage,
-                request_deserializer=CheckStorageRequest.FromString,
-                response_serializer=CheckStorageRequest.SerializeToString,
-            ),
-            "PutCache": grpc.unary_unary_rpc_method_handler(
-                self.put_cache,
-                request_deserializer=PutCacheRequest.FromString,
-                response_serializer=PutCacheRequest.SerializeToString,
-            ),
-            "GetCache": grpc.unary_unary_rpc_method_handler(
-                self.get_cache,
-                request_deserializer=GetCacheRequest.FromString,
-                response_serializer=GetCacheRequest.SerializeToString,
-            ),
-            "ClearCache": grpc.unary_unary_rpc_method_handler(
-                self.clear_cache,
-                request_deserializer=ClearCacheRequest.FromString,
-                response_serializer=ClearCacheRequest.SerializeToString,
-            ),
-            "ListTask": grpc.unary_stream_rpc_method_handler(
-                self.list_task,
-                request_deserializer=_taskapi__.ListTaskRequest.FromString,
-                response_serializer=_taskapi__.ListTaskRequest.SerializeToString,
-            ),
-            "Egress": grpc.unary_unary_rpc_method_handler(
-                self.egress,
-                request_deserializer=EgressRequest.FromString,
-                response_serializer=EgressRequest.SerializeToString,
-            ),
-            "CreateProject": grpc.unary_unary_rpc_method_handler(
-                self.create_project,
-                request_deserializer=CreateProjectRequest.FromString,
-                response_serializer=CreateProjectRequest.SerializeToString,
-            ),
-            "InspectProject": grpc.unary_unary_rpc_method_handler(
-                self.inspect_project,
-                request_deserializer=InspectProjectRequest.FromString,
-                response_serializer=InspectProjectRequest.SerializeToString,
-            ),
-            "ListProject": grpc.unary_stream_rpc_method_handler(
-                self.list_project,
-                request_deserializer=ListProjectRequest.FromString,
-                response_serializer=ListProjectRequest.SerializeToString,
-            ),
-            "DeleteProject": grpc.unary_unary_rpc_method_handler(
-                self.delete_project,
-                request_deserializer=DeleteProjectRequest.FromString,
-                response_serializer=DeleteProjectRequest.SerializeToString,
-            ),
-        }
+        return self.__rpc_repos_summary(request)

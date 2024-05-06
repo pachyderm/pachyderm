@@ -353,7 +353,12 @@ func TestTrafficThroughProxyTLS(t *testing.T) {
 		RootCAs: certpool,
 	}
 
-	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.WithTLS, minikubetestenv.WithCertPool(certpool), minikubetestenv.WithValueOverrides(values))
+	c, ns := minikubetestenv.AcquireCluster(t,
+		minikubetestenv.WithTLS,
+		minikubetestenv.WithCertPool(certpool),
+		minikubetestenv.WithValueOverrides(values),
+		minikubetestenv.UseNewClusterOption,
+	)
 	deployFakeConsole(t, ns)
 
 	testutil.ActivateAuthClient(t, c)

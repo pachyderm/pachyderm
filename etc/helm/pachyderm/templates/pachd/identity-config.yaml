@@ -21,7 +21,7 @@ data:
       {{- if .Values.console.enabled}}
       - {{ .Values.console.config.oauthClientID | quote }}
       {{- end }}
-      {{- if .Values.determined.enabled}}
+      {{- if and .Values.determined.oidc .Values.determined.oidc.enabled}}
       - {{ default "determined" .Values.determined.oidc.clientId }}
       {{- end }}
     {{- if .Values.console.enabled }}
@@ -30,7 +30,7 @@ data:
       redirect_uris:
       - {{ include "pachyderm.consoleRedirectURI" . | quote }}
     {{- end }}
-    {{- if .Values.determined.enabled }}
+    {{- if and .Values.determined.enabled .Values.determined.oidc .Values.determined.oidc.enabled}}
     - id: {{ default "determined" .Values.determined.oidc.clientId }}
       name: {{ default "determined" .Values.determined.oidc.clientId }}
       redirect_uris:

@@ -15,7 +15,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -33,25 +32,34 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// This test is designed to run against pachyderm in custom namespaces and with
-// auth on or off. It reads env vars into here and adjusts tests to make sure
-// our s3 gateway feature works in those contexts
+// This test was designed to run against pachyderm in custom namespaces and with
+// auth on or off.
 
-func initPachClient(t testing.TB) (*client.APIClient, string, string) {
-	c, ns := minikubetestenv.AcquireCluster(t)
-	if _, ok := os.LookupEnv("PACH_TEST_WITH_AUTH"); !ok {
+func initPachClient(t testing.TB, auth bool) (*client.APIClient, string, string) {
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.UseNewClusterOption)
+	if !auth {
 		return c, "", ns
 	}
 	c = tu.AuthenticatedPachClient(t, c, tu.UniqueString("user-"))
 	return c, c.AuthToken(), ns
 }
 
+func TestS3PipelineErrorsAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, _ := initPachClient(t, true)
+	testS3PipelineErrors(t, c)
+}
 func TestS3PipelineErrors(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _, _ := initPachClient(t)
+	c, _, _ := initPachClient(t, false)
+	testS3PipelineErrors(t, c)
+}
 
+func testS3PipelineErrors(t *testing.T, c *client.APIClient) {
 	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo1))
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo2))
@@ -201,11 +209,21 @@ func testS3Input(t *testing.T, c *client.APIClient, ns, projectName string) {
 	})
 }
 
+func TestS3InputAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, ns := initPachClient(t, true)
+	testS3InputProjects(t, c, ns)
+}
 func TestS3Input(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _, ns := initPachClient(t)
+	c, _, ns := initPachClient(t, false)
+	testS3InputProjects(t, c, ns)
+}
+func testS3InputProjects(t *testing.T, c *client.APIClient, ns string) {
 	t.Run("DefaultProject", func(t *testing.T) {
 		testS3Input(t, c, ns, pfs.DefaultProjectName)
 	})
@@ -259,7 +277,7 @@ func testS3Chain(t *testing.T, c *client.APIClient, ns, projectName string) {
 	}
 
 	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("")))
-	commitInfo, err := c.InspectCommit(projectName, dataCommit.Branch.Repo.Name, dataCommit.Branch.Name, "")
+	commitInfo, err := c.InspectCommit(projectName, dataCommit.Repo.Name, "master", "")
 	require.NoError(t, err)
 
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
@@ -271,11 +289,22 @@ func testS3Chain(t *testing.T, c *client.APIClient, ns, projectName string) {
 	}
 }
 
+func TestS3ChainAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, ns := initPachClient(t, true)
+	testS3ChainProject(t, c, ns)
+}
 func TestS3Chain(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _, ns := initPachClient(t)
+	c, _, ns := initPachClient(t, false)
+	testS3ChainProject(t, c, ns)
+}
+
+func testS3ChainProject(t *testing.T, c *client.APIClient, ns string) {
 	t.Run("DefaultProject", func(t *testing.T) {
 		testS3Chain(t, c, ns, pfs.DefaultProjectName)
 	})
@@ -286,12 +315,21 @@ func TestS3Chain(t *testing.T) {
 	})
 }
 
+func TestNamespaceInEndpointAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, ns := initPachClient(t, true)
+	testNamespaceInEndpoint(t, c, ns)
+}
 func TestNamespaceInEndpoint(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _, ns := initPachClient(t)
-
+	c, _, ns := initPachClient(t, false)
+	testNamespaceInEndpoint(t, c, ns)
+}
+func testNamespaceInEndpoint(t *testing.T, c *client.APIClient, ns string) {
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 	masterCommit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
@@ -333,6 +371,21 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineCommit, "s3_endpoint", &buf))
 	require.True(t, strings.Contains(buf.String(), "."+ns))
+}
+
+func TestS3OutputAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, ns := initPachClient(t, true)
+	testS3OutputProject(t, c, ns)
+}
+func TestS3Output(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, ns := initPachClient(t, false)
+	testS3OutputProject(t, c, ns)
 }
 
 func testS3Output(t *testing.T, c *client.APIClient, ns, projectName string) {
@@ -411,11 +464,7 @@ func testS3Output(t *testing.T, c *client.APIClient, ns, projectName string) {
 	})
 }
 
-func TestS3Output(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _, ns := initPachClient(t)
+func testS3OutputProject(t *testing.T, c *client.APIClient, ns string) {
 	t.Run("DefaultProject", func(t *testing.T) {
 		testS3Output(t, c, ns, pfs.DefaultProjectName)
 	})
@@ -424,6 +473,21 @@ func TestS3Output(t *testing.T) {
 		require.NoError(t, c.CreateProject(projectName))
 		testS3Output(t, c, ns, projectName)
 	})
+}
+
+func TestFullS3Auth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, ns := initPachClient(t, true)
+	testFullS3Project(t, c, ns)
+}
+func TestFullS3(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, ns := initPachClient(t, false)
+	testFullS3Project(t, c, ns)
 }
 
 func testFullS3(t *testing.T, c *client.APIClient, ns, projectName string) {
@@ -503,11 +567,7 @@ func testFullS3(t *testing.T, c *client.APIClient, ns, projectName string) {
 	})
 }
 
-func TestFullS3(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _, ns := initPachClient(t)
+func testFullS3Project(t *testing.T, c *client.APIClient, ns string) {
 	t.Run("DefaultProject", func(t *testing.T) {
 		testFullS3(t, c, ns, pfs.DefaultProjectName)
 	})
@@ -540,6 +600,14 @@ func TestFullS3(t *testing.T) {
 //     In pipelines that output to the sidecar S3 gateway, we cannot skip datums
 //     as we have no way to know what a single datum's output was. Part 2 confirms
 //     that no datums are ever skipped for S3-out-pipelines.
+func TestS3SkippedDatumsAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, ns := initPachClient(t, true) // There are explicit auth calls in this test so it can't run without auth
+	testS3SkippedDatumsProject(t, c, ns)
+}
+
 func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName string) {
 	// NOTE: in tests, the S3G port (not just the NodePort but the
 	// cluster-internal port) is assigned dynamically in
@@ -577,7 +645,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 
 		pipeline := tu.UniqueString("Pipeline")
 		// 'pipeline' needs access to the 'background' repo to run successfully
-		require.NoError(t, c.ModifyRepoRoleBinding(projectName, background,
+		require.NoError(t, c.ModifyRepoRoleBinding(c.Ctx(), projectName, background,
 			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
 
 		pipelineCommit := client.NewCommit(projectName, pipeline, "master", "")
@@ -636,7 +704,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.Id))
+			require.NoError(t, c.FinishCommit(projectName, background, "", bgc.Id))
 
 			//  Put new file in 'pfsin' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(client.NewCommit(projectName, pfsin, "master", ""), iS, strings.NewReader(iS)))
@@ -677,7 +745,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(bgc, "/round"))
 		require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader("10")))
-		require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.Id))
+		require.NoError(t, c.FinishCommit(projectName, background, "", bgc.Id))
 
 		//  Put new file in 's3in', which will update every datum at once and
 		//  trigger a job that, correspondingly, updates the 'background' part of
@@ -686,7 +754,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(s3Commit, "/file"))
 		require.NoError(t, c.PutFile(s3Commit, "/file", strings.NewReader("bar")))
-		require.NoError(t, c.FinishCommit(projectName, s3in, s3c.Branch.Name, s3c.Id))
+		require.NoError(t, c.FinishCommit(projectName, s3in, "", s3c.Id))
 
 		_, err = c.WaitCommit(projectName, pipeline, "master", "")
 		require.NoError(t, err)
@@ -752,7 +820,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 
 		pipeline := tu.UniqueString("Pipeline")
 		// 'pipeline' needs access to the 'background' repo to run successfully
-		require.NoError(t, c.ModifyRepoRoleBinding(projectName, background,
+		require.NoError(t, c.ModifyRepoRoleBinding(c.Ctx(), projectName, background,
 			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
 
 		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
@@ -799,7 +867,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 			require.NoError(t, err)
 			require.NoError(t, c.DeleteFile(bgc, "/round"))
 			require.NoError(t, c.PutFile(bgc, "/round", strings.NewReader(iS)))
-			require.NoError(t, c.FinishCommit(projectName, background, bgc.Branch.Name, bgc.Id))
+			require.NoError(t, c.FinishCommit(projectName, background, "", bgc.Id))
 
 			// Put new file in 'repo' to create a new datum and trigger a job
 			require.NoError(t, c.PutFile(masterCommit, iS, strings.NewReader(iS)))
@@ -824,11 +892,7 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 	})
 }
 
-func TestS3SkippedDatums(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _, ns := initPachClient(t)
+func testS3SkippedDatumsProject(t *testing.T, c *client.APIClient, ns string) {
 	t.Run("DefaultProject", func(t *testing.T) {
 		testS3SkippedDatums(t, c, ns, pfs.DefaultProjectName)
 	})
@@ -845,12 +909,21 @@ func TestS3SkippedDatums(t *testing.T) {
 // both scans `/pfs` (`-L` to follow symlinks) and confirms no data appears
 // either in the usual `/pfs/input_repo` or in `/pfs/.scratch`. It also checks
 // explicitly that no dead symlink is created at `/pfs/input_repo`.
+func TestDontDownloadDataAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _, ns := initPachClient(t, true)
+	testDontDownloadData(t, c, ns)
+}
 func TestDontDownloadData(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _, _ := initPachClient(t)
-
+	c, _, ns := initPachClient(t, false)
+	testDontDownloadData(t, c, ns)
+}
+func testDontDownloadData(t *testing.T, c *client.APIClient, ns string) {
 	repo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 	masterCommit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")

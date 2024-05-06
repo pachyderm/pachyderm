@@ -40,10 +40,17 @@ import (
 // In general, need to spend some time walking through the old driver
 // tests to see what can be reused.
 
-// TaskNamespace returns the namespace used by the task package for this
-// pipeline.
-func TaskNamespace(pipelineInfo *pps.PipelineInfo) string {
-	return fmt.Sprintf("/pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
+func PreprocessingTaskNamespace(pipelineInfo *pps.PipelineInfo) string {
+	namespace := "preprocessing"
+	if pipelineInfo != nil {
+		pipeline := fmt.Sprintf("pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
+		namespace = path.Join(namespace, pipeline)
+	}
+	return namespace
+}
+
+func ProcessingTaskNamespace(pipelineInfo *pps.PipelineInfo) string {
+	return fmt.Sprintf("processing/pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
 }
 
 // Driver provides an interface for common functions needed by worker code, and
@@ -56,7 +63,8 @@ type Driver interface {
 	Pipelines() col.PostgresCollection
 
 	NewTaskSource() task.Source
-	NewTaskDoer(string, task.Cache) task.Doer
+	NewPreprocessingTaskDoer(string, task.Cache) task.Doer
+	NewProcessingTaskDoer(string, task.Cache) task.Doer
 
 	// Returns the PipelineInfo for the pipeline that this worker belongs to
 	PipelineInfo() *pps.PipelineInfo
@@ -93,7 +101,7 @@ type Driver interface {
 
 	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
-	DeleteJob(*pachsql.Tx, *pps.JobInfo) error
+	DeleteJob(context.Context, *pachsql.Tx, *pps.JobInfo) error
 	UpdateJobState(*pps.Job, pps.JobState, string) error
 
 	GetJobInfo(job *pps.Job) (*pps.JobInfo, error)
@@ -287,18 +295,24 @@ func (d *driver) Pipelines() col.PostgresCollection {
 func (d *driver) NewTaskSource() task.Source {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.NewSource(TaskNamespace(d.pipelineInfo))
+	return taskService.NewSource(ProcessingTaskNamespace(d.pipelineInfo))
 }
 
-func (d *driver) NewTaskDoer(groupID string, cache task.Cache) task.Doer {
+func (d *driver) NewPreprocessingTaskDoer(groupID string, cache task.Cache) task.Doer {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID, cache)
+	return taskService.NewDoer(PreprocessingTaskNamespace(d.pipelineInfo), groupID, cache)
+}
+
+func (d *driver) NewProcessingTaskDoer(groupID string, cache task.Cache) task.Doer {
+	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
+	taskService := d.env.GetTaskService(etcdPrefix)
+	return taskService.NewDoer(ProcessingTaskNamespace(d.pipelineInfo), groupID, cache)
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
 	latestPipelineInfo := &pps.PipelineInfo{}
-	if err := d.Pipelines().ReadOnly(d.ctx).Get(d.PipelineInfo().SpecCommit, latestPipelineInfo); err != nil {
+	if err := d.Pipelines().ReadOnly().Get(d.ctx, d.PipelineInfo().SpecCommit, latestPipelineInfo); err != nil {
 		return 0, errors.EnsureStack(err)
 	}
 	numWorkers := latestPipelineInfo.Parallelism
@@ -492,16 +506,16 @@ func (d *driver) RunUserErrorHandlingCode(
 func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return d.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		jobInfo := &pps.JobInfo{}
-		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
+		if err := d.Jobs().ReadWrite(sqlTx).Get(ctx, ppsdb.JobKey(job), jobInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
+		return errors.EnsureStack(ppsutil.UpdateJobState(ctx, d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
 	})
 }
 
 func (d *driver) GetJobInfo(job *pps.Job) (*pps.JobInfo, error) {
 	jobInfo := &pps.JobInfo{}
-	if err := d.Jobs().ReadOnly(d.ctx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
+	if err := d.Jobs().ReadOnly().Get(d.ctx, ppsdb.JobKey(job), jobInfo); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return jobInfo, nil
@@ -510,8 +524,8 @@ func (d *driver) GetJobInfo(job *pps.Job) (*pps.JobInfo, error) {
 // DeleteJob is identical to updateJobState, except that jobInfo points to a job
 // that should be deleted rather than marked failed.  Jobs may be deleted if
 // their output commit is deleted.
-func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
-	return errors.EnsureStack(d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job)))
+func (d *driver) DeleteJob(ctx context.Context, sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
+	return errors.EnsureStack(d.Jobs().ReadWrite(sqlTx).Delete(ctx, ppsdb.JobKey(jobInfo.Job)))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {

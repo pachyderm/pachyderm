@@ -6,11 +6,20 @@
             "properties": {
                 "fileSetId": {
                     "type": "string"
+                },
+                "numFiles": {
+                    "type": "integer",
+                    "description": "Number of files targeted in each shard"
+                },
+                "sizeBytes": {
+                    "type": "integer",
+                    "description": "Size (in bytes) targeted for each shard"
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Shard File Set Request"
+            "title": "Shard File Set Request",
+            "description": "If both num_files and size_bytes are set, shards are created based on whichever threshold is surpassed first. If a shard configuration field (num_files, size_bytes) is unset, the storage's default value is used."
         }
     }
 }

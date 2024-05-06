@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "logs",
+    srcs = ["logger.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/worker/logs",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "//src/pps",
+        "//src/server/worker/common",
+        "@org_uber_go_zap//:zap",
+    ],
+)

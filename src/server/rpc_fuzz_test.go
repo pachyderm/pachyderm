@@ -1,5 +1,3 @@
-//go:build unit_test
-
 package server
 
 import (
@@ -71,6 +69,8 @@ func testRPC(ctx context.Context, t *testing.T, sd protoreflect.ServiceDescripto
 		if s, ok := status.FromError(err); ok {
 			switch {
 			case s.Code() == codes.Aborted && strings.Contains(s.Message(), "panic: "):
+				t.Fatal(err)
+			case strings.Contains(s.Message(), "this is a bug"):
 				t.Fatal(err)
 			case strings.Contains(s.Message(), "pachd mock"):
 				t.Skip("skipping method that has no mock")

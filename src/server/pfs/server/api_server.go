@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -42,8 +43,8 @@ type apiServer struct {
 	driver *driver
 }
 
-func newAPIServer(env Env) (*apiServer, error) {
-	d, err := newDriver(env)
+func newAPIServer(ctx context.Context, env Env) (*apiServer, error) {
+	d, err := newDriver(ctx, env)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +58,7 @@ func newAPIServer(env Env) (*apiServer, error) {
 // ActivateAuth implements the protobuf pfs.ActivateAuth RPC
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	var resp *pfs.ActivateAuthResponse
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		resp, err = a.ActivateAuthInTransaction(ctx, txnCtx, request)
 		if err != nil {
@@ -80,7 +81,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 			principal = auth.AllClusterUsersSubject
 			roleSlice = []string{auth.ProjectWriterRole}
 		}
-		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice,
+		err := a.env.Auth.CreateRoleBindingInTransaction(ctx, txnCtx, principal, roleSlice,
 			&auth.Resource{Type: auth.ResourceType_PROJECT, Name: proj.ProjectInfo.Project.Name})
 		if err != nil && !col.IsErrExists(err) {
 			return errors.Wrap(err, "activate auth in transaction")
@@ -90,8 +91,8 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		return nil, errors.Wrap(err, "activate auth in transaction")
 	}
 	// Create role bindings for repos created before auth activation
-	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, nil, func(repoInfoWithID pfsdb.RepoInfoWithID) error {
-		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, "", nil, repoInfoWithID.RepoInfo.Repo.AuthResource())
+	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, nil, nil, func(repoInfoWithID pfsdb.RepoInfoWithID) error {
+		err := a.env.Auth.CreateRoleBindingInTransaction(ctx, txnCtx, "", nil, repoInfoWithID.RepoInfo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
 		}
@@ -134,7 +135,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	request.Repo.EnsureProject()
 	var repoInfo *pfs.RepoInfo
 	var size int64
-	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		repoInfo, err = a.InspectRepoInTransaction(ctx, txnCtx, request)
 		if err != nil {
@@ -155,17 +156,12 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 // ListRepo implements the protobuf pfs.ListRepo RPC
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
 	var repos []*pfs.RepoInfo
-	var err error
-	if err := errors.Wrap(dbutil.WithTx(srv.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		return a.driver.txnEnv.WithReadContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
-			repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-	}, dbutil.WithReadOnly()), "list repo"); err != nil {
-		return err
+	if err := a.driver.txnEnv.WithReadContext(srv.Context(), func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		var err error
+		repos, err = a.driver.listRepoInTransaction(ctx, txnCtx, true, request.Type, request.Projects, request.Page)
+		return errors.Wrap(err, "listRepoInTransaction")
+	}); err != nil {
+		return errors.Wrap(err, "WithReadContext")
 	}
 	for _, repo := range repos {
 		if err := errors.Wrap(srv.Send(repo), "sending repo"); err != nil {
@@ -294,7 +290,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 }
 
 func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (*pfs.SquashCommitResponse, error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.driver.squashCommit(ctx, txnCtx, request.Commit, request.Recursive)
 	}); err != nil {
 		return nil, err
@@ -303,7 +299,7 @@ func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitR
 }
 
 func (a *apiServer) DropCommit(ctx context.Context, request *pfs.DropCommitRequest) (*pfs.DropCommitResponse, error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.driver.dropCommit(ctx, txnCtx, request.Commit, request.Recursive)
 	}); err != nil {
 		return nil, err
@@ -358,7 +354,7 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 
 // DropCommitSet implements the protobuf pfs.DropCommitSet RPC
 func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSetRequest) (response *emptypb.Empty, retErr error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.driver.dropCommitSet(ctx, txnCtx, request.CommitSet)
 	}); err != nil {
 		return nil, err
@@ -388,6 +384,34 @@ func (a *apiServer) FindCommits(request *pfs.FindCommitsRequest, srv pfs.API_Fin
 		defer cancel()
 	}
 	return a.driver.findCommits(ctx, request, srv.Send)
+}
+
+type WalkCommitProvenanceRequest struct {
+	StartWithID []*pfsdb.CommitWithID
+	*pfs.WalkCommitProvenanceRequest
+}
+
+type WalkCommitSubvenanceRequest struct {
+	StartWithID []*pfsdb.CommitWithID
+	*pfs.WalkCommitSubvenanceRequest
+}
+
+func (a *apiServer) WalkCommitProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
+	for _, start := range request.StartWithID {
+		if err := a.driver.walkCommitProvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {
+			return errors.Wrap(err, "walk commit provenance tx")
+		}
+	}
+	return nil
+}
+
+func (a *apiServer) WalkCommitSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
+	for _, start := range request.StartWithID {
+		if err := a.driver.walkCommitSubvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {
+			return errors.Wrap(err, "walk commit subvenance tx")
+		}
+	}
+	return nil
 }
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
@@ -427,7 +451,7 @@ func (a *apiServer) ListBranch(request *pfs.ListBranchRequest, srv pfs.API_ListB
 	if request.Repo == nil {
 		return a.driver.listBranch(srv.Context(), request.Reverse, srv.Send)
 	}
-	return a.env.TxnEnv.WithReadContext(srv.Context(), func(txnCtx *txncontext.TransactionContext) error {
+	return a.env.TxnEnv.WithReadContext(srv.Context(), func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.driver.listBranchInTransaction(srv.Context(), txnCtx, request.Repo, request.Reverse, srv.Send)
 	})
 }
@@ -449,6 +473,34 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	return &emptypb.Empty{}, nil
 }
 
+type WalkBranchProvenanceRequest struct {
+	StartWithID []*pfsdb.BranchInfoWithID
+	*pfs.WalkBranchProvenanceRequest
+}
+
+type WalkBranchSubvenanceRequest struct {
+	StartWithID []*pfsdb.BranchInfoWithID
+	*pfs.WalkBranchSubvenanceRequest
+}
+
+func (a *apiServer) WalkBranchProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) error {
+	for _, start := range request.StartWithID {
+		if err := a.driver.walkBranchProvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {
+			return errors.Wrap(err, "walk branch provenance tx")
+		}
+	}
+	return nil
+}
+
+func (a *apiServer) WalkBranchSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) error {
+	for _, start := range request.StartWithID {
+		if err := a.driver.walkBranchSubvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {
+			return errors.Wrap(err, "walk branch subvenance tx")
+		}
+	}
+	return nil
+}
+
 // CreateProject implements the protobuf pfs.CreateProject RPC
 func (a *apiServer) CreateProject(ctx context.Context, request *pfs.CreateProjectRequest) (*emptypb.Empty, error) {
 	if err := a.driver.createProject(ctx, request); err != nil {
@@ -462,6 +514,26 @@ func (a *apiServer) InspectProject(ctx context.Context, request *pfs.InspectProj
 	return a.driver.inspectProject(ctx, request.Project)
 }
 
+// InspectProjectV2 implements the protobuf pfs.InspectProjectV2 RPC
+func (a *apiServer) InspectProjectV2(ctx context.Context, request *pfs.InspectProjectV2Request) (*pfs.InspectProjectV2Response, error) {
+	info, err := a.driver.inspectProject(ctx, request.Project)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not inspect project %q", request.Project.String())
+	}
+	ppsServer := a.driver.env.GetPPSServer()
+	if ppsServer == nil {
+		return nil, errors.New("no PPS client set")
+	}
+	resp, err := ppsServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: request.GetProject()})
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get project defaults for %q", request.Project.String())
+	}
+	return &pfs.InspectProjectV2Response{
+		Info:         info,
+		DefaultsJson: resp.GetProjectDefaultsJson(),
+	}, nil
+}
+
 // ListProject implements the protobuf pfs.ListProject RPC
 func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_ListProjectServer) error {
 	return a.driver.listProject(srv.Context(), srv.Send)
@@ -469,7 +541,7 @@ func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_Lis
 
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
 func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*emptypb.Empty, error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.driver.deleteProject(ctx, txnCtx, request.Project, request.Force)
 	}); err != nil {
 		return nil, err
@@ -708,9 +780,9 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	var err error
 	if request.GetZombieAll() {
 		if err := dbutil.WithTx(fsckServer.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-			return a.driver.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
+			return a.driver.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCxt *txncontext.TransactionContext) error {
 				// list meta repos as a proxy for finding pipelines
-				repos, err = a.driver.listRepoInTransaction(ctx, txnCxt, false, pfs.MetaRepoType, nil)
+				repos, err = a.driver.listRepoInTransaction(ctx, txnCxt, false, pfs.MetaRepoType, nil, nil)
 				return errors.Wrap(err, "list repos in tx by meta repo type")
 			})
 		}, dbutil.WithReadOnly()); err != nil {
@@ -756,6 +828,15 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
+	if req.Type == pfs.GetFileSetRequest_DIFF {
+		diff, err := a.driver.commitStore.GetDiffFileSet(ctx, req.Commit)
+		if err != nil {
+			return nil, err
+		}
+		return &pfs.CreateFileSetResponse{
+			FileSetId: diff.HexString(),
+		}, nil
+	}
 	filesetID, err := a.driver.getFileSet(ctx, req.Commit)
 	if err != nil {
 		return nil, err
@@ -770,7 +851,7 @@ func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetReque
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.driver.shardFileSet(ctx, *fsid)
+	shards, err := a.driver.shardFileSet(ctx, *fsid, req.NumFiles, req.SizeBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -780,7 +861,7 @@ func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetReque
 }
 
 func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *emptypb.Empty, retErr error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.AddFileSetInTransaction(ctx, txnCtx, req)
 	}); err != nil {
 		return nil, err
@@ -913,4 +994,43 @@ func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.Eg
 		return &pfs.EgressResponse{Result: &pfs.EgressResponse_SqlDatabase{SqlDatabase: result}}, nil
 	}
 	return nil, errors.Errorf("egress failed")
+}
+
+func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryRequest) (*pfs.ReposSummaryResponse, error) {
+	summaries := make(map[string]*pfs.ReposSummary)
+	var projects []*pfs.Project
+	for _, p := range request.Projects {
+		switch p.Picker.(type) {
+		case *pfs.ProjectPicker_Name:
+			projects = append(projects, &pfs.Project{Name: p.GetName()})
+		default:
+			return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
+		}
+	}
+	if err := a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		repos, err := a.driver.listRepoInTransaction(ctx, txnCtx, true, "user", projects, nil)
+		if err != nil {
+			return errors.Wrap(err, "list repos")
+		}
+		for _, r := range repos {
+			project := r.Repo.Project.String()
+			summary, ok := summaries[project]
+			if !ok {
+				summary = &pfs.ReposSummary{Project: r.Repo.Project}
+				summaries[project] = summary
+			}
+			summary.UserRepoCount++
+			summary.SizeBytes += r.SizeBytesUpperBound
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "generate summary")
+	}
+	resp := &pfs.ReposSummaryResponse{}
+	for _, p := range projects {
+		if summary, ok := summaries[p.String()]; ok {
+			resp.Summaries = append(resp.Summaries, summary)
+		}
+	}
+	return resp, nil
 }

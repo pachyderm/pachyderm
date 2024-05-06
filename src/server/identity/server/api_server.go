@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/ghodss/yaml"
 	"go.uber.org/zap"
+	"sigs.k8s.io/yaml"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"

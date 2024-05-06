@@ -23,9 +23,37 @@ message Repo {
   Project project = 3;
 }
 
+// Repo defines mutually exclusive pickers that resolve to a single repository.
+// Currently, the only way to pick a repo is by composing a repo name and type with a project.
+// If the type is omitted, the 'user' type will be used as a default.
+// Picker messages should only be used as request parameters.
+message RepoPicker {
+  message RepoName {
+    ProjectPicker project = 1;
+    string name = 2;
+    string type = 3; // type is optional. If omitted, the default type is 'user'.
+  }
+  oneof picker {
+    RepoName name = 1;
+  }
+}
+
 message Branch {
   Repo repo = 1;
   string name = 2;
+}
+
+// BranchPicker defines mutually exclusive pickers that resolve to a single branch.
+// Currently, the only way to pick a branch is by composing a branch name with a repo.
+// Picker messages should only be used as request parameters.
+message BranchPicker {
+  message BranchName {
+    RepoPicker repo = 1;
+    string name = 2;
+  }
+  oneof picker {
+    BranchName name = 1;
+  }
 }
 
 message File {
@@ -52,6 +80,8 @@ message RepoInfo {
     int64 size_bytes = 1;
   }
   Details details = 7;
+  // Metadata are user-defined key-value pairs.
+  map<string, string> metadata = 8;
 }
 
 // AuthInfo includes the caller's access scope for a resource, and is returned
@@ -76,6 +106,7 @@ message BranchInfo {
   repeated Branch subvenance = 4;
   repeated Branch direct_provenance = 5;
   Trigger trigger = 6;
+  map<string, string> metadata = 7;
 }
 
 // Trigger defines the conditions under which a head is moved, and to which
@@ -123,7 +154,37 @@ message Commit {
   Branch branch = 1;
 }
 
-// CommitInfo is the main data structure representing a commit in etcd
+// CommitPicker defines mutually exclusive pickers that resolve to a single commit.
+// Commits can be picked relatively from some other commit like a parent or start of branch.
+// Alternatively, they can be picked via their global Id, which is composed of a repo picker and an id.
+// Picker messages should only be used as request parameters.
+message CommitPicker {
+  message CommitByGlobalId {
+    RepoPicker repo = 1;
+    string id = 2;
+  }
+
+  // This models .N syntax.
+  message BranchRoot {
+    uint32 offset = 1;
+    BranchPicker branch = 2;
+  }
+
+  // This models ^ syntax recursively.
+  message AncestorOf {
+    uint32 offset = 1;
+    CommitPicker start = 2;
+  }
+
+  oneof picker {
+    BranchPicker branch_head = 1;
+    CommitByGlobalId id = 2;
+    AncestorOf ancestor = 3;
+    BranchRoot branch_root = 4;
+  }
+}
+
+// CommitInfo is the main data structure representing a commit in postgres
 message CommitInfo {
   reserved 9;
   Commit commit = 1;
@@ -136,6 +197,7 @@ message CommitInfo {
   google.protobuf.Timestamp finishing = 7;
   google.protobuf.Timestamp finished = 8;
   repeated Commit direct_provenance = 13;
+  repeated Commit direct_subvenance = 15;
   string error = 10;
   int64 size_bytes_upper_bound = 11;
 
@@ -146,6 +208,8 @@ message CommitInfo {
     google.protobuf.Duration validating_time = 3;
   }
   Details details = 12;
+  // Metadata is user-applied annotations.
+  map<string, string> metadata = 14;
 }
 
 message CommitSet {
@@ -180,6 +244,16 @@ message ProjectInfo {
   string description = 2;
   AuthInfo auth_info = 3;
   google.protobuf.Timestamp created_at = 4;
+  map<string, string> metadata = 5;
+}
+
+// ProjectPicker defines mutually exclusive pickers that resolve to a single project.
+// Currently, the only way to pick a project is by using a project name.
+// Picker messages should only be used as request parameters.
+message ProjectPicker {
+  oneof picker {
+    string name = 1;
+  }
 }
 
 // PFS API
@@ -195,11 +269,24 @@ message InspectRepoRequest {
 }
 
 message ListRepoRequest {
-  // type is the type of (system) repos that should be returned
-  // an empty string requests all repos
+  // Type is the type of (system) repo that should be returned.
+  // An empty string requests all repos.
   string type = 1;
-  // projects filters out repos that do not belong in the list, while no projects means list all repos.
+  // Filters out repos whos project isn't represented.
+  // An empty list of projects doesn't filter repos by their project.
   repeated Project projects = 2;
+  // Specifies which page of repos should be returned.
+  // If page isn't specified, a single page containing all the relevant repos is returned.
+  RepoPage page = 3;
+}
+
+message RepoPage {
+  enum Ordering {
+    PROJECT_REPO = 0;
+  }
+  Ordering order = 1;
+  int64 page_size = 2;
+  int64 page_index = 3;
 }
 
 message DeleteRepoRequest {
@@ -321,6 +408,34 @@ message DropCommitRequest {
   bool recursive = 2;
 }
 
+message WalkCommitProvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated CommitPicker start = 1;
+  uint64 max_commits = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
+message WalkCommitSubvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated CommitPicker start = 1;
+  uint64 max_commits = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
+message WalkBranchProvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated BranchPicker start = 1;
+  uint64 max_branches = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
+message WalkBranchSubvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated BranchPicker start = 1;
+  uint64 max_branches = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
 message DropCommitResponse {}
 
 message CreateBranchRequest {
@@ -367,6 +482,15 @@ message CreateProjectRequest {
 
 message InspectProjectRequest {
   Project project = 1 [(validate.rules).message.required = true];
+}
+
+message InspectProjectV2Request {
+  Project project = 1 [(validate.rules).message.required = true];
+}
+
+message InspectProjectV2Response {
+  ProjectInfo info = 1;
+  string defaults_json = 2;
 }
 
 message ListProjectRequest {}
@@ -516,6 +640,11 @@ message CreateFileSetResponse {
 
 message GetFileSetRequest {
   Commit commit = 1;
+  enum FileSetType {
+      TOTAL = 0;
+      DIFF = 1;
+  }
+ FileSetType type = 2;
 }
 
 message AddFileSetRequest {
@@ -534,8 +663,14 @@ message ComposeFileSetRequest {
   bool compact = 3;
 }
 
+// If both num_files and size_bytes are set, shards are created
+// based on whichever threshold is surpassed first. If a shard
+// configuration field (num_files, size_bytes) is unset, the
+// storage's default value is used.
 message ShardFileSetRequest {
   string file_set_id = 1;
+  int64 num_files = 2;  // Number of files targeted in each shard
+  int64 size_bytes = 3;  // Size (in bytes) targeted for each shard
 }
 
 message PathRange {
@@ -623,6 +758,20 @@ message EgressResponse {
   }
 }
 
+message ReposSummaryRequest {
+  repeated ProjectPicker projects = 1; // a ReposSummary will be returned for every specified project
+}
+
+message ReposSummary {
+  Project project = 1; // the project the ReposSummary corresponds to
+  int64 user_repo_count = 2; // the count of user repos in the summary
+  int64 size_bytes = 3; // aggregate size of all the repos returned in the summary
+}
+
+message ReposSummaryResponse {
+  repeated ReposSummary summaries = 1; // repo summaries for the requested projects
+}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -652,7 +801,7 @@ service API {
   rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
-  // SquashCommit squashes the provided commit into its children. 
+  // SquashCommit squashes the provided commit into its children.
   rpc SquashCommit(SquashCommitRequest) returns (SquashCommitResponse) {}
   // DropCommit drops the provided commit.
   rpc DropCommit(DropCommitRequest) returns (DropCommitResponse) {}
@@ -669,6 +818,10 @@ service API {
   rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
   // FindCommits searches for commits that reference a supplied file being modified in a branch.
   rpc FindCommits(FindCommitsRequest) returns (stream FindCommitsResponse) {}
+  // WalkCommitProvenance traverses a commit's provenance graph and streams back each commit encountered.
+  rpc WalkCommitProvenance(WalkCommitProvenanceRequest) returns (stream CommitInfo) {}
+  // WalkCommitSubvenance traverses a commit's subvenance graph and streams back each commit encountered.
+  rpc WalkCommitSubvenance(WalkCommitSubvenanceRequest) returns (stream CommitInfo) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
@@ -678,6 +831,10 @@ service API {
   rpc ListBranch(ListBranchRequest) returns (stream BranchInfo) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
   rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
+  // WalkBranchProvenance traverses a branch's provenance graph and streams back each branch encountered.
+  rpc WalkBranchProvenance(WalkBranchProvenanceRequest) returns (stream BranchInfo) {}
+  // WalkBranchSubvenance traverses a branch's subvenance graph and streams back each branch encountered.
+  rpc WalkBranchSubvenance(WalkBranchSubvenanceRequest) returns (stream BranchInfo) {}
 
   // ModifyFile performs modifications on a set of files.
   rpc ModifyFile(stream ModifyFileRequest) returns (google.protobuf.Empty) {}
@@ -721,7 +878,7 @@ service API {
   rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
   rpc GetCache(GetCacheRequest) returns (GetCacheResponse) {}
   rpc ClearCache(ClearCacheRequest) returns (google.protobuf.Empty) {}
- 
+
   // ListTask lists PFS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 
@@ -733,8 +890,14 @@ service API {
   rpc CreateProject(CreateProjectRequest) returns (google.protobuf.Empty) {}
   // InspectProject returns info about a project.
   rpc InspectProject(InspectProjectRequest) returns (ProjectInfo) {}
+  // InspectProjectV2 returns info about and defaults for a project.
+  rpc InspectProjectV2(InspectProjectV2Request) returns (InspectProjectV2Response) {}
   // ListProject returns info about all projects.
   rpc ListProject(ListProjectRequest) returns (stream ProjectInfo) {}
   // DeleteProject deletes a project.
   rpc DeleteProject(DeleteProjectRequest) returns (google.protobuf.Empty) {}
+
+  // Summary API
+  // ReposSummary returns a list of summaries about the repos for each of the requested projects.
+  rpc ReposSummary(ReposSummaryRequest) returns (ReposSummaryResponse) {}
 }

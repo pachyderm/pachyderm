@@ -5,6 +5,7 @@
 
 - [admin/admin.proto](#admin_admin-proto)
     - [ClusterInfo](#admin_v2-ClusterInfo)
+    - [ClusterInfo.MetadataEntry](#admin_v2-ClusterInfo-MetadataEntry)
     - [InspectClusterRequest](#admin_v2-InspectClusterRequest)
     - [WebResource](#admin_v2-WebResource)
   
@@ -90,9 +91,11 @@
     - [Filter](#debug_v2-Filter)
     - [GetDumpV2TemplateRequest](#debug_v2-GetDumpV2TemplateRequest)
     - [GetDumpV2TemplateResponse](#debug_v2-GetDumpV2TemplateResponse)
+    - [LokiArgs](#debug_v2-LokiArgs)
     - [Pipeline](#debug_v2-Pipeline)
     - [Pod](#debug_v2-Pod)
     - [Profile](#debug_v2-Profile)
+    - [ProfileArgs](#debug_v2-ProfileArgs)
     - [ProfileRequest](#debug_v2-ProfileRequest)
     - [RunPFSLoadTestRequest](#debug_v2-RunPFSLoadTestRequest)
     - [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse)
@@ -101,6 +104,8 @@
     - [Starlark](#debug_v2-Starlark)
     - [StarlarkLiteral](#debug_v2-StarlarkLiteral)
     - [System](#debug_v2-System)
+    - [TraceChunk](#debug_v2-TraceChunk)
+    - [TraceRequest](#debug_v2-TraceRequest)
     - [Worker](#debug_v2-Worker)
   
     - [SetLogLevelRequest.LogLevel](#debug_v2-SetLogLevelRequest-LogLevel)
@@ -265,6 +270,40 @@
   
     - [API](#license_v2-API)
   
+- [logs/logs.proto](#logs_logs-proto)
+    - [AdminLogQuery](#logs-AdminLogQuery)
+    - [GetLogsRequest](#logs-GetLogsRequest)
+    - [GetLogsResponse](#logs-GetLogsResponse)
+    - [JobDatumLogQuery](#logs-JobDatumLogQuery)
+    - [LogFilter](#logs-LogFilter)
+    - [LogMessage](#logs-LogMessage)
+    - [LogQuery](#logs-LogQuery)
+    - [PagingHint](#logs-PagingHint)
+    - [PipelineJobLogQuery](#logs-PipelineJobLogQuery)
+    - [PipelineLogQuery](#logs-PipelineLogQuery)
+    - [PodContainer](#logs-PodContainer)
+    - [RegexLogFilter](#logs-RegexLogFilter)
+    - [TimeRangeLogFilter](#logs-TimeRangeLogFilter)
+    - [UserLogQuery](#logs-UserLogQuery)
+    - [VerbatimLogMessage](#logs-VerbatimLogMessage)
+  
+    - [LogLevel](#logs-LogLevel)
+  
+    - [API](#logs-API)
+  
+- [metadata/metadata.proto](#metadata_metadata-proto)
+    - [ClusterPicker](#metadata-ClusterPicker)
+    - [Edit](#metadata-Edit)
+    - [Edit.AddKey](#metadata-Edit-AddKey)
+    - [Edit.DeleteKey](#metadata-Edit-DeleteKey)
+    - [Edit.EditKey](#metadata-Edit-EditKey)
+    - [Edit.Replace](#metadata-Edit-Replace)
+    - [Edit.Replace.ReplacementEntry](#metadata-Edit-Replace-ReplacementEntry)
+    - [EditMetadataRequest](#metadata-EditMetadataRequest)
+    - [EditMetadataResponse](#metadata-EditMetadataResponse)
+  
+    - [API](#metadata-API)
+  
 - [pfs/pfs.proto](#pfs_pfs-proto)
     - [ActivateAuthRequest](#pfs_v2-ActivateAuthRequest)
     - [ActivateAuthResponse](#pfs_v2-ActivateAuthResponse)
@@ -274,6 +313,9 @@
     - [AuthInfo](#pfs_v2-AuthInfo)
     - [Branch](#pfs_v2-Branch)
     - [BranchInfo](#pfs_v2-BranchInfo)
+    - [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry)
+    - [BranchPicker](#pfs_v2-BranchPicker)
+    - [BranchPicker.BranchName](#pfs_v2-BranchPicker-BranchName)
     - [CheckStorageRequest](#pfs_v2-CheckStorageRequest)
     - [CheckStorageResponse](#pfs_v2-CheckStorageResponse)
     - [ClearCacheRequest](#pfs_v2-ClearCacheRequest)
@@ -281,7 +323,12 @@
     - [Commit](#pfs_v2-Commit)
     - [CommitInfo](#pfs_v2-CommitInfo)
     - [CommitInfo.Details](#pfs_v2-CommitInfo-Details)
+    - [CommitInfo.MetadataEntry](#pfs_v2-CommitInfo-MetadataEntry)
     - [CommitOrigin](#pfs_v2-CommitOrigin)
+    - [CommitPicker](#pfs_v2-CommitPicker)
+    - [CommitPicker.AncestorOf](#pfs_v2-CommitPicker-AncestorOf)
+    - [CommitPicker.BranchRoot](#pfs_v2-CommitPicker-BranchRoot)
+    - [CommitPicker.CommitByGlobalId](#pfs_v2-CommitPicker-CommitByGlobalId)
     - [CommitSet](#pfs_v2-CommitSet)
     - [CommitSetInfo](#pfs_v2-CommitSetInfo)
     - [ComposeFileSetRequest](#pfs_v2-ComposeFileSetRequest)
@@ -324,6 +371,8 @@
     - [InspectCommitSetRequest](#pfs_v2-InspectCommitSetRequest)
     - [InspectFileRequest](#pfs_v2-InspectFileRequest)
     - [InspectProjectRequest](#pfs_v2-InspectProjectRequest)
+    - [InspectProjectV2Request](#pfs_v2-InspectProjectV2Request)
+    - [InspectProjectV2Response](#pfs_v2-InspectProjectV2Response)
     - [InspectRepoRequest](#pfs_v2-InspectRepoRequest)
     - [ListBranchRequest](#pfs_v2-ListBranchRequest)
     - [ListCommitRequest](#pfs_v2-ListCommitRequest)
@@ -336,11 +385,20 @@
     - [PathRange](#pfs_v2-PathRange)
     - [Project](#pfs_v2-Project)
     - [ProjectInfo](#pfs_v2-ProjectInfo)
+    - [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry)
+    - [ProjectPicker](#pfs_v2-ProjectPicker)
     - [PutCacheRequest](#pfs_v2-PutCacheRequest)
     - [RenewFileSetRequest](#pfs_v2-RenewFileSetRequest)
     - [Repo](#pfs_v2-Repo)
     - [RepoInfo](#pfs_v2-RepoInfo)
     - [RepoInfo.Details](#pfs_v2-RepoInfo-Details)
+    - [RepoInfo.MetadataEntry](#pfs_v2-RepoInfo-MetadataEntry)
+    - [RepoPage](#pfs_v2-RepoPage)
+    - [RepoPicker](#pfs_v2-RepoPicker)
+    - [RepoPicker.RepoName](#pfs_v2-RepoPicker-RepoName)
+    - [ReposSummary](#pfs_v2-ReposSummary)
+    - [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest)
+    - [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse)
     - [SQLDatabaseEgress](#pfs_v2-SQLDatabaseEgress)
     - [SQLDatabaseEgress.FileFormat](#pfs_v2-SQLDatabaseEgress-FileFormat)
     - [SQLDatabaseEgress.Secret](#pfs_v2-SQLDatabaseEgress-Secret)
@@ -352,12 +410,18 @@
     - [StartCommitRequest](#pfs_v2-StartCommitRequest)
     - [SubscribeCommitRequest](#pfs_v2-SubscribeCommitRequest)
     - [Trigger](#pfs_v2-Trigger)
+    - [WalkBranchProvenanceRequest](#pfs_v2-WalkBranchProvenanceRequest)
+    - [WalkBranchSubvenanceRequest](#pfs_v2-WalkBranchSubvenanceRequest)
+    - [WalkCommitProvenanceRequest](#pfs_v2-WalkCommitProvenanceRequest)
+    - [WalkCommitSubvenanceRequest](#pfs_v2-WalkCommitSubvenanceRequest)
     - [WalkFileRequest](#pfs_v2-WalkFileRequest)
   
     - [CommitState](#pfs_v2-CommitState)
     - [Delimiter](#pfs_v2-Delimiter)
     - [FileType](#pfs_v2-FileType)
+    - [GetFileSetRequest.FileSetType](#pfs_v2-GetFileSetRequest-FileSetType)
     - [OriginKind](#pfs_v2-OriginKind)
+    - [RepoPage.Ordering](#pfs_v2-RepoPage-Ordering)
     - [SQLDatabaseEgress.FileFormat.Type](#pfs_v2-SQLDatabaseEgress-FileFormat-Type)
   
     - [API](#pfs_v2-API)
@@ -401,6 +465,8 @@
     - [CheckStatusRequest](#pps_v2-CheckStatusRequest)
     - [CheckStatusResponse](#pps_v2-CheckStatusResponse)
     - [ClusterDefaults](#pps_v2-ClusterDefaults)
+    - [ContinueCreateDatumRequest](#pps_v2-ContinueCreateDatumRequest)
+    - [CreateDatumRequest](#pps_v2-CreateDatumRequest)
     - [CreatePipelineRequest](#pps_v2-CreatePipelineRequest)
     - [CreatePipelineTransaction](#pps_v2-CreatePipelineTransaction)
     - [CreatePipelineV2Request](#pps_v2-CreatePipelineV2Request)
@@ -454,6 +520,10 @@
     - [PipelineInfo](#pps_v2-PipelineInfo)
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
     - [PipelineInfos](#pps_v2-PipelineInfos)
+    - [PipelinePage](#pps_v2-PipelinePage)
+    - [PipelinesSummary](#pps_v2-PipelinesSummary)
+    - [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest)
+    - [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse)
     - [ProcessStats](#pps_v2-ProcessStats)
     - [ProjectDefaults](#pps_v2-ProjectDefaults)
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
@@ -478,6 +548,7 @@
     - [SetProjectDefaultsRequest](#pps_v2-SetProjectDefaultsRequest)
     - [SetProjectDefaultsResponse](#pps_v2-SetProjectDefaultsResponse)
     - [Spout](#pps_v2-Spout)
+    - [StartCreateDatumRequest](#pps_v2-StartCreateDatumRequest)
     - [StartPipelineRequest](#pps_v2-StartPipelineRequest)
     - [StopJobRequest](#pps_v2-StopJobRequest)
     - [StopPipelineRequest](#pps_v2-StopPipelineRequest)
@@ -493,6 +564,7 @@
     - [DatumState](#pps_v2-DatumState)
     - [JobState](#pps_v2-JobState)
     - [PipelineInfo.PipelineType](#pps_v2-PipelineInfo-PipelineType)
+    - [PipelinePage.Ordering](#pps_v2-PipelinePage-Ordering)
     - [PipelineState](#pps_v2-PipelineState)
     - [TaintEffect](#pps_v2-TaintEffect)
     - [TolerationOperator](#pps_v2-TolerationOperator)
@@ -600,6 +672,23 @@
     - [DatumSetTask](#pachyderm-worker-pipeline-transform-DatumSetTask)
     - [DatumSetTaskResult](#pachyderm-worker-pipeline-transform-DatumSetTaskResult)
   
+- [storage/fileset.proto](#storage_fileset-proto)
+    - [AppendFile](#storage-AppendFile)
+    - [ComposeFilesetRequest](#storage-ComposeFilesetRequest)
+    - [ComposeFilesetResponse](#storage-ComposeFilesetResponse)
+    - [CreateFilesetRequest](#storage-CreateFilesetRequest)
+    - [CreateFilesetResponse](#storage-CreateFilesetResponse)
+    - [DeleteFile](#storage-DeleteFile)
+    - [FileFilter](#storage-FileFilter)
+    - [PathRange](#storage-PathRange)
+    - [ReadFilesetRequest](#storage-ReadFilesetRequest)
+    - [ReadFilesetResponse](#storage-ReadFilesetResponse)
+    - [RenewFilesetRequest](#storage-RenewFilesetRequest)
+    - [ShardFilesetRequest](#storage-ShardFilesetRequest)
+    - [ShardFilesetResponse](#storage-ShardFilesetResponse)
+  
+    - [Fileset](#storage-Fileset)
+  
 - [task/task.proto](#task_task-proto)
     - [Group](#taskapi-Group)
     - [ListTaskRequest](#taskapi-ListTaskRequest)
@@ -663,6 +752,23 @@
 | proxy_tls | [bool](#bool) |  | True if Pachyderm is served over TLS (HTTPS). |
 | paused | [bool](#bool) |  | True if this pachd is in &#34;paused&#34; mode. |
 | web_resources | [WebResource](#admin_v2-WebResource) |  | Any HTTP links that the client might want to be aware of. |
+| metadata | [ClusterInfo.MetadataEntry](#admin_v2-ClusterInfo-MetadataEntry) | repeated | Cluster-level metadata. |
+
+
+
+
+
+
+<a name="admin_v2-ClusterInfo-MetadataEntry"></a>
+
+### ClusterInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -1672,6 +1778,7 @@ Permission represents the ability to perform a given operation on a Resource
 | CLUSTER_LIST_SECRETS | 144 |  |
 | SECRET_DELETE | 145 |  |
 | SECRET_INSPECT | 146 |  |
+| CLUSTER_EDIT_CLUSTER_METADATA | 151 |  |
 | CLUSTER_DELETE_ALL | 138 |  |
 | REPO_READ | 200 |  |
 | REPO_WRITE | 201 |  |
@@ -1774,6 +1881,8 @@ ResourceType represents the type of a Resource
 | pods | [Pod](#debug_v2-Pod) | repeated |  |
 | timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | pipeline | [Pipeline](#debug_v2-Pipeline) |  |  |
+| loki_args | [LokiArgs](#debug_v2-LokiArgs) |  |  |
+| profile_args | [ProfileArgs](#debug_v2-ProfileArgs) |  |  |
 
 
 
@@ -1942,6 +2051,21 @@ ResourceType represents the type of a Resource
 
 
 
+<a name="debug_v2-LokiArgs"></a>
+
+### LokiArgs
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| max_logs | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="debug_v2-Pipeline"></a>
 
 ### Pipeline
@@ -1985,6 +2109,21 @@ ResourceType represents the type of a Resource
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | duration | [google.protobuf.Duration](#google-protobuf-Duration) |  | only meaningful if name == &#34;cpu&#34; |
+
+
+
+
+
+
+<a name="debug_v2-ProfileArgs"></a>
+
+### ProfileArgs
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| profiles | [Profile](#debug_v2-Profile) | repeated |  |
 
 
 
@@ -2134,6 +2273,36 @@ StarlarkLiteral is a custom Starlark script.
 
 
 
+<a name="debug_v2-TraceChunk"></a>
+
+### TraceChunk
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| content | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
+
+
+
+
+
+
+<a name="debug_v2-TraceRequest"></a>
+
+### TraceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| duration | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
+
+
+
+
+
+
 <a name="debug_v2-Worker"></a>
 
 ### Worker
@@ -2184,6 +2353,7 @@ StarlarkLiteral is a custom Starlark script.
 | SetLogLevel | [SetLogLevelRequest](#debug_v2-SetLogLevelRequest) | [SetLogLevelResponse](#debug_v2-SetLogLevelResponse) |  |
 | GetDumpV2Template | [GetDumpV2TemplateRequest](#debug_v2-GetDumpV2TemplateRequest) | [GetDumpV2TemplateResponse](#debug_v2-GetDumpV2TemplateResponse) |  |
 | DumpV2 | [DumpV2Request](#debug_v2-DumpV2Request) | [DumpChunk](#debug_v2-DumpChunk) stream |  |
+| Trace | [TraceRequest](#debug_v2-TraceRequest) | [TraceChunk](#debug_v2-TraceChunk) stream |  |
 | RunPFSLoadTest | [RunPFSLoadTestRequest](#debug_v2-RunPFSLoadTestRequest) | [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse) | RunLoadTest runs a load test. |
 | RunPFSLoadTestDefault | [.google.protobuf.Empty](#google-protobuf-Empty) | [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse) | RunLoadTestDefault runs the default load tests. |
 
@@ -4273,6 +4443,464 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 
 
 
+<a name="logs_logs-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## logs/logs.proto
+
+
+
+<a name="logs-AdminLogQuery"></a>
+
+### AdminLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| logql | [string](#string) |  | Arbitrary LogQL query |
+| pod | [string](#string) |  | A pod&#39;s logs (all containers) |
+| pod_container | [PodContainer](#logs-PodContainer) |  | One container |
+| app | [string](#string) |  | One &#34;app&#34; (logql -&gt; {app=X}) |
+| master | [PipelineLogQuery](#logs-PipelineLogQuery) |  | All master worker lines from a pipeline |
+| storage | [PipelineLogQuery](#logs-PipelineLogQuery) |  | All storage container lines from a pipeline |
+| user | [UserLogQuery](#logs-UserLogQuery) |  | All worker lines from a pipeline/job |
+
+
+
+
+
+
+<a name="logs-GetLogsRequest"></a>
+
+### GetLogsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| query | [LogQuery](#logs-LogQuery) |  |  |
+| filter | [LogFilter](#logs-LogFilter) |  |  |
+| tail | [bool](#bool) |  |  |
+| want_paging_hint | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="logs-GetLogsResponse"></a>
+
+### GetLogsResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| paging_hint | [PagingHint](#logs-PagingHint) |  |  |
+| log | [LogMessage](#logs-LogMessage) |  |  |
+
+
+
+
+
+
+<a name="logs-JobDatumLogQuery"></a>
+
+### JobDatumLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| job | [string](#string) |  |  |
+| datum | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="logs-LogFilter"></a>
+
+### LogFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| time_range | [TimeRangeLogFilter](#logs-TimeRangeLogFilter) |  |  |
+| limit | [uint64](#uint64) |  |  |
+| regex | [RegexLogFilter](#logs-RegexLogFilter) |  |  |
+| level | [LogLevel](#logs-LogLevel) |  | Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior |
+
+
+
+
+
+
+<a name="logs-LogMessage"></a>
+
+### LogMessage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  | The verbatim line from Loki |
+| object | [google.protobuf.Struct](#google-protobuf-Struct) |  | A raw JSON parse of the entire line |
+| native_timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | If a parseable timestamp was found in `fields` |
+| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  | For code that wants to filter on pipeline/job/etc |
+
+
+
+
+
+
+<a name="logs-LogQuery"></a>
+
+### LogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| user | [UserLogQuery](#logs-UserLogQuery) |  |  |
+| admin | [AdminLogQuery](#logs-AdminLogQuery) |  |  |
+
+
+
+
+
+
+<a name="logs-PagingHint"></a>
+
+### PagingHint
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| older | [GetLogsRequest](#logs-GetLogsRequest) |  |  |
+| newer | [GetLogsRequest](#logs-GetLogsRequest) |  |  |
+
+
+
+
+
+
+<a name="logs-PipelineJobLogQuery"></a>
+
+### PipelineJobLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pipeline | [PipelineLogQuery](#logs-PipelineLogQuery) |  |  |
+| job | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="logs-PipelineLogQuery"></a>
+
+### PipelineLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [string](#string) |  |  |
+| pipeline | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="logs-PodContainer"></a>
+
+### PodContainer
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pod | [string](#string) |  |  |
+| container | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="logs-RegexLogFilter"></a>
+
+### RegexLogFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pattern | [string](#string) |  |  |
+| negate | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="logs-TimeRangeLogFilter"></a>
+
+### TimeRangeLogFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| from | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null |
+| until | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null |
+| offset | [uint64](#uint64) |  | Offset from which to return results |
+
+
+
+
+
+
+<a name="logs-UserLogQuery"></a>
+
+### UserLogQuery
+Only returns &#34;user&#34; logs
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [string](#string) |  | All pipelines in the project |
+| pipeline | [PipelineLogQuery](#logs-PipelineLogQuery) |  | One pipeline in a project |
+| datum | [string](#string) |  | One datum. |
+| job | [string](#string) |  | One job, across pipelines and projects |
+| pipeline_job | [PipelineJobLogQuery](#logs-PipelineJobLogQuery) |  | One job in one pipeline |
+| job_datum | [JobDatumLogQuery](#logs-JobDatumLogQuery) |  | One datum in one job |
+
+
+
+
+
+
+<a name="logs-VerbatimLogMessage"></a>
+
+### VerbatimLogMessage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| line | [bytes](#bytes) |  |  |
+| timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+
+
+
+
+
+ 
+
+
+<a name="logs-LogLevel"></a>
+
+### LogLevel
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| LOG_LEVEL_DEBUG | 0 |  |
+| LOG_LEVEL_INFO | 1 |  |
+| LOG_LEVEL_ERROR | 2 |  |
+
+
+ 
+
+ 
+
+
+<a name="logs-API"></a>
+
+### API
+
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| GetLogs | [GetLogsRequest](#logs-GetLogsRequest) | [GetLogsResponse](#logs-GetLogsResponse) stream |  |
+
+ 
+
+
+
+<a name="metadata_metadata-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## metadata/metadata.proto
+
+
+
+<a name="metadata-ClusterPicker"></a>
+
+### ClusterPicker
+ClusterPicker selects a cluster.  Since clusters will never &#34;cascade&#34;, there is only one cluster
+that can be selected, the one running this API server.
+
+
+
+
+
+
+<a name="metadata-Edit"></a>
+
+### Edit
+Edit represents editing one piece of metadata.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  | project targets a named project&#39;s metadata. |
+| commit | [pfs_v2.CommitPicker](#pfs_v2-CommitPicker) |  | commit targets a commit&#39;s metadata. |
+| branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  | branch targets a branch&#39;s metadata. |
+| repo | [pfs_v2.RepoPicker](#pfs_v2-RepoPicker) |  | repo targets a repo&#39;s metadata. |
+| cluster | [ClusterPicker](#metadata-ClusterPicker) |  | cluster targets the cluster&#39;s metadata. |
+| replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
+| add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
+| edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |
+| delete_key | [Edit.DeleteKey](#metadata-Edit-DeleteKey) |  | delete_key removes a key from the target object&#39;s metadata. |
+
+
+
+
+
+
+<a name="metadata-Edit-AddKey"></a>
+
+### Edit.AddKey
+AddKey is an operation that adds a new metadata key.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  | key is the metadata key to add. It may not be the empty string. |
+| value | [string](#string) |  | value is the value to assign to the metadata key. |
+
+
+
+
+
+
+<a name="metadata-Edit-DeleteKey"></a>
+
+### Edit.DeleteKey
+DeleteKey is an operation that removes a metadata key.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  | key is the metadata key to remove. It may not be the empty string. |
+
+
+
+
+
+
+<a name="metadata-Edit-EditKey"></a>
+
+### Edit.EditKey
+EditKey is an operation that changes or adds a metadata key.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  | key is the metadata key to change or add. It may not be the empty string. |
+| value | [string](#string) |  | value is the value to assign to the metadata key. |
+
+
+
+
+
+
+<a name="metadata-Edit-Replace"></a>
+
+### Edit.Replace
+Replace is an operation that replaces metadata.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| replacement | [Edit.Replace.ReplacementEntry](#metadata-Edit-Replace-ReplacementEntry) | repeated | replacement is the map to replace the object&#39;s metadata with. |
+
+
+
+
+
+
+<a name="metadata-Edit-Replace-ReplacementEntry"></a>
+
+### Edit.Replace.ReplacementEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="metadata-EditMetadataRequest"></a>
+
+### EditMetadataRequest
+EditMetadataRequest is a sequence of edits to apply to metadata.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| edits | [Edit](#metadata-Edit) | repeated | edits is the ordered list of metadata edits to perform. |
+
+
+
+
+
+
+<a name="metadata-EditMetadataResponse"></a>
+
+### EditMetadataResponse
+EditMetadataResponse is the result of editing metadata.
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="metadata-API"></a>
+
+### API
+API is the public API of the metadata service.
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| EditMetadata | [EditMetadataRequest](#metadata-EditMetadataRequest) | [EditMetadataResponse](#metadata-EditMetadataResponse) | EditMetadata edits metadata according to the request. All edits are applied atomically at once. All edits are attempted, but any failing edit fails the entire request. |
+
+ 
+
+
+
 <a name="pfs_pfs-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
@@ -4400,6 +5028,56 @@ To set a user&#39;s auth scope for a resource, use the Pachyderm Auth API (in sr
 | subvenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | direct_provenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | trigger | [Trigger](#pfs_v2-Trigger) |  |  |
+| metadata | [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry) | repeated |  |
+
+
+
+
+
+
+<a name="pfs_v2-BranchInfo-MetadataEntry"></a>
+
+### BranchInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-BranchPicker"></a>
+
+### BranchPicker
+BranchPicker defines mutually exclusive pickers that resolve to a single branch.
+Currently, the only way to pick a branch is by composing a branch name with a repo.
+Picker messages should only be used as request parameters.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [BranchPicker.BranchName](#pfs_v2-BranchPicker-BranchName) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-BranchPicker-BranchName"></a>
+
+### BranchPicker.BranchName
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| repo | [RepoPicker](#pfs_v2-RepoPicker) |  |  |
+| name | [string](#string) |  |  |
 
 
 
@@ -4490,7 +5168,7 @@ protos)
 <a name="pfs_v2-CommitInfo"></a>
 
 ### CommitInfo
-CommitInfo is the main data structure representing a commit in etcd
+CommitInfo is the main data structure representing a commit in postgres
 
 
 | Field | Type | Label | Description |
@@ -4504,9 +5182,11 @@ CommitInfo is the main data structure representing a commit in etcd
 | finishing | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | finished | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | direct_provenance | [Commit](#pfs_v2-Commit) | repeated |  |
+| direct_subvenance | [Commit](#pfs_v2-Commit) | repeated |  |
 | error | [string](#string) |  |  |
 | size_bytes_upper_bound | [int64](#int64) |  |  |
 | details | [CommitInfo.Details](#pfs_v2-CommitInfo-Details) |  |  |
+| metadata | [CommitInfo.MetadataEntry](#pfs_v2-CommitInfo-MetadataEntry) | repeated | Metadata is user-applied annotations. |
 
 
 
@@ -4530,6 +5210,22 @@ Details are only provided when explicitly requested
 
 
 
+<a name="pfs_v2-CommitInfo-MetadataEntry"></a>
+
+### CommitInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="pfs_v2-CommitOrigin"></a>
 
 ### CommitOrigin
@@ -4539,6 +5235,75 @@ Details are only provided when explicitly requested
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | kind | [OriginKind](#pfs_v2-OriginKind) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CommitPicker"></a>
+
+### CommitPicker
+CommitPicker defines mutually exclusive pickers that resolve to a single commit.
+Commits can be picked relatively from some other commit like a parent or start of branch.
+Alternatively, they can be picked via their global Id, which is composed of a repo picker and an id.
+Picker messages should only be used as request parameters.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| branch_head | [BranchPicker](#pfs_v2-BranchPicker) |  |  |
+| id | [CommitPicker.CommitByGlobalId](#pfs_v2-CommitPicker-CommitByGlobalId) |  |  |
+| ancestor | [CommitPicker.AncestorOf](#pfs_v2-CommitPicker-AncestorOf) |  |  |
+| branch_root | [CommitPicker.BranchRoot](#pfs_v2-CommitPicker-BranchRoot) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CommitPicker-AncestorOf"></a>
+
+### CommitPicker.AncestorOf
+This models ^ syntax recursively.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| offset | [uint32](#uint32) |  |  |
+| start | [CommitPicker](#pfs_v2-CommitPicker) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CommitPicker-BranchRoot"></a>
+
+### CommitPicker.BranchRoot
+This models .N syntax.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| offset | [uint32](#uint32) |  |  |
+| branch | [BranchPicker](#pfs_v2-BranchPicker) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CommitPicker-CommitByGlobalId"></a>
+
+### CommitPicker.CommitByGlobalId
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| repo | [RepoPicker](#pfs_v2-RepoPicker) |  |  |
+| id | [string](#string) |  |  |
 
 
 
@@ -5121,6 +5886,7 @@ DeleteReposRequest is used to delete more than one repo at once.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | commit | [Commit](#pfs_v2-Commit) |  |  |
+| type | [GetFileSetRequest.FileSetType](#pfs_v2-GetFileSetRequest-FileSetType) |  |  |
 
 
 
@@ -5215,6 +5981,37 @@ DeleteReposRequest is used to delete more than one repo at once.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | project | [Project](#pfs_v2-Project) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-InspectProjectV2Request"></a>
+
+### InspectProjectV2Request
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [Project](#pfs_v2-Project) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-InspectProjectV2Response"></a>
+
+### InspectProjectV2Response
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| info | [ProjectInfo](#pfs_v2-ProjectInfo) |  |  |
+| defaults_json | [string](#string) |  |  |
 
 
 
@@ -5325,8 +6122,9 @@ DeleteReposRequest is used to delete more than one repo at once.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| type | [string](#string) |  | type is the type of (system) repos that should be returned an empty string requests all repos |
-| projects | [Project](#pfs_v2-Project) | repeated | projects filters out repos that do not belong in the list, while no projects means list all repos. |
+| type | [string](#string) |  | Type is the type of (system) repo that should be returned. An empty string requests all repos. |
+| projects | [Project](#pfs_v2-Project) | repeated | Filters out repos whos project isn&#39;t represented. An empty list of projects doesn&#39;t filter repos by their project. |
+| page | [RepoPage](#pfs_v2-RepoPage) |  | Specifies which page of repos should be returned. If page isn&#39;t specified, a single page containing all the relevant repos is returned. |
 
 
 
@@ -5409,6 +6207,40 @@ DeleteReposRequest is used to delete more than one repo at once.
 | description | [string](#string) |  |  |
 | auth_info | [AuthInfo](#pfs_v2-AuthInfo) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| metadata | [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry) | repeated |  |
+
+
+
+
+
+
+<a name="pfs_v2-ProjectInfo-MetadataEntry"></a>
+
+### ProjectInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-ProjectPicker"></a>
+
+### ProjectPicker
+ProjectPicker defines mutually exclusive pickers that resolve to a single project.
+Currently, the only way to pick a project is by using a project name.
+Picker messages should only be used as request parameters.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
 
 
 
@@ -5481,6 +6313,7 @@ RepoInfo is the main data structure representing a Repo in etcd
 | branches | [Branch](#pfs_v2-Branch) | repeated |  |
 | auth_info | [AuthInfo](#pfs_v2-AuthInfo) |  | Set by ListRepo and InspectRepo if Pachyderm&#39;s auth system is active, but not stored in etcd. To set a user&#39;s auth scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto) |
 | details | [RepoInfo.Details](#pfs_v2-RepoInfo-Details) |  |  |
+| metadata | [RepoInfo.MetadataEntry](#pfs_v2-RepoInfo-MetadataEntry) | repeated | Metadata are user-defined key-value pairs. |
 
 
 
@@ -5496,6 +6329,121 @@ Details are only provided when explicitly requested
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | size_bytes | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-RepoInfo-MetadataEntry"></a>
+
+### RepoInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-RepoPage"></a>
+
+### RepoPage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| order | [RepoPage.Ordering](#pfs_v2-RepoPage-Ordering) |  |  |
+| page_size | [int64](#int64) |  |  |
+| page_index | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-RepoPicker"></a>
+
+### RepoPicker
+Repo defines mutually exclusive pickers that resolve to a single repository.
+Currently, the only way to pick a repo is by composing a repo name and type with a project.
+If the type is omitted, the &#39;user&#39; type will be used as a default.
+Picker messages should only be used as request parameters.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [RepoPicker.RepoName](#pfs_v2-RepoPicker-RepoName) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-RepoPicker-RepoName"></a>
+
+### RepoPicker.RepoName
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [ProjectPicker](#pfs_v2-ProjectPicker) |  |  |
+| name | [string](#string) |  |  |
+| type | [string](#string) |  | type is optional. If omitted, the default type is &#39;user&#39;. |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummary"></a>
+
+### ReposSummary
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [Project](#pfs_v2-Project) |  | the project the ReposSummary corresponds to |
+| user_repo_count | [int64](#int64) |  | the count of user repos in the summary |
+| size_bytes | [int64](#int64) |  | aggregate size of all the repos returned in the summary |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummaryRequest"></a>
+
+### ReposSummaryRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| projects | [ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a ReposSummary will be returned for every specified project |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummaryResponse"></a>
+
+### ReposSummaryResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| summaries | [ReposSummary](#pfs_v2-ReposSummary) | repeated | repo summaries for the requested projects |
 
 
 
@@ -5554,12 +6502,17 @@ Details are only provided when explicitly requested
 <a name="pfs_v2-ShardFileSetRequest"></a>
 
 ### ShardFileSetRequest
-
+If both num_files and size_bytes are set, shards are created
+based on whichever threshold is surpassed first. If a shard
+configuration field (num_files, size_bytes) is unset, the
+storage&#39;s default value is used.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | file_set_id | [string](#string) |  |  |
+| num_files | [int64](#int64) |  | Number of files targeted in each shard |
+| size_bytes | [int64](#int64) |  | Size (in bytes) targeted for each shard |
 
 
 
@@ -5680,6 +6633,74 @@ branch it is moved.
 
 
 
+<a name="pfs_v2-WalkBranchProvenanceRequest"></a>
+
+### WalkBranchProvenanceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| start | [BranchPicker](#pfs_v2-BranchPicker) | repeated | if more than one picker is specified, the result stream is the concatenation of the streams of each picker. |
+| max_branches | [uint64](#uint64) |  | defaults to 10,000 if unspecified |
+| max_depth | [uint64](#uint64) |  | defaults to 1000 if unspecified |
+
+
+
+
+
+
+<a name="pfs_v2-WalkBranchSubvenanceRequest"></a>
+
+### WalkBranchSubvenanceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| start | [BranchPicker](#pfs_v2-BranchPicker) | repeated | if more than one picker is specified, the result stream is the concatenation of the streams of each picker. |
+| max_branches | [uint64](#uint64) |  | defaults to 10,000 if unspecified |
+| max_depth | [uint64](#uint64) |  | defaults to 1000 if unspecified |
+
+
+
+
+
+
+<a name="pfs_v2-WalkCommitProvenanceRequest"></a>
+
+### WalkCommitProvenanceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| start | [CommitPicker](#pfs_v2-CommitPicker) | repeated | if more than one picker is specified, the result stream is the concatenation of the streams of each picker. |
+| max_commits | [uint64](#uint64) |  | defaults to 10,000 if unspecified |
+| max_depth | [uint64](#uint64) |  | defaults to 1000 if unspecified |
+
+
+
+
+
+
+<a name="pfs_v2-WalkCommitSubvenanceRequest"></a>
+
+### WalkCommitSubvenanceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| start | [CommitPicker](#pfs_v2-CommitPicker) | repeated | if more than one picker is specified, the result stream is the concatenation of the streams of each picker. |
+| max_commits | [uint64](#uint64) |  | defaults to 10,000 if unspecified |
+| max_depth | [uint64](#uint64) |  | defaults to 1000 if unspecified |
+
+
+
+
+
+
 <a name="pfs_v2-WalkFileRequest"></a>
 
 ### WalkFileRequest
@@ -5744,6 +6765,18 @@ The states are increasingly specific, i.e. a commit that is FINISHED also counts
 
 
 
+<a name="pfs_v2-GetFileSetRequest-FileSetType"></a>
+
+### GetFileSetRequest.FileSetType
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| TOTAL | 0 |  |
+| DIFF | 1 |  |
+
+
+
 <a name="pfs_v2-OriginKind"></a>
 
 ### OriginKind
@@ -5755,6 +6788,17 @@ These are the different places where a commit may be originated from
 | USER | 1 |  |
 | AUTO | 2 |  |
 | FSCK | 3 |  |
+
+
+
+<a name="pfs_v2-RepoPage-Ordering"></a>
+
+### RepoPage.Ordering
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| PROJECT_REPO | 0 |  |
 
 
 
@@ -5801,10 +6845,14 @@ These are the different places where a commit may be originated from
 | SquashCommitSet | [SquashCommitSetRequest](#pfs_v2-SquashCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | SquashCommitSet squashes the commits of a CommitSet into their children. Deprecated: Use SquashCommit instead. |
 | DropCommitSet | [DropCommitSetRequest](#pfs_v2-DropCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DropCommitSet drops the commits of a CommitSet and all data included in the commits. Deprecated: Use DropCommit instead. |
 | FindCommits | [FindCommitsRequest](#pfs_v2-FindCommitsRequest) | [FindCommitsResponse](#pfs_v2-FindCommitsResponse) stream | FindCommits searches for commits that reference a supplied file being modified in a branch. |
+| WalkCommitProvenance | [WalkCommitProvenanceRequest](#pfs_v2-WalkCommitProvenanceRequest) | [CommitInfo](#pfs_v2-CommitInfo) stream | WalkCommitProvenance traverses a commit&#39;s provenance graph and streams back each commit encountered. |
+| WalkCommitSubvenance | [WalkCommitSubvenanceRequest](#pfs_v2-WalkCommitSubvenanceRequest) | [CommitInfo](#pfs_v2-CommitInfo) stream | WalkCommitSubvenance traverses a commit&#39;s subvenance graph and streams back each commit encountered. |
 | CreateBranch | [CreateBranchRequest](#pfs_v2-CreateBranchRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | CreateBranch creates a new branch. |
 | InspectBranch | [InspectBranchRequest](#pfs_v2-InspectBranchRequest) | [BranchInfo](#pfs_v2-BranchInfo) | InspectBranch returns info about a branch. |
 | ListBranch | [ListBranchRequest](#pfs_v2-ListBranchRequest) | [BranchInfo](#pfs_v2-BranchInfo) stream | ListBranch returns info about the heads of branches. |
 | DeleteBranch | [DeleteBranchRequest](#pfs_v2-DeleteBranchRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteBranch deletes a branch; note that the commits still exist. |
+| WalkBranchProvenance | [WalkBranchProvenanceRequest](#pfs_v2-WalkBranchProvenanceRequest) | [BranchInfo](#pfs_v2-BranchInfo) stream | WalkBranchProvenance traverses a branch&#39;s provenance graph and streams back each branch encountered. |
+| WalkBranchSubvenance | [WalkBranchSubvenanceRequest](#pfs_v2-WalkBranchSubvenanceRequest) | [BranchInfo](#pfs_v2-BranchInfo) stream | WalkBranchSubvenance traverses a branch&#39;s subvenance graph and streams back each branch encountered. |
 | ModifyFile | [ModifyFileRequest](#pfs_v2-ModifyFileRequest) stream | [.google.protobuf.Empty](#google-protobuf-Empty) | ModifyFile performs modifications on a set of files. |
 | GetFile | [GetFileRequest](#pfs_v2-GetFileRequest) | [.google.protobuf.BytesValue](#google-protobuf-BytesValue) stream | GetFile returns the contents of a single file |
 | GetFileTAR | [GetFileRequest](#pfs_v2-GetFileRequest) | [.google.protobuf.BytesValue](#google-protobuf-BytesValue) stream | GetFileTAR returns a TAR stream of the contents matched by the request |
@@ -5830,8 +6878,10 @@ These are the different places where a commit may be originated from
 | Egress | [EgressRequest](#pfs_v2-EgressRequest) | [EgressResponse](#pfs_v2-EgressResponse) | Egress writes data from a commit to an external system |
 | CreateProject | [CreateProjectRequest](#pfs_v2-CreateProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | Project API CreateProject creates a new project. |
 | InspectProject | [InspectProjectRequest](#pfs_v2-InspectProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) | InspectProject returns info about a project. |
+| InspectProjectV2 | [InspectProjectV2Request](#pfs_v2-InspectProjectV2Request) | [InspectProjectV2Response](#pfs_v2-InspectProjectV2Response) | InspectProjectV2 returns info about and defaults for a project. |
 | ListProject | [ListProjectRequest](#pfs_v2-ListProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) stream | ListProject returns info about all projects. |
 | DeleteProject | [DeleteProjectRequest](#pfs_v2-DeleteProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteProject deletes a project. |
+| ReposSummary | [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest) | [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse) | Summary API ReposSummary returns a list of summaries about the repos for each of the requested projects. |
 
  
 
@@ -6387,6 +7437,38 @@ Response for check status request. Provides alerts if any.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | create_pipeline_request | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) |  | CreatePipelineRequest contains the default JSON CreatePipelineRequest into which pipeline specs are merged to form the effective spec used to create a pipeline. |
+
+
+
+
+
+
+<a name="pps_v2-ContinueCreateDatumRequest"></a>
+
+### ContinueCreateDatumRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| number | [int32](#int32) |  | Number of datums to return in next batch. If 0, default batch size is returned. |
+
+
+
+
+
+
+<a name="pps_v2-CreateDatumRequest"></a>
+
+### CreateDatumRequest
+Emits a stream of datums as they are created from the given input. Client
+must cancel the stream when it no longer wants to receive datums.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| start | [StartCreateDatumRequest](#pps_v2-StartCreateDatumRequest) |  |  |
+| continue | [ContinueCreateDatumRequest](#pps_v2-ContinueCreateDatumRequest) |  |  |
 
 
 
@@ -7145,6 +8227,7 @@ all of the filtered attributes.
 | jqFilter | [string](#string) |  | A jq program string for additional result filtering |
 | commit_set | [pfs_v2.CommitSet](#pfs_v2-CommitSet) |  | If non-nil, will return all the pipeline infos at this commit set |
 | projects | [pfs_v2.Project](#pfs_v2-Project) | repeated | Projects to filter on. Empty list means no filter, so return all pipelines. |
+| page | [PipelinePage](#pps_v2-PipelinePage) |  | Page indicates which page of a certain size to return. If page is left empty, all of the selected pipelines will be returned. |
 
 
 
@@ -7405,6 +8488,72 @@ potentially expensive operations.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | pipeline_info | [PipelineInfo](#pps_v2-PipelineInfo) | repeated |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelinePage"></a>
+
+### PipelinePage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| order | [PipelinePage.Ordering](#pps_v2-PipelinePage-Ordering) |  |  |
+| page_size | [int64](#int64) |  |  |
+| page_index | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelinesSummary"></a>
+
+### PipelinesSummary
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  | the project the PipelinesSummary corresponds to |
+| active_pipelines | [int64](#int64) |  | count of active pipelines |
+| paused_pipelines | [int64](#int64) |  | count of paused pipelines |
+| failed_pipelines | [int64](#int64) |  | count of failed pipelines |
+| unhealthy_pipelines | [int64](#int64) |  | count of pipelines with a failed latest job |
+
+
+
+
+
+
+<a name="pps_v2-PipelinesSummaryRequest"></a>
+
+### PipelinesSummaryRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| projects | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a PipelinesSummary will be returned for each of the requests projects |
+
+
+
+
+
+
+<a name="pps_v2-PipelinesSummaryResponse"></a>
+
+### PipelinesSummaryResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| summaries | [PipelinesSummary](#pps_v2-PipelinesSummary) | repeated | the pipeline summaries for the requested projects |
 
 
 
@@ -7809,6 +8958,22 @@ request from kubernetes, for scheduling.
 
 
 
+<a name="pps_v2-StartCreateDatumRequest"></a>
+
+### StartCreateDatumRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| input | [Input](#pps_v2-Input) |  | Input is the input to list datums from. The datums listed are the ones that would be run if a pipeline was created with the provided input. |
+| number | [int32](#int32) |  | Number of datums to return in first batch. If 0, default batch size is returned. |
+
+
+
+
+
+
 <a name="pps_v2-StartPipelineRequest"></a>
 
 ### StartPipelineRequest
@@ -8061,6 +9226,17 @@ the pipeline without loading the spec from PFS.
 
 
 
+<a name="pps_v2-PipelinePage-Ordering"></a>
+
+### PipelinePage.Ordering
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| RECENT | 0 |  |
+
+
+
 <a name="pps_v2-PipelineState"></a>
 
 ### PipelineState
@@ -8140,6 +9316,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | StopJob | [StopJobRequest](#pps_v2-StopJobRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | InspectDatum | [InspectDatumRequest](#pps_v2-InspectDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) |  |
 | ListDatum | [ListDatumRequest](#pps_v2-ListDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) stream | ListDatum returns information about each datum fed to a Pachyderm job |
+| CreateDatum | [CreateDatumRequest](#pps_v2-CreateDatumRequest) stream | [DatumInfo](#pps_v2-DatumInfo) stream | CreateDatum prioritizes time to first datum. Each request returns a batch of datums. |
 | RestartDatum | [RestartDatumRequest](#pps_v2-RestartDatumRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | RerunPipeline | [RerunPipelineRequest](#pps_v2-RerunPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | CreatePipeline | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
@@ -8171,6 +9348,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | SetClusterDefaults | [SetClusterDefaultsRequest](#pps_v2-SetClusterDefaultsRequest) | [SetClusterDefaultsResponse](#pps_v2-SetClusterDefaultsResponse) | SetClusterDefaults returns the current cluster defaults. |
 | GetProjectDefaults | [GetProjectDefaultsRequest](#pps_v2-GetProjectDefaultsRequest) | [GetProjectDefaultsResponse](#pps_v2-GetProjectDefaultsResponse) | GetProjectDefaults returns the defaults for a particular project. |
 | SetProjectDefaults | [SetProjectDefaultsRequest](#pps_v2-SetProjectDefaultsRequest) | [SetProjectDefaultsResponse](#pps_v2-SetProjectDefaultsResponse) | SetProjectDefaults sets the defaults for a particular project. |
+| PipelinesSummary | [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest) | [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse) | PipelinesSummary summarizes the pipelines for each requested project. |
 
  
 
@@ -9472,6 +10650,7 @@ WellKnownRegex contain some well-known patterns.
 | file_set_id | [string](#string) |  |  |
 | path_range | [pfs_v2.PathRange](#pfs_v2-PathRange) |  |  |
 | set_spec | [datum.SetSpec](#datum-SetSpec) |  |  |
+| auth_token | [string](#string) |  |  |
 
 
 
@@ -9506,6 +10685,7 @@ WellKnownRegex contain some well-known patterns.
 | file_set_id | [string](#string) |  |  |
 | base_file_set_id | [string](#string) |  |  |
 | path_range | [pfs_v2.PathRange](#pfs_v2-PathRange) |  |  |
+| auth_token | [string](#string) |  |  |
 
 
 
@@ -9542,6 +10722,7 @@ WellKnownRegex contain some well-known patterns.
 | base_meta_commit | [pfs_v2.Commit](#pfs_v2-Commit) |  |  |
 | no_skip | [bool](#bool) |  |  |
 | path_range | [pfs_v2.PathRange](#pfs_v2-PathRange) |  |  |
+| auth_token | [string](#string) |  |  |
 
 
 
@@ -9605,6 +10786,256 @@ WellKnownRegex contain some well-known patterns.
  
 
  
+
+ 
+
+
+
+<a name="storage_fileset-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## storage/fileset.proto
+
+
+
+<a name="storage-AppendFile"></a>
+
+### AppendFile
+AppendFile will append the provided data to the file with the specified path. If
+a file with the specified path doesn&#39;t exist, it will be created.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+| data | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
+
+
+
+
+
+
+<a name="storage-ComposeFilesetRequest"></a>
+
+### ComposeFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_ids | [string](#string) | repeated |  |
+| ttl_seconds | [int64](#int64) |  | The TTL, in seconds, for the composite fileset that is created. |
+
+
+
+
+
+
+<a name="storage-ComposeFilesetResponse"></a>
+
+### ComposeFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-CreateFilesetRequest"></a>
+
+### CreateFilesetRequest
+A CreateFilesetRequest corresponds to a single file modification.
+Supported file modifications are append and delete.
+A put / overwrite file modification can be performed by a delete followed by an
+append.
+ TODO: Decide how to handle datums.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| append_file | [AppendFile](#storage-AppendFile) |  |  |
+| delete_file | [DeleteFile](#storage-DeleteFile) |  |  |
+
+
+
+
+
+
+<a name="storage-CreateFilesetResponse"></a>
+
+### CreateFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-DeleteFile"></a>
+
+### DeleteFile
+DeleteFile will delete the file with the specified path. If a file with the
+specified path doesn&#39;t exist, the delete will be a no-op.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-FileFilter"></a>
+
+### FileFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path_range | [PathRange](#storage-PathRange) |  | Only emit files with paths in the provided path range. |
+| path_regex | [string](#string) |  | Only emit files with paths that match the provided regular expression. |
+
+
+
+
+
+
+<a name="storage-PathRange"></a>
+
+### PathRange
+PathRange is a range of paths.
+The range is inclusive, exclusive: [Lower, Upper).
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| lower | [string](#string) |  |  |
+| upper | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-ReadFilesetRequest"></a>
+
+### ReadFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| filters | [FileFilter](#storage-FileFilter) | repeated | Filters constrain which files are emitted. A file is only emitted if it makes it through all of the filters sequentially. |
+| empty_files | [bool](#bool) |  | If true, then the file data will be omitted from the stream. |
+
+
+
+
+
+
+<a name="storage-ReadFilesetResponse"></a>
+
+### ReadFilesetResponse
+A ReadFilesetResponse corresponds to a single chunk of data in a file. 
+Small or empty files will be contained within a single message, while large
+files may be spread across multiple messages.
+For files spread across multiple messages, each message will have the same
+path and the content will be returned in append order.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+| data | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
+
+
+
+
+
+
+<a name="storage-RenewFilesetRequest"></a>
+
+### RenewFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| ttl_seconds | [int64](#int64) |  | The TTL, in seconds, for the fileset after renewal. |
+
+
+
+
+
+
+<a name="storage-ShardFilesetRequest"></a>
+
+### ShardFilesetRequest
+If both num_files and size_bytes are set, shards are created
+based on whichever threshold is surpassed first. If a shard
+configuration field (num_files, size_bytes) is unset, the
+storage&#39;s default value is used.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| num_files | [int64](#int64) |  | Number of files targeted in each shard. |
+| size_bytes | [int64](#int64) |  | Size (in bytes) targeted for each shard. |
+
+
+
+
+
+
+<a name="storage-ShardFilesetResponse"></a>
+
+### ShardFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| shards | [PathRange](#storage-PathRange) | repeated |  |
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="storage-Fileset"></a>
+
+### Fileset
+
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| CreateFileset | [CreateFilesetRequest](#storage-CreateFilesetRequest) stream | [CreateFilesetResponse](#storage-CreateFilesetResponse) | CreateFileset creates a fileset based on a stream of file modifications. A string identifier for the created fileset will be returned that can be used for subsequent fileset operations. Filesets have a fixed time-to-live (ttl), which is currently 10 minutes. Filesets needed longer than the ttl will need to be renewed. |
+| ReadFileset | [ReadFilesetRequest](#storage-ReadFilesetRequest) | [ReadFilesetResponse](#storage-ReadFilesetResponse) stream | ReadFileset reads a fileset. |
+| RenewFileset | [RenewFilesetRequest](#storage-RenewFilesetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | RenewFileset renews a fileset. |
+| ComposeFileset | [ComposeFilesetRequest](#storage-ComposeFilesetRequest) | [ComposeFilesetResponse](#storage-ComposeFilesetResponse) | ComposeFileset composes a fileset. Composing a fileset involves combining one or more filesets into a single fileset. TODO: Explain how the filesets are layered and what that means for the order of file modifications. |
+| ShardFileset | [ShardFilesetRequest](#storage-ShardFilesetRequest) | [ShardFilesetResponse](#storage-ShardFilesetResponse) | ShardFileset shards a fileset. The shards of a fileset are returned as a list of path ranges that are disjoint and account for the full set of paths in the fileset. |
 
  
 

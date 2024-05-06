@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -36,35 +37,47 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 	return common.HashDatum(h.salt, inputs)
 }
 
-func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, status *Status) error {
-	return errors.EnsureStack(driver.NewTaskSource().Iterate(
+func PreprocessingWorker(ctx context.Context, c pfs.APIClient, taskService task.Service, pipelineInfo *pps.PipelineInfo) error {
+	taskSource := taskService.NewSource(driver.PreprocessingTaskNamespace(pipelineInfo))
+	return errors.EnsureStack(taskSource.Iterate(
 		ctx,
 		func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
 			case datum.IsTask(input):
-				pachClient := driver.PachClient().WithCtx(ctx)
-				return datum.ProcessTask(pachClient.Ctx(), pachClient.PfsAPIClient, input)
+				return datum.ProcessTask(ctx, c, input)
 			case input.MessageIs(&CreateParallelDatumsTask{}):
-				createParallelDatumsTask, err := deserializeCreateParallelDatumsTask(input)
+				task, err := deserializeCreateParallelDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
-				pachClient := driver.PachClient().WithCtx(ctx)
-				return processCreateParallelDatumsTask(pachClient, createParallelDatumsTask)
+				ctx = client.SetAuthToken(ctx, task.AuthToken)
+				return processCreateParallelDatumsTask(ctx, c, task)
 			case input.MessageIs(&CreateSerialDatumsTask{}):
-				createSerialDatumsTask, err := deserializeCreateSerialDatumsTask(input)
+				task, err := deserializeCreateSerialDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
-				pachClient := driver.PachClient().WithCtx(ctx)
-				return processCreateSerialDatumsTask(pachClient, createSerialDatumsTask)
+				ctx = client.SetAuthToken(ctx, task.AuthToken)
+				return processCreateSerialDatumsTask(ctx, c, task)
 			case input.MessageIs(&CreateDatumSetsTask{}):
-				createDatumSetsTask, err := deserializeCreateDatumSetsTask(input)
+				task, err := deserializeCreateDatumSetsTask(input)
 				if err != nil {
 					return nil, err
 				}
-				driver := driver.WithContext(ctx)
-				return processCreateDatumSetsTask(driver, createDatumSetsTask)
+				ctx = client.SetAuthToken(ctx, task.AuthToken)
+				return processCreateDatumSetsTask(ctx, c, task)
+			default:
+				return nil, errors.Errorf("unrecognized any type (%v) in preprocessing worker", input.TypeUrl)
+			}
+		},
+	))
+}
+
+func ProcessingWorker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, status *Status) error {
+	return errors.EnsureStack(driver.NewTaskSource().Iterate(
+		ctx,
+		func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
+			switch {
 			case input.MessageIs(&DatumSetTask{}):
 				datumSetTask, err := deserializeDatumSetTask(input)
 				if err != nil {
@@ -73,22 +86,22 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 				driver := driver.WithContext(ctx)
 				return processDatumSetTask(driver, logger, datumSetTask, status)
 			default:
-				return nil, errors.Errorf("unrecognized any type (%v) in transform worker", input.TypeUrl)
+				return nil, errors.Errorf("unrecognized any type (%v) in processing worker", input.TypeUrl)
 			}
 		},
 	))
 }
 
-func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateParallelDatumsTask) (*anypb.Any, error) {
+func processCreateParallelDatumsTask(ctx context.Context, c pfs.APIClient, task *CreateParallelDatumsTask) (*anypb.Any, error) {
 	var dits []datum.Iterator
 	if task.BaseFileSetId != "" {
-		dits = append(dits, datum.NewFileSetIterator(pachClient.Ctx(), pachClient.PfsAPIClient, task.BaseFileSetId, task.PathRange))
+		dits = append(dits, datum.NewFileSetIterator(ctx, c, task.BaseFileSetId, task.PathRange))
 	}
-	dit := datum.NewFileSetIterator(pachClient.Ctx(), pachClient.PfsAPIClient, task.FileSetId, task.PathRange)
+	dit := datum.NewFileSetIterator(ctx, c, task.FileSetId, task.PathRange)
 	dit = datum.NewJobIterator(dit, task.Job, &hasher{salt: task.Salt})
 	dits = append(dits, dit)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	outputFileSetID, err := datum.WithCreateFileSet(pachClient.Ctx(), pachClient.PfsAPIClient, "pachyderm-create-parallel-datums", func(outputSet *datum.Set) error {
+	outputFileSetID, err := datum.WithCreateFileSet(ctx, c, "pachyderm-create-parallel-datums", func(outputSet *datum.Set) error {
 		return datum.Merge(dits, func(metas []*datum.Meta) error {
 			// Datum exists in both jobs.
 			if len(metas) > 1 {
@@ -115,18 +128,18 @@ func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateP
 	})
 }
 
-func processCreateSerialDatumsTask(pachClient *client.APIClient, task *CreateSerialDatumsTask) (*anypb.Any, error) {
-	dit := datum.NewFileSetIterator(pachClient.Ctx(), pachClient.PfsAPIClient, task.FileSetId, task.PathRange)
+func processCreateSerialDatumsTask(ctx context.Context, c pfs.APIClient, task *CreateSerialDatumsTask) (*anypb.Any, error) {
+	dit := datum.NewFileSetIterator(ctx, c, task.FileSetId, task.PathRange)
 	dit = datum.NewJobIterator(dit, task.Job, &hasher{salt: task.Salt})
 	dits := []datum.Iterator{
-		datum.NewCommitIterator(pachClient.Ctx(), pachClient.PfsAPIClient, task.BaseMetaCommit, task.PathRange),
+		datum.NewCommitIterator(ctx, c, task.BaseMetaCommit, task.PathRange),
 		dit,
 	}
 	var metaDeleteFileSetID, outputDeleteFileSetID string
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	outputFileSetID, err := datum.WithCreateFileSet(pachClient.Ctx(), pachClient.PfsAPIClient, "pachyderm-create-serial-datums", func(outputSet *datum.Set) error {
+	outputFileSetID, err := datum.WithCreateFileSet(ctx, c, "pachyderm-create-serial-datums", func(outputSet *datum.Set) error {
 		var err error
-		outputDeleteFileSetID, metaDeleteFileSetID, err = withDeleter(pachClient, task.BaseMetaCommit, func(deleter datum.Deleter) error {
+		outputDeleteFileSetID, metaDeleteFileSetID, err = withDeleter(ctx, c, task.BaseMetaCommit, func(deleter datum.Deleter) error {
 			return datum.Merge(dits, func(metas []*datum.Meta) error {
 				if len(metas) == 1 {
 					// Datum was processed in the parallel step.
@@ -165,14 +178,14 @@ func skippableDatum(meta1, meta2 *datum.Meta) bool {
 	return meta1.Hash == meta2.Hash && meta2.State == datum.State_PROCESSED
 }
 
-func withDeleter(pachClient *client.APIClient, baseMetaCommit *pfs.Commit, cb func(datum.Deleter) error) (string, string, error) {
+func withDeleter(ctx context.Context, c pfs.APIClient, baseMetaCommit *pfs.Commit, cb func(datum.Deleter) error) (string, string, error) {
 	var outputFileSetID, metaFileSetID string
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		resp, err := pachClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
-			resp, err := pachClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) error {
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		resp, err := client.WithCreateFileSetClient(ctx, c, func(mfMeta client.ModifyFile) error {
+			resp, err := client.WithCreateFileSetClient(ctx, c, func(mfPFS client.ModifyFile) error {
 				metaFileWalker := func(path string) ([]string, error) {
 					var files []string
-					if err := pachClient.WalkFile(baseMetaCommit, path, func(fi *pfs.FileInfo) error {
+					if err := client.WalkFile(ctx, c, baseMetaCommit, path, func(fi *pfs.FileInfo) error {
 						if fi.FileType == pfs.FileType_FILE {
 							files = append(files, fi.File.Path)
 						}
@@ -204,8 +217,8 @@ func withDeleter(pachClient *client.APIClient, baseMetaCommit *pfs.Commit, cb fu
 	return outputFileSetID, metaFileSetID, nil
 }
 
-func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask) (*anypb.Any, error) {
-	datumSets, err := datum.CreateSets(driver.PachClient(), task.SetSpec, task.FileSetId, task.PathRange)
+func processCreateDatumSetsTask(ctx context.Context, c pfs.APIClient, task *CreateDatumSetsTask) (*anypb.Any, error) {
+	datumSets, err := datum.CreateSets(ctx, c, task.SetSpec, task.FileSetId, task.PathRange)
 	if err != nil {
 		return nil, err
 	}

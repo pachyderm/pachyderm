@@ -294,6 +294,49 @@ func request_API_ListDatum_0(ctx context.Context, marshaler runtime.Marshaler, c
 
 }
 
+func request_API_CreateDatum_0(ctx context.Context, marshaler runtime.Marshaler, client APIClient, req *http.Request, pathParams map[string]string) (API_CreateDatumClient, runtime.ServerMetadata, error) {
+	var metadata runtime.ServerMetadata
+	stream, err := client.CreateDatum(ctx)
+	if err != nil {
+		grpclog.Infof("Failed to start streaming: %v", err)
+		return nil, metadata, err
+	}
+	dec := marshaler.NewDecoder(req.Body)
+	handleSend := func() error {
+		var protoReq CreateDatumRequest
+		err := dec.Decode(&protoReq)
+		if err == io.EOF {
+			return err
+		}
+		if err != nil {
+			grpclog.Infof("Failed to decode request: %v", err)
+			return err
+		}
+		if err := stream.Send(&protoReq); err != nil {
+			grpclog.Infof("Failed to send request: %v", err)
+			return err
+		}
+		return nil
+	}
+	go func() {
+		for {
+			if err := handleSend(); err != nil {
+				break
+			}
+		}
+		if err := stream.CloseSend(); err != nil {
+			grpclog.Infof("Failed to terminate client stream: %v", err)
+		}
+	}()
+	header, err := stream.Header()
+	if err != nil {
+		grpclog.Infof("Failed to get header from client: %v", err)
+		return nil, metadata, err
+	}
+	metadata.HeaderMD = header
+	return stream, metadata, nil
+}
+
 func request_API_RestartDatum_0(ctx context.Context, marshaler runtime.Marshaler, client APIClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq RestartDatumRequest
 	var metadata runtime.ServerMetadata
@@ -1294,6 +1337,40 @@ func local_request_API_SetProjectDefaults_0(ctx context.Context, marshaler runti
 
 }
 
+func request_API_PipelinesSummary_0(ctx context.Context, marshaler runtime.Marshaler, client APIClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq PipelinesSummaryRequest
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	}
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.PipelinesSummary(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_API_PipelinesSummary_0(ctx context.Context, marshaler runtime.Marshaler, server APIServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq PipelinesSummaryRequest
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	}
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := server.PipelinesSummary(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
 // RegisterAPIHandlerServer registers the http handlers for service API to "mux".
 // UnaryRPC     :call APIServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
@@ -1429,6 +1506,13 @@ func RegisterAPIHandlerServer(ctx context.Context, mux *runtime.ServeMux, server
 	})
 
 	mux.Handle("POST", pattern_API_ListDatum_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
+		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+		return
+	})
+
+	mux.Handle("POST", pattern_API_CreateDatum_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -2102,6 +2186,31 @@ func RegisterAPIHandlerServer(ctx context.Context, mux *runtime.ServeMux, server
 
 	})
 
+	mux.Handle("POST", pattern_API_PipelinesSummary_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/pps_v2.API/PipelinesSummary", runtime.WithHTTPPathPattern("/pps_v2.API/PipelinesSummary"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_API_PipelinesSummary_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_API_PipelinesSummary_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	return nil
 }
 
@@ -2338,6 +2447,28 @@ func RegisterAPIHandlerClient(ctx context.Context, mux *runtime.ServeMux, client
 		}
 
 		forward_API_ListDatum_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("POST", pattern_API_CreateDatum_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/pps_v2.API/CreateDatum", runtime.WithHTTPPathPattern("/pps_v2.API/CreateDatum"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_API_CreateDatum_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_API_CreateDatum_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -3023,6 +3154,28 @@ func RegisterAPIHandlerClient(ctx context.Context, mux *runtime.ServeMux, client
 
 	})
 
+	mux.Handle("POST", pattern_API_PipelinesSummary_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/pps_v2.API/PipelinesSummary", runtime.WithHTTPPathPattern("/pps_v2.API/PipelinesSummary"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_API_PipelinesSummary_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_API_PipelinesSummary_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	return nil
 }
 
@@ -3044,6 +3197,8 @@ var (
 	pattern_API_InspectDatum_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"pps_v2.API", "InspectDatum"}, ""))
 
 	pattern_API_ListDatum_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"pps_v2.API", "ListDatum"}, ""))
+
+	pattern_API_CreateDatum_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"pps_v2.API", "CreateDatum"}, ""))
 
 	pattern_API_RestartDatum_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"pps_v2.API", "RestartDatum"}, ""))
 
@@ -3106,6 +3261,8 @@ var (
 	pattern_API_GetProjectDefaults_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"pps_v2.API", "GetProjectDefaults"}, ""))
 
 	pattern_API_SetProjectDefaults_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"pps_v2.API", "SetProjectDefaults"}, ""))
+
+	pattern_API_PipelinesSummary_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"pps_v2.API", "PipelinesSummary"}, ""))
 )
 
 var (
@@ -3126,6 +3283,8 @@ var (
 	forward_API_InspectDatum_0 = runtime.ForwardResponseMessage
 
 	forward_API_ListDatum_0 = runtime.ForwardResponseStream
+
+	forward_API_CreateDatum_0 = runtime.ForwardResponseStream
 
 	forward_API_RestartDatum_0 = runtime.ForwardResponseMessage
 
@@ -3188,4 +3347,6 @@ var (
 	forward_API_GetProjectDefaults_0 = runtime.ForwardResponseMessage
 
 	forward_API_SetProjectDefaults_0 = runtime.ForwardResponseMessage
+
+	forward_API_PipelinesSummary_0 = runtime.ForwardResponseMessage
 )

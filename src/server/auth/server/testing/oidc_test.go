@@ -1,6 +1,4 @@
-//go:build unit_test
-
-package server_test
+package testing_test
 
 import (
 	"strconv"

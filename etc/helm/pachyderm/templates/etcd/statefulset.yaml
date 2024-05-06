@@ -42,26 +42,25 @@ spec:
       {{- end }}
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
-      - args:
-        - '"/usr/local/bin/etcd" "--listen-client-urls=http://0.0.0.0:2379" "--advertise-client-urls=http://0.0.0.0:2379"
-          "--data-dir=/var/data/etcd" "--auto-compaction-retention=1" "--max-txn-ops={{ .Values.etcd.maxTxnOps }}"
-          "--max-request-bytes=52428800" "--quota-backend-bytes=8589934592" "--listen-peer-urls=http://0.0.0.0:2380"
-          "--initial-cluster-token=pach-cluster" "--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380"
-          "--initial-cluster={{ range $i, $e := until (.Values.etcd.dynamicNodes | int) }}etcd-{{$e}}=http://etcd-{{$e}}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380,{{ end }}"'
-        command:
-        - /bin/sh
-        - -c
+      - command:
+        - "/usr/local/bin/etcd"
+        - "--listen-client-urls=http://0.0.0.0:2379"
+        - "--advertise-client-urls=http://0.0.0.0:2379"
+        - "--data-dir=/var/data/etcd"
+        - "--auto-compaction-retention=1"
+        - "--max-txn-ops={{ .Values.etcd.maxTxnOps }}"
+        - "--max-request-bytes=52428800"
+        - "--quota-backend-bytes=8589934592"
+        - "--listen-peer-urls=http://0.0.0.0:2380"
+        - "--initial-cluster-token=pach-cluster"
+        - "--initial-advertise-peer-urls=http://$(ETCD_NAME).etcd-headless.{{ .Release.Namespace }}.svc.cluster.local.:2380"
+        - "--initial-cluster={{ $ns := .Release.Namespace }}{{ range $i, $e := until (.Values.etcd.dynamicNodes | int) }}etcd-{{$e}}=http://etcd-{{$e}}.etcd-headless.{{$ns}}.svc.cluster.local.:2380,{{ end }}"
         env:
         - name: ETCD_NAME
           valueFrom:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.name
-        - name: NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
         image: "{{ .Values.global.image.registry }}{{ .Values.etcd.image.repository }}:{{ .Values.etcd.image.tag }}"
         imagePullPolicy: {{ .Values.etcd.image.pullPolicy }}
         name: etcd
@@ -119,6 +118,13 @@ spec:
       {{-  if .Values.etcd.tolerations }}
       tolerations: {{ toYaml .Values.etcd.tolerations | nindent 8 }}
       {{- end }}
+      {{- if .Values.etcd.inMemory }}
+      volumes:
+      - name: etcd-storage
+        emptyDir: {}
+      {{- end }}
+
+  {{- if not .Values.etcd.inMemory }}
   volumeClaimTemplates:
   - metadata:
       labels:
@@ -135,3 +141,4 @@ spec:
       resources:
         requests:
           storage: {{ .Values.etcd.storageSize }}
+  {{- end }}

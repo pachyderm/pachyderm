@@ -434,7 +434,7 @@ func deserializeComposeTaskResult(taskAny *anypb.Any) (*ComposeTaskResult, error
 }
 
 func getAuthToken(ctx context.Context) string {
-	authToken, err := auth.GetAuthToken(ctx)
+	authToken, err := auth.GetAuthTokenOutgoing(ctx)
 	if err != nil {
 		log.Error(ctx, "no auth token", zap.Error(err))
 	}

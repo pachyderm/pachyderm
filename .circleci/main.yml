@@ -29,17 +29,24 @@ orbs:
   node: circleci/node@5.0.2
   kubernetes: circleci/kubernetes@1.3.0
   aws-eks: circleci/aws-eks@2.2.0
+  tools: gotest/tools@0.0.14
 
 parameters:
   machine_image:
     type: string
     default: ubuntu-2204:2023.04.2
+  ci_runner_image:
+    type: string
+    default: docker.io/pachyderm/ci-runner:20240327-e244f4987bb95479ace93f62388b267c5afc12ef@sha256:6eca53ba260096076ae7decbfb66a779b3d78984ae5f249c8d28514f34c02ef4
   go-version:
     type: string
-    default: "1.21.4"
+    default: "1.22.2"
   go-releaser-version:
     type: string
     default: "1.17.1"
+  kubernetes-version:
+    type: string
+    default: "v1.29.2"
   run_load_tests:
     type: boolean
     default: false
@@ -65,72 +72,19 @@ executors:
       - image: cimg/python:3.10-node
 
 jobs:
-  test-go:
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    resource_class: xlarge
-    environment:
-      TEST_RESULTS: /tmp/test-results
-    steps:
-      - checkout
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - run: mkdir ${TEST_RESULTS}
-      - restore_cache:
-          keys:
-            - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-      - run: go install gotest.tools/gotestsum@latest
-      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
-      - run: go install ./src/testing/match
-      - run: etc/testing/circle/install.sh
-      - run:
-          no_output_timeout: 20m
-          command: |-
-            CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-            gotestsum \
-            --raw-command \
-            --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-            --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
-            --rerun-fails \
-            --rerun-fails-max-failures=100 \
-            --debug \
-            -- \
-            go test ./... -json \
-            -tags=unit_test \
-            -count=1 \
-            -timeout 20m \
-            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
-      - run:
-          name: Format code coverage
-          when: always
-          command: etc/testing/circle/format-coverage.sh
-      - store_artifacts: # upload test summary for display in Artifacts
-          path: /tmp/test-results
-          destination: raw-test-output
-      - store_test_results: # upload test results for display in Test Summary
-          path: /tmp/test-results
-      - codecov/upload:
-          file: /tmp/test-results/coverage.txt
-      - collect-test-results
-      - save_cache:
-          key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-          paths:
-            - /home/circleci/go/pkg/mod
-  test-pps:
+  static-go-checks:
     resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
-      TEST_RESULTS: /tmp/test-results
       GOPROXY: https://proxy.golang.org
-    parallelism: 8
+      TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
       - run:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
           background: true
-      - run: mkdir -p ${TEST_RESULTS}
       - run:
           name: setup env vars
           command: |
@@ -139,38 +93,124 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(.*) ]]
             then
               echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
             else
               echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
             fi
-      - run: go install gotest.tools/gotestsum@latest
       - restore_cache:
           keys:
-            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+            - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
       - run: etc/testing/circle/install.sh
-      - install-go-releaser
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - wait-for-docker
-      - start-minikube
+      - save_cache:
+          key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
+          paths:
+            - cached-deps/
+      - run: mkdir ${TEST_RESULTS}
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
       - restore_cache:
           keys:
-            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ arch }}-{{ checksum "current_week" }}
+      # Only restore the module cache based on an exact match for go.sum.
+      # This also avoids accumulating old versions of modules over time.
+      - restore_cache:
+          keys:
+            - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
+      - go/install:
+          version: << pipeline.parameters.go-version >>
+      - save_cache:
+          key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
+          paths:
+            - /home/circleci/.go_workspace/pkg/mod
+      - save_cache:
+          key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+          paths:
+            - /home/circleci/.gocache
+      - tools/mod-tidy-check
+      - run:
+          no_output_timeout: 20m
+          command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
+  integration-tests:
+    resource_class: 2xlarge
+    parallelism: 9
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    environment:
+      GOPROXY: https://proxy.golang.org
+      TEST_RESULTS: /tmp/test-results
+    steps:
+      - checkout
+      - run:
+          name: Collect node stats
+          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+          background: true
+      - run:
+          name: setup env vars
+          command: |
+            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+
+            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export RUNNER_INDEX="$CIRCLE_NODE_INDEX"' >> $BASH_ENV
+
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(.*) ]]
+            then
+              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
+            else
+              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
+            fi
+      - restore_cache:
+          keys:
+            - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
+      - run: etc/testing/circle/install.sh
+      - install-go-releaser
+      - save_cache:
+          key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
+          paths:
+            - cached-deps/
+      - run: mkdir ${TEST_RESULTS}
+      - start-minikube-2xlarge
+      # The build cache will grow indefinitely, so we rotate the cache once a week.
+      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
+      - run: "echo $(($(date +%s)/604800)) > current_week"
+      - restore_cache:
+          keys:
+            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+            - pach-go-build-cache-v1-master-{{ arch }}-{{ checksum "current_week" }}
 
       # Only restore the module cache based on an exact match for go.sum.
       # This also avoids accumulating old versions of modules over time.
       - restore_cache:
           keys:
-            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-      # Try running go mod download to pull the rest of the deps
+            - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
+      - go/install:
+          version: << pipeline.parameters.go-version >>
+      - run: go install gotest.tools/gotestsum@latest
+      - run: CGO_ENABLED=0 GOMAXPROCS=2 go install ./src/server/cmd/pachctl
       - run: go mod download
+      - save_cache:
+          key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
+          paths:
+            - /home/circleci/.go_workspace/pkg/mod
+      - save_cache:
+          key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+          paths:
+            - /home/circleci/.gocache
+      - run:
+          name: Collect tests to run
+          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=24
+          background: true
+      - wait-for-docker
       - run: etc/testing/circle/wait-minikube.sh
+      - run:
+          name: Collect kube events
+          command: kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
+          background: true
       - run:
           name: Install minio
           command: kubectl apply -f etc/testing/minio.yaml
@@ -181,220 +221,40 @@ jobs:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run:
-          name: run tests
-          no_output_timeout: 20m
-          command: |
+          no_output_timeout: 30m
+          name: Run Go Integration Tests
+          command: |-
             PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
             export PROM_PORT
 
-            bucket_num=$CIRCLE_NODE_INDEX
-            num_buckets=$CIRCLE_NODE_TOTAL
-            package="./src/server"
-            test_tags="k8s"
+            # enterprise test setup
+            VM_IP="$(minikube ip)"
+            export VM_IP
+            ENTERPRISE_PORT="31650"
+            export ENTEPRRISE_PORT
+            echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite
+            pachctl config set active-enterprise-context enterprise
+            go install -v ./src/testing/match
+            pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
 
-            tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
-            # Add anchors for the regex so we don't run collateral tests
-            tests=( "${tests[@]/#/^}" )
-            tests=( "${tests[@]/%/\$\$}" )
-            total_tests="${#tests[@]}"
+            # minikube status check
+            minikube status
+            kubectl version
 
-            # Determine the offset and length of the sub-array of tests we want to run
-            # The last bucket may have a few extra tests, to accommodate rounding
-            # errors from bucketing:
-            let "bucket_size=total_tests/num_buckets" \
-              "start=bucket_size * (bucket_num-1)" \
-              "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
+            # add repo for upgrade tests that use docker images instead of local-built images
+            helm repo add pachyderm https://helm.pachyderm.com
+            helm repo update
+            # any tests that build images will do it directly in minikube's docker registry
+            eval "$(minikube docker-env)"
 
-            test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
-
-            echo $test_regex
-
-            gotestsum \
-              --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-              --raw-command \
-              --rerun-fails \
-              --rerun-fails-max-failures=15 \
-              --format standard-verbose \
-              --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
-              --format testname \
-              --debug \
-              -- \
-              go test "${package}" -timeout 15m \
-              -json \
-              -run ${test_regex} \
-              -tags="${test_tags}" \
-              -count=1 \
-              -cover -test.gocoverdir=$TEST_RESULTS -covermode=atomic -coverpkg=./...
-      - run:
-          name: Dump debugging info in case of failure
-          when: on_fail
-          command: etc/testing/circle/kube_debug.sh
-      - run:
-          name: Format code coverage
-          when: always
-          command: etc/testing/circle/format-coverage.sh
-      - store_test_results: # upload test results for display in Test Summary
-          path: /tmp/test-results
-      - store_artifacts:
-          path: /tmp/test-results
-      - codecov/upload:
-          file: /tmp/test-results/coverage.txt
-      - collect-test-results
-  static-checks:
-    resource_class: xlarge
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    environment:
-      GOPROXY: https://proxy.golang.org
-      TEST_RESULTS: /tmp/test-results
-    steps:
-      - checkout
-      - run:
-          name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
-          background: true
-      - run:
-          name: setup env vars
-          command: |
-            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
-            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
-
-            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
-            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
-            then
-              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
-            else
-              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
-            fi
-      - restore_cache:
-          keys:
-            - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
-      - run: etc/testing/circle/install.sh
-      - save_cache:
-          key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
-          paths:
-            - cached-deps/
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - run: mkdir ${TEST_RESULTS}
-      # The build cache will grow indefinitely, so we rotate the cache once a week.
-      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
-      - run: "echo $(($(date +%s)/604800)) > current_week"
-      - restore_cache:
-          keys:
-            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
-            - pach-go-build-cache-v1-master-{{ arch }}-{{ checksum "current_week" }}
-      # Only restore the module cache based on an exact match for go.sum.
-      # This also avoids accumulating old versions of modules over time.
-      - restore_cache:
-          keys:
-            - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
-      - save_cache:
-          key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
-          paths:
-            - /home/circleci/.go_workspace/pkg/mod
-      - save_cache:
-          key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
-          paths:
-            - /home/circleci/.gocache
-      - run:
-          no_output_timeout: 20m
-          command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
-  integration-tests:
-    parameters:
-      bucket:
-        type: string
-    resource_class: xlarge
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    environment:
-      GOPROXY: https://proxy.golang.org
-      BUCKET: << parameters.bucket >>
-      TEST_RESULTS: /tmp/test-results
-    steps:
-      - checkout
-      - run:
-          name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
-          background: true
-      - run:
-          name: setup env vars
-          command: |
-            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
-            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
-
-            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
-            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
-            then
-              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
-            else
-              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
-            fi
-      - restore_cache:
-          keys:
-            - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
-      - run: etc/testing/circle/install.sh
-      - install-go-releaser
-      - save_cache:
-          key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
-          paths:
-            - cached-deps/
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - run: mkdir ${TEST_RESULTS}
-      - wait-for-docker
-      - start-minikube
-      # The build cache will grow indefinitely, so we rotate the cache once a week.
-      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
-      - run: "echo $(($(date +%s)/604800)) > current_week"
-      - restore_cache:
-          keys:
-            - pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
-            - pach-go-build-cache-v1-master-{{ arch }}-{{ checksum "current_week" }}
-
-      # Only restore the module cache based on an exact match for go.sum.
-      # This also avoids accumulating old versions of modules over time.
-      - restore_cache:
-          keys:
-            - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
-      - run: make install # Install pachctl
-      #Save cache in only one bucket, after build and before running tests,
-      #this ensures build cache is saved even when tests fail
-      - when:
-          condition:
-            equal: [MISC, <<parameters.bucket>>]
-          steps:
-            - save_cache:
-                key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
-                paths:
-                  - /home/circleci/.go_workspace/pkg/mod
-            - save_cache:
-                key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
-                paths:
-                  - /home/circleci/.gocache
-      - run: etc/testing/circle/wait-minikube.sh
-      - run:
-          name: Collect kube events
-          command: kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
-          background: true
-      - run:
-          name: Install minio
-          command: kubectl apply -f etc/testing/minio.yaml
-      - run:
-          name: Wait for docker images to be built
-          command: etc/testing/circle/wait_for_docker_images.sh
-      - run:
-          no_output_timeout: 20m
-          command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
-      - run:
-          command: etc/testing/circle/upload_stats.sh
-          when: always
-      - run:
-          name: Format test results for upload
-          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
-          when: always
+            GOMEMLIMIT=16000MiB go run src/testing/cmds/harness/test-runner/main.go \
+              -file=tests_to_run_k8s.csv \
+              -tags=k8s \
+              -shard=$CIRCLE_NODE_INDEX \
+              -total-shards=$CIRCLE_NODE_TOTAL \
+              -threads=7 \
+              -gotestsum-args="--format=testdox" \
+              -gotest-args="-parallel=4 -timeout=30m -cover -test.gocoverdir=\"$TEST_RESULTS\" -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
@@ -405,37 +265,23 @@ jobs:
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
       - store_test_results:
-          path: "/tmp/test-results"
+          path: "/tmp/test-results/circle"
       - store_artifacts:
           path: /tmp/test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
   helm-tests:
-    executor: docker-go
-    working_directory: ~/project/etc/helm
+    resource_class: large
+    docker:
+      - image: << pipeline.parameters.ci_runner_image >>
     steps:
-      - checkout:
-          path: ~/project
-      - run: mkdir -p /home/circleci/bin
-      - restore_cache:
-          keys:
-            - go-mod-helm-v4-{{ checksum "go.sum" }}
+      - checkout
+      - run: bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //etc/helm/...
       - run:
-          name: install helm
-          command: |
-            wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
-      - run:
-          name: install kubeval
-          command: |
-            wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
-      - run: make lint
-      - run: make test
-      - run: make kubeval-gcp
-      - run: make kubeval-aws
-      - save_cache:
-          key: go-mod-helm-v4-{{ checksum "go.sum" }}
-          paths:
-            - "/home/circleci/go/pkg/mod"
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
+      - store_test_results:
+          path: /tmp/bazel-testlogs/
   helm-build:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
@@ -450,7 +296,7 @@ jobs:
       - run:
           name: install helm
           command: |
-            wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
+            wget -q https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       - run:
           name: make cr release dirs
           command: |
@@ -501,7 +347,7 @@ jobs:
       - run:
           name: download and install helm
           command: |
-            wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
+            wget -q https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
       # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
       - run:
@@ -601,7 +447,7 @@ jobs:
           background: true
       - run: mkdir ${TEST_RESULTS}
       - wait-for-docker
-      - start-minikube
+      - start-minikube-large
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
@@ -625,7 +471,7 @@ jobs:
       - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
-  deploy-tests:
+  deploy-tests: # run only arm64 now that integration test runs these
     parameters:
       num_executors:
         type: integer
@@ -635,7 +481,7 @@ jobs:
         default: large
       arch:
         type: string
-        default: amd64
+        default: arm64
     resource_class: << parameters.resource_class >>
     parallelism: << parameters.num_executors >>
     machine:
@@ -660,7 +506,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(.*) ]]
             then
               echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
             else
@@ -676,7 +522,7 @@ jobs:
           background: true
       - run: mkdir -p "${TEST_RESULTS}"
       - wait-for-docker
-      - start-minikube
+      - start-minikube-large
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
@@ -813,14 +659,11 @@ jobs:
                 description: Builds and uploads pachctl amd64 binary for extensions with a git commit SHA.
                 command: |
                   make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
-                  make release-mount-server GORELSNAP=--snapshot VERSION=<< parameters.version >>
             - run:
                 name: upload pachctl binaries
                 command: |
                   echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
                   cd /home/circleci/dist-pach/pachctl/
-                  gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
-                  cd /home/circleci/dist-pach/mount-server/
                   gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
                   rm /home/circleci/gcpcreds.json
       - when:
@@ -836,7 +679,6 @@ jobs:
                   additional=${v%%-*}
                   index=${#additional}
                   make release-pachctl GORELSNAP=--snapshot VERSION=${v} VERSION_ADDITIONAL=${v:index}
-                  make release-mount-server GORELSNAP=--snapshot VERSION=${v}
             - persist_to_workspace:
                 root: ../
                 paths:
@@ -847,7 +689,7 @@ jobs:
             - /home/circleci/.cache # Note, this is different from the cache location for the machine executors
   check-prettier:
     docker:
-      - image: cimg/node:16.11.0
+      - image: cimg/node:20.11.0
     steps:
       - checkout
       - run: sudo npm install -g prettier
@@ -868,7 +710,7 @@ jobs:
             find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
-      - image: envoyproxy/envoy:v1.27.1
+      - image: envoyproxy/envoy:v1.29.3
         entrypoint: /bin/sh
     steps:
       - run: apt update
@@ -895,19 +737,13 @@ jobs:
       python-version:
         type: string
     docker:
-      - image: cimg/python:<< parameters.python-version >>-node
+      - image: cimg/node:20.11.0
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
-      - run:
-          name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
-
+      - install-bazel
       # Install and cache Node dependencies
       - restore_cache:
           keys:
@@ -922,20 +758,22 @@ jobs:
           paths:
             - "node_modules"
       - run:
+          name: "Install Python dependencies"
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
+      - run:
           name: "Build and test the extension"
           command: |
             set -eux
 
             . venv/bin/activate
             npm run eslint:check
-            python -m pip install -e '.[dev]'
 
             # Run Python unit tests
             mkdir -p test-results
-            pytest -v \
-              --ignore jupyterlab_pachyderm/tests/test_integrations.py \
-              --junitxml=test-results/junit.xml \
-              jupyterlab_pachyderm
+            # pytest -v \
+            #   --ignore jupyterlab_pachyderm/tests/test_integrations.py \
+            #   --junitxml=test-results/junit.xml \
+            #   jupyterlab_pachyderm
 
             check-manifest -v
       - store_test_results:
@@ -946,26 +784,22 @@ jobs:
   jupyter-extension-integration-test:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202107-02
+      image: << pipeline.parameters.machine_image >>
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
-      - install-python-test-deps
-      - run:
+      - install-bazel
+      - install-jupyter-test-deps
+      - run: # Convert to bazel: INT-1201
           name: "Integration tests"
           command: |
             set -eux
 
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -e '.[dev]'
-
-            nohup pachctl port-forward &
-
-            touch /tmp/mount-server.log # mount-server will truncate on startup
-            tail -F /tmp/mount-server.log &
-            export MOUNT_SERVER_LOG_FILE=/tmp/mount-server.log \
+            python3 -m pip install '.'
+            python3 -m pip install -r requirements-dev.txt
 
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
@@ -974,7 +808,7 @@ jobs:
             mkdir -p test-results
             pytest -v \
               --junitxml=test-results/junit.xml \
-              jupyterlab_pachyderm/tests/test_integrations.py
+              jupyterlab_pachyderm/tests
       - store_test_results:
           path: test-results
       - store_artifacts:
@@ -983,14 +817,15 @@ jobs:
   jupyter-extension-e2e-test:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202111-01
+      image: << pipeline.parameters.machine_image >>
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
       - attach_workspace:
           at: .
-      - install-python-test-deps
+      - install-bazel
+      - install-jupyter-test-deps
       - run:
           name: "e2e tests"
           command: |
@@ -1004,14 +839,12 @@ jobs:
             pip install `find dist/ -name \*.whl`
 
             # Install just what need to run cypress tests
-            npm install cypress@^8.7.0
+            npm install cypress@^10.11.0
             npm install start-server-and-test@^1.14.0
 
             # Enable the examples extension
             mkdir -p /home/circleci/.jupyter/labconfig
             cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
-
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
 
             pachctl create repo images
             pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
@@ -1032,7 +865,7 @@ jobs:
   jupyter-extension-frontend-test:
     resource_class: xlarge
     docker:
-      - image: cimg/node:16.11.0
+      - image: cimg/node:20.11.0
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -1042,6 +875,7 @@ jobs:
 
   jupyter-extension-build:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -1060,14 +894,10 @@ jobs:
             then
                 contents="$(jq --arg version ${CIRCLE_TAG:1} '.version = $version' package.json)" && echo "${contents}" > package.json
             fi
-
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -1086,7 +916,6 @@ jobs:
       - run:
           name: build
           command: |
-            python -m venv venv
             . venv/bin/activate
             python -m build
 
@@ -1097,19 +926,17 @@ jobs:
 
   jupyter-extension-test-publish:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
       - run:
           name: Init .pypirc
           command: |
@@ -1119,25 +946,22 @@ jobs:
       - run:
           name: Publish
           command: |
-            python -m venv venv
             . venv/bin/activate
             twine upload --repository testpypi dist/*
 
   jupyter-extension-publish:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
       - run:
           name: Init .pypirc
           command: |
@@ -1147,7 +971,6 @@ jobs:
       - run:
           name: Publish
           command: |
-            python -m venv venv
             . venv/bin/activate
             twine upload dist/*
 
@@ -1159,8 +982,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - setup_remote_docker:
-          version: 19.03.13
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1177,8 +999,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - setup_remote_docker:
-          version: 19.03.13
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1359,10 +1180,10 @@ jobs:
             if [[ $CIRCLE_TAG == *"-"* ]];
             then
                 echo "git tag has - assuming prerelease."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes --prerelease
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes --prerelease
             else
                 echo "regular release."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
             fi
   console-release-draft:
     docker:
@@ -1391,8 +1212,8 @@ jobs:
               fi
             git clone https://github.com/pachyderm/haberdashery.git haberdashery
             cd haberdashery
-            git fetch --all
-            git checkout -b release-${CIRCLE_TAG:1} ${parentBranch}
+            git fetch origin
+            git checkout -b release-${CIRCLE_TAG:1} origin/${parentBranch}
             tmp=$(mktemp)
             jq --arg val "${CIRCLE_TAG:1}-${CIRCLE_SHA1}" '.pachyderm = $val' version.json > "$tmp" && mv "$tmp" version.json
             jq --arg val "${CIRCLE_SHA1}" '.pachReleaseCommit = $val' version.json > "$tmp" && mv "$tmp" version.json
@@ -1401,13 +1222,9 @@ jobs:
             git commit -m "bump pachyderm version"
             git push origin release-${CIRCLE_TAG:1}
             PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --reviewer pachydermbuildbot --repo pachyderm/haberdashery)
+            sleep 10 # give it a bit time for checks to attach
             gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
-            PR_STATE=$(gh pr status --json mergeStateStatus --jq .currentBranch.mergeStateStatus --repo pachyderm/haberdashery)
-            if [[ "$PR_STATE" != "CLEAN" ]]; then
-              echo "review console PR ${PR} for failures. PR Checks failed."
-              exit 1
-            fi
-            gh pr merge ${PR} --admin --repo pachyderm/haberdashery
+            gh pr merge ${PR} --rebase --admin --repo pachyderm/haberdashery
             sleep 2 # give it quick sec to merge, make sure we get right state.
             IS_MERGED=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
             if [[ "${IS_MERGED}" != "MERGED" ]]; then
@@ -1418,20 +1235,11 @@ jobs:
             if [[ $CIRCLE_TAG == *"-"* ]];
               then
                   echo "git tag has - assuming prerelease."
-                  gh release create --draft ${CIRCLE_TAG:1}-1 --tittle ${CIRCLE_TAG:1}-1 --target $parentBranch --generate-notes --prerelease --repo pachyderm/haberdashery
+                  gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --prerelease --repo pachyderm/haberdashery
               else
                   echo "regular release."
-                  gh release create --draft ${CIRCLE_TAG:1}-1 --tittle ${CIRCLE_TAG:1}-1 --target $parentBranch --generate-notes --repo pachyderm/haberdashery
+                  gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --repo pachyderm/haberdashery
               fi
-            SECONDS=0
-            while :; do
-                docker pull pachyderm/haberdashery:${CIRCLE_TAG:1}-1 2>/dev/null && break
-                if (( $SECONDS > 1 )); then
-                    printf 'Waited 10 minutes for console docker image, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures\n' >&2
-                    exit 1
-                fi
-                sleep 1
-            done
   release-github:
     parameters:
       repo:
@@ -1452,6 +1260,30 @@ jobs:
           name: create github release
           command: |
             gh release edit << parameters.tag >> --draft=false --repo << parameters.repo >>
+      - when:
+          condition:
+            and:
+              - equal: ["pachyderm/haberdashery", << parameters.repo >>]
+          steps:
+            - setup_remote_docker:
+                docker_layer_caching: true
+                version: "20.10.12"
+            - run:
+                name: pachydermbuildbot docker login
+                command: |
+                  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+            - run:
+                name: check if console docker image released
+                command: |
+                  SECONDS=0
+                  while :; do
+                      docker pull pachyderm/haberdashery:<< parameters.tag >> 2>/dev/null && break
+                      if (( $SECONDS > 600 )); then
+                          printf 'Waited 10 minutes for console docker image to appear in the registry, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures or delays\n' >&2
+                          exit 1
+                      fi
+                      sleep 1
+                  done
   release-docker-hub:
     docker:
       - image: cimg/base:stable
@@ -1459,7 +1291,6 @@ jobs:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
-          version: "20.10.12"
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -1494,8 +1325,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - setup_remote_docker:
-          version: 19.03.13
+      - setup_remote_docker
       - install-poetry
       - run:
           name: build
@@ -1512,8 +1342,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - setup_remote_docker:
-          version: 20.10.18
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1526,7 +1355,7 @@ jobs:
   test-python-sdk:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202107-02
+      image: << pipeline.parameters.machine_image >>
     working_directory: ~/project/python-sdk
     steps:
       - checkout:
@@ -1534,7 +1363,7 @@ jobs:
       - install-minikube
       - install-helm
       - install-kubectl
-      - start-minikube
+      - start-minikube-large
       - attach_workspace:
           at: ./
       - run:
@@ -1547,11 +1376,34 @@ jobs:
           command: poetry --no-ansi install
       - wait-for-minikube
       - run:
+          name: Install minio
+          command: kubectl apply -f ../etc/testing/minio.yaml
+      - run:
           name: Install pach
           command: |
-            helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort
+            helm install pachd ../etc/helm/pachyderm \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
+              --set proxy.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1}
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
-            helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort,proxy.service.httpNodePort=30081,pachd.enterpriseLicenseKey=${ENT_ACT_CODE},pachd.rootToken=roottoken1234
+            helm install pachd-enterprise ../etc/helm/pachyderm \
+              --namespace enterprise \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
+              --set proxy.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1} \
+              --set proxy.service.httpNodePort=30081 \
+              --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
+              --set pachd.rootToken=roottoken1234
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
@@ -1608,7 +1460,6 @@ jobs:
     executor: python
     steps:
       - setup_remote_docker:
-          version: 20.10.18
           docker_layer_caching: true
       - run:
           name: docker login
@@ -1639,7 +1490,7 @@ jobs:
       - install-minikube
       - install-helm
       - install-kubectl
-      - start-minikube
+      - start-minikube-large
       - wait-for-minikube
       - attach_workspace:
           at: ./
@@ -1679,33 +1530,113 @@ jobs:
           command: |
             pip3 install -r requirements.txt
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
+  bazel-style-tests:
+    resource_class: xlarge
+    docker:
+      - image: << pipeline.parameters.ci_runner_image >>
+    steps:
+      - checkout
+      - run:
+          name: Check that you ran gazelle
+          command: |
+            echo "If you see an error here, it means you forgot to `bazel run //:gazelle`"
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:gazelle --  -mode=diff
+      - run: bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:style_tests
+      - run:
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
+      - store_test_results:
+          path: /tmp/bazel-testlogs/
+  bazel-tests:
+    resource_class: 2xlarge+
+    docker:
+      - image: << pipeline.parameters.ci_runner_image >>
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run: |
+          DOCKER_MACHINE_NAME=172.17.0.1 \
+          bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          //src/testing/cmds/dockertestenv
+      - run: |
+          SKIP_DOCKER_POSTGRES_CREATE=1 \
+          DOCKER_MACHINE_NAME=172.17.0.1 \
+          bazel \
+          coverage \
+          --flaky_test_attempts=3 \
+          --config=remotecache \
+          --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          ...
+      - run:
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
+      - store_test_results:
+          path: /tmp/bazel-testlogs/
+      - codecov/upload:
+          file: bazel-out/_coverage/_coverage_report.dat
+  bazel-privileged-tests:
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    steps:
+      - checkout
+      - run: cd /home/circleci/project
+      - run: mkdir /home/circleci/out
+      # Build the thing to start the database containers.
+      - run: |
+          docker run \
+          -v /home/circleci/out:/home/circleci/out \
+          -v /home/circleci/project:/home/circleci/project \
+          << pipeline.parameters.ci_runner_image >> \
+          bazel \
+          --output_base=/home/circleci/out \
+          build \
+          --config=remotecache \
+          --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          //src/testing/cmds/dockertestenv
+      # Start database containers.
+      - run: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/bin/src/testing/cmds/dockertestenv/dockertestenv_/dockertestenv
+      # Run tests without needing to talk to the Docker daemon during the tests.
+      - run: |
+          docker run \
+          -e ENT_ACT_CODE \
+          -e SKIP_DOCKER_POSTGRES_CREATE=1 \
+          -e DOCKER_MACHINE_NAME=172.17.0.1 \
+          -v /home/circleci/out:/home/circleci/out \
+          -v /home/circleci/project:/home/circleci/project \
+          --privileged \
+          << pipeline.parameters.ci_runner_image >> \
+          bazel \
+          --output_base=/home/circleci/out \
+          coverage \
+          --flaky_test_attempts=3 \
+          --config=remotecache \
+          --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          //:privileged_tests
+      - store_test_results:
+          path: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/
+      - codecov/upload:
+          file: /home/circleci/out/execroot/_main/bazel-out/_coverage/_coverage_report.dat
 
 workflows:
-  integration-tests:
+  functional-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
       - build-docker-images:
           enableCoverage: true
-      #- build-pachctl-bin:
-      #    version: $CIRCLE_SHA1
-      #    upload: true
+      - bazel-tests
+      - bazel-privileged-tests
+      - integration-tests
+  linting:
+    when: << pipeline.parameters.run-core-jobs >>
+    jobs:
       - check-prettier
+      - bazel-style-tests
       - jsonnet-lint
-      - test-go
       - govulncheck
-      - static-checks
+      - static-go-checks
       - test-envoy
-      - test-pps
-      - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
   helm-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
@@ -1846,11 +1777,6 @@ workflows:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - deploy-tests:
-          name: amd64 deploy tests
-          resource_class: xlarge # amd64
-          arch: amd64
-          num_executors: 4
-      - deploy-tests:
           name: arm64 deploy tests
           resource_class: arm.xlarge # arm64
           arch: arm64
@@ -1864,15 +1790,10 @@ workflows:
             parameters:
               python-version: ["3.8", "3.9", "3.10"]
       - jupyter-extension-frontend-test
-      - jupyter-extension-integration-test:
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
+      - jupyter-extension-integration-test
       - jupyter-extension-e2e-test:
           requires:
-            - build-docker-images
             - jupyter-extension-build
-            - build-pachctl-bin
       - jupyter-extension-build
       - jupyter-extension-docker-build:
           requires:
@@ -1918,19 +1839,9 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-release-tags
-      - test-pps:
-          filters: *only-release-tags
-      - static-checks:
+      - static-go-checks:
           filters: *only-release-tags
       - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
           filters: *only-release-tags
       - helm-build:
           filters: *only-release-tags
@@ -1945,7 +1856,7 @@ workflows:
           filters: *only-release-tags
           requires:
             - helm-tests
-            - static-checks
+            - static-go-checks
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
@@ -1998,68 +1909,11 @@ workflows:
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-2
-          env: qa2
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-3
-          env: qa3
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-4
-          env: qa4
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
       - aws-prerelease-testing:
           name: aws-testing
           filters: *only-release-tags
           requires:
             - aws-prerelease-testing-env-1
-      - cust-prerelease-testing:
-          name: wp-testing
-          customer: wp
-          env: qa2
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-2
-      - cust-prerelease-testing:
-          name: btl-testing
-          customer: btl
-          env: qa3
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-3
-      - cust-prerelease-testing:
-          name: krs-testing
-          customer: krs
-          env: qa4
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-4
       - pulumi-aws-test-env:
           name: destroy-aws-prerelease-testing-env-1
           env: qa1
@@ -2098,7 +1952,7 @@ workflows:
       - release-github:
           name: github-release-console
           repo: pachyderm/haberdashery
-          tag: ${CIRCLE_TAG:1}-1
+          tag: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - sign-off
@@ -2145,25 +1999,15 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-nightly-tags
-      - test-pps:
-          filters: *only-nightly-tags
-      - static-checks:
+      - static-go-checks:
           filters: *only-nightly-tags
       - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
           filters: *only-nightly-tags
       - helm-build:
           filters: *only-nightly-tags
           requires:
             - helm-tests
-            - static-checks
+            - static-go-checks
             - integration-tests
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
@@ -2173,7 +2017,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - helm-tests
-            - static-checks
+            - static-go-checks
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
@@ -2235,8 +2079,8 @@ commands:
           command: |
             ARCH=amd64
             if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
-            wget https://get.helm.sh/helm-v3.7.1-linux-${ARCH}.tar.gz && \
-            tar -zxvf helm-v3.7.1-linux-${ARCH}.tar.gz && \
+            wget https://get.helm.sh/helm-v3.14.2-linux-${ARCH}.tar.gz && \
+            tar -zxvf helm-v3.14.2-linux-${ARCH}.tar.gz && \
             chmod +x linux-amd64/helm && \
             sudo mv linux-amd64/helm /usr/local/bin/helm
   install-kubectl:
@@ -2256,49 +2100,48 @@ commands:
           command: |
             ARCH=amd64
             if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
-            curl -L -o minikube https://storage.googleapis.com/minikube/releases/v1.30.1/minikube-linux-${ARCH} && \
+            curl -L -o minikube https://storage.googleapis.com/minikube/releases/v1.32.0/minikube-linux-${ARCH} && \
             chmod +x ./minikube && \
             sudo mv ./minikube /usr/local/bin/minikube
 
-  install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
+  install-jupyter-test-deps:
     steps:
       - attach_workspace:
           at: ./
       - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
-      - run: sudo apt-get update && sudo apt-get install fuse libgbm-dev
       - run:
-          name: Fuse options
-          command: echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
+          name: Install kubectl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install
       - run:
-          name: Install kind
+          name: Install pachctl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/server/cmd/pachctl:install
+      - run:
+          name: Setup k8s cluster
           command: |
-            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
-            && chmod +x ./kind-linux-amd64 \
-            && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
-      - install-helm
-      - install-kubectl
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100 --test-namespaces=1
       - run:
-          name: Install pachctl and mount-server
+          name: Install pachd with auth
           command: |
-            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
-            sudo mv ./dist-pach/mount-server/mount-server_linux_amd64_v1/mount-server /usr/local/bin/mount-server
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --namespace=test-namespace-1 -v
+            mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
       - run:
-          name: Start kind
-          command: kind create cluster && kubectl config set current-context kind-kind
+          name: Watch pachd with auth logs
+          command: kubectl logs --namespace=test-namespace-1 -l suite=pachyderm -f
+          background: true
       - run:
-          name: Install pach
-          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1}
-      - run:
-          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          name: Install pachd without auth
           command: |
-            sleep 20
-            kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
-            pachctl version
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push -v
       - run:
-          name: Setup pach # Get Kind node IP and pass that to pachctl
-          command: |-
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
-            pachctl config set active-context local
+          name: Watch pachd without auth logs
+          command: kubectl logs --namespace=default -l suite=pachyderm -f
+          background: true
+
   install-pulumi-deps:
     steps:
       - node/install
@@ -2333,11 +2176,17 @@ commands:
               fi
               sleep 1
             done
-  start-minikube:
+  start-minikube-2xlarge:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=7 --memory=12g --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=<< pipeline.parameters.kubernetes-version>> --cpus=15 --memory=24g --extra-config=kubelet.max-pods=200 --wait=all
+          background: true
+  start-minikube-large:
+    steps:
+      - run:
+          name: Start minikube
+          command: minikube start --vm-driver=docker --kubernetes-version=<< pipeline.parameters.kubernetes-version>> --cpus=7 --memory=8g --extra-config=kubelet.max-pods=200 --wait=all
           background: true
   wait-for-minikube:
     steps:
@@ -2367,3 +2216,11 @@ commands:
             $POETRY_HOME/bin/pip install poetry==1.4.1
             $POETRY_HOME/bin/poetry --version
             ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
+  install-bazel:
+    steps:
+      - run:
+          name: Install Bazel
+          command: |
+            wget -O ./bazel "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
+            chmod +x ./bazel
+            sudo mv ./bazel /home/circleci/bin/bazel

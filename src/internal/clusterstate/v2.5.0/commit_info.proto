@@ -7,8 +7,6 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate
 
 import "pfs/pfs.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/duration.proto";
-
 
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
