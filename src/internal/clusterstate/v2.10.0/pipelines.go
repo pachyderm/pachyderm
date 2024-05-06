@@ -16,19 +16,11 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var createUniqueIndex = `
+var CreateUniqueIndex = `
   CREATE UNIQUE INDEX pip_version_idx ON collections.pipelines(idx_name,idx_version);
 `
 
-// find pipelines with duplicate versions
-// each returned row has a pipeline with duplicate versions
-// the newest createdat timestamp is returned
-// all keys and protos are returned in arrays ordered by createdat
-// so newest duplicate is last entry in array
-// duplicated idx_version is returned whole and split into pipeline name and version number
-
-// select count(1) count, max(createdat) max_createdat, array_agg(key order by createdat) keys, array_agg(proto order by createdat) protos, idx_version, split_part(idx_version, '@', 1) pipeline_path, cast(split_part(idx_version, '@', 2) as int8) version_number from collections.pipelines group by idx_name, idx_version having count(1) > 1;
-
+// find all pipelines with duplicate versions, and return all of the pipeline versions for each of those pipelines
 var duplicatePipelinesQuery = `
   SELECT key, proto
   FROM collections.pipelines
@@ -42,55 +34,6 @@ var duplicatePipelinesQuery = `
   ORDER BY idx_name, createdat;
 `
 
-type pipDBRow struct {
-	Key   string `db:"key"`
-	Proto []byte `db:"proto"`
-}
-
-type PipUpdateRow struct {
-	Key        string
-	Proto      []byte
-	IdxVersion string
-}
-
-var listJobInfos = `
-  SELECT key, proto
-  FROM collections.jobs
-`
-
-type jobRow struct {
-	Key   string `db:"key"`
-	Proto []byte `db:"proto"`
-}
-
-// COPIED from src/internal/ppsdb/ppsdb.go
-func VersionKey(project, pipeline string, version uint64) string {
-	// zero pad in case we want to sort
-	return fmt.Sprintf("%s/%s@%08d", project, pipeline, version)
-}
-
-// COPIED from src/internal/ppsdb/ppsdb.go
-//
-// parsePipelineKey expects keys to either be of the form <pipeline>@<id> or
-// <project>/<pipeline>@<id>.
-func parsePipelineKey(key string) (projectName, pipelineName, id string, err error) {
-	parts := strings.Split(key, "@")
-	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
-		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>", key)
-	}
-	id = parts[1]
-	parts = strings.Split(parts[0], "/")
-	if len(parts) == 0 {
-		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>")
-	}
-	pipelineName = parts[len(parts)-1]
-	if len(parts) == 1 {
-		return
-	}
-	projectName = strings.Join(parts[0:len(parts)-1], "/")
-	return
-}
-
 func DeduplicatePipelineVersions(ctx context.Context, env migrations.Env) error {
 	pipUpdates, pipVersionChanges, err := collectPipelineUpdates(ctx, env.Tx)
 	if err != nil {
@@ -100,14 +43,10 @@ func DeduplicatePipelineVersions(ctx context.Context, env migrations.Env) error 
 	if err := UpdatePipelineRows(ctx, env.Tx, pipUpdates); err != nil {
 		return err
 	}
-	jobUpdates, err := collectJobUpdates(ctx, env.Tx, pipVersionChanges)
-	if err != nil {
+	if err := UpdateJobPipelineVersions(ctx, env.Tx, pipVersionChanges); err != nil {
 		return err
 	}
-	if err := UpdateJobRows(ctx, env.Tx, jobUpdates); err != nil {
-		return err
-	}
-	if _, err := env.Tx.ExecContext(ctx, createUniqueIndex); err != nil {
+	if _, err := env.Tx.ExecContext(ctx, CreateUniqueIndex); err != nil {
 		return errors.Wrap(err, "create unique index pip_version_idx")
 	}
 	return nil
@@ -166,6 +105,17 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 	return updates, pipVersionChanges, nil
 }
 
+func UpdateJobPipelineVersions(ctx context.Context, tx *pachsql.Tx, pipVersionChanges map[string]map[uint64]uint64) error {
+	jobUpdates, err := collectJobUpdates(ctx, tx, pipVersionChanges)
+	if err != nil {
+		return err
+	}
+	if err := updateJobRows(ctx, tx, jobUpdates); err != nil {
+		return err
+	}
+	return nil
+}
+
 func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges map[string]map[uint64]uint64) ([]*jobRow, error) {
 	rr, err := tx.QueryxContext(ctx, listJobInfos)
 	if err != nil {
@@ -220,7 +170,7 @@ func UpdatePipelineRows(ctx context.Context, tx *pachsql.Tx, pipUpdates []*PipUp
 	return nil
 }
 
-func UpdateJobRows(ctx context.Context, tx *pachsql.Tx, jobUpdates []*jobRow) error {
+func updateJobRows(ctx context.Context, tx *pachsql.Tx, jobUpdates []*jobRow) error {
 	if len(jobUpdates) != 0 {
 		var jobValues string
 		for _, u := range jobUpdates {
@@ -229,7 +179,7 @@ func UpdateJobRows(ctx context.Context, tx *pachsql.Tx, jobUpdates []*jobRow) er
 		jobValues = jobValues[:len(jobValues)-1]
 		stmt := fmt.Sprintf(`
                  UPDATE collections.jobs AS j SET
-                   j.proto = v.proto
+                   proto = v.proto
                  FROM (VALUES%s) AS v(key, proto)
                  WHERE j.key = v.key;`, jobValues)
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
@@ -237,4 +187,53 @@ func UpdateJobRows(ctx context.Context, tx *pachsql.Tx, jobUpdates []*jobRow) er
 		}
 	}
 	return nil
+}
+
+type pipDBRow struct {
+	Key   string `db:"key"`
+	Proto []byte `db:"proto"`
+}
+
+type PipUpdateRow struct {
+	Key        string
+	Proto      []byte
+	IdxVersion string
+}
+
+var listJobInfos = `
+  SELECT key, proto
+  FROM collections.jobs
+`
+
+type jobRow struct {
+	Key   string `db:"key"`
+	Proto []byte `db:"proto"`
+}
+
+// COPIED from src/internal/ppsdb/ppsdb.go
+func VersionKey(project, pipeline string, version uint64) string {
+	// zero pad in case we want to sort
+	return fmt.Sprintf("%s/%s@%08d", project, pipeline, version)
+}
+
+// COPIED from src/internal/ppsdb/ppsdb.go
+//
+// parsePipelineKey expects keys to either be of the form <pipeline>@<id> or
+// <project>/<pipeline>@<id>.
+func parsePipelineKey(key string) (projectName, pipelineName, id string, err error) {
+	parts := strings.Split(key, "@")
+	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>", key)
+	}
+	id = parts[1]
+	parts = strings.Split(parts[0], "/")
+	if len(parts) == 0 {
+		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>")
+	}
+	pipelineName = parts[len(parts)-1]
+	if len(parts) == 1 {
+		return
+	}
+	projectName = strings.Join(parts[0:len(parts)-1], "/")
+	return
 }

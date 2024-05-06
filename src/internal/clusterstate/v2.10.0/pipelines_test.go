@@ -3,7 +3,6 @@ package v2_10_0_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	v2_10_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.10.0"
@@ -23,386 +22,39 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 	}
 	// - setup database with collections.pipelines, collections.jobs
 	// - migrate pipeline A from versions [1, 1, 2] -> [1, 2, 3]
-	type pipelineVersion struct {
-		createdAt time.Time
-		version   int
-	}
+	type version int
 	type testCase struct {
-		desc    string
-		initial []pipelineVersion
-		want    []pipelineVersion
-		wantErr bool
+		desc          string
+		initial       []version
+		hasDuplicates bool
 	}
 	var (
-		baseTime = time.Now().Add(-time.Hour * 24 * 365)
-		tcs      = []testCase{
+		tcs = []testCase{
 			{
-				desc: "no changes needed result in no changes made",
-				initial: []pipelineVersion{
-					{
-						createdAt: baseTime.Add(1 * time.Second),
-						version:   1,
-					},
-					{
-						createdAt: baseTime.Add(2 * time.Second),
-						version:   2,
-					},
-				},
-				want: []pipelineVersion{
-					{
-						createdAt: baseTime.Add(1 * time.Second),
-						version:   1,
-					},
-					{
-						createdAt: baseTime.Add(2 * time.Second),
-						version:   2,
-					},
-				},
+				desc:          "healthy pipeline versions",
+				initial:       []version{1, 2},
+				hasDuplicates: false,
 			},
 			{
-				desc: "fail when there are two pipeline versions at the very same instant",
-				initial: []pipelineVersion{
-					{
-						createdAt: baseTime.Add(2 * time.Second),
-						version:   1,
-					},
-					{
-						createdAt: baseTime.Add(2 * time.Second),
-						version:   1,
-					},
-				},
-				wantErr: true,
+				desc:          "pipeline version duplicates",
+				initial:       []version{1, 1},
+				hasDuplicates: true,
 			},
-			// {
-			// 	desc: "do not fail when there are two pipeline versions with different version numbers at the very same instant",
-			// 	initial: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 	},
-			// 	wantErr: true,
-			// },
-			// {
-			// 	desc: "renumber simple duplication at beginning",
-			// 	initial: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 	},
-			// 	want: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 	},
-			// },
-			// {
-			// 	desc: "renumber out-of-order simple duplication at beginning",
-			// 	initial: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 	},
-			// 	want: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 	},
-			// },
-			// {
-			// 	desc: "renumber simple duplication in the middle",
-			// 	initial: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(4 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 	},
-			// 	want: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(4 * time.Second),
-			// 			version:   4,
-			// 		},
-			// 	},
-			// },
-			// {
-			// 	desc: "renumber simple duplication in the middle with duplicate timestamps but different versions",
-			// 	initial: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 	},
-			// 	want: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   4,
-			// 		},
-			// 	},
-			// },
-			// {
-			// 	desc: "renumber out-of-order simple duplication in the middle",
-			// 	initial: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(4 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 	},
-			// 	want: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(4 * time.Second),
-			// 			version:   4,
-			// 		},
-			// 	},
-			// },
-			// {
-			// 	desc: "renumber simple duplication at end",
-			// 	initial: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 	},
-			// 	want: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 	},
-			// },
-			// {
-			// 	desc: "renumber out-of-order simple duplication at end",
-			// 	initial: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 	},
-			// 	want: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 	},
-			// },
-			// {
-			// 	desc: "renumber complex deduplication",
-			// 	initial: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		}, {
-			// 			createdAt: baseTime.Add(5 * time.Second),
-			// 			version:   3,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(4 * time.Second),
-			// 			version:   4,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(6 * time.Second),
-			// 			version:   5,
-			// 		}, {
-			// 			createdAt: baseTime.Add(7 * time.Second),
-			// 			version:   5,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(8 * time.Second),
-			// 			version:   5,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(9 * time.Second),
-			// 			version:   6,
-			// 		},
-			// 	},
-			// 	want: []pipelineVersion{
-			// 		{
-			// 			createdAt: baseTime.Add(1 * time.Second),
-			// 			version:   1,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(2 * time.Second),
-			// 			version:   2,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(3 * time.Second),
-			// 			version:   3,
-			// 		}, {
-			// 			createdAt: baseTime.Add(4 * time.Second),
-			// 			version:   4,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(5 * time.Second),
-			// 			version:   5,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(6 * time.Second),
-			// 			version:   6,
-			// 		}, {
-			// 			createdAt: baseTime.Add(7 * time.Second),
-			// 			version:   7,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(8 * time.Second),
-			// 			version:   8,
-			// 		},
-			// 		{
-			// 			createdAt: baseTime.Add(9 * time.Second),
-			// 			version:   9,
-			// 		},
-			// 	},
-			// },
+			{
+				desc:          "pipeline version duplication at beginning",
+				initial:       []version{1, 1, 2},
+				hasDuplicates: true,
+			},
+			{
+				desc:          "pipeline version duplication in the middle",
+				initial:       []version{1, 2, 2, 3},
+				hasDuplicates: true,
+			},
+			{
+				desc:          "pipeline version duplication at the end",
+				initial:       []version{1, 2, 3, 3},
+				hasDuplicates: true,
+			},
 		}
 	)
 	var db *pachsql.DB
@@ -417,6 +69,7 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 		},
 	})
 	for _, tc := range tcs {
+		t.Log("test case: ", tc.desc)
 		repo := "input"
 		pipeline := &pps.Pipeline{Name: "pipeline", Project: &pfs.Project{Name: pfs.DefaultProjectName}}
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
@@ -434,41 +87,44 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 
 		// update the pipeline to create the necessary number of versions
 		for i := 0; i < len(tc.initial)-1; i++ {
-			c.RerunPipeline(c.Ctx(), &pps.RerunPipelineRequest{Pipeline: pipeline})
+			_, err := c.RerunPipeline(c.Ctx(), &pps.RerunPipelineRequest{Pipeline: pipeline})
+			require.NoError(t, err)
 		}
 
 		// set database to bad state
 		tx := db.MustBeginTx(c.Ctx(), nil)
 		pKeys, pis := listPipelineVersions(t, c.Ctx(), tx, pipeline)
 		var pipUpdates []*v2_10_0.PipUpdateRow
+		pipVersionChanges := map[string]map[uint64]uint64{
+			pipeline.String(): map[uint64]uint64{},
+		}
 		for i, v := range tc.initial {
-			if v.version != i+1 {
-				pis[i].Version = uint64(i)
+			if v != version(i)+1 {
+				pis[i].Version = uint64(v)
 				data, err := proto.Marshal(pis[i])
 				require.NoError(t, err)
 				vIdx := v2_10_0.VersionKey(pipeline.Project.Name, pipeline.Name, pis[i].Version)
 				update := &v2_10_0.PipUpdateRow{Key: pKeys[i], Proto: data, IdxVersion: vIdx}
 				pipUpdates = append(pipUpdates, update)
+				pipVersionChanges[pipeline.String()][uint64(i)] = uint64(v)
 			}
 		}
 		require.NoError(t, v2_10_0.UpdatePipelineRows(c.Ctx(), tx, pipUpdates))
-		// TODO update jobs as well
+		require.NoError(t, v2_10_0.UpdateJobPipelineVersions(c.Ctx(), tx, pipVersionChanges))
 		require.NoError(t, tx.Commit())
 
 		// verify bad state
-		pis, err := c.ListPipeline()
-		require.NoError(t, err)
-		for _, pi := range pis {
-			t.Log("see", pi.Pipeline.String())
-		}
-		// require.Len(t, pis, 1)
-		jis, err := c.ListJob(pfs.DefaultProjectName, pipeline.Name, nil, 0, false)
-		require.NoError(t, err)
-		for _, ji := range jis {
-			t.Log("see j", ji.String())
+		_, err := db.ExecContext(c.Ctx(), v2_10_0.CreateUniqueIndex)
+		if tc.hasDuplicates {
+			require.YesError(t, err)
+		} else {
+			require.NoError(t, err)
+			// now revert and continue test
+			_, err := db.Exec("DROP INDEX collections.pip_version_idx;")
+			require.NoError(t, err)
 		}
 
-		// test
+		// run migration
 		tx = db.MustBeginTx(c.Ctx(), nil)
 		require.NoError(t, v2_10_0.DeduplicatePipelineVersions(c.Ctx(), migrations.Env{Tx: tx}))
 		require.NoError(t, tx.Commit())
@@ -478,22 +134,20 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 		pis, err = c.ListPipeline()
 		require.NoError(t, err)
 		require.Len(t, pis, 1)
-		jis, err = c.ListJob(pfs.DefaultProjectName, pipeline.Name, nil, 0, false)
+		jis, err := c.ListJob(pfs.DefaultProjectName, pipeline.Name, nil, -1, false)
 		require.NoError(t, err)
-		require.Len(t, jis, 1)
+		require.Len(t, jis, len(tc.initial))
+		_, err = c.RerunPipeline(c.Ctx(), &pps.RerunPipelineRequest{Pipeline: pipeline})
+		require.NoError(t, err)
 
 		// clean up
 		_, err = c.PpsAPIClient.DeleteAll(c.Ctx(), &emptypb.Empty{})
 		require.NoError(t, err)
 		_, err = c.PfsAPIClient.DeleteAll(c.Ctx(), &emptypb.Empty{})
 		require.NoError(t, err)
-		undoDeduplicatePipelineVersions(t, db)
+		_, err = db.Exec("DROP INDEX collections.pip_version_idx;")
+		require.NoError(t, err)
 	}
-}
-
-func undoDeduplicatePipelineVersions(t *testing.T, db *pachsql.DB) {
-	_, err := db.Exec("DROP INDEX collections.pip_version_idx;")
-	require.NoError(t, err)
 }
 
 type pipelineRow struct {
