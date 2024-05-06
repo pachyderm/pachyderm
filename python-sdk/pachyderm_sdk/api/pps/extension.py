@@ -3,7 +3,7 @@
 import base64
 import json
 from queue import SimpleQueue
-from typing import Dict, Iterator
+from typing import Dict, Generator, List
 
 import grpc
 from betterproto.lib.google.protobuf import Empty
@@ -156,8 +156,10 @@ class ApiStub(_GeneratedApiStub):
 
         return super().create_secret(file=file)
 
-    def generate_datum(self, input_spec: "Input", batch_size: int) -> Iterator["DatumInfo"]:
-        """Generates datums for a given input spec.
+    def generate_datums(
+        self, input_spec: "Input", batch_size: int
+    ) -> Generator[List["DatumInfo"], int, None]:
+        """Creates a generator that yields batches of datums for a given input spec
 
         Parameters
         ----------

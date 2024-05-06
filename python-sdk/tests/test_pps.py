@@ -125,14 +125,14 @@ class TestUnitDatums:
             client.pps.restart_datum(job=job)
 
     @staticmethod
-    def test_create_datum_client(client: TestClient):
+    def test_generate_datums(client: TestClient):
         repo_name = client.new_repo().name
 
         with client.pfs.commit(branch=pfs.Branch.from_uri(f"{repo_name}@master")) as commit:
             for i in range(50):
                 commit.put_file_from_bytes(path=f"/file{i}.dat", data=b"DATA")
 
-        datum_stream = client.pps.generate_datum(
+        datum_stream = client.pps.generate_datums(
             input_spec=pps.Input(pfs=pps.PfsInput(repo=repo_name, glob="/*")),
             batch_size=10,
         )
