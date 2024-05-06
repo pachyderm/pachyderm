@@ -11775,8 +11775,12 @@ func TestPipelinesSummary(t *testing.T) {
 		resp, err := c.PipelinesSummary(pctx.TestContext(t),
 			&pps.PipelinesSummaryRequest{Projects: pickers})
 		require.NoError(t, err)
-		require.Len(t, resp.Summaries, len(tc))
-		for i, project := range tc {
+		expectedProjects := tc
+		if len(tc) == 0 {
+			expectedProjects = projects
+		}
+		require.Len(t, resp.Summaries, len(expectedProjects))
+		for i, project := range expectedProjects {
 			require.Equal(t, project, resp.Summaries[i].Project.Name)
 			require.Equal(t, int64(3), resp.Summaries[i].ActivePipelines) // unhealthy pipelines are still active
 			require.Equal(t, int64(1), resp.Summaries[i].PausedPipelines)
