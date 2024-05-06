@@ -96,7 +96,7 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 		pKeys, pis := listPipelineVersions(t, c.Ctx(), tx, pipeline)
 		var pipUpdates []*v2_10_0.PipUpdateRow
 		pipVersionChanges := map[string]map[uint64]uint64{
-			pipeline.String(): map[uint64]uint64{},
+			pipeline.String(): {},
 		}
 		for i, v := range tc.initial {
 			if v != version(i)+1 {
