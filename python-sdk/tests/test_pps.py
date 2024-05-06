@@ -132,17 +132,18 @@ class TestUnitDatums:
             for i in range(50):
                 commit.put_file_from_bytes(path=f"/file{i}.dat", data=b"DATA")
 
-        datum_client = client.pps.create_datum()
-        input_ = pps.Input(pfs=pps.PfsInput(repo=repo_name, glob="/*"))
+        datum_stream = client.pps.generate_datum(
+            input_spec=pps.Input(pfs=pps.PfsInput(repo=repo_name, glob="/*")),
+            batch_size=10,
+        )
 
-        dis = datum_client.first_batch(input_, 10)
-        assert len(dis) == 10
-        dis = datum_client.next_batch(15)
-        assert len(dis) == 15
-        dis = datum_client.next_batch(30)
-        assert len(dis) == 25
-        dis = datum_client.next_batch(10)
-        assert len(dis) == 0
+        assert len(next(datum_stream)) == 10
+        assert len(datum_stream.send(5)) == 5
+        assert len(datum_stream.send(20)) == 20
+        assert len(next(datum_stream)) == 10
+        assert len(next(datum_stream)) == 5
+        with pytest.raises(StopIteration):
+            next(datum_stream)
 
 
 class TestUnitLogs:
