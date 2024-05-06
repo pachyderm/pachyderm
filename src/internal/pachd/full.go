@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -238,7 +239,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 
 	kubeClient := fake.NewSimpleClientset(env.K8sObjects...)
 
-	var desiredStateOverride *migrations.State
+	desiredStateOverride := &clusterstate.DesiredClusterState
 	if opt != nil && opt.DesiredState != nil {
 		desiredStateOverride = opt.DesiredState
 	}
