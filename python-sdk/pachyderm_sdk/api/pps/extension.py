@@ -1,17 +1,24 @@
 """Handwritten classes/methods that augment the existing PPS API."""
 
 import base64
+from collections.abc import Callable
 import json
-from typing import Dict
+from queue import SimpleQueue
+from typing import Dict, Iterable, Iterator, List
 
 import grpc
 from betterproto.lib.google.protobuf import Empty
+from pachyderm_sdk.api.pps import CreateDatumRequest, DatumInfo
 
 from . import ApiStub as _GeneratedApiStub
 from . import (
+    ContinueCreateDatumRequest,
+    CreateDatumRequest,
+    Input,
     Job,
     Pipeline,
     PipelineInfo,
+    StartCreateDatumRequest,
 )
 
 
@@ -148,3 +155,129 @@ class ApiStub(_GeneratedApiStub):
         ).encode()
 
         return super().create_secret(file=file)
+
+    class CreateDatumClient:
+        """Client for creating datums. Note that this class shouldn't be
+        instantiated directly. Instead, use the `create_datum` method to return
+        a new instance.
+
+
+        Methods
+        -------
+        first_batch(input, number) -> List[DatumInfo]:
+            Returns the first batch of datums for the provided input spec.
+        next_batch(number) -> List[DatumInfo]:
+            Returns subsequent batches of datums. `first_batch` must be called first.
+
+        Examples
+        --------
+        >>> from pachyderm_sdk import Client
+        >>> from pachyderm_sdk.api import pps
+        >>>
+        >>> client = Client()
+        >>> cdc = client.pps.create_datum()
+        >>> input = pps.Input(pfs=pps.PFSInput(repo="repo", glob="/*"))
+        >>>
+        >>> datums = cdc.first_batch(input, number=10)
+        >>> for datum in datums:
+        >>>     print(datum)
+        >>>
+        >>> more_datums = cdc.next_batch(number=10)
+        >>> for datum in more_datums:
+        >>>     print(datum)
+        """
+
+        def __init__(
+            self,
+            create_datum: Callable[[Iterable["CreateDatumRequest"]], Iterator["DatumInfo"]],
+        ):
+            self.queue = SimpleQueue()
+            self.response_it = create_datum(self)
+            self.done = False
+
+        def first_batch(self, input: "Input", number: int) -> List["DatumInfo"]:
+            """Returns the first batch of datums for the provided input spec.
+            Must be called once before `next_batch`.
+
+            Parameters
+            ----------
+            input : pps.Input
+                The input spec.
+            number : int
+                The number of datums to return. If 0, the default batch size set
+                server-side is returned.
+
+            Returns
+            -------
+            List[pps.DatumInfo]
+                List length may be less than `number` if the server has returned
+                all datums.
+            """
+            if self.done:
+                return []
+
+            self.queue.put(
+                CreateDatumRequest(
+                    start=StartCreateDatumRequest(input=input, number=number)
+                )
+            )
+
+            return self._collect_datums(number)
+
+        def next_batch(self, number: int) -> List["DatumInfo"]:
+            """Returns subsequent batches of datums. `first_batch` must have
+            been called first.
+
+            Parameters
+            ----------
+            number : int
+                The number of datums to return. If 0, the default batch size set
+                server-side is returned.
+
+            Returns
+            -------
+            List[pps.DatumInfo]
+                List length may be less than `number` if the server has returned
+                all datums.
+            """
+            if self.done:
+                return []
+
+            self.queue.put(
+                CreateDatumRequest(continue_=ContinueCreateDatumRequest(number=number))
+            )
+
+            return self._collect_datums(number)
+
+        def _collect_datums(self, number: int) -> List["DatumInfo"]:
+            dis = []
+
+            for di in self.response_it:
+                dis.append(di)
+                if len(dis) == number:
+                    break
+
+            # Server has returned all datums
+            if len(dis) < number:
+                self.done = True
+
+            return dis
+
+        def __next__(self):
+            if self.done:
+                # Server returned all datums so terminate request iterator
+                raise StopIteration
+
+            return self.queue.get()
+
+        def __iter__(self):
+            return self
+
+    def create_datum(self) -> "CreateDatumClient":
+        """Generates datums for a given input spec.
+
+        Returns
+        -------
+        CreateDatumClient
+        """
+        return self.CreateDatumClient(super().create_datum)
