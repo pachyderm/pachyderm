@@ -107,12 +107,16 @@ func awaitMigrations(db *pachsql.DB) setupStep {
 	}
 }
 
-func runMigrations(db *pachsql.DB, etcdClient *etcd.Client) setupStep {
+func runMigrations(db *pachsql.DB, etcdClient *etcd.Client, state *migrations.State) setupStep {
+	s := clusterstate.DesiredClusterState
+	if state != nil {
+		s = *state
+	}
 	return setupStep{
 		Name: "runMigrations",
 		Fn: func(ctx context.Context) error {
 			env := migrations.MakeEnv(nil, etcdClient)
-			return migrations.ApplyMigrations(ctx, db, env, clusterstate.DesiredClusterState)
+			return migrations.ApplyMigrations(ctx, db, env, s)
 		},
 	}
 }

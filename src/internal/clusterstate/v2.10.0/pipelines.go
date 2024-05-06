@@ -52,7 +52,7 @@ type pipDBRow struct {
 	VersionNumber int64     `db:"version_number"`
 }
 
-type pipUpdateRow struct {
+type PipUpdateRow struct {
 	Key        string
 	Proto      []byte
 	IdxVersion string
@@ -69,16 +69,16 @@ type jobRow struct {
 }
 
 // COPIED from src/internal/ppsdb/ppsdb.go
-func versionKey(project, pipeline string, version uint64) string {
+func VersionKey(project, pipeline string, version uint64) string {
 	// zero pad in case we want to sort
 	return fmt.Sprintf("%s/%s@%08d", project, pipeline, version)
 }
 
 // COPIED from src/internal/ppsdb/ppsdb.go
 //
-// ParsePipelineKey expects keys to either be of the form <pipeline>@<id> or
+// parsePipelineKey expects keys to either be of the form <pipeline>@<id> or
 // <project>/<pipeline>@<id>.
-func ParsePipelineKey(key string) (projectName, pipelineName, id string, err error) {
+func parsePipelineKey(key string) (projectName, pipelineName, id string, err error) {
 	parts := strings.Split(key, "@")
 	if len(parts) != 2 || !uuid.IsUUIDWithoutDashes(parts[1]) {
 		return "", "", "", errors.Errorf("key %s is not of form [<project>/]<pipeline>@<id>", key)
@@ -96,47 +96,21 @@ func ParsePipelineKey(key string) (projectName, pipelineName, id string, err err
 	return
 }
 
-func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error {
+func DeduplicatePipelineVersions(ctx context.Context, env migrations.Env) error {
 	pipUpdates, pipVersionChanges, err := collectPipelineUpdates(ctx, env.Tx)
 	if err != nil {
 		return err
 	}
 	log.Info(ctx, "detected updates for pipeline versions", zap.Int("updates_count", len(pipUpdates)))
-	if len(pipUpdates) != 0 {
-		var pipValues string
-		for _, u := range pipUpdates {
-			pipValues += fmt.Sprintf(" ('%s', %v, decode('%v', 'hex')),", u.Key, u.IdxVersion, hex.EncodeToString(u.Proto))
-		}
-		pipValues = pipValues[:len(pipValues)-1]
-		stmt := fmt.Sprintf(`
-                 UPDATE collections.pipelines AS p SET
-                   p.idx_version = v.idx_version,
-                   p.proto = v.proto
-                 FROM (VALUES%s) AS v(key, idx_version, proto)
-                 WHERE p.key = v.key;`, pipValues)
-		log.Info(ctx, "deduplicate pipeline versions statement", zap.String("stmt", stmt))
-		if _, err := env.Tx.ExecContext(ctx, stmt); err != nil {
-			return errors.Wrapf(err, "update pipeline rows statement: %v", stmt)
-		}
+	if err := UpdatePipelineRows(ctx, env.Tx, pipUpdates); err != nil {
+		return err
 	}
 	jobUpdates, err := collectJobUpdates(ctx, env.Tx, pipVersionChanges)
 	if err != nil {
 		return err
 	}
-	if len(jobUpdates) != 0 {
-		var jobValues string
-		for _, u := range jobUpdates {
-			jobValues += fmt.Sprintf(" ('%s', decode('%v', 'hex')),", u.Key, hex.EncodeToString(u.Proto))
-		}
-		jobValues = jobValues[:len(jobValues)-1]
-		stmt := fmt.Sprintf(`
-                 UPDATE collections.jobs AS j SET
-                   j.proto = v.proto
-                 FROM (VALUES%s) AS v(key, proto)
-                 WHERE j.key = v.key;`, jobValues)
-		if _, err := env.Tx.ExecContext(ctx, stmt); err != nil {
-			return errors.Wrapf(err, "update job rows statement: %v", stmt)
-		}
+	if err := UpdateJobRows(ctx, env.Tx, jobUpdates); err != nil {
+		return err
 	}
 	if _, err := env.Tx.ExecContext(ctx, createUniqueIndex); err != nil {
 		return errors.Wrap(err, "create unique index pip_version_idx")
@@ -144,7 +118,7 @@ func deduplicatePipelineVersions(ctx context.Context, env migrations.Env) error 
 	return nil
 }
 
-func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*pipUpdateRow,
+func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*PipUpdateRow,
 	pipelineVersionChanges map[string]map[uint64]uint64,
 	retErr error) {
 	rr, err := tx.QueryxContext(ctx, duplicatePipelinesQuery)
@@ -155,7 +129,7 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 	pi := &pps.PipelineInfo{}
 	pipLatestVersion := make(map[string]uint64)
 	pipVersionChanges := make(map[string]map[uint64]uint64)
-	var updates []*pipUpdateRow
+	var updates []*PipUpdateRow
 	for rr.Next() {
 		var row pipDBRow
 		if err := rr.Err(); err != nil {
@@ -181,12 +155,12 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "marshal pipeline info %v", pi)
 			}
-			project, pipeline, _, err := ParsePipelineKey(key)
+			project, pipeline, _, err := parsePipelineKey(key)
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "parse key %q", key)
 			}
-			idxVersion := versionKey(project, pipeline, correctVersion)
-			updates = append(updates, &pipUpdateRow{Key: key, IdxVersion: idxVersion, Proto: data})
+			idxVersion := VersionKey(project, pipeline, correctVersion)
+			updates = append(updates, &PipUpdateRow{Key: key, IdxVersion: idxVersion, Proto: data})
 		}
 		pipLatestVersion[pi.Pipeline.Name] = correctVersion
 		changes, ok := pipVersionChanges[pi.Pipeline.Name]
@@ -230,4 +204,44 @@ func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges ma
 		}
 	}
 	return updates, nil
+}
+
+func UpdatePipelineRows(ctx context.Context, tx *pachsql.Tx, pipUpdates []*PipUpdateRow) error {
+	if len(pipUpdates) != 0 {
+		var pipValues string
+		for _, u := range pipUpdates {
+			pipValues += fmt.Sprintf(" ('%s', %v, decode('%v', 'hex')),", u.Key, u.IdxVersion, hex.EncodeToString(u.Proto))
+		}
+		pipValues = pipValues[:len(pipValues)-1]
+		stmt := fmt.Sprintf(`
+                 UPDATE collections.pipelines AS p SET
+                   p.idx_version = v.idx_version,
+                   p.proto = v.proto
+                 FROM (VALUES%s) AS v(key, idx_version, proto)
+                 WHERE p.key = v.key;`, pipValues)
+		log.Info(ctx, "deduplicate pipeline versions statement", zap.String("stmt", stmt))
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return errors.Wrapf(err, "update pipeline rows statement: %v", stmt)
+		}
+	}
+	return nil
+}
+
+func UpdateJobRows(ctx context.Context, tx *pachsql.Tx, jobUpdates []*jobRow) error {
+	if len(jobUpdates) != 0 {
+		var jobValues string
+		for _, u := range jobUpdates {
+			jobValues += fmt.Sprintf(" ('%s', decode('%v', 'hex')),", u.Key, hex.EncodeToString(u.Proto))
+		}
+		jobValues = jobValues[:len(jobValues)-1]
+		stmt := fmt.Sprintf(`
+                 UPDATE collections.jobs AS j SET
+                   j.proto = v.proto
+                 FROM (VALUES%s) AS v(key, proto)
+                 WHERE j.key = v.key;`, jobValues)
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return errors.Wrapf(err, "update job rows statement: %v", stmt)
+		}
+	}
+	return nil
 }
