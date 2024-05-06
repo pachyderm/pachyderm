@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -17,7 +16,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var createUniqueIndex = "CREATE UNIQUE INDEX pip_version_idx ON collections.pipelines(idx_name,idx_version)"
+var createUniqueIndex = `
+  CREATE UNIQUE INDEX pip_version_idx ON collections.pipelines(idx_name,idx_version);
+`
 
 // find pipelines with duplicate versions
 // each returned row has a pipeline with duplicate versions
@@ -29,27 +30,21 @@ var createUniqueIndex = "CREATE UNIQUE INDEX pip_version_idx ON collections.pipe
 // select count(1) count, max(createdat) max_createdat, array_agg(key order by createdat) keys, array_agg(proto order by createdat) protos, idx_version, split_part(idx_version, '@', 1) pipeline_path, cast(split_part(idx_version, '@', 2) as int8) version_number from collections.pipelines group by idx_name, idx_version having count(1) > 1;
 
 var duplicatePipelinesQuery = `
-select
-  count(1) count,
-  max(createdat) max_createdat,
-  array_agg(key order by createdat) keys,
-  array_agg(proto order by createdat) protos,
-  idx_version,
-  split_part(idx_version, '@', 1) pipeline_path,
-  cast(split_part(idx_version, '@', 2) as int8) version_number
-from collections.pipelines
-group by idx_name, idx_version
-having count(1) > 1
+  SELECT key, proto
+  FROM collections.pipelines
+  WHERE idx_name
+    IN (
+      SELECT idx_name
+      FROM collections.pipelines
+      GROUP BY idx_name, idx_version
+      HAVING COUNT(key) > 1
+    )
+  ORDER BY idx_name, createdat;
 `
 
 type pipDBRow struct {
-	Count         int64     `db:"count"`
-	MaxCreatedAt  time.Time `db:"max_createdat"`
-	Keys          []string  `db:"keys"`
-	Protos        [][]byte  `db:"protos"`
-	IdxVersion    string    `db:"idx_version"`
-	PipelinePath  string    `db:"pipeline_path"`
-	VersionNumber int64     `db:"version_number"`
+	Key   string `db:"key"`
+	Proto []byte `db:"proto"`
 }
 
 type PipUpdateRow struct {
@@ -138,9 +133,7 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 		if err := rr.StructScan(&row); err != nil {
 			return nil, nil, errors.Wrap(err, "scan pipeline row")
 		}
-		key := row.Keys[len(row.Keys)-1]
-		rowProto := row.Protos[len(row.Protos)-1]
-		if err := proto.Unmarshal(rowProto, pi); err != nil {
+		if err := proto.Unmarshal(row.Proto, pi); err != nil {
 			return nil, nil, errors.Wrapf(err, "unmarshal proto")
 		}
 		lastChange, ok := pipLatestVersion[pi.Pipeline.Name]
@@ -155,12 +148,12 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "marshal pipeline info %v", pi)
 			}
-			project, pipeline, _, err := parsePipelineKey(key)
+			project, pipeline, _, err := parsePipelineKey(row.Key)
 			if err != nil {
-				return nil, nil, errors.Wrapf(err, "parse key %q", key)
+				return nil, nil, errors.Wrapf(err, "parse key %q", row.Key)
 			}
 			idxVersion := VersionKey(project, pipeline, correctVersion)
-			updates = append(updates, &PipUpdateRow{Key: key, IdxVersion: idxVersion, Proto: data})
+			updates = append(updates, &PipUpdateRow{Key: row.Key, IdxVersion: idxVersion, Proto: data})
 		}
 		pipLatestVersion[pi.Pipeline.Name] = correctVersion
 		changes, ok := pipVersionChanges[pi.Pipeline.Name]
@@ -210,13 +203,13 @@ func UpdatePipelineRows(ctx context.Context, tx *pachsql.Tx, pipUpdates []*PipUp
 	if len(pipUpdates) != 0 {
 		var pipValues string
 		for _, u := range pipUpdates {
-			pipValues += fmt.Sprintf(" ('%s', %v, decode('%v', 'hex')),", u.Key, u.IdxVersion, hex.EncodeToString(u.Proto))
+			pipValues += fmt.Sprintf(" ('%s', '%s', decode('%v', 'hex')),", u.Key, u.IdxVersion, hex.EncodeToString(u.Proto))
 		}
 		pipValues = pipValues[:len(pipValues)-1]
 		stmt := fmt.Sprintf(`
                  UPDATE collections.pipelines AS p SET
-                   p.idx_version = v.idx_version,
-                   p.proto = v.proto
+                   idx_version = v.idx_version,
+                   proto = v.proto
                  FROM (VALUES%s) AS v(key, idx_version, proto)
                  WHERE p.key = v.key;`, pipValues)
 		log.Info(ctx, "deduplicate pipeline versions statement", zap.String("stmt", stmt))

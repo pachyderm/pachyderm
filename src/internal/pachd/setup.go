@@ -98,11 +98,11 @@ func awaitDB(db *pachsql.DB) setupStep {
 	}
 }
 
-func awaitMigrations(db *pachsql.DB) setupStep {
+func awaitMigrations(db *pachsql.DB, state migrations.State) setupStep {
 	return setupStep{
 		Name: "awaitMigrations",
 		Fn: func(ctx context.Context) error {
-			return migrations.BlockUntil(ctx, db, clusterstate.DesiredClusterState)
+			return migrations.BlockUntil(ctx, db, state)
 		},
 	}
 }

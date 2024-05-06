@@ -249,7 +249,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 		initJaeger(),
 		awaitDB(env.DB),
 		runMigrations(env.DirectDB, env.EtcdClient, desiredStateOverride),
-		awaitMigrations(env.DB),
+		awaitMigrations(env.DB, *desiredStateOverride),
 		setupStep{
 			Name: "setup listener",
 			Fn: func(ctx context.Context) error {
