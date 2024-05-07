@@ -318,29 +318,46 @@ func fsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) err
 	return nil
 }
 
-func (d *driver) listReferencedCommits(tx *pachsql.Tx) (map[string]*pfs.Commit, error) {
-	cs := make(map[string]*pfs.Commit)
-	var ids []string
-	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
-		return nil, errors.Wrap(err, "select commit ids from pfs.commit_totals")
+func (d *driver) listReferencedCommits(ctx context.Context, tx *pachsql.Tx) (map[pfsdb.CommitID]*pfsdb.CommitWithID, error) {
+	referencedCommits := make(map[pfsdb.CommitID]*pfsdb.CommitWithID)
+	var ids []pfsdb.CommitID
+	fillMap := func() error {
+		for _, id := range ids {
+			commitID := pfsdb.CommitID(id)
+			if _, ok := referencedCommits[id]; ok {
+				continue
+			}
+			commit, err := pfsdb.GetCommit(ctx, tx, commitID)
+			if err != nil {
+				return errors.Wrap(err, "list referenced commits")
+			}
+			referencedCommits[id] = &pfsdb.CommitWithID{
+				ID:         commitID,
+				CommitInfo: commit,
+			}
+		}
+		return nil
 	}
-	for _, id := range ids {
-		cs[id] = pfsdb.ParseCommit(id)
+	if err := tx.Select(&ids, `SELECT int_id FROM pfs.commits WHERE total_fileset_id IS NOT NULL`); err != nil {
+		return nil, errors.Wrap(err, "list referenced commits: commit totals")
 	}
-	ids = make([]string, 0)
-	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_diffs`); err != nil {
-		return nil, errors.Wrap(err, "select commit ids from pfs.commit_diffs")
+	if err := fillMap(); err != nil {
+		return nil, err
 	}
-	for _, id := range ids {
-		cs[id] = pfsdb.ParseCommit(id)
+	ids = make([]pfsdb.CommitID, 0)
+	if err := tx.Select(&ids, `SELECT c.int_id FROM pfs.commits c JOIN pfs.commit_diffs cd ON cd.commit_id = c.commit_id`); err != nil {
+		return nil, errors.Wrap(err, "list referenced commits: commit diffs")
 	}
-	return cs, nil
+	if err := fillMap(); err != nil {
+		return nil, err
+	}
+	return referencedCommits, nil
 }
 
-func fsckDanglingCommits(ris map[string]*pfs.RepoInfo, cs map[string]*pfs.Commit) []*pfs.Commit {
-	var danglingCommits []*pfs.Commit
+func fsckDanglingCommits(ris map[string]*pfs.RepoInfo, cs map[pfsdb.CommitID]*pfsdb.CommitWithID) []*pfsdb.CommitWithID {
+	var danglingCommits []*pfsdb.CommitWithID
 	for _, c := range cs {
-		if _, ok := ris[pfsdb.RepoKey(c.Repo)]; !ok {
+		if _, ok := ris[pfsdb.RepoKey(c.Commit.Repo)]; !ok {
 			danglingCommits = append(danglingCommits, c)
 		}
 	}
@@ -361,7 +378,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfos := make(map[string]*pfs.RepoInfo)
-	referencedCommits := make(map[string]*pfs.Commit)
+	referencedCommits := make(map[pfsdb.CommitID]*pfsdb.CommitWithID)
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			repoInfos[repoWithID.RepoInfo.Repo.Key()] = repoWithID.RepoInfo
@@ -395,28 +412,28 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		return errors.Wrap(err, "commits")
 	}
 	var err error
-	if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		referencedCommits, err = d.listReferencedCommits(tx)
+	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		referencedCommits, err = d.listReferencedCommits(ctx, tx)
 		return errors.Wrap(err, "list referenced commits")
 	}, dbutil.WithReadOnly()); err != nil {
 		return err
 	}
 	dangCs := fsckDanglingCommits(repoInfos, referencedCommits)
 	if !fix && len(dangCs) > 0 {
-		var keys []string
+		var keys []pfsdb.CommitID
 		for _, dc := range dangCs {
-			keys = append(keys, pfsdb.CommitKey(dc))
+			keys = append(keys, dc.ID)
 		}
 		return errors.Errorf("commits with dangling references: %v", keys)
 	}
 	if fix {
 		return dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 			for _, dc := range dangCs {
-				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
-					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", pfsdb.CommitKey(dc))
+				if _, err := sqlTx.ExecContext(ctx, `UPDATE pfs.commits SET total_fileset_id = NULL WHERE int_id = $1`, dc.ID); err != nil {
+					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", pfsdb.CommitKey(dc.Commit))
 				}
-				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
-					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_diffs", pfsdb.CommitKey(dc))
+				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, pfsdb.CommitKey(dc.Commit)); err != nil {
+					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_diffs", pfsdb.CommitKey(dc.Commit))
 				}
 			}
 			return nil
