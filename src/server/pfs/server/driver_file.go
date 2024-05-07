@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"path"
 	"path/filepath"
@@ -561,7 +562,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 		return nil, err
 	}
 	// Get the total file set if the commit has been finished.
-	if commitInfo.Finished != nil && commitInfo.Error == "" {
+	if commitInfo.Finished != nil /*&& commitInfo.Error == ""*/ {
 		id, err := d.commitStore.GetTotalFileSet(ctx, commitInfo.Commit)
 		if err != nil {
 			// TODO: Need to handle this differently if we want to delete total
@@ -571,6 +572,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 			}
 			return nil, errors.EnsureStack(err)
 		}
+		fmt.Println("got total for commit", commit.Key())
 		return id, nil
 	}
 	// Compose the base file set with the diffs.

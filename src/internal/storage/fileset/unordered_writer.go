@@ -201,6 +201,9 @@ func (uw *UnorderedWriter) Close(ctx context.Context) (*ID, error) {
 	if err := uw.serialize(ctx); err != nil {
 		return nil, err
 	}
+	if len(uw.ids) == 1 {
+		return &uw.ids[0], nil
+	}
 	return uw.storage.newComposite(uw.ctx, &Composite{
 		Layers: idsToHex(uw.ids),
 	}, uw.ttl)

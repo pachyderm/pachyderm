@@ -158,6 +158,10 @@ func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID
 // It does not perform a merge or check that the filesets at ids in any way
 // other than ensuring that they exist.
 func (s *Storage) ComposeTx(tx *pachsql.Tx, ids []ID, ttl time.Duration) (*ID, error) {
+	if len(ids) == 1 {
+		id := ids[0]
+		return &id, nil
+	}
 	c := &Composite{
 		Layers: idsToHex(ids),
 	}
@@ -167,82 +171,92 @@ func (s *Storage) ComposeTx(tx *pachsql.Tx, ids []ID, ttl time.Duration) (*ID, e
 // CloneTx creates a new fileset, identical to the fileset at id, but with the specified ttl.
 // The ttl can be ignored by using track.NoTTL
 func (s *Storage) CloneTx(tx *pachsql.Tx, id ID, ttl time.Duration) (*ID, error) {
-	md, err := s.store.GetTx(tx, id)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	switch x := md.Value.(type) {
-	case *Metadata_Primitive:
-		return s.newPrimitiveTx(tx, x.Primitive, ttl)
-	case *Metadata_Composite:
-		return s.newCompositeTx(tx, x.Composite, ttl)
-	default:
-		return nil, errors.Errorf("cannot clone type %T", md.Value)
-	}
+	return &id, nil
+	//md, err := s.store.GetTx(tx, id)
+	//if err != nil {
+	//	return nil, errors.EnsureStack(err)
+	//}
+	//switch x := md.Value.(type) {
+	//case *Metadata_Primitive:
+	//	return s.newPrimitiveTx(tx, x.Primitive, ttl)
+	//case *Metadata_Composite:
+	//	return s.newCompositeTx(tx, x.Composite, ttl)
+	//default:
+	//	return nil, errors.Errorf("cannot clone type %T", md.Value)
+	//}
 }
 
-func (s *Storage) graph(ctx context.Context, childId ID, parentId *dot.Node, g *dot.Graph) error {
-	relatedCommits := struct {
-		Diffs  []string `db:"diffs"`
-		Totals []string `db:"totals"`
-	}{Diffs: []string{}, Totals: []string{}}
-	var (
-		md  *Metadata
-		err error
-	)
+type relationalData struct {
+	Diffs    []string `db:"diffs"`
+	Totals   []string `db:"totals"`
+	Metadata *Metadata
+}
+
+func (r *relationalData) nodeName(id ID, filesetType string) string {
+	nodeName := fmt.Sprintf(`{"id":"%s"`, id.HexString())
+	if len(r.Totals) > 0 {
+		nodeName += fmt.Sprintf(` | "totalsFor":"%s"`, strings.Join(r.Totals, ","))
+	}
+	if len(r.Diffs) > 0 {
+		nodeName += fmt.Sprintf(` | "diffsFor":"%s"`, strings.Join(r.Diffs, ","))
+	}
+	nodeName += fmt.Sprintf(`| "type":"%s" }`, filesetType)
+	return nodeName
+}
+
+func (s *Storage) getFilesetRelationalData(ctx context.Context, filesetId ID) (*relationalData, error) {
+	rd := &relationalData{}
+	var err error
 	if err = dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
-		md, err = s.store.GetTx(tx, childId)
+		rd.Metadata, err = s.store.GetTx(tx, filesetId)
 		if err != nil {
 			return errors.Wrap(err, "get fileset metadata in tx")
 		}
-		err = sqlx.SelectContext(ctx, tx, &relatedCommits.Diffs, `SELECT commit_id as "diffs" FROM pfs.commit_diffs WHERE fileset_id = $1`, childId)
+		err = sqlx.SelectContext(ctx, tx, &rd.Diffs, `SELECT commit_id as "diffs" FROM pfs.commit_diffs WHERE fileset_id = $1`, filesetId)
 		if err != nil {
 			return errors.Wrap(err, "getting commit diffs")
 		}
-		err = sqlx.SelectContext(ctx, tx, &relatedCommits.Totals, `SELECT commit_id as "totals" FROM pfs.commit_totals WHERE fileset_id = $1`, childId)
+		err = sqlx.SelectContext(ctx, tx, &rd.Totals, `SELECT commit_id as "totals" FROM pfs.commit_totals WHERE fileset_id = $1`, filesetId)
 		if err != nil {
 			return errors.Wrap(err, "getting commit totals")
 		}
 		return nil
 	}, dbutil.WithReadOnly()); err != nil {
+		return nil, errors.Wrap(err, "getFilesetRelationalData")
+	}
+	return rd, nil
+}
+
+func (s *Storage) graph(ctx context.Context, childId ID, parentId *dot.Node, g *dot.Graph) error {
+	rd, err := s.getFilesetRelationalData(ctx, childId)
+	if err != nil {
 		return errors.Wrap(err, "graph")
 	}
-	filesetNameTemplate := fmt.Sprintf(`{"id":"%s"`, childId.HexString())
-	if len(relatedCommits.Totals) > 0 {
-		filesetNameTemplate += fmt.Sprintf(` | "totalsFor": "%s"`, strings.Join(relatedCommits.Totals, ","))
-	}
-	if len(relatedCommits.Diffs) > 0 {
-		filesetNameTemplate += fmt.Sprintf(` | "diffsFor": "%s"`, strings.Join(relatedCommits.Diffs, ","))
-	}
-	filesetNameTemplate += ` | "type":"%s"}`
-	switch x := md.Value.(type) {
+	switch x := rd.Metadata.Value.(type) {
 	case *Metadata_Primitive:
-		fsNodeName := fmt.Sprintf(filesetNameTemplate, "primitive")
-		childNode := g.Node(fsNodeName)
-		childNode.Attrs("color", "blue", "shape", "Mrecord")
+		node := g.Node(rd.nodeName(childId, "primitive"))
+		node.Attrs("color", "blue", "shape", "Mrecord")
 		if parentId != nil {
-			g.Edge(*parentId, childNode)
+			g.Edge(*parentId, node)
 		}
 	case *Metadata_Composite:
-		fsNodeName := fmt.Sprintf(filesetNameTemplate, "composite")
-		compositeNode := g.Node(fsNodeName)
-		compositeNode.Attrs("color", "green", "shape", "Mrecord")
+		node := g.Node(rd.nodeName(childId, "composite"))
+		node.Attrs("color", "purple", "shape", "Mrecord")
 		if parentId != nil {
-			g.Edge(*parentId, compositeNode)
+			g.Edge(*parentId, node)
 		}
 		layers, err := HexStringsToIDs(x.Composite.Layers)
 		if err != nil {
-			return errors.Wrap(err, "FileSetTree")
+			return errors.Wrap(err, "graph")
 		}
 		for _, cId := range layers {
-			err = s.graph(ctx, cId, &compositeNode, g)
+			err = s.graph(ctx, cId, &node, g)
 			if err != nil {
-				return errors.Wrap(err, "FileSetTree")
+				return errors.Wrap(err, "graph")
 			}
 		}
 	default:
-		// TODO: should it be?
-		return errors.Errorf("FileSetTree is not defined for empty filesets")
+		return errors.Errorf("graph is not defined for empty filesets")
 	}
 	return nil
 }

@@ -67,11 +67,11 @@ func (cs *postgresCommitStore) AddFileSet(ctx context.Context, commit *pfs.Commi
 }
 
 func (cs *postgresCommitStore) AddFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error {
-	id2, err := cs.s.CloneTx(tx, id, defaultTTL)
-	if err != nil {
-		return err
-	}
-	id = *id2
+	//id2, err := cs.s.CloneTx(tx, id, defaultTTL)
+	//if err != nil {
+	//	return err
+	//}
+	//id = *id2
 
 	oid := commitDiffTrackerID(commit, id)
 	pointsTo := []string{id.TrackerID()}

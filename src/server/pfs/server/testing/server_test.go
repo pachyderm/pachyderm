@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -240,39 +241,49 @@ func TestWalkFileTest(t *testing.T) {
 	require.ElementsEqual(t, []string{"/dir/dir1/file1.1", "/dir/dir1/", "/dir/"}, finfosToPaths(fis))
 }
 
+// file set id obfuscation happens on:
+// - clone() calls
+// - getFileSet() when the total is from an errored commit
+// - compose() calls in the unordered writer
+// - renew() calls, which calls clone()
+// - compaction, which calls Compose()
+// - getDiffFileset(), which calls compose()
+
 func TestStorageGraph(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-
 	repo := "test"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	files := []string{"/a", "a/a", "a/a/a" /*, "a/a/a/a"*/}
+	commits := make([]*pfs.Commit, 0)
+	for _, file := range files {
+		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, env.PachClient.PutFile(commit, file, bytes.NewBufferString("hello")))
+		require.NoError(t, err)
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+		commits = append(commits, commit)
+	}
+	graphs := make([]string, 0)
+	for _, commit := range commits {
+		c := commit
+		fs, err := env.PFSServer.GetFileSet(ctx, &pfs.GetFileSetRequest{Commit: c})
+		require.NoError(t, err)
 
-	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
-	require.NoError(t, env.PachClient.PutFile(commit1, "/a", &bytes.Buffer{}))
-	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
-
-	commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
-	require.NoError(t, env.PachClient.PutFile(commit2, "/a/a", &bytes.Buffer{}))
-	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
-
-	commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
-	require.NoError(t, env.PachClient.PutFile(commit3, "/a/a/a", &bytes.Buffer{}))
-	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
-
-	commit4, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
-	require.NoError(t, env.PachClient.PutFile(commit4, "/a/a/a/a", &bytes.Buffer{}))
-	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.Id))
-
-	fs, err := env.PFSServer.GetFileSet(ctx, &pfs.GetFileSetRequest{Commit: commit4})
-	require.NoError(t, err)
-
-	resp, err := env.StorageServer.GraphFileset(ctx, &storage.GraphFilesetRequest{Id: fs.FileSetId})
-	require.NoError(t, err)
-	fmt.Println(resp.Graph)
+		resp, err := env.StorageServer.GraphFileset(ctx, &storage.GraphFilesetRequest{Id: fs.FileSetId})
+		require.NoError(t, err)
+		graphs = append(graphs, resp.Graph)
+	}
+	for i, graph := range graphs {
+		fileName := "/tmp/commit" + strconv.Itoa(i+1)
+		f, err := os.Create(fileName + ".txt")
+		require.NoError(t, err)
+		_, err = f.WriteString(graph)
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+		cmd := exec.Command("dot", "-Tpng", fileName+".txt", "-o", fileName+".png")
+		require.NoError(t, cmd.Run())
+	}
+	time.Sleep(time.Second)
 }
 
 func TestListFileTest(t *testing.T) {
