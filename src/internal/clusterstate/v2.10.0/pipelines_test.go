@@ -20,16 +20,20 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping benchmark in short mode")
 	}
-	// - setup database with collections.pipelines, collections.jobs
-	// - migrate pipeline A from versions [1, 1, 2] -> [1, 2, 3]
 	type version int
 	type testCase struct {
 		desc          string
 		initial       []version
 		hasDuplicates bool
 	}
+	v2_10_0.UpdatesBatchSize = 2
 	var (
 		tcs = []testCase{
+			{
+				desc:          "one version",
+				initial:       []version{1},
+				hasDuplicates: false,
+			},
 			{
 				desc:          "healthy pipeline versions",
 				initial:       []version{1, 2},
@@ -95,7 +99,6 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 			_, err := c.RerunPipeline(c.Ctx(), &pps.RerunPipelineRequest{Pipeline: pipeline})
 			require.NoError(t, err)
 		}
-
 		// set database to bad state
 		tx := db.MustBeginTx(c.Ctx(), nil)
 		pKeys, pis := listPipelineVersions(t, c.Ctx(), tx, pipeline)

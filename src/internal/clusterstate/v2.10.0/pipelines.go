@@ -33,6 +33,7 @@ var duplicatePipelinesQuery = `
     )
   ORDER BY idx_name, createdat;
 `
+var UpdatesBatchSize = 100
 
 func DeduplicatePipelineVersions(ctx context.Context, env migrations.Env) error {
 	pipUpdates, pipVersionChanges, err := collectPipelineUpdates(ctx, env.Tx)
@@ -153,40 +154,55 @@ func UpdatePipelineRows(ctx context.Context, tx *pachsql.Tx, pipUpdates []*PipUp
 	if len(pipUpdates) == 0 {
 		return nil
 	}
-	var pipValues string
-	for _, u := range pipUpdates {
-		pipValues += fmt.Sprintf(" ('%s', '%s', decode('%v', 'hex')),", u.Key, u.IdxVersion, hex.EncodeToString(u.Proto))
-	}
-	pipValues = pipValues[:len(pipValues)-1]
-	stmt := fmt.Sprintf(`
+	valuesBatches := batchConcats(pipUpdates, func(acc string, u *PipUpdateRow) string {
+		return acc + fmt.Sprintf(" ('%s', '%s', decode('%v', 'hex')),", u.Key, u.IdxVersion, hex.EncodeToString(u.Proto))
+	})
+	for _, values := range valuesBatches {
+		values = values[:len(values)-1]
+		stmt := fmt.Sprintf(`
                  UPDATE collections.pipelines AS p SET
                    idx_version = v.idx_version,
                    proto = v.proto
                  FROM (VALUES%s) AS v(key, idx_version, proto)
-                 WHERE p.key = v.key;`, pipValues)
-	log.Info(ctx, "deduplicate pipeline versions statement", zap.String("stmt", stmt))
-	if _, err := tx.ExecContext(ctx, stmt); err != nil {
-		return errors.Wrapf(err, "update pipeline rows statement: %v", stmt)
+                 WHERE p.key = v.key;`, values)
+		log.Info(ctx, "deduplicate pipeline versions statement", zap.String("stmt", stmt))
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return errors.Wrapf(err, "update pipeline rows statement: %v", stmt)
+		}
 	}
 	return nil
+}
+
+func batchConcats[T any](ts []T, f func(string, T) string) []string {
+	var batches []string
+	var batch string
+	for i, t := range ts {
+		batch = f(batch, t)
+		if i%UpdatesBatchSize == 0 {
+			batches = append(batches, batch)
+		}
+		batch = ""
+	}
+	return batches
 }
 
 func updateJobRows(ctx context.Context, tx *pachsql.Tx, jobUpdates []*jobRow) error {
 	if len(jobUpdates) == 0 {
 		return nil
 	}
-	var jobValues string
-	for _, u := range jobUpdates {
-		jobValues += fmt.Sprintf(" ('%s', decode('%v', 'hex')),", u.Key, hex.EncodeToString(u.Proto))
-	}
-	jobValues = jobValues[:len(jobValues)-1]
-	stmt := fmt.Sprintf(`
+	valuesBatches := batchConcats(jobUpdates, func(acc string, u *jobRow) string {
+		return acc + fmt.Sprintf(" ('%s', decode('%v', 'hex')),", u.Key, hex.EncodeToString(u.Proto))
+	})
+	for _, values := range valuesBatches {
+		values = values[:len(values)-1]
+		stmt := fmt.Sprintf(`
                  UPDATE collections.jobs AS j SET
                    proto = v.proto
                  FROM (VALUES%s) AS v(key, proto)
-                 WHERE j.key = v.key;`, jobValues)
-	if _, err := tx.ExecContext(ctx, stmt); err != nil {
-		return errors.Wrapf(err, "update job rows statement: %v", stmt)
+                 WHERE j.key = v.key;`, values)
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return errors.Wrapf(err, "update job rows statement: %v", stmt)
+		}
 	}
 	return nil
 }
