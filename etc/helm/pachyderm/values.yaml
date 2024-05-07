@@ -1160,7 +1160,7 @@ pgbouncer:
   tolerations: []
   image:
     repository: pachyderm/pgbouncer
-    tag: 1.16.2
+    tag: 1.17.0
   resources:
     {}
     #limits:
@@ -1176,6 +1176,18 @@ pgbouncer:
 
 # Note: Postgres values control the Bitnami Postgresql Subchart
 postgresql:
+  auth:
+    postgresPassword: "insecure-root-password"
+    username: "pachyderm"
+    password: "insecure-user-password"
+    database: "pachyderm"
+  volumePermissions:
+    enabled: true
+    # existingSecret: ""
+    # secretKeys:
+    #   adminPasswordKey: ""
+    #   userPasswordKey: ""
+    #   replicationPasswordKey: ""
   # enabled controls whether to install postgres or not.
   # If not using the built in Postgres, you must specify a Postgresql
   # database server to connect to in global.postgresql
@@ -1184,16 +1196,7 @@ postgresql:
   enabled: true
   image:
     repository: pachyderm/postgresql
-    tag: "13.3.0"
-  # DEPRECATED from pachyderm 2.1.5
-  initdbScripts:
-    dex.sh: |
-      #!/bin/bash
-      set -e
-      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-        CREATE DATABASE dex;
-        GRANT ALL PRIVILEGES ON DATABASE dex TO "$POSTGRES_USER";
-      EOSQL
+    tag: "15"
   fullnameOverride: postgres
   persistence:
     # Specify the storage class for the postgresql Persistent Volume (PV)
@@ -1211,6 +1214,15 @@ postgresql:
     labels:
       suite: pachyderm
   primary:
+    initdb:
+      user: "pachyderm"
+      password: "insecure-root-password"
+      scripts:
+        dex.sh: |
+          #!/bin/bash
+          set -e
+          PGPASSWORD=$POSTGRES_PASSWORD psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER"  --dbname "$POSTGRES_DATABASE" -c "CREATE DATABASE dex;"          
+          PGPASSWORD=$POSTGRES_PASSWORD psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER"  --dbname "$POSTGRES_DATABASE" -c "GRANT ALL PRIVILEGES ON DATABASE dex TO pachyderm;"
     priorityClassName: ""
     nodeSelector: {}
     tolerations: []

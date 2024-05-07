@@ -85,7 +85,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
-              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "password" }}
         {{- end }}
         - name: PG_BOUNCER_HOST
           value: pg-bouncer # Must match pgbouncer service name

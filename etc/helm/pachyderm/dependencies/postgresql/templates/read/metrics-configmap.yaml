@@ -3,22 +3,16 @@ Copyright Broadcom, Inc. All Rights Reserved.
 SPDX-License-Identifier: APACHE-2.0
 */}}
 
-{{- if .Values.rbac.create }}
-kind: RoleBinding
-apiVersion: {{ include "common.capabilities.rbac.apiVersion" . }}
+{{- if and .Values.metrics.enabled .Values.metrics.customMetrics (eq .Values.architecture "replication") }}
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: {{ include "common.names.fullname" . }}
+  name: {{ printf "%s-metrics" (include "postgresql.v1.readReplica.fullname" .) }}
   namespace: {{ .Release.Namespace | quote }}
   labels: {{- include "common.labels.standard" ( dict "customLabels" .Values.commonLabels "context" $ ) | nindent 4 }}
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
-roleRef:
-  kind: Role
-  name: {{ include "common.names.fullname" . }}
-  apiGroup: rbac.authorization.k8s.io
-subjects:
-  - kind: ServiceAccount
-    name: {{ include "postgresql.v1.serviceAccountName" . }}
-    namespace: {{ .Release.Namespace | quote }}
+data:
+  custom-metrics.yaml: {{ toYaml .Values.metrics.customMetrics | quote }}
 {{- end }}
