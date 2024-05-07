@@ -1159,8 +1159,8 @@ pgbouncer:
   nodeSelector: {}
   tolerations: []
   image:
-    repository: pachyderm/pgbouncer
-    tag: 1.16.2
+    repository: bitnami/pgbouncer
+    tag: 1.17.0
   resources:
     {}
     #limits:
