@@ -17,7 +17,7 @@ import (
 )
 
 var CreateUniqueIndex = `
-  CREATE UNIQUE INDEX pip_version_idx ON collections.pipelines(idx_name,idx_version);
+  CREATE UNIQUE INDEX pip_version_idx ON collections.pipelines(idx_version);
 `
 
 // find all pipelines with duplicate versions, and return all of the pipeline versions for each of those pipelines
@@ -66,9 +66,6 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 	var updates []*PipUpdateRow
 	for rr.Next() {
 		var row pipDBRow
-		if err := rr.Err(); err != nil {
-			return nil, nil, errors.Wrap(err, "row error")
-		}
 		if err := rr.StructScan(&row); err != nil {
 			return nil, nil, errors.Wrap(err, "scan pipeline row")
 		}
@@ -102,6 +99,9 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 		}
 		changes[currVersion] = correctVersion
 	}
+	if err := rr.Err(); err != nil {
+		return nil, nil, errors.Wrap(err, "row error")
+	}
 	return updates, pipVersionChanges, nil
 }
 
@@ -126,9 +126,6 @@ func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges ma
 	var updates []*jobRow
 	for rr.Next() {
 		var row jobRow
-		if err := rr.Err(); err != nil {
-			return nil, errors.Wrap(err, "row error")
-		}
 		if err := rr.StructScan(&row); err != nil {
 			return nil, errors.Wrap(err, "scan job row")
 		}
@@ -146,45 +143,50 @@ func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges ma
 			}
 		}
 	}
+	if err := rr.Err(); err != nil {
+		return nil, errors.Wrap(err, "row error")
+	}
 	return updates, nil
 }
 
 func UpdatePipelineRows(ctx context.Context, tx *pachsql.Tx, pipUpdates []*PipUpdateRow) error {
-	if len(pipUpdates) != 0 {
-		var pipValues string
-		for _, u := range pipUpdates {
-			pipValues += fmt.Sprintf(" ('%s', '%s', decode('%v', 'hex')),", u.Key, u.IdxVersion, hex.EncodeToString(u.Proto))
-		}
-		pipValues = pipValues[:len(pipValues)-1]
-		stmt := fmt.Sprintf(`
+	if len(pipUpdates) == 0 {
+		return nil
+	}
+	var pipValues string
+	for _, u := range pipUpdates {
+		pipValues += fmt.Sprintf(" ('%s', '%s', decode('%v', 'hex')),", u.Key, u.IdxVersion, hex.EncodeToString(u.Proto))
+	}
+	pipValues = pipValues[:len(pipValues)-1]
+	stmt := fmt.Sprintf(`
                  UPDATE collections.pipelines AS p SET
                    idx_version = v.idx_version,
                    proto = v.proto
                  FROM (VALUES%s) AS v(key, idx_version, proto)
                  WHERE p.key = v.key;`, pipValues)
-		log.Info(ctx, "deduplicate pipeline versions statement", zap.String("stmt", stmt))
-		if _, err := tx.ExecContext(ctx, stmt); err != nil {
-			return errors.Wrapf(err, "update pipeline rows statement: %v", stmt)
-		}
+	log.Info(ctx, "deduplicate pipeline versions statement", zap.String("stmt", stmt))
+	if _, err := tx.ExecContext(ctx, stmt); err != nil {
+		return errors.Wrapf(err, "update pipeline rows statement: %v", stmt)
 	}
 	return nil
 }
 
 func updateJobRows(ctx context.Context, tx *pachsql.Tx, jobUpdates []*jobRow) error {
-	if len(jobUpdates) != 0 {
-		var jobValues string
-		for _, u := range jobUpdates {
-			jobValues += fmt.Sprintf(" ('%s', decode('%v', 'hex')),", u.Key, hex.EncodeToString(u.Proto))
-		}
-		jobValues = jobValues[:len(jobValues)-1]
-		stmt := fmt.Sprintf(`
+	if len(jobUpdates) == 0 {
+		return nil
+	}
+	var jobValues string
+	for _, u := range jobUpdates {
+		jobValues += fmt.Sprintf(" ('%s', decode('%v', 'hex')),", u.Key, hex.EncodeToString(u.Proto))
+	}
+	jobValues = jobValues[:len(jobValues)-1]
+	stmt := fmt.Sprintf(`
                  UPDATE collections.jobs AS j SET
                    proto = v.proto
                  FROM (VALUES%s) AS v(key, proto)
                  WHERE j.key = v.key;`, jobValues)
-		if _, err := tx.ExecContext(ctx, stmt); err != nil {
-			return errors.Wrapf(err, "update job rows statement: %v", stmt)
-		}
+	if _, err := tx.ExecContext(ctx, stmt); err != nil {
+		return errors.Wrapf(err, "update job rows statement: %v", stmt)
 	}
 	return nil
 }

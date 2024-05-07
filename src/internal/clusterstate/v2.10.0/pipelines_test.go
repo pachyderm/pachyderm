@@ -55,13 +55,18 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 				initial:       []version{1, 2, 3, 3},
 				hasDuplicates: true,
 			},
+			{
+				desc:          "multiple duplicates and collisions of more than two versions",
+				initial:       []version{1, 2, 2, 2, 3, 3},
+				hasDuplicates: true,
+			},
 		}
 	)
 	var db *pachsql.DB
 	c := pachd.NewTestPachd(t, pachd.TestPachdOption{
 		MutateFullOption: func(fullOption *pachd.FullOption) {
 			// run all but the last migration step
-			s := v2_10_0.MigratePartial(clusterstate.State_2_8_0, 1)
+			s := v2_10_0.Migrate_v2_10_BeforeDuplicates(clusterstate.State_2_8_0)
 			fullOption.DesiredState = &s
 		},
 		MutateEnv: func(env *pachd.Env) {
@@ -134,7 +139,7 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 		pis, err = c.ListPipeline()
 		require.NoError(t, err)
 		require.Len(t, pis, 1)
-		jis, err := c.ListJob(pfs.DefaultProjectName, pipeline.Name, nil, -1, false)
+		jis, err := c.ListJob(pfs.DefaultProjectName, pipeline.Name, nil, -1, true)
 		require.NoError(t, err)
 		require.Len(t, jis, len(tc.initial))
 		_, err = c.RerunPipeline(c.Ctx(), &pps.RerunPipelineRequest{Pipeline: pipeline})
