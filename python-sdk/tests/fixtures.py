@@ -77,7 +77,7 @@ class TestClient(_Client):
             #   client requests.
             project = pfs.Project(name="")
 
-        repo = pfs.Repo(name=self._generate_name(), project=project)
+        repo = pfs.Repo(name=self._generate_name() + "r", project=project)
         self.pfs.delete_repo(repo=repo, force=True)
         self.pfs.create_repo(repo=repo, description=self.id)
         self.pfs.create_branch(branch=pfs.Branch.from_uri(f"{repo}@master"))
@@ -88,7 +88,7 @@ class TestClient(_Client):
         self, default_project: bool = True
     ) -> Tuple[pps.PipelineInfo, pps.JobInfo]:
         repo = self.new_repo(default_project)
-        pipeline = pps.Pipeline(project=repo.project, name=self._generate_name())
+        pipeline = pps.Pipeline(project=repo.project, name=self._generate_name() + "p")
         self.pps.delete_pipeline(pipeline=pipeline, force=True)
         self.pps.create_pipeline(
             pipeline=pipeline,
