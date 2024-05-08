@@ -286,3 +286,10 @@ func NewBenchLogger(sample bool) (context.Context, *atomic.Int64) {
 	l := makeLogger(enc, zapcore.Lock(w), zapcore.DebugLevel, sample, []zap.Option{zap.AddCaller()})
 	return withLogger(context.Background(), l), &w.c
 }
+
+func newBenchInfoLogger(sample bool) (context.Context, *atomic.Int64) {
+	enc := zapcore.NewJSONEncoder(pachdEncoder)
+	w := new(byteCounter)
+	l := makeLogger(enc, zapcore.Lock(w), zapcore.InfoLevel, sample, []zap.Option{zap.AddCaller()})
+	return withLogger(context.Background(), l), &w.c
+}

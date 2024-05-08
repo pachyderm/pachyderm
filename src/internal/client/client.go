@@ -156,6 +156,9 @@ type APIClient struct {
 
 	// inspectClusterResult is the result from the InspectCluster call made at connection time.
 	inspectClusterResult *admin.ClusterInfo
+
+	// closeHook is code to run when the client is closed.
+	closeHook []func()
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -726,6 +729,12 @@ func (c *APIClient) Close() error {
 		c.portForwarder.Close()
 	}
 
+	for _, f := range c.closeHook {
+		if f != nil {
+			f()
+		}
+	}
+
 	return nil
 }
 
@@ -959,6 +968,17 @@ func (c *APIClient) Ctx() context.Context {
 func (c *APIClient) WithCtx(ctx context.Context) *APIClient {
 	result := *c // copy c
 	result.ctx = ctx
+	return &result
+}
+
+// WithCtxCancel returns a new APIClient that uses ctx for requests it sends and calls cancelFunc
+// when closing the client. Note that the new APIClient will still use the authentication token and
+// metrics metadata of this client, so this is only useful for propagating other context-associated
+// metadata.
+func (c *APIClient) WithCtxCancel(ctx context.Context, cancelFunc context.CancelFunc) *APIClient {
+	result := *c // copy c
+	result.ctx = ctx
+	result.closeHook = append(result.closeHook, cancelFunc)
 	return &result
 }
 

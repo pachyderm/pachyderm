@@ -2,16 +2,23 @@
 
 import base64
 import json
-from typing import Dict
+from queue import SimpleQueue
+from typing import Dict, Generator, List
 
 import grpc
 from betterproto.lib.google.protobuf import Empty
+from more_itertools import take
 
 from . import ApiStub as _GeneratedApiStub
 from . import (
+    ContinueCreateDatumRequest,
+    CreateDatumRequest,
+    DatumInfo,
+    Input,
     Job,
     Pipeline,
     PipelineInfo,
+    StartCreateDatumRequest,
 )
 
 
@@ -148,3 +155,60 @@ class ApiStub(_GeneratedApiStub):
         ).encode()
 
         return super().create_secret(file=file)
+
+    def generate_datums(
+        self, input_spec: "Input", batch_size: int
+    ) -> Generator[List["DatumInfo"], int, None]:
+        """Creates a generator that yields batches of datums for a given input spec
+
+        Parameters
+        ----------
+        input_spec : pps.Input
+            The input spec.
+        batch_size : int
+            The number of datums to return. If 0, the default batch size set
+            server-side is returned. To change the batch size, use the `.send()`
+            method on the returned generator.
+
+        Returns
+        -------
+        Iterator[DatumInfo]
+
+        Examples
+        --------
+        datum_stream = client.pps.generate_datum(
+            input_spec=pps.Input(pfs=pps.PfsInput(repo="repo", glob="/*")),
+            batch_size=10,
+        )
+
+        dis = next(datum_stream)        # Returns 10 datums.
+        more_dis = datum_stream.send(5) # Returns 5 datums.
+        """
+        send_queue = SimpleQueue()  # Put messages to be sent here.
+        stream = super().create_datum(
+            iter(send_queue.get, None)
+        )  # The line of communication.
+
+        send_queue.put(
+            CreateDatumRequest(
+                start=StartCreateDatumRequest(input=input_spec, number=batch_size)
+            )
+        )
+        # Return the first batch. Users can .send() the next batch size to this generator.
+        # If nothing is sent then the original batch size is used.
+        new_batch_size = yield take(batch_size, stream)
+
+        while True:
+            send_queue.put(
+                CreateDatumRequest(
+                    continue_=ContinueCreateDatumRequest(
+                        number=new_batch_size or batch_size
+                    )
+                )
+            )
+            batch = take(new_batch_size or batch_size, stream)
+            if len(batch) == 0:
+                # We want to catch when there are no datums left.
+                # Else, if users used a for-loop it would infinitely iterate.
+                return
+            new_batch_size = yield batch
