@@ -6,12 +6,15 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	v2_10_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.10.0"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -20,10 +23,10 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping benchmark in short mode")
 	}
-	type version int
+	type piVersion int
 	type testCase struct {
 		desc          string
-		initial       []version
+		initial       []piVersion
 		hasDuplicates bool
 	}
 	v2_10_0.UpdatesBatchSize = 2
@@ -31,37 +34,37 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 		tcs = []testCase{
 			{
 				desc:          "one version",
-				initial:       []version{1},
+				initial:       []piVersion{1},
 				hasDuplicates: false,
 			},
 			{
 				desc:          "healthy pipeline versions",
-				initial:       []version{1, 2},
+				initial:       []piVersion{1, 2},
 				hasDuplicates: false,
 			},
 			{
 				desc:          "pipeline version duplicates",
-				initial:       []version{1, 1},
+				initial:       []piVersion{1, 1},
 				hasDuplicates: true,
 			},
 			{
 				desc:          "pipeline version duplication at beginning",
-				initial:       []version{1, 1, 2},
+				initial:       []piVersion{1, 1, 2},
 				hasDuplicates: true,
 			},
 			{
 				desc:          "pipeline version duplication in the middle",
-				initial:       []version{1, 2, 2, 3},
+				initial:       []piVersion{1, 2, 2, 3},
 				hasDuplicates: true,
 			},
 			{
 				desc:          "pipeline version duplication at the end",
-				initial:       []version{1, 2, 3, 3},
+				initial:       []piVersion{1, 2, 3, 3},
 				hasDuplicates: true,
 			},
 			{
 				desc:          "multiple duplicates and collisions of more than two versions",
-				initial:       []version{1, 2, 2, 2, 3, 3},
+				initial:       []piVersion{1, 2, 2, 2, 3, 3, 4, 4, 4, 4, 6, 6, 5},
 				hasDuplicates: true,
 			},
 		}
@@ -78,6 +81,7 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 		},
 	})
 	for _, tc := range tcs {
+		ctx := pctx.TestContext(t)
 		t.Log("test case: ", tc.desc)
 		repo := "input"
 		pipeline := &pps.Pipeline{Name: "pipeline", Project: &pfs.Project{Name: pfs.DefaultProjectName}}
@@ -100,25 +104,29 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 			require.NoError(t, err)
 		}
 		// set database to bad state
-		tx := db.MustBeginTx(c.Ctx(), nil)
-		pKeys, pis := listPipelineVersions(t, c.Ctx(), tx, pipeline)
+		tx := db.MustBeginTx(ctx, nil)
+		pKeys, pis := listPipelineVersions(t, ctx, tx, pipeline)
+		require.Equal(t, len(pKeys), len(tc.initial))
 		var pipUpdates []*v2_10_0.PipUpdateRow
 		pipVersionChanges := map[string]map[uint64]uint64{
 			pipeline.String(): {},
 		}
 		for i, v := range tc.initial {
-			if v != version(i)+1 {
+			currVersion := piVersion(i) + 1
+			if v != currVersion {
+				fromVersion := pis[i].Version
 				pis[i].Version = uint64(v)
 				data, err := proto.Marshal(pis[i])
 				require.NoError(t, err)
 				vIdx := v2_10_0.VersionKey(pipeline.Project.Name, pipeline.Name, pis[i].Version)
 				update := &v2_10_0.PipUpdateRow{Key: pKeys[i], Proto: data, IdxVersion: vIdx}
 				pipUpdates = append(pipUpdates, update)
-				pipVersionChanges[pipeline.String()][uint64(i)] = uint64(v)
+				pipVersionChanges[pipeline.String()][uint64(currVersion)] = uint64(v)
+				log.Debug(ctx, "test create pip update", zap.Int("to", int(v)), zap.Uint64("from", fromVersion))
 			}
 		}
-		require.NoError(t, v2_10_0.UpdatePipelineRows(c.Ctx(), tx, pipUpdates))
-		require.NoError(t, v2_10_0.UpdateJobPipelineVersions(c.Ctx(), tx, pipVersionChanges))
+		require.NoError(t, v2_10_0.UpdatePipelineRows(ctx, tx, pipUpdates))
+		require.NoError(t, v2_10_0.UpdateJobPipelineVersions(ctx, tx, pipVersionChanges))
 		require.NoError(t, tx.Commit())
 
 		// verify bad state
@@ -133,8 +141,9 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 		}
 
 		// run migration
-		tx = db.MustBeginTx(c.Ctx(), nil)
-		require.NoError(t, v2_10_0.DeduplicatePipelineVersions(c.Ctx(), migrations.Env{Tx: tx}))
+		tx = db.MustBeginTx(ctx, nil)
+
+		require.NoError(t, v2_10_0.DeduplicatePipelineVersions(ctx, migrations.Env{Tx: tx}))
 		require.NoError(t, tx.Commit())
 
 		// assert that there should be no duplicate pipelines detected in query
@@ -159,12 +168,13 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 }
 
 type pipelineRow struct {
-	Key   string `db:"key"`
-	Proto []byte `db:"proto"`
+	Key        string `db:"key"`
+	Proto      []byte `db:"proto"`
+	IdxVersion string `db:"idx_version"`
 }
 
 func listPipelineVersions(t *testing.T, ctx context.Context, tx *pachsql.Tx, pipeline *pps.Pipeline) ([]string, []*pps.PipelineInfo) {
-	query := `SELECT key, proto FROM collections.pipelines ORDER BY createdat`
+	query := `SELECT key, proto, idx_version FROM collections.pipelines ORDER BY createdat`
 	rr, err := tx.QueryxContext(ctx, query)
 	require.NoError(t, err)
 	defer rr.Close()

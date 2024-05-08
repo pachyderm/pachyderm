@@ -61,11 +61,11 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 		return nil, nil, errors.Wrap(err, "query duplicates in collections.pipelines")
 	}
 	defer rr.Close()
-	pi := &pps.PipelineInfo{}
 	pipLatestVersion := make(map[string]uint64)
 	pipVersionChanges := make(map[string]map[uint64]uint64)
 	var updates []*PipUpdateRow
 	for rr.Next() {
+		pi := &pps.PipelineInfo{}
 		var row pipDBRow
 		if err := rr.StructScan(&row); err != nil {
 			return nil, nil, errors.Wrap(err, "scan pipeline row")
@@ -73,13 +73,14 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 		if err := proto.Unmarshal(row.Proto, pi); err != nil {
 			return nil, nil, errors.Wrapf(err, "unmarshal proto")
 		}
-		lastChange, ok := pipLatestVersion[pi.Pipeline.Name]
+		lastChange, ok := pipLatestVersion[pi.Pipeline.String()]
 		if !ok {
 			lastChange = 0
 		}
-		currVersion := pi.Version
 		correctVersion := lastChange + 1
-		if pi.Version != correctVersion {
+		pipLatestVersion[pi.Pipeline.String()] = correctVersion
+		currVersion := pi.Version
+		if currVersion != correctVersion {
 			pi.Version = correctVersion
 			data, err := proto.Marshal(pi)
 			if err != nil {
@@ -90,15 +91,15 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 				return nil, nil, errors.Wrapf(err, "parse key %q", row.Key)
 			}
 			idxVersion := VersionKey(project, pipeline, correctVersion)
+			log.Info(ctx, "creating pipeline row update", zap.String("key", row.Key), zap.String("idx_version", idxVersion), zap.Uint64("to_version", pi.Version), zap.Uint64("from_version", currVersion))
 			updates = append(updates, &PipUpdateRow{Key: row.Key, IdxVersion: idxVersion, Proto: data})
+			changes, ok := pipVersionChanges[pi.Pipeline.String()]
+			if !ok {
+				changes = make(map[uint64]uint64)
+				pipVersionChanges[pi.Pipeline.String()] = changes
+			}
+			changes[currVersion] = correctVersion
 		}
-		pipLatestVersion[pi.Pipeline.Name] = correctVersion
-		changes, ok := pipVersionChanges[pi.Pipeline.Name]
-		if !ok {
-			changes = make(map[uint64]uint64)
-			pipVersionChanges[pi.Pipeline.Name] = changes
-		}
-		changes[currVersion] = correctVersion
 	}
 	if err := rr.Err(); err != nil {
 		return nil, nil, errors.Wrap(err, "row error")
@@ -123,9 +124,9 @@ func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges ma
 		return nil, errors.Wrap(err, "list jobs")
 	}
 	defer rr.Close()
-	ji := &pps.JobInfo{}
 	var updates []*jobRow
 	for rr.Next() {
+		ji := &pps.JobInfo{}
 		var row jobRow
 		if err := rr.StructScan(&row); err != nil {
 			return nil, errors.Wrap(err, "scan job row")
@@ -134,12 +135,14 @@ func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges ma
 			return nil, errors.Wrapf(err, "unmarshal proto")
 		}
 		if changes, ok := pipVersionChanges[ji.Job.Pipeline.String()]; ok {
+			fromVersion := ji.PipelineVersion
 			if new, ok := changes[ji.PipelineVersion]; ok {
 				ji.PipelineVersion = new
 				data, err := proto.Marshal(ji)
 				if err != nil {
 					return nil, errors.Wrapf(err, "marshal job info %v", ji)
 				}
+				log.Info(ctx, "create job row update", zap.String("key", row.Key), zap.Uint64("from_version", fromVersion), zap.Uint64("to_version", ji.PipelineVersion))
 				updates = append(updates, &jobRow{Key: row.Key, Proto: data})
 			}
 		}
@@ -152,11 +155,15 @@ func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges ma
 
 func UpdatePipelineRows(ctx context.Context, tx *pachsql.Tx, pipUpdates []*PipUpdateRow) error {
 	if len(pipUpdates) == 0 {
+		log.Info(ctx, "no pipeline rows to update")
 		return nil
 	}
+	updates := 0
 	valuesBatches := batchConcats(pipUpdates, func(acc string, u *PipUpdateRow) string {
+		updates++
 		return acc + fmt.Sprintf(" ('%s', '%s', decode('%v', 'hex')),", u.Key, u.IdxVersion, hex.EncodeToString(u.Proto))
 	})
+	log.Debug(ctx, "num pip updates", zap.Int("cnt", updates), zap.Int("len", len(pipUpdates)))
 	for _, values := range valuesBatches {
 		values = values[:len(values)-1]
 		stmt := fmt.Sprintf(`
@@ -165,7 +172,7 @@ func UpdatePipelineRows(ctx context.Context, tx *pachsql.Tx, pipUpdates []*PipUp
                    proto = v.proto
                  FROM (VALUES%s) AS v(key, idx_version, proto)
                  WHERE p.key = v.key;`, values)
-		log.Info(ctx, "deduplicate pipeline versions statement", zap.String("stmt", stmt))
+		log.Debug(ctx, "update pipelines statement", zap.String("stmt", stmt))
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
 			return errors.Wrapf(err, "update pipeline rows statement: %v", stmt)
 		}
@@ -178,16 +185,18 @@ func batchConcats[T any](ts []T, f func(string, T) string) []string {
 	var batch string
 	for i, t := range ts {
 		batch = f(batch, t)
-		if i%UpdatesBatchSize == 0 {
+		cnt := i + 1
+		if cnt%UpdatesBatchSize == 0 || i == len(ts)-1 {
 			batches = append(batches, batch)
+			batch = ""
 		}
-		batch = ""
 	}
 	return batches
 }
 
 func updateJobRows(ctx context.Context, tx *pachsql.Tx, jobUpdates []*jobRow) error {
 	if len(jobUpdates) == 0 {
+		log.Info(ctx, "no job rows to update")
 		return nil
 	}
 	valuesBatches := batchConcats(jobUpdates, func(acc string, u *jobRow) string {
@@ -200,6 +209,7 @@ func updateJobRows(ctx context.Context, tx *pachsql.Tx, jobUpdates []*jobRow) er
                    proto = v.proto
                  FROM (VALUES%s) AS v(key, proto)
                  WHERE j.key = v.key;`, values)
+		log.Debug(ctx, "update jobs statement", zap.String("stmt", stmt))
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
 			return errors.Wrapf(err, "update job rows statement: %v", stmt)
 		}
