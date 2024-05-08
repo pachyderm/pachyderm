@@ -20,6 +20,13 @@ var CreateUniqueIndex = `
   CREATE UNIQUE INDEX pip_version_idx ON collections.pipelines(idx_version);
 `
 
+var CopyPipelinesTable = `
+  CREATE TABLE collections.pre_2_10_pipelines AS TABLE collections.pipelines;
+`
+var CopyJobsTable = `
+  CREATE TABLE collections.pre_2_10_jobs AS TABLE collections.jobs;
+`
+
 // find all pipelines with duplicate versions, and return all of the pipeline versions for each of those pipelines
 var duplicatePipelinesQuery = `
   SELECT key, proto
@@ -36,6 +43,9 @@ var duplicatePipelinesQuery = `
 var UpdatesBatchSize = 100
 
 func DeduplicatePipelineVersions(ctx context.Context, env migrations.Env) error {
+	if err := backupTables(ctx, env.Tx); err != nil {
+		return err
+	}
 	pipUpdates, pipVersionChanges, err := collectPipelineUpdates(ctx, env.Tx)
 	if err != nil {
 		return err
@@ -49,6 +59,16 @@ func DeduplicatePipelineVersions(ctx context.Context, env migrations.Env) error 
 	}
 	if _, err := env.Tx.ExecContext(ctx, CreateUniqueIndex); err != nil {
 		return errors.Wrap(err, "create unique index pip_version_idx")
+	}
+	return nil
+}
+
+func backupTables(ctx context.Context, tx *pachsql.Tx) error {
+	if _, err := tx.ExecContext(ctx, CopyPipelinesTable); err != nil {
+		return errors.Wrap(err, "backup pipelines collection")
+	}
+	if _, err := tx.ExecContext(ctx, CopyJobsTable); err != nil {
+		return errors.Wrap(err, "backup jobs collection")
 	}
 	return nil
 }

@@ -164,6 +164,8 @@ func TestPipelineVersionsDeduplication(t *testing.T) {
 		require.NoError(t, err)
 		_, err = db.Exec("DROP INDEX collections.pip_version_idx;")
 		require.NoError(t, err)
+		_, err = db.Exec("DROP TABLE collections.pre_2_10_pipelines, collections.pre_2_10_jobs;")
+		require.NoError(t, err)
 	}
 }
 
