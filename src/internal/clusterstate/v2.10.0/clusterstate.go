@@ -5,6 +5,11 @@ import (
 )
 
 func Migrate(state migrations.State) migrations.State {
+	return Migrate_v2_10_BeforeDuplicates(state).
+		Apply("Fix duplicate pipeline versions", DeduplicatePipelineVersions, migrations.Squash)
+}
+
+func Migrate_v2_10_BeforeDuplicates(state migrations.State) migrations.State {
 	return state.
 		Apply("Add metadata to projects", addMetadataToProjects, migrations.Squash).
 		Apply("Add metadata to commits", addMetadataToCommits, migrations.Squash).
