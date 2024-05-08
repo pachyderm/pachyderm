@@ -150,7 +150,7 @@ func (b *builder) setupDB(ctx context.Context) error {
 }
 
 func (b *builder) waitForDBState(ctx context.Context) error {
-	return awaitMigrations(b.env.GetDBClient()).Fn(ctx)
+	return awaitMigrations(b.env.GetDBClient(), clusterstate.DesiredClusterState).Fn(ctx)
 }
 
 func (b *builder) initDexDB(ctx context.Context) error {
