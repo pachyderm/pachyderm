@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "69e884bfe022db0ff0945f3bfa22c1a24166842ad23d9bff0870fcfdd20132f8",
+  "moduleFileHash": "7cd2d9a93c558404ada484a8bb755be4ef3cbd812f8f059e90670ac855adef28",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -54,7 +54,7 @@
               "tagName": "download",
               "attributeValues": {
                 "name": "go_sdk",
-                "version": "1.22.2"
+                "version": "1.22.3"
               },
               "devDependency": false,
               "location": {
