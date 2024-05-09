@@ -39,7 +39,7 @@ describe('PollMounts', () => {
     const pollMounts = new PollMounts('testPollMounts');
 
     expect(pollMounts.mountedRepo).toEqual(expectedMountedRepo);
-    expect(mockedRequestAPI).toHaveBeenCalledWith('mount', 'PUT', {
+    expect(mockedRequestAPI).toHaveBeenCalledWith('explore/mount', 'PUT', {
       branch_uri: expectedMountedRepo.mountedBranch.uri,
     });
   });
@@ -56,9 +56,7 @@ describe('PollMounts', () => {
     expect(
       localStorage.getItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY),
     ).toBeNull();
-    expect(mockedRequestAPI).toHaveBeenCalledWith('mount', 'PUT', {
-      branch_uri: '',
-    });
+    expect(mockedRequestAPI).toHaveBeenCalledWith('explore/unmount', 'PUT');
   });
 
   describe('updateMountedRepo()', () => {
@@ -91,7 +89,7 @@ describe('PollMounts', () => {
       expect(
         localStorage.getItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY),
       ).toEqual(JSON.stringify(expectedMountedRepo));
-      expect(mockedRequestAPI).toHaveBeenCalledWith('mount', 'PUT', {
+      expect(mockedRequestAPI).toHaveBeenCalledWith('explore/mount', 'PUT', {
         branch_uri: expectedMountedRepo.mountedBranch.uri,
       });
     });
@@ -125,7 +123,7 @@ describe('PollMounts', () => {
       expect(
         localStorage.getItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY),
       ).toEqual(JSON.stringify(expectedMountedRepo));
-      expect(mockedRequestAPI).toHaveBeenCalledWith('mount', 'PUT', {
+      expect(mockedRequestAPI).toHaveBeenCalledWith('explore/mount', 'PUT', {
         branch_uri: expectedMountedRepo.mountedBranch.uri,
       });
     });
@@ -179,7 +177,7 @@ describe('PollMounts', () => {
       expect(
         localStorage.getItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY),
       ).toEqual(JSON.stringify(expectedMountedRepo));
-      expect(mockedRequestAPI).toHaveBeenCalledWith('mount', 'PUT', {
+      expect(mockedRequestAPI).toHaveBeenCalledWith('explore/mount', 'PUT', {
         branch_uri: expectedMountedRepo.mountedBranch.uri,
       });
     });

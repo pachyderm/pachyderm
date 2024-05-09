@@ -516,7 +516,7 @@ class TestDownloadHandler(BaseHandler):
             raise tornado.web.HTTPError(status_code=500, reason=repr(e))
         await self.finish()
 
-class MountPfsRepoHandler(BaseHandler):
+class ExploreMountHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
@@ -526,13 +526,19 @@ class MountPfsRepoHandler(BaseHandler):
             branch_uri = body.get("branch_uri")
             if branch_uri is None:
                 raise ValueError("branch_uri does not exist")
-            if branch_uri == '':
-                self.pfs_manager.mount_branch(branch=None)
-            else:
-                branch = pfs.Branch.from_uri(branch_uri)
-                if not self.pfs_manager.branch_exists(branch=branch):
-                    raise ValueError("branch_uri exists but does not resolve a valid branch")
-                self.pfs_manager.mount_branch(branch=branch)
+            branch = pfs.Branch.from_uri(branch_uri)
+            self.pfs_manager.mount_branch(branch=branch)
+        except ValueError as e:
+            raise tornado.web.HTTPError(status_code=400, reason=repr(e))
+        except Exception as e:
+            raise tornado.web.HTTPError(status_code=500, reason=repr(e))
+        await self.finish()
+
+class ExploreUnmountHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self):
+        try:
+            self.pfs_manager.unmount_branch()
         except ValueError as e:
             raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:
@@ -633,7 +639,8 @@ def setup_handlers(
 
     _handlers = [
         ("/repos", ReposHandler),
-        ("/mount", MountPfsRepoHandler),
+        ("/explore/mount", ExploreMountHandler),
+        ("/explore/unmount", ExploreUnmountHandler),
         ("/datums/_mount", MountDatumsHandler),
         ("/datums/_next", DatumNextHandler),
         ("/datums/_prev", DatumPrevHandler),
