@@ -40,7 +40,7 @@ func TestIterators(t *testing.T) {
 	for i := 0; i < 50; i++ {
 		require.NoError(t, c.PutFile(commit, fmt.Sprintf("/foo%v", i), strings.NewReader("input")))
 	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 	// Zero datums.
 	in0 := client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "!(**)")
 	in0.Pfs.Commit = commit.Id

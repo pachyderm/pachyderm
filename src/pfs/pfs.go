@@ -122,6 +122,69 @@ func (c *Commit) AccessRepo() *Repo {
 	return c.GetBranch().GetRepo()
 }
 
+func (c *Commit) NilBranch() {
+	if c != nil {
+		c.Branch = nil
+	}
+}
+
+func (ci *CommitInfo) NilBranch() {
+	if ci != nil {
+		ci.Commit.NilBranch()
+		ci.ParentCommit.NilBranch()
+	}
+}
+
+func (f *File) NilBranch() {
+	if f != nil {
+		f.Commit.NilBranch()
+	}
+}
+
+func (fi *FileInfo) NilBranch() {
+	if fi != nil {
+		fi.File.NilBranch()
+	}
+}
+
+func (dfr *DiffFileResponse) NilBranch() {
+	if dfr != nil {
+		dfr.OldFile.NilBranch()
+		dfr.NewFile.NilBranch()
+	}
+}
+
+func (cf *CopyFile) NilBranch() {
+	if cf != nil {
+		cf.Src.NilBranch()
+	}
+}
+
+func (bi *BranchInfo) NilBranch() {
+	if bi != nil {
+		bi.Head.NilBranch()
+	}
+}
+
+func (csi *CommitSetInfo) NilBranch() {
+	if csi != nil {
+		for _, ci := range csi.Commits {
+			ci.NilBranch()
+		}
+	}
+}
+
+func (fcr *FindCommitsResponse) NilBranch() {
+	if fcr != nil && fcr.Result != nil {
+		switch c := fcr.Result.(type) {
+		case *FindCommitsResponse_LastSearchedCommit:
+			c.LastSearchedCommit.NilBranch()
+		case *FindCommitsResponse_FoundCommit:
+			c.FoundCommit.NilBranch()
+		}
+	}
+}
+
 func (b *Branch) NewCommit(id string) *Commit {
 	return &Commit{
 		Branch: proto.Clone(b).(*Branch),

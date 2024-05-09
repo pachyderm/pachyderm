@@ -4147,22 +4147,34 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 
 // PipelinesSummary implements the protobuf pps.PipelinesSummary RPC
 func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error) {
+	var requestedProjects []*pfs.Project
+	if len(req.Projects) == 0 {
+		pis, err := a.env.GetPachClient(ctx).ListProject()
+		if err != nil {
+			return nil, errors.Wrap(err, "list projects for pipeline summaries")
+		}
+		for _, pi := range pis {
+			requestedProjects = append(requestedProjects, pi.Project)
+		}
+	} else {
+		for _, p := range req.Projects {
+			var project *pfs.Project
+			switch p.Picker.(type) {
+			case *pfs.ProjectPicker_Name:
+				project = &pfs.Project{Name: p.GetName()}
+			default:
+				return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
+			}
+			requestedProjects = append(requestedProjects, project)
+		}
+	}
 	var projects []*pfs.Project
-	for _, p := range req.Projects {
-		var project *pfs.Project
-		switch p.Picker.(type) {
-		case *pfs.ProjectPicker_Name:
-			project = &pfs.Project{Name: p.GetName()}
-		default:
-			return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
+	for _, p := range requestedProjects {
+		if err := a.env.AuthServer.CheckProjectIsAuthorized(ctx, p, auth.Permission_PROJECT_LIST_REPO); err != nil {
+			log.Info(ctx, "unauthorized to summarize pipelines for project", zap.String("project", p.String()), zap.Error(err))
+			continue
 		}
-		// NOTE: there's a potential time-of-check/time-of-use issue here since we check access
-		// to the project and emit its pipelines in different transactions. This is done in other areas
-		// of the code today and is acceptable. The info returned here is also purely summaritive.
-		if err := a.env.AuthServer.CheckProjectIsAuthorized(ctx, project, auth.Permission_PROJECT_LIST_REPO); err != nil {
-			return nil, errors.Wrapf(err, "not authorized to list repos of project %q", project.String())
-		}
-		projects = append(projects, project)
+		projects = append(projects, p)
 	}
 	projectsMap := make(map[string]struct{})
 	for _, p := range projects {

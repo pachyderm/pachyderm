@@ -68,7 +68,7 @@ func (o *Options) getBranches() map[string]string {
 		return result
 	}
 	for name, opts := range o.RepoOptions {
-		if opts.File.Commit.Branch.Name != "" {
+		if opts.File.Commit.Branch != nil && opts.File.Commit.Branch.Name != "" {
 			result[name] = opts.File.Commit.Branch.Name
 		}
 	}
@@ -95,15 +95,23 @@ func (o *Options) validate(c *client.APIClient) error {
 	}
 	for _, opts := range o.RepoOptions {
 		if opts.Write {
-			if uuid.IsUUIDWithoutDashes(opts.File.Commit.Branch.Name) {
-				return errors.Errorf("can't mount commit %s@%s as %s in Write mode (mount a branch instead)", opts.File.Commit.Branch.Repo.Name, opts.File.Commit.Branch.Name, opts.Name)
+			branch := ""
+			if opts.File.Commit.Branch != nil {
+				branch = opts.File.Commit.Branch.GetName()
 			}
-			bi, err := c.InspectBranch(opts.File.Commit.Branch.Repo.Project.GetName(), opts.File.Commit.Branch.Repo.Name, opts.File.Commit.Branch.Name)
+			if uuid.IsUUIDWithoutDashes(branch) {
+				return errors.Errorf("can't mount commit %s@%s as %s in Write mode (mount a branch instead)", opts.File.Commit.Repo.Name, branch, opts.Name)
+			}
+			bi, err := c.InspectBranch(opts.File.Commit.Branch.Repo.Project.GetName(), opts.File.Commit.Repo.Name, opts.File.Commit.Branch.Name)
 			if err != nil && !errutil.IsNotFoundError(err) {
 				return err
 			}
 			if bi != nil && len(bi.Provenance) > 0 {
-				return errors.Errorf("can't mount branch %s@%s as %s in Write mode because it's an output branch", opts.File.Commit.Branch.Repo.Name, opts.File.Commit.Branch.Name, opts.Name)
+				branch := ""
+				if opts.File.Commit.Branch != nil {
+					branch = opts.File.Commit.Branch.GetName()
+				}
+				return errors.Errorf("can't mount branch %s@%s as %s in Write mode because it's an output branch", opts.File.Commit.Repo.Name, branch, opts.Name)
 			}
 		}
 	}

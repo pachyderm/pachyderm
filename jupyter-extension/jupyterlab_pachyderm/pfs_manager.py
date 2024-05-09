@@ -490,7 +490,7 @@ class DatumManager(FileContentsManager):
                     raise ValueError(f"Input contains non-existent branch {branch}")
                 raise err
 
-            commit = pfs.Commit(repo=repo, id=commit_id, branch=branch)
+            commit = pfs.Commit(id=commit_id)
             commit_uri = commit.as_uri()
             if commit_uri in self._repo_names:
                 raise ValueError(
@@ -524,6 +524,14 @@ class DatumManager(FileContentsManager):
                 self._reset()
                 raise ValueError("input produced no datums to mount")
             self._update_mount()
+        except grpc.RpcError as e:
+            if (
+                e.code() == grpc.StatusCode.NOT_FOUND
+                or e.code() == grpc.StatusCode.UNKNOWN
+                and "not found" in e.details()
+            ):
+                self._reset()
+                raise ValueError("non-existent branch or repo in input")
         except Exception as e:
             self._reset()
             raise e

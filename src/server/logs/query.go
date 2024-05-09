@@ -36,12 +36,13 @@ func (err ErrInvalidBatchSize) RecommendedBatchSize() int {
 // Adapted from <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/pkg/logcli/query/query.go>.
 //
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
-func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, direction logDirection, publish func(context.Context, loki.Entry) (bool, error)) (err error) {
+func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, offset uint, direction logDirection, publish func(context.Context, loki.Entry) (bool, error)) (err error) {
 	var (
 		batchSize    int
 		resultLength int
 		total        int
 		lastEntry    []loki.Entry
+		initial      = start
 	)
 	if limit == 0 {
 		limit = math.MaxInt
@@ -58,17 +59,15 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 			return errors.Wrapf(err, "unknown max_entries_limit_per_query type %T", limits["max_entries_limit_per_query"])
 		}
 	}
-	var i int
-	for total < limit {
-		i++
+	for total < limit && start.Before(end) {
 		bs := batchSize
 		// We want to truncate the batch size if the remaining number
 		// of items needed to reach the limit is less than the batch size
-		if limit-total < batchSize {
+		if limit-total+int(offset) < batchSize {
 			// Truncated batchsize is limit - total, however we add to this
 			// the length of the overlap from the last query to make sure we get the
 			// correct amount of new logs knowing there will be some overlapping logs returned.
-			bs = limit - total + len(lastEntry)
+			bs = limit - total + int(offset) + len(lastEntry)
 		}
 		resp, err := client.QueryRange(ctx, logQL, bs, start, end, string(direction), 0, 0, true)
 		if err != nil {
@@ -84,13 +83,10 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 			return errors.Errorf("resp.Data.Result must be of type loghttp.Streams, not %T", resp.Data.Result)
 		}
 
-		if resultLength, lastEntry, err = publishEntries(ctx, streams, direction, lastEntry, publish); err != nil {
+		if resultLength, lastEntry, offset, err = publishEntries(ctx, streams, direction, lastEntry, publish, initial, offset); err != nil {
 			return errors.Wrap(err, "could not publish entries")
 		}
-		if resultLength <= 0 {
-			// Was not a log stream query, or no results, no more batching
-			break
-		} else if len(lastEntry) == 0 {
+		if len(lastEntry) == 0 {
 			// Also no result, wouldn't expect to hit this.
 			break
 		} else if resultLength == limit {
@@ -112,11 +108,18 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 		// Based on the query direction we either set the start or end for the next query.
 		// If there are multiple entries in `lastEntry` they have to have the same timestamp so we can pick just the first
 		if direction == forwardLogDirection {
+			if !start.Before(lastEntry[0].Timestamp) {
+				break
+			}
 			start = lastEntry[0].Timestamp
 		} else {
+			next := lastEntry[0].Timestamp.Add(1 * time.Nanosecond)
+			if !end.Before(next) {
+				break
+			}
 			// The end timestamp is exclusive on a backward query, so to make sure we get back an overlapping result
 			// fudge the timestamp forward in time to make sure to get the last entry from this batch in the next query
-			end = lastEntry[0].Timestamp.Add(1 * time.Nanosecond)
+			end = next
 		}
 	}
 	return nil
@@ -125,7 +128,7 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 // Adapted from <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/pkg/logcli/query/query.go#L259>.
 //
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
-func publishEntries(ctx context.Context, streams loki.Streams, direction logDirection, lastEntry []loki.Entry, publish func(context.Context, loki.Entry) (bool, error)) (int, []loki.Entry, error) {
+func publishEntries(ctx context.Context, streams loki.Streams, direction logDirection, lastEntry []loki.Entry, publish func(context.Context, loki.Entry) (bool, error), initial time.Time, offset uint) (int, []loki.Entry, uint, error) {
 	var (
 		entries   []loki.Entry
 		published int
@@ -134,7 +137,7 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 		entries = append(entries, s.Entries...)
 	}
 	if len(entries) == 0 {
-		return 0, nil, nil
+		return 0, nil, offset, nil
 	}
 	switch direction {
 	case forwardLogDirection:
@@ -142,7 +145,7 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 	case backwardLogDirection:
 		sort.Slice(entries, func(i, j int) bool { return entries[i].Timestamp.After(entries[j].Timestamp) })
 	default:
-		return 0, nil, errors.Errorf("invalid direction %q", direction)
+		return 0, nil, offset, errors.Errorf("invalid direction %q", direction)
 	}
 	for _, e := range entries {
 		if len(lastEntry) > 0 && e.Timestamp == lastEntry[0].Timestamp {
@@ -156,9 +159,13 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 				continue
 			}
 		}
-		if skip, err := publish(ctx, e); err != nil {
-			return 0, nil, errors.Wrap(err, "could not publish")
-		} else if skip {
+		if e.Timestamp.Equal(initial) && offset > 0 {
+			offset--
+			continue
+		}
+		if skipped, err := publish(ctx, e); err != nil {
+			return 0, nil, offset, errors.Wrap(err, "could not publish")
+		} else if skipped {
 			continue
 		}
 		published++
@@ -170,5 +177,5 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 			lel = append(lel, e)
 		}
 	}
-	return published, lel, nil
+	return published, lel, offset, nil
 }

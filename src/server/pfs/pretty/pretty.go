@@ -208,14 +208,13 @@ Defaults: {{ .DefaultsJson }}
 
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Project)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Project)
 	// Repo.String() returns "<project>/<repo>"" but we want to print the project name as a separate column.
-	if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
-		fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Name)
+	if commitInfo.Commit.Repo.Type == pfs.UserRepoType {
+		fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Name)
 	} else {
-		fmt.Fprintf(w, "%s.%s\t", commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.Branch.Repo.Type)
+		fmt.Fprintf(w, "%s.%s\t", commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type)
 	}
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Name)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Id)
 	if commitInfo.Finished == nil {
 		fmt.Fprintf(w, "-\t")
@@ -343,9 +342,8 @@ func NewPrintableCommitInfo(ci *pfs.CommitInfo) *PrintableCommitInfo {
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
 func PrintDetailedCommitInfo(w io.Writer, commitInfo *PrintableCommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
-		`Commit: {{.Commit.Branch.Repo.Name}}@{{.Commit.Id}}
-Original Branch: {{.Commit.Branch.Name}}{{if .Description}}
-Description: {{.Description}}{{end}}{{if .ParentCommit}}
+		`Commit: {{.Commit.Repo.Name}}@{{.Commit.Id}}
+Description: {{.Description}}{{if .ParentCommit}}
 Parent: {{.ParentCommit.Id}}{{end}}{{if .FullTimestamps}}
 Started: {{prettyTime .Started}}{{else}}
 Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
@@ -423,5 +421,5 @@ func CompactPrintCommitSafe(c *pfs.Commit) string {
 // CompactPrintFile renders 'f' as a compact string, e.g.
 // "myrepo@master:/my/file"
 func CompactPrintFile(f *pfs.File) string {
-	return fmt.Sprintf("%s@%s:%s", f.Commit.Branch.Repo, f.Commit.Id, f.Path)
+	return fmt.Sprintf("%s@%s:%s", f.Commit.Repo, f.Commit.Id, f.Path)
 }

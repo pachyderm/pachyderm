@@ -350,7 +350,7 @@ func projectMasterListObjectsPaginated(t *testing.T, pachClient *client.APIClien
 		return nil
 	}))
 
-	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
@@ -367,7 +367,7 @@ func projectMasterListObjectsPaginated(t *testing.T, pachClient *client.APIClien
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
 	// Query by commit.branch.repo
-	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s.%s.%s", commit.Id, commit.Branch.Name, repo, pfs.DefaultProjectName), "", false, make(chan struct{}))
+	ch = minioClient.ListObjects(fmt.Sprintf("%s.%s.%s.%s", commit.Id, "master", repo, pfs.DefaultProjectName), "", false, make(chan struct{}))
 	checkListObjects(t, ch, &startTime, &endTime, expectedFiles, []string{"dir/"})
 
 	// Request that will list all files in master starting with 1

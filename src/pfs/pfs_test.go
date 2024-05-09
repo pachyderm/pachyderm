@@ -10,6 +10,18 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
+func TestCommit_NilBranch(t *testing.T) {
+	var b1 = &Branch{Name: "dummy"}
+	var c1 = &Commit{Branch: b1}
+	c1.NilBranch()
+	require.Nil(t, c1.Branch)
+
+	var b2 = &Branch{Name: ""}
+	var c2 = &Commit{Branch: b2}
+	c2.NilBranch()
+	require.Nil(t, c2.Branch)
+}
+
 func TestProject_ValidateName(t *testing.T) {
 	var p = &Project{Name: "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"}
 	err := p.ValidateName()

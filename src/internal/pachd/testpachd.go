@@ -35,11 +35,12 @@ import (
 
 // TestPachdOptions allow a testpachd to be customized.
 type TestPachdOption struct {
-	noLogToFile   bool // A flag to turn off the LogToFileOption when it's the default.
-	MutateContext func(ctx context.Context) context.Context
-	MutateEnv     func(env *Env)
-	MutateConfig  func(config *pachconfig.PachdFullConfiguration)
-	MutatePachd   func(full *Full)
+	noLogToFile      bool // A flag to turn off the LogToFileOption when it's the default.
+	MutateContext    func(ctx context.Context) context.Context
+	MutateEnv        func(env *Env)
+	MutateConfig     func(config *pachconfig.PachdFullConfiguration)
+	MutatePachd      func(full *Full)
+	MutateFullOption func(fullOption *FullOption)
 }
 
 // NoLogToFileOption is an option that disable's NewTestPachd's default behavior of logging pachd
@@ -152,6 +153,7 @@ func newTestPachd(env Env, opts []TestPachdOption) *Full {
 	env.GetLokiClient = func() (*lokiclient.Client, error) {
 		return nil, errors.New("no loki")
 	}
+	fullOption := &FullOption{}
 	for _, opt := range opts {
 		if opt.MutateEnv != nil {
 			opt.MutateEnv(&env)
@@ -159,8 +161,11 @@ func newTestPachd(env Env, opts []TestPachdOption) *Full {
 		if opt.MutateConfig != nil {
 			opt.MutateConfig(&config)
 		}
+		if opt.MutateFullOption != nil {
+			opt.MutateFullOption(fullOption)
+		}
 	}
-	pd := NewFull(env, config)
+	pd := NewFull(env, config, fullOption)
 	for _, opt := range opts {
 		if opt.MutatePachd != nil {
 			opt.MutatePachd(pd)
