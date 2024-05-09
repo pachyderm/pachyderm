@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "f22b6576e71da5554ecc27d8ffe0b6a8216644c051bb03f0b8f31d4c6d1da5f0",
+  "moduleFileHash": "c3e4dce67ff6c94ef2e4512517e6bf02d95633cd0dc5fc018389ff7a6ee0cf6a",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -54,7 +54,7 @@
               "tagName": "download",
               "attributeValues": {
                 "name": "go_sdk",
-                "version": "1.22.2"
+                "version": "1.22.3"
               },
               "devDependency": false,
               "location": {
@@ -3801,7 +3801,7 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "93df642cb92e933ca4de74f42092b599d56d34eecc492d730c02a3636597772f",
+          "@@//:go.mod": "e3c179029ed691cf6a70c7d22c99b5da8b247af1ae42763a4c40668e8be16231",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.46.0//:go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
           "@@//:go.sum": "3cd8f2c6619abc6c625e7ec819e57132b254fd7d010956c1821c2ccbc55f6f1a",
@@ -10293,7 +10293,7 @@
               "urls": [
                 "https://dl.google.com/go/{}"
               ],
-              "version": "1.22.2"
+              "version": "1.22.3"
             }
           },
           "pachyderm__download_0_darwin_amd64": {
@@ -10307,7 +10307,7 @@
               "urls": [
                 "https://dl.google.com/go/{}"
               ],
-              "version": "1.22.2"
+              "version": "1.22.3"
             }
           },
           "pachyderm__download_0_windows_amd64": {
@@ -10321,7 +10321,7 @@
               "urls": [
                 "https://dl.google.com/go/{}"
               ],
-              "version": "1.22.2"
+              "version": "1.22.3"
             }
           },
           "pachyderm__download_0_windows_arm64": {
@@ -10335,7 +10335,7 @@
               "urls": [
                 "https://dl.google.com/go/{}"
               ],
-              "version": "1.22.2"
+              "version": "1.22.3"
             }
           },
           "rules_go__download_0_darwin_arm64": {
@@ -10450,12 +10450,12 @@
                 "remote"
               ],
               "sdk_versions": [
-                "1.22.2",
-                "1.22.2",
-                "1.22.2",
-                "1.22.2",
-                "1.22.2",
-                "1.22.2",
+                "1.22.3",
+                "1.22.3",
+                "1.22.3",
+                "1.22.3",
+                "1.22.3",
+                "1.22.3",
                 "1.21.1",
                 "1.21.1",
                 "1.21.1",
@@ -10479,7 +10479,7 @@
               "urls": [
                 "https://dl.google.com/go/{}"
               ],
-              "version": "1.22.2",
+              "version": "1.22.3",
               "strip_prefix": "go"
             }
           },
@@ -10494,7 +10494,7 @@
               "urls": [
                 "https://dl.google.com/go/{}"
               ],
-              "version": "1.22.2"
+              "version": "1.22.3"
             }
           },
           "io_bazel_rules_nogo": {
