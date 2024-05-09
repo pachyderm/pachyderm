@@ -50,7 +50,7 @@ parameters:
     default: ""
   go-version:
     type: string
-    default: "1.22.2"
+    default: "1.22.3"
 # our defined job, and its steps
 jobs:
   setup:
