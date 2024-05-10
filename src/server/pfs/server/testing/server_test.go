@@ -7614,3 +7614,39 @@ func TestNilBranchNameStream(t *testing.T) {
 		return nil
 	}))
 }
+
+func TestWalkFileBug(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+
+	repo := "test"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+
+	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, env.PachClient.PutFile(commit1, "/a", &bytes.Buffer{}))
+	require.NoError(t, err)
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit1.Id))
+
+	commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, env.PachClient.PutFile(commit2, "/a/a", &bytes.Buffer{}))
+	require.NoError(t, err)
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit2.Id))
+
+	commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, env.PachClient.PutFile(commit3, "/a/a/a", &bytes.Buffer{}))
+	require.NoError(t, err)
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit3.Id))
+
+	commit4, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, env.PachClient.PutFile(commit4, "/a/a/a/a", &bytes.Buffer{}))
+	require.NoError(t, err)
+	//require.NoError(t, finishCommit(env.PachClient, repo, "", commit4.Id))
+	info, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", commit4.Id)
+	require.NotNil(t, info)
+	require.NoError(t, err)
+
+	require.NotNil(t, env.PachClient.WalkFile(commit4, "/", func(fi *pfs.FileInfo) error {
+		fmt.Println(fi.File, fi.FileType)
+		return nil
+	}))
+}

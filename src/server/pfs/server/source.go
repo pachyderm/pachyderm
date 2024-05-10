@@ -37,7 +37,7 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 	}
 	s := &source{
 		commitInfo: commitInfo,
-		fileSet:    fileset.NewDirInserter(fs, sc.prefix),
+		fileSet:    fileset.NewDirInserter(fileset.NewPathValidator(fs), sc.prefix),
 		dirIndexOpts: []index.Option{
 			index.WithPrefix(sc.prefix),
 			index.WithDatum(sc.datum),
