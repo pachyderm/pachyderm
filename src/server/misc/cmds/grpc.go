@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"io"
 	"os"
 	"os/signal"
@@ -64,6 +65,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		transaction.File_transaction_transaction_proto,
 		versionpb.File_version_versionpb_version_proto,
 		worker.File_worker_worker_proto,
+		storage.File_storage_fileset_proto,
 	)
 
 	// If no args, print all available RPCs.  The names can be difficult to
