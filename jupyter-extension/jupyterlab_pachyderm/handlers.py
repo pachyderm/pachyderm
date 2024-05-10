@@ -483,6 +483,11 @@ class PPSCreateHandler(BaseHandler):
             response = await self.pps_client.create(path, body)
             get_logger().debug(f"CreatePipeline: {response}")
             await self.finish(response)
+        except ValueError as e:
+            get_logger().error(f"bad pipeline spec: {e}")
+            raise tornado.web.HTTPError(
+                status_code=400, reason=f"Bad pipeline spec: {e}"
+            )
         except Exception as e:
             if isinstance(e, tornado.web.HTTPError):
                 # Common case: only way to print the "reason" field of HTTPError
