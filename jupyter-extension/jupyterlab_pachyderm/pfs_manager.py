@@ -310,21 +310,7 @@ class PFSManager(FileContentsManager):
             )
         ]
 
-    def _get_toplevel_model(self, branch: pfs.Branch) -> ContentModel:
-        return ContentModel(
-            name="",
-            path="/",
-            type="directory",
-            created=DEFAULT_DATETIME,
-            last_modified=DEFAULT_DATETIME,
-            content=self._get_repo_models(branch=branch),
-            mimetype=None,
-            format="json",
-            writable=False,
-            file_uri=None,
-        )
-
-    def _get_empty_repo_model(self, name: str, path: str, created: datetime, content: bool):
+    def _get_content_model(self, name: str, path: str, created: datetime, content: typing.Optional[typing.List[ContentModel]]):
         return ContentModel(
             name=name,
             path=path,
@@ -356,13 +342,14 @@ class PFSManager(FileContentsManager):
 
         # Show an empty toplevel model if no branch is specified
         if self.mounted_branch is None:
-            return self._get_empty_repo_model(name="", path="/", created=DEFAULT_DATETIME, content=False)
+            return self._get_content_model("", "/", DEFAULT_DATETIME, None)
 
         file = self._get_file_from_path(path=path)
 
+        # Show an empty toplevel model if no file is found
         if file is None:
             # show top-level dir
-            return self._get_toplevel_model(branch=self.mounted_branch)
+            return self._get_content_model("", "/", DEFAULT_DATETIME, None)
 
         try:
             fileinfo = self._client.pfs.inspect_file(file=file)
@@ -373,7 +360,7 @@ class PFSManager(FileContentsManager):
                 or err.code() == grpc.StatusCode.UNKNOWN
             ) and not self._get_path(path=path):
                 repo = self._client.pfs.inspect_repo(repo=self.mounted_branch.repo)
-                return self._get_empty_repo_model(
+                return self._get_content_model(
                     name=self._get_name(path), path=path, created=repo.created, content=content,
                 )
             else:
