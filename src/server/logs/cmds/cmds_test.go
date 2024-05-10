@@ -1,3 +1,5 @@
+//go:build bazel
+
 package cmds
 
 import (
@@ -15,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/testloki"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -41,23 +44,32 @@ func TestGetLogs_default_noauth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	var (
-		ctx          = pctx.TestContext(t)
-		buildEntries = func() []loki.Entry {
-			var entries []loki.Entry
-			for i := -99; i <= 0; i++ {
-				entries = append(entries, loki.Entry{
-					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
-					Line:      fmt.Sprintf("%v foo", i),
-				})
+	ctx := pctx.TestContext(t)
+	aloki, err := testloki.New(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("could not create test Loki: %v", err)
+	}
+	for i := -99; i <= 0; i++ {
+		aloki.AddLog(ctx, &testloki.Log{
+			Time:    time.Now().Add(time.Duration(i) * time.Second),
+			Message: fmt.Sprintf("%v foo", i),
+			Labels: map[string]string{
+				"suite": "pachyderm",
+			},
+		})
+	}
+	c := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
+		func(c *pachconfig.Configuration) {
+			u, err := url.Parse(aloki.Client.Address)
+			if err != nil {
+				panic(err)
 			}
-			return entries
-		}
-		env = realEnvWithLoki(ctx, t, buildEntries())
-		c   = env.PachClient
-	)
+			c.LokiHost, c.LokiPort = u.Hostname(), u.Port()
+		}).PachClient
 
 	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
+		pachctl list repo
+		pachctl create repo foo
 		pachctl logs2 | match "99 foo"`,
 	).Run())
 }

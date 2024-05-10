@@ -56,6 +56,7 @@ const (
 // GetLogs gets logs according its request and publishes them.  The pattern is
 // similar to that used when handling an HTTP request.
 func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, publisher ResponsePublisher) error {
+	fmt.Println("QQQ GetLogs start")
 	var direction = forwardLogDirection
 
 	if request == nil {
@@ -106,6 +107,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
 	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, uint(filter.TimeRange.Offset), direction, adapter.publish); err != nil {
+		fmt.Println("QQQ err", err)
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
 		case errors.As(err, &invalidBatchSizeErr):

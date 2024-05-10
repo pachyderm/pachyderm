@@ -37,6 +37,7 @@ func (err ErrInvalidBatchSize) RecommendedBatchSize() int {
 //
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
 func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, offset uint, direction logDirection, publish func(context.Context, loki.Entry) (bool, error)) (err error) {
+	fmt.Println("QQQ doQuery start")
 	var (
 		batchSize    int
 		resultLength int
@@ -129,6 +130,7 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 //
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
 func publishEntries(ctx context.Context, streams loki.Streams, direction logDirection, lastEntry []loki.Entry, publish func(context.Context, loki.Entry) (bool, error), initial time.Time, offset uint) (int, []loki.Entry, uint, error) {
+	fmt.Println("QQQ publishEntries start")
 	var (
 		entries   []loki.Entry
 		published int
@@ -148,6 +150,7 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 		return 0, nil, offset, errors.Errorf("invalid direction %q", direction)
 	}
 	for _, e := range entries {
+		fmt.Println("QQQ entry", e)
 		if len(lastEntry) > 0 && e.Timestamp == lastEntry[0].Timestamp {
 			skip := false
 			for _, le := range lastEntry {
