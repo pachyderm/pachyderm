@@ -438,6 +438,7 @@ class DatumManager(FileContentsManager):
 
     _FILEINFO_DIR = os.path.expanduser("~") + "/.cache/pfs_datum"
     _DOWNLOAD_DIR = os.path.expanduser("~") + "/.cache/pfs_datum_download"
+    DATUM_BATCH_SIZE = 100
 
     def __init__(self, client: Client, **kwargs):
         self._client = client
@@ -445,9 +446,11 @@ class DatumManager(FileContentsManager):
         super().__init__(**kwargs)
 
     def _reset(self):
+        self._datum_batch_generator = None
         self._datum_list = list()
         self._dirs = set()
         self._datum_index = 0
+        self._all_datums_received = False
         self._mount_time = DEFAULT_DATETIME
         self._input = None
         self._download_dir = None
@@ -508,7 +511,10 @@ class DatumManager(FileContentsManager):
         try:
             input = pps.Input().from_dict(input_dict["input"])
             self._input = input
-            self._datum_list = list(self._client.pps.list_datum(input=input))
+            self._datum_batch_generator = self._client.pps.generate_datums(
+                input_spec=input, batch_size=DatumManager.DATUM_BATCH_SIZE
+            )
+            self._get_datum_batch()
             self._datum_index = 0
             self._mount_time = datetime.datetime.now()
             self._repo_names.clear()
@@ -529,7 +535,22 @@ class DatumManager(FileContentsManager):
             self._reset()
             raise e
 
+    def _get_datum_batch(self):
+        try:
+            batch = next(self._datum_batch_generator)
+        except StopIteration:
+            batch = []
+
+        self._datum_list.extend(batch)
+        if len(batch) < self.DATUM_BATCH_SIZE:
+            self._all_datums_received = True
+
     def next_datum(self):
+        if (
+            self._datum_index == len(self._datum_list) - 1
+            and not self._all_datums_received
+        ):
+            self._get_datum_batch()
         self._datum_index = (self._datum_index + 1) % len(self._datum_list)
         self._update_mount()
 
@@ -544,7 +565,7 @@ class DatumManager(FileContentsManager):
             id=self._datum_list[self._datum_index].datum.id,
             idx=self._datum_index,
             num_datums=len(self._datum_list),
-            all_datums_received=True,
+            all_datums_received=self._all_datums_received,
         )
 
     def current_datum(self) -> dict:
@@ -552,7 +573,7 @@ class DatumManager(FileContentsManager):
             num_datums=len(self._datum_list),
             input=self._input.to_json() if self._input else None,
             idx=self._datum_index,
-            all_datums_received=True,
+            all_datums_received=self._all_datums_received,
         )
 
     def download(self):

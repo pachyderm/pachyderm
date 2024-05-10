@@ -8,6 +8,7 @@ from httpx import AsyncClient
 from tornado.web import Application
 
 from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
+from jupyterlab_pachyderm.pfs_manager import DatumManager
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs
 
@@ -318,6 +319,58 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.get("/view_datum/test_name_2")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
+
+
+async def test_mount_datums_multiple_batches(http_client: AsyncClient):
+    client = Client.from_config()
+    repo = pfs.Repo(name="multiple_batches")
+    client.pfs.delete_repo(repo=repo, force=True)
+    client.pfs.create_repo(repo=repo)
+
+    batch_size = DatumManager.DATUM_BATCH_SIZE
+    total_datums = int(batch_size * 1.5)
+    with client.pfs.commit(branch=pfs.Branch.from_uri(f"{repo.name}@master")) as c:
+        for i in range(total_datums):
+            # Number of files will require a request for a second batch of datums
+            c.put_file_from_bytes(path=f"/{i}", data=b"some data")
+    c.wait()
+
+    input_spec = {
+        "input": {
+            "pfs": {
+                "repo": repo.name,
+                "glob": "/*",
+            }
+        }
+    }
+    r = await http_client.put("/datums/_mount", json=input_spec)
+    assert r.status_code == 200, r.text
+    assert r.json()["idx"] == 0
+    assert r.json()["num_datums"] == batch_size
+    assert r.json()["all_datums_received"] is False
+
+    # Cycle to the last datum in the current batch
+    for i in range(1, batch_size):
+        r = await http_client.put("/datums/_next")
+        assert r.status_code == 200, r.text
+        assert r.json()["idx"] == i
+        assert r.json()["num_datums"] == batch_size
+        assert r.json()["all_datums_received"] is False
+
+    # Grab the next (final) batch of datums
+    for i in range(batch_size, total_datums):
+        r = await http_client.put("/datums/_next")
+        assert r.status_code == 200, r.text
+        assert r.json()["idx"] == i
+        assert r.json()["num_datums"] == total_datums
+        assert r.json()["all_datums_received"] is True
+
+    # Verify no more datums and cycler wraps to beginning
+    r = await http_client.put("/datums/_next")
+    assert r.status_code == 200, r.text
+    assert r.json()["idx"] == 0
+
+    client.pfs.delete_repo(repo=repo)
 
 
 async def test_download_datum(pachyderm_resources, http_client: AsyncClient):
