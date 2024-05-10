@@ -364,13 +364,14 @@ func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, d
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if err := renewer.Add(ctx, *id); err != nil {
-		return nil, err
-	}
-	diffId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
-	if err != nil {
-		return nil, err
-	}
+	diffId := id
+	//if err := renewer.Add(ctx, *id); err != nil {
+	//	return nil, err
+	//}
+	//diffId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
+	//if err != nil {
+	//	return nil, err
+	//}
 	return diffId, errors.EnsureStack(d.commitStore.SetDiffFileSet(ctx, commit, *diffId))
 }
 
@@ -379,13 +380,14 @@ func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, 
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if err := renewer.Add(ctx, *id); err != nil {
-		return nil, err
-	}
-	totalId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
-	if err != nil {
-		return nil, err
-	}
+	totalId := id
+	//if err := renewer.Add(ctx, *id); err != nil {
+	//	return nil, err
+	//}
+	//totalId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
+	//if err != nil {
+	//	return nil, err
+	//}
 	if err := errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId)); err != nil {
 		return nil, err
 	}
