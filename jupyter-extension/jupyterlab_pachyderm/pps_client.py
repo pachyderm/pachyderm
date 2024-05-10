@@ -68,7 +68,7 @@ class PpsConfig:
             raise ValueError("field image not set")
 
         requirements = config.get("requirements")
-        if requirements is not None:
+        if requirements:
             requirements = notebook_path.parent.joinpath(requirements).resolve()
 
         external_files = []
@@ -81,6 +81,8 @@ class PpsConfig:
         if input_spec_str is None:
             raise ValueError("field input_spec not set")
         input_spec_dict = yaml.safe_load(input_spec_str)
+        if input_spec_dict is None:
+            raise ValueError("invalid input spec")
         input_spec = pps.Input().from_dict(input_spec_dict)
 
         port = config.get("port")
@@ -281,7 +283,7 @@ class PPSClient:
 
         if config.requirements and not os.path.exists(config.requirements):
             raise HTTPError(status_code=400, reason="requirements file does not exist")
-        
+
         for external_file in config.external_files:
             if not os.path.exists(external_file):
                 raise HTTPError(status_code=400, reason=f'external file {os.path.basename(external_file)} could not be found in the directory of the Jupyter notebook')
