@@ -271,7 +271,7 @@ func (li *LoggingInterceptor) StreamAnnounce(srv interface{}, stream grpc.Server
 				resp = nil
 			} else {
 				resCtx := getResponseLogger(ctx, nil, 0, 0, nil)
-				dolog(resCtx, lvl, "first mesasge sent for "+service+"/"+method)
+				dolog(resCtx, lvl, "first message sent for "+service+"/"+method)
 				resp = logResp
 			}
 		},

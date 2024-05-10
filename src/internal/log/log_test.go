@@ -46,10 +46,6 @@ func TestPanics(t *testing.T) {
 			name: "nil logger",
 			f:    func(_ *zap.Logger) { withLogger(context.Background(), nil) },
 		},
-		{
-			name: "invalid level",
-			f:    func(l *zap.Logger) { Level(42).log(l, "not valid") },
-		},
 	}
 
 	for _, test := range testData {

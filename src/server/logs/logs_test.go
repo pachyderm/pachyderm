@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +23,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/testloki"
@@ -302,7 +306,7 @@ func TestGetLogs_missingFromUntil(t *testing.T) {
 	var (
 		ctx        = pctx.TestContext(t)
 		now        = time.Now()
-		aloki, err = testloki.New(ctx, t.TempDir(), testloki.WithoutOldSampleRejection, testloki.WithCreationGracePeriod(2*time.Hour))
+		aloki, err = testloki.New(ctx, t.TempDir())
 		ls         = logservice.LogService{
 			GetLokiClient: func() (*loki.Client, error) {
 				return aloki.Client, nil
@@ -733,6 +737,130 @@ func TestGetLogs_offset(t *testing.T) {
 				}
 			}
 
+		})
+	}
+}
+
+func TestWithRealLogs(t *testing.T) {
+	testData := []struct {
+		name  string
+		query *logs.GetLogsRequest
+		want  []*logs.GetLogsResponse
+	}{
+		{
+			name: "edges logs",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_Admin{
+						Admin: &logs.AdminLogQuery{
+							AdminType: &logs.AdminLogQuery_Logql{
+								Logql: `{suite="pachyderm",app="etcd"}`,
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					Limit: 1,
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(
+							time.Date(2024, 04, 25, 17, 24, 0, 0, time.UTC),
+						),
+					},
+				},
+			},
+			want: []*logs.GetLogsResponse{{
+				ResponseType: &logs.GetLogsResponse_Log{
+					Log: &logs.LogMessage{
+						NativeTimestamp: timestamppb.New(time.Date(2024, 04, 25, 17, 24, 14, 67172000, time.UTC)),
+						Verbatim: &logs.VerbatimLogMessage{
+							Line:      []byte(`{"level":"info","ts":"2024-04-25T17:24:14.067172Z","caller":"flags/flag.go:113","msg":"recognized and used environment variable","variable-name":"ETCD_NAME","variable-value":"etcd-0"}`),
+							Timestamp: timestamppb.New(time.Date(2024, 04, 25, 17, 24, 14, 67172000, time.UTC)),
+						},
+						PpsLogMessage: &pps.LogMessage{
+							Ts: timestamppb.New(time.Date(2024, 04, 25, 17, 24, 14, 67172000, time.UTC)),
+						},
+						Object: &structpb.Struct{
+							Fields: map[string]*structpb.Value{
+								"level": {
+									Kind: &structpb.Value_StringValue{
+										StringValue: "info",
+									},
+								},
+								"ts": {
+									Kind: &structpb.Value_StringValue{
+										StringValue: "2024-04-25T17:24:14.067172Z",
+									},
+								},
+								"caller": {
+									Kind: &structpb.Value_StringValue{
+										StringValue: "flags/flag.go:113",
+									},
+								},
+								"msg": {
+									Kind: &structpb.Value_StringValue{
+										StringValue: "recognized and used environment variable",
+									},
+								},
+								"variable-name": {
+									Kind: &structpb.Value_StringValue{
+										StringValue: "ETCD_NAME",
+									},
+								},
+								"variable-value": {
+									Kind: &structpb.Value_StringValue{
+										StringValue: "etcd-0",
+									},
+								},
+							},
+						},
+					},
+				},
+			}},
+		},
+	}
+	ctx := pctx.TestContext(t)
+	l, err := testloki.New(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("testloki.New: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := l.Close(); err != nil {
+			t.Fatalf("testloki.Close: %v", err)
+		}
+	})
+	if err := filepath.Walk("testdata", func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return errors.Wrap(err, "called with error")
+		}
+		if !strings.HasSuffix(path, ".txt") {
+			return nil
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			return errors.Wrap(err, "open")
+		}
+		defer f.Close()
+		if err := testloki.AddLogFile(ctx, f, l); err != nil {
+			return errors.Wrap(err, "AddLogFile")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("load logs: %v", err)
+	}
+	ls := logservice.LogService{
+		GetLokiClient: func() (*loki.Client, error) {
+			return l.Client, nil
+		},
+	}
+
+	for _, test := range testData {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := pctx.TestContext(t)
+			p := new(testPublisher)
+			if err := ls.GetLogs(ctx, test.query, p); err != nil {
+				t.Fatalf("GetLogs: %v", err)
+			}
+			require.NoDiff(t, test.want, p.responses, []cmp.Option{protocmp.Transform()})
 		})
 	}
 }

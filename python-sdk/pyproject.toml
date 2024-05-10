@@ -26,9 +26,10 @@ certifi = ">=2022.9"
 grpcio = ">=1.52.0"
 grpc-interceptor = "^0.14.2"
 python-dotenv = "1.0"
+more-itertools = "^10.2.0"
 
 [tool.poetry.dev-dependencies]
-black = "^23.3.0"
+black = "^24.3.0"
 pdoc3 = "0.10.0"
 pandas = "2.0.3"
 pytest = "^7.2.1"

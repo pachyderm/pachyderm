@@ -14,5 +14,8 @@ go_test(
         "//src/internal/testutil",
         "//src/pfs",
         "//src/transaction",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+        "@org_golang_google_protobuf//testing/protocmp",
     ],
 )
