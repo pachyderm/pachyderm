@@ -238,21 +238,21 @@ class PFSManager(FileContentsManager):
             return ""
         return str(Path(*Path(path).parts[1:]))
 
-    # returns None for empty path, i.e. the top-level directory
-    def _get_file_from_path(self, path: str, branch: pfs.Branch) -> pfs.File:
+    # returns None for empty path, i.e. the top-level directory or if no branch is mounted
+    def _get_file_from_path(self, path: str) -> pfs.File:
+        if not self.mounted_branch:
+            return None
+
         name = self._get_name(path)
         if not name:
             return None
 
         path_str = self._get_path(path)
-        file_uri = f"{branch.as_uri()}:/{path_str}"
+        file_uri = f"{self.mounted_branch.as_uri()}:/{path_str}"
         return pfs.File.from_uri(file_uri)
 
     def download_file(self, path: str):
-        if not self.mounted_branch:
-            raise ValueError("No branch mounted")
-
-        file = self._get_file_from_path(path=path, branch=self.mounted_branch)
+        file = self._get_file_from_path(path=path)
         _download_file(client=self._client, file=file, destination=Path(self.root_dir))
 
     def is_hidden(self, path):
@@ -283,7 +283,10 @@ class PFSManager(FileContentsManager):
         return response.file_type == pfs.FileType.DIR
 
     def exists(self, path) -> bool:
-        file = self._get_file_from_path(path)
+        if not self.mounted_branch:
+            return False
+
+        file = self._get_file_from_path(path, self.mounted_branch)
         if file is None:
             return True
         return self._client.pfs.path_exists(file=file)
@@ -322,7 +325,6 @@ class PFSManager(FileContentsManager):
         )
 
     def _get_empty_repo_model(self, name: str, path: str, created: datetime, content: bool):
-        repo = self._client.pfs.inspect_repo(repo=self.mounted_branch.repo)
         return ContentModel(
             name=name,
             path=path,
