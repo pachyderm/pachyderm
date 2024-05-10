@@ -527,10 +527,10 @@ class ExploreMountHandler(BaseHandler):
         try:
             body = self.get_json_body()
             if not body:
-                raise ValueError("branch_uri does not exist")
+                raise ValueError("branch_uri does not exist in body of request")
             branch_uri = body.get("branch_uri")
             if branch_uri is None:
-                raise ValueError("branch_uri does not exist")
+                raise ValueError("branch_uri does not exist in body of request")
             branch = pfs.Branch.from_uri(branch_uri)
             self.pfs_manager.mount_branch(branch=branch)
         except ValueError as e:
