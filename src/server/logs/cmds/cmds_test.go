@@ -89,8 +89,7 @@ func TestGetLogs_default_nonadmin(t *testing.T) {
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf("%v bar", i),
 			Labels: map[string]string{
-				"pod":   "foo",
-				"suite": "pachyderm",
+				"pod": "foo",
 			},
 		})
 	}
@@ -118,11 +117,9 @@ func TestGetLogs_default_nonadmin(t *testing.T) {
 	}
 	aliceClient := testutil.AuthenticatedPachClient(t, c, alice, peerPort)
 
-	t.Log("QQQ checking!")
 	require.NoError(t, testutil.PachctlBashCmdCtx(aliceClient.Ctx(), t, aliceClient, `
 		pachctl logs2 | match "98 bar"`,
 	).Run())
-	t.Log("QQQ good!")
 }
 
 func TestGetLogs_default_admin(t *testing.T) {
