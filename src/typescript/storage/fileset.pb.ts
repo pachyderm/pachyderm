@@ -84,11 +84,19 @@ export type ShardFilesetResponse = {
 }
 
 export type GraphFilesetRequest = {
-  id?: string
+  filesetId?: string
 }
 
 export type GraphFilesetResponse = {
   graph?: string
+}
+
+export type CompactFilesetRequest = {
+  filesetId?: string
+}
+
+export type CompactFilesetResponse = {
+  filesetId?: string
 }
 
 export class Fileset {
@@ -106,5 +114,8 @@ export class Fileset {
   }
   static GraphFileset(req: GraphFilesetRequest, initReq?: fm.InitReq): Promise<GraphFilesetResponse> {
     return fm.fetchReq<GraphFilesetRequest, GraphFilesetResponse>(`/storage.Fileset/GraphFileset`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static CompactFileset(req: CompactFilesetRequest, initReq?: fm.InitReq): Promise<CompactFilesetResponse> {
+    return fm.fetchReq<CompactFilesetRequest, CompactFilesetResponse>(`/storage.Fileset/CompactFileset`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
 }

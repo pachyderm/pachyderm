@@ -5745,6 +5745,7 @@
     },
     "/storage.Fileset/GraphFileset": {
       "post": {
+        "summary": "GraphFileset generates a graph of a fileset in the form of a dot graph.\nPass the output to jq and then to dot to get an image like so:\npachctl misc grpc storage.Fileset.GraphFileset '{\"id\": \"\u003cID\u003e\"}' | jq -r .graph | dot -Tpng \u003e graph.png",
         "operationId": "Fileset_GraphFileset",
         "responses": {
           "200": {
@@ -5767,6 +5768,36 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/storageGraphFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/CompactFileset": {
+      "post": {
+        "summary": "CompactFileset runs an input fileset through compaction and returns the id of the new fileset.",
+        "operationId": "Fileset_CompactFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageCompactFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageCompactFilesetRequest"
             }
           }
         ]
@@ -12175,6 +12206,22 @@
       },
       "description": "AppendFile will append the provided data to the file with the specified path. If\na file with the specified path doesn't exist, it will be created."
     },
+    "storageCompactFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        }
+      }
+    },
+    "storageCompactFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        }
+      }
+    },
     "storageComposeFilesetRequest": {
       "type": "object",
       "properties": {
@@ -12244,7 +12291,7 @@
     "storageGraphFilesetRequest": {
       "type": "object",
       "properties": {
-        "id": {
+        "filesetId": {
           "type": "string"
         }
       }

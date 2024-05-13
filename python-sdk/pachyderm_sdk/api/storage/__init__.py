@@ -154,12 +154,22 @@ class ShardFilesetResponse(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class GraphFilesetRequest(betterproto.Message):
-    id: str = betterproto.string_field(1)
+    fileset_id: str = betterproto.string_field(1)
 
 
 @dataclass(eq=False, repr=False)
 class GraphFilesetResponse(betterproto.Message):
     graph: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class CompactFilesetRequest(betterproto.Message):
+    fileset_id: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class CompactFilesetResponse(betterproto.Message):
+    fileset_id: str = betterproto.string_field(1)
 
 
 class FilesetStub:
@@ -194,6 +204,11 @@ class FilesetStub:
             "/storage.Fileset/GraphFileset",
             request_serializer=GraphFilesetRequest.SerializeToString,
             response_deserializer=GraphFilesetResponse.FromString,
+        )
+        self.__rpc_compact_fileset = channel.unary_unary(
+            "/storage.Fileset/CompactFileset",
+            request_serializer=CompactFilesetRequest.SerializeToString,
+            response_deserializer=CompactFilesetResponse.FromString,
         )
 
     def create_fileset(
@@ -255,9 +270,16 @@ class FilesetStub:
 
         return self.__rpc_shard_fileset(request)
 
-    def graph_fileset(self, *, id: str = "") -> "GraphFilesetResponse":
+    def graph_fileset(self, *, fileset_id: str = "") -> "GraphFilesetResponse":
 
         request = GraphFilesetRequest()
-        request.id = id
+        request.fileset_id = fileset_id
 
         return self.__rpc_graph_fileset(request)
+
+    def compact_fileset(self, *, fileset_id: str = "") -> "CompactFilesetResponse":
+
+        request = CompactFilesetRequest()
+        request.fileset_id = fileset_id
+
+        return self.__rpc_compact_fileset(request)

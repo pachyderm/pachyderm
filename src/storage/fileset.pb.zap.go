@@ -166,7 +166,7 @@ func (x *GraphFilesetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.Id)
+	enc.AddString("fileset_id", x.FilesetId)
 	return nil
 }
 
@@ -175,5 +175,21 @@ func (x *GraphFilesetResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddString("graph", x.Graph)
+	return nil
+}
+
+func (x *CompactFilesetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("fileset_id", x.FilesetId)
+	return nil
+}
+
+func (x *CompactFilesetResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("fileset_id", x.FilesetId)
 	return nil
 }

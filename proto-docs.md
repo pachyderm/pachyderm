@@ -674,6 +674,8 @@
   
 - [storage/fileset.proto](#storage_fileset-proto)
     - [AppendFile](#storage-AppendFile)
+    - [CompactFilesetRequest](#storage-CompactFilesetRequest)
+    - [CompactFilesetResponse](#storage-CompactFilesetResponse)
     - [ComposeFilesetRequest](#storage-ComposeFilesetRequest)
     - [ComposeFilesetResponse](#storage-ComposeFilesetResponse)
     - [CreateFilesetRequest](#storage-CreateFilesetRequest)
@@ -10817,6 +10819,36 @@ a file with the specified path doesn&#39;t exist, it will be created.
 
 
 
+<a name="storage-CompactFilesetRequest"></a>
+
+### CompactFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-CompactFilesetResponse"></a>
+
+### CompactFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="storage-ComposeFilesetRequest"></a>
 
 ### ComposeFilesetRequest
@@ -10923,7 +10955,7 @@ specified path doesn&#39;t exist, the delete will be a no-op.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [string](#string) |  |  |
+| fileset_id | [string](#string) |  |  |
 
 
 
@@ -11068,7 +11100,8 @@ storage&#39;s default value is used.
 | RenewFileset | [RenewFilesetRequest](#storage-RenewFilesetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | RenewFileset renews a fileset. |
 | ComposeFileset | [ComposeFilesetRequest](#storage-ComposeFilesetRequest) | [ComposeFilesetResponse](#storage-ComposeFilesetResponse) | ComposeFileset composes a fileset. Composing a fileset involves combining one or more filesets into a single fileset. TODO: Explain how the filesets are layered and what that means for the order of file modifications. |
 | ShardFileset | [ShardFilesetRequest](#storage-ShardFilesetRequest) | [ShardFilesetResponse](#storage-ShardFilesetResponse) | ShardFileset shards a fileset. The shards of a fileset are returned as a list of path ranges that are disjoint and account for the full set of paths in the fileset. |
-| GraphFileset | [GraphFilesetRequest](#storage-GraphFilesetRequest) | [GraphFilesetResponse](#storage-GraphFilesetResponse) |  |
+| GraphFileset | [GraphFilesetRequest](#storage-GraphFilesetRequest) | [GraphFilesetResponse](#storage-GraphFilesetResponse) | GraphFileset generates a graph of a fileset in the form of a dot graph. Pass the output to jq and then to dot to get an image like so: pachctl misc grpc storage.Fileset.GraphFileset &#39;{&#34;id&#34;: &#34;&lt;ID&gt;&#34;}&#39; | jq -r .graph | dot -Tpng &gt; graph.png |
+| CompactFileset | [CompactFilesetRequest](#storage-CompactFilesetRequest) | [CompactFilesetResponse](#storage-CompactFilesetResponse) | CompactFileset runs an input fileset through compaction and returns the id of the new fileset. |
 
  
 

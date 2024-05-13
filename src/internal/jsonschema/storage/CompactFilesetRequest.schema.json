@@ -1,8 +1,8 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$ref": "#/definitions/GraphFilesetRequest",
+    "$ref": "#/definitions/CompactFilesetRequest",
     "definitions": {
-        "GraphFilesetRequest": {
+        "CompactFilesetRequest": {
             "properties": {
                 "filesetId": {
                     "type": "string"
@@ -10,7 +10,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Graph Fileset Request"
+            "title": "Compact Fileset Request"
         }
     }
 }
