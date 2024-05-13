@@ -13576,6 +13576,243 @@ var _ interface {
 	ErrorName() string
 } = ReposSummaryResponseValidationError{}
 
+// Validate checks the field values on CompactCommitFilesetRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CompactCommitFilesetRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CompactCommitFilesetRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CompactCommitFilesetRequestMultiError, or nil if none found.
+func (m *CompactCommitFilesetRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CompactCommitFilesetRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetCommitPicker()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CompactCommitFilesetRequestValidationError{
+					field:  "CommitPicker",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CompactCommitFilesetRequestValidationError{
+					field:  "CommitPicker",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCommitPicker()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CompactCommitFilesetRequestValidationError{
+				field:  "CommitPicker",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return CompactCommitFilesetRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// CompactCommitFilesetRequestMultiError is an error wrapping multiple
+// validation errors returned by CompactCommitFilesetRequest.ValidateAll() if
+// the designated constraints aren't met.
+type CompactCommitFilesetRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CompactCommitFilesetRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CompactCommitFilesetRequestMultiError) AllErrors() []error { return m }
+
+// CompactCommitFilesetRequestValidationError is the validation error returned
+// by CompactCommitFilesetRequest.Validate if the designated constraints
+// aren't met.
+type CompactCommitFilesetRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CompactCommitFilesetRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CompactCommitFilesetRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CompactCommitFilesetRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CompactCommitFilesetRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CompactCommitFilesetRequestValidationError) ErrorName() string {
+	return "CompactCommitFilesetRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CompactCommitFilesetRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCompactCommitFilesetRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CompactCommitFilesetRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CompactCommitFilesetRequestValidationError{}
+
+// Validate checks the field values on CompactCommitFilesetResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CompactCommitFilesetResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CompactCommitFilesetResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CompactCommitFilesetResponseMultiError, or nil if none found.
+func (m *CompactCommitFilesetResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CompactCommitFilesetResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for FilesetId
+
+	if len(errors) > 0 {
+		return CompactCommitFilesetResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// CompactCommitFilesetResponseMultiError is an error wrapping multiple
+// validation errors returned by CompactCommitFilesetResponse.ValidateAll() if
+// the designated constraints aren't met.
+type CompactCommitFilesetResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CompactCommitFilesetResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CompactCommitFilesetResponseMultiError) AllErrors() []error { return m }
+
+// CompactCommitFilesetResponseValidationError is the validation error returned
+// by CompactCommitFilesetResponse.Validate if the designated constraints
+// aren't met.
+type CompactCommitFilesetResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CompactCommitFilesetResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CompactCommitFilesetResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CompactCommitFilesetResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CompactCommitFilesetResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CompactCommitFilesetResponseValidationError) ErrorName() string {
+	return "CompactCommitFilesetResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CompactCommitFilesetResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCompactCommitFilesetResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CompactCommitFilesetResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CompactCommitFilesetResponseValidationError{}
+
 // Validate checks the field values on RepoPicker_RepoName with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.

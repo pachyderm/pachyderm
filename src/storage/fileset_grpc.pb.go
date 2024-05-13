@@ -26,7 +26,6 @@ const (
 	Fileset_ComposeFileset_FullMethodName = "/storage.Fileset/ComposeFileset"
 	Fileset_ShardFileset_FullMethodName   = "/storage.Fileset/ShardFileset"
 	Fileset_GraphFileset_FullMethodName   = "/storage.Fileset/GraphFileset"
-	Fileset_CompactFileset_FullMethodName = "/storage.Fileset/CompactFileset"
 )
 
 // FilesetClient is the client API for Fileset service.
@@ -52,10 +51,8 @@ type FilesetClient interface {
 	ShardFileset(ctx context.Context, in *ShardFilesetRequest, opts ...grpc.CallOption) (*ShardFilesetResponse, error)
 	// GraphFileset generates a graph of a fileset in the form of a dot graph.
 	// Pass the output to jq and then to dot to get an image like so:
-	// pachctl misc grpc storage.Fileset.GraphFileset '{"id": "<ID>"}' | jq -r .graph | dot -Tpng > graph.png
+	// pachctl misc grpc storage.Fileset.GraphFileset '{"fileset_id": "<ID>"}' | jq -r .graph | dot -Tpng > graph.png
 	GraphFileset(ctx context.Context, in *GraphFilesetRequest, opts ...grpc.CallOption) (*GraphFilesetResponse, error)
-	// CompactFileset runs an input fileset through compaction and returns the id of the new fileset.
-	CompactFileset(ctx context.Context, in *CompactFilesetRequest, opts ...grpc.CallOption) (*CompactFilesetResponse, error)
 }
 
 type filesetClient struct {
@@ -168,15 +165,6 @@ func (c *filesetClient) GraphFileset(ctx context.Context, in *GraphFilesetReques
 	return out, nil
 }
 
-func (c *filesetClient) CompactFileset(ctx context.Context, in *CompactFilesetRequest, opts ...grpc.CallOption) (*CompactFilesetResponse, error) {
-	out := new(CompactFilesetResponse)
-	err := c.cc.Invoke(ctx, Fileset_CompactFileset_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // FilesetServer is the server API for Fileset service.
 // All implementations must embed UnimplementedFilesetServer
 // for forward compatibility
@@ -200,10 +188,8 @@ type FilesetServer interface {
 	ShardFileset(context.Context, *ShardFilesetRequest) (*ShardFilesetResponse, error)
 	// GraphFileset generates a graph of a fileset in the form of a dot graph.
 	// Pass the output to jq and then to dot to get an image like so:
-	// pachctl misc grpc storage.Fileset.GraphFileset '{"id": "<ID>"}' | jq -r .graph | dot -Tpng > graph.png
+	// pachctl misc grpc storage.Fileset.GraphFileset '{"fileset_id": "<ID>"}' | jq -r .graph | dot -Tpng > graph.png
 	GraphFileset(context.Context, *GraphFilesetRequest) (*GraphFilesetResponse, error)
-	// CompactFileset runs an input fileset through compaction and returns the id of the new fileset.
-	CompactFileset(context.Context, *CompactFilesetRequest) (*CompactFilesetResponse, error)
 	mustEmbedUnimplementedFilesetServer()
 }
 
@@ -228,9 +214,6 @@ func (UnimplementedFilesetServer) ShardFileset(context.Context, *ShardFilesetReq
 }
 func (UnimplementedFilesetServer) GraphFileset(context.Context, *GraphFilesetRequest) (*GraphFilesetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GraphFileset not implemented")
-}
-func (UnimplementedFilesetServer) CompactFileset(context.Context, *CompactFilesetRequest) (*CompactFilesetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CompactFileset not implemented")
 }
 func (UnimplementedFilesetServer) mustEmbedUnimplementedFilesetServer() {}
 
@@ -364,24 +347,6 @@ func _Fileset_GraphFileset_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Fileset_CompactFileset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CompactFilesetRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FilesetServer).CompactFileset(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Fileset_CompactFileset_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FilesetServer).CompactFileset(ctx, req.(*CompactFilesetRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // Fileset_ServiceDesc is the grpc.ServiceDesc for Fileset service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -404,10 +369,6 @@ var Fileset_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GraphFileset",
 			Handler:    _Fileset_GraphFileset_Handler,
-		},
-		{
-			MethodName: "CompactFileset",
-			Handler:    _Fileset_CompactFileset_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

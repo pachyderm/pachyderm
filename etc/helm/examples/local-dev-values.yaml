@@ -3,6 +3,7 @@
 deployTarget: custom
 
 pachd:
+  lokiDeploy: false
   compactCommits: false
   image:
     tag: local

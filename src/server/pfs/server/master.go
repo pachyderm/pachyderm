@@ -343,24 +343,29 @@ func (m *Master) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWi
 	}, zap.Bool("finishing", true), log.Proto("commit", commitInfo.Commit), zap.Uint64("repo id", uint64(repoPair.ID)), zap.String("repo", repoPair.RepoInfo.Repo.Key()))
 }
 
+func (d *driver) compact(ctx context.Context, compactor *compactor, taskDoer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (totalId *fileset.ID, err error) {
+	// Compacting the diff before getting the total allows us to compose the
+	// total file set so that it includes the compacted diff.
+	if err = log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
+		_, err = d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	if err = log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
+		totalId, err = d.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return totalId, nil
+}
+
 func (m *Master) maybeCompact(ctx context.Context, compactor *compactor, taskDoer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (totalId *fileset.ID, details *pfs.CommitInfo_Details, err error) {
 	details = &pfs.CommitInfo_Details{}
 	start := time.Now()
 	if m.env.CompactCommits {
-		// Compacting the diff before getting the total allows us to compose the
-		// total file set so that it includes the compacted diff.
-		if err = log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
-			_, err = m.driver.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
-			return err
-		}); err != nil {
-			return nil, nil, err
-		}
-		if err = log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
-			totalId, err = m.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
-			return err
-		}); err != nil {
-			return nil, nil, err
-		}
+		m.driver.compact(ctx, compactor, taskDoer, renewer, commit)
 		details.CompactingTime = durationpb.New(time.Since(start))
 		return totalId, details, nil
 	}
@@ -376,8 +381,8 @@ func (m *Master) maybeCompact(ctx context.Context, compactor *compactor, taskDoe
 	return totalId, details, nil
 }
 
-func (m *Master) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (*fileset.ID, error) {
-	id, err := m.driver.getFileSet(ctx, commit)
+func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (*fileset.ID, error) {
+	id, err := d.getFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -388,7 +393,7 @@ func (m *Master) compactTotalFileSet(ctx context.Context, compactor *compactor, 
 	if err != nil {
 		return nil, err
 	}
-	if err := errors.EnsureStack(m.driver.commitStore.SetTotalFileSet(ctx, commit, *totalId)); err != nil {
+	if err := errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId)); err != nil {
 		return nil, err
 	}
 	return totalId, nil

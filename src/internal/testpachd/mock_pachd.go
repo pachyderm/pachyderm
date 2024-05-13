@@ -1017,6 +1017,7 @@ type clearCacheFunc func(context.Context, *pfs.ClearCacheRequest) (*emptypb.Empt
 type listTaskPFSFunc func(*task.ListTaskRequest, pfs.API_ListTaskServer) error
 type egressFunc func(context.Context, *pfs.EgressRequest) (*pfs.EgressResponse, error)
 type reposSummaryFunc func(context.Context, *pfs.ReposSummaryRequest) (*pfs.ReposSummaryResponse, error)
+type compactCommitFilesetFunc func(context.Context, *pfs.CompactCommitFilesetRequest) (*pfs.CompactCommitFilesetResponse, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -1073,6 +1074,7 @@ type mockClearCache struct{ handler clearCacheFunc }
 type mockListTaskPFS struct{ handler listTaskPFSFunc }
 type mockEgress struct{ handler egressFunc }
 type mockReposSummary struct{ handler reposSummaryFunc }
+type mockCompactCommitFileset struct{ handler compactCommitFilesetFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)           { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                     { mock.handler = cb }
@@ -1129,6 +1131,7 @@ func (mock *mockClearCache) Use(cb clearCacheFunc)                     { mock.ha
 func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)                   { mock.handler = cb }
 func (mock *mockEgress) Use(cb egressFunc)                             { mock.handler = cb }
 func (mock *mockReposSummary) Use(cb reposSummaryFunc)                 { mock.handler = cb }
+func (mock *mockCompactCommitFileset) Use(cb compactCommitFilesetFunc) { mock.handler = cb }
 
 type pfsServerAPI struct {
 	pfs.UnsafeAPIServer
@@ -1192,6 +1195,7 @@ type mockPFSServer struct {
 	ListTask             mockListTaskPFS
 	Egress               mockEgress
 	ReposSummary         mockReposSummary
+	CompactCommitFileset mockCompactCommitFileset
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -1529,6 +1533,13 @@ func (api *pfsServerAPI) ReposSummary(ctx context.Context, req *pfs.ReposSummary
 	return nil, errors.Errorf("unhandled pachd mock pfs.ReposSummary")
 }
 
+func (api *pfsServerAPI) CompactCommitFileset(ctx context.Context, request *pfs.CompactCommitFilesetRequest) (*pfs.CompactCommitFilesetResponse, error) {
+	if api.mock.CompactCommitFileset.handler != nil {
+		return api.mock.CompactCommitFileset.handler(ctx, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.CompactCommitFileset")
+}
+
 /* Storage Server Mocks */
 
 type createFilesetFunc func(storage.Fileset_CreateFilesetServer) error
@@ -1537,7 +1548,6 @@ type renewFilesetFunc func(context.Context, *storage.RenewFilesetRequest) (*empt
 type composeFilesetFunc func(context.Context, *storage.ComposeFilesetRequest) (*storage.ComposeFilesetResponse, error)
 type shardFilesetFunc func(context.Context, *storage.ShardFilesetRequest) (*storage.ShardFilesetResponse, error)
 type graphFilesetFunc func(context.Context, *storage.GraphFilesetRequest) (*storage.GraphFilesetResponse, error)
-type compactFilesetFunc func(context.Context, *storage.CompactFilesetRequest) (*storage.CompactFilesetResponse, error)
 
 type mockCreateFileset struct{ handler createFilesetFunc }
 type mockReadFileset struct{ handler readFilesetFunc }
@@ -1545,7 +1555,6 @@ type mockRenewFileset struct{ handler renewFilesetFunc }
 type mockComposeFileset struct{ handler composeFilesetFunc }
 type mockShardFileset struct{ handler shardFilesetFunc }
 type mockGraphFileset struct{ handler graphFilesetFunc }
-type mockCompactFileset struct{ handler compactFilesetFunc }
 
 func (mock *mockCreateFileset) Use(cb createFilesetFunc)   { mock.handler = cb }
 func (mock *mockReadFileset) Use(cb readFilesetFunc)       { mock.handler = cb }
@@ -1553,7 +1562,6 @@ func (mock *mockRenewFileset) Use(cb renewFilesetFunc)     { mock.handler = cb }
 func (mock *mockComposeFileset) Use(cb composeFilesetFunc) { mock.handler = cb }
 func (mock *mockShardFileset) Use(cb shardFilesetFunc)     { mock.handler = cb }
 func (mock *mockGraphFileset) Use(cb graphFilesetFunc)     { mock.handler = cb }
-func (mock *mockCompactFileset) Use(cb compactFilesetFunc) { mock.handler = cb }
 
 type storageServerAPI struct {
 	storage.UnimplementedFilesetServer
@@ -1568,7 +1576,6 @@ type mockStorageServer struct {
 	ComposeFileset mockComposeFileset
 	ShardFileset   mockShardFileset
 	GraphFileset   mockGraphFileset
-	CompactFileset mockCompactFileset
 }
 
 func (api *storageServerAPI) CreateFileset(server storage.Fileset_CreateFilesetServer) error {
@@ -1611,13 +1618,6 @@ func (api *storageServerAPI) GraphFileset(ctx context.Context, request *storage.
 		return api.mock.GraphFileset.handler(ctx, request)
 	}
 	return nil, errors.Errorf("unhandled pachd mock storage.GraphFileset")
-}
-
-func (api *storageServerAPI) CompactFileset(ctx context.Context, request *storage.CompactFilesetRequest) (*storage.CompactFilesetResponse, error) {
-	if api.mock.CompactFileset.handler != nil {
-		return api.mock.CompactFileset.handler(ctx, request)
-	}
-	return nil, errors.Errorf("unhandled pachd mock storage.CompactFileset")
 }
 
 /* PPS Server Mocks */

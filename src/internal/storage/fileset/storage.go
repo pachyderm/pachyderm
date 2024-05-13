@@ -230,7 +230,7 @@ func (s *Storage) getFilesetRelationalData(ctx context.Context, filesetId ID) (*
 func (s *Storage) graph(ctx context.Context, childId ID, parentId *dot.Node, g *dot.Graph) error {
 	rd, err := s.getFilesetRelationalData(ctx, childId)
 	if err != nil {
-		return errors.Wrap(err, "graph")
+		return errors.Wrap(err, fmt.Sprintf("graph file set: %s", childId.HexString()))
 	}
 	switch x := rd.Metadata.Value.(type) {
 	case *Metadata_Primitive:

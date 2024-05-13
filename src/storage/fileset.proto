@@ -110,14 +110,6 @@ message GraphFilesetResponse {
   string graph = 1;
 }
 
-message CompactFilesetRequest {
-  string fileset_id = 1;
-}
-
-message CompactFilesetResponse {
-  string fileset_id = 1;
-}
-
 service Fileset {
   // CreateFileset creates a fileset based on a stream of file modifications.
   // A string identifier for the created fileset will be returned that can be used for subsequent fileset operations.
@@ -138,8 +130,6 @@ service Fileset {
   rpc ShardFileset(ShardFilesetRequest) returns (ShardFilesetResponse) {}
   // GraphFileset generates a graph of a fileset in the form of a dot graph.
   // Pass the output to jq and then to dot to get an image like so:
-  // pachctl misc grpc storage.Fileset.GraphFileset '{"id": "<ID>"}' | jq -r .graph | dot -Tpng > graph.png
+  // pachctl misc grpc storage.Fileset.GraphFileset '{"fileset_id": "<ID>"}' | jq -r .graph | dot -Tpng > graph.png
   rpc GraphFileset(GraphFilesetRequest) returns (GraphFilesetResponse) {}
-  // CompactFileset runs an input fileset through compaction and returns the id of the new fileset.
-  rpc CompactFileset(CompactFilesetRequest) returns (CompactFilesetResponse) {}
 }

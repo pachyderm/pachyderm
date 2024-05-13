@@ -663,6 +663,14 @@ export type ReposSummaryResponse = {
   summaries?: ReposSummary[]
 }
 
+export type CompactCommitFilesetRequest = {
+  commitPicker?: CommitPicker
+}
+
+export type CompactCommitFilesetResponse = {
+  filesetId?: string
+}
+
 export class API {
   static CreateRepo(req: CreateRepoRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<CreateRepoRequest, GoogleProtobufEmpty.Empty>(`/pfs_v2.API/CreateRepo`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
@@ -822,5 +830,8 @@ export class API {
   }
   static ReposSummary(req: ReposSummaryRequest, initReq?: fm.InitReq): Promise<ReposSummaryResponse> {
     return fm.fetchReq<ReposSummaryRequest, ReposSummaryResponse>(`/pfs_v2.API/ReposSummary`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static CompactCommitFileset(req: CompactCommitFilesetRequest, initReq?: fm.InitReq): Promise<CompactCommitFilesetResponse> {
+    return fm.fetchReq<CompactCommitFilesetRequest, CompactCommitFilesetResponse>(`/pfs_v2.API/CompactCommitFileset`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
 }

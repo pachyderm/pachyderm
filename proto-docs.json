@@ -11836,6 +11836,54 @@
           ]
         },
         {
+          "name": "CompactCommitFilesetRequest",
+          "longName": "CompactCommitFilesetRequest",
+          "fullName": "pfs_v2.CompactCommitFilesetRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "commit_picker",
+              "description": "",
+              "label": "",
+              "type": "CommitPicker",
+              "longType": "CommitPicker",
+              "fullType": "pfs_v2.CommitPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CompactCommitFilesetResponse",
+          "longName": "CompactCommitFilesetResponse",
+          "fullName": "pfs_v2.CompactCommitFilesetResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ComposeFileSetRequest",
           "longName": "ComposeFileSetRequest",
           "fullName": "pfs_v2.ComposeFileSetRequest",
@@ -16046,6 +16094,18 @@
               "responseType": "ReposSummaryResponse",
               "responseLongType": "ReposSummaryResponse",
               "responseFullType": "pfs_v2.ReposSummaryResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "CompactCommitFileset",
+              "description": "CompactCommitFileset runs the filesets of an input commit through compaction and returns the id of the new fileset.",
+              "requestType": "CompactCommitFilesetRequest",
+              "requestLongType": "CompactCommitFilesetRequest",
+              "requestFullType": "pfs_v2.CompactCommitFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "CompactCommitFilesetResponse",
+              "responseLongType": "CompactCommitFilesetResponse",
+              "responseFullType": "pfs_v2.CompactCommitFilesetResponse",
               "responseStreaming": false
             }
           ]
@@ -29120,54 +29180,6 @@
           ]
         },
         {
-          "name": "CompactFilesetRequest",
-          "longName": "CompactFilesetRequest",
-          "fullName": "storage.CompactFilesetRequest",
-          "description": "",
-          "hasExtensions": false,
-          "hasFields": true,
-          "hasOneofs": false,
-          "extensions": [],
-          "fields": [
-            {
-              "name": "fileset_id",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            }
-          ]
-        },
-        {
-          "name": "CompactFilesetResponse",
-          "longName": "CompactFilesetResponse",
-          "fullName": "storage.CompactFilesetResponse",
-          "description": "",
-          "hasExtensions": false,
-          "hasFields": true,
-          "hasOneofs": false,
-          "extensions": [],
-          "fields": [
-            {
-              "name": "fileset_id",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            }
-          ]
-        },
-        {
           "name": "ComposeFilesetRequest",
           "longName": "ComposeFilesetRequest",
           "fullName": "storage.ComposeFilesetRequest",
@@ -29693,7 +29705,7 @@
             },
             {
               "name": "GraphFileset",
-              "description": "GraphFileset generates a graph of a fileset in the form of a dot graph.\nPass the output to jq and then to dot to get an image like so:\npachctl misc grpc storage.Fileset.GraphFileset '{\"id\": \"\u003cID\u003e\"}' | jq -r .graph | dot -Tpng \u003e graph.png",
+              "description": "GraphFileset generates a graph of a fileset in the form of a dot graph.\nPass the output to jq and then to dot to get an image like so:\npachctl misc grpc storage.Fileset.GraphFileset '{\"fileset_id\": \"\u003cID\u003e\"}' | jq -r .graph | dot -Tpng \u003e graph.png",
               "requestType": "GraphFilesetRequest",
               "requestLongType": "GraphFilesetRequest",
               "requestFullType": "storage.GraphFilesetRequest",
@@ -29701,18 +29713,6 @@
               "responseType": "GraphFilesetResponse",
               "responseLongType": "GraphFilesetResponse",
               "responseFullType": "storage.GraphFilesetResponse",
-              "responseStreaming": false
-            },
-            {
-              "name": "CompactFileset",
-              "description": "CompactFileset runs an input fileset through compaction and returns the id of the new fileset.",
-              "requestType": "CompactFilesetRequest",
-              "requestLongType": "CompactFilesetRequest",
-              "requestFullType": "storage.CompactFilesetRequest",
-              "requestStreaming": false,
-              "responseType": "CompactFilesetResponse",
-              "responseLongType": "CompactFilesetResponse",
-              "responseFullType": "storage.CompactFilesetResponse",
               "responseStreaming": false
             }
           ]

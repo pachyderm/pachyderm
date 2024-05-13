@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"io"
 	"os"
 	"os/signal"

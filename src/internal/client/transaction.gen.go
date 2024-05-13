@@ -336,6 +336,10 @@ func (c *unsupportedPfsBuilderClient) ClearCommit(_ context.Context, _ *pfs_v2.C
 	return nil, unsupportedError("ClearCommit")
 }
 
+func (c *unsupportedPfsBuilderClient) CompactCommitFileset(_ context.Context, _ *pfs_v2.CompactCommitFilesetRequest, opts ...grpc.CallOption) (*pfs_v2.CompactCommitFilesetResponse, error) {
+	return nil, unsupportedError("CompactCommitFileset")
+}
+
 func (c *unsupportedPfsBuilderClient) ComposeFileSet(_ context.Context, _ *pfs_v2.ComposeFileSetRequest, opts ...grpc.CallOption) (*pfs_v2.CreateFileSetResponse, error) {
 	return nil, unsupportedError("ComposeFileSet")
 }

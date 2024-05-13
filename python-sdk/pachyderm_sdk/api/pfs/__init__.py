@@ -1017,6 +1017,16 @@ class ReposSummaryResponse(betterproto.Message):
     summaries: List["ReposSummary"] = betterproto.message_field(1)
 
 
+@dataclass(eq=False, repr=False)
+class CompactCommitFilesetRequest(betterproto.Message):
+    commit_picker: "CommitPicker" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class CompactCommitFilesetResponse(betterproto.Message):
+    fileset_id: str = betterproto.string_field(1)
+
+
 class ApiStub:
 
     def __init__(self, channel: "grpc.Channel"):
@@ -1294,6 +1304,11 @@ class ApiStub:
             "/pfs_v2.API/ReposSummary",
             request_serializer=ReposSummaryRequest.SerializeToString,
             response_deserializer=ReposSummaryResponse.FromString,
+        )
+        self.__rpc_compact_commit_fileset = channel.unary_unary(
+            "/pfs_v2.API/CompactCommitFileset",
+            request_serializer=CompactCommitFilesetRequest.SerializeToString,
+            response_deserializer=CompactCommitFilesetResponse.FromString,
         )
 
     def create_repo(
@@ -2035,3 +2050,13 @@ class ApiStub:
             request.projects = projects
 
         return self.__rpc_repos_summary(request)
+
+    def compact_commit_fileset(
+        self, *, commit_picker: "CommitPicker" = None
+    ) -> "CompactCommitFilesetResponse":
+
+        request = CompactCommitFilesetRequest()
+        if commit_picker is not None:
+            request.commit_picker = commit_picker
+
+        return self.__rpc_compact_commit_fileset(request)
