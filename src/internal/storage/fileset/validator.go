@@ -25,7 +25,7 @@ func NewPathValidator(fs FileSet) FileSet {
 }
 
 func (pf *pathValidator) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
-	ctx = pctx.Child(ctx, "indexFilter")
+	ctx = pctx.Child(ctx, "pathIterator")
 	var prev *index.Index
 	var retErr error = nil
 	if err := pf.fs.Iterate(ctx, func(f File) error {
@@ -45,11 +45,11 @@ func (pf *pathValidator) Iterate(ctx context.Context, cb func(File) error, opts 
 }
 
 func (pf *pathValidator) IterateDeletes(_ context.Context, _ func(File) error, opts ...index.Option) error {
-	return errors.Errorf("iterating deletes in an index filter file set")
+	return errors.Errorf("iterating deletes in an path validator file set")
 }
 
 func (pf *pathValidator) Shards(_ context.Context, _ ...index.Option) ([]*index.PathRange, error) {
-	return nil, errors.Errorf("sharding an index filter file set")
+	return nil, errors.Errorf("sharding an path validator file set")
 }
 
 func CheckIndex(prev, curr *index.Index) error {
