@@ -946,6 +946,9 @@
                         }
                     }
                 },
+                "compactionEnabled": {
+                    "type": "boolean"
+                },
                 "defaultPipelineCPURequest": {
                     "type": "string"
                 },

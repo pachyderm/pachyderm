@@ -59,6 +59,8 @@ type Env struct {
 
 	StorageConfig pachconfig.StorageConfiguration
 	GetPPSServer  func() pps_server.APIServer
+
+	CompactEnabled bool
 }
 
 // NewAPIServer creates an APIServer.

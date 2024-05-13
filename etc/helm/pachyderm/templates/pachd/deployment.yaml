@@ -55,6 +55,8 @@ spec:
         env:
         - name: GOCDK_ENABLED
           value: {{ .Values.pachd.storage.gocdkEnabled | quote }}
+        - name: COMPACTION_ENABLED
+          value: {{ .Values.pachd.compactionEnabled | quote }}
         {{- if and (ne .Values.deployTarget "LOCAL") .Values.pachd.storage.gocdkEnabled  }}
         - name: STORAGE_URL
           value: {{ required "storage URL required" .Values.pachd.storage.storageURL | quote }}
