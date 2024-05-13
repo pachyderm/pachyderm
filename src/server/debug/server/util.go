@@ -78,6 +78,7 @@ func writeTarFile(tw *tar.Writer, dest string, src string, fi os.FileInfo) error
 	if err != nil {
 		return errors.Wrapf(err, "open file %q", src)
 	}
+	defer f.Close()
 	if err := tw.WriteHeader(&tar.Header{
 		Name: dest,
 		Size: fi.Size(),

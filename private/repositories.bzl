@@ -363,29 +363,29 @@ def skopeo_deps():
     # So we'll do this terrible thing instead.  Take that, the software supply chain!
     http_file(
         name = "com_github_containers_skopeo_x86_64_linux",
-        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-amd64",
-        sha256 = "5f5898a9775bbb6c6261a695686cde22675a8b103cd7a78b3027d472ca5d3d79",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-linux-amd64",
+        sha256 = "51218f93a2b079e36a36f7fbe2d2d86778be0a6947653031b4f9e254e2469224",
         executable = True,
         downloaded_file_path = "skopeo",
     )
     http_file(
         name = "com_github_containers_skopeo_aarch64_linux",
-        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-arm64",
-        sha256 = "22ce9c3ffaebde0d72c01994b468265fb9fc1ffbee9d4256f1539f9878df67bc",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-linux-arm64",
+        sha256 = "364c46085de31edf4b312f13587442f4eade1f181bc5a9ea2ab2ffab5b575916",
         executable = True,
         downloaded_file_path = "skopeo",
     )
     http_file(
         name = "com_github_containers_skopeo_x86_64_macos",
-        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-darwin-amd64",
-        sha256 = "26bc8faf3bca3f32c97fb7c05504dcf3b0770dc51c8d3fec089e7a590d323a44",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-darwin-amd64",
+        sha256 = "5a82082f439508255fd2588e1aecbe9b61bf5ad62442cde2bab5d3ba665ad63f",
         executable = True,
         downloaded_file_path = "skopeo",
     )
     http_file(
         name = "com_github_containers_skopeo_aarch64_macos",
-        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-darwin-arm64",
-        sha256 = "b7ec503d5efe0e2afbab980e0085f20c3693b20f37c4d92df52de267bc877c2b",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-darwin-arm64",
+        sha256 = "77a31136eaa04643120b4999e526da35735e01ccc80f1c97752a33b3fed64547",
         executable = True,
         downloaded_file_path = "skopeo",
     )
