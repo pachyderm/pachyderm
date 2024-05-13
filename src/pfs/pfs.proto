@@ -772,6 +772,14 @@ message ReposSummaryResponse {
   repeated ReposSummary summaries = 1; // repo summaries for the requested projects
 }
 
+message CompactCommitFilesetRequest {
+  pfs_v2.CommitPicker commit_picker = 1;
+}
+
+message CompactCommitFilesetResponse {
+  string fileset_id = 1;
+}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -900,4 +908,7 @@ service API {
   // Summary API
   // ReposSummary returns a list of summaries about the repos for each of the requested projects.
   rpc ReposSummary(ReposSummaryRequest) returns (ReposSummaryResponse) {}
+
+  // CompactCommitFileset runs the filesets of an input commit through compaction and returns the id of the new fileset.
+  rpc CompactCommitFileset(CompactCommitFilesetRequest) returns (CompactCommitFilesetResponse) {}
 }
