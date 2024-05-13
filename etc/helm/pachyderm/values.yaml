@@ -775,7 +775,7 @@ pachd:
   # clusterDeploymentID sets the Pachyderm cluster ID.
   clusterDeploymentID: ""
   # disable this if you want read performance on commits to be terrible, but you want cool graphs.
-  compactionEnabled: true
+  compactCommits: true
   configJob:
     annotations: {}
   # goMaxProcs is passed as GOMAXPROCS to the pachd container.  pachd can automatically pick an

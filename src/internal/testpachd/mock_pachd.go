@@ -1537,6 +1537,7 @@ type renewFilesetFunc func(context.Context, *storage.RenewFilesetRequest) (*empt
 type composeFilesetFunc func(context.Context, *storage.ComposeFilesetRequest) (*storage.ComposeFilesetResponse, error)
 type shardFilesetFunc func(context.Context, *storage.ShardFilesetRequest) (*storage.ShardFilesetResponse, error)
 type graphFilesetFunc func(context.Context, *storage.GraphFilesetRequest) (*storage.GraphFilesetResponse, error)
+type compactFilesetFunc func(context.Context, *storage.CompactFilesetRequest) (*storage.CompactFilesetResponse, error)
 
 type mockCreateFileset struct{ handler createFilesetFunc }
 type mockReadFileset struct{ handler readFilesetFunc }
@@ -1544,6 +1545,7 @@ type mockRenewFileset struct{ handler renewFilesetFunc }
 type mockComposeFileset struct{ handler composeFilesetFunc }
 type mockShardFileset struct{ handler shardFilesetFunc }
 type mockGraphFileset struct{ handler graphFilesetFunc }
+type mockCompactFileset struct{ handler compactFilesetFunc }
 
 func (mock *mockCreateFileset) Use(cb createFilesetFunc)   { mock.handler = cb }
 func (mock *mockReadFileset) Use(cb readFilesetFunc)       { mock.handler = cb }
@@ -1551,6 +1553,7 @@ func (mock *mockRenewFileset) Use(cb renewFilesetFunc)     { mock.handler = cb }
 func (mock *mockComposeFileset) Use(cb composeFilesetFunc) { mock.handler = cb }
 func (mock *mockShardFileset) Use(cb shardFilesetFunc)     { mock.handler = cb }
 func (mock *mockGraphFileset) Use(cb graphFilesetFunc)     { mock.handler = cb }
+func (mock *mockCompactFileset) Use(cb compactFilesetFunc) { mock.handler = cb }
 
 type storageServerAPI struct {
 	storage.UnimplementedFilesetServer
@@ -1565,6 +1568,7 @@ type mockStorageServer struct {
 	ComposeFileset mockComposeFileset
 	ShardFileset   mockShardFileset
 	GraphFileset   mockGraphFileset
+	CompactFileset mockCompactFileset
 }
 
 func (api *storageServerAPI) CreateFileset(server storage.Fileset_CreateFilesetServer) error {
@@ -1607,6 +1611,13 @@ func (api *storageServerAPI) GraphFileset(ctx context.Context, request *storage.
 		return api.mock.GraphFileset.handler(ctx, request)
 	}
 	return nil, errors.Errorf("unhandled pachd mock storage.GraphFileset")
+}
+
+func (api *storageServerAPI) CompactFileset(ctx context.Context, request *storage.CompactFilesetRequest) (*storage.CompactFilesetResponse, error) {
+	if api.mock.CompactFileset.handler != nil {
+		return api.mock.CompactFileset.handler(ctx, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock storage.CompactFileset")
 }
 
 /* PPS Server Mocks */

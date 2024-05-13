@@ -946,7 +946,7 @@
                         }
                     }
                 },
-                "compactionEnabled": {
+                "compactCommits": {
                     "type": "boolean"
                 },
                 "defaultPipelineCPURequest": {

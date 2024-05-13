@@ -346,11 +346,11 @@ func (m *Master) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWi
 func (m *Master) maybeCompact(ctx context.Context, compactor *compactor, taskDoer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (totalId *fileset.ID, details *pfs.CommitInfo_Details, err error) {
 	details = &pfs.CommitInfo_Details{}
 	start := time.Now()
-	if m.env.CompactEnabled {
+	if m.env.CompactCommits {
 		// Compacting the diff before getting the total allows us to compose the
 		// total file set so that it includes the compacted diff.
 		if err = log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
-			_, err = m.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+			_, err = m.driver.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
 			return err
 		}); err != nil {
 			return nil, nil, err
@@ -374,21 +374,6 @@ func (m *Master) maybeCompact(ctx context.Context, compactor *compactor, taskDoe
 		return nil, nil, err
 	}
 	return totalId, details, nil
-}
-
-func (m *Master) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (*fileset.ID, error) {
-	id, err := m.driver.commitStore.GetDiffFileSet(ctx, commit)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	if err := renewer.Add(ctx, *id); err != nil {
-		return nil, err
-	}
-	diffId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
-	if err != nil {
-		return nil, err
-	}
-	return diffId, errors.EnsureStack(m.driver.commitStore.SetDiffFileSet(ctx, commit, *diffId))
 }
 
 func (m *Master) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (*fileset.ID, error) {

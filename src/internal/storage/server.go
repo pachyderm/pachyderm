@@ -106,7 +106,7 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 }
 
 func (s *Server) GraphFileset(ctx context.Context, request *storage.GraphFilesetRequest) (*storage.GraphFilesetResponse, error) {
-	id, err := fileset.ParseID(request.Id)
+	id, err := fileset.ParseID(request.FilesetId)
 	if err != nil {
 		return nil, err
 	}

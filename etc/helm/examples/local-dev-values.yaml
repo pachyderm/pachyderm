@@ -3,7 +3,7 @@
 deployTarget: custom
 
 pachd:
-  compactionEnabled: false
+  compactCommits: false
   image:
     tag: local
   resources:
