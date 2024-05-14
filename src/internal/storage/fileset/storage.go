@@ -96,6 +96,17 @@ func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts
 	return s
 }
 
+func (s *Storage) InsertCompactionStep(ctx context.Context, id, compactedId *ID, step uint64) error {
+	return errors.Wrap(dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
+		_, err := tx.ExecContext(ctx, "INSERT INTO storage.compaction_steps (id, compacted_id, step) VALUES ($1, $2, $3)",
+			id, compactedId, step)
+		if err != nil {
+			return errors.Wrap(err, "insert compaction step")
+		}
+		return nil
+	}), "with tx")
+}
+
 func (s *Storage) ShardConfig() *index.ShardConfig {
 	return s.shardConfig
 }

@@ -1,0 +1,24 @@
+count: 5 
+modifications:
+  - count: 5
+    putFile:
+      #count: 10000 
+      count: 100
+      source: "random"
+fileSources:
+  - name: "random"
+    random:
+      directory:
+        depth: 
+          min: 1 
+          max: 3
+        run: 100
+      sizes:
+        - min: 10
+          #min: 100
+          #max: 10000
+          max: 100
+          prob: 100 
+validator:
+  frequency:
+    count: 5 
