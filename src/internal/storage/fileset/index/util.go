@@ -1,6 +1,9 @@
 package index
 
 import (
+	"fmt"
+	"github.com/emicklei/dot"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"sort"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -64,4 +67,30 @@ func SizeBytes(idx *Index) int64 {
 		}
 	}
 	return size
+}
+
+func (idx *Index) GraphNode(g *dot.Graph) *dot.Node {
+	nodeType := "file"
+	color := "green"
+	if idx.Range != nil {
+		nodeType = "range"
+		color = "orange"
+	}
+	nodeName := fmt.Sprintf(`{"id":"%s" | "type":"%s" | "size":"%d" | "numFiles":"%d"`,
+		idx.Path, nodeType, idx.SizeBytes, idx.NumFiles)
+	if nodeType == "range" {
+		nodeName += fmt.Sprintf(` | "chunkId":"%s"`, pfs.EncodeHash(idx.Range.ChunkRef.Ref.Id))
+		nodeName += fmt.Sprintf(` | "lastPath":"%s"`, idx.Range.LastPath)
+		nodeName += fmt.Sprintf(` | "offset":"%d"`, idx.Range.Offset)
+	} else {
+		nodeName += fmt.Sprintf(` | "datum":"%s"`, idx.File.Datum)
+		nodeName += fmt.Sprintf(` | "numChunks":"%s" |`, len(idx.File.DataRefs))
+		for i, ref := range idx.File.DataRefs {
+			nodeName += fmt.Sprintf(` | "chunk.%d":"%s"`, i, pfs.EncodeHash(ref.Ref.Id))
+		}
+	}
+	nodeName += "}"
+	node := g.Node(nodeName)
+	node.Attrs("color", color, "shape", "Mrecord")
+	return &node
 }

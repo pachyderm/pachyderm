@@ -1,5 +1,7 @@
 package index
 
+import "github.com/emicklei/dot"
+
 // Option configures an index reader.
 type Option func(r *Reader)
 
@@ -34,5 +36,12 @@ func WithPeek() Option {
 func WithShardConfig(config *ShardConfig) Option {
 	return func(r *Reader) {
 		r.shardConfig = config
+	}
+}
+
+// WithGraph writes data to a buffer that can be used later to graph the relationship between the indices for a fileset.
+func WithGraph(g *dot.Graph) Option {
+	return func(r *Reader) {
+		r.graph = g
 	}
 }

@@ -282,10 +282,15 @@ func (s *Storage) Graph(ctx context.Context, id ID) (string, error) {
 }
 
 func (s *Storage) GraphIndices(ctx context.Context, id ID) (string, error) {
-	g := dot.NewGraph(dot.Directed)
-	err := s.graph(ctx, id, nil, g)
+	reader, err := s.Open(ctx, []ID{id})
 	if err != nil {
-		return "", errors.Wrap(err, "graph")
+		return "", errors.Wrap(err, "graph indices")
+	}
+	g := dot.NewGraph(dot.Directed)
+	if err := reader.Iterate(ctx, func(f File) error {
+		return nil
+	}, index.WithGraph(g)); err != nil {
+		return "", errors.Wrap(err, "graph indices: iterating through file set reader")
 	}
 	return g.String(), nil
 }

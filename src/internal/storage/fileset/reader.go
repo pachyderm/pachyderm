@@ -33,7 +33,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(File) error, opts ...index
 	if err != nil {
 		return err
 	}
-	ctx = pctx.Child(ctx, "", pctx.WithFields(LogIndex(prim.Additive, "startIdx")))
+	ctx = pctx.Child(ctx, "", pctx.WithFields(index.LogIndex(prim.Additive, "startIdx")))
 	ir := index.NewReader(r.chunks, r.idxCache, prim.Additive, opts...)
 	return ir.Iterate(ctx, func(idx *index.Index) error {
 		return cb(newFileReader(r.chunks, idx))
@@ -59,7 +59,7 @@ func (r *Reader) IterateDeletes(ctx context.Context, cb func(File) error, opts .
 		return err
 	}
 	ir := index.NewReader(r.chunks, r.idxCache, prim.Deletive, opts...)
-	ctx = pctx.Child(ctx, "", pctx.WithFields(LogIndex(prim.Deletive, "startIdx")))
+	ctx = pctx.Child(ctx, "", pctx.WithFields(index.LogIndex(prim.Deletive, "startIdx")))
 	return ir.Iterate(ctx, func(idx *index.Index) error {
 		return cb(newFileReader(r.chunks, idx))
 	})
@@ -71,7 +71,7 @@ func (r *Reader) Shards(ctx context.Context, opts ...index.Option) (pathRanges [
 	if err != nil {
 		return nil, err
 	}
-	ctx = pctx.Child(ctx, "", pctx.WithFields(LogIndex(prim.Additive, "startIdx")))
+	ctx = pctx.Child(ctx, "", pctx.WithFields(index.LogIndex(prim.Additive, "startIdx")))
 	ir := index.NewReader(r.chunks, nil, prim.Additive, opts...)
 	pathRanges, err = ir.Shards(ctx)
 	if err != nil {

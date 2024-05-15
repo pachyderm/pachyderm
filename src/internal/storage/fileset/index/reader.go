@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	fmt "fmt"
+	"github.com/emicklei/dot"
 	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"go.uber.org/zap"
 	"io"
 
 	"github.com/docker/go-units"
@@ -35,6 +38,7 @@ type Reader struct {
 	datum       string
 	shardConfig *ShardConfig
 	peek        bool
+	graph       *dot.Graph
 }
 
 // NewReader creates a new Reader.
@@ -118,6 +122,11 @@ func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, 
 	}
 	pbr := pbutil.NewReader(buf)
 	nextPrependBytes := []byte{}
+	topIdx := idx
+	var topNode *dot.Node
+	if r.graph != nil {
+		topNode = topIdx.GraphNode(r.graph)
+	}
 	for {
 		leftoverBytes := buf.Bytes()
 		idx := &Index{}
@@ -126,6 +135,10 @@ func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, 
 				return leftoverBytes, nil
 			}
 			return nil, errors.EnsureStack(err)
+		}
+		if r.graph != nil {
+			childNode := idx.GraphNode(r.graph)
+			topNode.Edge(*childNode)
 		}
 		nextLevel, err := cb(idx)
 		if err != nil {
@@ -265,4 +278,21 @@ func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
 	}
 	shards = append(shards, pathRange)
 	return shards, nil
+}
+
+// LogIndex returns a zap field with prefix keyPrefix for use by logging contexts passed into fileset related functions.
+func LogIndex(idx *Index, keyPrefix string) zap.Field {
+	if keyPrefix != "" {
+		keyPrefix += "."
+	}
+	if idx == nil {
+		return zap.String(keyPrefix+"idx", "nil")
+	}
+	fieldName := "idx.file.path"
+	topIdx := idx.Path
+	if idx.Range != nil {
+		fieldName = "idx.range.hash"
+		topIdx = pfs.EncodeHash(idx.Range.ChunkRef.Hash)
+	}
+	return zap.String(keyPrefix+fieldName, topIdx)
 }

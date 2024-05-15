@@ -4,8 +4,6 @@ import (
 	"archive/tar"
 	"context"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"go.uber.org/zap"
 	"io"
 	"path"
 	"strings"
@@ -169,21 +167,4 @@ func SizeFromIndex(idx *index.Index) (size int64) {
 		size += dr.SizeBytes
 	}
 	return size
-}
-
-// LogIndex returns a zap field with prefix keyPrefix for use by logging contexts passed into fileset related functions.
-func LogIndex(idx *index.Index, keyPrefix string) zap.Field {
-	if keyPrefix != "" {
-		keyPrefix += "."
-	}
-	if idx == nil {
-		return zap.String(keyPrefix+"idx", "nil")
-	}
-	fieldName := "idx.file.path"
-	topIdx := idx.Path
-	if idx.Range != nil {
-		fieldName = "idx.range.hash"
-		topIdx = pfs.EncodeHash(idx.Range.ChunkRef.Hash)
-	}
-	return zap.String(keyPrefix+fieldName, topIdx)
 }
