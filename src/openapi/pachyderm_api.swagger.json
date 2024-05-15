@@ -12344,8 +12344,11 @@
     "storageGraphIndicesResponse": {
       "type": "object",
       "properties": {
-        "graph": {
-          "type": "string"
+        "graphs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

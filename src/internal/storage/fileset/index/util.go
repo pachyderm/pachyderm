@@ -84,7 +84,7 @@ func (idx *Index) GraphNode(g *dot.Graph) *dot.Node {
 		nodeName += fmt.Sprintf(` | "offset":"%d"`, idx.Range.Offset)
 	} else {
 		nodeName += fmt.Sprintf(` | "datum":"%s"`, idx.File.Datum)
-		nodeName += fmt.Sprintf(` | "numChunks":"%s" |`, len(idx.File.DataRefs))
+		nodeName += fmt.Sprintf(` | "numChunks":"%d"`, len(idx.File.DataRefs))
 		for i, ref := range idx.File.DataRefs {
 			nodeName += fmt.Sprintf(` | "chunk.%d":"%s"`, i, pfs.EncodeHash(ref.Ref.Id))
 		}

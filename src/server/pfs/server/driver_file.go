@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"path"
 	"path/filepath"
@@ -572,7 +571,6 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 			}
 			return nil, errors.EnsureStack(err)
 		}
-		fmt.Println("got total for commit", commit.Key())
 		return id, nil
 	}
 	// Compose the base file set with the diffs.

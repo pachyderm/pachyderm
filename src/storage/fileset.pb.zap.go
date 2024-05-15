@@ -190,6 +190,12 @@ func (x *GraphIndicesResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-	enc.AddString("graph", x.Graph)
+	graphsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Graphs {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("graphs", zapcore.ArrayMarshalerFunc(graphsArrMarshaller))
 	return nil
 }

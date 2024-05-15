@@ -1984,8 +1984,6 @@ func (m *GraphIndicesResponse) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Graph
-
 	if len(errors) > 0 {
 		return GraphIndicesResponseMultiError(errors)
 	}

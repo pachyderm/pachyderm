@@ -249,32 +249,54 @@ func TestWalkFileTest(t *testing.T) {
 // - compaction, which calls Compose()
 // - getDiffFileset(), which calls compose()
 
-func TestStorageGraph(t *testing.T) {
+func TestGraphFileset(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	files := []string{"/a", "/b", "/c", "/d"}
+	// These will be used to collect the graph strings, so we can create image files later.
+	fsGraphs := make([]string, 0)
+	indexGraphs := make([]string, 0)
+
+	// We'll compact manually later.
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, func(c *pachconfig.Configuration) {
+		c.CompactCommits = false
+	})
+	// Set up a bunch of test data.
 	repo := "test"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	files := []string{"/a", "a/a", "a/a/a" /*, "a/a/a/a"*/}
 	commits := make([]*pfs.Commit, 0)
+	bp := branchPicker("master", repoPicker("test", "user", projectPicker(pfs.DefaultProjectName)))
 	for _, file := range files {
 		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, env.PachClient.PutFile(commit, file, bytes.NewBufferString("hello")))
 		require.NoError(t, err)
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+		require.NoError(t, finishCommit(env.PachClient, repo, "master", commit.Id))
 		commits = append(commits, commit)
 	}
-	graphs := make([]string, 0)
+
+	graphFileset := func(id string) {
+		resp, err := env.StorageServer.GraphFileset(ctx, &storage.GraphFilesetRequest{FilesetId: id})
+		require.NoError(t, err)
+		fsGraphs = append(fsGraphs, resp.Graph)
+
+		idxResp, err := env.StorageServer.GraphIndices(ctx, &storage.GraphIndicesRequest{FilesetId: id})
+		require.NoError(t, err)
+		indexGraphs = append(indexGraphs, idxResp.Graph)
+	}
+
+	// Now, get the filesets for each commit then graph them and their indices.
 	for _, commit := range commits {
 		c := commit
 		fs, err := env.PFSServer.GetFileSet(ctx, &pfs.GetFileSetRequest{Commit: c})
 		require.NoError(t, err)
-
-		resp, err := env.StorageServer.GraphFileset(ctx, &storage.GraphFilesetRequest{Id: fs.FileSetId})
-		require.NoError(t, err)
-		graphs = append(graphs, resp.Graph)
+		graphFileset(fs.FileSetId)
 	}
-	for i, graph := range graphs {
-		fileName := "/tmp/commit" + strconv.Itoa(i+1)
+
+	// compact the last commit and graph the new fileset its indices.
+	compactResp, err := env.PFSServer.CompactCommitFileset(ctx, &pfs.CompactCommitFilesetRequest{CommitPicker: &pfs.CommitPicker{Picker: &pfs.CommitPicker_BranchHead{BranchHead: bp}}})
+	require.NoError(t, err, "should be able to compact")
+	graphFileset(compactResp.FilesetId)
+
+	createGraphFile := func(fileName, graph string) {
 		f, err := os.Create(fileName + ".txt")
 		require.NoError(t, err)
 		_, err = f.WriteString(graph)
@@ -283,7 +305,17 @@ func TestStorageGraph(t *testing.T) {
 		cmd := exec.Command("dot", "-Tpng", fileName+".txt", "-o", fileName+".png")
 		require.NoError(t, cmd.Run())
 	}
-	time.Sleep(time.Second)
+
+	// generate a bunch of files in the /tmp/ directory
+	for i, graph := range fsGraphs {
+		fileName := "/tmp/graphs/c" + strconv.Itoa(i+1)
+		createGraphFile(fileName, graph)
+	}
+	for i, graph := range indexGraphs {
+		fileName := "/tmp/graphs/c_i" + strconv.Itoa(i+1)
+		createGraphFile(fileName, graph)
+	}
+	// don't forget to move stuff from /tmp/ into ~ so it can be viewed by chromium.
 }
 
 func TestListFileTest(t *testing.T) {

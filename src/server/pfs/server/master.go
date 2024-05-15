@@ -365,7 +365,10 @@ func (m *Master) maybeCompact(ctx context.Context, compactor *compactor, taskDoe
 	details = &pfs.CommitInfo_Details{}
 	start := time.Now()
 	if m.env.CompactCommits {
-		m.driver.compact(ctx, compactor, taskDoer, renewer, commit)
+		totalId, err = m.driver.compact(ctx, compactor, taskDoer, renewer, commit)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "maybe compact")
+		}
 		details.CompactingTime = durationpb.New(time.Since(start))
 		return totalId, details, nil
 	}

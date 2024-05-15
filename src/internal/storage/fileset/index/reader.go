@@ -111,6 +111,10 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 // The prependBytes and leftoverBytes logic is needed to handle index entries
 // that span multiple chunks.
 func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, cb func(*Index) (bool, error)) ([]byte, error) {
+	var topNode *dot.Node
+	if r.graph != nil {
+		topNode = idx.GraphNode(r.graph)
+	}
 	if idx.File != nil {
 		_, err := cb(idx)
 		return []byte{}, err
@@ -122,11 +126,6 @@ func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, 
 	}
 	pbr := pbutil.NewReader(buf)
 	nextPrependBytes := []byte{}
-	topIdx := idx
-	var topNode *dot.Node
-	if r.graph != nil {
-		topNode = topIdx.GraphNode(r.graph)
-	}
 	for {
 		leftoverBytes := buf.Bytes()
 		idx := &Index{}

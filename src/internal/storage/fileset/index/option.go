@@ -39,8 +39,10 @@ func WithShardConfig(config *ShardConfig) Option {
 	}
 }
 
-// WithGraph writes data to a buffer that can be used later to graph the relationship between the indices for a fileset.
-func WithGraph(g *dot.Graph) Option {
+// WithGraphs adds graph nodes that are traversed by underlying index readers.
+func WithGraphs(graphs []*dot.Graph) Option {
+	g := dot.NewGraph(dot.Directed)
+	graphs = append(graphs, g)
 	return func(r *Reader) {
 		r.graph = g
 	}

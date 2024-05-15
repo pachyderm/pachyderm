@@ -169,7 +169,7 @@ class GraphIndicesRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class GraphIndicesResponse(betterproto.Message):
-    graph: str = betterproto.string_field(1)
+    graphs: List[str] = betterproto.string_field(1)
 
 
 class FilesetStub:

@@ -281,18 +281,22 @@ func (s *Storage) Graph(ctx context.Context, id ID) (string, error) {
 	return g.String(), nil
 }
 
-func (s *Storage) GraphIndices(ctx context.Context, id ID) (string, error) {
+func (s *Storage) GraphIndices(ctx context.Context, id ID) ([]string, error) {
 	reader, err := s.Open(ctx, []ID{id})
 	if err != nil {
-		return "", errors.Wrap(err, "graph indices")
+		return nil, errors.Wrap(err, "graph indices")
 	}
-	g := dot.NewGraph(dot.Directed)
+	graphs := make([]*dot.Graph, 0)
 	if err := reader.Iterate(ctx, func(f File) error {
 		return nil
-	}, index.WithGraph(g)); err != nil {
-		return "", errors.Wrap(err, "graph indices: iterating through file set reader")
+	}, index.WithGraphs(graphs)); err != nil {
+		return nil, errors.Wrap(err, "graph indices: iterating through file set reader")
 	}
-	return g.String(), nil
+	graphStrings := make([]string, 0)
+	for _, g := range graphs {
+		graphStrings = append(graphStrings, g.String())
+	}
+	return graphStrings, nil
 }
 
 // Flatten iterates through IDs and replaces references to composite file sets
