@@ -162,6 +162,16 @@ class GraphFilesetResponse(betterproto.Message):
     graph: str = betterproto.string_field(1)
 
 
+@dataclass(eq=False, repr=False)
+class GraphIndicesRequest(betterproto.Message):
+    fileset_id: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class GraphIndicesResponse(betterproto.Message):
+    graph: str = betterproto.string_field(1)
+
+
 class FilesetStub:
 
     def __init__(self, channel: "grpc.Channel"):
@@ -194,6 +204,11 @@ class FilesetStub:
             "/storage.Fileset/GraphFileset",
             request_serializer=GraphFilesetRequest.SerializeToString,
             response_deserializer=GraphFilesetResponse.FromString,
+        )
+        self.__rpc_graph_indices = channel.unary_unary(
+            "/storage.Fileset/GraphIndices",
+            request_serializer=GraphIndicesRequest.SerializeToString,
+            response_deserializer=GraphIndicesResponse.FromString,
         )
 
     def create_fileset(
@@ -261,3 +276,10 @@ class FilesetStub:
         request.fileset_id = fileset_id
 
         return self.__rpc_graph_fileset(request)
+
+    def graph_indices(self, *, fileset_id: str = "") -> "GraphIndicesResponse":
+
+        request = GraphIndicesRequest()
+        request.fileset_id = fileset_id
+
+        return self.__rpc_graph_indices(request)

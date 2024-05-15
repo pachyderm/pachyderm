@@ -1857,3 +1857,211 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = GraphFilesetResponseValidationError{}
+
+// Validate checks the field values on GraphIndicesRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *GraphIndicesRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GraphIndicesRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// GraphIndicesRequestMultiError, or nil if none found.
+func (m *GraphIndicesRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GraphIndicesRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for FilesetId
+
+	if len(errors) > 0 {
+		return GraphIndicesRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// GraphIndicesRequestMultiError is an error wrapping multiple validation
+// errors returned by GraphIndicesRequest.ValidateAll() if the designated
+// constraints aren't met.
+type GraphIndicesRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GraphIndicesRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GraphIndicesRequestMultiError) AllErrors() []error { return m }
+
+// GraphIndicesRequestValidationError is the validation error returned by
+// GraphIndicesRequest.Validate if the designated constraints aren't met.
+type GraphIndicesRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e GraphIndicesRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e GraphIndicesRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e GraphIndicesRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e GraphIndicesRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e GraphIndicesRequestValidationError) ErrorName() string {
+	return "GraphIndicesRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e GraphIndicesRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sGraphIndicesRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = GraphIndicesRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = GraphIndicesRequestValidationError{}
+
+// Validate checks the field values on GraphIndicesResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *GraphIndicesResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on GraphIndicesResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// GraphIndicesResponseMultiError, or nil if none found.
+func (m *GraphIndicesResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *GraphIndicesResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Graph
+
+	if len(errors) > 0 {
+		return GraphIndicesResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// GraphIndicesResponseMultiError is an error wrapping multiple validation
+// errors returned by GraphIndicesResponse.ValidateAll() if the designated
+// constraints aren't met.
+type GraphIndicesResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m GraphIndicesResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m GraphIndicesResponseMultiError) AllErrors() []error { return m }
+
+// GraphIndicesResponseValidationError is the validation error returned by
+// GraphIndicesResponse.Validate if the designated constraints aren't met.
+type GraphIndicesResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e GraphIndicesResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e GraphIndicesResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e GraphIndicesResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e GraphIndicesResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e GraphIndicesResponseValidationError) ErrorName() string {
+	return "GraphIndicesResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e GraphIndicesResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sGraphIndicesResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = GraphIndicesResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = GraphIndicesResponseValidationError{}

@@ -281,6 +281,15 @@ func (s *Storage) Graph(ctx context.Context, id ID) (string, error) {
 	return g.String(), nil
 }
 
+func (s *Storage) GraphIndices(ctx context.Context, id ID) (string, error) {
+	g := dot.NewGraph(dot.Directed)
+	err := s.graph(ctx, id, nil, g)
+	if err != nil {
+		return "", errors.Wrap(err, "graph")
+	}
+	return g.String(), nil
+}
+
 // Flatten iterates through IDs and replaces references to composite file sets
 // with all their layers in place and executes the user provided callback
 // against each primitive file set.

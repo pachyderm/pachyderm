@@ -110,6 +110,14 @@ message GraphFilesetResponse {
   string graph = 1;
 }
 
+message GraphIndicesRequest {
+  string fileset_id = 1;
+}
+
+message GraphIndicesResponse {
+  string graph = 1;
+}
+
 service Fileset {
   // CreateFileset creates a fileset based on a stream of file modifications.
   // A string identifier for the created fileset will be returned that can be used for subsequent fileset operations.
@@ -132,4 +140,5 @@ service Fileset {
   // Pass the output to jq and then to dot to get an image like so:
   // pachctl misc grpc storage.Fileset.GraphFileset '{"fileset_id": "<ID>"}' | jq -r .graph | dot -Tpng > graph.png
   rpc GraphFileset(GraphFilesetRequest) returns (GraphFilesetResponse) {}
+  rpc GraphIndices(GraphIndicesRequest) returns (GraphIndicesResponse) {}
 }

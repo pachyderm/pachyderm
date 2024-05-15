@@ -119,6 +119,20 @@ func (s *Server) GraphFileset(ctx context.Context, request *storage.GraphFileset
 	}, nil
 }
 
+func (s *Server) GraphIndices(ctx context.Context, request *storage.GraphIndicesRequest) (*storage.GraphIndicesResponse, error) {
+	id, err := fileset.ParseID(request.FilesetId)
+	if err != nil {
+		return nil, err
+	}
+	graph, err := s.Filesets.GraphIndices(ctx, *id)
+	if err != nil {
+		return nil, err
+	}
+	return &storage.GraphIndicesResponse{
+		Graph: graph,
+	}, nil
+}
+
 // TODO: Copy file.
 func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error {
 	ctx := server.Context()

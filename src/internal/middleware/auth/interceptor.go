@@ -201,6 +201,7 @@ var authHandlers = map[string]authHandler{
 	"/storage.Fileset/ComposeFileset": authDisabledOr(authenticated),
 	"/storage.Fileset/ShardFileset":   authDisabledOr(authenticated),
 	"/storage.Fileset/GraphFileset":   authDisabledOr(authenticated),
+	"/storage.Fileset/GraphIndices":   authDisabledOr(authenticated),
 
 	//
 	// PPS API

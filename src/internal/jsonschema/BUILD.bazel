@@ -532,6 +532,8 @@ go_library(
         "storage/CompactFilesetResponse.schema.json",
         "pfs_v2/CompactCommitFilesetRequest.schema.json",
         "pfs_v2/CompactCommitFilesetResponse.schema.json",
+        "storage/GraphIndicesRequest.schema.json",
+        "storage/GraphIndicesResponse.schema.json",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/jsonschema",
     visibility = ["//src:__subpackages__"],

@@ -1548,6 +1548,7 @@ type renewFilesetFunc func(context.Context, *storage.RenewFilesetRequest) (*empt
 type composeFilesetFunc func(context.Context, *storage.ComposeFilesetRequest) (*storage.ComposeFilesetResponse, error)
 type shardFilesetFunc func(context.Context, *storage.ShardFilesetRequest) (*storage.ShardFilesetResponse, error)
 type graphFilesetFunc func(context.Context, *storage.GraphFilesetRequest) (*storage.GraphFilesetResponse, error)
+type graphIndicesFunc func(context.Context, *storage.GraphIndicesRequest) (*storage.GraphIndicesResponse, error)
 
 type mockCreateFileset struct{ handler createFilesetFunc }
 type mockReadFileset struct{ handler readFilesetFunc }
@@ -1555,6 +1556,7 @@ type mockRenewFileset struct{ handler renewFilesetFunc }
 type mockComposeFileset struct{ handler composeFilesetFunc }
 type mockShardFileset struct{ handler shardFilesetFunc }
 type mockGraphFileset struct{ handler graphFilesetFunc }
+type mockGraphIndices struct{ handler graphIndicesFunc }
 
 func (mock *mockCreateFileset) Use(cb createFilesetFunc)   { mock.handler = cb }
 func (mock *mockReadFileset) Use(cb readFilesetFunc)       { mock.handler = cb }
@@ -1562,6 +1564,7 @@ func (mock *mockRenewFileset) Use(cb renewFilesetFunc)     { mock.handler = cb }
 func (mock *mockComposeFileset) Use(cb composeFilesetFunc) { mock.handler = cb }
 func (mock *mockShardFileset) Use(cb shardFilesetFunc)     { mock.handler = cb }
 func (mock *mockGraphFileset) Use(cb graphFilesetFunc)     { mock.handler = cb }
+func (mock *mockGraphIndices) Use(cb graphIndicesFunc)     { mock.handler = cb }
 
 type storageServerAPI struct {
 	storage.UnimplementedFilesetServer
@@ -1576,6 +1579,7 @@ type mockStorageServer struct {
 	ComposeFileset mockComposeFileset
 	ShardFileset   mockShardFileset
 	GraphFileset   mockGraphFileset
+	GraphIndices   mockGraphIndices
 }
 
 func (api *storageServerAPI) CreateFileset(server storage.Fileset_CreateFilesetServer) error {
@@ -1618,6 +1622,13 @@ func (api *storageServerAPI) GraphFileset(ctx context.Context, request *storage.
 		return api.mock.GraphFileset.handler(ctx, request)
 	}
 	return nil, errors.Errorf("unhandled pachd mock storage.GraphFileset")
+}
+
+func (api *storageServerAPI) GraphIndices(ctx context.Context, request *storage.GraphIndicesRequest) (*storage.GraphIndicesResponse, error) {
+	if api.mock.GraphIndices.handler != nil {
+		return api.mock.GraphIndices.handler(ctx, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock storage.GraphIndices")
 }
 
 /* PPS Server Mocks */

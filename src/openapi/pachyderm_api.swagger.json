@@ -5803,6 +5803,35 @@
         ]
       }
     },
+    "/storage.Fileset/GraphIndices": {
+      "post": {
+        "operationId": "Fileset_GraphIndices",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageGraphIndicesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageGraphIndicesRequest"
+            }
+          }
+        ]
+      }
+    },
     "/transaction_v2.API/BatchTransaction": {
       "post": {
         "summary": "Transaction rpcs",
@@ -12297,6 +12326,22 @@
       }
     },
     "storageGraphFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "graph": {
+          "type": "string"
+        }
+      }
+    },
+    "storageGraphIndicesRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        }
+      }
+    },
+    "storageGraphIndicesResponse": {
       "type": "object",
       "properties": {
         "graph": {

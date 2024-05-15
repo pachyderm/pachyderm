@@ -29408,6 +29408,54 @@
           ]
         },
         {
+          "name": "GraphIndicesRequest",
+          "longName": "GraphIndicesRequest",
+          "fullName": "storage.GraphIndicesRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "GraphIndicesResponse",
+          "longName": "GraphIndicesResponse",
+          "fullName": "storage.GraphIndicesResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "graph",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "PathRange",
           "longName": "PathRange",
           "fullName": "storage.PathRange",
@@ -29713,6 +29761,18 @@
               "responseType": "GraphFilesetResponse",
               "responseLongType": "GraphFilesetResponse",
               "responseFullType": "storage.GraphFilesetResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "GraphIndices",
+              "description": "",
+              "requestType": "GraphIndicesRequest",
+              "requestLongType": "GraphIndicesRequest",
+              "requestFullType": "storage.GraphIndicesRequest",
+              "requestStreaming": false,
+              "responseType": "GraphIndicesResponse",
+              "responseLongType": "GraphIndicesResponse",
+              "responseFullType": "storage.GraphIndicesResponse",
               "responseStreaming": false
             }
           ]
