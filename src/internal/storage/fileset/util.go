@@ -3,11 +3,12 @@ package fileset
 import (
 	"archive/tar"
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"io"
 	"path"
 	"strings"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"

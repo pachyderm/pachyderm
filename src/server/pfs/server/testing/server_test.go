@@ -273,28 +273,28 @@ func TestGraphFileset(t *testing.T) {
 		commits = append(commits, commit)
 	}
 
-	graphFileset := func(id string) {
+	graphFileset := func(prefix, id string) {
 		resp, err := env.StorageServer.GraphFileset(ctx, &storage.GraphFilesetRequest{FilesetId: id})
 		require.NoError(t, err)
 		fsGraphs = append(fsGraphs, resp.Graph)
 
 		idxResp, err := env.StorageServer.GraphIndices(ctx, &storage.GraphIndicesRequest{FilesetId: id})
 		require.NoError(t, err)
-		indexGraphs = append(indexGraphs, idxResp.Graph)
+		indexGraphs = append(indexGraphs, idxResp.Graphs...)
 	}
 
 	// Now, get the filesets for each commit then graph them and their indices.
-	for _, commit := range commits {
+	for i, commit := range commits {
 		c := commit
 		fs, err := env.PFSServer.GetFileSet(ctx, &pfs.GetFileSetRequest{Commit: c})
 		require.NoError(t, err)
-		graphFileset(fs.FileSetId)
+		graphFileset(strconv.Itoa(i), fs.FileSetId)
 	}
 
 	// compact the last commit and graph the new fileset its indices.
 	compactResp, err := env.PFSServer.CompactCommitFileset(ctx, &pfs.CompactCommitFilesetRequest{CommitPicker: &pfs.CommitPicker{Picker: &pfs.CommitPicker_BranchHead{BranchHead: bp}}})
 	require.NoError(t, err, "should be able to compact")
-	graphFileset(compactResp.FilesetId)
+	graphFileset("", compactResp.FilesetId)
 
 	createGraphFile := func(fileName, graph string) {
 		f, err := os.Create(fileName + ".txt")
@@ -302,7 +302,7 @@ func TestGraphFileset(t *testing.T) {
 		_, err = f.WriteString(graph)
 		require.NoError(t, err)
 		require.NoError(t, f.Close())
-		cmd := exec.Command("dot", "-Tpng", fileName+".txt", "-o", fileName+".png")
+		cmd := exec.Command("dot", "-Tsvg", fileName+".txt", "-o", fileName+".svg")
 		require.NoError(t, cmd.Run())
 	}
 

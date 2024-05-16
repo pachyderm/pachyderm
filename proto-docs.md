@@ -11003,7 +11003,7 @@ specified path doesn&#39;t exist, the delete will be a no-op.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| graphs | [string](#string) | repeated |  |
+| graph | [string](#string) |  |  |
 
 
 

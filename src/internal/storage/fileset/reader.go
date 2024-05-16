@@ -33,8 +33,11 @@ func (r *Reader) Iterate(ctx context.Context, cb func(File) error, opts ...index
 	if err != nil {
 		return err
 	}
+	var subOpts []index.Option
+	subOpts = append(subOpts, index.WithName(r.id.HexString()+"-additive"))
+	subOpts = append(subOpts, opts...)
 	ctx = pctx.Child(ctx, "", pctx.WithFields(index.LogIndex(prim.Additive, "startIdx")))
-	ir := index.NewReader(r.chunks, r.idxCache, prim.Additive, opts...)
+	ir := index.NewReader(r.chunks, r.idxCache, prim.Additive, subOpts...)
 	return ir.Iterate(ctx, func(idx *index.Index) error {
 		return cb(newFileReader(r.chunks, idx))
 	})

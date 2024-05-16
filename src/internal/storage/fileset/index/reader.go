@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"go.uber.org/zap"
 	"io"
+	"sync"
 
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -38,7 +39,10 @@ type Reader struct {
 	datum       string
 	shardConfig *ShardConfig
 	peek        bool
-	graph       *dot.Graph
+	// fields added for graphing
+	graph *dot.Graph
+	mutex *sync.Mutex
+	name  string
 }
 
 // NewReader creates a new Reader.
@@ -54,6 +58,18 @@ func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Optio
 	}
 	for _, opt := range opts {
 		opt(r)
+	}
+	if r.graph != nil {
+		var root dot.Node
+		r.mutex.Lock()
+		if node, found := r.graph.FindNodeById("additive"); found {
+			root = node
+		} else if node, found := r.graph.FindNodeById("deletive"); found {
+			root = node
+		}
+		topNode := r.topIdx.GraphNode(r.graph)
+		root.Edge(*topNode, "")
+		r.mutex.Unlock()
 	}
 	return r
 }
@@ -100,7 +116,13 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	if errors.Is(err, errutil.ErrBreak) {
 		err = nil
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	if r.graph != nil {
+		r.graph.Label("") // clear the ugly label now that the entire graph has been built.
+	}
+	return nil
 }
 
 // traverse implements traversal through a multilevel index.
@@ -113,7 +135,9 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, cb func(*Index) (bool, error)) ([]byte, error) {
 	var topNode *dot.Node
 	if r.graph != nil {
+		r.mutex.Lock()
 		topNode = idx.GraphNode(r.graph)
+		r.mutex.Unlock()
 	}
 	if idx.File != nil {
 		_, err := cb(idx)
@@ -136,8 +160,10 @@ func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, 
 			return nil, errors.EnsureStack(err)
 		}
 		if r.graph != nil {
+			r.mutex.Lock()
 			childNode := idx.GraphNode(r.graph)
 			topNode.Edge(*childNode)
+			r.mutex.Unlock()
 		}
 		nextLevel, err := cb(idx)
 		if err != nil {

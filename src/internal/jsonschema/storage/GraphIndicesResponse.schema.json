@@ -4,11 +4,8 @@
     "definitions": {
         "GraphIndicesResponse": {
             "properties": {
-                "graphs": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
+                "graph": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

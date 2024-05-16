@@ -96,7 +96,7 @@ export type GraphIndicesRequest = {
 }
 
 export type GraphIndicesResponse = {
-  graphs?: string[]
+  graph?: string
 }
 
 export class Fileset {

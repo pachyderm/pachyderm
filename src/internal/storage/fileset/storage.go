@@ -130,6 +130,54 @@ func (s *Storage) newReader(id ID) *Reader {
 	return newReader(s.store, s.chunks, s.idxCache, id)
 }
 
+func (s *Storage) graphNode(ctx context.Context, id ID, graph *dot.Graph) (*dot.Node, error) {
+	rd, err := s.getFilesetRelationalData(ctx, id)
+	if err != nil {
+		return nil, errors.Wrap(err, "graph root")
+	}
+	var nodePtr *dot.Node
+	switch rd.Metadata.Value.(type) {
+	case *Metadata_Primitive:
+		node := graph.Node(rd.nodeName(id, "primitive"))
+		node.Attrs("color", "blue", "shape", "Mrecord")
+		nodePtr = &node
+	case *Metadata_Composite:
+		node := graph.Node(rd.nodeName(id, "composite"))
+		node.Attrs("color", "purple", "shape", "Mrecord")
+		nodePtr = &node
+	}
+	return nodePtr, nil
+}
+
+// Open opens a file set for reading.
+func (s *Storage) OpenAndGraph(ctx context.Context, id ID, graph *dot.Graph) (FileSet, error) {
+	rootNode, err := s.graphNode(ctx, id, graph)
+	if err != nil {
+		return nil, errors.Wrap(err, "open and graph")
+	}
+	ids, err := s.FlattenAll(ctx, []ID{id})
+	if err != nil {
+		return nil, err
+	}
+	var fss []FileSet
+	for _, primId := range ids {
+		primNode, err := s.graphNode(ctx, primId, graph)
+		if err != nil {
+			return nil, errors.Wrap(err, "open and graph")
+		}
+		primNode.Label(primId.HexString())
+		rootNode.Edge(*primNode, "flattened")
+		fss = append(fss, s.newReader(primId))
+	}
+	if len(fss) == 0 {
+		return emptyFileSet{}, nil
+	}
+	if len(fss) == 1 {
+		return fss[0], nil
+	}
+	return newMergeReader(s.chunks, fss, ids), nil
+}
+
 // Open opens a file set for reading.
 func (s *Storage) Open(ctx context.Context, ids []ID) (FileSet, error) {
 	var err error
@@ -147,7 +195,7 @@ func (s *Storage) Open(ctx context.Context, ids []ID) (FileSet, error) {
 	if len(fss) == 1 {
 		return fss[0], nil
 	}
-	return newMergeReader(s.chunks, fss), nil
+	return newMergeReader(s.chunks, fss, ids), nil
 }
 
 // Compose produces a composite fileset from the filesets under ids.
@@ -281,22 +329,18 @@ func (s *Storage) Graph(ctx context.Context, id ID) (string, error) {
 	return g.String(), nil
 }
 
-func (s *Storage) GraphIndices(ctx context.Context, id ID) ([]string, error) {
-	reader, err := s.Open(ctx, []ID{id})
+func (s *Storage) GraphIndices(ctx context.Context, id ID) (string, error) {
+	graph := dot.NewGraph(dot.Directed)
+	reader, err := s.OpenAndGraph(ctx, id, graph)
 	if err != nil {
-		return nil, errors.Wrap(err, "graph indices")
+		return "", errors.Wrap(err, "graph indices")
 	}
-	graphs := make([]*dot.Graph, 0)
 	if err := reader.Iterate(ctx, func(f File) error {
 		return nil
-	}, index.WithGraphs(graphs)); err != nil {
-		return nil, errors.Wrap(err, "graph indices: iterating through file set reader")
+	}, index.WithGraph(graph)); err != nil {
+		return "", errors.Wrap(err, "graph indices: iterating through file set reader")
 	}
-	graphStrings := make([]string, 0)
-	for _, g := range graphs {
-		graphStrings = append(graphStrings, g.String())
-	}
-	return graphStrings, nil
+	return graph.String(), nil
 }
 
 // Flatten iterates through IDs and replaces references to composite file sets

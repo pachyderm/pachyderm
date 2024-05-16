@@ -115,7 +115,7 @@ message GraphIndicesRequest {
 }
 
 message GraphIndicesResponse {
-  repeated string graphs = 1;
+  string graph = 1;
 }
 
 service Fileset {

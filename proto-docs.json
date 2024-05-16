@@ -29442,9 +29442,9 @@
           "extensions": [],
           "fields": [
             {
-              "name": "graphs",
+              "name": "graph",
               "description": "",
-              "label": "repeated",
+              "label": "",
               "type": "string",
               "longType": "string",
               "fullType": "string",
