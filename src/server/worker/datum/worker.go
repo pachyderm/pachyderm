@@ -6,10 +6,13 @@ import (
 	"encoding/hex"
 	"strings"
 
+	"os/exec"
+
 	glob "github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -112,7 +115,76 @@ func ProcessTask(ctx context.Context, c pfs.APIClient, input *anypb.Any) (*anypb
 	}
 }
 
+func datumFilterHelper(ctx context.Context, c client.PfsAPIClient, task *PFSTask) (*anypb.Any, error) {
+	fileSetID, err := WithCreateFileSet(ctx, c, "pachyderm-datums-pfs", func(s *Set) error {
+		commit := client.NewCommit(task.Input.Project, task.Input.Repo, task.Input.Branch, task.Input.Commit)
+		req := &pfs.ListFileRequest{
+			File: commit.NewFile(""),
+		}
+		client, err := c.ListFile(ctx, req)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		index := task.BaseIndex
+		return grpcutil.ForEach[*pfs.FileInfo](client, func(fi *pfs.FileInfo) error {
+			subProcess := exec.Command(task.Input.DatumGen.Cmd)
+			subProcess.Stdin = strings.NewReader(strings.Join(task.Input.DatumGen.Stdin, "\n") + "\n")
+			stdout := new(bytes.Buffer)
+			stderr := new(bytes.Buffer)
+			subProcess.Stdout = stdout
+			subProcess.Stderr = stderr
+			if err = subProcess.Start(); err != nil { //Use start, not run
+				return nil
+			}
+			subProcess.Wait()
+			output := stdout.String()
+			splits := strings.Split(output, ",")
+			keys := make(map[string]string)
+			for _, split := range splits {
+				kv := strings.Split(split, "=")
+				if len(kv) != 2 {
+					log.Error(ctx, "kv no good")
+					continue
+				}
+				keys[kv[0]] = kv[1]
+			}
+			var joinOn, groupBy string
+			if joinKey, ok := keys[task.Input.JoinOn]; ok {
+				joinOn = joinKey
+			}
+			if groupKey, ok := keys[task.Input.GroupBy]; ok {
+				groupBy = groupKey
+			}
+			meta := &Meta{
+				Inputs: []*common.Input{
+					{
+						FileInfo:   fi,
+						JoinOn:     joinOn,
+						OuterJoin:  task.Input.OuterJoin,
+						GroupBy:    groupBy,
+						Name:       task.Input.Name,
+						Lazy:       task.Input.Lazy,
+						Branch:     task.Input.Branch,
+						EmptyFiles: task.Input.EmptyFiles,
+						S3:         task.Input.S3,
+					},
+				},
+				Index: index,
+			}
+			index++
+			return s.UploadMeta(meta)
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return serializePFSTaskResult(&PFSTaskResult{FileSetId: fileSetID})
+}
+
 func processPFSTask(ctx context.Context, c client.PfsAPIClient, task *PFSTask) (*anypb.Any, error) {
+	if task.Input.DatumGen != nil {
+		return datumFilterHelper(ctx, c, task)
+	}
 	fileSetID, err := WithCreateFileSet(ctx, c, "pachyderm-datums-pfs", func(s *Set) error {
 		commit := client.NewCommit(task.Input.Project, task.Input.Repo, task.Input.Branch, task.Input.Commit)
 		client, err := c.GlobFile(

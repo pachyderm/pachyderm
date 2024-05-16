@@ -18392,6 +18392,42 @@
           ]
         },
         {
+          "name": "DatumGen",
+          "longName": "DatumGen",
+          "fullName": "pps_v2.DatumGen",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "cmd",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "stdin",
+              "description": "",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "DatumInfo",
           "longName": "DatumInfo",
           "fullName": "pps_v2.DatumInfo",
@@ -20917,6 +20953,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "datum_gen",
+              "description": "",
+              "label": "",
+              "type": "DatumGen",
+              "longType": "DatumGen",
+              "fullType": "pps_v2.DatumGen",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -20985,6 +21033,30 @@
                   }
                 ]
               }
+            }
+          ]
+        },
+        {
+          "name": "PipelineDatumFilter",
+          "longName": "PipelineDatumFilter",
+          "fullName": "pps_v2.PipelineDatumFilter",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -22033,6 +22105,18 @@
               "type": "bool",
               "longType": "bool",
               "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "filter",
+              "description": "",
+              "label": "",
+              "type": "PipelineDatumFilter",
+              "longType": "PipelineDatumFilter",
+              "fullType": "pps_v2.PipelineDatumFilter",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -27746,6 +27830,42 @@
       "extensions": [],
       "messages": [
         {
+          "name": "DatumGen",
+          "longName": "DatumGen",
+          "fullName": "common.DatumGen",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "cmd",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "stdin",
+              "description": "",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "Input",
           "longName": "Input",
           "fullName": "common.Input",
@@ -27858,6 +27978,18 @@
               "type": "bool",
               "longType": "bool",
               "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "datum_gen",
+              "description": "",
+              "label": "",
+              "type": "DatumGen",
+              "longType": "DatumGen",
+              "fullType": "common.DatumGen",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
