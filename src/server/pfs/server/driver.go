@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"math"
 	"os"
 	"sort"
@@ -723,6 +724,21 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 		return nil, errors.EnsureStack(err)
 	}
 	return diff, nil
+}
+
+func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (*fileset.ID, error) {
+	id, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if err := renewer.Add(ctx, *id); err != nil {
+		return nil, err
+	}
+	diffId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
+	if err != nil {
+		return nil, err
+	}
+	return diffId, errors.EnsureStack(d.commitStore.SetDiffFileSet(ctx, commit, *diffId))
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired

@@ -67,11 +67,11 @@ func (cs *postgresCommitStore) AddFileSet(ctx context.Context, commit *pfs.Commi
 }
 
 func (cs *postgresCommitStore) AddFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, id fileset.ID) error {
-	id2, err := cs.s.CloneTx(tx, id, defaultTTL)
-	if err != nil {
-		return err
-	}
-	id = *id2
+	//id2, err := cs.s.CloneTx(tx, id, defaultTTL)
+	//if err != nil {
+	//	return err
+	//}
+	//id = *id2
 
 	oid := commitDiffTrackerID(commit, id)
 	pointsTo := []string{id.TrackerID()}
@@ -109,7 +109,7 @@ func (cs *postgresCommitStore) GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Com
 	if id == nil {
 		return nil, errNoTotalFileSet
 	}
-	return cs.s.CloneTx(tx, *id, defaultTTL)
+	return id, nil
 }
 
 func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
@@ -123,6 +123,9 @@ func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.C
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+	if len(ids) == 1 {
+		return &ids[0], nil
 	}
 	return cs.s.Compose(ctx, ids, defaultTTL)
 }

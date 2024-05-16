@@ -131,6 +131,7 @@ func (PachdFullConfiguration) isPachConfig() {}
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
+	CompactCommits             bool   `env:"COMPACT_COMMITS,default=true"`
 	GoCDKEnabled               bool   `env:"GOCDK_ENABLED,default=true"`
 	StorageURL                 string `env:"STORAGE_URL,default="`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`

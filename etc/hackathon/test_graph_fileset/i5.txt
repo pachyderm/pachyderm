@@ -1,0 +1,22 @@
+digraph  {
+	subgraph cluster_s2 {
+		label="";
+		n3[color="black",label="additive"];
+		n5[color="green",label="{\"id\":\"/a\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"71efab692557e92b7f30581675160d57ec55ab556c1645a3efb6971cdaf8d222\"}",shape="Mrecord"];
+		n4[color="orange",label="{\"id\":\"/a\" | \"type\":\"range\" | \"size\":\"20\" | \"numFiles\":\"4\" | \"chunkId\":\"3addad73ff0acbda96d1a578eb2fb3d756056d3ea7e7b454b8430e8d8fc78f42\" | \"lastPath\":\"/d\" | \"offset\":\"0\"}",shape="Mrecord"];
+		n6[color="green",label="{\"id\":\"/b\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"71efab692557e92b7f30581675160d57ec55ab556c1645a3efb6971cdaf8d222\"}",shape="Mrecord"];
+		n7[color="green",label="{\"id\":\"/c\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"71efab692557e92b7f30581675160d57ec55ab556c1645a3efb6971cdaf8d222\"}",shape="Mrecord"];
+		n8[color="green",label="{\"id\":\"/d\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"71efab692557e92b7f30581675160d57ec55ab556c1645a3efb6971cdaf8d222\"}",shape="Mrecord"];
+		n3->n4[label=""];
+		n4->n5;
+		n4->n6;
+		n4->n7;
+		n4->n8;
+		
+	}
+	
+	n1[color="blue",label="55e49cb16fd7fa1011244c8a17b2e57a",shape="Mrecord"];
+	n1->n1[label="flattened"];
+	n1->n3;
+	
+}

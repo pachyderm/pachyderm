@@ -1,0 +1,9 @@
+digraph  {
+	
+	n3[color="blue",label="{\"id\":\"07a3ba6c27da4e6459f135393f5ffa8b\" | \"diffsFor\":\"default/test.user@e8a71b6a30b841f792ad5c02d6df8da3\"| \"type\":\"primitive\" }",shape="Mrecord"];
+	n2[color="blue",label="{\"id\":\"1a928f9d4d98a610cbb1a11a7defdff6\" | \"totalsFor\":\"default/test.user@65f1a20080d34f73b965d87d88914b47\" | \"diffsFor\":\"default/test.user@65f1a20080d34f73b965d87d88914b47\"| \"type\":\"primitive\" }",shape="Mrecord"];
+	n1[color="purple",label="{\"id\":\"bfe3f5af6503ab3f0072ff289fbb80b9\" | \"totalsFor\":\"default/test.user@e8a71b6a30b841f792ad5c02d6df8da3\"| \"type\":\"composite\" }",shape="Mrecord"];
+	n1->n2;
+	n1->n3;
+	
+}

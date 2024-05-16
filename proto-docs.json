@@ -11836,6 +11836,54 @@
           ]
         },
         {
+          "name": "CompactCommitFilesetRequest",
+          "longName": "CompactCommitFilesetRequest",
+          "fullName": "pfs_v2.CompactCommitFilesetRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "commit_picker",
+              "description": "",
+              "label": "",
+              "type": "CommitPicker",
+              "longType": "CommitPicker",
+              "fullType": "pfs_v2.CommitPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CompactCommitFilesetResponse",
+          "longName": "CompactCommitFilesetResponse",
+          "fullName": "pfs_v2.CompactCommitFilesetResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ComposeFileSetRequest",
           "longName": "ComposeFileSetRequest",
           "fullName": "pfs_v2.ComposeFileSetRequest",
@@ -16046,6 +16094,18 @@
               "responseType": "ReposSummaryResponse",
               "responseLongType": "ReposSummaryResponse",
               "responseFullType": "pfs_v2.ReposSummaryResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "CompactCommitFileset",
+              "description": "CompactCommitFileset runs the filesets of an input commit through compaction and returns the id of the new fileset.",
+              "requestType": "CompactCommitFilesetRequest",
+              "requestLongType": "CompactCommitFilesetRequest",
+              "requestFullType": "pfs_v2.CompactCommitFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "CompactCommitFilesetResponse",
+              "responseLongType": "CompactCommitFilesetResponse",
+              "responseFullType": "pfs_v2.CompactCommitFilesetResponse",
               "responseStreaming": false
             }
           ]
@@ -29300,6 +29360,102 @@
           ]
         },
         {
+          "name": "GraphFilesetRequest",
+          "longName": "GraphFilesetRequest",
+          "fullName": "storage.GraphFilesetRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "GraphFilesetResponse",
+          "longName": "GraphFilesetResponse",
+          "fullName": "storage.GraphFilesetResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "graph",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "GraphIndicesRequest",
+          "longName": "GraphIndicesRequest",
+          "fullName": "storage.GraphIndicesRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "GraphIndicesResponse",
+          "longName": "GraphIndicesResponse",
+          "fullName": "storage.GraphIndicesResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "graph",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "PathRange",
           "longName": "PathRange",
           "fullName": "storage.PathRange",
@@ -29593,6 +29749,30 @@
               "responseType": "ShardFilesetResponse",
               "responseLongType": "ShardFilesetResponse",
               "responseFullType": "storage.ShardFilesetResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "GraphFileset",
+              "description": "GraphFileset generates a graph of a fileset in the form of a dot graph.\nPass the output to jq and then to dot to get an image like so:\npachctl misc grpc storage.Fileset.GraphFileset '{\"fileset_id\": \"\u003cID\u003e\"}' | jq -r .graph | dot -Tpng \u003e graph.png",
+              "requestType": "GraphFilesetRequest",
+              "requestLongType": "GraphFilesetRequest",
+              "requestFullType": "storage.GraphFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "GraphFilesetResponse",
+              "responseLongType": "GraphFilesetResponse",
+              "responseFullType": "storage.GraphFilesetResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "GraphIndices",
+              "description": "",
+              "requestType": "GraphIndicesRequest",
+              "requestLongType": "GraphIndicesRequest",
+              "requestFullType": "storage.GraphIndicesRequest",
+              "requestStreaming": false,
+              "responseType": "GraphIndicesResponse",
+              "responseLongType": "GraphIndicesResponse",
+              "responseFullType": "storage.GraphIndicesResponse",
               "responseStreaming": false
             }
           ]

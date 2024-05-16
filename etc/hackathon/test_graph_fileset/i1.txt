@@ -1,0 +1,14 @@
+digraph  {
+	subgraph cluster_s2 {
+		label="";
+		n3[color="black",label="additive"];
+		n4[color="green",label="{\"id\":\"/a\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"2f2a213f7d4ef704b05dbd01ecf7530372ee78c1ee760fe344b2d738241a1f89\"}",shape="Mrecord"];
+		n3->n4[label=""];
+		
+	}
+	
+	n1[color="blue",label="1a928f9d4d98a610cbb1a11a7defdff6",shape="Mrecord"];
+	n1->n1[label="flattened"];
+	n1->n3;
+	
+}

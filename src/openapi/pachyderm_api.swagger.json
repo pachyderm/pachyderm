@@ -3870,6 +3870,36 @@
         ]
       }
     },
+    "/pfs_v2.API/CompactCommitFileset": {
+      "post": {
+        "summary": "CompactCommitFileset runs the filesets of an input commit through compaction and returns the id of the new fileset.",
+        "operationId": "API_CompactCommitFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2CompactCommitFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2CompactCommitFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pjs.API/CreateJob": {
       "post": {
         "summary": "CreateJob creates a new job.\nChild jobs can be created by setting the context field to the appropriate parent job context.",
@@ -5738,6 +5768,65 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/storageShardFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/GraphFileset": {
+      "post": {
+        "summary": "GraphFileset generates a graph of a fileset in the form of a dot graph.\nPass the output to jq and then to dot to get an image like so:\npachctl misc grpc storage.Fileset.GraphFileset '{\"fileset_id\": \"\u003cID\u003e\"}' | jq -r .graph | dot -Tpng \u003e graph.png",
+        "operationId": "Fileset_GraphFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageGraphFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageGraphFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/GraphIndices": {
+      "post": {
+        "operationId": "Fileset_GraphIndices",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageGraphIndicesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageGraphIndicesRequest"
             }
           }
         ]
@@ -8627,6 +8716,22 @@
       ],
       "default": "COMMIT_STATE_UNKNOWN",
       "description": "CommitState describes the states a commit can be in.\nThe states are increasingly specific, i.e. a commit that is FINISHED also counts as STARTED.\n\n - STARTED: The commit has been started, all commits satisfy this state.\n - READY: The commit has been started, and all of its provenant commits have been finished.\n - FINISHING: The commit is in the process of being finished.\n - FINISHED: The commit has been finished."
+    },
+    "pfs_v2CompactCommitFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "commitPicker": {
+          "$ref": "#/definitions/pfs_v2CommitPicker"
+        }
+      }
+    },
+    "pfs_v2CompactCommitFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        }
+      }
     },
     "pfs_v2ComposeFileSetRequest": {
       "type": "object",
@@ -12209,6 +12314,38 @@
         "pathRegex": {
           "type": "string",
           "description": "Only emit files with paths that match the provided regular expression."
+        }
+      }
+    },
+    "storageGraphFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        }
+      }
+    },
+    "storageGraphFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "graph": {
+          "type": "string"
+        }
+      }
+    },
+    "storageGraphIndicesRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        }
+      }
+    },
+    "storageGraphIndicesResponse": {
+      "type": "object",
+      "properties": {
+        "graph": {
+          "type": "string"
         }
       }
     },

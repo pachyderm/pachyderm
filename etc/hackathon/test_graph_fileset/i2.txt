@@ -1,0 +1,33 @@
+digraph  {
+	subgraph cluster_s4 {
+		label="";
+		n5[color="black",label="additive"];
+		n6[color="green",label="{\"id\":\"/b\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"2f2a213f7d4ef704b05dbd01ecf7530372ee78c1ee760fe344b2d738241a1f89\"}",shape="Mrecord"];
+		n5->n6[label=""];
+		
+	}
+	subgraph cluster_s7 {
+		label="";
+		n8[color="black",label="deletive"];
+		n9[color="green",label="{\"id\":\"/b\" | \"type\":\"file\" | \"size\":\"0\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"0\"}",shape="Mrecord"];
+		n8->n9[label=""];
+		
+	}
+	subgraph cluster_s10 {
+		label="";
+		n11[color="black",label="additive"];
+		n12[color="green",label="{\"id\":\"/a\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"2f2a213f7d4ef704b05dbd01ecf7530372ee78c1ee760fe344b2d738241a1f89\"}",shape="Mrecord"];
+		n11->n12[label=""];
+		
+	}
+	
+	n3[color="blue",label="07a3ba6c27da4e6459f135393f5ffa8b",shape="Mrecord"];
+	n2[color="blue",label="1a928f9d4d98a610cbb1a11a7defdff6",shape="Mrecord"];
+	n1[color="purple",label="{\"id\":\"bfe3f5af6503ab3f0072ff289fbb80b9\" | \"totalsFor\":\"default/test.user@e8a71b6a30b841f792ad5c02d6df8da3\"| \"type\":\"composite\" }",shape="Mrecord"];
+	n3->n5;
+	n3->n8;
+	n2->n11;
+	n1->n2[label="flattened"];
+	n1->n3[label="flattened"];
+	
+}

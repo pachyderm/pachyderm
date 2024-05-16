@@ -17,7 +17,7 @@ import (
 
 // triggerCommit is called when a commit is finished, it updates branches in
 // the repo if they trigger on the change
-func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
+func (m *Master) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	err := pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: commitInfo.Commit.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
 		branchInfos[branchInfoWithID.Branch.Key()] = branchInfoWithID.BranchInfo
@@ -61,7 +61,7 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 		if err != nil {
 			return nil, errors.Wrap(err, "trigger commit")
 		}
-		triggered, err := d.isTriggered(ctx, txnCtx, bi.Trigger, oldHead, newHead)
+		triggered, err := m.isTriggered(ctx, txnCtx, bi.Trigger, oldHead, newHead)
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +95,7 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
-func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
+func (m *Master) isTriggered(ctx context.Context, txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
 	result := t.All
 	merge := func(cond bool) {
 		if t.All {
@@ -147,7 +147,7 @@ func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 				break
 			}
 			var err error
-			ci, err = d.resolveCommit(ctx, txnCtx.SqlTx, ci.ParentCommit)
+			ci, err = m.driver.resolveCommit(ctx, txnCtx.SqlTx, ci.ParentCommit)
 			if err != nil {
 				return false, err
 			}

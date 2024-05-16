@@ -5,9 +5,11 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"io"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -237,6 +239,99 @@ func TestWalkFileTest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fis))
 	require.ElementsEqual(t, []string{"/dir/dir1/file1.1", "/dir/dir1/", "/dir/"}, finfosToPaths(fis))
+}
+
+/*
+ fileset id obfuscation happens on:
+ - clone() calls
+   - could be addressed by creating a clone edges table that would be navigated to determine the original.
+ - getFileSet() when the total is from an errored commit
+ - compose() calls in the unordered writer
+   - only compose() if the fileset has more than one ID.
+ - renew() calls, which calls clone()
+   - will be addresses by addressing clone().
+ - compaction, which calls Compose()
+   - only compose() if the fileset has more than one ID.
+ - getDiffFileset(), which calls compose()
+   - only compose() if the fileset has more than one ID.
+*/
+
+func TestGraphFileset(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	files := []string{"/a", "/b", "/c", "/d"}
+
+	// These will be used to collect the graph strings, so we can create image files later.
+	fsGraphs := make([]string, 0)
+	indexGraphs := make([]string, 0)
+
+	// Files will be written to /tmp/graphs, so let's refresh this directory.
+	err := os.RemoveAll("/tmp/graphs")
+	require.NoError(t, err)
+	err = os.Mkdir("/tmp/graphs", os.ModeDir|0755)
+	require.NoError(t, err)
+
+	// We want compaction to be off initially to see multi-node graphs for a commit's fileset. We'll compact manually later.
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, func(c *pachconfig.Configuration) {
+		c.CompactCommits = false
+	})
+
+	// Set up a bunch of test data.
+	repo := "test"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	commits := make([]*pfs.Commit, 0)
+	bp := branchPicker("master", repoPicker("test", "user", projectPicker(pfs.DefaultProjectName)))
+	for _, file := range files {
+		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, env.PachClient.PutFile(commit, file, bytes.NewBufferString("hello")))
+		require.NoError(t, err)
+		require.NoError(t, finishCommit(env.PachClient, repo, "master", commit.Id))
+		commits = append(commits, commit)
+	}
+
+	graphFileset := func(prefix, id string) {
+		resp, err := env.StorageServer.GraphFileset(ctx, &storage.GraphFilesetRequest{FilesetId: id})
+		require.NoError(t, err)
+		fsGraphs = append(fsGraphs, resp.Graph)
+
+		idxResp, err := env.StorageServer.GraphIndices(ctx, &storage.GraphIndicesRequest{FilesetId: id})
+		require.NoError(t, err)
+		indexGraphs = append(indexGraphs, idxResp.Graph)
+	}
+
+	// Now, get the filesets for each commit then graph them and their indices.
+	for i, commit := range commits {
+		c := commit
+		fs, err := env.PFSServer.GetFileSet(ctx, &pfs.GetFileSetRequest{Commit: c})
+		require.NoError(t, err)
+		graphFileset(strconv.Itoa(i), fs.FileSetId)
+	}
+
+	// Compact the last commit and graph the new fileset its indices.
+	compactResp, err := env.PFSServer.CompactCommitFileset(ctx, &pfs.CompactCommitFilesetRequest{CommitPicker: &pfs.CommitPicker{Picker: &pfs.CommitPicker_BranchHead{BranchHead: bp}}})
+	require.NoError(t, err, "should be able to compact")
+	graphFileset("", compactResp.FilesetId)
+
+	createGraphFile := func(fileName, graph string) {
+		f, err := os.Create(fileName + ".txt")
+		require.NoError(t, err)
+		_, err = f.WriteString(graph)
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+		cmd := exec.Command("dot", "-Tsvg", fileName+".txt", "-o", fileName+".svg")
+		require.NoError(t, cmd.Run())
+	}
+
+	// Generate a bunch of files in the /tmp/graphs directory.
+	for i, graph := range fsGraphs {
+		fileName := "/tmp/graphs/c" + strconv.Itoa(i+1)
+		createGraphFile(fileName, graph)
+	}
+	for i, graph := range indexGraphs {
+		fileName := "/tmp/graphs/i" + strconv.Itoa(i+1)
+		createGraphFile(fileName, graph)
+	}
+
+	// Don't forget to copy files from /tmp/graphs/ into your home directory, so it can be viewed by chromium.
 }
 
 func TestListFileTest(t *testing.T) {

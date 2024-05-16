@@ -946,6 +946,9 @@
                         }
                     }
                 },
+                "compactCommits": {
+                    "type": "boolean"
+                },
                 "defaultPipelineCPURequest": {
                     "type": "string"
                 },

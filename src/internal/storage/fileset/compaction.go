@@ -130,6 +130,9 @@ func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int,
 		return nil, err
 	}
 	if s.isCompacted(prims) {
+		if len(ids) == 1 {
+			return &ids[0], nil
+		}
 		return s.Compose(ctx, ids, ttl)
 	}
 	var id *ID
