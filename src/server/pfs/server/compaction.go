@@ -216,8 +216,8 @@ func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset
 	var size int64
 	for i, result := range results {
 		if errStr == "" && i != 0 {
-			if indxErr := fileset.CheckIndex(results[i-1].Last, result.First); indxErr != nil {
-				errStr = indxErr.Error()
+			if err := fileset.CheckIndex(results[i-1].Last, result.First); err != nil {
+				errStr = err.Error()
 			}
 		}
 		if errStr == "" {
