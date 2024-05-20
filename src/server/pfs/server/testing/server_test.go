@@ -2732,7 +2732,7 @@ func TestInspectFile3(t *testing.T) {
 
 	require.NoError(t, finishCommit(env.PachClient, repo, "", commit2.Id))
 
-	fi, err = env.PachClient.InspectFile(commit2, "foo")
+	_, err = env.PachClient.InspectFile(commit2, "foo")
 	require.NotNil(t, err)
 
 	fileContent3 := "bar\n"
