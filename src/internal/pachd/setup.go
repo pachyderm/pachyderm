@@ -13,6 +13,7 @@ import (
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	log_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
@@ -250,6 +251,7 @@ func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener,
 				authInterceptor.InterceptUnary,
 				loggingInterceptor.UnaryAnnounce,
 				validation.UnaryServerInterceptor,
+				recovery.UnaryServerInterceptor,
 			),
 			grpc.ChainStreamInterceptor(
 				baseContextInterceptor.StreamServerInterceptor,
@@ -260,6 +262,7 @@ func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener,
 				authInterceptor.InterceptStream,
 				loggingInterceptor.StreamAnnounce,
 				validation.StreamServerInterceptor,
+				recovery.StreamServerInterceptor,
 			),
 		)
 		reg(gs)
