@@ -31,13 +31,14 @@ type source struct {
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
 func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
+	validateFS := fileset.NewPathValidator(fs)
 	sc := &sourceConfig{}
 	for _, opt := range opts {
 		opt(sc)
 	}
 	s := &source{
 		commitInfo: commitInfo,
-		fileSet:    fileset.NewDirInserter(fileset.NewPathValidator(fs), sc.prefix),
+		fileSet:    fileset.NewDirInserter(validateFS, sc.prefix),
 		dirIndexOpts: []index.Option{
 			index.WithPrefix(sc.prefix),
 			index.WithDatum(sc.datum),

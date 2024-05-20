@@ -16,40 +16,35 @@ type pathValidator struct {
 	fs FileSet
 }
 
-// NewPathValidator checks if there is collision between file and dir names.
+// NewPathValidator validates the paths in a file set.
 func NewPathValidator(fs FileSet) FileSet {
-	pf := &pathValidator{
+	return &pathValidator{
 		fs: fs,
 	}
-	return pf
 }
 
-func (pf *pathValidator) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+func (pv *pathValidator) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
 	ctx = pctx.Child(ctx, "pathIterator")
 	var prev *index.Index
-	var retErr error = nil
-	if err := pf.fs.Iterate(ctx, func(f File) error {
+	if err := pv.fs.Iterate(ctx, func(f File) error {
 		idx := f.Index()
-		if retErr == nil {
-			retErr = CheckIndex(prev, idx)
+		if retErr := CheckIndex(prev, idx); retErr != nil {
+			return retErr
 		}
 		prev = idx
 		return cb(f)
 	}, opts...); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if retErr != nil {
-		return errors.EnsureStack(retErr)
-	}
 	return nil
 }
 
-func (pf *pathValidator) IterateDeletes(_ context.Context, _ func(File) error, opts ...index.Option) error {
-	return errors.Errorf("iterating deletes in an path validator file set")
+func (pv *pathValidator) IterateDeletes(_ context.Context, _ func(File) error, opts ...index.Option) error {
+	return errors.Errorf("iterating deletes in a path validator file set")
 }
 
-func (pf *pathValidator) Shards(_ context.Context, _ ...index.Option) ([]*index.PathRange, error) {
-	return nil, errors.Errorf("sharding an path validator file set")
+func (pv *pathValidator) Shards(_ context.Context, _ ...index.Option) ([]*index.PathRange, error) {
+	return nil, errors.Errorf("sharding a path validator file set")
 }
 
 func CheckIndex(prev, curr *index.Index) error {

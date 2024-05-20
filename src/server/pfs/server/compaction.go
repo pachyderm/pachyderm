@@ -368,8 +368,8 @@ func processValidateTask(ctx context.Context, storage *fileset.Storage, task *Va
 			}
 			result.Last = idx
 			if result.Error == "" {
-				if indxErr := fileset.CheckIndex(prev, idx); indxErr != nil {
-					result.Error = indxErr.Error()
+				if err := fileset.CheckIndex(prev, idx); err != nil {
+					result.Error = err.Error()
 				}
 			}
 			prev = idx
