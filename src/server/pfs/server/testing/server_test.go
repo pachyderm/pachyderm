@@ -2727,6 +2727,7 @@ func TestInspectFile3(t *testing.T) {
 	require.NoError(t, env.PachClient.PutFile(commit2, "foo", strings.NewReader(fileContent2)))
 
 	_, err = env.PachClient.InspectFile(commit2, "foo")
+	// there is a collision between dir foo and file foo
 	require.NotNil(t, err)
 
 	require.NoError(t, finishCommit(env.PachClient, repo, "", commit2.Id))
