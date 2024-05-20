@@ -56,7 +56,6 @@ const (
 // GetLogs gets logs according its request and publishes them.  The pattern is
 // similar to that used when handling an HTTP request.
 func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, publisher ResponsePublisher) error {
-	fmt.Println("QQQ GetLogs start")
 	var direction = forwardLogDirection
 
 	if request == nil {
@@ -107,7 +106,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
 	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, uint(filter.TimeRange.Offset), direction, adapter.publish); err != nil {
-		fmt.Println("QQQ err", err)
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
 		case errors.As(err, &invalidBatchSizeErr):
@@ -155,7 +153,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	return nil
 }
 
-func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRequest) (string, func(*logs.LogMessage) bool, error) {
+func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRequest) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if request == nil {
 		return "", nil, errors.New("nil request")
 	}
@@ -177,12 +175,12 @@ func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRe
 			if query.Logql == "" {
 				return "", nil, adminLogQueryValidateErr("Logql", "Logql")
 			}
-			return query.Logql, func(*logs.LogMessage) bool { return true }, nil
+			return query.Logql, func(map[string]string, *logs.LogMessage) bool { return true }, nil
 		case *logs.AdminLogQuery_Pod:
 			if query.Pod == "" {
 				return "", nil, adminLogQueryValidateErr("Pod", "Pod")
 			}
-			return fmt.Sprintf(`{suite="pachyderm",pod=%q}`, query.Pod), func(*logs.LogMessage) bool { return true }, nil
+			return fmt.Sprintf(`{suite="pachyderm",pod=%q}`, query.Pod), func(map[string]string, *logs.LogMessage) bool { return true }, nil
 		case *logs.AdminLogQuery_PodContainer:
 			if query.PodContainer.Pod == "" {
 				return "", nil, adminLogQueryValidateErr("PodContainer", "Pod")
@@ -191,12 +189,12 @@ func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRe
 				return "", nil, adminLogQueryValidateErr("PodContainer", "Container")
 			}
 			return fmt.Sprintf(`{suite="pachyderm",pod=%q,container=%q}`, query.PodContainer.Pod, query.PodContainer.Container),
-				func(*logs.LogMessage) bool { return true }, nil
+				func(map[string]string, *logs.LogMessage) bool { return true }, nil
 		case *logs.AdminLogQuery_App:
 			if query.App == "" {
 				return "", nil, adminLogQueryValidateErr("App", "App")
 			}
-			return fmt.Sprintf(`{suite="pachyderm",app=%q}`, query.App), func(*logs.LogMessage) bool { return true }, nil
+			return fmt.Sprintf(`{suite="pachyderm",app=%q}`, query.App), func(map[string]string, *logs.LogMessage) bool { return true }, nil
 		case *logs.AdminLogQuery_Master:
 			pipeline := query.Master.Pipeline
 			project := query.Master.Project
@@ -206,7 +204,7 @@ func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRe
 			if project == "" {
 				return "", nil, adminLogQueryValidateErr("Master", "Project")
 			}
-			return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline), func(msg *logs.LogMessage) bool {
+			return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline), func(labels map[string]string, msg *logs.LogMessage) bool {
 				if msg.GetPpsLogMessage().Master {
 					return true
 				}
@@ -231,7 +229,7 @@ func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRe
 				return "", nil, adminLogQueryValidateErr("Storage", "Project")
 			}
 			return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="storage",pipelineProject=%q,pipelineName=%q}`, project, pipeline),
-				func(*logs.LogMessage) bool {
+				func(map[string]string, *logs.LogMessage) bool {
 					return true
 				}, nil
 		case *logs.AdminLogQuery_User:
@@ -244,7 +242,7 @@ func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRe
 	}
 }
 
-func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.UserLogQuery, checkAuth bool) (string, func(*logs.LogMessage) bool, error) {
+func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.UserLogQuery, checkAuth bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	switch query := query.GetUserType().(type) {
 	case *logs.UserLogQuery_Pipeline:
 		pipeline := query.Pipeline.Pipeline
@@ -282,7 +280,7 @@ func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.Use
 	}
 }
 
-func (ls LogService) compilePipelineLogsReq(project, pipeline string) (string, func(*logs.LogMessage) bool, error) {
+func (ls LogService) compilePipelineLogsReq(project, pipeline string) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if pipeline == "" {
 		return "", nil, userLogQueryValidateErr("Pipeline", "Pipeline")
 	}
@@ -290,7 +288,7 @@ func (ls LogService) compilePipelineLogsReq(project, pipeline string) (string, f
 		return "", nil, userLogQueryValidateErr("Pipeline", "Project")
 	}
 	return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline),
-		func(msg *logs.LogMessage) bool {
+		func(labels map[string]string, msg *logs.LogMessage) bool {
 			if msg.GetPpsLogMessage().GetUser() {
 				return true
 			}
@@ -307,14 +305,14 @@ func (ls LogService) compilePipelineLogsReq(project, pipeline string) (string, f
 		}, nil
 }
 
-func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum string, checkAuth bool, authCache map[string]bool) (string, func(*logs.LogMessage) bool, error) {
+func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if job == "" {
 		return "", nil, userLogQueryValidateErr("JobDatum", "Job")
 	}
 	if datum == "" {
 		return "", nil, userLogQueryValidateErr("JobDatum", "Datum")
 	}
-	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), func(msg *logs.LogMessage) bool {
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), func(labels map[string]string, msg *logs.LogMessage) bool {
 		logDatumId := msg.GetPpsLogMessage().GetDatumId()
 		logJobId := msg.GetPpsLogMessage().GetJobId()
 		if logJobId != "" && logDatumId != "" {
@@ -335,17 +333,17 @@ func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum str
 			}
 		}
 		if checkAuth {
-			return ls.authLogMessage(ctx, msg, authCache)
+			return ls.authLogMessage(ctx, labels, msg, authCache)
 		}
 		return true
 	}, nil
 }
 
-func (ls LogService) compileDatumsLogsReq(ctx context.Context, datum string, checkAuth bool, authCache map[string]bool) (string, func(*logs.LogMessage) bool, error) {
+func (ls LogService) compileDatumsLogsReq(ctx context.Context, datum string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if datum == "" {
 		return "", nil, userLogQueryValidateErr("Datum", "Datum")
 	}
-	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), func(msg *logs.LogMessage) bool {
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), func(labels map[string]string, msg *logs.LogMessage) bool {
 		if msg.GetPpsLogMessage().GetDatumId() != "" && msg.GetPpsLogMessage().GetDatumId() != datum {
 			return false
 		}
@@ -360,29 +358,29 @@ func (ls LogService) compileDatumsLogsReq(ctx context.Context, datum string, che
 			}
 		}
 		if checkAuth {
-			return ls.authLogMessage(ctx, msg, authCache)
+			return ls.authLogMessage(ctx, labels, msg, authCache)
 		}
 		return true
 	}, nil
 }
 
-func (ls LogService) compileProjectLogsReq(ctx context.Context, project string, checkAuth bool, authCache map[string]bool) (string, func(*logs.LogMessage) bool, error) {
+func (ls LogService) compileProjectLogsReq(ctx context.Context, project string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if project == "" {
 		return "", nil, userLogQueryValidateErr("Project", "Project")
 	}
-	return fmt.Sprintf(`{suite="pachyderm",app="pipeline",pipelineProject=%q}`, project), func(msg *logs.LogMessage) bool {
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline",pipelineProject=%q}`, project), func(labels map[string]string, msg *logs.LogMessage) bool {
 		if checkAuth {
-			return ls.authLogMessage(ctx, msg, authCache)
+			return ls.authLogMessage(ctx, labels, msg, authCache)
 		}
 		return true
 	}, nil
 }
 
-func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAuth bool, authCache map[string]bool) (string, func(*logs.LogMessage) bool, error) {
+func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if job == "" {
 		return "", nil, userLogQueryValidateErr("Job", "Job")
 	}
-	return `{suite="pachyderm",app="pipeline"}`, func(msg *logs.LogMessage) bool {
+	return `{suite="pachyderm",app="pipeline"}`, func(labels map[string]string, msg *logs.LogMessage) bool {
 		if msg.GetPpsLogMessage().GetJobId() != "" && msg.GetPpsLogMessage().GetJobId() != job {
 			return false
 		}
@@ -397,13 +395,13 @@ func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAut
 			}
 		}
 		if checkAuth {
-			return ls.authLogMessage(ctx, msg, authCache)
+			return ls.authLogMessage(ctx, labels, msg, authCache)
 		}
 		return true
 	}, nil
 }
 
-func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (string, func(*logs.LogMessage) bool, error) {
+func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if project == "" {
 		return "", nil, userLogQueryValidateErr("PipelineJob", "Project")
 	}
@@ -413,7 +411,7 @@ func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (s
 	if job == "" {
 		return "", nil, userLogQueryValidateErr("PipelineJob", "Job")
 	}
-	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), func(msg *logs.LogMessage) bool {
+	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), func(labels map[string]string, msg *logs.LogMessage) bool {
 		if msg.GetPpsLogMessage().GetJobId() == job {
 			return true
 		}
@@ -431,11 +429,17 @@ func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (s
 
 }
 
-func (ls LogService) authLogMessage(ctx context.Context, msg *logs.LogMessage, cache map[string]bool) bool {
-	pipeline := msg.GetPpsLogMessage().GetPipelineName()
-	project := msg.GetPpsLogMessage().GetProjectName()
-	if pipeline != "" && project != "" {
-		return ls.authPipelineLogs(ctx, pipeline, project, cache)
+func (ls LogService) authLogMessage(ctx context.Context, labels map[string]string, msg *logs.LogMessage, cache map[string]bool) bool {
+	var (
+		authed, labelsDenied, ppsLogMessageDenied, objectDenied bool
+	)
+	if labels != nil && labels["pipelineProject"] != "" && labels["pipelineName"] != "" {
+		authed = true
+		labelsDenied = !ls.authPipelineLogs(ctx, labels["pipelineName"], labels["pipelineProject"], cache)
+	}
+	if ppsLogMessage := msg.GetPpsLogMessage(); ppsLogMessage != nil && ppsLogMessage.ProjectName != "" && ppsLogMessage.PipelineName != "" {
+		authed = true
+		ppsLogMessageDenied = !ls.authPPSLogMessage(ctx, ppsLogMessage, cache)
 	}
 	ff := msg.GetObject().GetFields()
 	if ff != nil {
@@ -443,11 +447,21 @@ func (ls LogService) authLogMessage(ctx context.Context, msg *logs.LogMessage, c
 		if ok {
 			project, ok := ff["projectName"]
 			if ok {
-				return ls.authPipelineLogs(ctx, pipeline.GetStringValue(), project.GetStringValue(), cache)
+				authed = true
+				if !objectDenied { // once denied, don’t recheck
+					objectDenied = !ls.authPipelineLogs(ctx, pipeline.GetStringValue(), project.GetStringValue(), cache)
+				}
 			}
 		}
 	}
-	return false
+	// At least one auth source must be checked, and none must fail.
+	return authed && !(labelsDenied || ppsLogMessageDenied || objectDenied)
+}
+
+func (ls LogService) authPPSLogMessage(ctx context.Context, msg *pps.LogMessage, cache map[string]bool) bool {
+	pipeline := msg.GetPipelineName()
+	project := msg.GetProjectName()
+	return ls.authPipelineLogs(ctx, pipeline, project, cache)
 }
 
 func (ls LogService) authPipelineLogs(ctx context.Context, pipeline, project string, cache map[string]bool) bool {
@@ -484,12 +498,13 @@ type adapter struct {
 	responsePublisher ResponsePublisher
 	first, last       time.Time
 	gotFirst          bool
-	pass              func(*logs.LogMessage) bool
-	offset            uint
-	count             uint
+	// If pass returns false, the message will not be published.
+	pass   func(map[string]string, *logs.LogMessage) bool
+	offset uint
+	count  uint
 }
 
-func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
+func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry loki.Entry) (bool, error) {
 	var msg = &logs.LogMessage{
 		Verbatim: &logs.VerbatimLogMessage{
 			Line:      []byte(entry.Line),
@@ -517,7 +532,7 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
 		msg.NativeTimestamp = msg.PpsLogMessage.Ts
 	}
 
-	if a.pass != nil && !a.pass(msg) {
+	if a.pass != nil && !a.pass(map[string]string(labels), msg) {
 		return true, nil
 	}
 	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
