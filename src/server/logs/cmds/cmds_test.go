@@ -542,21 +542,35 @@ func TestGetLogs_from_to(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	var (
-		ctx          = pctx.TestContext(t)
-		buildEntries = func() []loki.Entry {
-			var entries []loki.Entry
-			for i := -99; i <= 0; i++ {
-				entries = append(entries, loki.Entry{
-					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
-					Line:      fmt.Sprintf("%v foo", i),
-				})
+
+	ctx := pctx.TestContext(t)
+	aloki, err := testloki.New(ctx, t.TempDir())
+	if err != nil {
+		t.Fatalf("could not create test Loki: %v", err)
+	}
+	for i := -99; i <= 0; i++ {
+		aloki.AddLog(ctx, &testloki.Log{
+			Time:    time.Now().Add(time.Duration(i) * time.Second),
+			Message: fmt.Sprintf(`{"user":true, "message":"%v foo"}`, i),
+			Labels: map[string]string{
+				"suite":           "pachyderm",
+				"app":             "pipeline",
+				"pipelineProject": pfs.DefaultProjectName,
+				"pipelineName":    "pipeline",
+				"container":       "user",
+			},
+		})
+	}
+
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
+		func(c *pachconfig.Configuration) {
+			u, err := url.Parse(aloki.Client.Address)
+			if err != nil {
+				panic(err)
 			}
-			return entries
-		}
-		env = realEnvWithLoki(ctx, t, buildEntries())
-		c   = env.PachClient
-	)
+			c.LokiHost, c.LokiPort = u.Hostname(), u.Port()
+		})
+	c := env.PachClient
 
 	to := time.Now().Add(-time.Second)
 	from := to.Add(-time.Hour)
