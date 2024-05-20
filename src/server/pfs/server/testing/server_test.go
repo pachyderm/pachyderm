@@ -2726,15 +2726,13 @@ func TestInspectFile3(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(commit2, "foo", strings.NewReader(fileContent2)))
 
-	fileInfo, err = env.PachClient.InspectFile(commit2, "foo")
-	require.NoError(t, err)
-	require.NotNil(t, fileInfo)
+	_, err = env.PachClient.InspectFile(commit2, "foo")
+	require.NotNil(t, err)
 
 	require.NoError(t, finishCommit(env.PachClient, repo, "", commit2.Id))
 
 	fi, err = env.PachClient.InspectFile(commit2, "foo")
-	require.NoError(t, err)
-	require.NotNil(t, fi)
+	require.NotNil(t, err)
 
 	fileContent3 := "bar\n"
 	commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
@@ -7631,8 +7629,8 @@ func TestWalkFileInvalid(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(commit2, "/a/a", &bytes.Buffer{}))
 
-	_, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", commit2.Id)
-	require.NoError(t, err)
+	_, err = env.PachClient.InspectFile(commit2, "/")
+	require.NotNil(t, err)
 
 	require.NotNil(t, env.PachClient.WalkFile(commit2, "/", func(fi *pfs.FileInfo) error {
 		fmt.Println(fi.File, fi.FileType)
