@@ -1,1 +1,1 @@
-https://docs.pachyderm.com/images/opencv/liberty.jpg
+https://docs.pachyderm.com/images/mldm/opencv/liberty.jpg
