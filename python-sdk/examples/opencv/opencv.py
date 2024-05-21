@@ -58,17 +58,17 @@ def main(client: Client):
         client.pfs.put_file_from_url(
             commit=commit,
             path="/liberty.jpg",
-            url="https://docs.pachyderm.com/images/opencv/liberty.jpg",
+            url="https://docs.pachyderm.com/images/mldm/opencv/liberty.jpg",
         )
         client.pfs.put_file_from_url(
             commit=commit,
             path="/kitten.jpg",
-            url="https://docs.pachyderm.com/images/opencv/kitten.jpg",
+            url="https://docs.pachyderm.com/images/mldm/opencv/kitten.jpg",
         )
         client.pfs.put_file_from_url(
             commit=commit,
             path="/robot.jpg",
-            url="https://docs.pachyderm.com/images/opencv/robot.jpg",
+            url="https://docs.pachyderm.com/images/mldm/opencv/robot.jpg",
         )
 
     # Wait for the commit (and its downstream commits) to finish
