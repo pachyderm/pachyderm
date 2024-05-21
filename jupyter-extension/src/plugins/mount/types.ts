@@ -1,18 +1,13 @@
 import {Contents} from '@jupyterlab/services';
-import {SplitPanel} from '@lumino/widgets';
+import {TabPanel} from '@lumino/widgets';
 import {JSONObject, ReadonlyJSONObject} from '@lumino/coreutils';
 
-export type mountState =
-  | 'unmounting'
-  | 'mounted'
-  | 'mounting'
-  | 'error'
-  | 'gone'
-  | 'discovering'
-  | 'unmounted'
-  | '';
-
-export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
+export type HealthCheckStatus =
+  | 'UNHEALTHY'
+  | 'HEALTHY_INVALID_CLUSTER'
+  | 'HEALTHY_NO_AUTH'
+  | 'HEALTHY_LOGGED_IN'
+  | 'HEALTHY_LOGGED_OUT';
 
 export type authorization = 'off' | 'none' | 'read' | 'write';
 
@@ -59,6 +54,10 @@ export type CurrentDatumResponse = {
   all_datums_received: boolean;
 };
 
+export type DownloadPath = {
+  path: string;
+};
+
 export type MountDatumResponse = {
   id: string;
   idx: number;
@@ -87,8 +86,12 @@ export type ProjectInfo = {
   created_at: string;
 };
 
+export type HealthCheck = {
+  status: HealthCheckStatus;
+  message?: string;
+};
+
 export type AuthConfig = {
-  cluster_status: clusterStatus;
   pachd_address?: string;
   server_cas?: string;
 };
@@ -96,7 +99,7 @@ export type AuthConfig = {
 export interface IMountPlugin {
   mountedRepos: Mount[];
   unmountedRepos: Repo[];
-  layout: SplitPanel;
+  layout: TabPanel;
   ready: Promise<void>;
 }
 
@@ -132,6 +135,7 @@ export type PpsConfig = {
   pipeline: Pipeline;
   image: string;
   requirements: string | null;
+  external_files: string | null;
   input_spec: string;
   port: string;
   gpu_mode: GpuMode;

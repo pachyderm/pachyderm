@@ -13,8 +13,8 @@ for the frontend extension.
 
 - JupyterLab >= 3.0
 
-- Python >=3.7,<4
-    - [pyenv](https://github.com/pyenv/pyenv) is a great way to manage and install different versions of python. You can check which version you are using by running `pyenv versions`. Our Python extension is built to be compatible with Python versions 3.7 to 3.10. Therefore, it is best to run the lowest version (3.7.x) for highest compatibility.
+- Python >=3.8,<4
+    - [pyenv](https://github.com/pyenv/pyenv) is a great way to manage and install different versions of python. You can check which version you are using by running `pyenv versions`. Our Python extension is built to be compatible with Python versions 3.8 to 3.10. Therefore, it is best to run the lowest version (3.8.x) for highest compatibility.
 
 - Node
     - If you are using [nvm](https://github.com/nvm-sh/nvm) first run `nvm install`. This will install and switch the version of node to the one defined in the `.nvmrc`. If you are upgrading the version of node used in the project, please check and make sure that the versions defined in the `.nvmrc`.
@@ -52,7 +52,7 @@ If you are running the frontend container on Linux, and want to be able to talk 
 Install the project in editable mode, and start JupyterLab
 
 ```
-pip install -e .
+pip install -e ".[dev]"
 jupyter labextension develop --overwrite
 
 # Server extension must be manually installed in develop mode, for example
@@ -115,7 +115,7 @@ Note: You will need NodeJS to build the extension package.
 # Change directory to the jupyterlab-pachyderm directory (top level of repo)
 # Make sure you are using a virtual environment
 # Install package in development mode
-pip install -e .
+pip install -e ".[dev]"
 # Link your development version of the extension with JupyterLab
 jupyter labextension develop . --overwrite
 # Server extension must be manually installed in develop mode
@@ -130,7 +130,7 @@ You can watch the source directory and run JupyterLab at the same time in differ
 # Watch the source directory in one terminal, automatically rebuilding when needed
 npm run watch
 # Run JupyterLab in another terminal
-jupyter lab --allow-root
+jupyter lab --allow-root --ip=0.0.0.0
 ```
 
 With the watch command running, every saved change will immediately be built locally and available in your running JupyterLab. Refresh JupyterLab to load the change in your browser (you may need to wait several seconds for the extension to be rebuilt).

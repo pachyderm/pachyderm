@@ -13,6 +13,7 @@ message CreateParallelDatumsTask {
   string file_set_id = 3;
   string base_file_set_id = 4;
   pfs_v2.PathRange path_range = 5;
+  string auth_token = 6;
 }
 
 message CreateParallelDatumsTaskResult {
@@ -27,6 +28,7 @@ message CreateSerialDatumsTask {
   pfs_v2.Commit base_meta_commit = 4;
   bool no_skip = 5;
   pfs_v2.PathRange path_range = 6;
+  string auth_token = 7;
 }
 
 message CreateSerialDatumsTaskResult {
@@ -40,6 +42,7 @@ message CreateDatumSetsTask {
   string file_set_id = 1;
   pfs_v2.PathRange path_range = 2;
   datum.SetSpec set_spec = 3;
+  string auth_token = 4;
 }
 
 message CreateDatumSetsTaskResult {

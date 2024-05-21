@@ -1,12 +1,23 @@
+from base64 import b64encode
+from pathlib import Path
+import json
+import traceback
+from typing import Optional
+from urllib.parse import urlparse
+
+import grpc
+import grpc.aio
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
 from jupyter_server.utils import url_path_join
-import asyncio
-import grpc
-import json
+import os
 from pachyderm_sdk import Client, errors
+from pachyderm_sdk.api import pfs
+from pachyderm_sdk.api.auth import AuthenticateRequest, AuthenticateResponse
+from pachyderm_sdk.config import ConfigFile, Context
 import tornado
-import traceback
+import tornado.concurrent
+import tornado.web
 
 from .log import get_logger
 from .pfs_manager import PFSManager, DatumManager
@@ -19,21 +30,77 @@ VERSION = "v2"
 
 
 class BaseHandler(APIHandler):
+    _no_client_error = tornado.web.HTTPError(
+        status_code=401, reason="no instantiated pachyderm client"
+    )
+
+    HEALTHCHECK_UNHEALTHY = "UNHEALTHY"
+    HEALTHCHECK_INVALID_CLUSTER = "HEALTHY_INVALID_CLUSTER"
+    HEALTHCHECK_NO_AUTH = "HEALTHY_NO_AUTH"
+    HEALTHCHECK_LOGGED_IN = "HEALTHY_LOGGED_IN"
+    HEALTHCHECK_LOGGED_OUT = "HEALTHY_LOGGED_OUT"
+
+    def status(self, client: Client) -> str:
+        """Determines the status of the client's connection to the cluster."""
+        try:
+            client.auth.who_am_i()
+        except grpc.RpcError as err:
+            err: grpc.Call
+            if err.code() == grpc.StatusCode.UNAUTHENTICATED:
+                return self.HEALTHCHECK_LOGGED_OUT
+            elif (
+                err.code() == grpc.StatusCode.UNIMPLEMENTED
+                and "the auth service is not activated" in err.details()
+            ):
+                return self.HEALTHCHECK_NO_AUTH
+            else:
+                return self.HEALTHCHECK_INVALID_CLUSTER
+        except errors.AuthServiceNotActivated:
+            return self.HEALTHCHECK_NO_AUTH
+        except ConnectionError:
+            # Cannot connect to Pachyderm
+            return self.HEALTHCHECK_INVALID_CLUSTER
+        else:
+            return self.HEALTHCHECK_LOGGED_IN
+
     @property
     def client(self) -> Client:
-        return self.settings["pachyderm_client"]
+        client = self.settings.get("pachyderm_client")
+        if client is None:
+            raise self._no_client_error
+        return client
+
+    @client.setter
+    def client(self, new_client: Client) -> None:
+        self.settings["pachyderm_client"] = new_client
+        self.settings["pfs_contents_manager"] = PFSManager(client=new_client)
+        self.settings["datum_contents_manager"] = DatumManager(client=new_client)
+        self.settings["pachyderm_pps_client"] = PPSClient(client=new_client)
+
+    @property
+    def config_file(self) -> Path:
+        return self.settings["pachyderm_config_file"]
 
     @property
     def pfs_manager(self) -> PFSManager:
-        return self.settings["pfs_contents_manager"]
+        pfs_manager = self.settings.get("pfs_contents_manager")
+        if pfs_manager is None:
+            raise self._no_client_error
+        return pfs_manager
 
     @property
     def datum_manager(self) -> DatumManager:
-        return self.settings["datum_contents_manager"]
+        datum_manager = self.settings.get("datum_contents_manager")
+        if datum_manager is None:
+            raise self._no_client_error
+        return datum_manager
 
     @property
     def pps_client(self) -> PPSClient:
-        return self.settings["pachyderm_pps_client"]
+        pps_client = self.settings.get("pachyderm_pps_client")
+        if pps_client is None:
+            raise self._no_client_error
+        return pps_client
 
 
 class MountsHandler(BaseHandler):
@@ -148,6 +215,14 @@ class MountDatumsHandler(BaseHandler):
             response = self.datum_manager.datum_state()
             get_logger().debug(f"Mount datums: {response}")
             self.finish(response)
+        except ValueError as e:
+            get_logger().error(
+                f"Error mounting datums with invalid input {body}", exc_info=True
+            )
+            raise tornado.web.HTTPError(
+                status_code=getattr(e, "code", 400),
+                reason=f"Error mounting datums with invalid input {body}: {e}.",
+            )
         except Exception as e:
             get_logger().error(
                 f"Error mounting datums with input {body}", exc_info=True
@@ -194,8 +269,8 @@ class DatumDownloadHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
-            self.datum_manager.download()
-            self.finish()
+            path = self.datum_manager.download()
+            self.finish(json.dumps({"path": path}))
         except ValueError as e:
             get_logger().error(f"Invalid datum download: {e}")
             raise tornado.web.HTTPError(
@@ -247,12 +322,21 @@ class PFSHandler(ContentsHandler):
         if content not in {"0", "1"}:
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = bool(int(content))
+        pagination_marker = None
+        pagination_marker_uri = self.get_query_argument(
+            "pagination_marker", default=None
+        )
+        if pagination_marker_uri:
+            pagination_marker = pfs.File.from_uri(pagination_marker_uri)
+        number = int(self.get_query_argument("number", default="100"))
 
         model = self.pfs_manager.get(
             path=path,
             type=type,
             format=format,
             content=content,
+            pagination_marker=pagination_marker,
+            number=number,
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
@@ -281,104 +365,154 @@ class ViewDatumHandler(ContentsHandler):
         if content not in {"0", "1"}:
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = int(content)
+        pagination_marker = None
+        pagination_marker_uri = self.get_query_argument(
+            "pagination_marker", default=None
+        )
+        if pagination_marker_uri:
+            pagination_marker = pfs.File.from_uri(pagination_marker_uri)
+        number = int(self.get_query_argument("number", default="100"))
 
         model = self.datum_manager.get(
             path=path,
             type=type,
             format=format,
             content=content,
+            pagination_marker=pagination_marker,
+            number=number,
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
 
 
-# TODO: see about writing to/from config file
 class ConfigHandler(BaseHandler):
-    CLUSTER_AUTH_ENABLED = "AUTH_ENABLED"
-    CLUSTER_AUTH_DISABLED = "AUTH_DISABLED"
-    CLUSTER_INVALID = "INVALID"
-
-    def config_response(self) -> bytes:
-        if not self.client:
-            return json.dumps({"cluster_status": self.CLUSTER_INVALID})
-
-        try:
-            self.client.auth.who_am_i()
-            cluster_status = self.CLUSTER_AUTH_ENABLED
-        except grpc.RpcError as err:
-            if err.code() == grpc.StatusCode.UNAUTHENTICATED:
-                cluster_status = self.CLUSTER_AUTH_ENABLED
-            elif (
-                err.code() == grpc.StatusCode.UNIMPLEMENTED
-                and "the auth service is not activated" in err.details()
-            ):
-                cluster_status = self.CLUSTER_AUTH_DISABLED
-            else:
-                cluster_status = self.CLUSTER_INVALID
-        except errors.AuthServiceNotActivated:
-            cluster_status = self.CLUSTER_AUTH_DISABLED
-        except ConnectionError:
-            cluster_status = self.CLUSTER_INVALID
-
-        return json.dumps(
-            {"cluster_status": cluster_status, "pachd_address": self.client.address}
-        )
-
+    # TODO: should we return server CAs?
     @tornado.web.authenticated
     async def put(self):
-        try:
-            body = self.get_json_body()
-            address = body["pachd_address"]
-            cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
+        # Validate input.
+        body = self.get_json_body()
+        address = body.get("pachd_address")
+        if not address:
+            get_logger().error("config/put: no pachd address provided")
+            raise tornado.web.HTTPError(400, "no pachd address provided")
+        cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
 
-            if address.removeprefix("grpc://") != self.client.address or cas:
-                client = Client().from_pachd_address(
-                    pachd_address=address, root_certs=cas
-                )
-                self.settings["pachyderm_client"] = client
-                self.settings["pfs_contents_manager"] = PFSManager(client=client)
-                self.settings["datum_contents_manager"] = DatumManager(client=client)
-                self.settings["pachyderm_pps_client"] = PPSClient(client=client)
+        # Attempt to instantiate client and test connection
+        client = Client.from_pachd_address(address, root_certs=cas)
+        cluster_status = self.status(client)
+        get_logger().info(f"({address}) cluster status: {cluster_status}")
 
-            response = self.config_response()
-            self.finish(response)
-        except Exception as e:
-            get_logger().error(
-                f"Error updating config with endpoint {body['pachd_address']}.",
-                exc_info=True,
-            )
-            raise tornado.web.HTTPError(
-                status_code=500,
-                reason=f"Error updating config with endpoint {body['pachd_address']}: {e}.",
-            )
+        if cluster_status == self.HEALTHCHECK_UNHEALTHY:
+            raise tornado.web.HTTPError(500, "An error occurred.")
+        elif cluster_status == self.HEALTHCHECK_INVALID_CLUSTER:
+            raise tornado.web.HTTPError(400, f"Could not connect to {address}")
+        else:
+            self.client = client  # Set client only if valid.
+            # Attempt to write new pachyderm context to config.
+            try:
+                write_config(self.config_file, client.address, client.root_certs, None)
+            except RuntimeError as e:
+                get_logger().error(f"Error writing local config: {e}.", exc_info=True)
+
+        payload = {"pachd_address": client.address}
+        await self.finish(json.dumps(payload))
 
     @tornado.web.authenticated
     async def get(self):
+        # Try to get a pachyderm client.
         try:
-            response = self.config_response()
-            self.finish(response)
-        except Exception as e:
-            get_logger().error("Error getting config.", exc_info=True)
-            raise tornado.web.HTTPError(
-                status_code=500, reason=f"Error getting config: {e}."
-            )
+            client = self.client
+        except tornado.web.HTTPError:
+            payload = {"pachd_address": ""}
+        else:
+            payload = {"pachd_address": client.address}
+        await self.finish(json.dumps(payload))
+
+
+class HealthHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def get(self):
+        try:
+            client = self.client
+        except tornado.web.HTTPError:
+            # client not instantiated, user needs to configure the Pachyderm cluster
+            status = self.HEALTHCHECK_INVALID_CLUSTER
+        else:
+            try:
+                status = self.status(client)
+            except Exception as e:
+                await self.finish(
+                    json.dumps(
+                        {
+                            "status": self.HEALTHCHECK_UNHEALTHY,
+                            "message": e,
+                        }
+                    )
+                )
+                return
+        await self.finish(json.dumps({"status": status}))
 
 
 class AuthLoginHandler(BaseHandler):
-    async def get_token(self, oidc_state: str):
-        token = self.client.auth.authenticate(oidc_state=oidc_state).pach_token
-        self.settings["pachyderm_client"].auth_token = token
-        self.settings["pfs_contents_manager"] = PFSManager(client=self.client)
-        self.settings["datum_contents_manager"] = DatumManager(client=self.client)
-        self.settings["pachyderm_pps_client"] = PPSClient(client=self.client)
-
     @tornado.web.authenticated
     async def put(self):
+        client = self.client
         try:
-            oidc_response = self.client.auth.get_oidc_login()
-            asyncio.create_task(self.get_token(oidc_response.state))
+            # Note: The auth workflow is for the backend to initiate the process by
+            # calling auth.get_oidc_login() which returns a url for the user to login
+            # with, and a state token that the backend can use to complete the workflow.
+            # Therefore, we send the url to the frontend for the user to login with and
+            # wait until the server has created a new session token, which we then retrieve.
+            oidc_response = client.auth.get_oidc_login()
+
+            # The login url will always specify the http protocol. If the user is connecting
+            # over a secure https/grpcs connection, we should update the url to reflect this.
+            # Checking if root certificates exists on the client is the best proxy currently
+            # available to check if the client is communicating over a secure grpc channel.
+            if client.root_certs is not None:
+                # Usage of _replace method comes from urlparse documentation:
+                #   https://docs.python.org/3/library/urllib.parse.html#urllib.parse.urlparse
+                # noinspection PyProtectedMember
+                oidc_response.login_url = (
+                    urlparse(oidc_response.login_url)._replace(scheme="https").geturl()
+                )
+
             response = oidc_response.to_json()
-            self.finish(response)
+            await self.finish(response)
+
+            # Unfortunately, there doesn't seem to be a way for us to use the synchronous
+            # version of client.auth.authenticate because it is blocking -- using it blocks
+            # the entire server until either the user successfully logs in or the OIDC login
+            # attempt times out. So, we need to manually do this Authenticate asynchronously.
+            async with grpc.aio.insecure_channel(client.address) as channel:
+                async_authenticate = channel.unary_unary(
+                    "/auth_v2.API/Authenticate",
+                    request_serializer=AuthenticateRequest.SerializeToString,
+                    response_deserializer=AuthenticateResponse.FromString,
+                )
+                try:
+                    response = await async_authenticate(
+                        AuthenticateRequest(oidc_state=oidc_response.state),
+                    )
+                except grpc.RpcError as err:
+                    # If the user opens several login attempts, we don't have a clear
+                    # mechanism to cull them after they have successfully logged in.
+                    # When the call inevitably times out, we don't raise and log a warning.
+                    details = err.details()
+                    if "OIDC state token expired" in details:
+                        get_logger().warning(details)
+                        return
+                    raise err
+                token = response.pach_token
+            client.auth_token = token
+
+            # Attempt to write new pachyderm context to config.
+            try:
+                write_config(self.config_file, client.address, client.root_certs, token)
+            except RuntimeError as e:
+                get_logger().error(f"Error updating local config: {e}.", exc_info=True)
+                raise tornado.web.HTTPError(500, f"Error updating local config: {e}.")
+
         except Exception as e:
             get_logger().error("Error logging in to auth.", exc_info=True)
             raise tornado.web.HTTPError(
@@ -391,22 +525,12 @@ class AuthLogoutHandler(BaseHandler):
     async def put(self):
         try:
             self.client.auth_token = None
-            self.settings["pfs_contents_manager"] = PFSManager(client=self.client)
-            self.settings["datum_contents_manager"] = DatumManager(client=self.client)
-            self.settings["pachyderm_pps_client"] = PPSClient(client=self.client)
-            self.finish()
+            await self.finish()
         except Exception as e:
             get_logger().error("Error logging out of auth.", exc_info=True)
             raise tornado.web.HTTPError(
                 status_code=500, reason=f"Error logging out of auth: {e}."
             )
-
-
-class HealthHandler(BaseHandler):
-    @tornado.web.authenticated
-    async def get(self):
-        response = {"status": "running"}
-        self.finish(response)
 
 
 class PPSCreateHandler(BaseHandler):
@@ -444,22 +568,130 @@ class PPSCreateHandler(BaseHandler):
             raise e
 
 
-def setup_handlers(web_app):
+class ExploreDownloadHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self, path):
+        try:
+            self.pfs_manager.download_file(path=path)
+        except FileExistsError:
+            raise tornado.web.HTTPError(
+                status_code=400,
+                reason=f"Downloading {Path(path).name} which already exists in the current working directory",
+            )
+        except ValueError as e:
+            raise tornado.web.HTTPError(status_code=400, reason=e)
+        except Exception as e:
+            raise tornado.web.HTTPError(status_code=500, reason=e)
+        await self.finish()
+
+
+class TestDownloadHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self, path):
+        try:
+            self.datum_manager.download_file(path=path)
+        except FileExistsError:
+            raise tornado.web.HTTPError(
+                status_code=400,
+                reason=f"Downloading {Path(path).name} which already exists in the current working directory",
+            )
+        except ValueError as e:
+            raise tornado.web.HTTPError(status_code=400, reason=e)
+        except Exception as e:
+            raise tornado.web.HTTPError(status_code=500, reason=e)
+        await self.finish()
+
+
+def write_config(
+    config_file: Path,
+    pachd_address: str,
+    server_cas: Optional[bytes],
+    session_token: Optional[str],
+) -> None:
+    """Writes the pachd_address/server_cas context to a local config file.
+    This will create a new config file if file does not already exist.
+
+    Parameters
+    ----------
+    config_file : pathlib.Path
+        The location to write the config file.
+    pachd_address : str
+        The address to the pachd instance.
+    server_cas : bytes, optional
+        The certs used to establish TLS connections to the pachd instance.
+    session_token : str, optional
+        The pachyderm token used to authenticate your user session.
+
+    Raises
+    ------
+    RuntimeError: If unable to parse an already existing config file.
+    """
+    if server_cas is not None:
+        # server_cas are base64 encoded strings in the config file.
+        server_cas = b64encode(server_cas).decode("utf-8")
+    context = Context(
+        pachd_address=pachd_address,
+        session_token=session_token,
+        server_cas=server_cas,
+    )
+    name = f"jupyter-{pachd_address}"
+    if config_file.exists():
+        try:
+            config = ConfigFile.from_path(config_file)
+        except Exception:
+            raise RuntimeError(f"failed to load config file: {config_file}")
+        config.add_context(name, context, overwrite=True)
+    else:
+        config = ConfigFile.new_with_context(name, context)
+        os.makedirs(config_file.parent, exist_ok=True)
+    config.write(config_file)
+
+
+def setup_handlers(
+    web_app, config_file: Path, pachd_address: str = None, dex_token: str = None
+):
+    """
+    Sets up the Pachyderm client and the HTTP request handler.
+
+    Config for the Pachyderm client will first be attempted by reading
+    the local config file. This falls back to the PACHD_ADDRESS and
+    DEX_TOKEN env vars, and finally defaulting to a localhost client
+    on the default port 30650 failing that.
+    """
+    client = None
     try:
-        client = Client().from_config()
+        client = Client().from_config(config_file)
         get_logger().debug(
             f"Created Pachyderm client for {client.address} from local config"
         )
     except FileNotFoundError:
-        client = Client()
-        get_logger().debug(
-            "Could not find config file, creating localhost Pachyderm client"
-        )
+        if pachd_address:
+            client = Client().from_pachd_address(pachd_address=pachd_address)
+            if dex_token:
+                client.auth_token = client.auth.authenticate(
+                    id_token=dex_token
+                ).pach_token
+            get_logger().debug(
+                f"Created Pachyderm client for {client.address} from env var"
+            )
+            # Attempt to write new pachyderm context to config.
+            try:
+                write_config(config_file, client.address, client.root_certs, None)
+            except RuntimeError as e:
+                get_logger().error(f"Error writing local config: {e}.", exc_info=True)
+        else:
+            get_logger().debug(
+                "Could not find config file -- no pachyderm client instantiated"
+            )
 
-    web_app.settings["pachyderm_client"] = client
-    web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
-    web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
-    web_app.settings["datum_contents_manager"] = DatumManager(client=client)
+    if client:
+        web_app.settings["pachyderm_client"] = client
+        web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
+        web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
+        web_app.settings["datum_contents_manager"] = DatumManager(client=client)
+
+    # This value is used by the AuthHandler and ConfigHandler.
+    web_app.settings["pachyderm_config_file"] = config_file
 
     _handlers = [
         ("/mounts", MountsHandler),
@@ -475,9 +707,12 @@ def setup_handlers(web_app):
         (r"/pfs%s" % path_regex, PFSHandler),
         (r"/view_datum%s" % path_regex, ViewDatumHandler),
         ("/config", ConfigHandler),
+        ("/health", HealthHandler),
         ("/auth/_login", AuthLoginHandler),
         ("/auth/_logout", AuthLogoutHandler),
         (r"/pps/_create%s" % path_regex, PPSCreateHandler),
+        (r"/download/explore%s" % path_regex, ExploreDownloadHandler),
+        (r"/download/test%s" % path_regex, TestDownloadHandler),
     ]
 
     base_url = web_app.settings["base_url"]

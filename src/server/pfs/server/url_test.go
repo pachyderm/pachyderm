@@ -27,8 +27,9 @@ func TestSharding(t *testing.T) {
 	files := make(map[string]string)
 	testDir := "./testing/testdata/urlCoordination"
 	dir, err := os.ReadDir(testDir)
-	objStoreDir := randutil.UniqueString("url-coord-")
 	require.NoError(t, err, "should be able to read dir")
+	require.NotEqual(t, 0, len(dir), "dir should have files")
+	objStoreDir := randutil.UniqueString("url-coord-")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300000)
 	defer cancel()
 	bucket, err := openBucket(ctx, url)

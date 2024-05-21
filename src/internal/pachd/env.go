@@ -74,14 +74,16 @@ func LicenseEnv(senv serviceenv.ServiceEnv) *license_server.Env {
 }
 
 func PachwEnv(env serviceenv.ServiceEnv) (*pachw_server.Env, error) {
-	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix)
+	PFSEtcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix)
+	PPSEtcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix)
 	if env.AuthServer() == nil {
 		panic("auth server cannot be nil")
 	}
 	return &pachw_server.Env{
-		EtcdPrefix:        etcdPrefix,
+		EtcdPrefix:        env.Config().EtcdPrefix,
 		EtcdClient:        env.GetEtcdClient(),
-		TaskService:       env.GetTaskService(etcdPrefix),
+		PFSTaskService:    env.GetTaskService(PFSEtcdPrefix),
+		PPSTaskService:    env.GetTaskService(PPSEtcdPrefix),
 		KubeClient:        env.GetKubeClient(),
 		Namespace:         env.Config().Namespace,
 		MinReplicas:       env.Config().PachwMinReplicas,

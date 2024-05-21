@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "tracing",
+    srcs = ["tracing.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/tracing",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "@com_github_opentracing_contrib_go_grpc//:go-grpc",
+        "@com_github_opentracing_opentracing_go//:opentracing-go",
+        "@com_github_uber_jaeger_client_go//:jaeger-client-go",
+        "@com_github_uber_jaeger_client_go//config",
+        "@org_golang_google_grpc//:grpc",
+        "@org_uber_go_zap//:zap",
+    ],
+)

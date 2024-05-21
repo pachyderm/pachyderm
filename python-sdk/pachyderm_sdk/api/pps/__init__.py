@@ -10,11 +10,14 @@ from datetime import (
 )
 from typing import (
     TYPE_CHECKING,
+    AsyncIterable,
     AsyncIterator,
     Dict,
+    Iterable,
     Iterator,
     List,
     Optional,
+    Union,
 )
 
 import betterproto
@@ -187,9 +190,7 @@ class Egress(betterproto.Message):
     object_storage: "_pfs__.ObjectStorageEgress" = betterproto.message_field(
         2, group="target"
     )
-    sql_database: "_pfs__.SqlDatabaseEgress" = betterproto.message_field(
-        3, group="target"
-    )
+    sql_database: "_pfs__.SqlDatabaseEgress" = betterproto.message_field(3, group="target")
 
 
 @dataclass(eq=False, repr=False)
@@ -848,6 +849,41 @@ class ListDatumRequestFilter(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class StartCreateDatumRequest(betterproto.Message):
+    input: "Input" = betterproto.message_field(1)
+    """
+    Input is the input to list datums from. The datums listed are the ones
+    that would be run if a pipeline was created with the provided input.
+    """
+
+    number: int = betterproto.int32_field(2)
+    """
+    Number of datums to return in first batch. If 0, default batch size is
+    returned.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class ContinueCreateDatumRequest(betterproto.Message):
+    number: int = betterproto.int32_field(1)
+    """
+    Number of datums to return in next batch. If 0, default batch size is
+    returned.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class CreateDatumRequest(betterproto.Message):
+    """
+    Emits a stream of datums as they are created from the given input. Client
+    must cancel the stream when it no longer wants to receive datums.
+    """
+
+    start: "StartCreateDatumRequest" = betterproto.message_field(1, group="body")
+    continue_: "ContinueCreateDatumRequest" = betterproto.message_field(2, group="body")
+
+
+@dataclass(eq=False, repr=False)
 class DatumSetSpec(betterproto.Message):
     """
     DatumSetSpec specifies how a pipeline should split its datums into datum
@@ -1002,9 +1038,7 @@ class ListPipelineRequest(betterproto.Message):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.is_set("details"):
-            warnings.warn(
-                "ListPipelineRequest.details is deprecated", DeprecationWarning
-            )
+            warnings.warn("ListPipelineRequest.details is deprecated", DeprecationWarning)
 
 
 @dataclass(eq=False, repr=False)
@@ -1266,6 +1300,7 @@ class SetProjectDefaultsResponse(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_inspect_job = channel.unary_unary(
             "/pps_v2.API/InspectJob",
@@ -1310,6 +1345,11 @@ class ApiStub:
         self.__rpc_list_datum = channel.unary_stream(
             "/pps_v2.API/ListDatum",
             request_serializer=ListDatumRequest.SerializeToString,
+            response_deserializer=DatumInfo.FromString,
+        )
+        self.__rpc_create_datum = channel.stream_stream(
+            "/pps_v2.API/CreateDatum",
+            request_serializer=CreateDatumRequest.SerializeToString,
             response_deserializer=DatumInfo.FromString,
         )
         self.__rpc_restart_datum = channel.unary_unary(
@@ -1471,6 +1511,7 @@ class ApiStub:
     def inspect_job(
         self, *, job: "Job" = None, wait: bool = False, details: bool = False
     ) -> "JobInfo":
+
         request = InspectJobRequest()
         if job is not None:
             request.job = job
@@ -1482,6 +1523,7 @@ class ApiStub:
     def inspect_job_set(
         self, *, job_set: "JobSet" = None, wait: bool = False, details: bool = False
     ) -> Iterator["JobInfo"]:
+
         request = InspectJobSetRequest()
         if job_set is not None:
             request.job_set = job_set
@@ -1502,7 +1544,7 @@ class ApiStub:
         jq_filter: str = "",
         pagination_marker: datetime = None,
         number: int = 0,
-        reverse: bool = False
+        reverse: bool = False,
     ) -> Iterator["JobInfo"]:
         projects = projects or []
         input_commit = input_commit or []
@@ -1533,7 +1575,7 @@ class ApiStub:
         pagination_marker: datetime = None,
         number: int = 0,
         reverse: bool = False,
-        jq_filter: str = ""
+        jq_filter: str = "",
     ) -> Iterator["JobSetInfo"]:
         projects = projects or []
 
@@ -1553,6 +1595,7 @@ class ApiStub:
     def subscribe_job(
         self, *, pipeline: "Pipeline" = None, details: bool = False
     ) -> Iterator["JobInfo"]:
+
         request = SubscribeJobRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1561,9 +1604,8 @@ class ApiStub:
         for response in self.__rpc_subscribe_job(request):
             yield response
 
-    def delete_job(
-        self, *, job: "Job" = None
-    ) -> "betterproto_lib_google_protobuf.Empty":
+    def delete_job(self, *, job: "Job" = None) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteJobRequest()
         if job is not None:
             request.job = job
@@ -1573,6 +1615,7 @@ class ApiStub:
     def stop_job(
         self, *, job: "Job" = None, reason: str = ""
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = StopJobRequest()
         if job is not None:
             request.job = job
@@ -1581,6 +1624,7 @@ class ApiStub:
         return self.__rpc_stop_job(request)
 
     def inspect_datum(self, *, datum: "Datum" = None) -> "DatumInfo":
+
         request = InspectDatumRequest()
         if datum is not None:
             request.datum = datum
@@ -1595,8 +1639,9 @@ class ApiStub:
         filter: "ListDatumRequestFilter" = None,
         pagination_marker: str = "",
         number: int = 0,
-        reverse: bool = False
+        reverse: bool = False,
     ) -> Iterator["DatumInfo"]:
+
         request = ListDatumRequest()
         if job is not None:
             request.job = job
@@ -1609,6 +1654,16 @@ class ApiStub:
         request.reverse = reverse
 
         for response in self.__rpc_list_datum(request):
+            yield response
+
+    def create_datum(
+        self,
+        request_iterator: Union[
+            AsyncIterable["CreateDatumRequest"], Iterable["CreateDatumRequest"]
+        ],
+    ) -> Iterator["DatumInfo"]:
+
+        for response in self.__rpc_create_datum(request_iterator):
             yield response
 
     def restart_datum(
@@ -1626,6 +1681,7 @@ class ApiStub:
     def rerun_pipeline(
         self, *, pipeline: "Pipeline" = None, reprocess: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = RerunPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1668,7 +1724,7 @@ class ApiStub:
         sidecar_resource_requests: "ResourceSpec" = None,
         dry_run: bool = False,
         determined: "Determined" = None,
-        maximum_expected_uptime: timedelta = None
+        maximum_expected_uptime: timedelta = None,
     ) -> "betterproto_lib_google_protobuf.Empty":
         tolerations = tolerations or []
 
@@ -1736,8 +1792,9 @@ class ApiStub:
         create_pipeline_request_json: str = "",
         dry_run: bool = False,
         update: bool = False,
-        reprocess: bool = False
+        reprocess: bool = False,
     ) -> "CreatePipelineV2Response":
+
         request = CreatePipelineV2Request()
         request.create_pipeline_request_json = create_pipeline_request_json
         request.dry_run = dry_run
@@ -1749,6 +1806,7 @@ class ApiStub:
     def inspect_pipeline(
         self, *, pipeline: "Pipeline" = None, details: bool = False
     ) -> "PipelineInfo":
+
         request = InspectPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1764,7 +1822,7 @@ class ApiStub:
         details: bool = False,
         jq_filter: str = "",
         commit_set: "_pfs__.CommitSet" = None,
-        projects: Optional[List["_pfs__.Project"]] = None
+        projects: Optional[List["_pfs__.Project"]] = None,
     ) -> Iterator["PipelineInfo"]:
         projects = projects or []
 
@@ -1789,8 +1847,9 @@ class ApiStub:
         all: bool = False,
         force: bool = False,
         keep_repo: bool = False,
-        must_exist: bool = False
+        must_exist: bool = False,
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeletePipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1807,7 +1866,7 @@ class ApiStub:
         projects: Optional[List["_pfs__.Project"]] = None,
         force: bool = False,
         keep_repo: bool = False,
-        all: bool = False
+        all: bool = False,
     ) -> "DeletePipelinesResponse":
         projects = projects or []
 
@@ -1823,6 +1882,7 @@ class ApiStub:
     def start_pipeline(
         self, *, pipeline: "Pipeline" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = StartPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1832,6 +1892,7 @@ class ApiStub:
     def stop_pipeline(
         self, *, pipeline: "Pipeline" = None, must_exist: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = StopPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1844,7 +1905,7 @@ class ApiStub:
         *,
         pipeline: "Pipeline" = None,
         provenance: Optional[List["_pfs__.Commit"]] = None,
-        job_id: str = ""
+        job_id: str = "",
     ) -> "betterproto_lib_google_protobuf.Empty":
         provenance = provenance or []
 
@@ -1860,6 +1921,7 @@ class ApiStub:
     def run_cron(
         self, *, pipeline: "Pipeline" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = RunCronRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1869,6 +1931,7 @@ class ApiStub:
     def check_status(
         self, *, all: bool = False, project: "_pfs__.Project" = None
     ) -> Iterator["CheckStatusResponse"]:
+
         request = CheckStatusRequest()
         request.all = all
         if project is not None:
@@ -1880,6 +1943,7 @@ class ApiStub:
     def create_secret(
         self, *, file: bytes = b""
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = CreateSecretRequest()
         request.file = file
 
@@ -1888,6 +1952,7 @@ class ApiStub:
     def delete_secret(
         self, *, secret: "Secret" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteSecretRequest()
         if secret is not None:
             request.secret = secret
@@ -1895,11 +1960,13 @@ class ApiStub:
         return self.__rpc_delete_secret(request)
 
     def list_secret(self) -> "SecretInfos":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_list_secret(request)
 
     def inspect_secret(self, *, secret: "Secret" = None) -> "SecretInfo":
+
         request = InspectSecretRequest()
         if secret is not None:
             request.secret = secret
@@ -1907,6 +1974,7 @@ class ApiStub:
         return self.__rpc_inspect_secret(request)
 
     def delete_all(self) -> "betterproto_lib_google_protobuf.Empty":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_delete_all(request)
@@ -1922,7 +1990,7 @@ class ApiStub:
         follow: bool = False,
         tail: int = 0,
         use_loki_backend: bool = False,
-        since: timedelta = None
+        since: timedelta = None,
     ) -> Iterator["LogMessage"]:
         data_filters = data_filters or []
 
@@ -1945,6 +2013,7 @@ class ApiStub:
             yield response
 
     def activate_auth(self) -> "ActivateAuthResponse":
+
         request = ActivateAuthRequest()
 
         return self.__rpc_activate_auth(request)
@@ -1961,8 +2030,9 @@ class ApiStub:
         data_failed: int = 0,
         data_recovered: int = 0,
         data_total: int = 0,
-        stats: "ProcessStats" = None
+        stats: "ProcessStats" = None,
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = UpdateJobStateRequest()
         if job is not None:
             request.job = job
@@ -1987,8 +2057,9 @@ class ApiStub:
         seed: int = 0,
         parallelism: int = 0,
         pod_patch: str = "",
-        state_id: str = ""
+        state_id: str = "",
     ) -> "RunLoadTestResponse":
+
         request = RunLoadTestRequest()
         request.dag_spec = dag_spec
         request.load_spec = load_spec
@@ -2000,6 +2071,7 @@ class ApiStub:
         return self.__rpc_run_load_test(request)
 
     def run_load_test_default(self) -> "RunLoadTestResponse":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_run_load_test_default(request)
@@ -2007,6 +2079,7 @@ class ApiStub:
     def render_template(
         self, *, template: str = "", args: Dict[str, str] = None
     ) -> "RenderTemplateResponse":
+
         request = RenderTemplateRequest()
         request.template = template
         request.args = args
@@ -2014,6 +2087,7 @@ class ApiStub:
         return self.__rpc_render_template(request)
 
     def list_task(self, *, group: "Group" = None) -> Iterator["_taskapi__.TaskInfo"]:
+
         request = _taskapi__.ListTaskRequest()
         if group is not None:
             request.group = group
@@ -2024,6 +2098,7 @@ class ApiStub:
     def get_kube_events(
         self, *, since: timedelta = None, query: str = ""
     ) -> Iterator["LokiLogMessage"]:
+
         request = LokiRequest()
         if since is not None:
             request.since = since
@@ -2035,6 +2110,7 @@ class ApiStub:
     def query_loki(
         self, *, since: timedelta = None, query: str = ""
     ) -> Iterator["LokiLogMessage"]:
+
         request = LokiRequest()
         if since is not None:
             request.since = since
@@ -2044,6 +2120,7 @@ class ApiStub:
             yield response
 
     def get_cluster_defaults(self) -> "GetClusterDefaultsResponse":
+
         request = GetClusterDefaultsRequest()
 
         return self.__rpc_get_cluster_defaults(request)
@@ -2054,8 +2131,9 @@ class ApiStub:
         regenerate: bool = False,
         reprocess: bool = False,
         dry_run: bool = False,
-        cluster_defaults_json: str = ""
+        cluster_defaults_json: str = "",
     ) -> "SetClusterDefaultsResponse":
+
         request = SetClusterDefaultsRequest()
         request.regenerate = regenerate
         request.reprocess = reprocess
@@ -2067,6 +2145,7 @@ class ApiStub:
     def get_project_defaults(
         self, *, project: "_pfs__.Project" = None
     ) -> "GetProjectDefaultsResponse":
+
         request = GetProjectDefaultsRequest()
         if project is not None:
             request.project = project
@@ -2080,8 +2159,9 @@ class ApiStub:
         regenerate: bool = False,
         reprocess: bool = False,
         dry_run: bool = False,
-        project_defaults_json: str = ""
+        project_defaults_json: str = "",
     ) -> "SetProjectDefaultsResponse":
+
         request = SetProjectDefaultsRequest()
         if project is not None:
             request.project = project
@@ -2091,619 +2171,3 @@ class ApiStub:
         request.project_defaults_json = project_defaults_json
 
         return self.__rpc_set_project_defaults(request)
-
-
-class ApiBase:
-    def inspect_job(
-        self, job: "Job", wait: bool, details: bool, context: "grpc.ServicerContext"
-    ) -> "JobInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_job_set(
-        self,
-        job_set: "JobSet",
-        wait: bool,
-        details: bool,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["JobInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_job(
-        self,
-        projects: Optional[List["_pfs__.Project"]],
-        pipeline: "Pipeline",
-        input_commit: Optional[List["_pfs__.Commit"]],
-        history: int,
-        details: bool,
-        jq_filter: str,
-        pagination_marker: datetime,
-        number: int,
-        reverse: bool,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["JobInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_job_set(
-        self,
-        details: bool,
-        projects: Optional[List["_pfs__.Project"]],
-        pagination_marker: datetime,
-        number: int,
-        reverse: bool,
-        jq_filter: str,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["JobSetInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def subscribe_job(
-        self, pipeline: "Pipeline", details: bool, context: "grpc.ServicerContext"
-    ) -> Iterator["JobInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_job(
-        self, job: "Job", context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def stop_job(
-        self, job: "Job", reason: str, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_datum(
-        self, datum: "Datum", context: "grpc.ServicerContext"
-    ) -> "DatumInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_datum(
-        self,
-        job: "Job",
-        input: "Input",
-        filter: "ListDatumRequestFilter",
-        pagination_marker: str,
-        number: int,
-        reverse: bool,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["DatumInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def restart_datum(
-        self,
-        job: "Job",
-        data_filters: Optional[List[str]],
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def rerun_pipeline(
-        self, pipeline: "Pipeline", reprocess: bool, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def create_pipeline(
-        self,
-        pipeline: "Pipeline",
-        tf_job: "TfJob",
-        transform: "Transform",
-        parallelism_spec: "ParallelismSpec",
-        egress: "Egress",
-        update: bool,
-        output_branch: str,
-        s3_out: bool,
-        resource_requests: "ResourceSpec",
-        resource_limits: "ResourceSpec",
-        sidecar_resource_limits: "ResourceSpec",
-        input: "Input",
-        description: str,
-        reprocess: bool,
-        service: "Service",
-        spout: "Spout",
-        datum_set_spec: "DatumSetSpec",
-        datum_timeout: timedelta,
-        job_timeout: timedelta,
-        salt: str,
-        datum_tries: int,
-        scheduling_spec: "SchedulingSpec",
-        pod_spec: str,
-        pod_patch: str,
-        spec_commit: "_pfs__.Commit",
-        metadata: "Metadata",
-        reprocess_spec: str,
-        autoscaling: bool,
-        tolerations: Optional[List["Toleration"]],
-        sidecar_resource_requests: "ResourceSpec",
-        dry_run: bool,
-        determined: "Determined",
-        maximum_expected_uptime: timedelta,
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def create_pipeline_v2(
-        self,
-        create_pipeline_request_json: str,
-        dry_run: bool,
-        update: bool,
-        reprocess: bool,
-        context: "grpc.ServicerContext",
-    ) -> "CreatePipelineV2Response":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_pipeline(
-        self, pipeline: "Pipeline", details: bool, context: "grpc.ServicerContext"
-    ) -> "PipelineInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_pipeline(
-        self,
-        pipeline: "Pipeline",
-        history: int,
-        details: bool,
-        jq_filter: str,
-        commit_set: "_pfs__.CommitSet",
-        projects: Optional[List["_pfs__.Project"]],
-        context: "grpc.ServicerContext",
-    ) -> Iterator["PipelineInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_pipeline(
-        self,
-        pipeline: "Pipeline",
-        all: bool,
-        force: bool,
-        keep_repo: bool,
-        must_exist: bool,
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_pipelines(
-        self,
-        projects: Optional[List["_pfs__.Project"]],
-        force: bool,
-        keep_repo: bool,
-        all: bool,
-        context: "grpc.ServicerContext",
-    ) -> "DeletePipelinesResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def start_pipeline(
-        self, pipeline: "Pipeline", context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def stop_pipeline(
-        self, pipeline: "Pipeline", must_exist: bool, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def run_pipeline(
-        self,
-        pipeline: "Pipeline",
-        provenance: Optional[List["_pfs__.Commit"]],
-        job_id: str,
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def run_cron(
-        self, pipeline: "Pipeline", context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def check_status(
-        self, all: bool, project: "_pfs__.Project", context: "grpc.ServicerContext"
-    ) -> Iterator["CheckStatusResponse"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def create_secret(
-        self, file: bytes, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_secret(
-        self, secret: "Secret", context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_secret(self, context: "grpc.ServicerContext") -> "SecretInfos":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_secret(
-        self, secret: "Secret", context: "grpc.ServicerContext"
-    ) -> "SecretInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_all(
-        self, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_logs(
-        self,
-        pipeline: "Pipeline",
-        job: "Job",
-        data_filters: Optional[List[str]],
-        datum: "Datum",
-        master: bool,
-        follow: bool,
-        tail: int,
-        use_loki_backend: bool,
-        since: timedelta,
-        context: "grpc.ServicerContext",
-    ) -> Iterator["LogMessage"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def activate_auth(self, context: "grpc.ServicerContext") -> "ActivateAuthResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def update_job_state(
-        self,
-        job: "Job",
-        state: "JobState",
-        reason: str,
-        restart: int,
-        data_processed: int,
-        data_skipped: int,
-        data_failed: int,
-        data_recovered: int,
-        data_total: int,
-        stats: "ProcessStats",
-        context: "grpc.ServicerContext",
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def run_load_test(
-        self,
-        dag_spec: str,
-        load_spec: str,
-        seed: int,
-        parallelism: int,
-        pod_patch: str,
-        state_id: str,
-        context: "grpc.ServicerContext",
-    ) -> "RunLoadTestResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def run_load_test_default(
-        self, context: "grpc.ServicerContext"
-    ) -> "RunLoadTestResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def render_template(
-        self, template: str, args: Dict[str, str], context: "grpc.ServicerContext"
-    ) -> "RenderTemplateResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_task(
-        self, group: "Group", context: "grpc.ServicerContext"
-    ) -> Iterator["_taskapi__.TaskInfo"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_kube_events(
-        self, since: timedelta, query: str, context: "grpc.ServicerContext"
-    ) -> Iterator["LokiLogMessage"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def query_loki(
-        self, since: timedelta, query: str, context: "grpc.ServicerContext"
-    ) -> Iterator["LokiLogMessage"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_cluster_defaults(
-        self, context: "grpc.ServicerContext"
-    ) -> "GetClusterDefaultsResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def set_cluster_defaults(
-        self,
-        regenerate: bool,
-        reprocess: bool,
-        dry_run: bool,
-        cluster_defaults_json: str,
-        context: "grpc.ServicerContext",
-    ) -> "SetClusterDefaultsResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_project_defaults(
-        self, project: "_pfs__.Project", context: "grpc.ServicerContext"
-    ) -> "GetProjectDefaultsResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def set_project_defaults(
-        self,
-        project: "_pfs__.Project",
-        regenerate: bool,
-        reprocess: bool,
-        dry_run: bool,
-        project_defaults_json: str,
-        context: "grpc.ServicerContext",
-    ) -> "SetProjectDefaultsResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "pps_v2.API"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "InspectJob": grpc.unary_unary_rpc_method_handler(
-                self.inspect_job,
-                request_deserializer=InspectJobRequest.FromString,
-                response_serializer=InspectJobRequest.SerializeToString,
-            ),
-            "InspectJobSet": grpc.unary_stream_rpc_method_handler(
-                self.inspect_job_set,
-                request_deserializer=InspectJobSetRequest.FromString,
-                response_serializer=InspectJobSetRequest.SerializeToString,
-            ),
-            "ListJob": grpc.unary_stream_rpc_method_handler(
-                self.list_job,
-                request_deserializer=ListJobRequest.FromString,
-                response_serializer=ListJobRequest.SerializeToString,
-            ),
-            "ListJobSet": grpc.unary_stream_rpc_method_handler(
-                self.list_job_set,
-                request_deserializer=ListJobSetRequest.FromString,
-                response_serializer=ListJobSetRequest.SerializeToString,
-            ),
-            "SubscribeJob": grpc.unary_stream_rpc_method_handler(
-                self.subscribe_job,
-                request_deserializer=SubscribeJobRequest.FromString,
-                response_serializer=SubscribeJobRequest.SerializeToString,
-            ),
-            "DeleteJob": grpc.unary_unary_rpc_method_handler(
-                self.delete_job,
-                request_deserializer=DeleteJobRequest.FromString,
-                response_serializer=DeleteJobRequest.SerializeToString,
-            ),
-            "StopJob": grpc.unary_unary_rpc_method_handler(
-                self.stop_job,
-                request_deserializer=StopJobRequest.FromString,
-                response_serializer=StopJobRequest.SerializeToString,
-            ),
-            "InspectDatum": grpc.unary_unary_rpc_method_handler(
-                self.inspect_datum,
-                request_deserializer=InspectDatumRequest.FromString,
-                response_serializer=InspectDatumRequest.SerializeToString,
-            ),
-            "ListDatum": grpc.unary_stream_rpc_method_handler(
-                self.list_datum,
-                request_deserializer=ListDatumRequest.FromString,
-                response_serializer=ListDatumRequest.SerializeToString,
-            ),
-            "RestartDatum": grpc.unary_unary_rpc_method_handler(
-                self.restart_datum,
-                request_deserializer=RestartDatumRequest.FromString,
-                response_serializer=RestartDatumRequest.SerializeToString,
-            ),
-            "RerunPipeline": grpc.unary_unary_rpc_method_handler(
-                self.rerun_pipeline,
-                request_deserializer=RerunPipelineRequest.FromString,
-                response_serializer=RerunPipelineRequest.SerializeToString,
-            ),
-            "CreatePipeline": grpc.unary_unary_rpc_method_handler(
-                self.create_pipeline,
-                request_deserializer=CreatePipelineRequest.FromString,
-                response_serializer=CreatePipelineRequest.SerializeToString,
-            ),
-            "CreatePipelineV2": grpc.unary_unary_rpc_method_handler(
-                self.create_pipeline_v2,
-                request_deserializer=CreatePipelineV2Request.FromString,
-                response_serializer=CreatePipelineV2Request.SerializeToString,
-            ),
-            "InspectPipeline": grpc.unary_unary_rpc_method_handler(
-                self.inspect_pipeline,
-                request_deserializer=InspectPipelineRequest.FromString,
-                response_serializer=InspectPipelineRequest.SerializeToString,
-            ),
-            "ListPipeline": grpc.unary_stream_rpc_method_handler(
-                self.list_pipeline,
-                request_deserializer=ListPipelineRequest.FromString,
-                response_serializer=ListPipelineRequest.SerializeToString,
-            ),
-            "DeletePipeline": grpc.unary_unary_rpc_method_handler(
-                self.delete_pipeline,
-                request_deserializer=DeletePipelineRequest.FromString,
-                response_serializer=DeletePipelineRequest.SerializeToString,
-            ),
-            "DeletePipelines": grpc.unary_unary_rpc_method_handler(
-                self.delete_pipelines,
-                request_deserializer=DeletePipelinesRequest.FromString,
-                response_serializer=DeletePipelinesRequest.SerializeToString,
-            ),
-            "StartPipeline": grpc.unary_unary_rpc_method_handler(
-                self.start_pipeline,
-                request_deserializer=StartPipelineRequest.FromString,
-                response_serializer=StartPipelineRequest.SerializeToString,
-            ),
-            "StopPipeline": grpc.unary_unary_rpc_method_handler(
-                self.stop_pipeline,
-                request_deserializer=StopPipelineRequest.FromString,
-                response_serializer=StopPipelineRequest.SerializeToString,
-            ),
-            "RunPipeline": grpc.unary_unary_rpc_method_handler(
-                self.run_pipeline,
-                request_deserializer=RunPipelineRequest.FromString,
-                response_serializer=RunPipelineRequest.SerializeToString,
-            ),
-            "RunCron": grpc.unary_unary_rpc_method_handler(
-                self.run_cron,
-                request_deserializer=RunCronRequest.FromString,
-                response_serializer=RunCronRequest.SerializeToString,
-            ),
-            "CheckStatus": grpc.unary_stream_rpc_method_handler(
-                self.check_status,
-                request_deserializer=CheckStatusRequest.FromString,
-                response_serializer=CheckStatusRequest.SerializeToString,
-            ),
-            "CreateSecret": grpc.unary_unary_rpc_method_handler(
-                self.create_secret,
-                request_deserializer=CreateSecretRequest.FromString,
-                response_serializer=CreateSecretRequest.SerializeToString,
-            ),
-            "DeleteSecret": grpc.unary_unary_rpc_method_handler(
-                self.delete_secret,
-                request_deserializer=DeleteSecretRequest.FromString,
-                response_serializer=DeleteSecretRequest.SerializeToString,
-            ),
-            "ListSecret": grpc.unary_unary_rpc_method_handler(
-                self.list_secret,
-                request_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
-                response_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
-            ),
-            "InspectSecret": grpc.unary_unary_rpc_method_handler(
-                self.inspect_secret,
-                request_deserializer=InspectSecretRequest.FromString,
-                response_serializer=InspectSecretRequest.SerializeToString,
-            ),
-            "DeleteAll": grpc.unary_unary_rpc_method_handler(
-                self.delete_all,
-                request_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
-                response_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
-            ),
-            "GetLogs": grpc.unary_stream_rpc_method_handler(
-                self.get_logs,
-                request_deserializer=GetLogsRequest.FromString,
-                response_serializer=GetLogsRequest.SerializeToString,
-            ),
-            "ActivateAuth": grpc.unary_unary_rpc_method_handler(
-                self.activate_auth,
-                request_deserializer=ActivateAuthRequest.FromString,
-                response_serializer=ActivateAuthRequest.SerializeToString,
-            ),
-            "UpdateJobState": grpc.unary_unary_rpc_method_handler(
-                self.update_job_state,
-                request_deserializer=UpdateJobStateRequest.FromString,
-                response_serializer=UpdateJobStateRequest.SerializeToString,
-            ),
-            "RunLoadTest": grpc.unary_unary_rpc_method_handler(
-                self.run_load_test,
-                request_deserializer=RunLoadTestRequest.FromString,
-                response_serializer=RunLoadTestRequest.SerializeToString,
-            ),
-            "RunLoadTestDefault": grpc.unary_unary_rpc_method_handler(
-                self.run_load_test_default,
-                request_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
-                response_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
-            ),
-            "RenderTemplate": grpc.unary_unary_rpc_method_handler(
-                self.render_template,
-                request_deserializer=RenderTemplateRequest.FromString,
-                response_serializer=RenderTemplateRequest.SerializeToString,
-            ),
-            "ListTask": grpc.unary_stream_rpc_method_handler(
-                self.list_task,
-                request_deserializer=_taskapi__.ListTaskRequest.FromString,
-                response_serializer=_taskapi__.ListTaskRequest.SerializeToString,
-            ),
-            "GetKubeEvents": grpc.unary_stream_rpc_method_handler(
-                self.get_kube_events,
-                request_deserializer=LokiRequest.FromString,
-                response_serializer=LokiRequest.SerializeToString,
-            ),
-            "QueryLoki": grpc.unary_stream_rpc_method_handler(
-                self.query_loki,
-                request_deserializer=LokiRequest.FromString,
-                response_serializer=LokiRequest.SerializeToString,
-            ),
-            "GetClusterDefaults": grpc.unary_unary_rpc_method_handler(
-                self.get_cluster_defaults,
-                request_deserializer=GetClusterDefaultsRequest.FromString,
-                response_serializer=GetClusterDefaultsRequest.SerializeToString,
-            ),
-            "SetClusterDefaults": grpc.unary_unary_rpc_method_handler(
-                self.set_cluster_defaults,
-                request_deserializer=SetClusterDefaultsRequest.FromString,
-                response_serializer=SetClusterDefaultsRequest.SerializeToString,
-            ),
-            "GetProjectDefaults": grpc.unary_unary_rpc_method_handler(
-                self.get_project_defaults,
-                request_deserializer=GetProjectDefaultsRequest.FromString,
-                response_serializer=GetProjectDefaultsRequest.SerializeToString,
-            ),
-            "SetProjectDefaults": grpc.unary_unary_rpc_method_handler(
-                self.set_project_defaults,
-                request_deserializer=SetProjectDefaultsRequest.FromString,
-                response_serializer=SetProjectDefaultsRequest.SerializeToString,
-            ),
-        }

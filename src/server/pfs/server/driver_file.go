@@ -196,8 +196,10 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.Pat
 		WithPrefix(globLiteralPrefix(glob)),
 		WithDatum(file.Datum),
 	}
+	var upper string
 	if pathRange != nil {
 		opts = append(opts, WithPathRange(pathRange))
+		upper = pathRange.Upper
 	}
 	mf, err := globMatchFunction(glob)
 	if err != nil {
@@ -207,7 +209,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.Pat
 		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 			return mf(idx.Path)
 		}, true)
-		return fileset.NewPrefetcher(d.storage.Filesets, fs)
+		return fileset.NewPrefetcher(d.storage.Filesets, fs, upper)
 	}))
 	s := NewSource(commitInfo, fs, opts...)
 	return NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file}), nil
@@ -604,12 +606,19 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	return d.storage.Filesets.Compose(ctx, ids, defaultTTL)
 }
 
-func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID) ([]*pfs.PathRange, error) {
+func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles, sizeBytes int64) ([]*pfs.PathRange, error) {
 	fs, err := d.storage.Filesets.Open(ctx, []fileset.ID{fsid})
 	if err != nil {
 		return nil, err
 	}
-	shards, err := fs.Shards(ctx, index.WithShardConfig(d.storage.Filesets.ShardConfig()))
+	shardConfig := d.storage.Filesets.ShardConfig()
+	if numFiles > 0 {
+		shardConfig.NumFiles = numFiles
+	}
+	if sizeBytes > 0 {
+		shardConfig.SizeBytes = sizeBytes
+	}
+	shards, err := fs.Shards(ctx, index.WithShardConfig(shardConfig))
 	if err != nil {
 		return nil, err
 	}

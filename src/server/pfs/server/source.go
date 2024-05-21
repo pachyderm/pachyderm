@@ -49,24 +49,23 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 	}
 	if sc.pathRange != nil {
 		s.fileSet = fileset.NewDirInserter(fs, sc.pathRange.Lower)
-		// The directory index options have no upper bound because the directory
-		// may extend past the upper bound of the path range.
-		s.dirIndexOpts = append(s.dirIndexOpts, index.WithRange(&index.PathRange{
-			Lower: sc.pathRange.Lower,
-		}))
-		// The upper for the index path range is set to be past the provided upper
-		// to ensure that directories between the last file that should be emitted
-		// and the first file that shouldn't get created.
-		// For example, the files /d1/f1 and /d2/f2 with a path range of [/d1/f1, /d2/f2) should
-		// emit /d1/f1 and /d2/.
-		pr := &index.PathRange{
+		// The directory index options have no upper bound because a
+		// directory may extend past the upper bound of the path range.
+		s.dirIndexOpts = append(s.dirIndexOpts,
+			index.WithRange(&index.PathRange{
+				Lower: sc.pathRange.Lower,
+			}))
+		s.fileIndexOpts = append(s.fileIndexOpts, index.WithRange(&index.PathRange{
 			Lower: sc.pathRange.Lower,
 			Upper: sc.pathRange.Upper,
-		}
-		if pr.Upper != "" {
-			pr.Upper += string(rune(0))
-		}
-		s.fileIndexOpts = append(s.fileIndexOpts, index.WithRange(pr))
+		}))
+		// WithPeek is set to ensure that we iterate one past the upper
+		// bound of the path range. This is necessary to ensure that
+		// directories at the end of the path range are emitted. The
+		// paths are checked again in the callback to ensure we
+		// terminate if the next directory / file is past the upper
+		// bound.
+		s.fileIndexOpts = append(s.fileIndexOpts, index.WithPeek())
 		s.upper = sc.pathRange.Upper
 	}
 	if sc.filter != nil {

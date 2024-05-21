@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "server",
+    srcs = [
+        "api_server.go",
+        "driver.go",
+        "server.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/transaction/server",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/collection",
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/errutil",
+        "//src/internal/pachsql",
+        "//src/internal/transactiondb",
+        "//src/internal/transactionenv",
+        "//src/internal/transactionenv/txncontext",
+        "//src/internal/uuid",
+        "//src/transaction",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/emptypb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

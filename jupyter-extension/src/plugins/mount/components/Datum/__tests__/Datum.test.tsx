@@ -10,11 +10,9 @@ import Datum from '../Datum';
 jest.mock('../../../../../handler');
 
 describe('datum screen', () => {
-  let setShowDatum = jest.fn();
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
 
   beforeEach(() => {
-    setShowDatum = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
 
     // IntersectionObserver isn't available in test environment
@@ -27,8 +25,8 @@ describe('datum screen', () => {
     window.IntersectionObserver = mockIntersectionObserver;
   });
 
-  describe('mounting datums', () => {
-    it('successful mount datums call shows cycler and download', async () => {
+  describe('loading datums', () => {
+    it('successful load datums call shows cycler and download', async () => {
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
           id: 'asdfaew34ri92jafiolwe',
@@ -40,8 +38,6 @@ describe('datum screen', () => {
 
       const {getByTestId, queryByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -53,7 +49,7 @@ describe('datum screen', () => {
       expect(queryByTestId('Datum__downloadDatum')).not.toBeInTheDocument();
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, '{"pfs": "a"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "a"}');
@@ -88,8 +84,6 @@ describe('datum screen', () => {
 
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -97,7 +91,7 @@ describe('datum screen', () => {
       );
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, '{"pfs": "a"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "a"}');
@@ -133,8 +127,6 @@ describe('datum screen', () => {
     it('error if bad syntax in input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -144,7 +136,7 @@ describe('datum screen', () => {
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, '{"pfs": "a"'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "a"');
@@ -162,8 +154,6 @@ describe('datum screen', () => {
 
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -173,7 +163,7 @@ describe('datum screen', () => {
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, '{"pfs": "fake_repo"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "fake_repo"}');
@@ -189,8 +179,6 @@ describe('datum screen', () => {
     it('valid json input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -200,7 +188,7 @@ describe('datum screen', () => {
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, '{"pfs": "repo"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "repo"}');
@@ -214,8 +202,6 @@ describe('datum screen', () => {
     it('valid yaml input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -225,7 +211,7 @@ describe('datum screen', () => {
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, YAML.stringify({pfs: 'repo'}));
       expect(input).toHaveValue(YAML.stringify({pfs: 'repo'}));

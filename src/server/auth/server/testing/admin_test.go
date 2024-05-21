@@ -2,7 +2,7 @@
 // Because the cluster has one global set of admins, these tests can't be run in
 // parallel
 
-package server_test
+package testing_test
 
 import (
 	"bytes"
@@ -21,6 +21,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	at "github.com/pachyderm/pachyderm/v2/src/server/auth/server/testing"
 )
 
 // TestActivate tests the Activate API (in particular, verifying
@@ -28,7 +29,7 @@ import (
 // auth, this makes sure the code path is exercised (as auth may already be
 // active when the test starts)
 func TestActivate(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
@@ -59,7 +60,7 @@ func TestActivate(t *testing.T) {
 // This should always authenticate the user as `pach:root` and give them
 // super admin status.
 func TestActivateKnownToken(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
@@ -87,7 +88,7 @@ func TestActivateKnownToken(t *testing.T) {
 // TestSuperAdminRWO tests adding and removing cluster super admins, as well as super admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestSuperAdminRWO(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -187,7 +188,7 @@ func TestSuperAdminRWO(t *testing.T) {
 // TestFSAdminRWO tests adding and removing cluster FS admins, as well as FS admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestFSAdminRWO(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -287,7 +288,7 @@ func TestFSAdminRWO(t *testing.T) {
 // when the repo's ACL is empty (indicating that no user has explicit access to
 // to the repo)
 func TestFSAdminFixBrokenRepo(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -335,7 +336,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 
 // TestCannotRemoveRootAdmin tests that trying to remove the root user as an admin returns an error.
 func TestCannotRemoveRootAdmin(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -372,7 +373,7 @@ func TestCannotRemoveRootAdmin(t *testing.T) {
 }
 
 func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -459,7 +460,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 // the result indicates that they're an owner of every repo in the cluster
 // (needed by the Pachyderm dashboard)
 func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
@@ -490,7 +491,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 // TestGetIndefiniteRobotToken tests that an admin can generate a robot token that never
 // times out - this is the default behaviour
 func TestGetIndefiniteRobotToken(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -511,7 +512,7 @@ func TestGetIndefiniteRobotToken(t *testing.T) {
 
 // TestGetTemporaryRobotToken tests that an admin can generate a robot token that expires
 func TestGetTemporaryRobotToken(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -535,7 +536,7 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 // TestRobotUserWhoAmI tests that robot users can call WhoAmI and get a response
 // with the right prefix
 func TestRobotUserWhoAmI(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -557,7 +558,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 // TestRobotUserACL tests that a robot user can create a repo, add users
 // to their repo, and be added to user's repo.
 func TestRobotUserACL(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -600,7 +601,7 @@ func TestRobotUserACL(t *testing.T) {
 // TestGroupRoleBinding tests that a group can be added to a role binding
 // and confers access to members
 func TestGroupRoleBinding(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	group := tu.Group(tu.UniqueString("testGroup"))
@@ -631,7 +632,7 @@ func TestGroupRoleBinding(t *testing.T) {
 // 3) access other users' repos
 // 4) update repo ACLs,
 func TestRobotUserAdmin(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
@@ -684,7 +685,7 @@ func TestRobotUserAdmin(t *testing.T) {
 
 // TestTokenRevoke tests that an admin can revoke that token and it no longer works
 func TestTokenRevoke(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -718,7 +719,7 @@ func TestTokenRevoke(t *testing.T) {
 }
 
 func TestRevokeTokensForUser(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 
 	contains := func(tokens []*auth.TokenInfo, hashedToken string) bool {
@@ -799,7 +800,7 @@ func TestRevokeTokensForUser(t *testing.T) {
 // TestRevokePachUserToken tests that the pps superuser and root tokens can't
 // be revoked.
 func TestRevokePachUserToken(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -809,7 +810,7 @@ func TestRevokePachUserToken(t *testing.T) {
 }
 
 func TestRotateRootToken(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 

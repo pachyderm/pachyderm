@@ -1,0 +1,55 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "index",
+    srcs = [
+        "cache.go",
+        "index.go",
+        "index.pb.go",
+        "index.pb.validate.go",
+        "index.pb.zap.go",
+        "merge.go",
+        "option.go",
+        "reader.go",
+        "util.go",
+        "writer.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/errutil",
+        "//src/internal/miscutil",
+        "//src/internal/pbutil",
+        "//src/internal/pctx",
+        "//src/internal/storage/chunk",
+        "//src/internal/stream",
+        "@com_github_docker_go_units//:go-units",
+        "@com_github_hashicorp_golang_lru//simplelru",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/anypb",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+go_test(
+    name = "index_test",
+    srcs = ["index_test.go"],
+    embed = [":index"],
+    deps = [
+        "//src/internal/dockertestenv",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/storage/chunk",
+        "//src/internal/storage/track",
+        "//src/internal/uuid",
+    ],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

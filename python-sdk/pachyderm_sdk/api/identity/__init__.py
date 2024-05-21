@@ -215,6 +215,7 @@ class DeleteAllResponse(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_set_identity_server_config = channel.unary_unary(
             "/identity_v2.API/SetIdentityServerConfig",
@@ -285,6 +286,7 @@ class ApiStub:
     def set_identity_server_config(
         self, *, config: "IdentityServerConfig" = None
     ) -> "SetIdentityServerConfigResponse":
+
         request = SetIdentityServerConfigRequest()
         if config is not None:
             request.config = config
@@ -292,6 +294,7 @@ class ApiStub:
         return self.__rpc_set_identity_server_config(request)
 
     def get_identity_server_config(self) -> "GetIdentityServerConfigResponse":
+
         request = GetIdentityServerConfigRequest()
 
         return self.__rpc_get_identity_server_config(request)
@@ -299,6 +302,7 @@ class ApiStub:
     def create_idp_connector(
         self, *, connector: "IdpConnector" = None
     ) -> "CreateIdpConnectorResponse":
+
         request = CreateIdpConnectorRequest()
         if connector is not None:
             request.connector = connector
@@ -308,6 +312,7 @@ class ApiStub:
     def update_idp_connector(
         self, *, connector: "IdpConnector" = None
     ) -> "UpdateIdpConnectorResponse":
+
         request = UpdateIdpConnectorRequest()
         if connector is not None:
             request.connector = connector
@@ -315,17 +320,20 @@ class ApiStub:
         return self.__rpc_update_idp_connector(request)
 
     def list_idp_connectors(self) -> "ListIdpConnectorsResponse":
+
         request = ListIdpConnectorsRequest()
 
         return self.__rpc_list_idp_connectors(request)
 
     def get_idp_connector(self, *, id: str = "") -> "GetIdpConnectorResponse":
+
         request = GetIdpConnectorRequest()
         request.id = id
 
         return self.__rpc_get_idp_connector(request)
 
     def delete_idp_connector(self, *, id: str = "") -> "DeleteIdpConnectorResponse":
+
         request = DeleteIdpConnectorRequest()
         request.id = id
 
@@ -334,6 +342,7 @@ class ApiStub:
     def create_oidc_client(
         self, *, client: "OidcClient" = None
     ) -> "CreateOidcClientResponse":
+
         request = CreateOidcClientRequest()
         if client is not None:
             request.client = client
@@ -343,6 +352,7 @@ class ApiStub:
     def update_oidc_client(
         self, *, client: "OidcClient" = None
     ) -> "UpdateOidcClientResponse":
+
         request = UpdateOidcClientRequest()
         if client is not None:
             request.client = client
@@ -350,186 +360,27 @@ class ApiStub:
         return self.__rpc_update_oidc_client(request)
 
     def get_oidc_client(self, *, id: str = "") -> "GetOidcClientResponse":
+
         request = GetOidcClientRequest()
         request.id = id
 
         return self.__rpc_get_oidc_client(request)
 
     def list_oidc_clients(self) -> "ListOidcClientsResponse":
+
         request = ListOidcClientsRequest()
 
         return self.__rpc_list_oidc_clients(request)
 
     def delete_oidc_client(self, *, id: str = "") -> "DeleteOidcClientResponse":
+
         request = DeleteOidcClientRequest()
         request.id = id
 
         return self.__rpc_delete_oidc_client(request)
 
     def delete_all(self) -> "DeleteAllResponse":
+
         request = DeleteAllRequest()
 
         return self.__rpc_delete_all(request)
-
-
-class ApiBase:
-    def set_identity_server_config(
-        self, config: "IdentityServerConfig", context: "grpc.ServicerContext"
-    ) -> "SetIdentityServerConfigResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_identity_server_config(
-        self, context: "grpc.ServicerContext"
-    ) -> "GetIdentityServerConfigResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def create_idp_connector(
-        self, connector: "IdpConnector", context: "grpc.ServicerContext"
-    ) -> "CreateIdpConnectorResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def update_idp_connector(
-        self, connector: "IdpConnector", context: "grpc.ServicerContext"
-    ) -> "UpdateIdpConnectorResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_idp_connectors(
-        self, context: "grpc.ServicerContext"
-    ) -> "ListIdpConnectorsResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_idp_connector(
-        self, id: str, context: "grpc.ServicerContext"
-    ) -> "GetIdpConnectorResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_idp_connector(
-        self, id: str, context: "grpc.ServicerContext"
-    ) -> "DeleteIdpConnectorResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def create_oidc_client(
-        self, client: "OidcClient", context: "grpc.ServicerContext"
-    ) -> "CreateOidcClientResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def update_oidc_client(
-        self, client: "OidcClient", context: "grpc.ServicerContext"
-    ) -> "UpdateOidcClientResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_oidc_client(
-        self, id: str, context: "grpc.ServicerContext"
-    ) -> "GetOidcClientResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_oidc_clients(
-        self, context: "grpc.ServicerContext"
-    ) -> "ListOidcClientsResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_oidc_client(
-        self, id: str, context: "grpc.ServicerContext"
-    ) -> "DeleteOidcClientResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_all(self, context: "grpc.ServicerContext") -> "DeleteAllResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "identity_v2.API"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "SetIdentityServerConfig": grpc.unary_unary_rpc_method_handler(
-                self.set_identity_server_config,
-                request_deserializer=SetIdentityServerConfigRequest.FromString,
-                response_serializer=SetIdentityServerConfigRequest.SerializeToString,
-            ),
-            "GetIdentityServerConfig": grpc.unary_unary_rpc_method_handler(
-                self.get_identity_server_config,
-                request_deserializer=GetIdentityServerConfigRequest.FromString,
-                response_serializer=GetIdentityServerConfigRequest.SerializeToString,
-            ),
-            "CreateIDPConnector": grpc.unary_unary_rpc_method_handler(
-                self.create_idp_connector,
-                request_deserializer=CreateIdpConnectorRequest.FromString,
-                response_serializer=CreateIdpConnectorRequest.SerializeToString,
-            ),
-            "UpdateIDPConnector": grpc.unary_unary_rpc_method_handler(
-                self.update_idp_connector,
-                request_deserializer=UpdateIdpConnectorRequest.FromString,
-                response_serializer=UpdateIdpConnectorRequest.SerializeToString,
-            ),
-            "ListIDPConnectors": grpc.unary_unary_rpc_method_handler(
-                self.list_idp_connectors,
-                request_deserializer=ListIdpConnectorsRequest.FromString,
-                response_serializer=ListIdpConnectorsRequest.SerializeToString,
-            ),
-            "GetIDPConnector": grpc.unary_unary_rpc_method_handler(
-                self.get_idp_connector,
-                request_deserializer=GetIdpConnectorRequest.FromString,
-                response_serializer=GetIdpConnectorRequest.SerializeToString,
-            ),
-            "DeleteIDPConnector": grpc.unary_unary_rpc_method_handler(
-                self.delete_idp_connector,
-                request_deserializer=DeleteIdpConnectorRequest.FromString,
-                response_serializer=DeleteIdpConnectorRequest.SerializeToString,
-            ),
-            "CreateOIDCClient": grpc.unary_unary_rpc_method_handler(
-                self.create_oidc_client,
-                request_deserializer=CreateOidcClientRequest.FromString,
-                response_serializer=CreateOidcClientRequest.SerializeToString,
-            ),
-            "UpdateOIDCClient": grpc.unary_unary_rpc_method_handler(
-                self.update_oidc_client,
-                request_deserializer=UpdateOidcClientRequest.FromString,
-                response_serializer=UpdateOidcClientRequest.SerializeToString,
-            ),
-            "GetOIDCClient": grpc.unary_unary_rpc_method_handler(
-                self.get_oidc_client,
-                request_deserializer=GetOidcClientRequest.FromString,
-                response_serializer=GetOidcClientRequest.SerializeToString,
-            ),
-            "ListOIDCClients": grpc.unary_unary_rpc_method_handler(
-                self.list_oidc_clients,
-                request_deserializer=ListOidcClientsRequest.FromString,
-                response_serializer=ListOidcClientsRequest.SerializeToString,
-            ),
-            "DeleteOIDCClient": grpc.unary_unary_rpc_method_handler(
-                self.delete_oidc_client,
-                request_deserializer=DeleteOidcClientRequest.FromString,
-                response_serializer=DeleteOidcClientRequest.SerializeToString,
-            ),
-            "DeleteAll": grpc.unary_unary_rpc_method_handler(
-                self.delete_all,
-                request_deserializer=DeleteAllRequest.FromString,
-                response_serializer=DeleteAllRequest.SerializeToString,
-            ),
-        }

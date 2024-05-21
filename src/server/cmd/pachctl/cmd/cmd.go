@@ -47,6 +47,7 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -353,6 +354,7 @@ func PachctlCmd() (*cobra.Command, error) {
 	var clientOnly bool
 	var timeoutFlag string
 	var enterprise bool
+	var compare bool
 	versionCmd := &cobra.Command{
 		Short: "Print Pachyderm version information.",
 		Long:  "Print Pachyderm version information.",
@@ -410,7 +412,7 @@ func PachctlCmd() (*cobra.Command, error) {
 			defer pachClient.Close()
 			ctx, cancel := context.WithTimeout(mainCtx, time.Second)
 			defer cancel()
-			version, err := pachClient.GetVersion(ctx, &emptypb.Empty{})
+			serverVersion, err := pachClient.GetVersion(ctx, &emptypb.Empty{})
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
@@ -422,10 +424,20 @@ func PachctlCmd() (*cobra.Command, error) {
 
 			// print server version
 			if raw {
-				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(version))
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(serverVersion))
 			}
-			printVersion(writer, "pachd", version)
-			return errors.EnsureStack(writer.Flush())
+			printVersion(writer, "pachd", serverVersion)
+			if err := writer.Flush(); err != nil {
+				return errors.Wrap(err, "flush")
+			}
+			if compare {
+				if proto.Equal(version.Version, serverVersion) {
+					os.Exit(0)
+				} else {
+					os.Exit(1)
+				}
+			}
+			return nil
 		}),
 	}
 	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+
@@ -439,6 +451,7 @@ func PachctlCmd() (*cobra.Command, error) {
 	versionCmd.Flags().BoolVar(&enterprise, "enterprise", false, "If set, "+
 		"'pachctl version' will run on the active enterprise context.")
 	versionCmd.Flags().AddFlagSet(outputFlags)
+	versionCmd.Flags().BoolVar(&compare, "compare", false, "If set, exit 1 if the server and client versions differ at all, or exit 0 if they are exactly the same.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 
 	buildInfo := &cobra.Command{

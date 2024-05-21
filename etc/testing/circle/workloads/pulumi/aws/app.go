@@ -183,7 +183,9 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 		},
 		"pachd": pulumi.Map{
 			"localhostIssuer": pulumi.String("true"),
-			"logLevel":        pulumi.String("debug"),
+			"logLevel":        pulumi.String("info"),
+			"lokiDeploy":      pulumi.Bool(false),
+			"lokiLogging":     pulumi.Bool(false),
 			"image": pulumi.Map{
 				"tag": pulumi.String(pachdImageTag),
 			},

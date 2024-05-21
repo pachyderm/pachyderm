@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -36,35 +37,48 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 	return common.HashDatum(h.salt, inputs)
 }
 
-func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, status *Status) error {
-	return errors.EnsureStack(driver.NewTaskSource().Iterate(
-		ctx,
+func PreprocessingWorker(pachClient *client.APIClient, taskService task.Service, pipelineInfo *pps.PipelineInfo) error {
+	taskSource := taskService.NewSource(driver.PreprocessingTaskNamespace(pipelineInfo))
+	return errors.EnsureStack(taskSource.Iterate(
+		pachClient.Ctx(),
 		func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
+			pachClient := pachClient.WithCtx(ctx)
 			switch {
 			case datum.IsTask(input):
-				pachClient := driver.PachClient().WithCtx(ctx)
-				return datum.ProcessTask(pachClient.Ctx(), pachClient.PfsAPIClient, input)
+				return datum.ProcessTask(ctx, pachClient.PfsAPIClient, input)
 			case input.MessageIs(&CreateParallelDatumsTask{}):
 				createParallelDatumsTask, err := deserializeCreateParallelDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
-				pachClient := driver.PachClient().WithCtx(ctx)
+				pachClient.SetAuthToken(createParallelDatumsTask.AuthToken)
 				return processCreateParallelDatumsTask(pachClient, createParallelDatumsTask)
 			case input.MessageIs(&CreateSerialDatumsTask{}):
 				createSerialDatumsTask, err := deserializeCreateSerialDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
-				pachClient := driver.PachClient().WithCtx(ctx)
+				pachClient.SetAuthToken(createSerialDatumsTask.AuthToken)
 				return processCreateSerialDatumsTask(pachClient, createSerialDatumsTask)
 			case input.MessageIs(&CreateDatumSetsTask{}):
 				createDatumSetsTask, err := deserializeCreateDatumSetsTask(input)
 				if err != nil {
 					return nil, err
 				}
-				driver := driver.WithContext(ctx)
-				return processCreateDatumSetsTask(driver, createDatumSetsTask)
+				pachClient.SetAuthToken(createDatumSetsTask.AuthToken)
+				return processCreateDatumSetsTask(pachClient, createDatumSetsTask)
+			default:
+				return nil, errors.Errorf("unrecognized any type (%v) in preprocessing worker", input.TypeUrl)
+			}
+		},
+	))
+}
+
+func ProcessingWorker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, status *Status) error {
+	return errors.EnsureStack(driver.NewTaskSource().Iterate(
+		ctx,
+		func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
+			switch {
 			case input.MessageIs(&DatumSetTask{}):
 				datumSetTask, err := deserializeDatumSetTask(input)
 				if err != nil {
@@ -73,7 +87,7 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 				driver := driver.WithContext(ctx)
 				return processDatumSetTask(driver, logger, datumSetTask, status)
 			default:
-				return nil, errors.Errorf("unrecognized any type (%v) in transform worker", input.TypeUrl)
+				return nil, errors.Errorf("unrecognized any type (%v) in processing worker", input.TypeUrl)
 			}
 		},
 	))
@@ -204,8 +218,8 @@ func withDeleter(pachClient *client.APIClient, baseMetaCommit *pfs.Commit, cb fu
 	return outputFileSetID, metaFileSetID, nil
 }
 
-func processCreateDatumSetsTask(driver driver.Driver, task *CreateDatumSetsTask) (*anypb.Any, error) {
-	datumSets, err := datum.CreateSets(driver.PachClient(), task.SetSpec, task.FileSetId, task.PathRange)
+func processCreateDatumSetsTask(pachClient *client.APIClient, task *CreateDatumSetsTask) (*anypb.Any, error) {
+	datumSets, err := datum.CreateSets(pachClient, task.SetSpec, task.FileSetId, task.PathRange)
 	if err != nil {
 		return nil, err
 	}

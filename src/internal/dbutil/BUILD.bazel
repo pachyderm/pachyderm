@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "dbutil",
+    srcs = [
+        "db.go",
+        "errors.go",
+        "option.go",
+        "tx.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/dbutil",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/backoff",
+        "//src/internal/errors",
+        "//src/internal/errutil",
+        "//src/internal/log",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "@com_github_jackc_pgconn//:pgconn",
+        "@com_github_jackc_pgerrcode//:pgerrcode",
+        "@com_github_jackc_pgx_v4//:pgx",
+        "@com_github_jackc_pgx_v4//stdlib",
+        "@com_github_jmoiron_sqlx//:sqlx",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
+        "@org_uber_go_zap//:zap",
+    ],
+)

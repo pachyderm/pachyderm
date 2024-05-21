@@ -33,7 +33,7 @@ func DeployRDS(ctx *pulumi.Context) (*rds.Instance, error) {
 	rdsInstanceArgs := &rds.InstanceArgs{
 		AllocatedStorage:   pulumi.Int(rdsAllocatedStorage),
 		Engine:             pulumi.String("postgres"),
-		EngineVersion:      pulumi.String("13.9"),
+		EngineVersion:      pulumi.String("13.14"),
 		InstanceClass:      pulumi.String(rdsInstanceClass),
 		DbName:             pulumi.String("pachyderm"),
 		Password:           cfg.RequireSecret("rdsPGDBPassword"),

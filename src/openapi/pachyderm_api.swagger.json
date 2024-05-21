@@ -3218,6 +3218,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used.",
             "in": "body",
             "required": true,
             "schema": {
@@ -4188,6 +4189,46 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/pps_v2ListDatumRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pps_v2.API/CreateDatum": {
+      "post": {
+        "summary": "CreateDatum prioritizes time to first datum. Each request returns a batch\nof datums.",
+        "operationId": "API_CreateDatum",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pps_v2DatumInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pps_v2DatumInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums. (streaming inputs)",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2CreateDatumRequest"
             }
           }
         ]
@@ -5590,6 +5631,14 @@
         }
       }
     },
+    "GetFileSetRequestFileSetType": {
+      "type": "string",
+      "enum": [
+        "TOTAL",
+        "DIFF"
+      ],
+      "default": "TOTAL"
+    },
     "PauseStatusResponsePauseStatus": {
       "type": "string",
       "enum": [
@@ -6367,6 +6416,12 @@
         },
         "pipeline": {
           "$ref": "#/definitions/debug_v2Pipeline"
+        },
+        "lokiArgs": {
+          "$ref": "#/definitions/debug_v2LokiArgs"
+        },
+        "profileArgs": {
+          "$ref": "#/definitions/debug_v2ProfileArgs"
         }
       }
     },
@@ -6500,6 +6555,15 @@
         }
       }
     },
+    "debug_v2LokiArgs": {
+      "type": "object",
+      "properties": {
+        "maxLogs": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "debug_v2Pipeline": {
       "type": "object",
       "properties": {
@@ -6537,6 +6601,18 @@
         "duration": {
           "type": "string",
           "title": "only meaningful if name == \"cpu\""
+        }
+      }
+    },
+    "debug_v2ProfileArgs": {
+      "type": "object",
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/debug_v2Profile"
+          }
         }
       }
     },
@@ -7984,6 +8060,9 @@
       "properties": {
         "commit": {
           "$ref": "#/definitions/pfs_v2Commit"
+        },
+        "type": {
+          "$ref": "#/definitions/GetFileSetRequestFileSetType"
         }
       }
     },
@@ -8366,8 +8445,19 @@
       "properties": {
         "fileSetId": {
           "type": "string"
+        },
+        "numFiles": {
+          "type": "string",
+          "format": "int64",
+          "title": "Number of files targeted in each shard"
+        },
+        "sizeBytes": {
+          "type": "string",
+          "format": "int64",
+          "title": "Size (in bytes) targeted for each shard"
         }
-      }
+      },
+      "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used."
     },
     "pfs_v2ShardFileSetResponse": {
       "type": "object",
@@ -8858,6 +8948,28 @@
         }
       },
       "description": "Response for check status request. Provides alerts if any."
+    },
+    "pps_v2ContinueCreateDatumRequest": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of datums to return in next batch. If 0, default batch size\nis returned."
+        }
+      }
+    },
+    "pps_v2CreateDatumRequest": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/definitions/pps_v2StartCreateDatumRequest"
+        },
+        "continue": {
+          "$ref": "#/definitions/pps_v2ContinueCreateDatumRequest"
+        }
+      },
+      "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums."
     },
     "pps_v2CreatePipelineRequest": {
       "type": "object",
@@ -10455,6 +10567,20 @@
       "properties": {
         "service": {
           "$ref": "#/definitions/pps_v2Service"
+        }
+      }
+    },
+    "pps_v2StartCreateDatumRequest": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "$ref": "#/definitions/pps_v2Input",
+          "description": "Input is the input to list datums from. The datums listed are the ones \nthat would be run if a pipeline was created with the provided input."
+        },
+        "number": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of datums to return in first batch. If 0, default batch size\nis returned."
         }
       }
     },

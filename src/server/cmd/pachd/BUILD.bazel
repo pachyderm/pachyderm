@@ -1,0 +1,94 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_path")
+
+go_library(
+    name = "pachd_lib",
+    srcs = [
+        "main.go",
+        "signals_windows.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/cmd/pachd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/cmdutil",
+        "//src/internal/log",
+        "//src/internal/pachconfig",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "//src/internal/proc",
+        "//src/internal/serviceenv",
+        "//src/internal/setupenv",
+        "//src/internal/signals",
+        "//src/internal/task/taskprotos",
+        "@com_github_spf13_pflag//:pflag",
+        "@org_uber_go_zap//:zap",
+    ] + select({
+        "@rules_go//go/platform:windows": [
+            "@org_golang_x_sys//windows",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+go_binary(
+    name = "pachd",
+    embed = [":pachd_lib"],
+    pure = "on",
+    visibility = ["//visibility:public"],
+    x_defs = {
+        "github.com/pachyderm/pachyderm/v2/src/version.AppVersion": "{STABLE_APP_VERSION}",
+        "github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion": "{STABLE_ADDITIONAL_VERSION}",
+    },
+)
+
+go_path(
+    name = "pachd_gopath",
+    include_data = True,
+    include_pkg = False,
+    include_transitive = True,
+    mode = "copy",
+    deps = ["pachd"],
+)
+
+genrule(
+    name = "gen_app_version",
+    outs = ["app_version.txt"],
+    cmd_bash = """
+    version=$$(grep ^STABLE_APP_VERSION bazel-out/stable-status.txt | cut -d' ' -f2); \
+    printf '%s' $$version > $@
+    """,
+    stamp = 1,
+)
+
+genrule(
+    name = "gen_additional_version",
+    outs = ["additional_version.txt"],
+    cmd_bash = """
+    version=$$(grep ^STABLE_ADDITIONAL_VERSION bazel-out/stable-status.txt | cut -d' ' -f2); \
+    printf '%s' $$version > $@
+    """,
+    stamp = 1,
+)
+
+genrule(
+    name = "gen_pachd_coverage",
+    srcs = [
+        "pachd_gopath",
+        "additional_version.txt",
+        "app_version.txt",
+    ],
+    outs = ["pachd_coverage"],
+    cmd = """
+    $(location //src/cmd/compile-with-coverage) \
+        -target github.com/pachyderm/pachyderm/v2/src/server/cmd/pachd \
+        -go $(location @go_sdk//:bin/go) \
+        -out $@ \
+        -gopath $(location pachd_gopath) \
+        -app_version=$$(cat $(location app_version.txt)) \
+        -additional_version=$$(cat $(location additional_version.txt))
+    """,
+    tools = [
+        "//src/cmd/compile-with-coverage",
+        "@go_sdk//:bin/go",
+    ],
+    visibility = ["//visibility:public"],
+)

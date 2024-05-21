@@ -1,0 +1,18 @@
+schemaVersion: 2.0.0
+fileExistenceTests:
+    - name: "pachctl"
+      path: "/usr/local/bin/pachctl"
+      shouldExist: true
+      isExecutableBy: "any"
+    - name: "certs"
+      path: "/etc/ssl/certs/ca-certificates.crt"
+      shouldExist: true
+    - name: "our_license"
+      path: "/LICENSE"
+      shouldExist: true
+    - name: "other_licenses"
+      path: "/licenses/apache_v2.0.txt"
+      shouldExist: true
+    - name: "tmp"
+      path: "/tmp"
+      shouldExist: true

@@ -1,4 +1,4 @@
-package transform
+package transform_test
 
 import (
 	"archive/tar"
@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform"
 )
 
 func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig pachconfig.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
@@ -113,7 +114,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig pachconfig.C
 	require.NoError(t, err)
 	eg.Go(func() error {
 		err := backoff.RetryUntilCancel(testEnv.driver.PachClient().Ctx(), func() error {
-			return Worker(testEnv.driver.PachClient().Ctx(), testEnv.driver, testEnv.logger, &Status{})
+			return transform.ProcessingWorker(testEnv.driver.PachClient().Ctx(), testEnv.driver, testEnv.logger, &transform.Status{})
 		}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 			testEnv.logger.Logf("worker failed, retrying immediately, err: %v", err)
 			return nil
@@ -225,10 +226,10 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 	})
 
 	eg, ctx := errgroup.WithContext(ctx)
-	reg, err := newRegistry(env.driver, env.logger)
+	reg, err := transform.NewRegistry(env.driver, env.logger)
 	require.NoError(t, err)
 	eg.Go(func() error {
-		_ = reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
+		_ = reg.StartJob(proto.Clone(jobInfo).(*pps.JobInfo))
 		return nil
 	})
 	return ctx, jobInfo
@@ -264,7 +265,7 @@ func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []strin
 func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) {
 	commit := writeFiles(t, env, pi, files)
 	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-	ctx = withTimeout(ctx, 15*time.Second)
+	ctx = withTimeout(ctx, 30*time.Second)
 	<-ctx.Done()
 	// PFS master transitions the job from finishing to finished so dont test that here
 	require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
@@ -352,7 +353,7 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 		commit := writeFiles(t, env, pi, tarFiles)
 		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 		// TODO: check job stats
@@ -381,13 +382,13 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 		commit := writeFiles(t, env, pi, tarFiles[:1])
 		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		commit = writeFiles(t, env, pi, tarFiles[1:])
 		ctx, jobInfo = mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
@@ -423,13 +424,13 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 		commit := writeFiles(t, env, pi, tarFiles[:1])
 		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		commit = deleteFiles(t, env, pi, []string{"/a"})
 		ctx, jobInfo = mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 

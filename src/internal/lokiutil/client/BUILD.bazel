@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "client",
+    srcs = [
+        "client.go",
+        "json.go",
+        "stringbuilder.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/promutil",
+        "@com_github_json_iterator_go//:go",
+        "@com_github_modern_go_reflect2//:reflect2",
+    ],
+)

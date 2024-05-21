@@ -1,3 +1,4 @@
 src/internal/jsonschema/*/*.schema.json linguist-generated=true
 proto-docs.json linguist-generated=true
 proto-docs.md linguist-generated=true
+MODULE.bazel.lock linguist-generated=true

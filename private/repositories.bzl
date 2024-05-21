@@ -228,3 +228,172 @@ def etc_proto_deps():
         build_file_content = protoc_build_file_content,
         integrity = "sha256-MgMIzhjDWVZJSHVPUXSN5BzwKk5+3wz0eoBbnThhDxY=",
     )
+
+def dumb_init_deps():
+    http_file(
+        name = "com_github_yelp_dumb_init_x86_64_linux",
+        url = "https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64",
+        integrity = "sha256-6HS1XzJ5ykFBXSkMUSp7qdCPmAQbKK58KssZpUXxxN8=",
+        executable = True,
+        downloaded_file_path = "dumb-init",
+    )
+    http_file(
+        name = "com_github_yelp_dumb_init_aarch64_linux",
+        url = "https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_aarch64",
+        integrity = "sha256-t9ZI+XFUqZxTm2PFWXnNKfAF+IQw+zgwB/40WDQLeV4=",
+        executable = True,
+        downloaded_file_path = "dumb-init",
+    )
+
+def helm_deps():
+    """Binaries for helm."""
+    build = """exports_files(["helm"])"""
+    http_archive(
+        name = "sh_helm_x86_64_linux",
+        url = "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz",
+        build_file_content = build,
+        sha256 = "f43e1c3387de24547506ab05d24e5309c0ce0b228c23bd8aa64e9ec4b8206651",
+        strip_prefix = "linux-amd64",
+    )
+    http_archive(
+        name = "sh_helm_aarch64_linux",
+        url = "https://get.helm.sh/helm-v3.14.0-linux-arm64.tar.gz",
+        build_file_content = build,
+        sha256 = "b29e61674731b15f6ad3d1a3118a99d3cc2ab25a911aad1b8ac8c72d5a9d2952",
+        strip_prefix = "linux-arm64",
+    )
+    http_archive(
+        name = "sh_helm_x86_64_macos",
+        url = "https://get.helm.sh/helm-v3.14.0-darwin-amd64.tar.gz",
+        build_file_content = build,
+        sha256 = "804586896496f7b3da97f56089ea00f220e075e969b6fdf6c0b7b9cdc22de120",
+        strip_prefix = "darwin-amd64",
+    )
+    http_archive(
+        name = "sh_helm_aarch64_macos",
+        url = "https://get.helm.sh/helm-v3.14.0-darwin-arm64.tar.gz",
+        build_file_content = build,
+        sha256 = "c2f36f3289a01c7c93ca11f84d740a170e0af1d2d0280bd523a409a62b8dfa1d",
+        strip_prefix = "darwin-arm64",
+    )
+
+def kind_deps():
+    http_file(
+        name = "io_k8s_sigs_kind_x86_64_linux",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-amd64",
+        sha256 = "513a7213d6d3332dd9ef27c24dab35e5ef10a04fa27274fe1c14d8a246493ded",
+        executable = True,
+        downloaded_file_path = "kind",
+    )
+    http_file(
+        name = "io_k8s_sigs_kind_aarch64_linux",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-arm64",
+        sha256 = "639f7808443559aa30c3642d9913b1615d611a071e34f122340afeda97b8f422",
+        executable = True,
+        downloaded_file_path = "kind",
+    )
+    http_file(
+        name = "io_k8s_sigs_kind_x86_64_macos",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-amd64",
+        sha256 = "bffd8fb2006dc89fa0d1dde5ba6bf48caacb707e4df8551528f49145ebfeb7ad",
+        executable = True,
+        downloaded_file_path = "kind",
+    )
+    http_file(
+        name = "io_k8s_sigs_kind_aarch64_macos",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-arm64",
+        sha256 = "8df041a5cae55471f3b039c3c9942226eb909821af63b5677fc80904caffaabf",
+        executable = True,
+        downloaded_file_path = "kind",
+    )
+
+def kubectl_deps():
+    http_file(
+        name = "io_k8s_dl_kubectl_x86_64_linux",
+        url = "https://dl.k8s.io/release/v1.29.1/bin/linux/amd64/kubectl",
+        sha256 = "69ab3a931e826bf7ac14d38ba7ca637d66a6fcb1ca0e3333a2cafdf15482af9f",
+        executable = True,
+        downloaded_file_path = "kubectl",
+    )
+    http_file(
+        name = "io_k8s_dl_kubectl_aarch64_linux",
+        url = "https://dl.k8s.io/release/v1.29.1/bin/linux/arm64/kubectl",
+        sha256 = "96d6dc7b2bdcd344ce58d17631c452225de5bbf59b83fd3c89c33c6298fb5d8b",
+        executable = True,
+        downloaded_file_path = "kubectl",
+    )
+    http_file(
+        name = "io_k8s_dl_kubectl_x86_64_macos",
+        url = "https://dl.k8s.io/release/v1.29.1/bin/darwin/amd64/kubectl",
+        sha256 = "c4da86e5c0fc9415db14a48d9ef1515b0b472346cbc9b7f015175b6109505d2c",
+        executable = True,
+        downloaded_file_path = "kubectl",
+    )
+    http_file(
+        name = "io_k8s_dl_kubectl_aarch64_macos",
+        url = "https://dl.k8s.io/release/v1.29.1/bin/darwin/arm64/kubectl",
+        sha256 = "c31b99d7bf0faa486a6554c5f96e36af4821a488e90176a12ba18298bc4c8fb0",
+        executable = True,
+        downloaded_file_path = "kubectl",
+    )
+
+def skopeo_deps():
+    # Skopeo is an enormous can of worms.  Like a neutron star made only of worms.  The original
+    # authors apparently do not believe in binary releases, apparently because one time Redhat broke
+    # libc or something?  That's fine, whatever, it's just Go, so we'll build it ourselves like we
+    # do for all the crazy proto compilers!  But as it turns out, it depends on a bunch of C
+    # libraries that I do not want to figure out how to Bazel-ify.  At some point it needs headers
+    # from btrfs!  Where am I going to get THAT from!
+    #
+    # Instead, someone on the Internet just builds the binaries with Github Actions. Great, we'll
+    # use that.  Unfortunately, that person doesn't build it for Mac.  But worry not, someone forked
+    # the repo and does build it for Mac!  That's what we're using.
+    #
+    # Something else we could do is use the underlying libraries, specifically
+    # github.com/containers/v5/copy, directly, right?  They're the whole problem.  You can make it
+    # build without a C compiler, but you need to pass a ton of build tags everywhere; gazelle needs
+    # them, MODULE.bazel needs them as Gazelle overrides, and Bazel targets that depend on the
+    # library need the build tags passed on the bazel build/run command line with --define
+    # gotags=....  Adding to the fun, that module also depends on mutually incompatible versions of
+    # Open Telemetry somehow, which breaks etcd, somehow.  I tried making it work.  It can be made
+    # to work; just upgrade every module you see in the error messages from "go mod tidy" to the
+    # latest version.  But it was just too big of a mess for what amounts to copying 3 files between
+    # two local directories.  Like, what?  You need to inspect btrfs filesystems during that?
+    #
+    # So we'll do this terrible thing instead.  Take that, the software supply chain!
+    http_file(
+        name = "com_github_containers_skopeo_x86_64_linux",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-linux-amd64",
+        sha256 = "51218f93a2b079e36a36f7fbe2d2d86778be0a6947653031b4f9e254e2469224",
+        executable = True,
+        downloaded_file_path = "skopeo",
+    )
+    http_file(
+        name = "com_github_containers_skopeo_aarch64_linux",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-linux-arm64",
+        sha256 = "364c46085de31edf4b312f13587442f4eade1f181bc5a9ea2ab2ffab5b575916",
+        executable = True,
+        downloaded_file_path = "skopeo",
+    )
+    http_file(
+        name = "com_github_containers_skopeo_x86_64_macos",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-darwin-amd64",
+        sha256 = "5a82082f439508255fd2588e1aecbe9b61bf5ad62442cde2bab5d3ba665ad63f",
+        executable = True,
+        downloaded_file_path = "skopeo",
+    )
+    http_file(
+        name = "com_github_containers_skopeo_aarch64_macos",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-darwin-arm64",
+        sha256 = "77a31136eaa04643120b4999e526da35735e01ccc80f1c97752a33b3fed64547",
+        executable = True,
+        downloaded_file_path = "skopeo",
+    )
+
+def pachdev_deps():
+    http_file(
+        name = "com_github_kubernetes_sigs_metrics_server_helm_chart",
+        url = "https://github.com/kubernetes-sigs/metrics-server/releases/download/metrics-server-helm-chart-3.11.0/metrics-server-3.11.0.tgz",
+        sha256 = "e7cba5a2d7e2b0949b3ea1aa48fc3780b71eba17e1edccc8273f5da67048164b",
+        downloaded_file_path = "metrics-server.tgz",
+    )

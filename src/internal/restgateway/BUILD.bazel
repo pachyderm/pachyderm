@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "restgateway",
+    srcs = ["restgateway.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/restgateway",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/admin",
+        "//src/auth",
+        "//src/debug",
+        "//src/enterprise",
+        "//src/identity",
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "//src/license",
+        "//src/pfs",
+        "//src/pps",
+        "//src/proxy",
+        "//src/transaction",
+        "//src/version/versionpb",
+        "//src/worker",
+        "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime",
+        "@org_golang_google_grpc//:grpc",
+    ],
+)

@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "logging",
+    srcs = [
+        "base.go",
+        "interceptor.go",
+        "util.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/middleware/auth",
+        "//src/internal/pctx",
+        "@com_github_fatih_camelcase//:camelcase",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//health/grpc_health_v1",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//peer",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//proto",
+        "@org_uber_go_zap//:zap",
+    ],
+)

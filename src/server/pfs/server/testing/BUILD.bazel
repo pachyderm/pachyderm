@@ -1,0 +1,115 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+filegroup(
+    name = "testdata",
+    data = glob(["testdata/**"]),
+    visibility = ["//src/server/pfs/server:__pkg__"],
+)
+
+# gazelle:go_test file
+go_test(
+    name = "fuzz_provenance_test",
+    size = "medium",
+    srcs = ["fuzz_provenance_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":testing"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/dockertestenv",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+        "//src/pfs",
+        "//src/server/pfs",
+        "@org_golang_google_protobuf//types/known/emptypb",
+    ],
+)
+
+go_test(
+    name = "load_test",
+    srcs = ["load_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":testing"],
+    deps = [
+        "//src/internal/cmdutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "@org_golang_google_protobuf//types/known/emptypb",
+    ],
+)
+
+go_test(
+    name = "server_test",
+    srcs = ["server_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":testing"],
+    shard_count = 8,
+    tags = ["cpu:4"],
+    deps = [
+        "//src/auth",
+        "//src/enterprise",
+        "//src/internal/ancestry",
+        "//src/internal/backoff",
+        "//src/internal/client",
+        "//src/internal/config",
+        "//src/internal/dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/errutil",
+        "//src/internal/grpcutil",
+        "//src/internal/obj",
+        "//src/internal/pachconfig",
+        "//src/internal/pachd",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/pfsdb",
+        "//src/internal/require",
+        "//src/internal/tarutil",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+        "//src/internal/testutil/random",
+        "//src/internal/uuid",
+        "//src/pfs",
+        "//src/pps",
+        "//src/server/pfs",
+        "//src/server/pfs/server",
+        "@com_github_docker_go_units//:go-units",
+        "@com_github_jmoiron_sqlx//:sqlx",
+        "@com_github_stretchr_testify//assert",
+        "@org_golang_google_genproto_googleapis_rpc//errdetails",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//types/known/wrapperspb",
+        "@org_golang_x_sync//errgroup",
+    ],
+)
+
+go_test(
+    name = "storage_test",
+    size = "small",
+    srcs = ["storage_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":testing"],
+    deps = [
+        "//src/internal/dockertestenv",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/pfs",
+    ],
+)
+
+go_library(
+    name = "testing",
+    srcs = ["common.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/pfs/server/testing",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/client",
+        "//src/pfs",
+        "//src/server/pfs",
+    ],
+)

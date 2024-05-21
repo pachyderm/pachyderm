@@ -491,6 +491,22 @@ export type ListDatumRequest = {
   reverse?: boolean
 }
 
+export type StartCreateDatumRequest = {
+  input?: Input
+  number?: number
+}
+
+export type ContinueCreateDatumRequest = {
+  number?: number
+}
+
+
+type BaseCreateDatumRequest = {
+}
+
+export type CreateDatumRequest = BaseCreateDatumRequest
+  & OneOf<{ start: StartCreateDatumRequest; continue: ContinueCreateDatumRequest }>
+
 export type DatumSetSpec = {
   number?: string
   sizeBytes?: string

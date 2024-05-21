@@ -603,6 +603,7 @@ class DeleteExpiredAuthTokensResponse(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_activate = channel.unary_unary(
             "/auth_v2.API/Activate",
@@ -731,17 +732,20 @@ class ApiStub:
         )
 
     def activate(self, *, root_token: str = "") -> "ActivateResponse":
+
         request = ActivateRequest()
         request.root_token = root_token
 
         return self.__rpc_activate(request)
 
     def deactivate(self) -> "DeactivateResponse":
+
         request = DeactivateRequest()
 
         return self.__rpc_deactivate(request)
 
     def get_configuration(self) -> "GetConfigurationResponse":
+
         request = GetConfigurationRequest()
 
         return self.__rpc_get_configuration(request)
@@ -749,6 +753,7 @@ class ApiStub:
     def set_configuration(
         self, *, configuration: "OidcConfig" = None
     ) -> "SetConfigurationResponse":
+
         request = SetConfigurationRequest()
         if configuration is not None:
             request.configuration = configuration
@@ -758,6 +763,7 @@ class ApiStub:
     def authenticate(
         self, *, oidc_state: str = "", id_token: str = ""
     ) -> "AuthenticateResponse":
+
         request = AuthenticateRequest()
         request.oidc_state = oidc_state
         request.id_token = id_token
@@ -782,6 +788,7 @@ class ApiStub:
     def get_permissions(
         self, *, resource: "Resource" = None
     ) -> "GetPermissionsResponse":
+
         request = GetPermissionsRequest()
         if resource is not None:
             request.resource = resource
@@ -791,6 +798,7 @@ class ApiStub:
     def get_permissions_for_principal(
         self, *, resource: "Resource" = None, principal: str = ""
     ) -> "GetPermissionsResponse":
+
         request = GetPermissionsForPrincipalRequest()
         if resource is not None:
             request.resource = resource
@@ -799,6 +807,7 @@ class ApiStub:
         return self.__rpc_get_permissions_for_principal(request)
 
     def who_am_i(self) -> "WhoAmIResponse":
+
         request = WhoAmIRequest()
 
         return self.__rpc_who_am_i(request)
@@ -806,6 +815,7 @@ class ApiStub:
     def get_roles_for_permission(
         self, *, permission: "Permission" = None
     ) -> "GetRolesForPermissionResponse":
+
         request = GetRolesForPermissionRequest()
         request.permission = permission
 
@@ -831,6 +841,7 @@ class ApiStub:
     def get_role_binding(
         self, *, resource: "Resource" = None
     ) -> "GetRoleBindingResponse":
+
         request = GetRoleBindingRequest()
         if resource is not None:
             request.resource = resource
@@ -838,6 +849,7 @@ class ApiStub:
         return self.__rpc_get_role_binding(request)
 
     def get_oidc_login(self) -> "GetOidcLoginResponse":
+
         request = GetOidcLoginRequest()
 
         return self.__rpc_get_oidc_login(request)
@@ -845,6 +857,7 @@ class ApiStub:
     def get_robot_token(
         self, *, robot: str = "", ttl: int = 0
     ) -> "GetRobotTokenResponse":
+
         request = GetRobotTokenRequest()
         request.robot = robot
         request.ttl = ttl
@@ -852,6 +865,7 @@ class ApiStub:
         return self.__rpc_get_robot_token(request)
 
     def revoke_auth_token(self, *, token: str = "") -> "RevokeAuthTokenResponse":
+
         request = RevokeAuthTokenRequest()
         request.token = token
 
@@ -860,6 +874,7 @@ class ApiStub:
     def revoke_auth_tokens_for_user(
         self, *, username: str = ""
     ) -> "RevokeAuthTokensForUserResponse":
+
         request = RevokeAuthTokensForUserRequest()
         request.username = username
 
@@ -894,23 +909,27 @@ class ApiStub:
         return self.__rpc_modify_members(request)
 
     def get_groups(self) -> "GetGroupsResponse":
+
         request = GetGroupsRequest()
 
         return self.__rpc_get_groups(request)
 
     def get_groups_for_principal(self, *, principal: str = "") -> "GetGroupsResponse":
+
         request = GetGroupsForPrincipalRequest()
         request.principal = principal
 
         return self.__rpc_get_groups_for_principal(request)
 
     def get_users(self, *, group: str = "") -> "GetUsersResponse":
+
         request = GetUsersRequest()
         request.group = group
 
         return self.__rpc_get_users(request)
 
     def extract_auth_tokens(self) -> "ExtractAuthTokensResponse":
+
         request = ExtractAuthTokensRequest()
 
         return self.__rpc_extract_auth_tokens(request)
@@ -918,6 +937,7 @@ class ApiStub:
     def restore_auth_token(
         self, *, token: "TokenInfo" = None
     ) -> "RestoreAuthTokenResponse":
+
         request = RestoreAuthTokenRequest()
         if token is not None:
             request.token = token
@@ -925,327 +945,14 @@ class ApiStub:
         return self.__rpc_restore_auth_token(request)
 
     def delete_expired_auth_tokens(self) -> "DeleteExpiredAuthTokensResponse":
+
         request = DeleteExpiredAuthTokensRequest()
 
         return self.__rpc_delete_expired_auth_tokens(request)
 
     def rotate_root_token(self, *, root_token: str = "") -> "RotateRootTokenResponse":
+
         request = RotateRootTokenRequest()
         request.root_token = root_token
 
         return self.__rpc_rotate_root_token(request)
-
-
-class ApiBase:
-    def activate(
-        self, root_token: str, context: "grpc.ServicerContext"
-    ) -> "ActivateResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def deactivate(self, context: "grpc.ServicerContext") -> "DeactivateResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_configuration(
-        self, context: "grpc.ServicerContext"
-    ) -> "GetConfigurationResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def set_configuration(
-        self, configuration: "OidcConfig", context: "grpc.ServicerContext"
-    ) -> "SetConfigurationResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def authenticate(
-        self, oidc_state: str, id_token: str, context: "grpc.ServicerContext"
-    ) -> "AuthenticateResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def authorize(
-        self,
-        resource: "Resource",
-        permissions: Optional[List["Permission"]],
-        context: "grpc.ServicerContext",
-    ) -> "AuthorizeResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_permissions(
-        self, resource: "Resource", context: "grpc.ServicerContext"
-    ) -> "GetPermissionsResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_permissions_for_principal(
-        self, resource: "Resource", principal: str, context: "grpc.ServicerContext"
-    ) -> "GetPermissionsResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def who_am_i(self, context: "grpc.ServicerContext") -> "WhoAmIResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_roles_for_permission(
-        self, permission: "Permission", context: "grpc.ServicerContext"
-    ) -> "GetRolesForPermissionResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def modify_role_binding(
-        self,
-        resource: "Resource",
-        principal: str,
-        roles: Optional[List[str]],
-        context: "grpc.ServicerContext",
-    ) -> "ModifyRoleBindingResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_role_binding(
-        self, resource: "Resource", context: "grpc.ServicerContext"
-    ) -> "GetRoleBindingResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_oidc_login(self, context: "grpc.ServicerContext") -> "GetOidcLoginResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_robot_token(
-        self, robot: str, ttl: int, context: "grpc.ServicerContext"
-    ) -> "GetRobotTokenResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def revoke_auth_token(
-        self, token: str, context: "grpc.ServicerContext"
-    ) -> "RevokeAuthTokenResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def revoke_auth_tokens_for_user(
-        self, username: str, context: "grpc.ServicerContext"
-    ) -> "RevokeAuthTokensForUserResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def set_groups_for_user(
-        self,
-        username: str,
-        groups: Optional[List[str]],
-        context: "grpc.ServicerContext",
-    ) -> "SetGroupsForUserResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def modify_members(
-        self,
-        group: str,
-        add: Optional[List[str]],
-        remove: Optional[List[str]],
-        context: "grpc.ServicerContext",
-    ) -> "ModifyMembersResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_groups(self, context: "grpc.ServicerContext") -> "GetGroupsResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_groups_for_principal(
-        self, principal: str, context: "grpc.ServicerContext"
-    ) -> "GetGroupsResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_users(
-        self, group: str, context: "grpc.ServicerContext"
-    ) -> "GetUsersResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def extract_auth_tokens(
-        self, context: "grpc.ServicerContext"
-    ) -> "ExtractAuthTokensResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def restore_auth_token(
-        self, token: "TokenInfo", context: "grpc.ServicerContext"
-    ) -> "RestoreAuthTokenResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_expired_auth_tokens(
-        self, context: "grpc.ServicerContext"
-    ) -> "DeleteExpiredAuthTokensResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def rotate_root_token(
-        self, root_token: str, context: "grpc.ServicerContext"
-    ) -> "RotateRootTokenResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "auth_v2.API"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "Activate": grpc.unary_unary_rpc_method_handler(
-                self.activate,
-                request_deserializer=ActivateRequest.FromString,
-                response_serializer=ActivateRequest.SerializeToString,
-            ),
-            "Deactivate": grpc.unary_unary_rpc_method_handler(
-                self.deactivate,
-                request_deserializer=DeactivateRequest.FromString,
-                response_serializer=DeactivateRequest.SerializeToString,
-            ),
-            "GetConfiguration": grpc.unary_unary_rpc_method_handler(
-                self.get_configuration,
-                request_deserializer=GetConfigurationRequest.FromString,
-                response_serializer=GetConfigurationRequest.SerializeToString,
-            ),
-            "SetConfiguration": grpc.unary_unary_rpc_method_handler(
-                self.set_configuration,
-                request_deserializer=SetConfigurationRequest.FromString,
-                response_serializer=SetConfigurationRequest.SerializeToString,
-            ),
-            "Authenticate": grpc.unary_unary_rpc_method_handler(
-                self.authenticate,
-                request_deserializer=AuthenticateRequest.FromString,
-                response_serializer=AuthenticateRequest.SerializeToString,
-            ),
-            "Authorize": grpc.unary_unary_rpc_method_handler(
-                self.authorize,
-                request_deserializer=AuthorizeRequest.FromString,
-                response_serializer=AuthorizeRequest.SerializeToString,
-            ),
-            "GetPermissions": grpc.unary_unary_rpc_method_handler(
-                self.get_permissions,
-                request_deserializer=GetPermissionsRequest.FromString,
-                response_serializer=GetPermissionsRequest.SerializeToString,
-            ),
-            "GetPermissionsForPrincipal": grpc.unary_unary_rpc_method_handler(
-                self.get_permissions_for_principal,
-                request_deserializer=GetPermissionsForPrincipalRequest.FromString,
-                response_serializer=GetPermissionsForPrincipalRequest.SerializeToString,
-            ),
-            "WhoAmI": grpc.unary_unary_rpc_method_handler(
-                self.who_am_i,
-                request_deserializer=WhoAmIRequest.FromString,
-                response_serializer=WhoAmIRequest.SerializeToString,
-            ),
-            "GetRolesForPermission": grpc.unary_unary_rpc_method_handler(
-                self.get_roles_for_permission,
-                request_deserializer=GetRolesForPermissionRequest.FromString,
-                response_serializer=GetRolesForPermissionRequest.SerializeToString,
-            ),
-            "ModifyRoleBinding": grpc.unary_unary_rpc_method_handler(
-                self.modify_role_binding,
-                request_deserializer=ModifyRoleBindingRequest.FromString,
-                response_serializer=ModifyRoleBindingRequest.SerializeToString,
-            ),
-            "GetRoleBinding": grpc.unary_unary_rpc_method_handler(
-                self.get_role_binding,
-                request_deserializer=GetRoleBindingRequest.FromString,
-                response_serializer=GetRoleBindingRequest.SerializeToString,
-            ),
-            "GetOIDCLogin": grpc.unary_unary_rpc_method_handler(
-                self.get_oidc_login,
-                request_deserializer=GetOidcLoginRequest.FromString,
-                response_serializer=GetOidcLoginRequest.SerializeToString,
-            ),
-            "GetRobotToken": grpc.unary_unary_rpc_method_handler(
-                self.get_robot_token,
-                request_deserializer=GetRobotTokenRequest.FromString,
-                response_serializer=GetRobotTokenRequest.SerializeToString,
-            ),
-            "RevokeAuthToken": grpc.unary_unary_rpc_method_handler(
-                self.revoke_auth_token,
-                request_deserializer=RevokeAuthTokenRequest.FromString,
-                response_serializer=RevokeAuthTokenRequest.SerializeToString,
-            ),
-            "RevokeAuthTokensForUser": grpc.unary_unary_rpc_method_handler(
-                self.revoke_auth_tokens_for_user,
-                request_deserializer=RevokeAuthTokensForUserRequest.FromString,
-                response_serializer=RevokeAuthTokensForUserRequest.SerializeToString,
-            ),
-            "SetGroupsForUser": grpc.unary_unary_rpc_method_handler(
-                self.set_groups_for_user,
-                request_deserializer=SetGroupsForUserRequest.FromString,
-                response_serializer=SetGroupsForUserRequest.SerializeToString,
-            ),
-            "ModifyMembers": grpc.unary_unary_rpc_method_handler(
-                self.modify_members,
-                request_deserializer=ModifyMembersRequest.FromString,
-                response_serializer=ModifyMembersRequest.SerializeToString,
-            ),
-            "GetGroups": grpc.unary_unary_rpc_method_handler(
-                self.get_groups,
-                request_deserializer=GetGroupsRequest.FromString,
-                response_serializer=GetGroupsRequest.SerializeToString,
-            ),
-            "GetGroupsForPrincipal": grpc.unary_unary_rpc_method_handler(
-                self.get_groups_for_principal,
-                request_deserializer=GetGroupsForPrincipalRequest.FromString,
-                response_serializer=GetGroupsForPrincipalRequest.SerializeToString,
-            ),
-            "GetUsers": grpc.unary_unary_rpc_method_handler(
-                self.get_users,
-                request_deserializer=GetUsersRequest.FromString,
-                response_serializer=GetUsersRequest.SerializeToString,
-            ),
-            "ExtractAuthTokens": grpc.unary_unary_rpc_method_handler(
-                self.extract_auth_tokens,
-                request_deserializer=ExtractAuthTokensRequest.FromString,
-                response_serializer=ExtractAuthTokensRequest.SerializeToString,
-            ),
-            "RestoreAuthToken": grpc.unary_unary_rpc_method_handler(
-                self.restore_auth_token,
-                request_deserializer=RestoreAuthTokenRequest.FromString,
-                response_serializer=RestoreAuthTokenRequest.SerializeToString,
-            ),
-            "DeleteExpiredAuthTokens": grpc.unary_unary_rpc_method_handler(
-                self.delete_expired_auth_tokens,
-                request_deserializer=DeleteExpiredAuthTokensRequest.FromString,
-                response_serializer=DeleteExpiredAuthTokensRequest.SerializeToString,
-            ),
-            "RotateRootToken": grpc.unary_unary_rpc_method_handler(
-                self.rotate_root_token,
-                request_deserializer=RotateRootTokenRequest.FromString,
-                response_serializer=RotateRootTokenRequest.SerializeToString,
-            ),
-        }

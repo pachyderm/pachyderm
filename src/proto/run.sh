@@ -53,17 +53,17 @@ done
     --plugin=protoc-gen-openapiv2="$(rlocation _main/src/proto/protoc-gen-openapiv2)" \
     --plugin=protoc-gen-grpc-gateway="$(rlocation _main/src/proto/protoc-gen-grpc-gateway)" \
     --plugin=protoc-gen-grpc-gateway-ts="$(rlocation _main/src/proto/protoc-gen-grpc-gateway-ts)" \
-    --zap_out=":$OUT/src" \
-    --pach_out=":$OUT/src" \
-    --go_out=":$OUT/src" \
-    --go-grpc_out=":$OUT/src" \
-    --jsonschema_out=":$OUT/src/internal/jsonschema" \
-    --validate_out=":$OUT/src" \
-    --doc_out=":$OUT" \
-    --doc2_out=":$OUT" \
-    --openapiv2_out=":$OUT/src/openapi" \
-    --grpc-gateway_out=":$OUT/src" \
-    --grpc-gateway-ts_out=":$OUT/src/typescript" \
+    --zap_out="$OUT" \
+    --pach_out="$OUT/src" \
+    --go_out="$OUT" \
+    --go-grpc_out="$OUT" \
+    --jsonschema_out="$OUT/src/internal/jsonschema" \
+    --validate_out="$OUT" \
+    --doc_out="$OUT" \
+    --doc2_out="$OUT" \
+    --openapiv2_out="$OUT/src/openapi" \
+    --grpc-gateway_out="$OUT" \
+    --grpc-gateway-ts_out="$OUT/src/typescript" \
     --jsonschema_opt="enforce_oneof" \
     --jsonschema_opt="file_extension=schema.json" \
     --jsonschema_opt="disallow_additional_properties" \
@@ -74,7 +74,6 @@ done
     --doc_opt="json,proto-docs.json" \
     --doc2_opt="markdown,proto-docs.md" \
     --grpc-gateway_opt logtostderr=true \
-    --grpc-gateway_opt paths=source_relative \
     --grpc-gateway_opt generate_unbound_methods=true \
     --openapiv2_opt logtostderr=true \
     --openapiv2_opt generate_unbound_methods=true \
@@ -84,8 +83,6 @@ done
     --openapiv2_opt allow_merge=true \
     --openapiv2_opt merge_file_name=pachyderm_api \
     "${PROTOS[@]}"
-
-rm -rf $OUT/src/github.com
 
 pushd $OUT >/dev/null
 echo -n "gopatch..."
@@ -98,5 +95,6 @@ popd >/dev/null
 
 echo -n "copy generated files into workspace..."
 find src/internal/jsonschema -name \*.schema.json -exec rm {} '+'
-cp -a $OUT/* .
+cp -a $OUT/src/ .
+cp -a $OUT/github.com/pachyderm/pachyderm/v2/src/ .
 echo "done."

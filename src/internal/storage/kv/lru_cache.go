@@ -60,7 +60,7 @@ func (c *LRUCache) Exists(ctx context.Context, key []byte) (bool, error) {
 		c.mu.RLock()
 		defer c.mu.RUnlock()
 		return c.fast.Exists(ctx, key)
-	}(); err == nil {
+	}(); err == nil && exists {
 		// cache hit
 		return exists, err
 	}

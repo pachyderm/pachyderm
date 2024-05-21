@@ -191,6 +191,7 @@ class ListUserClustersResponse(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_activate = channel.unary_unary(
             "/license_v2.API/Activate",
@@ -241,6 +242,7 @@ class ApiStub:
     def activate(
         self, *, activation_code: str = "", expires: datetime = None
     ) -> "ActivateResponse":
+
         request = ActivateRequest()
         request.activation_code = activation_code
         if expires is not None:
@@ -249,11 +251,13 @@ class ApiStub:
         return self.__rpc_activate(request)
 
     def get_activation_code(self) -> "GetActivationCodeResponse":
+
         request = GetActivationCodeRequest()
 
         return self.__rpc_get_activation_code(request)
 
     def delete_all(self) -> "DeleteAllResponse":
+
         request = DeleteAllRequest()
 
         return self.__rpc_delete_all(request)
@@ -268,6 +272,7 @@ class ApiStub:
         cluster_deployment_id: str = "",
         enterprise_server: bool = False
     ) -> "AddClusterResponse":
+
         request = AddClusterRequest()
         request.id = id
         request.address = address
@@ -279,12 +284,14 @@ class ApiStub:
         return self.__rpc_add_cluster(request)
 
     def delete_cluster(self, *, id: str = "") -> "DeleteClusterResponse":
+
         request = DeleteClusterRequest()
         request.id = id
 
         return self.__rpc_delete_cluster(request)
 
     def list_clusters(self) -> "ListClustersResponse":
+
         request = ListClustersRequest()
 
         return self.__rpc_list_clusters(request)
@@ -298,6 +305,7 @@ class ApiStub:
         cluster_deployment_id: str = "",
         secret: str = ""
     ) -> "UpdateClusterResponse":
+
         request = UpdateClusterRequest()
         request.id = id
         request.address = address
@@ -316,6 +324,7 @@ class ApiStub:
         auth_enabled: bool = False,
         client_id: str = ""
     ) -> "HeartbeatResponse":
+
         request = HeartbeatRequest()
         request.id = id
         request.secret = secret
@@ -326,138 +335,7 @@ class ApiStub:
         return self.__rpc_heartbeat(request)
 
     def list_user_clusters(self) -> "ListUserClustersResponse":
+
         request = ListUserClustersRequest()
 
         return self.__rpc_list_user_clusters(request)
-
-
-class ApiBase:
-    def activate(
-        self, activation_code: str, expires: datetime, context: "grpc.ServicerContext"
-    ) -> "ActivateResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def get_activation_code(
-        self, context: "grpc.ServicerContext"
-    ) -> "GetActivationCodeResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_all(self, context: "grpc.ServicerContext") -> "DeleteAllResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def add_cluster(
-        self,
-        id: str,
-        address: str,
-        secret: str,
-        user_address: str,
-        cluster_deployment_id: str,
-        enterprise_server: bool,
-        context: "grpc.ServicerContext",
-    ) -> "AddClusterResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_cluster(
-        self, id: str, context: "grpc.ServicerContext"
-    ) -> "DeleteClusterResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_clusters(self, context: "grpc.ServicerContext") -> "ListClustersResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def update_cluster(
-        self,
-        id: str,
-        address: str,
-        user_address: str,
-        cluster_deployment_id: str,
-        secret: str,
-        context: "grpc.ServicerContext",
-    ) -> "UpdateClusterResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def heartbeat(
-        self,
-        id: str,
-        secret: str,
-        version: str,
-        auth_enabled: bool,
-        client_id: str,
-        context: "grpc.ServicerContext",
-    ) -> "HeartbeatResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_user_clusters(
-        self, context: "grpc.ServicerContext"
-    ) -> "ListUserClustersResponse":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "license_v2.API"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "Activate": grpc.unary_unary_rpc_method_handler(
-                self.activate,
-                request_deserializer=ActivateRequest.FromString,
-                response_serializer=ActivateRequest.SerializeToString,
-            ),
-            "GetActivationCode": grpc.unary_unary_rpc_method_handler(
-                self.get_activation_code,
-                request_deserializer=GetActivationCodeRequest.FromString,
-                response_serializer=GetActivationCodeRequest.SerializeToString,
-            ),
-            "DeleteAll": grpc.unary_unary_rpc_method_handler(
-                self.delete_all,
-                request_deserializer=DeleteAllRequest.FromString,
-                response_serializer=DeleteAllRequest.SerializeToString,
-            ),
-            "AddCluster": grpc.unary_unary_rpc_method_handler(
-                self.add_cluster,
-                request_deserializer=AddClusterRequest.FromString,
-                response_serializer=AddClusterRequest.SerializeToString,
-            ),
-            "DeleteCluster": grpc.unary_unary_rpc_method_handler(
-                self.delete_cluster,
-                request_deserializer=DeleteClusterRequest.FromString,
-                response_serializer=DeleteClusterRequest.SerializeToString,
-            ),
-            "ListClusters": grpc.unary_unary_rpc_method_handler(
-                self.list_clusters,
-                request_deserializer=ListClustersRequest.FromString,
-                response_serializer=ListClustersRequest.SerializeToString,
-            ),
-            "UpdateCluster": grpc.unary_unary_rpc_method_handler(
-                self.update_cluster,
-                request_deserializer=UpdateClusterRequest.FromString,
-                response_serializer=UpdateClusterRequest.SerializeToString,
-            ),
-            "Heartbeat": grpc.unary_unary_rpc_method_handler(
-                self.heartbeat,
-                request_deserializer=HeartbeatRequest.FromString,
-                response_serializer=HeartbeatRequest.SerializeToString,
-            ),
-            "ListUserClusters": grpc.unary_unary_rpc_method_handler(
-                self.list_user_clusters,
-                request_deserializer=ListUserClustersRequest.FromString,
-                response_serializer=ListUserClustersRequest.SerializeToString,
-            ),
-        }

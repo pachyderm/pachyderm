@@ -1,0 +1,20 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "setupenv",
+    srcs = [
+        "db.go",
+        "setupenv.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/setupenv",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/pachconfig",
+        "//src/internal/pachd",
+        "//src/internal/pachsql",
+        "@com_github_dlmiddlecote_sqlstats//:sqlstats",
+        "@com_github_prometheus_client_golang//prometheus",
+    ],
+)

@@ -8,9 +8,12 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/alessio/shellescape"
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -74,27 +77,13 @@ func (p Pachctl) Close() error {
 }
 
 func (p Pachctl) bashPrelude(w io.Writer) error {
-	_, err := fmt.Fprintf(w, `
-set -e -o pipefail
-# Try to ignore pipefail errors (encountered when writing to a closed pipe).
-# Processes like 'yes' are essentially guaranteed to hit this, and because of
-# -e -o pipefail they will crash the whole script. We need these options,
-# though, for 'match' to work, so for now we work around pipefail errors on a
-# cmd-by-cmd basis. See "The Infamous SIGPIPE Signal"
-# http://www.tldp.org/LDP/lpg/node20.html
-pipeerr=141 # typical error code returned by unix utils when SIGPIPE is raised
-function yes {
-	/usr/bin/yes || test "$?" -eq "${pipeerr}"
-}
-export -f yes # use in subshells too
-which match >/dev/null || {
-	echo "You must have 'match' installed to run these tests. Please run:" >&2
-	echo "  go install ./src/testing/match" >&2
-	exit 1
-}
-export PACH_CONFIG="%s"
-`, p.configPath)
-	return errors.Wrap(err, "could not write prelude")
+	if err := writeBashPrelude(w); err != nil {
+		return errors.Wrap(err, "write bash prelude")
+	}
+	if _, err := fmt.Fprintf(w, `export PACH_CONFIG="%s"`+"\n", p.configPath); err != nil {
+		return errors.Wrap(err, "write PACH_CONFIG")
+	}
+	return nil
 }
 
 // writeTemplate dedents the given script, parses it as a Go template and writes
@@ -199,8 +188,20 @@ func (p *Pachctl) CommandTemplate(ctx context.Context, scriptTemplate string, da
 // RunCommand runs command in sh (rather than bash), returning the combined
 // stdout & stderr.
 func (p Pachctl) RunCommand(ctx context.Context, command string) (string, error) {
+	env := os.Environ()
+
+	// Adjust PATH to point at pachctl if it's in the runfiles for this invocation.
+	if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok {
+		for i, entry := range env {
+			if strings.HasPrefix(entry, "PATH=") {
+				oldPath := entry[len("PATH="):]
+				env[i] = fmt.Sprintf("PATH=%s:%s", filepath.Dir(pachctl), oldPath)
+			}
+		}
+	}
+
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", command)
-	cmd.Env = append(os.Environ(), fmt.Sprintf(`PACH_CONFIG=%s`, shellescape.Quote(p.configPath)))
+	cmd.Env = append(env, fmt.Sprintf(`PACH_CONFIG=%s`, shellescape.Quote(p.configPath)))
 	b, err := cmd.CombinedOutput()
 	return string(b), err
 }

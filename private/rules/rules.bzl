@@ -2,7 +2,7 @@
 
 load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
 
-def host_native_binary(name, repo, target):
+def host_native_binary(name, repo, target, **kwargs):
     """
     Wraps a pre-built external binary.  (See @bazel_skylib//rules:native_binary.bzl.)
 
@@ -18,4 +18,5 @@ def host_native_binary(name, repo, target):
             "//:is_aarch64_macos": repo + "_aarch64_macos//" + target,
         }),
         out = name,
+        **kwargs
     )

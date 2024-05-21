@@ -90,9 +90,11 @@
     - [Filter](#debug_v2-Filter)
     - [GetDumpV2TemplateRequest](#debug_v2-GetDumpV2TemplateRequest)
     - [GetDumpV2TemplateResponse](#debug_v2-GetDumpV2TemplateResponse)
+    - [LokiArgs](#debug_v2-LokiArgs)
     - [Pipeline](#debug_v2-Pipeline)
     - [Pod](#debug_v2-Pod)
     - [Profile](#debug_v2-Profile)
+    - [ProfileArgs](#debug_v2-ProfileArgs)
     - [ProfileRequest](#debug_v2-ProfileRequest)
     - [RunPFSLoadTestRequest](#debug_v2-RunPFSLoadTestRequest)
     - [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse)
@@ -403,6 +405,8 @@
     - [CheckStatusRequest](#pps_v2-CheckStatusRequest)
     - [CheckStatusResponse](#pps_v2-CheckStatusResponse)
     - [ClusterDefaults](#pps_v2-ClusterDefaults)
+    - [ContinueCreateDatumRequest](#pps_v2-ContinueCreateDatumRequest)
+    - [CreateDatumRequest](#pps_v2-CreateDatumRequest)
     - [CreatePipelineRequest](#pps_v2-CreatePipelineRequest)
     - [CreatePipelineTransaction](#pps_v2-CreatePipelineTransaction)
     - [CreatePipelineV2Request](#pps_v2-CreatePipelineV2Request)
@@ -480,6 +484,7 @@
     - [SetProjectDefaultsRequest](#pps_v2-SetProjectDefaultsRequest)
     - [SetProjectDefaultsResponse](#pps_v2-SetProjectDefaultsResponse)
     - [Spout](#pps_v2-Spout)
+    - [StartCreateDatumRequest](#pps_v2-StartCreateDatumRequest)
     - [StartPipelineRequest](#pps_v2-StartPipelineRequest)
     - [StopJobRequest](#pps_v2-StopJobRequest)
     - [StopPipelineRequest](#pps_v2-StopPipelineRequest)
@@ -1776,6 +1781,8 @@ ResourceType represents the type of a Resource
 | pods | [Pod](#debug_v2-Pod) | repeated |  |
 | timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | pipeline | [Pipeline](#debug_v2-Pipeline) |  |  |
+| loki_args | [LokiArgs](#debug_v2-LokiArgs) |  |  |
+| profile_args | [ProfileArgs](#debug_v2-ProfileArgs) |  |  |
 
 
 
@@ -1944,6 +1951,21 @@ ResourceType represents the type of a Resource
 
 
 
+<a name="debug_v2-LokiArgs"></a>
+
+### LokiArgs
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| max_logs | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="debug_v2-Pipeline"></a>
 
 ### Pipeline
@@ -1987,6 +2009,21 @@ ResourceType represents the type of a Resource
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | duration | [google.protobuf.Duration](#google-protobuf-Duration) |  | only meaningful if name == &#34;cpu&#34; |
+
+
+
+
+
+
+<a name="debug_v2-ProfileArgs"></a>
+
+### ProfileArgs
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| profiles | [Profile](#debug_v2-Profile) | repeated |  |
 
 
 
@@ -6427,6 +6464,38 @@ Response for check status request. Provides alerts if any.
 
 
 
+<a name="pps_v2-ContinueCreateDatumRequest"></a>
+
+### ContinueCreateDatumRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| number | [int32](#int32) |  | Number of datums to return in next batch. If 0, default batch size is returned. |
+
+
+
+
+
+
+<a name="pps_v2-CreateDatumRequest"></a>
+
+### CreateDatumRequest
+Emits a stream of datums as they are created from the given input. Client
+must cancel the stream when it no longer wants to receive datums.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| start | [StartCreateDatumRequest](#pps_v2-StartCreateDatumRequest) |  |  |
+| continue | [ContinueCreateDatumRequest](#pps_v2-ContinueCreateDatumRequest) |  |  |
+
+
+
+
+
+
 <a name="pps_v2-CreatePipelineRequest"></a>
 
 ### CreatePipelineRequest
@@ -7843,6 +7912,22 @@ request from kubernetes, for scheduling.
 
 
 
+<a name="pps_v2-StartCreateDatumRequest"></a>
+
+### StartCreateDatumRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| input | [Input](#pps_v2-Input) |  | Input is the input to list datums from. The datums listed are the ones that would be run if a pipeline was created with the provided input. |
+| number | [int32](#int32) |  | Number of datums to return in first batch. If 0, default batch size is returned. |
+
+
+
+
+
+
 <a name="pps_v2-StartPipelineRequest"></a>
 
 ### StartPipelineRequest
@@ -8174,6 +8259,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | StopJob | [StopJobRequest](#pps_v2-StopJobRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | InspectDatum | [InspectDatumRequest](#pps_v2-InspectDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) |  |
 | ListDatum | [ListDatumRequest](#pps_v2-ListDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) stream | ListDatum returns information about each datum fed to a Pachyderm job |
+| CreateDatum | [CreateDatumRequest](#pps_v2-CreateDatumRequest) stream | [DatumInfo](#pps_v2-DatumInfo) stream | CreateDatum prioritizes time to first datum. Each request returns a batch of datums. |
 | RestartDatum | [RestartDatumRequest](#pps_v2-RestartDatumRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | RerunPipeline | [RerunPipelineRequest](#pps_v2-RerunPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | CreatePipeline | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |

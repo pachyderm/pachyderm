@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -86,7 +87,7 @@ type driver struct {
 func newDriver(env Env) (*driver, error) {
 	// test object storage.
 	if err := func() error {
-		ctx, cf := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cf := context.WithTimeout(pctx.Background("newDriver"), 30*time.Second)
 		defer cf()
 		return obj.TestStorage(ctx, env.Bucket, env.ObjectClient)
 	}(); err != nil {
@@ -607,6 +608,14 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 		if searchDone {
 			return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
 		}
+		logFields := []zap.Field{
+			zap.String("commit", commit.Id),
+			zap.String("repo", commit.Repo.String()),
+			zap.String("target", request.FilePath),
+		}
+		if commit.Branch != nil {
+			logFields = append(logFields, zap.String("branch", commit.Branch.String()))
+		}
 		if err := log.LogStep(ctx, "searchingCommit", func(ctx context.Context) error {
 			inspectCommitResp, err := d.resolveCommitWithAuth(ctx, commit)
 			if err != nil {
@@ -635,7 +644,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 			}
 			commit = inspectCommitResp.ParentCommit
 			return nil
-		}, zap.String("commit", commit.Id), zap.String("branch", commit.GetBranch().String()), zap.String("repo", commit.Repo.String()), zap.String("target", request.FilePath)); err != nil {
+		}, logFields...); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
 			}
@@ -710,25 +719,26 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	authIsActive := true
-	return errors.Wrap(dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		return d.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
-			return d.listProjectInTransaction(ctx, txnCxt, func(proj *pfs.ProjectInfo) error {
-				if authIsActive {
-					resp, err := d.env.Auth.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
-					if err != nil {
-						if errors.Is(err, auth.ErrNotActivated) {
-							// Avoid unnecessary subsequent Auth API calls.
-							authIsActive = false
-							return cb(proj)
-						}
-						return errors.Wrapf(err, "getting permissions for project %s", proj.Project)
+	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return d.listProjectInTransaction(ctx, txnCtx, func(proj *pfs.ProjectInfo) error {
+			if authIsActive {
+				resp, err := d.env.Auth.GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
+				if err != nil {
+					if errors.Is(err, auth.ErrNotActivated) {
+						// Avoid unnecessary subsequent Auth API calls.
+						authIsActive = false
+						return cb(proj)
 					}
-					proj.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+					return errors.Wrapf(err, "getting permissions for project %s", proj.Project)
 				}
-				return cb(proj)
-			})
+				proj.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+			}
+			return cb(proj)
 		})
-	}), "list projects")
+	}); err != nil {
+		return errors.Wrap(err, "list projects")
+	}
+	return nil
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired

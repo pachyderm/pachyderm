@@ -12,7 +12,12 @@ spec:
   - port: {{ required "A valid Values.masterPort entry required!" .Values.determined.masterPort }}
     targetPort: {{- include "determined.masterPort" . | indent 1 }}
     protocol: TCP
+
+{{- if ((.Values.determined.openshiftRoute).enabled | default false) }}
+  type: ClusterIP
+{{- else }}
   type: {{ if (.Values.determined.useNodePortForMaster | default false) }}NodePort{{ else }}LoadBalancer{{ end }}
+{{- end }}
   selector:
     app: determined-master-{{ .Release.Name }}
 {{- end }}

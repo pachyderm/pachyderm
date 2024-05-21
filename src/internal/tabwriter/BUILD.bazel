@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "tabwriter",
+    srcs = ["tabwriter.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/tabwriter",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "@com_github_juju_ansiterm//:ansiterm",
+    ],
+)

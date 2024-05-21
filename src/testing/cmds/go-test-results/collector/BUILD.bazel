@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "collector_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/testing/cmds/go-test-results/collector",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/client",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "//src/pfs",
+        "//src/testing/cmds/go-test-results",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "collector",
+    embed = [":collector_lib"],
+    visibility = ["//visibility:public"],
+)

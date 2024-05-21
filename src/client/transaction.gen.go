@@ -546,6 +546,10 @@ func (c *unsupportedPpsBuilderClient) CheckStatus(_ context.Context, _ *pps_v2.C
 	return nil, unsupportedError("CheckStatus")
 }
 
+func (c *unsupportedPpsBuilderClient) CreateDatum(_ context.Context, opts ...grpc.CallOption) (pps_v2.API_CreateDatumClient, error) {
+	return nil, unsupportedError("CreateDatum")
+}
+
 func (c *unsupportedPpsBuilderClient) CreatePipeline(_ context.Context, _ *pps_v2.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("CreatePipeline")
 }

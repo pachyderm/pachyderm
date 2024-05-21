@@ -25,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
-	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
@@ -620,14 +619,12 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			}
 			// Master is scheduled; see if tasks have been calculated
 			var nTasks int32
-			// TODO: should this run through internal PPS service?
-			err := pc.env.GetPachClient(ctx).ListTask("pps", driver.TaskNamespace(pi), "", func(info *task.TaskInfo) error {
-				switch info.State {
-				case task.State_CLAIMED, task.State_RUNNING:
-					nTasks++
-				}
-				return nil
-			})
+			if pc.env.Config.PPSWorkerPreprocessing {
+				n, _ := pc.env.TaskService.Count(ctx, driver.PreprocessingTaskNamespace(pi))
+				nTasks += int32(n)
+			}
+			n, err := pc.env.TaskService.Count(ctx, driver.ProcessingTaskNamespace(pi))
+			nTasks += int32(n)
 			// Set parallelism
 			log.Debug(ctx, "beginning scale-up check", zap.Int32("currentTasks", nTasks), zap.Int32("currentScale", curScale))
 			switch {

@@ -43,7 +43,7 @@ type registry struct {
 // TODO:
 // Prometheus stats? (previously in the driver, which included testing we should reuse if possible)
 // capture logs (reuse driver tests and reintroduce tagged logger).
-func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, error) {
+func NewRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, error) {
 	// Determine the maximum number of concurrent tasks we will allow
 	concurrency, err := driver.ExpectedNumWorkers()
 	if err != nil {
@@ -99,7 +99,7 @@ func (reg *registry) killJob(pj *pendingJob, reason string) error {
 	return errors.EnsureStack(err)
 }
 
-func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
+func (reg *registry) StartJob(jobInfo *pps.JobInfo) (retErr error) {
 	reg.limiter.Acquire()
 	defer func() {
 		// TODO(2.0 optional): The error handling during job setup needs more work.
@@ -287,9 +287,10 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return err
 		}
 	}
-	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.Id, pj.cache)
+	preprocessingTaskDoer := reg.driver.NewPreprocessingTaskDoer(pj.ji.Job.Id, pj.cache)
+	processingTaskDoer := reg.driver.NewProcessingTaskDoer(pj.ji.Job.Id, pj.cache)
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		fileSetID, err := pj.createParallelDatums(ctx, taskDoer)
+		fileSetID, err := pj.createParallelDatums(ctx, preprocessingTaskDoer)
 		if err != nil {
 			return err
 		}
@@ -297,17 +298,17 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return err
 		}
 		pachClient := pachClient.WithCtx(ctx)
-		if err := reg.processDatums(pachClient, pj, taskDoer, fileSetID); err != nil {
+		if err := reg.processDatums(pachClient, pj, preprocessingTaskDoer, processingTaskDoer, fileSetID); err != nil {
 			return err
 		}
-		fileSetID, err = pj.createSerialDatums(ctx, taskDoer)
+		fileSetID, err = pj.createSerialDatums(ctx, preprocessingTaskDoer)
 		if err != nil {
 			return err
 		}
 		if err := renewer.Add(ctx, fileSetID); err != nil {
 			return err
 		}
-		return reg.processDatums(pachClient, pj, taskDoer, fileSetID)
+		return reg.processDatums(pachClient, pj, preprocessingTaskDoer, processingTaskDoer, fileSetID)
 	}); err != nil {
 		if errors.Is(err, errutil.ErrBreak) {
 			return nil
@@ -321,8 +322,8 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	return reg.succeedJob(pj)
 }
 
-func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob, taskDoer task.Doer, fileSetID string) error {
-	datumSets, err := createDatumSets(pachClient, pj, taskDoer, fileSetID)
+func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob, preprocessingTaskDoer, processingTaskDoer task.Doer, fileSetID string) error {
+	datumSets, err := createDatumSets(pachClient, pj, preprocessingTaskDoer, fileSetID)
 	if err != nil {
 		return err
 	}
@@ -341,7 +342,7 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 	}
 	ctx := pachClient.Ctx()
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
+	if err := task.DoBatch(ctx, processingTaskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 		if err != nil {
 			return err
 		}
@@ -399,6 +400,7 @@ func createDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task
 				FileSetId: fileSetID,
 				PathRange: shard,
 				SetSpec:   setSpec,
+				AuthToken: pachClient.AuthToken(),
 			})
 			if err != nil {
 				return err

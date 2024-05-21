@@ -1,0 +1,38 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "dockertestenv",
+    srcs = [
+        "minio.go",
+        "mysql.go",
+        "postgres.go",
+        "util.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/backoff",
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/obj",
+        "//src/internal/pachconfig",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testutil",
+        "@com_github_aws_aws_sdk_go//aws",
+        "@com_github_aws_aws_sdk_go//aws/credentials",
+        "@com_github_aws_aws_sdk_go//aws/session",
+        "@com_github_docker_docker//api/types",
+        "@com_github_docker_docker//api/types/container",
+        "@com_github_docker_docker//client",
+        "@com_github_docker_go_connections//nat",
+        "@com_github_go_sql_driver_mysql//:mysql",
+        "@com_github_minio_minio_go_v7//:minio-go",
+        "@com_github_minio_minio_go_v7//pkg/credentials",
+        "@dev_gocloud//blob",
+        "@dev_gocloud//blob/s3blob",
+        "@org_uber_go_zap//:zap",
+    ],
+)

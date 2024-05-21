@@ -13,7 +13,8 @@ import (
 type Env struct {
 	EtcdPrefix        string
 	EtcdClient        *etcd.Client
-	TaskService       task.Service
+	PFSTaskService    task.Service
+	PPSTaskService    task.Service
 	KubeClient        kubernetes.Interface
 	Namespace         string
 	MaxReplicas       int

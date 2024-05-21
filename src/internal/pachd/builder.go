@@ -442,8 +442,8 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 func (b *builder) startPPSWorker(ctx context.Context) error {
 	etcdPrefix := path.Join(b.env.Config().EtcdPrefix, b.env.Config().PPSEtcdPrefix)
 	w := pps_server.NewWorker(pps_server.WorkerEnv{
+		PachClient:  b.env.GetPachClient(ctx),
 		TaskService: b.env.GetTaskService(etcdPrefix),
-		PFS:         b.env.GetPachClient(ctx).PfsAPIClient,
 	})
 	go func() {
 		ctx := pctx.Child(ctx, "pps-worker")

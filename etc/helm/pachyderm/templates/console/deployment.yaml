@@ -71,6 +71,10 @@ spec:
           value: {{ include "pachyderm.issuerURI" . | quote}}
         - name: REACT_APP_RUNTIME_ISSUER_URI
           value: {{ include "pachyderm.reactAppRuntimeIssuerURI" . | quote}}
+        {{- if ne 0 (int .Values.console.config.reactAppRuntimeRefetchInterval) }}
+        - name: REACT_APP_RUNTIME_REFETCH_INTERVAL
+          value: {{ .Values.console.config.reactAppRuntimeRefetchInterval | quote}}
+        {{- end }}
         - name: REACT_APP_RUNTIME_DISABLE_TELEMETRY
           value: {{ .Values.console.config.disableTelemetry | quote}}
         - name: OAUTH_REDIRECT_URI

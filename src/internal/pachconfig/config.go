@@ -22,27 +22,28 @@ type GlobalConfiguration struct {
 	FeatureFlags
 	PostgresConfiguration
 
-	EtcdHost         string `env:"ETCD_SERVICE_HOST,required"`
-	EtcdPort         string `env:"ETCD_SERVICE_PORT,required"`
-	PPSWorkerPort    uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
-	Port             uint16 `env:"PORT,default=1650"`
-	PrometheusPort   uint16 `env:"PROMETHEUS_PORT,default=1656"`
-	PeerPort         uint16 `env:"PEER_PORT,default=1653"`
-	S3GatewayPort    uint16 `env:"S3GATEWAY_PORT,default=1600"`
-	DownloadPort     uint16 `env:"DOWNLOAD_PORT,default=1659"`
-	PPSEtcdPrefix    string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
-	Namespace        string `env:"PACH_NAMESPACE,default=default"`
-	StorageRoot      string `env:"PACH_ROOT,default=/pach"`
-	GCPercent        int    `env:"GC_PERCENT,default=100"`
-	LokiHost         string `env:"LOKI_SERVICE_HOST"`
-	LokiPort         string `env:"LOKI_SERVICE_PORT"`
-	OidcPort         uint16 `env:"OIDC_PORT,default=1657"`
-	IsPachw          bool   `env:"IS_PACHW,default=false"`
-	PachwInSidecars  bool   `env:"PACHW_IN_SIDECARS,default=true"`
-	PachwMinReplicas int    `env:"PACHW_MIN_REPLICAS"`
-	PachwMaxReplicas int    `env:"PACHW_MAX_REPLICAS,default=1"`
-	PachdServiceHost string `env:"PACHD_SERVICE_HOST"`
-	PachdServicePort string `env:"PACHD_SERVICE_PORT"`
+	EtcdHost               string `env:"ETCD_SERVICE_HOST,required"`
+	EtcdPort               string `env:"ETCD_SERVICE_PORT,required"`
+	PPSWorkerPort          uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
+	PPSWorkerPreprocessing bool   `env:"PPS_WORKER_PREPROCESSING,default=false"`
+	Port                   uint16 `env:"PORT,default=1650"`
+	PrometheusPort         uint16 `env:"PROMETHEUS_PORT,default=1656"`
+	PeerPort               uint16 `env:"PEER_PORT,default=1653"`
+	S3GatewayPort          uint16 `env:"S3GATEWAY_PORT,default=1600"`
+	DownloadPort           uint16 `env:"DOWNLOAD_PORT,default=1659"`
+	PPSEtcdPrefix          string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
+	Namespace              string `env:"PACH_NAMESPACE,default=default"`
+	StorageRoot            string `env:"PACH_ROOT,default=/pach"`
+	GCPercent              int    `env:"GC_PERCENT,default=100"`
+	LokiHost               string `env:"LOKI_SERVICE_HOST"`
+	LokiPort               string `env:"LOKI_SERVICE_PORT"`
+	OidcPort               uint16 `env:"OIDC_PORT,default=1657"`
+	IsPachw                bool   `env:"IS_PACHW,default=false"`
+	PachwInSidecars        bool   `env:"PACHW_IN_SIDECARS,default=true"`
+	PachwMinReplicas       int    `env:"PACHW_MIN_REPLICAS"`
+	PachwMaxReplicas       int    `env:"PACHW_MAX_REPLICAS,default=1"`
+	PachdServiceHost       string `env:"PACHD_SERVICE_HOST"`
+	PachdServicePort       string `env:"PACHD_SERVICE_PORT"`
 
 	EtcdPrefix           string `env:"ETCD_PREFIX,default="`
 	DeploymentID         string `env:"CLUSTER_DEPLOYMENT_ID,default="`
@@ -154,11 +155,6 @@ type PachdSpecificConfiguration struct {
 	// the proxy, and ProxyTLS for whether or not to use https:// for generated URLs.
 	ProxyHost string `env:"PACHYDERM_PUBLIC_HOST,default="`
 	ProxyTLS  bool   `env:"PACHYDERM_PUBLIC_TLS,default=false"`
-	// Determined integration configuration
-	DeterminedUsername string `env:"DETERMINED_USERNAME,default="`
-	DeterminedPassword string `env:"DETERMINED_PASSWORD,default="`
-	DeterminedURL      string `env:"DETERMINED_API_URL,default="`
-	DeterminedTLS      bool   `env:"DETERMINED_TLS,default=false"`
 }
 
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server
@@ -189,6 +185,11 @@ type EnterpriseSpecificConfiguration struct {
 	ConsoleOAuthSecret        string `env:"CONSOLE_OAUTH_SECRET,default="`
 	DeterminedOAuthID         string `env:"DETERMINED_OAUTH_ID,default="`
 	DeterminedOAuthSecret     string `env:"DETERMINED_OAUTH_SECRET,default="`
+	// Determined integration configuration
+	DeterminedUsername string `env:"DETERMINED_USERNAME,default="`
+	DeterminedPassword string `env:"DETERMINED_PASSWORD,default="`
+	DeterminedURL      string `env:"DETERMINED_API_URL,default="`
+	DeterminedTLS      bool   `env:"DETERMINED_TLS,default=false"`
 }
 
 // StorageConfiguration contains the storage configuration.

@@ -405,7 +405,6 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddrStr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
-		fmt.Fprintln(os.Stderr, "WARNING: 'PACHD_ADDRESS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
 
 		envAddr, err := grpcutil.ParsePachdAddress(envAddrStr)
 		if err != nil {
@@ -578,11 +577,11 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %q", pachdAddress.Qualified())
 	}
-	// if PACH_ID_TOKEN exists in env, try to produce a session token from it if one does not exist
-	if idToken := os.Getenv("PACH_ID_TOKEN"); idToken != "" && context.SessionToken == "" {
+	// if DEX_TOKEN exists in env, try to produce a session token from it if one does not exist
+	if idToken := os.Getenv("DEX_TOKEN"); idToken != "" && context.SessionToken == "" {
 		if r, err := client.Authenticate(ctx, &auth.AuthenticateRequest{IdToken: idToken}); err != nil {
 			if !auth.IsErrNotActivated(err) {
-				log.Error(ctx, "failed to exchange PACH_ID_TOKEN from environment for a pachyderm session token", zap.Error(err))
+				log.Error(ctx, "failed to exchange DEX_TOKEN from environment for a pachyderm session token", zap.Error(err))
 			}
 		} else {
 			context.SessionToken = r.PachToken

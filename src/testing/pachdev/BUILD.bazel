@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "pachdev_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/testing/pachdev",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/log",
+        "//src/internal/pachdev",
+        "//src/internal/pctx",
+        "//src/internal/signals",
+        "@com_github_spf13_cobra//:cobra",
+    ],
+)
+
+go_binary(
+    name = "pachdev",
+    data = [
+        "//oci:pachd_image",
+        "//oci:pachd_image.digest",
+        "//oci:worker_image",
+        "//oci:worker_image.digest",
+    ],
+    embed = [":pachdev_lib"],
+    visibility = ["//visibility:public"],
+    x_defs = {
+        "github.com/pachyderm/pachyderm/v2/src/version.AppVersion": "{STABLE_APP_VERSION}",
+        "github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion": "{STABLE_ADDITIONAL_VERSION}",
+    },
+)

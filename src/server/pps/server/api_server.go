@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"path"
 	"sort"
@@ -86,14 +87,17 @@ const (
 	DefaultLogsFrom = time.Hour * 24
 	// jobClockSkew is how much earlier than the job start time to look for
 	// logs.  It is an attempt to account for clock skew.
-	jobClockSkew     = time.Hour
-	ppsTaskNamespace = "/pps"
+	jobClockSkew = time.Hour
 
 	maxPipelineNameLength = 51
 
 	// dnsLabelLimit is the maximum length of a ReplicationController
 	// or Service name.
 	dnsLabelLimit = 63
+
+	// DefaultDatumBatchSize is the default number of datums to return to the client
+	// per CreateDatum request
+	DefaultDatumBatchSize = 100
 )
 
 var (
@@ -1181,7 +1185,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	// TODO: Add cache?
-	taskDoer := a.env.TaskService.NewDoer(ppsTaskNamespace, uuid.NewWithoutDashes(), nil)
+	taskDoer := a.env.TaskService.NewDoer(driver.PreprocessingTaskNamespace(nil), uuid.NewWithoutDashes(), nil)
 	di, err := datum.NewIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
 	if err != nil {
 		return err
@@ -1241,6 +1245,83 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 		return cb(meta, pfsState)
 	})
 	return errors.EnsureStack(err)
+}
+
+func (a *apiServer) CreateDatum(server pps.API_CreateDatumServer) (retErr error) {
+	msg, err := server.Recv()
+	if err != nil {
+		return errors.Wrap(err, "server receive")
+	}
+	startMsg, ok := msg.Body.(*pps.CreateDatumRequest_Start)
+	if !ok {
+		return errors.Errorf("first message must be a StartCreateDatumRequest message")
+	}
+	if startMsg.Start.Input == nil {
+		return errors.Errorf("first message must specify an input")
+	}
+	it, err := a.getStreamingIterator(server.Context(), startMsg.Start.Input)
+	if err != nil {
+		return errors.Wrap(err, "getting streaming iterator")
+	}
+	number := startMsg.Start.Number
+	for {
+		if number <= 0 {
+			number = DefaultDatumBatchSize
+		}
+		if err := errors.EnsureStack(it.Iterate(func(meta *datum.Meta) error {
+			if number == 0 {
+				return errutil.ErrBreak
+			}
+			info := convertDatumMetaToInfo(meta, nil)
+			info.State = pps.DatumState_UNKNOWN
+			if err := errors.EnsureStack(server.Send(info)); err != nil {
+				return err
+			}
+			number--
+			return nil
+		})); err == nil {
+			return nil
+		} else if !errors.Is(err, errutil.ErrBreak) {
+			return errors.Wrap(err, "streaming iterate")
+		}
+		msg, err = server.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return errors.Wrap(err, "server receive")
+		}
+		continueMsg, ok := msg.Body.(*pps.CreateDatumRequest_Continue)
+		if !ok {
+			return errors.Errorf("subsequent messages must be a ContinueCreateDatumRequest message")
+		}
+		number = continueMsg.Continue.Number
+	}
+}
+
+func (a *apiServer) getStreamingIterator(ctx context.Context, input *pps.Input) (datum.Iterator, error) {
+	setInputDefaults("", input)
+	if visitErr := pps.VisitInput(input, func(input *pps.Input) error {
+		if input.Pfs != nil {
+			pachClient := a.env.GetPachClient(ctx)
+			ci, err := pachClient.InspectCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, "")
+			if err != nil {
+				return err
+			}
+			input.Pfs.Commit = ci.Commit.Id
+			return nil
+		}
+		if input.Cron != nil {
+			return errors.New("can't create datums with a cron input, there will be no datums until the pipeline is created")
+		}
+		return nil
+	}); visitErr != nil {
+		return nil, visitErr
+	}
+	pachClient := a.env.GetPachClient(ctx)
+	taskDoer := a.env.TaskService.NewDoer(driver.PreprocessingTaskNamespace(nil), uuid.NewWithoutDashes(), nil)
+	it := datum.NewStreamingDatumIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
+	return it, nil
 }
 
 func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServer pps.API_GetKubeEventsServer) (retErr error) {
@@ -2819,7 +2900,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 			info.Details.WorkersAvailable = int64(len(workerStatus))
 			info.Details.WorkersRequested = int64(info.Parallelism)
 		}
-		tasks, claims, err := task.Count(ctx, a.env.TaskService, driver.TaskNamespace(info), "")
+		tasks, claims, err := task.Count(ctx, a.env.TaskService, driver.ProcessingTaskNamespace(info), "")
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}

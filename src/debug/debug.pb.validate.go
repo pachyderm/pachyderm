@@ -1709,6 +1709,93 @@ func (m *App) validate(all bool) error {
 		}
 	}
 
+	switch v := m.ExtraArgs.(type) {
+	case *App_LokiArgs:
+		if v == nil {
+			err := AppValidationError{
+				field:  "ExtraArgs",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetLokiArgs()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, AppValidationError{
+						field:  "LokiArgs",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, AppValidationError{
+						field:  "LokiArgs",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetLokiArgs()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AppValidationError{
+					field:  "LokiArgs",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *App_ProfileArgs:
+		if v == nil {
+			err := AppValidationError{
+				field:  "ExtraArgs",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetProfileArgs()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, AppValidationError{
+						field:  "ProfileArgs",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, AppValidationError{
+						field:  "ProfileArgs",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetProfileArgs()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AppValidationError{
+					field:  "ProfileArgs",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
+
 	if len(errors) > 0 {
 		return AppMultiError(errors)
 	}
@@ -1785,6 +1872,240 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = AppValidationError{}
+
+// Validate checks the field values on ProfileArgs with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *ProfileArgs) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ProfileArgs with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ProfileArgsMultiError, or
+// nil if none found.
+func (m *ProfileArgs) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ProfileArgs) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetProfiles() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ProfileArgsValidationError{
+						field:  fmt.Sprintf("Profiles[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ProfileArgsValidationError{
+						field:  fmt.Sprintf("Profiles[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ProfileArgsValidationError{
+					field:  fmt.Sprintf("Profiles[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return ProfileArgsMultiError(errors)
+	}
+
+	return nil
+}
+
+// ProfileArgsMultiError is an error wrapping multiple validation errors
+// returned by ProfileArgs.ValidateAll() if the designated constraints aren't met.
+type ProfileArgsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ProfileArgsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ProfileArgsMultiError) AllErrors() []error { return m }
+
+// ProfileArgsValidationError is the validation error returned by
+// ProfileArgs.Validate if the designated constraints aren't met.
+type ProfileArgsValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ProfileArgsValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ProfileArgsValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ProfileArgsValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ProfileArgsValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ProfileArgsValidationError) ErrorName() string { return "ProfileArgsValidationError" }
+
+// Error satisfies the builtin error interface
+func (e ProfileArgsValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sProfileArgs.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ProfileArgsValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ProfileArgsValidationError{}
+
+// Validate checks the field values on LokiArgs with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *LokiArgs) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on LokiArgs with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in LokiArgsMultiError, or nil
+// if none found.
+func (m *LokiArgs) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *LokiArgs) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for MaxLogs
+
+	if len(errors) > 0 {
+		return LokiArgsMultiError(errors)
+	}
+
+	return nil
+}
+
+// LokiArgsMultiError is an error wrapping multiple validation errors returned
+// by LokiArgs.ValidateAll() if the designated constraints aren't met.
+type LokiArgsMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m LokiArgsMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m LokiArgsMultiError) AllErrors() []error { return m }
+
+// LokiArgsValidationError is the validation error returned by
+// LokiArgs.Validate if the designated constraints aren't met.
+type LokiArgsValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e LokiArgsValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e LokiArgsValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e LokiArgsValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e LokiArgsValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e LokiArgsValidationError) ErrorName() string { return "LokiArgsValidationError" }
+
+// Error satisfies the builtin error interface
+func (e LokiArgsValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sLokiArgs.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = LokiArgsValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = LokiArgsValidationError{}
 
 // Validate checks the field values on System with the rules defined in the
 // proto definition for this message. If any rules are violated, the first

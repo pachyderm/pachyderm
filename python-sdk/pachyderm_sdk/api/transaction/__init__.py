@@ -106,6 +106,7 @@ class FinishTransactionRequest(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_batch_transaction = channel.unary_unary(
             "/transaction_v2.API/BatchTransaction",
@@ -155,6 +156,7 @@ class ApiStub:
         return self.__rpc_batch_transaction(request)
 
     def start_transaction(self) -> "Transaction":
+
         request = StartTransactionRequest()
 
         return self.__rpc_start_transaction(request)
@@ -162,6 +164,7 @@ class ApiStub:
     def inspect_transaction(
         self, *, transaction: "Transaction" = None
     ) -> "TransactionInfo":
+
         request = InspectTransactionRequest()
         if transaction is not None:
             request.transaction = transaction
@@ -171,6 +174,7 @@ class ApiStub:
     def delete_transaction(
         self, *, transaction: "Transaction" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteTransactionRequest()
         if transaction is not None:
             request.transaction = transaction
@@ -178,6 +182,7 @@ class ApiStub:
         return self.__rpc_delete_transaction(request)
 
     def list_transaction(self) -> "TransactionInfos":
+
         request = ListTransactionRequest()
 
         return self.__rpc_list_transaction(request)
@@ -185,6 +190,7 @@ class ApiStub:
     def finish_transaction(
         self, *, transaction: "Transaction" = None
     ) -> "TransactionInfo":
+
         request = FinishTransactionRequest()
         if transaction is not None:
             request.transaction = transaction
@@ -192,97 +198,7 @@ class ApiStub:
         return self.__rpc_finish_transaction(request)
 
     def delete_all(self) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteAllRequest()
 
         return self.__rpc_delete_all(request)
-
-
-class ApiBase:
-    def batch_transaction(
-        self,
-        requests: Optional[List["TransactionRequest"]],
-        context: "grpc.ServicerContext",
-    ) -> "TransactionInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def start_transaction(self, context: "grpc.ServicerContext") -> "Transaction":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def inspect_transaction(
-        self, transaction: "Transaction", context: "grpc.ServicerContext"
-    ) -> "TransactionInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_transaction(
-        self, transaction: "Transaction", context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def list_transaction(self, context: "grpc.ServicerContext") -> "TransactionInfos":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def finish_transaction(
-        self, transaction: "Transaction", context: "grpc.ServicerContext"
-    ) -> "TransactionInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    def delete_all(
-        self, context: "grpc.ServicerContext"
-    ) -> "betterproto_lib_google_protobuf.Empty":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "transaction_v2.API"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "BatchTransaction": grpc.unary_unary_rpc_method_handler(
-                self.batch_transaction,
-                request_deserializer=BatchTransactionRequest.FromString,
-                response_serializer=BatchTransactionRequest.SerializeToString,
-            ),
-            "StartTransaction": grpc.unary_unary_rpc_method_handler(
-                self.start_transaction,
-                request_deserializer=StartTransactionRequest.FromString,
-                response_serializer=StartTransactionRequest.SerializeToString,
-            ),
-            "InspectTransaction": grpc.unary_unary_rpc_method_handler(
-                self.inspect_transaction,
-                request_deserializer=InspectTransactionRequest.FromString,
-                response_serializer=InspectTransactionRequest.SerializeToString,
-            ),
-            "DeleteTransaction": grpc.unary_unary_rpc_method_handler(
-                self.delete_transaction,
-                request_deserializer=DeleteTransactionRequest.FromString,
-                response_serializer=DeleteTransactionRequest.SerializeToString,
-            ),
-            "ListTransaction": grpc.unary_unary_rpc_method_handler(
-                self.list_transaction,
-                request_deserializer=ListTransactionRequest.FromString,
-                response_serializer=ListTransactionRequest.SerializeToString,
-            ),
-            "FinishTransaction": grpc.unary_unary_rpc_method_handler(
-                self.finish_transaction,
-                request_deserializer=FinishTransactionRequest.FromString,
-                response_serializer=FinishTransactionRequest.SerializeToString,
-            ),
-            "DeleteAll": grpc.unary_unary_rpc_method_handler(
-                self.delete_all,
-                request_deserializer=DeleteAllRequest.FromString,
-                response_serializer=DeleteAllRequest.SerializeToString,
-            ),
-        }

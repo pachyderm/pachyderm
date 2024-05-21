@@ -1,0 +1,117 @@
+load("@aspect_bazel_lib//lib:tar.bzl", "tar")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+
+# gazelle:go_test file
+
+tar(
+    name = "zot_config_tar",
+    srcs = ["zot.json"],
+    mtree = "zot.mtree",
+)
+
+oci_image(
+    name = "zot",
+    base = select({
+        "@platforms//cpu:x86_64": "@zot_amd64",
+        "@platforms//cpu:aarch64": "@zot_arm64",
+    }),
+    tars = ["zot_config_tar"],
+)
+
+go_library(
+    name = "kindenv",
+    srcs = [
+        "kindenv.go",
+        "kubeconfig.go",
+        "pachyderm.go",
+        "registry.go",
+        "skopeo.go",
+        "util.go",
+    ],
+    # Note: to install Pachyderm using InstallPachyderm, you'll need //oci:{pachd|worker}_image(.digest).
+    data = [
+        "coredns_configmap.yaml",
+        "minio.yaml",
+        "pachyderm-values.json",
+        "zot",
+        "zot.digest",
+        "//tools/helm",
+        "//tools/kubectl",
+        "//tools/skopeo",
+        "@com_github_kubernetes_sigs_metrics_server_helm_chart//file:metrics-server.tgz",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/kindenv",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/backoff",
+        "//src/internal/config",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/middleware/logging/client",
+        "//src/internal/pctx",
+        "//src/internal/promutil",
+        "//src/version",
+        "//src/version/versionpb",
+        "@com_github_adrg_xdg//:xdg",
+        "@com_github_docker_docker//api/types",
+        "@com_github_docker_docker//api/types/container",
+        "@com_github_docker_docker//api/types/network",
+        "@com_github_docker_docker//api/types/strslice",
+        "@com_github_docker_docker//client",
+        "@com_github_docker_go_connections//nat",
+        "@com_github_opencontainers_image_spec//specs-go/v1:specs-go",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/types",
+        "@io_k8s_client_go//kubernetes",
+        "@io_k8s_client_go//tools/clientcmd",
+        "@io_k8s_sigs_kind//pkg/apis/config/v1alpha4",
+        "@io_k8s_sigs_kind//pkg/cluster",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials",
+        "@org_golang_google_grpc//credentials/insecure",
+        "@org_golang_google_protobuf//types/known/emptypb",
+        "@org_uber_go_zap//:zap",
+        "@rules_go//go/runfiles:go_default_library",
+        "@rules_go//go/tools/bazel:go_default_library",
+    ],
+)
+
+oci_image(
+    name = "pause",
+    base = "@pause",
+    entrypoint = ["/pause"],
+)
+
+go_test(
+    name = "kindenv_test",
+    srcs = ["kindenv_test.go"],
+    data = [
+        "pause",
+    ],
+    embed = [":kindenv"],
+    tags = [
+        "k8s",
+        "no-sandbox",
+    ],
+    deps = [
+        "//src/internal/pctx",
+        "@com_github_adrg_xdg//:xdg",
+        "@rules_go//go/runfiles:go_default_library",
+    ],
+)
+
+go_test(
+    name = "kube_test",
+    size = "small",
+    srcs = ["kube_test.go"],
+    embed = [":kindenv"],
+    deps = [
+        "//src/internal/pctx",
+        "@com_github_google_go_cmp//cmp",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_client_go//kubernetes/fake",
+    ],
+)

@@ -7,39 +7,52 @@ import {
   DirListing,
   FileBrowser,
 } from '@jupyterlab/filebrowser';
-import {Clipboard} from '@jupyterlab/apputils';
+import {Clipboard, showErrorMessage} from '@jupyterlab/apputils';
 import {CommandRegistry} from '@lumino/commands';
 import {each} from '@lumino/algorithm';
 
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_PREFIX} from './mount';
-import {Paging} from './paging';
+import {requestAPI} from '../../handler';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
   manager: IDocumentManager,
   factory: IFileBrowserFactory,
   path: string,
-  name_suffix: string,
+  downloadPath: string,
+  nameSuffix: string,
 ): FileBrowser => {
-  const drive = new MountDrive(app.docRegistry, path, name_suffix);
-  manager.services.contents.addDrive(drive);
-
-  const browser = factory.createFileBrowser(
-    'jupyterlab-pachyderm-browser-' + name_suffix,
-    {
-      driveName: drive.name,
-      state: null,
-      refreshInterval: 10000,
+  const id = `jupyterlab-pachyderm-browser-${nameSuffix}`;
+  const drive = new MountDrive(
+    app.docRegistry,
+    path,
+    nameSuffix,
+    id,
+    async () => {
+      await browser.model.cd();
     },
   );
+  manager.services.contents.addDrive(drive);
 
-  const filenameSearcher = browser.node
-    .getElementsByClassName('jp-FileBrowser-filterBox')
-    .item(0);
-  if (filenameSearcher) {
-    browser.node.removeChild(filenameSearcher);
-  }
+  const browser = factory.createFileBrowser(id, {
+    driveName: drive.name,
+    refreshInterval: 10000,
+
+    // Restoring the state and path after a refresh causes issues with infinite scrolling since it attempts to
+    // select and scroll to the file opened on a delay. The file attempting to be selected may not be visible and
+    // if it is then it interferes with the user scrolling immediately.
+    state: null,
+
+    // Setting this to false fixes an issue where the file browser was making requests
+    // to our backend before the backend was capable of handling them, i.e. before the
+    // user is connected to their pachd instance. When set to false, the poller that
+    // refreshes the file browser contents every `refreshInterval` ms is initiated on
+    // the first `cd` call that the file browser handles. This is compatible with how
+    // the plugin currently utilizes the file browser.
+    auto: false,
+    restore: false,
+  });
 
   const toolbar = browser.node
     .getElementsByClassName('jp-FileBrowser-toolbar')
@@ -85,8 +98,33 @@ const createCustomFileBrowser = (
         execute: () => {
           each(browser.selectedItems(), (item) => {
             Clipboard.copyToSystem(
-              item.path.replace(MOUNT_BROWSER_PREFIX + name_suffix, '/pfs/'),
+              item.path.replace(MOUNT_BROWSER_PREFIX + nameSuffix, '/pfs/'),
             );
+          });
+        },
+      });
+
+      commands.addCommand('file-download', {
+        label: 'Download',
+        icon: 'fa fa-download',
+        mnemonic: 0,
+        execute: () => {
+          each(browser.selectedItems(), (item) => {
+            // Unfortunately, copying between drives is not implemented:
+            // https://github.com/jupyterlab/jupyterlab/blob/main/packages/services/src/contents/index.ts#L916
+            // so we need to perform this logic within our implementation of the extension
+            // Once this is implemented, we should be able to just write something along the lines of
+            // manager.copy(item.path, "/home/jovyan/extension-wd")
+            const itemPath = item.path.replace(
+              MOUNT_BROWSER_PREFIX + nameSuffix + ':',
+              '',
+            );
+            requestAPI(
+              'download/' + downloadPath + '/' + itemPath,
+              'PUT',
+            ).catch((e) => {
+              showErrorMessage('Download Error', e.response.statusText);
+            });
           });
         },
       });
@@ -94,6 +132,7 @@ const createCustomFileBrowser = (
       const menu = new Menu({commands});
       menu.addItem({command: 'file-open'});
       menu.addItem({command: 'copy-path'});
+      menu.addItem({command: 'file-download'});
 
       const browserContent = dirListing.node.getElementsByClassName(
         'jp-DirListing-content',
@@ -119,17 +158,6 @@ const createCustomFileBrowser = (
   } catch (e) {
     console.log('Failed to edit default browser.');
   }
-
-  const paging = new Paging({
-    browser_model: browser.model,
-    page_model: drive.model,
-  });
-  browser.model.pathChanged.connect(async (_, __) => {
-    // If the FileBrowser path has changed, then the MountDrive has reset the pagination model.
-    // Therefore, the pagination widget needs to be re-rendered.
-    paging.update();
-  });
-  browser.layout.addWidget(paging);
 
   return browser;
 };

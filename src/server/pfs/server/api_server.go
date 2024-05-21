@@ -157,16 +157,14 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
 	var repos []*pfs.RepoInfo
 	var err error
-	if err := errors.Wrap(dbutil.WithTx(srv.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		return a.driver.txnEnv.WithReadContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
-			repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-	}, dbutil.WithReadOnly()), "list repo"); err != nil {
-		return err
+	if err := a.driver.txnEnv.WithReadContext(srv.Context(), func(txnCxt *txncontext.TransactionContext) error {
+		repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects)
+		if err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "list repo")
 	}
 	for _, repo := range repos {
 		if err := errors.Wrap(srv.Send(repo), "sending repo"); err != nil {
@@ -777,6 +775,15 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
+	if req.Type == pfs.GetFileSetRequest_DIFF {
+		diff, err := a.driver.commitStore.GetDiffFileSet(ctx, req.Commit)
+		if err != nil {
+			return nil, err
+		}
+		return &pfs.CreateFileSetResponse{
+			FileSetId: diff.HexString(),
+		}, nil
+	}
 	filesetID, err := a.driver.getFileSet(ctx, req.Commit)
 	if err != nil {
 		return nil, err
@@ -791,7 +798,7 @@ func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetReque
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.driver.shardFileSet(ctx, *fsid)
+	shards, err := a.driver.shardFileSet(ctx, *fsid, req.NumFiles, req.SizeBytes)
 	if err != nil {
 		return nil, err
 	}

@@ -26,6 +26,7 @@ import '@testing-library/cypress/add-commands';
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 Cypress.Commands.add('resetApp', () => {
+  cy.request('PUT', 'http://localhost:8888/pachyderm/v2/_unmount_all');
   cy.visit('?reset');
 });
 
@@ -50,10 +51,9 @@ Cypress.Commands.add('openMountPlugin', () => {
       cy.get(buildTabSelector('pachyderm-mount')).click();
     }
   });
-});
 
-Cypress.Commands.add('unmountAllRepos', (command) => {
-  cy.request('PUT', 'http://localhost:8888/pachyderm/v2/_unmount_all');
+  // This confirms the repos have been loaded and are being rendered.
+  cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images');
 });
 
 //Taken from galata
