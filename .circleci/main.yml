@@ -847,8 +847,8 @@ jobs:
             cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
 
             pachctl create repo images
-            pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
-            pachctl put file images@branch:branch.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
+            pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/mldm/opencv/liberty.jpg
+            pachctl put file images@branch:branch.png -f https://docs.pachyderm.com/images/mldm/opencv/liberty.jpg
             pachctl list repo
 
             mkdir pfs
