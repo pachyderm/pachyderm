@@ -27,7 +27,7 @@
   "license": "ISC",
   "devDependencies": {
     "@cypress/code-coverage": "3.12.26",
-    "@size-limit/file": "^11.0.2",
+    "@size-limit/file": "^11.1.2",
     "@testing-library/cypress": "^10.0.1",
     "cypress": "13.7.1",
     "cypress-wait-until": "3.0.1",
