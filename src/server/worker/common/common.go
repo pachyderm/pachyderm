@@ -1,13 +1,14 @@
 package common
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -23,6 +24,8 @@ const (
 	OutputPrefix = "out"
 	// TmpFileName is the name of the tmp file.
 	TmpFileName = "tmp"
+	// EnvFileName is the name of the env file.
+	EnvFileName = ".env"
 	TTL         = 15 * time.Minute
 )
 
@@ -37,10 +40,10 @@ func DatumID(inputs []*Input) string {
 		hash.Write([]byte(input.Name))
 		_ = binary.Write(hash, binary.BigEndian, int64(len(input.Name)))
 		file := input.FileInfo.File
-		hash.Write([]byte(file.Commit.Branch.Repo.Name))
-		_ = binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Repo.Name)))
-		hash.Write([]byte(file.Commit.Branch.Name))
-		_ = binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Branch.Name)))
+		hash.Write([]byte(file.Commit.Repo.Name))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(file.Commit.Repo.Name)))
+		hash.Write([]byte(input.Branch))
+		_ = binary.Write(hash, binary.BigEndian, int64(len(input.Branch)))
 		hash.Write([]byte(input.FileInfo.File.Path))
 		_ = binary.Write(hash, binary.BigEndian, int64(len(input.FileInfo.File.Path)))
 	}
@@ -82,10 +85,10 @@ dataFilters:
 }
 
 // TODO: Trim non-meta file shards?
-func Shard(pachClient *client.APIClient, fileSetIDs []string) ([]*pfs.PathRange, error) {
+func Shard(ctx context.Context, c pfs.APIClient, fileSetIDs []string) ([]*pfs.PathRange, error) {
 	var result []*pfs.PathRange
 	for _, fileSetID := range fileSetIDs {
-		shards, err := pachClient.ShardFileSet(fileSetID)
+		shards, err := client.ShardFileSet(ctx, c, fileSetID)
 		if err != nil {
 			return nil, err
 		}

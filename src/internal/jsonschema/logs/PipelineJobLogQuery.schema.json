@@ -1,0 +1,33 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/PipelineJobLogQuery",
+    "definitions": {
+        "PipelineJobLogQuery": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false
+                },
+                "job": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Job Log Query"
+        },
+        "logs.PipelineLogQuery": {
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "pipeline": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Log Query"
+        }
+    }
+}

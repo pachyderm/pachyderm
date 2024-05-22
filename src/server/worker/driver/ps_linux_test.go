@@ -3,33 +3,36 @@
 package driver
 
 import (
-	"fmt"
+	"regexp"
 	"strings"
 	"syscall"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
-type testLogger struct {
-	logs.TaggedLogger
-	entries []string
-}
-
-func (l *testLogger) Logf(format string, args ...any) {
-	l.entries = append(l.entries, fmt.Sprintf(format, args...))
-}
-
 func TestLogRunningProcesses(t *testing.T) {
-	l := new(testLogger)
+	ctx := pctx.TestContext(t)
+	l := logs.NewTest(ctx)
 	logRunningProcesses(l, syscall.Getpgrp())
-	t.Logf("entries:\n\t%v", strings.Join(l.entries, "\n\t"))
-	if len(l.entries) < 1 {
-		t.Errorf("expected logs")
-	}
-	for _, ent := range l.entries {
-		if strings.HasPrefix(ent, "warning: ") {
-			t.Errorf("unexpected warning: %q", ent)
+	var found bool
+	finder := regexp.MustCompile(`^note: about to kill.*driver[._]test`)
+	for _, log := range l.Logs {
+		if finder.MatchString(log) {
+			found = true
+			break
 		}
+	}
+	if !found {
+		logs := new(strings.Builder)
+		for i, log := range l.Logs {
+			if i != 0 {
+				logs.WriteRune('\n')
+			}
+			logs.WriteString("    ")
+			logs.WriteString(log)
+		}
+		t.Errorf("did not get info about self (driver.test or driver_test); all logs:\n%v", logs.String())
 	}
 }

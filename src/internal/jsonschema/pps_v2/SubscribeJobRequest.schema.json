@@ -1,0 +1,46 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SubscribeJobRequest",
+    "definitions": {
+        "SubscribeJobRequest": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/pps_v2.Pipeline",
+                    "additionalProperties": false
+                },
+                "details": {
+                    "type": "boolean",
+                    "description": "Same as ListJobRequest.Details"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Subscribe Job Request",
+            "description": "Streams open jobs until canceled"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        },
+        "pps_v2.Pipeline": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline"
+        }
+    }
+}

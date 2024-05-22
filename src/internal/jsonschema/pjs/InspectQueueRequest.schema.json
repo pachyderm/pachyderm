@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/InspectQueueRequest",
+    "definitions": {
+        "InspectQueueRequest": {
+            "properties": {
+                "queue": {
+                    "$ref": "#/definitions/pjs.Queue",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Inspect Queue Request"
+        },
+        "pjs.Queue": {
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Queue",
+            "description": "Queue uniquely identifies a Queue Queue will be nil to identify no Queue, or to indicate unset."
+        }
+    }
+}

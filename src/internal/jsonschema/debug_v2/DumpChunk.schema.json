@@ -1,0 +1,61 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DumpChunk",
+    "definitions": {
+        "DumpChunk": {
+            "properties": {
+                "content": {
+                    "$ref": "#/definitions/debug_v2.DumpContent",
+                    "additionalProperties": false
+                },
+                "progress": {
+                    "$ref": "#/definitions/debug_v2.DumpProgress",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "content"
+                    ]
+                },
+                {
+                    "required": [
+                        "progress"
+                    ]
+                }
+            ],
+            "title": "Dump Chunk"
+        },
+        "debug_v2.DumpContent": {
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Dump Content"
+        },
+        "debug_v2.DumpProgress": {
+            "properties": {
+                "task": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "progress": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Dump Progress"
+        }
+    }
+}

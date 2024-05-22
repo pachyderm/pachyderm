@@ -7,42 +7,60 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"testing"
 
 	units "github.com/docker/go-units"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"google.golang.org/grpc"
+	testdynamic "k8s.io/client-go/dynamic/fake"
 	testclient "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/kubectl/pkg/scheme"
 
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	adminapi "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	identityserver "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
+	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
+	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	ppsapi "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	txnserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -55,27 +73,34 @@ type RealEnv struct {
 	testpachd.MockEnv
 
 	ServiceEnv               serviceenv.ServiceEnv
+	AdminServer              adminapi.APIServer
 	AuthServer               authapi.APIServer
 	IdentityServer           identity.APIServer
 	EnterpriseServer         enterprise.APIServer
+	LogsServer               logs.APIServer
 	LicenseServer            license.APIServer
 	PPSServer                ppsapi.APIServer
 	PFSServer                pfsapi.APIServer
+	StorageServer            storage.FilesetServer
+	DebugServer              debug.DebugServer
 	TransactionServer        txnserver.APIServer
 	VersionServer            pb.APIServer
 	ProxyServer              proxy.APIServer
+	MetadataServer           metadata.APIServer
 	MockPPSTransactionServer *testpachd.MockPPSTransactionServer
 }
 
 // NewRealEnv constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. PPS uses a fake clientset which allows
 // some PPS behavior to work.
-func NewRealEnv(ctx context.Context, t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+//
+// *Deprecated: Use pachd.NewTestPachd instead.
+func NewRealEnv(ctx context.Context, t testing.TB, customOpts ...pachconfig.ConfigOption) *RealEnv {
 	return newRealEnv(ctx, t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
 }
 
 // NewRealEnvWithIdentity creates a new real Env and then activates an identity server with dex.
-func NewRealEnvWithIdentity(ctx context.Context, t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+func NewRealEnvWithIdentity(ctx context.Context, t testing.TB, customOpts ...pachconfig.ConfigOption) *RealEnv {
 	env := newRealEnv(ctx, t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
 	env.ActivateIdentity(t)
 	return env
@@ -83,7 +108,7 @@ func NewRealEnvWithIdentity(ctx context.Context, t testing.TB, customOpts ...ser
 
 // NewRealEnvWithPPSTransactionMock constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. A mock implementation of PPS Transactions are used.
-func NewRealEnvWithPPSTransactionMock(ctx context.Context, t testing.TB, customOpts ...serviceenv.ConfigOption) *RealEnv {
+func NewRealEnvWithPPSTransactionMock(ctx context.Context, t testing.TB, customOpts ...pachconfig.ConfigOption) *RealEnv {
 	noInterceptor := func(mock *testpachd.MockPachd) grpcutil.Interceptor {
 		return grpcutil.Interceptor{}
 	}
@@ -93,9 +118,21 @@ func NewRealEnvWithPPSTransactionMock(ctx context.Context, t testing.TB, customO
 func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
 	dir, err := os.Getwd()
 	require.NoError(t, err)
-	dexDir := strings.Split(dir, "src")[0] + "dex-assets"
-	_, err = os.Stat(dexDir)
-	require.NoError(t, err)
+	// walk directory parents until the dex-assets directory is found
+	var dexDir string
+	for {
+		dir = filepath.Clean(dir)
+		dexDir = filepath.Join(dir, "dex-assets/")
+		if _, err := os.Stat(dexDir); err == nil {
+			break
+		}
+		parent, _ := filepath.Split(dir)
+		if parent == dir {
+			t.Error("could not find dex-assets")
+			return
+		}
+		dir = parent
+	}
 	realEnv.ServiceEnv.InitDexDB()
 	identityEnv := identityserver.EnvFromServiceEnv(realEnv.ServiceEnv)
 	identityAddr := realEnv.PachClient.GetAddress().Host + ":" + strconv.Itoa(int(realEnv.PachClient.GetAddress().Port+8))
@@ -104,26 +141,42 @@ func (realEnv *RealEnv) ActivateIdentity(t testing.TB) {
 	linkServers(&realEnv.MockPachd.Identity, realEnv.IdentityServer)
 }
 
-func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool, interceptor testpachd.InterceptorOption, customOpts ...serviceenv.ConfigOption) *RealEnv {
+func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool, interceptor testpachd.InterceptorOption, customOpts ...pachconfig.ConfigOption) *RealEnv {
+	// Log realEnv server messages to /tmp/pachyderm-real-env-<test>.log.  Logs persist after
+	// the run so you can debug the failure; rm -rf /tmp/pachdyerm-real-* to cleanup.  Client
+	// logs (i.e. code called from your test with the context you passed here) are untouched;
+	// they will appear in the t.Log log.
+	cfg := zap.NewProductionConfig()
+	cfg.Sampling = nil
+	cfg.OutputPaths = []string{filepath.Join(os.TempDir(), fmt.Sprintf("pachyderm-real-env-%s.log", url.PathEscape(t.Name())))}
+	cfg.Level.SetLevel(zapcore.DebugLevel)
+	logger, err := cfg.Build()
+	require.NoError(t, err, "should be able to make a realenv logger")
+	ctx = pctx.Child(ctx, "", pctx.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return logger.Core()
+	})))
+
 	mockEnv := testpachd.NewMockEnv(ctx, t, interceptor)
 
 	realEnv := &RealEnv{MockEnv: *mockEnv}
 	etcdClientURL, err := url.Parse(realEnv.EtcdClient.Endpoints()[0])
 	require.NoError(t, err)
 
-	opts := []serviceenv.ConfigOption{
-		func(config *serviceenv.Configuration) {
+	opts := []pachconfig.ConfigOption{
+		func(config *pachconfig.Configuration) {
 			require.NoError(t, cmdutil.PopulateDefaults(config))
 			config.StorageBackend = obj.Local
 			config.StorageRoot = path.Join(realEnv.Directory, "localStorage")
+			config.GoCDKEnabled = true
+			config.StorageURL = "file://" + config.StorageRoot
 		},
 		DefaultConfigOptions,
-		serviceenv.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
-		serviceenv.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
-		serviceenv.WithOidcPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port + 7)),
+		pachconfig.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
+		pachconfig.WithPachdPeerPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port)),
+		pachconfig.WithOidcPort(uint16(realEnv.MockPachd.Addr.(*net.TCPAddr).Port + 7)),
 	}
 	opts = append(opts, customOpts...) // Overwrite with any custom options
-	realEnv.ServiceEnv = serviceenv.InitServiceEnv(ctx, serviceenv.ConfigFromOptions(opts...))
+	realEnv.ServiceEnv = serviceenv.InitServiceEnv(ctx, pachconfig.ConfigFromOptions(opts...))
 
 	// Overwrite the mock pach client with the ServiceEnv's client so it gets closed earlier
 	realEnv.PachClient = realEnv.ServiceEnv.GetPachClient(realEnv.ServiceEnv.Context())
@@ -148,48 +201,104 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	require.NoError(t, err)
 
 	txnEnv := txnenv.New()
+
+	// ADMIN
+	adminEnv := pachd.AdminEnv(realEnv.ServiceEnv, false)
+	realEnv.AdminServer = adminapi.NewAPIServer(adminEnv)
+
 	// AUTH
-	authEnv := authserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
+	authEnv := pachd.AuthEnv(realEnv.ServiceEnv, txnEnv)
 	realEnv.AuthServer, err = authserver.NewAuthServer(authEnv, true, false, true)
 	require.NoError(t, err)
 	realEnv.ServiceEnv.SetAuthServer(realEnv.AuthServer)
 
 	// ENTERPRISE
-	entEnv := enterpriseserver.EnvFromServiceEnv(realEnv.ServiceEnv, path.Join("", "enterprise"), txnEnv)
-	realEnv.EnterpriseServer, err = enterpriseserver.NewEnterpriseServer(entEnv, true)
+	entEnv := pachd.EnterpriseEnv(realEnv.ServiceEnv, path.Join("", "enterprise"), txnEnv)
+	realEnv.EnterpriseServer, err = enterpriseserver.NewEnterpriseServer(entEnv, enterpriseserver.Config{Heartbeat: true})
 	require.NoError(t, err)
 	realEnv.ServiceEnv.SetEnterpriseServer(realEnv.EnterpriseServer)
 	mockEnv.MockPachd.GetAuthServer = realEnv.ServiceEnv.AuthServer
 
 	// LICENSE
-	licenseEnv := licenseserver.EnvFromServiceEnv(realEnv.ServiceEnv)
+	licenseEnv := pachd.LicenseEnv(realEnv.ServiceEnv)
 	realEnv.LicenseServer, err = licenseserver.New(licenseEnv)
 	require.NoError(t, err)
 
 	// PFS
-	pfsEnv, err := pfsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv)
+	pfsEnv, err := pachd.PFSEnv(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
 	pfsEnv.EtcdPrefix = ""
-	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv)
+	realEnv.PFSServer, err = pfsserver.NewAPIServer(ctx, *pfsEnv)
 	require.NoError(t, err)
+	w, err := pfsserver.NewWorker(
+		ctx,
+		pfsserver.WorkerEnv{
+			DB:          pfsEnv.DB,
+			ObjClient:   pfsEnv.ObjectClient,
+			Bucket:      pfsEnv.Bucket,
+			TaskService: pfsEnv.TaskService,
+		},
+		pfsserver.WorkerConfig{
+			Storage: pfsEnv.StorageConfig,
+		},
+	)
+	require.NoError(t, err)
+	go func() {
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from worker", zap.Error(err))
+		}
+	}()
 	realEnv.ServiceEnv.SetPfsServer(realEnv.PFSServer)
+	pfsMaster, err := pfsserver.NewMaster(ctx, *pfsEnv)
+	require.NoError(t, err)
+	go pfsMaster.Run(ctx) //nolint:errcheck
+
+	// STORAGE
+	storageEnv, err := pachd.StorageEnv(realEnv.ServiceEnv)
+	require.NoError(t, err)
+	realEnv.StorageServer, err = storageserver.New(ctx, *storageEnv)
+	require.NoError(t, err)
 
 	// TRANSACTION
-	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
+	realEnv.TransactionServer, err = txnserver.NewAPIServer(txnserver.Env{
+		DB:         realEnv.ServiceEnv.GetDBClient(),
+		PGListener: realEnv.ServiceEnv.GetPostgresListener(),
+		TxnEnv:     txnEnv,
+	})
 	require.NoError(t, err)
+
+	txnEnv.Initialize(
+		realEnv.ServiceEnv.GetDBClient(),
+		func() txnenv.AuthBackend {
+			return realEnv.ServiceEnv.AuthServer()
+		},
+		func() txnenv.PFSBackend {
+			return realEnv.ServiceEnv.PfsServer()
+		},
+		func() txnenv.PPSBackend {
+			return realEnv.ServiceEnv.PpsServer()
+		},
+		realEnv.TransactionServer,
+	)
+
+	// PROXY
 	realEnv.ProxyServer = proxyserver.NewAPIServer(proxyserver.Env{Listener: realEnv.ServiceEnv.GetPostgresListener()})
 
 	// VERSION
 	realEnv.VersionServer = version.NewAPIServer(version.Version, version.APIServerOptions{})
 
-	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer)
+	// METADATA
+	realEnv.MetadataServer = metadata_server.NewMetadataServer(metadata_server.Env{
+		Auth:   realEnv.ServiceEnv.AuthServer(),
+		TxnEnv: txnEnv,
+	})
 
 	// PPS
 	if mockPPSTransactionServer {
 		realEnv.MockPPSTransactionServer = testpachd.NewMockPPSTransactionServer()
 		realEnv.ServiceEnv.SetPpsServer(&realEnv.MockPPSTransactionServer.Api)
 		realEnv.MockPPSTransactionServer.InspectPipelineInTransaction.
-			Use(func(txnctx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
+			Use(func(ctx context.Context, txnctx *txncontext.TransactionContext, pipeline *pps.Pipeline) (*pps.PipelineInfo, error) {
 				return nil, col.ErrNotFound{
 					Type: "pipelines",
 					Key:  pipeline.String(),
@@ -199,26 +308,60 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		reporter := metrics.NewReporter(realEnv.ServiceEnv)
 		clientset := testclient.NewSimpleClientset()
 		realEnv.ServiceEnv.SetKubeClient(clientset)
-		ppsEnv := ppsserver.EnvFromServiceEnv(realEnv.ServiceEnv, txnEnv, reporter)
+		realEnv.ServiceEnv.SetDynamicKubeClient(testdynamic.NewSimpleDynamicClient(scheme.Scheme))
+		ppsEnv := pachd.PPSEnv(realEnv.ServiceEnv, txnEnv, reporter)
 		realEnv.PPSServer, err = ppsserver.NewAPIServer(ppsEnv)
 		realEnv.ServiceEnv.SetPpsServer(realEnv.PPSServer)
 		require.NoError(t, err)
 		linkServers(&realEnv.MockPachd.PPS, realEnv.PPSServer)
 	}
 
+	ppsWorker := ppsserver.NewWorker(ppsserver.WorkerEnv{
+		PFS:         realEnv.ServiceEnv.GetPachClient(ctx).PfsAPIClient,
+		TaskService: realEnv.ServiceEnv.GetTaskService(path.Join(realEnv.ServiceEnv.Config().EtcdPrefix, realEnv.ServiceEnv.Config().PPSEtcdPrefix)),
+	})
+	go func() {
+		ctx := pctx.Child(ctx, "pps-worker")
+		if err := ppsWorker.Run(ctx); err != nil {
+			log.Error(ctx, "from pps-worker", zap.Error(err))
+		}
+	}()
+
+	// Debug
+	debugEnv := pachd.DebugEnv(realEnv.ServiceEnv)
+	realEnv.DebugServer = debugserver.NewDebugServer(debugEnv)
+	realEnv.PachClient.DebugClient = debug.NewDebugClient(grpcutil.NewTestClient(t, func(gs *grpc.Server) {
+		debug.RegisterDebugServer(gs, realEnv.DebugServer)
+	}))
+	debugWorker := debugserver.NewWorker(debugserver.WorkerEnv{
+		PFS:         realEnv.PachClient.PfsAPIClient,
+		TaskService: realEnv.ServiceEnv.GetTaskService(realEnv.ServiceEnv.Config().EtcdPrefix),
+	})
+	go debugWorker.Run(ctx) //nolint:errcheck
+
+	realEnv.LogsServer, err = logsserver.NewAPIServer(logsserver.Env{
+		GetLokiClient: realEnv.ServiceEnv.GetLokiClient,
+		AuthServer:    realEnv.AuthServer,
+	})
+	require.NoError(t, err)
+
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
+	linkServers(&realEnv.MockPachd.Storage, realEnv.StorageServer)
+	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
 	linkServers(&realEnv.MockPachd.Enterprise, realEnv.EnterpriseServer)
 	linkServers(&realEnv.MockPachd.License, realEnv.LicenseServer)
 	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
 	linkServers(&realEnv.MockPachd.Version, realEnv.VersionServer)
 	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
+	linkServers(&realEnv.MockPachd.Logs, realEnv.LogsServer)
+	linkServers(&realEnv.MockPachd.Metadata, realEnv.MetadataServer)
 
 	return realEnv
 }
 
 // DefaultConfigOptions is a serviceenv config option with the defaults used for tests
-func DefaultConfigOptions(config *serviceenv.Configuration) {
+func DefaultConfigOptions(config *pachconfig.Configuration) {
 	config.StorageMemoryThreshold = units.GB
 	config.StorageLevelFactor = 10
 	config.StorageCompactionMaxFanIn = 10

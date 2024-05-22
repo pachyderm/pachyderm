@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "require",
+    srcs = ["require.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/require",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/backoff",
+        "//src/internal/errors",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+        "@com_github_stretchr_testify//require",
+        "@org_golang_google_protobuf//testing/protocmp",
+    ],
+)

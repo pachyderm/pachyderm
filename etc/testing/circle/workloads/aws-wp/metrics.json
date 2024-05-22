@@ -5,7 +5,7 @@
   "description": "A pipeline that collects metrics",
   "input": {
     "pfs": {
-      "glob": "/*",
+      "glob": "/",
       "repo": "width_estimation"
     }
   },
@@ -14,7 +14,22 @@
       "python3",
       "/app/app.py"
     ],
-    "image": "metric-collector:v1"
+    "secrets": [
+      {
+        "name": "metrics-secret",
+        "env_var": "BIGQUERY_AUTH_JSON",
+        "key": "creds"
+      },
+      {
+        "name": "pachyderm-auth",
+        "env_var": "PACH_PYTHON_AUTH_TOKEN",
+        "key": "root-token"
+      }
+    ],
+    "image": "pachyderm/metric-collector:v4",
+    "env": {
+      "LOG_LEVEL": "DEBUG",
+      "WORKLOAD_ID": "wp"
+    }
   }
 }
-

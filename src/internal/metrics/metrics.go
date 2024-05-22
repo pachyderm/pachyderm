@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 )
@@ -106,12 +107,12 @@ func reportAndFlushUserAction(action string, value interface{}) func() {
 	go func() {
 		defer close(metricsDone)
 		cfg, _ := config.Read(false, false)
-		if cfg == nil || cfg.UserID == "" || !cfg.V2.Metrics {
+		if cfg == nil || cfg.UserId == "" || !cfg.V2.Metrics {
 			return
 		}
 		client := newSegmentClient()
 		defer client.Close()
-		reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
+		reportUserMetricsToSegment(client, cfg.UserId, "user", action, value, "")
 	}()
 	return func() {
 		select {
@@ -157,8 +158,8 @@ func (r *Reporter) reportClusterMetrics(ctx context.Context) {
 		metrics := &Metrics{}
 		r.internalMetrics(metrics)
 		externalMetrics(r.env.GetKubeClient(), metrics) //nolint:errcheck
-		metrics.ClusterID = r.clusterID
-		metrics.PodID = uuid.NewWithoutDashes()
+		metrics.ClusterId = r.clusterID
+		metrics.PodId = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)
 		r.router.reportClusterMetricsToSegment(metrics)
 	}
@@ -250,7 +251,7 @@ func inputMetrics(input *pps.Input, metrics *Metrics) {
 func (r *Reporter) internalMetrics(metrics *Metrics) {
 	// We should not return due to an error
 	// Activation code
-	ctx, cf := context.WithCancel(context.Background())
+	ctx, cf := pctx.WithCancel(context.Background())
 	defer cf()
 
 	enterpriseState, err := r.env.EnterpriseServer().GetState(ctx, &enterprise.GetStateRequest{})
@@ -261,7 +262,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 
 	resp, err := r.env.AuthServer().GetRobotToken(ctx, &auth_client.GetRobotTokenRequest{
 		Robot: metricsUsername,
-		TTL:   int64(reportingInterval.Seconds() / 2),
+		Ttl:   int64(reportingInterval.Seconds() / 2),
 	})
 	if err != nil && !auth_client.IsErrNotActivated(err) {
 		log.Error(pctx.TODO(), "Error getting metics auth token", zap.Error(err))
@@ -273,7 +274,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 		pachClient.SetAuthToken(resp.Token)
 	}
 	// Pipeline info
-	infos, err := pachClient.ListPipeline(true)
+	infos, err := pachClient.ListPipeline()
 	if err != nil {
 		log.Error(ctx, "Error getting pipeline metrics", zap.Error(err))
 	} else {
@@ -282,7 +283,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 			// count total jobs
 			var cnt int64
 			// just ignore error
-			_ = pachClient.ListProjectJobF(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
+			_ = pachClient.ListJobF(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
 				cnt++
 				return nil
 			})
@@ -362,9 +363,14 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 						metrics.CfgErrcmd++
 					}
 				}
-				if details.TFJob != nil {
+				if details.TfJob != nil {
 					metrics.CfgTfjob++
 				}
+			}
+			zero := &timestamppb.Timestamp{}
+			if pi.Details.WorkersStartedAt.AsTime() != zero.AsTime() &&
+				time.Since(pi.Details.WorkersStartedAt.AsTime()) > pi.Details.MaximumExpectedUptime.AsDuration() {
+				metrics.PipelineWithAlerts = true
 			}
 		}
 	}

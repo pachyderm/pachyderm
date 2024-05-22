@@ -1,0 +1,47 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetRoleBindingResponse",
+    "definitions": {
+        "GetRoleBindingResponse": {
+            "properties": {
+                "binding": {
+                    "$ref": "#/definitions/auth_v2.RoleBinding",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Role Binding Response"
+        },
+        "auth_v2.RoleBinding": {
+            "properties": {
+                "entries": {
+                    "additionalProperties": {
+                        "$ref": "#/definitions/auth_v2.Roles",
+                        "additionalProperties": false
+                    },
+                    "type": "object",
+                    "description": "principal -\u003e roles. All principal names include the structured prefix indicating their type."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Role Binding",
+            "description": "RoleBinding represents the set of roles principals have on a given Resource"
+        },
+        "auth_v2.Roles": {
+            "properties": {
+                "roles": {
+                    "additionalProperties": {
+                        "type": "boolean"
+                    },
+                    "type": "object"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "// Authorization data structures",
+            "description": "// Authorization data structures  Roles represents the set of roles a principal has"
+        }
+    }
+}

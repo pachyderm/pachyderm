@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-
 	"os"
 	"os/exec"
 	"os/user"
@@ -17,20 +16,22 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TODO(2.0 optional):
@@ -39,10 +40,17 @@ import (
 // In general, need to spend some time walking through the old driver
 // tests to see what can be reused.
 
-// TaskNamespace returns the namespace used by the task package for this
-// pipeline.
-func TaskNamespace(pipelineInfo *pps.PipelineInfo) string {
-	return fmt.Sprintf("/pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
+func PreprocessingTaskNamespace(pipelineInfo *pps.PipelineInfo) string {
+	namespace := "preprocessing"
+	if pipelineInfo != nil {
+		pipeline := fmt.Sprintf("pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
+		namespace = path.Join(namespace, pipeline)
+	}
+	return namespace
+}
+
+func ProcessingTaskNamespace(pipelineInfo *pps.PipelineInfo) string {
+	return fmt.Sprintf("processing/pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
 }
 
 // Driver provides an interface for common functions needed by worker code, and
@@ -55,7 +63,8 @@ type Driver interface {
 	Pipelines() col.PostgresCollection
 
 	NewTaskSource() task.Source
-	NewTaskDoer(string, task.Cache) task.Doer
+	NewPreprocessingTaskDoer(string, task.Cache) task.Doer
+	NewProcessingTaskDoer(string, task.Cache) task.Doer
 
 	// Returns the PipelineInfo for the pipeline that this worker belongs to
 	PipelineInfo() *pps.PipelineInfo
@@ -84,7 +93,7 @@ type Driver interface {
 
 	// UserCodeEnv returns the set of environment variables to construct when
 	// launching the configured user process.
-	UserCodeEnv(string, *pfs.Commit, []*common.Input) []string
+	UserCodeEnv(string, *pfs.Commit, []*common.Input, string) []string
 
 	RunUserCode(context.Context, logs.TaggedLogger, []string) error
 
@@ -92,12 +101,14 @@ type Driver interface {
 
 	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
-	DeleteJob(*pachsql.Tx, *pps.JobInfo) error
+	DeleteJob(context.Context, *pachsql.Tx, *pps.JobInfo) error
 	UpdateJobState(*pps.Job, pps.JobState, string) error
+
+	GetJobInfo(job *pps.Job) (*pps.JobInfo, error)
 
 	// TODO: figure out how to not expose this - currently only used for a few
 	// operations in the map spawner
-	NewSQLTx(func(*pachsql.Tx) error) error
+	NewSQLTx(func(context.Context, *pachsql.Tx) error) error
 
 	// Returns the image ID associated with a container running in the worker pod
 	GetContainerImageID(context.Context, string) (string, error)
@@ -284,18 +295,24 @@ func (d *driver) Pipelines() col.PostgresCollection {
 func (d *driver) NewTaskSource() task.Source {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.NewSource(TaskNamespace(d.pipelineInfo))
+	return taskService.NewSource(ProcessingTaskNamespace(d.pipelineInfo))
 }
 
-func (d *driver) NewTaskDoer(groupID string, cache task.Cache) task.Doer {
+func (d *driver) NewPreprocessingTaskDoer(groupID string, cache task.Cache) task.Doer {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID, cache)
+	return taskService.NewDoer(PreprocessingTaskNamespace(d.pipelineInfo), groupID, cache)
+}
+
+func (d *driver) NewProcessingTaskDoer(groupID string, cache task.Cache) task.Doer {
+	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
+	taskService := d.env.GetTaskService(etcdPrefix)
+	return taskService.NewDoer(ProcessingTaskNamespace(d.pipelineInfo), groupID, cache)
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {
 	latestPipelineInfo := &pps.PipelineInfo{}
-	if err := d.Pipelines().ReadOnly(d.ctx).Get(d.PipelineInfo().SpecCommit, latestPipelineInfo); err != nil {
+	if err := d.Pipelines().ReadOnly().Get(d.ctx, d.PipelineInfo().SpecCommit, latestPipelineInfo); err != nil {
 		return 0, errors.EnsureStack(err)
 	}
 	numWorkers := latestPipelineInfo.Parallelism
@@ -321,7 +338,7 @@ func (d *driver) PachClient() *client.APIClient {
 	return d.pachClient.WithCtx(d.ctx)
 }
 
-func (d *driver) NewSQLTx(cb func(*pachsql.Tx) error) error {
+func (d *driver) NewSQLTx(cb func(context.Context, *pachsql.Tx) error) error {
 	return dbutil.WithTx(d.ctx, d.env.GetDBClient(), cb)
 }
 
@@ -333,7 +350,11 @@ func (d *driver) RunUserCode(
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
 		if retErr != nil {
-			logger.Logf("errored running user code after %v: %v", time.Since(start), retErr)
+			if ctxErr := context.Cause(ctx); ctxErr != nil {
+				logger.Errf("errored running user code after %v: %v because %v", time.Since(start), retErr, ctxErr)
+			} else {
+				logger.Errf("errored running user code after %v: %v", time.Since(start), retErr)
+			}
 		} else {
 			logger.Logf("finished running user code after %v", time.Since(start))
 		}
@@ -362,6 +383,8 @@ func (d *driver) RunUserCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
+	monctx, endMonitoring := context.WithCancelCause(ctx)
+	go proc.MonitorProcessGroup(logger.Context(monctx), cmd.Process.Pid)
 	killChildren := makeProcessGroupKiller(ctx, logger, cmd.Process.Pid)
 	if ok, err := blockUntilWaitable(cmd.Process.Pid); ok {
 		// Since cmd.Process.Pid is dead, we can kill its children now.
@@ -378,6 +401,10 @@ func (d *driver) RunUserCode(
 	killChildren()
 	stdout.Close()
 	stderr.Close()
+	endMonitoring(errors.New("child exited"))
+
+	// Print final rusage metrics.
+	printRusage(logger.Context(ctx), cmd.ProcessState)
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
@@ -408,7 +435,11 @@ func (d *driver) RunUserErrorHandlingCode(
 	logger.Logf("beginning to run user error handling code")
 	defer func(start time.Time) {
 		if retErr != nil {
-			logger.Logf("errored running user error handling code after %v: %v", time.Since(start), retErr)
+			if ctxErr := context.Cause(ctx); ctxErr != nil {
+				logger.Errf("errored running user error handling code after %v: %v because %v", time.Since(start), retErr, ctxErr)
+			} else {
+				logger.Errf("errored running user error handling code after %v: %v", time.Since(start), retErr)
+			}
 		} else {
 			logger.Logf("finished running user error handling code after %v", time.Since(start))
 		}
@@ -428,6 +459,8 @@ func (d *driver) RunUserErrorHandlingCode(
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
+	monctx, endMonitoring := context.WithCancelCause(ctx)
+	go proc.MonitorProcessGroup(logger.Context(monctx), cmd.Process.Pid)
 	killChildren := makeProcessGroupKiller(ctx, logger, cmd.Process.Pid)
 	if ok, err := blockUntilWaitable(cmd.Process.Pid); ok {
 		// Since cmd.Process.Pid is dead, we can kill its children now.
@@ -444,6 +477,10 @@ func (d *driver) RunUserErrorHandlingCode(
 	killChildren()
 	stdout.Close()
 	stderr.Close()
+	endMonitoring(errors.New("child exited"))
+
+	// Print final rusage metrics.
+	printRusage(logger.Context(ctx), cmd.ProcessState)
 
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
@@ -467,20 +504,28 @@ func (d *driver) RunUserErrorHandlingCode(
 }
 
 func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
-	return d.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+	return d.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		jobInfo := &pps.JobInfo{}
-		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
+		if err := d.Jobs().ReadWrite(sqlTx).Get(ctx, ppsdb.JobKey(job), jobInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
+		return errors.EnsureStack(ppsutil.UpdateJobState(ctx, d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))
 	})
+}
+
+func (d *driver) GetJobInfo(job *pps.Job) (*pps.JobInfo, error) {
+	jobInfo := &pps.JobInfo{}
+	if err := d.Jobs().ReadOnly().Get(d.ctx, ppsdb.JobKey(job), jobInfo); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return jobInfo, nil
 }
 
 // DeleteJob is identical to updateJobState, except that jobInfo points to a job
 // that should be deleted rather than marked failed.  Jobs may be deleted if
 // their output commit is deleted.
-func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
-	return errors.EnsureStack(d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job)))
+func (d *driver) DeleteJob(ctx context.Context, sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
+	return errors.EnsureStack(d.Jobs().ReadWrite(sqlTx).Delete(ctx, ppsdb.JobKey(jobInfo.Job)))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
@@ -503,12 +548,13 @@ func (d *driver) UserCodeEnv(
 	jobID string,
 	outputCommit *pfs.Commit,
 	inputs []*common.Input,
+	pachToken string,
 ) []string {
 	result := os.Environ()
 
 	for _, input := range inputs {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
-		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
+		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.Id))
 		if input.JoinOn != "" {
 			result = append(result, fmt.Sprintf("PACH_DATUM_%s_JOIN_ON=%s", input.Name, input.JoinOn))
 		}
@@ -521,8 +567,8 @@ func (d *driver) UserCodeEnv(
 	if jobID != "" {
 		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
 		pipeline := &pps.Pipeline{
-			Project: outputCommit.Branch.Repo.Project,
-			Name:    outputCommit.Branch.Repo.Name,
+			Project: outputCommit.Repo.Project,
+			Name:    outputCommit.Repo.Name,
 		}
 		if ppsutil.ContainsS3Inputs(d.PipelineInfo().Details.Input) || d.PipelineInfo().Details.S3Out {
 			// TODO(msteffen) Instead of reading S3GATEWAY_PORT directly, worker/main.go
@@ -541,13 +587,29 @@ func (d *driver) UserCodeEnv(
 					os.Getenv("S3GATEWAY_PORT"),
 				),
 			)
+
+			// Set AWS_... creds vars in addition to PACH_PIPELINE_TOKEN so that any
+			// S3 clients running in the user code use these and successfully connect
+			// by default
+			if pachToken != "" {
+				result = append(result, "AWS_ACCESS_KEY_ID="+pachToken)
+				result = append(result, "AWS_SECRET_ACCESS_KEY="+pachToken)
+			} else {
+				// If auth is off, clients can use any creds with Pachyderm's S3
+				// gateway, as long as the ID and secret match. However, many clients
+				// (e.g. the AWS cli) require _some_ nonempty creds; this default value
+				// allows those clients to work in pipelines if Pachyderm auth is off.
+				result = append(result, "AWS_ACCESS_KEY_ID=default")
+				result = append(result, "AWS_SECRET_ACCESS_KEY=default")
+			}
 		}
 	}
-
-	if outputCommit != nil {
-		result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.ID))
+	if pachToken != "" {
+		result = append(result, "PACH_TOKEN="+pachToken)
 	}
-
+	if outputCommit != nil {
+		result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.Id))
+	}
 	return result
 }
 

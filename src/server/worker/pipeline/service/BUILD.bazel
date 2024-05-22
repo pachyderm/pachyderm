@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "service",
+    srcs = ["service.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/service",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "//src/internal/pfssync",
+        "//src/internal/ppsutil",
+        "//src/internal/storage/renew",
+        "//src/internal/uuid",
+        "//src/pps",
+        "//src/server/worker/datum",
+        "//src/server/worker/driver",
+        "//src/server/worker/logs",
+        "@org_golang_x_sync//errgroup",
+    ],
+)

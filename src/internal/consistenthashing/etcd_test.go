@@ -2,6 +2,7 @@ package consistenthashing
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"strconv"
 	"sync"
@@ -46,7 +47,7 @@ type lockTestConfig struct {
 }
 
 func setupTest(t *testing.T) testRingConfig {
-	ctx, cancel := context.WithCancel(pctx.TestContext(t))
+	ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
 	etcdEnv := testetcd.NewEnv(ctx, t)
 	return testRingConfig{
 		client: etcdEnv.EtcdClient,
@@ -115,7 +116,7 @@ func TestLockingWithDeleteWorker(t *testing.T) {
 		require.NoError(t, test.eg.Wait())
 	}()
 	nodeToDelete := strconv.Itoa(100)
-	deleteCtx, deleteCancel := context.WithCancel(test.ctx)
+	deleteCtx, deleteCancel := pctx.WithCancel(test.ctx)
 	defer deleteCancel()
 	for i := 0; i < test.workers; i++ {
 		nodeId := test.workerIds[i]
@@ -196,7 +197,7 @@ func setupLockTest(t *testing.T, numNodes, numLocks int) lockTestConfig {
 		ringConfig: setupTest(t),
 	}
 	test.eg, test.ctx = errgroup.WithContext(test.ringConfig.ctx)
-	test.ctx, test.cancel = context.WithCancel(test.ctx)
+	test.ctx, test.cancel = pctx.WithCancel(test.ctx)
 	test.workersReady = make(chan struct{}, numNodes)
 	test.beginLocking = make(chan struct{}, numNodes)
 	test.doneLocking = make(chan struct{}, numLocks)
@@ -250,7 +251,7 @@ func (test *lockTestConfig) locksPerWorker() map[string]int {
 
 func (test *lockTestConfig) runWorker(ctx context.Context, t *testing.T, id string) {
 	collection.DefaultTTL = 1
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, ctx := errgroup.WithContext(pctx.Child(ctx, "worker."+id))
 	err := withRing(ctx, test.ringConfig.client, "master", id, func(ctx context.Context, ring *Ring) error {
 		time.Sleep(time.Second * 1)
 		test.workersReady <- struct{}{}
@@ -276,6 +277,8 @@ func (test *lockTestConfig) lockAndUnlock(ctx context.Context, t *testing.T, rin
 		return err
 	}
 	test.keys.Store(key, memberId)
+	log.Debug(ctx, fmt.Sprintf("worker %s got lock %s", memberId, key))
+
 	test.doneLocking <- struct{}{}
 	select {
 	case <-test.beginUnlocking:
@@ -290,6 +293,7 @@ func (test *lockTestConfig) lockAndUnlock(ctx context.Context, t *testing.T, rin
 		log.Error(ctx, "should be able to unlock key", zap.Error(err))
 	}
 	require.NoError(t, err, "should be able to unlock key")
+	log.Debug(ctx, fmt.Sprintf("worker %s unlocked %s", memberId, key), zap.Error(err))
 	test.doneUnlocking <- struct{}{}
 	return nil
 }

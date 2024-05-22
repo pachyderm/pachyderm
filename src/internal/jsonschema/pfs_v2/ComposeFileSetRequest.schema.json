@@ -1,0 +1,25 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ComposeFileSetRequest",
+    "definitions": {
+        "ComposeFileSetRequest": {
+            "properties": {
+                "fileSetIds": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "ttlSeconds": {
+                    "type": "integer"
+                },
+                "compact": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Compose File Set Request"
+        }
+    }
+}

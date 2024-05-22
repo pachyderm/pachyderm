@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/gogo/protobuf/proto"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -28,7 +28,7 @@ func (it iterator[T]) Next(ctx context.Context, dst *T) error {
 	x, err := it.cs.Recv()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			err = stream.EOS
+			err = stream.EOS()
 		}
 		return err
 	}

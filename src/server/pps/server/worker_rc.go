@@ -11,15 +11,14 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
-	client "github.com/pachyderm/pachyderm/v2/src/client"
+	client "github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -60,6 +59,8 @@ const (
 	StorageMaxOpenFileSetsEnvVar               = "STORAGE_FILESETS_MAX_OPEN"
 	StorageDiskCacheSizeEnvVar                 = "STORAGE_DISK_CACHE_SIZE"
 	StorageMemoryCacheSizeEnvVar               = "STORAGE_MEMORY_CACHE_SIZE"
+	SidecarMemoryRequestEnvVar                 = "K8S_MEMORY_REQUEST"
+	SidecarMemoryLimitEnvVar                   = "K8S_MEMORY_LIMIT"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -69,20 +70,21 @@ type workerOptions struct {
 	specCommit    string // Pipeline spec commit ID (needed for s3 inputs)
 	s3GatewayPort int32  // s3 gateway port (if any s3 pipeline inputs)
 
-	userImage             string                // The user's pipeline/job image
-	labels                map[string]string     // k8s labels attached to the RC and workers
-	annotations           map[string]string     // k8s annotations attached to the RC and workers
-	parallelism           int32                 // Number of replicas the RC maintains
-	resourceRequests      *v1.ResourceList      // Resources requested by pipeline/job pods
-	resourceLimits        *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the user and init containers
-	sidecarResourceLimits *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the sidecar container
-	workerEnv             []v1.EnvVar           // Environment vars set in the user container
-	volumes               []v1.Volume           // Volumes that we expose to the user container
-	volumeMounts          []v1.VolumeMount      // Paths where we mount each volume in 'volumes'
-	postgresSecret        *v1.SecretKeySelector // the reference to the postgres password
-	schedulingSpec        *pps.SchedulingSpec   // the SchedulingSpec for the pipeline
-	podSpec               string
-	podPatch              string
+	userImage               string                // The user's pipeline/job image
+	labels                  map[string]string     // k8s labels attached to the RC and workers
+	annotations             map[string]string     // k8s annotations attached to the RC and workers
+	parallelism             int32                 // Number of replicas the RC maintains
+	resourceRequests        *v1.ResourceList      // Resources requested by pipeline/job pods
+	resourceLimits          *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the user and init containers
+	sidecarResourceLimits   *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the sidecar container
+	sidecarResourceRequests *v1.ResourceList      // Resources requested by pipeline/job pods, applied to the sidecar container
+	workerEnv               []v1.EnvVar           // Environment vars set in the user container
+	volumes                 []v1.Volume           // Volumes that we expose to the user container
+	volumeMounts            []v1.VolumeMount      // Paths where we mount each volume in 'volumes'
+	postgresSecret          *v1.SecretKeySelector // the reference to the postgres password
+	schedulingSpec          *pps.SchedulingSpec   // the SchedulingSpec for the pipeline
+	podSpec                 string
+	podPatch                string
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -140,6 +142,12 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		Name:  "STORAGE_BACKEND",
 		Value: kd.config.StorageBackend,
 	}, {
+		Name:  "STORAGE_URL",
+		Value: kd.config.StorageURL,
+	}, {
+		Name:  "GOCDK_ENABLED",
+		Value: strconv.FormatBool(kd.config.GoCDKEnabled),
+	}, {
 		Name:  "POSTGRES_USER",
 		Value: kd.config.PostgresUser,
 	}, {
@@ -175,8 +183,8 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		Name:  "LOKI_SERVICE_PORT",
 		Value: kd.config.LokiPort,
 	}, {
-		Name:  log.EnvLogLevel,
-		Value: kd.config.LogLevel,
+		Name:  "GOCOVERDIR",
+		Value: "/tmp",
 	},
 		// These are set explicitly below to prevent kubernetes from setting them to the service host and port.
 		{
@@ -187,26 +195,36 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 			Value: "",
 		},
 	}
+	commonEnv = append(commonEnv, log.WorkerLogConfig.AsKubernetesEnvironment()...)
 
 	// Set up sidecar env vars
-	sidecarEnv := []v1.EnvVar{{
-		Name:  "PORT",
-		Value: strconv.FormatUint(uint64(kd.config.Port), 10),
-	}, {
-		Name: "PACHD_POD_NAME",
-		ValueFrom: &v1.EnvVarSource{
-			FieldRef: &v1.ObjectFieldSelector{
-				APIVersion: "v1",
-				FieldPath:  "metadata.name",
+	sidecarEnv := []v1.EnvVar{
+		{
+			Name:  "PORT",
+			Value: strconv.FormatUint(uint64(kd.config.Port), 10),
+		},
+		{
+			Name: "PACHD_POD_NAME",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.name",
+				},
 			},
 		},
-	}, {
-		Name:  "PACHW_IN_SIDECARS",
-		Value: strconv.FormatBool(kd.config.PachwInSidecars),
-	}, {
-		Name:  "GC_PERCENT",
-		Value: strconv.FormatInt(int64(kd.config.GCPercent), 10),
-	}}
+		{
+			Name:  "PACHW_IN_SIDECARS",
+			Value: strconv.FormatBool(kd.config.PachwInSidecars),
+		},
+		{
+			Name:  "GC_PERCENT",
+			Value: strconv.FormatInt(int64(kd.config.GCPercent), 10),
+		},
+		{
+			Name:  "PROMETHEUS_PORT",
+			Value: strconv.FormatInt(workerstats.SidecarPrometheusPort, 10),
+		},
+	}
 
 	sidecarEnv = append(sidecarEnv, kd.getStorageEnvVars(pipelineInfo)...)
 	sidecarEnv = append(sidecarEnv, commonEnv...)
@@ -276,7 +294,9 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		sidecarEnv = append(sidecarEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
 		workerEnv = append(workerEnv, v1.EnvVar{Name: "GOOGLE_CLOUD_PROFILER_PROJECT", Value: p})
 	}
-
+	if pipelineInfo.Details.Determined != nil {
+		workerEnv = append(workerEnv, kd.getDeterminedEnvVars(pipelineInfo)...)
+	}
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
 	storageVolumeName := "pach-disk"
@@ -367,8 +387,13 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		workerServiceAccountName = DefaultWorkerServiceAccountName
 	}
 
+	var sidecarPorts = []v1.ContainerPort{
+		{
+			Name:          "metrics-storage",
+			ContainerPort: workerstats.SidecarPrometheusPort,
+		},
+	}
 	// possibly expose s3 gateway port in the sidecar container
-	var sidecarPorts []v1.ContainerPort
 	if options.s3GatewayPort != 0 {
 		sidecarPorts = append(sidecarPorts, v1.ContainerPort{
 			ContainerPort: options.s3GatewayPort,
@@ -377,10 +402,10 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 
 	workerImage := kd.config.WorkerImage
 	pachSecurityCtx := &v1.SecurityContext{
-		RunAsUser:                int64Ptr(1000),
-		RunAsGroup:               int64Ptr(1000),
-		AllowPrivilegeEscalation: pointer.Bool(false),
-		ReadOnlyRootFilesystem:   pointer.Bool(true),
+		RunAsUser:                ptr.To[int64](1000),
+		RunAsGroup:               ptr.To[int64](1000),
+		AllowPrivilegeEscalation: ptr.To(false),
+		ReadOnlyRootFilesystem:   ptr.To(true),
 		Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 	}
 	var userSecurityCtx *v1.SecurityContext
@@ -390,8 +415,8 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		pachSecurityCtx = nil
 		podSecurityContext = nil
 	} else if kd.config.WorkerUsesRoot {
-		pachSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
-		userSecurityCtx = &v1.SecurityContext{RunAsUser: int64Ptr(0)}
+		pachSecurityCtx = &v1.SecurityContext{RunAsUser: ptr.To[int64](0)}
+		userSecurityCtx = &v1.SecurityContext{RunAsUser: ptr.To[int64](0)}
 		podSecurityContext = nil
 	} else if userStr != "" {
 		// This is to allow the user to be set in the pipeline spec.
@@ -400,18 +425,18 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		} else {
 			// hard coded security settings besides uid/gid.
 			podSecurityContext = &v1.PodSecurityContext{
-				RunAsUser:    int64Ptr(i),
-				RunAsGroup:   int64Ptr(i),
-				FSGroup:      int64Ptr(i),
-				RunAsNonRoot: pointer.Bool(true),
+				RunAsUser:    ptr.To(i),
+				RunAsGroup:   ptr.To(i),
+				FSGroup:      ptr.To(i),
+				RunAsNonRoot: ptr.To(true),
 				SeccompProfile: &v1.SeccompProfile{
 					Type: v1.SeccompProfileType("RuntimeDefault"),
 				}}
 			userSecurityCtx = &v1.SecurityContext{
-				RunAsUser:                int64Ptr(i),
-				RunAsGroup:               int64Ptr(i),
-				AllowPrivilegeEscalation: pointer.Bool(false),
-				ReadOnlyRootFilesystem:   pointer.Bool(true),
+				RunAsUser:                ptr.To(i),
+				RunAsGroup:               ptr.To(i),
+				AllowPrivilegeEscalation: ptr.To(false),
+				ReadOnlyRootFilesystem:   ptr.To(true),
 				Capabilities:             &v1.Capabilities{Drop: []v1.Capability{"all"}},
 			}
 		}
@@ -452,7 +477,13 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{},
 				},
-				VolumeMounts:    userVolumeMounts,
+				VolumeMounts: userVolumeMounts,
+				Ports: []v1.ContainerPort{
+					{
+						Name:          "metrics-user",
+						ContainerPort: workerstats.PrometheusPort,
+					},
+				},
 				SecurityContext: userSecurityCtx,
 			},
 			{
@@ -474,11 +505,11 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 			},
 		},
 		ServiceAccountName:            workerServiceAccountName,
-		AutomountServiceAccountToken:  pointer.Bool(true),
+		AutomountServiceAccountToken:  ptr.To(true),
 		RestartPolicy:                 "Always",
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
-		TerminationGracePeriodSeconds: int64Ptr(0),
+		TerminationGracePeriodSeconds: ptr.To[int64](0),
 		SecurityContext:               podSecurityContext,
 		Tolerations:                   options.tolerations,
 	}
@@ -512,9 +543,28 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	}
 
 	if options.sidecarResourceLimits != nil {
+		if m := options.sidecarResourceLimits.Memory(); m != nil {
+			podSpec.Containers[1].Env = append(podSpec.Containers[1].Env, v1.EnvVar{
+				Name:  SidecarMemoryLimitEnvVar,
+				Value: m.AsDec().String(),
+			})
+		}
 		podSpec.Containers[1].Resources.Limits = make(v1.ResourceList)
 		for k, v := range *options.sidecarResourceLimits {
 			podSpec.Containers[1].Resources.Limits[k] = v
+		}
+	}
+
+	if options.sidecarResourceRequests != nil {
+		if m := options.sidecarResourceRequests.Memory(); m != nil {
+			podSpec.Containers[1].Env = append(podSpec.Containers[1].Env, v1.EnvVar{
+				Name:  SidecarMemoryRequestEnvVar,
+				Value: m.AsDec().String(),
+			})
+		}
+		podSpec.Containers[1].Resources.Requests = make(v1.ResourceList)
+		for k, v := range *options.sidecarResourceRequests {
+			podSpec.Containers[1].Resources.Requests[k] = v
 		}
 	}
 
@@ -624,6 +674,34 @@ func (kd *kubeDriver) getEgressSecretEnvVars(pipelineInfo *pps.PipelineInfo) []v
 	return result
 }
 
+func (kd *kubeDriver) getDeterminedEnvVars(pipelineInfo *pps.PipelineInfo) []v1.EnvVar {
+	return []v1.EnvVar{
+		{
+			Name:  "DET_MASTER_CERT_FILE",
+			Value: "noverify",
+		},
+		{
+			Name:  "DET_MASTER",
+			Value: kd.config.DeterminedURL,
+		},
+		{
+			Name:  "DET_USER",
+			Value: strings.ReplaceAll(pipelineInfo.Pipeline.String(), "/", "_"), // TODO: call common util for determined pipeline user name
+		},
+		{
+			Name: "DET_PASS",
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: pipelineInfo.Pipeline.Project.Name + "-" + pipelineInfo.Pipeline.Name + "-det",
+					},
+					Key: "password",
+				},
+			},
+		},
+	}
+}
+
 // We don't want to expose pipeline auth tokens, so we hash it. This will be
 // visible to any user with k8s cluster access
 // Note: This hash shouldn't be used for authentication in any way. We just use
@@ -642,6 +720,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	var resourceRequests *v1.ResourceList
 	var resourceLimits *v1.ResourceList
 	var sidecarResourceLimits *v1.ResourceList
+	var sidecarResourceRequests *v1.ResourceList
 	if pipelineInfo.Details.ResourceRequests != nil {
 		var err error
 		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(ctx, pipelineInfo)
@@ -678,7 +757,16 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 			return nil, errors.Wrapf(err, "could not determine sidecar resource limit")
 		}
 	}
-
+	if pipelineInfo.Details.SidecarResourceRequests != nil {
+		var err error
+		sidecarResourceRequests, err = ppsutil.GetLimitsResourceList(ctx, pipelineInfo.Details.SidecarResourceRequests)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not determine sidecar resource request")
+		}
+	}
+	if pipelineInfo.Details.MaximumExpectedUptime.AsDuration() != 0 && !pipelineInfo.Details.Autoscaling {
+		return nil, errors.Errorf("pipeline %s/%s: autoscaling must be true when max_expected_uptime is non-zero", projectName, pipelineName)
+	}
 	transform := pipelineInfo.Details.Transform
 	labels := pipelineLabels(projectName, pipelineName, pipelineVersion)
 	userImage := transform.Image
@@ -768,7 +856,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 		pipelineNameAnnotation:       pipelineName,
 		pachVersionAnnotation:        version.PrettyVersion(),
 		pipelineVersionAnnotation:    strconv.FormatUint(pipelineInfo.Version, 10),
-		pipelineSpecCommitAnnotation: pipelineInfo.SpecCommit.ID,
+		pipelineSpecCommitAnnotation: pipelineInfo.SpecCommit.Id,
 		hashedAuthTokenAnnotation:    hashAuthToken(pipelineInfo.AuthToken),
 	}
 	if projectName != "" {
@@ -830,7 +918,7 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 	for i, in := range pipelineInfo.GetDetails().GetTolerations() {
 		out, err := transformToleration(in)
 		if err != nil {
-			multierr.AppendInto(&tolErr, errors.Errorf("toleration %d/%d: %v", i+1, len(pipelineInfo.GetDetails().GetTolerations()), err))
+			errors.JoinInto(&tolErr, errors.Errorf("toleration %d/%d: %v", i+1, len(pipelineInfo.GetDetails().GetTolerations()), err))
 			continue
 		}
 		tolerations = append(tolerations, out)
@@ -841,26 +929,27 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 
 	// Generate options for new RC
 	return &workerOptions{
-		rcName:                ppsutil.PipelineRcName(pipelineInfo),
-		s3GatewayPort:         s3GatewayPort,
-		specCommit:            pipelineInfo.SpecCommit.ID,
-		labels:                labels,
-		annotations:           annotations,
-		parallelism:           int32(0), // pipelines start w/ 0 workers & are scaled up
-		resourceRequests:      resourceRequests,
-		resourceLimits:        resourceLimits,
-		sidecarResourceLimits: sidecarResourceLimits,
-		userImage:             userImage,
-		workerEnv:             workerEnv,
-		volumes:               volumes,
-		volumeMounts:          volumeMounts,
-		postgresSecret:        postgresSecretRef,
-		imagePullSecrets:      imagePullSecrets,
-		service:               service,
-		schedulingSpec:        pipelineInfo.Details.SchedulingSpec,
-		podSpec:               pipelineInfo.Details.PodSpec,
-		podPatch:              pipelineInfo.Details.PodPatch,
-		tolerations:           tolerations,
+		rcName:                  ppsutil.PipelineRcName(pipelineInfo),
+		s3GatewayPort:           s3GatewayPort,
+		specCommit:              pipelineInfo.SpecCommit.Id,
+		labels:                  labels,
+		annotations:             annotations,
+		parallelism:             int32(0), // pipelines start w/ 0 workers & are scaled up
+		resourceRequests:        resourceRequests,
+		resourceLimits:          resourceLimits,
+		sidecarResourceLimits:   sidecarResourceLimits,
+		sidecarResourceRequests: sidecarResourceRequests,
+		userImage:               userImage,
+		workerEnv:               workerEnv,
+		volumes:                 volumes,
+		volumeMounts:            volumeMounts,
+		postgresSecret:          postgresSecretRef,
+		imagePullSecrets:        imagePullSecrets,
+		service:                 service,
+		schedulingSpec:          pipelineInfo.Details.SchedulingSpec,
+		podSpec:                 pipelineInfo.Details.PodSpec,
+		podPatch:                pipelineInfo.Details.PodPatch,
+		tolerations:             tolerations,
 	}, nil
 }
 
@@ -909,7 +998,7 @@ func (kd *kubeDriver) createWorkerPachctlSecret(ctx context.Context, pipelineInf
 	context.SessionToken = pipelineInfo.AuthToken
 	context.PachdAddress = "localhost:1653"
 
-	rawConfig, err := json.MarshalIndent(cfg, "", "  ")
+	rawConfig, err := json.MarshalIndent(&cfg, "", "  ")
 	if err != nil {
 		return errors.Wrapf(err, "error marshaling the config")
 	}
@@ -1005,14 +1094,16 @@ func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pp
 			},
 		},
 	}
+
 	if _, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return errors.EnsureStack(err)
 		}
 	}
 	serviceAnnotations := map[string]string{
-		"prometheus.io/scrape": "true",
-		"prometheus.io/port":   strconv.Itoa(workerstats.PrometheusPort),
+		"prometheus.io/scrape":     "true",
+		"prometheus.io/port":       strconv.Itoa(workerstats.PrometheusPort),
+		"pachyderm.io/multiscrape": "true",
 	}
 
 	service := &v1.Service{
@@ -1036,6 +1127,10 @@ func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pp
 				{
 					Port: workerstats.PrometheusPort,
 					Name: "prom-metrics",
+				},
+				{
+					Port: workerstats.SidecarPrometheusPort,
+					Name: "metrics-storage",
 				},
 			},
 		},
@@ -1098,8 +1193,4 @@ func GetBackendSecretVolumeAndMount() (v1.Volume, v1.VolumeMount) {
 			Name:      client.StorageSecretName,
 			MountPath: "/" + client.StorageSecretName,
 		}
-}
-
-func int64Ptr(x int64) *int64 {
-	return &x
 }

@@ -1,4 +1,4 @@
-package transform
+package transform_test
 
 import (
 	"archive/tar"
@@ -9,28 +9,29 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform"
 )
 
-func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
+func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig pachconfig.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
 	// We only support simple pfs input pipelines in this test suite at the moment
 	require.NotNil(t, pipelineInfo.Details.Input)
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
@@ -45,17 +46,17 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.C
 
 	// Set up the input repo and branch
 	input := pipelineInfo.Details.Input.Pfs
-	require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, input.Repo))
-	require.NoError(t, env.PachClient.CreateProjectBranch(input.Project, input.Repo, input.Branch, "", "", nil))
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, input.Repo))
+	require.NoError(t, env.PachClient.CreateBranch(input.Project, input.Repo, input.Branch, "", "", nil))
 
 	// Create the output repo
 	projectName := pipelineInfo.Pipeline.Project.GetName()
-	pipelineRepo := client.NewProjectRepo(projectName, pipelineInfo.Pipeline.Name)
+	pipelineRepo := client.NewRepo(projectName, pipelineInfo.Pipeline.Name)
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: pipelineRepo})
 	require.NoError(t, err)
 
 	// Create the spec system repo and create the initial spec commit
-	specRepo := client.NewSystemProjectRepo(projectName, pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
+	specRepo := client.NewSystemRepo(projectName, pipelineInfo.Pipeline.Name, pfs.SpecRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: specRepo})
 	require.NoError(t, err)
 	specCommit, err := env.PachClient.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{Branch: specRepo.NewBranch("master")})
@@ -67,7 +68,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.C
 	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 		Branch: pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch),
 		Provenance: []*pfs.Branch{
-			client.NewProjectBranch(projectName, input.Repo, input.Branch),
+			client.NewBranch(projectName, input.Repo, input.Branch),
 			specRepo.NewBranch("master"),
 		},
 	})
@@ -75,14 +76,14 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.C
 	err = closeHeadCommit(ctx, env, pipelineRepo.NewBranch(pipelineInfo.Details.OutputBranch))
 	require.NoError(t, err)
 	// Create the meta system repo and set up the branch provenance
-	metaRepo := client.NewSystemProjectRepo(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
+	metaRepo := client.NewSystemRepo(pfs.DefaultProjectName, pipelineInfo.Pipeline.Name, pfs.MetaRepoType)
 	_, err = env.PachClient.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{Repo: metaRepo})
 	require.NoError(t, err)
 	branch := metaRepo.NewBranch("master")
 	_, err = env.PachClient.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 		Branch: branch,
 		Provenance: []*pfs.Branch{
-			client.NewProjectBranch(input.Project, input.Repo, input.Branch),
+			client.NewBranch(input.Project, input.Repo, input.Branch),
 			specRepo.NewBranch("master"),
 		},
 	})
@@ -105,15 +106,15 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig serviceenv.C
 	testEnv.driver = testEnv.driver.WithContext(ctx)
 	testEnv.PachClient = testEnv.driver.PachClient()
 	// Put the pipeline info into the collection (which is read by the master)
-	err = testEnv.driver.NewSQLTx(func(sqlTx *pachsql.Tx) error {
+	err = testEnv.driver.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		rw := testEnv.driver.Pipelines().ReadWrite(sqlTx)
-		err := rw.Put(specCommit, pipelineInfo) // pipeline/info needs to contain spec
+		err := rw.Put(ctx, specCommit, pipelineInfo) // pipeline/info needs to contain spec
 		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
 	eg.Go(func() error {
 		err := backoff.RetryUntilCancel(testEnv.driver.PachClient().Ctx(), func() error {
-			return Worker(testEnv.driver.PachClient().Ctx(), testEnv.driver, testEnv.logger, &Status{})
+			return transform.ProcessingWorker(testEnv.driver.PachClient().Ctx(), testEnv.driver, testEnv.logger, &transform.Status{})
 		}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 			testEnv.logger.Logf("worker failed, retrying immediately, err: %v", err)
 			return nil
@@ -139,7 +140,7 @@ func closeHeadCommit(ctx context.Context, env *realenv.RealEnv, branch *pfs.Bran
 
 func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 	// Create a context that the caller can wait on
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 
 	go func() {
 		select {
@@ -155,10 +156,10 @@ func withTimeout(ctx context.Context, duration time.Duration) context.Context {
 
 func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit *pfs.Commit) (context.Context, *pps.JobInfo) {
 	// Create a context that the caller can wait on
-	ctx, cancel := context.WithCancel(env.PachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(env.PachClient.Ctx())
 	// Mock out the initial ListJob, and InspectJob calls
-	jobInfo := &pps.JobInfo{Job: client.NewProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commit.ID)}
-	jobInfo.OutputCommit = client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, commit.ID)
+	jobInfo := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commit.Id)}
+	jobInfo.OutputCommit = client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, commit.Id)
 	jobInfo.Details = &pps.JobInfo_Details{
 		Transform:        pi.Details.Transform,
 		ParallelismSpec:  pi.Details.ParallelismSpec,
@@ -167,7 +168,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 		Spout:            pi.Details.Spout,
 		ResourceRequests: pi.Details.ResourceRequests,
 		ResourceLimits:   pi.Details.ResourceLimits,
-		Input:            ppsutil.JobInput(pi, client.NewProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, pi.Details.OutputBranch, commit.ID)),
+		Input:            ppsutil.JobInput(pi, jobInfo.OutputCommit),
 		Salt:             pi.Details.Salt,
 		DatumSetSpec:     pi.Details.DatumSetSpec,
 		DatumTimeout:     pi.Details.DatumTimeout,
@@ -178,12 +179,12 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 		PodPatch:         pi.Details.PodPatch,
 	}
 	env.MockPachd.PPS.InspectJob.Use(func(ctx context.Context, request *pps.InspectJobRequest) (*pps.JobInfo, error) {
-		if request.Job.ID == jobInfo.OutputCommit.ID {
+		if request.Job.Id == jobInfo.OutputCommit.Id {
 			result := proto.Clone(jobInfo).(*pps.JobInfo)
 			return result, nil
 		}
-		mockJI := &pps.JobInfo{Job: client.NewProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, request.Job.ID)}
-		mockJI.OutputCommit = client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, request.Job.ID)
+		mockJI := &pps.JobInfo{Job: client.NewJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, request.Job.Id)}
+		mockJI.OutputCommit = client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, request.Job.Id)
 		mockJI.Details = &pps.JobInfo_Details{
 			Transform:        pi.Details.Transform,
 			ParallelismSpec:  pi.Details.ParallelismSpec,
@@ -192,7 +193,7 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 			Spout:            pi.Details.Spout,
 			ResourceRequests: pi.Details.ResourceRequests,
 			ResourceLimits:   pi.Details.ResourceLimits,
-			Input:            ppsutil.JobInput(pi, client.NewProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, pi.Details.OutputBranch, request.Job.ID)),
+			Input:            ppsutil.JobInput(pi, jobInfo.OutputCommit),
 			Salt:             pi.Details.Salt,
 			DatumSetSpec:     pi.Details.DatumSetSpec,
 			DatumTimeout:     pi.Details.DatumTimeout,
@@ -215,27 +216,27 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 			cancel()
 		}
 	}
-	env.MockPPSTransactionServer.UpdateJobStateInTransaction.Use(func(txnCtx *txncontext.TransactionContext, request *pps.UpdateJobStateRequest) error {
+	env.MockPPSTransactionServer.UpdateJobStateInTransaction.Use(func(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pps.UpdateJobStateRequest) error {
 		updateJobState(request)
 		return nil
 	})
-	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*types.Empty, error) {
+	env.MockPachd.PPS.UpdateJobState.Use(func(ctx context.Context, request *pps.UpdateJobStateRequest) (*emptypb.Empty, error) {
 		updateJobState(request)
-		return &types.Empty{}, nil
+		return &emptypb.Empty{}, nil
 	})
 
 	eg, ctx := errgroup.WithContext(ctx)
-	reg, err := newRegistry(env.driver, env.logger)
+	reg, err := transform.NewRegistry(env.driver, env.logger)
 	require.NoError(t, err)
 	eg.Go(func() error {
-		_ = reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
+		_ = reg.StartJob(proto.Clone(jobInfo).(*pps.JobInfo))
 		return nil
 	})
 	return ctx, jobInfo
 }
 
 func writeFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) *pfs.Commit {
-	commit, err := env.PachClient.StartProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "master")
+	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "master")
 	require.NoError(t, err)
 	buf := &bytes.Buffer{}
 	require.NoError(t, tarutil.WithWriter(buf, func(tw *tar.Writer) error {
@@ -247,35 +248,39 @@ func writeFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taruti
 		return nil
 	}))
 	require.NoError(t, env.PachClient.PutFileTAR(commit, buf, client.WithAppendPutFile()))
-	require.NoError(t, env.PachClient.FinishProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "", commit.Id))
 	return commit
 }
 
 func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []string) *pfs.Commit {
-	commit, err := env.PachClient.StartProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "master")
+	commit, err := env.PachClient.StartCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "master")
 	require.NoError(t, err)
 	for _, file := range files {
 		require.NoError(t, env.PachClient.DeleteFile(commit, file))
 	}
-	require.NoError(t, env.PachClient.FinishProjectCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.ID))
+	branch := ""
+	if commit.Branch != nil {
+		branch = commit.Branch.Name
+	}
+	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, branch, commit.Id))
 	return commit
 }
 
 func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) {
 	commit := writeFiles(t, env, pi, files)
 	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-	ctx = withTimeout(ctx, 15*time.Second)
+	ctx = withTimeout(ctx, 30*time.Second)
 	<-ctx.Done()
 	// PFS master transitions the job from finishing to finished so dont test that here
 	require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 	// Ensure the output commit is successful
-	outputCommitID := jobInfo.OutputCommit.ID
-	outputCommitInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
+	outputCommitID := jobInfo.OutputCommit.Id
+	outputCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 	require.NoError(t, err)
 	require.NotNil(t, outputCommitInfo.Finished)
 
-	branchInfo, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, pi.Pipeline.Name, pi.Details.OutputBranch)
+	branchInfo, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, pi.Pipeline.Name, pi.Details.OutputBranch)
 	require.NoError(t, err)
 	require.NotNil(t, branchInfo)
 
@@ -298,7 +303,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSuccess", func(t *testing.T) {
 		pi := defaultPipelineInfo()
 		ctx := pctx.TestContext(t)
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 		testJobSuccess(t, env, pi, []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		})
@@ -306,11 +311,10 @@ func TestTransformPipeline(suite *testing.T) {
 
 	suite.Run("TestJobSuccessEgress", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
-		objC := dockertestenv.NewTestObjClient(ctx, t)
+		bucket, url := dockertestenv.NewTestBucket(ctx, t)
 		pi := defaultPipelineInfo()
-		egressURL := objC.BucketURL().String()
-		pi.Details.Egress = &pps.Egress{URL: egressURL}
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		pi.Details.Egress = &pps.Egress{URL: url}
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		files := []tarutil.File{
 			tarutil.NewMemFile("/file1", []byte("foo")),
@@ -324,21 +328,20 @@ func TestTransformPipeline(suite *testing.T) {
 			buf1 := &bytes.Buffer{}
 			require.NoError(t, file.Content(buf1))
 
-			buf2 := &bytes.Buffer{}
-			err = objC.Get(context.Background(), hdr.Name, buf2)
+			data, err := bucket.ReadAll(ctx, hdr.Name)
 			require.NoError(t, err)
 
-			require.True(t, bytes.Equal(buf1.Bytes(), buf2.Bytes()))
+			require.True(t, bytes.Equal(buf1.Bytes(), data))
 		}
 	})
 
 	suite.Run("TestJobSuccessEgressEmpty", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
-		objC := dockertestenv.NewTestObjClient(ctx, t)
+		_, url := dockertestenv.NewTestBucket(ctx, t)
 		pi := defaultPipelineInfo()
 		pi.Details.Input.Pfs.Glob = "/"
-		pi.Details.Egress = &pps.Egress{URL: objC.BucketURL().String()}
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		pi.Details.Egress = &pps.Egress{URL: url}
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		testJobSuccess(t, env, pi, nil)
 	})
@@ -346,7 +349,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobFailedDatum", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		pi.Details.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
 		tarFiles := []tarutil.File{
@@ -354,7 +357,7 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 		commit := writeFiles(t, env, pi, tarFiles)
 		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 		// TODO: check job stats
@@ -363,7 +366,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobMultiDatum", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
@@ -375,7 +378,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSerial", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
@@ -383,23 +386,23 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 		commit := writeFiles(t, env, pi, tarFiles[:1])
 		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		commit = writeFiles(t, env, pi, tarFiles[1:])
 		ctx, jobInfo = mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		// Ensure the output commit is successful
-		outputCommitID := jobInfo.OutputCommit.ID
-		outputCommitInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
+		outputCommitID := jobInfo.OutputCommit.Id
+		outputCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
-		branchInfo, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, pi.Pipeline.Name, pi.Details.OutputBranch)
+		branchInfo, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, pi.Pipeline.Name, pi.Details.OutputBranch)
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo)
 
@@ -418,30 +421,30 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSerialDelete", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
 		}
 		commit := writeFiles(t, env, pi, tarFiles[:1])
 		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		commit = deleteFiles(t, env, pi, []string{"/a"})
 		ctx, jobInfo = mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		// Ensure the output commit is successful
-		outputCommitID := jobInfo.OutputCommit.ID
-		outputCommitInfo, err := env.PachClient.InspectProjectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
+		outputCommitID := jobInfo.OutputCommit.Id
+		outputCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, "", outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 
-		branchInfo, err := env.PachClient.InspectProjectBranch(pfs.DefaultProjectName, pi.Pipeline.Name, pi.Details.OutputBranch)
+		branchInfo, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, pi.Pipeline.Name, pi.Details.OutputBranch)
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo)
 

@@ -8,7 +8,7 @@
 // 1) Parse YAML to a generic interface{}
 // 2) Serialize that interface{} to JSON
 // 3) Parse the JSON using encoding/json or, in the case of protobufs, using
-//    Google's 'jsonpb' library.
+//    Google's 'protojson' library.
 //
 // This approach works around a lot of Go's inherent deserialization quirks
 // (e.g. generated protobuf structs including 'json' struct tags but not 'yaml'
@@ -22,11 +22,12 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 )
 
 // Decode is a convenience function that decodes the serialized YAML in
@@ -53,7 +54,14 @@ func RoundTrip(holder interface{}, dest interface{}) error {
 			holder)
 	}
 	if pb, ok := dest.(proto.Message); ok {
-		if err := jsonpb.UnmarshalNext(json.NewDecoder(bytes.NewReader(requestJSON)), pb); err != nil {
+		r := bytes.NewReader(requestJSON)
+		dec := protoutil.NewProtoJSONDecoder(r, protojson.UnmarshalOptions{
+			DiscardUnknown: true,
+			AllowPartial:   true,
+		})
+		// NOTE(jonathan): This code used jsonpb.UnmarshalNext before the gogo removal
+		// refactoring.  This has been preserved, but I think it's a mistake.
+		if err := dec.UnmarshalNext(pb); err != nil {
 			return errors.Wrapf(err, "could not parse intermediate JSON to protobuf")
 		}
 		return nil

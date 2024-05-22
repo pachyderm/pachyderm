@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"github.com/cevaris/ordered_map"
 )
@@ -77,7 +78,7 @@ func (tq *taskQueue) group(ctx context.Context, groupID string, cb func(context.
 	if _, ok := tq.groups.Get(groupID); ok {
 		return errors.Errorf("errored creating group %v, which already exists", groupID)
 	}
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	taskFuncChan := make(chan taskFunc, bufSize)
 	ge := &groupEntry{
 		cancel:       cancel,

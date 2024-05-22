@@ -1,10 +1,8 @@
-//go:build unit_test
-
 // admin_test.go tests various features related to pachyderm's auth admins.
 // Because the cluster has one global set of admins, these tests can't be run in
 // parallel
 
-package server_test
+package testing_test
 
 import (
 	"bytes"
@@ -15,13 +13,15 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	at "github.com/pachyderm/pachyderm/v2/src/server/auth/server/testing"
 )
 
 // TestActivate tests the Activate API (in particular, verifying
@@ -29,7 +29,7 @@ import (
 // auth, this makes sure the code path is exercised (as auth may already be
 // active when the test starts)
 func TestActivate(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
@@ -51,7 +51,7 @@ func TestActivate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, who.Username)
 
-	bindings, err := rootClient.GetClusterRoleBinding()
+	bindings, err := rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 }
@@ -60,7 +60,7 @@ func TestActivate(t *testing.T) {
 // This should always authenticate the user as `pach:root` and give them
 // super admin status.
 func TestActivateKnownToken(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
@@ -80,7 +80,7 @@ func TestActivateKnownToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, who.Username)
 
-	bindings, err := rootClient.GetClusterRoleBinding()
+	bindings, err := rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 }
@@ -88,27 +88,27 @@ func TestActivateKnownToken(t *testing.T) {
 // TestSuperAdminRWO tests adding and removing cluster super admins, as well as super admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestSuperAdminRWO(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// The initial set of admins is just the user "admin"
-	bindings, err := aliceClient.GetClusterRoleBinding()
+	bindings, err := aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
 	// alice creates a repoName (that only she owns) and puts a file
 	repoName := tu.UniqueString("TestAdminRWO")
-	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
@@ -117,7 +117,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// Note: we must pass aliceClient to tu.CommitCnt, because it calls
@@ -126,16 +126,16 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName)) // check that ACL wasn't updated
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName)) // check that ACL wasn't updated
 
 	// 'admin' makes bob a super admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.ClusterAdminRole}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), bob, []string{auth.ClusterAdminRole}))
 
 	// wait until bob shows up in admin list
-	bindings, err = aliceClient.GetClusterRoleBinding()
+	bindings, err = aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(bob, auth.ClusterAdminRole), bindings)
 
@@ -145,22 +145,22 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Matches(t, "test data", buf.String())
 
 	// bob can write to the repo
-	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
-	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	// 'admin' revokes bob's admin status
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), bob, []string{}))
 
 	// wait until bob is not in admin list
-	bindings, err = aliceClient.GetClusterRoleBinding()
+	bindings, err = aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
@@ -171,44 +171,44 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoWriterRole})
+	err = bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoWriterRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
 }
 
 // TestFSAdminRWO tests adding and removing cluster FS admins, as well as FS admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestFSAdminRWO(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// The initial set of admins is just the user "admin"
-	bindings, err := aliceClient.GetClusterRoleBinding()
+	bindings, err := aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
 	// alice creates a repoName (that only she owns) and puts a file
 	repoName := tu.UniqueString("TestAdminRWO")
-	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
@@ -217,7 +217,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// Note: we must pass aliceClient to tu.CommitCnt, because it calls
@@ -226,16 +226,16 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName)) // check that ACL wasn't updated
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName)) // check that ACL wasn't updated
 
 	// 'admin' makes bob an fs admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.RepoOwnerRole}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), bob, []string{auth.RepoOwnerRole}))
 
 	// wait until bob shows up in admin list
-	bindings, err = aliceClient.GetClusterRoleBinding()
+	bindings, err = aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(bob, auth.RepoOwnerRole), bindings)
 
@@ -245,22 +245,22 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Matches(t, "test data", buf.String())
 
 	// bob can write to the repo
-	commit, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
-	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	// 'admin' revokes bob's admin status
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), bob, []string{}))
 
 	// wait until bob is not in admin list
-	bindings, err = aliceClient.GetClusterRoleBinding()
+	bindings, err = aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
@@ -271,24 +271,24 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// bob cannot write to the repo
-	_, err = bobClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoWriterRole})
+	err = bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoWriterRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
 }
 
 // TestFSAdminFixBrokenRepo tests that an FS admin can modify the ACL of a repo even
 // when the repo's ACL is empty (indicating that no user has explicit access to
 // to the repo)
 func TestFSAdminFixBrokenRepo(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -296,84 +296,84 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 
 	// alice creates a repoName (that only she owns) and puts a file
 	repoName := tu.UniqueString("TestAdmin")
-	repo := client.NewProjectRepo(pfs.DefaultProjectName, repoName)
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
+	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	// 'admin' makes bob an FS admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.RepoOwnerRole}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), bob, []string{auth.RepoOwnerRole}))
 
 	// wait until bob shows up in admin list
-	bindings, err := aliceClient.GetClusterRoleBinding()
+	bindings, err := aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(bob, auth.RepoOwnerRole), bindings)
 
 	// admin deletes the repo's ACL
-	require.NoError(t, rootClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, alice, []string{}))
+	require.NoError(t, rootClient.ModifyRepoRoleBinding(rootClient.Ctx(), pfs.DefaultProjectName, repoName, alice, []string{}))
 
 	// Check that the ACL is empty
-	require.Nil(t, tu.GetRepoRoleBinding(t, rootClient, pfs.DefaultProjectName, repoName).Entries)
+	require.Nil(t, tu.GetRepoRoleBinding(rootClient.Ctx(), t, rootClient, pfs.DefaultProjectName, repoName).Entries)
 
 	// alice cannot write to the repo
-	_, err = aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	_, err = aliceClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, 0, tu.CommitCnt(t, rootClient, repo)) // check that no commits were created
 
 	// bob, an FS admin, can update the ACL to put Alice back, even though reading the ACL
 	// will fail
-	require.NoError(t, bobClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repoName, alice, []string{auth.RepoOwnerRole}))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
+	require.NoError(t, bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, alice, []string{auth.RepoOwnerRole}))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	// now alice can write to the repo
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repoName, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 	require.Equal(t, 1, tu.CommitCnt(t, rootClient, repo)) // check that a new commit was created
 }
 
 // TestCannotRemoveRootAdmin tests that trying to remove the root user as an admin returns an error.
 func TestCannotRemoveRootAdmin(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Check that the initial set of admins is just "admin"
-	bindings, err := rootClient.GetClusterRoleBinding()
+	bindings, err := rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
 	// root cannot remove themselves from the list of super admins
-	require.YesError(t, rootClient.ModifyClusterRoleBinding(auth.RootUser, []string{}))
+	require.YesError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), auth.RootUser, []string{}))
 
-	bindings, err = rootClient.GetClusterRoleBinding()
+	bindings, err = rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
 	// root can make alice a cluster administrator
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(alice, []string{auth.ClusterAdminRole}))
-	bindings, err = rootClient.GetClusterRoleBinding()
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), alice, []string{auth.ClusterAdminRole}))
+	bindings, err = rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(alice, auth.ClusterAdminRole), bindings)
 
 	// Root still cannot remove themselves as a cluster admin
-	require.YesError(t, rootClient.ModifyClusterRoleBinding(auth.RootUser, []string{}))
-	bindings, err = rootClient.GetClusterRoleBinding()
+	require.YesError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), auth.RootUser, []string{}))
+	bindings, err = rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(alice, auth.ClusterAdminRole), bindings)
 
 	// alice is an admin, and she cannot remove root as an admin
-	require.YesError(t, aliceClient.ModifyClusterRoleBinding(auth.RootUser, []string{}))
-	bindings, err = rootClient.GetClusterRoleBinding()
+	require.YesError(t, aliceClient.ModifyClusterRoleBinding(aliceClient.Ctx(), auth.RootUser, []string{}))
+	bindings, err = rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(alice, auth.ClusterAdminRole), bindings)
 }
 
 func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -394,28 +394,28 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	// alice creates a pipeline
 	repo := tu.UniqueString("TestPreActivationPipelinesKeepRunningAfterActivation")
 	pipeline := tu.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, aliceClient.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
 
 	// alice makes an input commit
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 
@@ -443,15 +443,15 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// Admin creates an input commit
-	commit, err = rootClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err = rootClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	err = rootClient.PutFile(commit, "/file2", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, rootClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// make sure the pipeline still runs (i.e. it's not running as alice)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", commit.ID)
+		_, err := rootClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
 	})
 }
@@ -460,7 +460,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 // the result indicates that they're an owner of every repo in the cluster
 // (needed by the Pachyderm dashboard)
 func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
@@ -470,8 +470,8 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	project := tu.UniqueString("project")
 	require.NoError(t, aliceClient.CreateProject(project))
 	repo := tu.UniqueString("repo")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, aliceClient.CreateProjectRepo(project, repo))
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, aliceClient.CreateRepo(project, repo))
 
 	// bob should only be able to list repos from default project
 	infos, err := bobClient.ListRepo()
@@ -491,7 +491,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 // TestGetIndefiniteRobotToken tests that an admin can generate a robot token that never
 // times out - this is the default behaviour
 func TestGetIndefiniteRobotToken(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -512,13 +512,13 @@ func TestGetIndefiniteRobotToken(t *testing.T) {
 
 // TestGetTemporaryRobotToken tests that an admin can generate a robot token that expires
 func TestGetTemporaryRobotToken(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Generate auth credentials
 	robotUser := tu.UniqueString("rock-em-sock-em")
-	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser, TTL: 600})
+	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser, Ttl: 600})
 	require.NoError(t, err)
 	token1 := resp.Token
 	robotClient1 := tu.UnauthenticatedPachClient(t, c)
@@ -529,14 +529,14 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, tu.Robot(robotUser), who.Username)
 
-	require.True(t, who.Expiration.After(time.Now()))
-	require.True(t, who.Expiration.Before(time.Now().Add(time.Duration(600)*time.Second)))
+	require.True(t, protoutil.MustTime(who.Expiration).After(time.Now()))
+	require.True(t, protoutil.MustTime(who.Expiration).Before(time.Now().Add(time.Duration(600)*time.Second)))
 }
 
 // TestRobotUserWhoAmI tests that robot users can call WhoAmI and get a response
 // with the right prefix
 func TestRobotUserWhoAmI(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -558,7 +558,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 // TestRobotUserACL tests that a robot user can create a repo, add users
 // to their repo, and be added to user's repo.
 func TestRobotUserACL(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -574,34 +574,34 @@ func TestRobotUserACL(t *testing.T) {
 
 	// robotUser creates a repo and adds alice as a writer
 	repo := tu.UniqueString("TestRobotUserACL")
-	require.NoError(t, robotClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser), auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
+	require.NoError(t, robotClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser), auth.RepoOwnerRole), tu.GetRepoRoleBinding(robotClient.Ctx(), t, robotClient, pfs.DefaultProjectName, repo))
 
-	require.NoError(t, robotClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, alice, []string{auth.RepoWriterRole}))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoWriterRole, tu.Robot(robotUser), auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
+	require.NoError(t, robotClient.ModifyRepoRoleBinding(robotClient.Ctx(), pfs.DefaultProjectName, repo, alice, []string{auth.RepoWriterRole}))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoWriterRole, tu.Robot(robotUser), auth.RepoOwnerRole), tu.GetRepoRoleBinding(robotClient.Ctx(), t, robotClient, pfs.DefaultProjectName, repo))
 
 	// test that alice can commit to the robot user's repo
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// Now alice creates a repo, and adds robotUser as a writer
 	repo2 := tu.UniqueString("TestRobotUserACL")
-	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo2))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo2))
-	require.NoError(t, aliceClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo2, tu.Robot(robotUser), []string{auth.RepoWriterRole}))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot(robotUser), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo2))
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo2))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo2))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceClient.Ctx(), pfs.DefaultProjectName, repo2, tu.Robot(robotUser), []string{auth.RepoWriterRole}))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot(robotUser), auth.RepoWriterRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo2))
 
 	// test that the robot can commit to alice's repo
-	commit, err = robotClient.StartProjectCommit(pfs.DefaultProjectName, repo2, "master")
+	commit, err = robotClient.StartCommit(pfs.DefaultProjectName, repo2, "master")
 	require.NoError(t, err)
-	require.NoError(t, robotClient.FinishProjectCommit(pfs.DefaultProjectName, repo2, commit.Branch.Name, commit.ID))
+	require.NoError(t, robotClient.FinishCommit(pfs.DefaultProjectName, repo2, "", commit.Id))
 }
 
 // TestGroupRoleBinding tests that a group can be added to a role binding
 // and confers access to members
 func TestGroupRoleBinding(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	group := tu.Group(tu.UniqueString("testGroup"))
@@ -609,9 +609,9 @@ func TestGroupRoleBinding(t *testing.T) {
 
 	// root creates a repo and adds a group writer access
 	repo := tu.UniqueString("TestGroupRoleBinding")
-	require.NoError(t, rootClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, rootClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, group, []string{auth.RepoWriterRole}))
-	require.Equal(t, tu.BuildBindings(group, auth.RepoWriterRole, auth.RootUser, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, rootClient, pfs.DefaultProjectName, repo))
+	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, rootClient.ModifyRepoRoleBinding(rootClient.Ctx(), pfs.DefaultProjectName, repo, group, []string{auth.RepoWriterRole}))
+	require.Equal(t, tu.BuildBindings(group, auth.RepoWriterRole, auth.RootUser, auth.RepoOwnerRole), tu.GetRepoRoleBinding(rootClient.Ctx(), t, rootClient, pfs.DefaultProjectName, repo))
 
 	// add alice to the group
 	_, err := rootClient.ModifyMembers(rootClient.Ctx(), &auth.ModifyMembersRequest{
@@ -621,9 +621,9 @@ func TestGroupRoleBinding(t *testing.T) {
 	require.NoError(t, err)
 
 	// test that alice can commit to the repo
-	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 }
 
 // TestRobotUserAdmin tests that robot users can
@@ -632,7 +632,7 @@ func TestGroupRoleBinding(t *testing.T) {
 // 3) access other users' repos
 // 4) update repo ACLs,
 func TestRobotUserAdmin(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
@@ -648,9 +648,9 @@ func TestRobotUserAdmin(t *testing.T) {
 	robotClient.SetAuthToken(resp.Token)
 
 	// make robotUser an admin
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(tu.Robot(robotUser), []string{auth.ClusterAdminRole}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), tu.Robot(robotUser), []string{auth.ClusterAdminRole}))
 	// wait until robotUser shows up in admin list
-	bindings, err := rootClient.GetClusterRoleBinding()
+	bindings, err := rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(tu.Robot(robotUser), auth.ClusterAdminRole), bindings)
 
@@ -666,18 +666,18 @@ func TestRobotUserAdmin(t *testing.T) {
 
 	// robotUser2 creates a repo, and robotUser commits to it
 	repo := tu.UniqueString("TestRobotUserAdmin")
-	require.NoError(t, robotClient2.CreateProjectRepo(pfs.DefaultProjectName, repo))
-	commit, err := robotClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, robotClient2.CreateRepo(pfs.DefaultProjectName, repo))
+	commit, err := robotClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err) // admin privs means robotUser can commit
-	require.NoError(t, robotClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, robotClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// robotUser adds alice to the repo, and checks that the ACL is updated
-	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
-	require.NoError(t, robotClient.ModifyProjectRepoRoleBinding(pfs.DefaultProjectName, repo, alice, []string{auth.RepoWriterRole}))
-	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole, alice, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
-	commit, err = aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole), tu.GetRepoRoleBinding(robotClient.Ctx(), t, robotClient, pfs.DefaultProjectName, repo))
+	require.NoError(t, robotClient.ModifyRepoRoleBinding(robotClient.Ctx(), pfs.DefaultProjectName, repo, alice, []string{auth.RepoWriterRole}))
+	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole, alice, auth.RepoWriterRole), tu.GetRepoRoleBinding(robotClient.Ctx(), t, robotClient, pfs.DefaultProjectName, repo))
+	commit, err = aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishProjectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.ID))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	_, err = robotClient.Deactivate(robotClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
@@ -685,13 +685,13 @@ func TestRobotUserAdmin(t *testing.T) {
 
 // TestTokenRevoke tests that an admin can revoke that token and it no longer works
 func TestTokenRevoke(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Create repo (so alice has something to list)
 	repo := tu.UniqueString("TestTokenRevoke")
-	require.NoError(t, rootClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	alice := tu.UniqueString("alice")
 	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{
@@ -719,7 +719,7 @@ func TestTokenRevoke(t *testing.T) {
 }
 
 func TestRevokeTokensForUser(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 
 	contains := func(tokens []*auth.TokenInfo, hashedToken string) bool {
@@ -735,7 +735,7 @@ func TestRevokeTokensForUser(t *testing.T) {
 
 	// Create repo (so alice has something to list)
 	repo := tu.UniqueString("TestTokenRevoke")
-	require.NoError(t, rootClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	alice := tu.UniqueString("robot:alice")
 	bob := tu.UniqueString("robot:bob")
@@ -800,7 +800,7 @@ func TestRevokeTokensForUser(t *testing.T) {
 // TestRevokePachUserToken tests that the pps superuser and root tokens can't
 // be revoked.
 func TestRevokePachUserToken(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -810,13 +810,13 @@ func TestRevokePachUserToken(t *testing.T) {
 }
 
 func TestRotateRootToken(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// create a repo for the purpose of testing access
 	repo := tu.UniqueString("TestRotateRootToken")
-	require.NoError(t, rootClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// rotate token after creating the repo
 	rotateReq := &auth.RotateRootTokenRequest{}

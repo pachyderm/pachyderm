@@ -11,6 +11,7 @@ const (
 	backgroundTrace        requestKind = 0x2
 	consoleTrace           requestKind = 0x3
 	envoyTrace             requestKind = 0x4
+	syntheticTrace         requestKind = 0x5
 	envoyServerForcedTrace requestKind = 0xa
 	envoyClientForcedTrace requestKind = 0xb
 )

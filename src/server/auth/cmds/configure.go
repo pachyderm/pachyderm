@@ -13,19 +13,20 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
 )
 
 // GetConfigCmd returns a cobra command that lets the caller see the configured
 // auth backends in Pachyderm
-func GetConfigCmd() *cobra.Command {
+func GetConfigCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	var enterprise bool
 	var format string
 	getConfig := &cobra.Command{
 		Short: "Retrieve Pachyderm's current auth configuration",
 		Long:  "Retrieve Pachyderm's current auth configuration",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient(enterprise)
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
@@ -70,14 +71,14 @@ func GetConfigCmd() *cobra.Command {
 
 // SetConfigCmd returns a cobra command that lets the caller configure auth
 // backends in Pachyderm
-func SetConfigCmd() *cobra.Command {
+func SetConfigCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	var enterprise bool
 	var file string
 	setConfig := &cobra.Command{
 		Short: "Set Pachyderm's current auth configuration",
 		Long:  "Set Pachyderm's current auth configuration",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := newClient(enterprise)
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}

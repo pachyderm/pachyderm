@@ -1,0 +1,12 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ClusterPicker",
+    "definitions": {
+        "ClusterPicker": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cluster Picker",
+            "description": "ClusterPicker selects a cluster.  Since clusters will never \"cascade\", there is only one cluster that can be selected, the one running this API server."
+        }
+    }
+}

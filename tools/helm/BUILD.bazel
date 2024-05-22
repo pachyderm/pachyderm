@@ -1,0 +1,13 @@
+load("//private/rules:rules.bzl", "host_native_binary")
+
+host_native_binary(
+    name = "_helm",
+    repo = "@sh_helm",
+    target = ":helm",
+)
+
+alias(
+    name = "helm",
+    actual = "_helm_bin",
+    visibility = ["//visibility:public"],
+)

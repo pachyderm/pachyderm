@@ -62,11 +62,11 @@ func (d *etcdImpl) Lock(ctx context.Context) (_ context.Context, retErr error) {
 	start := time.Now()
 	log.Debug(ctx, "acquired lock ok")
 
-	ctx, cancel := context.WithCancel(pctx.Child(ctx, "", pctx.WithFields(zap.Bool("locked", true))))
+	ctx, cancel := pctx.WithCancel(pctx.Child(ctx, "", pctx.WithFields(zap.Bool("locked", true))))
 	go func() {
 		select {
 		case <-ctx.Done():
-			log.Debug(ctx, "lock's context is done", zap.Error(ctx.Err()), zap.Duration("lockLifetime", time.Since(start)))
+			log.Debug(ctx, "lock's context is done", zap.Error(context.Cause(ctx)), zap.Duration("lockLifetime", time.Since(start)))
 		case <-session.Done():
 			log.Debug(ctx, "lock's session is done; cancelling associated context", zap.Duration("lockLifetime", time.Since(start)))
 			cancel()
@@ -94,11 +94,11 @@ func (d *etcdImpl) TryLock(ctx context.Context) (_ context.Context, retErr error
 	start := time.Now()
 	log.Debug(ctx, "acquired lock ok")
 
-	ctx, cancel := context.WithCancel(pctx.Child(ctx, "", pctx.WithFields(zap.Bool("locked", true))))
+	ctx, cancel := pctx.WithCancel(pctx.Child(ctx, "", pctx.WithFields(zap.Bool("locked", true))))
 	go func() {
 		select {
 		case <-ctx.Done():
-			log.Debug(ctx, "lock's context is done", zap.Error(ctx.Err()), zap.Duration("lockLifetime", time.Since(start)))
+			log.Debug(ctx, "lock's context is done", zap.Error(context.Cause(ctx)), zap.Duration("lockLifetime", time.Since(start)))
 		case <-session.Done():
 			log.Debug(ctx, "lock's session is done; cancelling associated context", zap.Duration("lockLifetime", time.Since(start)))
 			cancel()

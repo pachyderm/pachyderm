@@ -30,21 +30,17 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
@@ -63,24 +59,6 @@ const badJSON2 = `{
     "d": 3452.36456,
 }
 `
-
-const (
-	datum    = "datum"
-	job      = "job"
-	pipeline = "pipeline"
-	secret   = "secret"
-
-	create  = "create"
-	delete  = "delete"
-	edit    = "edit"
-	inspect = "inspect"
-	list    = "list"
-	restart = "restart"
-	start   = "start"
-	stop    = "stop"
-	update  = "update"
-	wait    = "wait"
-)
 
 func TestSyntaxErrorsReportedCreatePipeline(t *testing.T) {
 	if testing.Short() {
@@ -279,11 +257,12 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoErrorWithinTRetry(t, 2*time.Minute, tu.PachctlBashCmd(t, c, `
+	ctx := pctx.TestContext(t)
+	require.NoErrorWithinTRetry(t, 2*time.Minute, tu.PachctlBashCmdCtx(ctx, t, c, `
 		yes | pachctl delete all
 	`).Run)
 	pipeline1 := tu.UniqueString("p-")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/file <<<"This is a test"
 		pachctl create pipeline <<EOF
@@ -304,7 +283,7 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		`,
 		"pipeline", pipeline1).Run())
 	pipeline2 := tu.UniqueString("p-")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create pipeline <<EOF
 		  {
 		    "pipeline": {"name": "{{.pipeline}}"},
@@ -322,9 +301,10 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		EOF
 		`,
 		"pipeline", pipeline2, "inputPipeline", pipeline1).Run())
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
+		return errors.EnsureStack(tu.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl wait commit data@master
-		sleep 20
+
 		# make sure that there is a not-run job
 		pachctl list job --raw \
 			| match "JOB_UNRUNNABLE"
@@ -332,6 +312,7 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		pachctl list pipeline \
 			| match "unrunnable"
 		`, "pipeline", pipeline2).Run())
+	}, 1*time.Second)
 }
 
 // TestJSONMultiplePipelines tests that pipeline specs with multiple pipelines
@@ -506,7 +487,7 @@ func TestYAMLPipelineSpec(t *testing.T) {
 		pachctl create pipeline -f - <<EOF
 		pipeline:
 		  name: first
-		  project: 
+		  project:
 		    name: P
 		input:
 		  pfs:
@@ -552,7 +533,7 @@ func TestListPipelineFilter(t *testing.T) {
 		yes | pachctl delete all
 	`).Run())
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	out, err := tu.PachctlBashCmdCtx(pctx.TestContext(t), t, c, `
 		yes | pachctl delete all
 		pachctl create project myProject
 		pachctl create repo input
@@ -620,11 +601,12 @@ func TestListPipelineFilter(t *testing.T) {
 		pachctl list pipeline --all-projects | match {{.pipeline1}}
 		pachctl list pipeline --all-projects | match {{.pipeline2}}
 		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline1}}
-		pachctl list pipeline --state starting --state running | match {{.pipeline1}}
+		pachctl list pipeline --state starting --state running --state standby | match {{.pipeline1}}
 	`,
 		"pipeline1", pipeline1,
 		"pipeline2", pipeline2,
-	).Run())
+	).Output()
+	require.NoError(t, err, "failed pachctl command with output %v", string(out))
 }
 
 func TestInspectWaitJob(t *testing.T) {
@@ -674,7 +656,7 @@ func TestInspectWaitJob(t *testing.T) {
 		"pipeline1", pipeline1,
 		"project", project,
 	).Run())
-	jobs, err := c.ListProjectJob(project, pipeline1, nil, -1, false)
+	jobs, err := c.ListJob(project, pipeline1, nil, -1, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
@@ -685,7 +667,7 @@ func TestInspectWaitJob(t *testing.T) {
 	`,
 		"pipeline1", pipeline1,
 		"project", project,
-		"job", jobs[0].Job.GetID(),
+		"job", jobs[0].Job.GetId(),
 	).Run())
 }
 
@@ -719,7 +701,7 @@ func TestYAMLError(t *testing.T) {
 		  stdin:
 		    - "cp /pfs/input/* /pfs/out"
 		EOF
-		) | match "cannot unmarshal string into Go value of type \[\]json.RawMessage"
+		) | match "syntax error"
 		`,
 	).Run())
 }
@@ -1201,7 +1183,7 @@ func TestListJobWithProject(t *testing.T) {
 	projectName := tu.UniqueString("project-")
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl create repo data 
+		pachctl create repo data
 
 		pachctl create pipeline <<EOF
 		{
@@ -1380,138 +1362,119 @@ func TestPipelineWithSecret(t *testing.T) {
 	`, "pipeline", tu.UniqueString("p-"), "secret", secretName).Run())
 }
 
-// TestSynonyms walks through the command tree for each resource and verb combination defined in PPS.
-// A template is filled in that calls the help flag and the output is compared. It seems like 'match'
-// is unable to compare the outputs correctly, but we can use diff here which returns an exit code of 0
-// if there is no difference.
-func TestSynonyms(t *testing.T) {
+func TestRerunPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
-	synonymCheckTemplate := `
-		pachctl {{VERB}} {{RESOURCE_SYNONYM}} -h > synonym.txt
-		pachctl {{VERB}} {{RESOURCE}} -h > singular.txt
-		diff synonym.txt singular.txt
-		rm synonym.txt singular.txt
-	`
-
-	resources := resourcesMap()
-	synonyms := synonymsMap()
-
-	for resource, verbs := range resources {
-		withResource := strings.ReplaceAll(synonymCheckTemplate, "{{RESOURCE}}", resource)
-		withResources := strings.ReplaceAll(withResource, "{{RESOURCE_SYNONYM}}", synonyms[resource])
-
-		for _, verb := range verbs {
-			synonymCommand := strings.ReplaceAll(withResources, "{{VERB}}", verb)
-			t.Logf("Testing %s %s -h\n", verb, resource)
-			require.NoError(t, tu.BashCmd(synonymCommand).Run())
-		}
-	}
-}
-
-// TestSynonymsDocs is like TestSynonyms except it only tests commands registered by CreateDocsAliases.
-func TestSynonymsDocs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	synonymCheckTemplate := `
-		pachctl {{RESOURCE_SYNONYM}} -h > synonym.txt
-		pachctl {{RESOURCE}} -h > singular.txt
-		diff synonym.txt singular.txt
-		rm synonym.txt singular.txt
-	`
-
-	synonyms := synonymsMap()
-
-	for resource := range synonyms {
-		if resource == "secret" {
-			// no help doc defined for secret yet.
-			continue
-		}
-
-		withResource := strings.ReplaceAll(synonymCheckTemplate, "{{RESOURCE}}", resource)
-		synonymCommand := strings.ReplaceAll(withResource, "{{RESOURCE_SYNONYM}}", synonyms[resource])
-
-		t.Logf("Testing %s -h\n", resource)
-		require.NoError(t, tu.BashCmd(synonymCommand).Run())
-	}
-}
-
-// TestListDatumFromFile sets up input repos in a non-default project
-// and tests the ability to list datums from a pps-spec file without creating a pipeline.
-func TestListDatumFromFile(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
-	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
-		return &admin.ClusterInfo{
-			ID:                "dev",
-			DeploymentID:      "dev",
-			VersionWarningsOk: true,
-		}, nil
-	})
-
-	require.NoError(t, tu.PachctlBashCmd(t, env.PachClient, `
-		pachctl create project {{.project}}
-		pachctl config update context --project {{.project}}
-		pachctl create repo {{.repo1}}
-		pachctl create repo {{.repo2}}
-		echo "foo" | pachctl put file {{.repo1}}@master:/foo
-		echo "foo" | pachctl put file {{.repo2}}@master:/foo
-
-		cat <<EOF | pachctl list datums -f -
-		{
-			"pipeline": {
-				"name": "does-not-matter"
-			},
-			"input": {
-				"cross":[
-					{
-						"pfs": {
-							"repo": "{{.repo1}}",
-							"glob": "/*",
-						}
-					},
-					{
-						"pfs": {
-							"repo": "{{.repo2}}",
-							"glob": "/*",
-						}
-					},
-				],
-			},
-			"transform": {
-				"cmd": ["does", "not", "matter"]
-			}
-		}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	pipelineName := tu.UniqueString("p-")
+	projectName := tu.UniqueString("proj")
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create repo data
+		pachctl put file data@master:/file <<<"This is a test"
+		pachctl create pipeline <<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/",
+		        "repo": "data"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/data/file /pfs/out"]
+		    }
+		  }
 		EOF
-	`,
-		"project", tu.UniqueString("project-"),
-		"repo1", tu.UniqueString("repo1-"),
-		"repo2", tu.UniqueString("repo2-"),
+		pachctl create project {{.project}}
+		pachctl create pipeline --project {{.project}} <<EOF
+		  {
+		    "pipeline": {"name": "{{.pipeline}}"},
+		    "input": {
+		      "pfs": {
+		        "glob": "/",
+		        "repo": "data",
+				"project": "default"
+		      }
+		    },
+		    "transform": {
+		      "cmd": ["bash"],
+		      "stdin": ["cp /pfs/data/file /pfs/out"]
+		    }
+		  }
+		EOF
+		`,
+		"pipeline", pipelineName,
+		"project", projectName,
 	).Run())
 
-}
+	// Should rerun pipeine
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl rerun pipeline {{.pipeline}}
+		pachctl inspect pipeline {{.pipeline}} --raw | grep '"version"' | match '"2"'
+	`,
+		"pipeline", pipelineName,
+	).Run())
 
-func resourcesMap() map[string][]string {
-	return map[string][]string{
-		datum:    {inspect, list, restart},
-		job:      {delete, inspect, list, stop, wait},
-		pipeline: {create, delete, edit, inspect, list, start, stop, update},
-		secret:   {create, delete, inspect, list},
-	}
-}
+	//Wait for initial project job to complete
+	jobs, err := c.ListJob(projectName, pipelineName, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl wait job {{.pipeline}}@{{.job}} --project {{.project}}
+		pachctl inspect job {{.pipeline}}@{{.job}} --project {{.project}} | match {{.job}}
+		pachctl inspect pipeline {{.pipeline}} --raw --project {{.project}} | grep '"version"' | match '"1"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | grep '"data_processed"' | match '"1"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | match -v "data_skipped"
+	`,
+		"project", projectName,
+		"pipeline", pipelineName,
+		"job", jobs[0].Job.GetId(),
+	).Run())
 
-func synonymsMap() map[string]string {
-	return map[string]string{
-		datum:    datums,
-		job:      jobs,
-		pipeline: pipelines,
-		secret:   secrets,
-	}
+	//Should rerun pipeine in the specified project.
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl rerun pipeline {{.pipeline}} --project {{.project}}
+	`,
+		"project", projectName,
+		"pipeline", pipelineName,
+	).Run())
+	jobs, err = c.ListJob(projectName, pipelineName, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl wait job {{.pipeline}}@{{.job}} --project {{.project}}
+		pachctl inspect job {{.pipeline}}@{{.job}} --project {{.project}} | match {{.job}}
+		pachctl inspect pipeline {{.pipeline}} --raw --project {{.project}} | grep '"version"' | match '"2"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | match -v "data_processed"
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | grep '"data_skipped"' | match '"1"'
+	`,
+		"project", projectName,
+		"pipeline", pipelineName,
+		"job", jobs[0].Job.GetId(),
+	).Run())
+
+	// Should reprocess all datums if flag is used.
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl rerun pipeline {{.pipeline}} --reprocess --project {{.project}}
+	`,
+		"project", projectName,
+		"pipeline", pipelineName,
+	).Run())
+
+	jobs, err = c.ListJob(projectName, pipelineName, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl wait job {{.pipeline}}@{{.job}} --project {{.project}}
+		pachctl inspect job {{.pipeline}}@{{.job}} --project {{.project}} | match {{.job}}
+		pachctl inspect pipeline {{.pipeline}} --raw --project {{.project}} | grep '"version"' | match '"3"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | grep '"data_processed"' | match '"1"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | match -v "data_skipped"
+	`,
+		"project", projectName,
+		"pipeline", pipelineName,
+		"job", jobs[0].Job.GetId(),
+	).Run())
 }

@@ -6,7 +6,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 )
@@ -28,7 +29,7 @@ func NewMockEnv(rctx context.Context, t testing.TB, options ...InterceptorOption
 
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
-	ctx, cancel := context.WithCancel(rctx)
+	ctx, cancel := pctx.WithCancel(rctx)
 	eg, ctx := errgroup.WithContext(ctx)
 	t.Cleanup(func() {
 		require.NoError(t, eg.Wait())
@@ -49,7 +50,7 @@ func NewMockEnv(rctx context.Context, t testing.TB, options ...InterceptorOption
 		return errorWait(ctx, mockEnv.MockPachd.Err())
 	})
 
-	mockEnv.PachClient, err = client.NewFromURI(mockEnv.MockPachd.Addr.String())
+	mockEnv.PachClient, err = client.NewFromURI(ctx, mockEnv.MockPachd.Addr.String())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, mockEnv.PachClient.Close())

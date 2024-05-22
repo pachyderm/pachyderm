@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/PauseStatusResponse",
+    "definitions": {
+        "PauseStatusResponse": {
+            "properties": {
+                "status": {
+                    "enum": [
+                        "UNPAUSED",
+                        "PARTIALLY_PAUSED",
+                        "PAUSED"
+                    ],
+                    "type": "string",
+                    "title": "Pause Status"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pause Status Response"
+        }
+    }
+}

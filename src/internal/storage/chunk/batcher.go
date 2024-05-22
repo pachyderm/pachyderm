@@ -2,6 +2,8 @@ package chunk
 
 import (
 	"context"
+	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"golang.org/x/sync/semaphore"
 
@@ -41,11 +43,12 @@ type entry struct {
 
 // TODO: Add config for number of entries.
 func (s *Storage) NewBatcher(ctx context.Context, name string, threshold int, opts ...BatcherOption) *Batcher {
-	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL))
+	ctx = pctx.Child(ctx, fmt.Sprintf("batcher(%s)", name))
+	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL), s.pool)
 	b := &Batcher{
 		client:    client,
 		threshold: threshold,
-		taskChain: taskchain.New(ctx, semaphore.NewWeighted(chunkParallelism)),
+		taskChain: taskchain.New(ctx, semaphore.NewWeighted(taskParallelism)),
 	}
 	for _, opt := range opts {
 		opt(b)

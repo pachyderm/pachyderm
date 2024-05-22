@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetIdentityServerConfigRequest",
+    "definitions": {
+        "GetIdentityServerConfigRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Identity Server Config Request"
+        }
+    }
+}

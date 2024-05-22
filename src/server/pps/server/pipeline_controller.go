@@ -8,8 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	opentracing "github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -19,13 +23,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
-	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/version"
-	"go.uber.org/zap"
-
-	opentracing "github.com/opentracing/opentracing-go"
-	v1 "k8s.io/api/core/v1"
 )
 
 func max(is ...int) int {
@@ -188,7 +188,7 @@ func PipelineMonitorSideEffect(toggle sideEffectToggle) sideEffect {
 		toggle: toggle,
 		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
 			if toggle == sideEffectToggle_UP {
-				pc.startPipelineMonitor(pi)
+				pc.startPipelineMonitor(ctx, pi)
 			} else {
 				pc.stopPipelineMonitor()
 			}
@@ -329,16 +329,17 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	// derive the latest pipelineInfo with a corresponding auth'd context
 	pi, ctx, err := pc.psDriver.FetchState(pc.ctx, pc.pipeline)
 	if err != nil {
+		if errors.As(err, &ppsserver.ErrPipelineNotFound{}) {
+			// pipeline was deleted, so we can clean up k8s resources
+			if err := pc.deletePipelineResources(); err != nil {
+				log.Error(pc.ctx, "error deleting pipelineController resources for pipeline", zap.Error(err))
+				return true, errors.Wrapf(err, "error deleting pipelineController resources for pipeline '%s'", pc.pipeline)
+			}
+			return true, nil
+		}
 		// if we fail to create a new step, there was an error querying the pipeline info, and there's nothing we can do
 		log.Error(pc.ctx, "failed to set up step data to handle event for pipeline", zap.Error(err))
 		return false, errors.Wrapf(err, "failing pipeline %q", pc.pipeline)
-	} else if pi == nil {
-		// interpret the event as a delete operation
-		if err := pc.deletePipelineResources(); err != nil {
-			log.Error(pc.ctx, "error deleting pipelineController resources for pipeline", zap.Error(err))
-			return true, errors.Wrapf(err, "error deleting pipelineController resources for pipeline '%s'", pc.pipeline)
-		}
-		return true, nil
 	}
 	var stepErr stepError
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
@@ -404,6 +405,9 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 		sideEffects = append(sideEffects, CrashingMonitorSideEffect(sideEffectToggle_DOWN))
 		if pi.Details.Autoscaling && pi.State == pps.PipelineState_PIPELINE_STARTING {
 			return pps.PipelineState_PIPELINE_STANDBY, sideEffects, "", nil
+		}
+		if pi.State == pps.PipelineState_PIPELINE_RESTARTING { // the conditional isn't necessary but provides clearer semantics
+			sideEffects = append(sideEffects, PipelineMonitorSideEffect(sideEffectToggle_DOWN))
 		}
 		return pps.PipelineState_PIPELINE_RUNNING, sideEffects, "", nil
 	}
@@ -500,8 +504,8 @@ func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationCont
 	case rcPipelineVersion != strconv.FormatUint(pi.Version, 10):
 		log.Info(ctx, "pipeline version looks stale", zap.String("old", rcPipelineVersion), zap.Uint64("new", pi.Version))
 		return false
-	case rcSpecCommit != pi.SpecCommit.ID:
-		log.Info(ctx, "pipeline spec commit looks stale", zap.String("old", rcSpecCommit), zap.String("new", pi.SpecCommit.ID))
+	case rcSpecCommit != pi.SpecCommit.Id:
+		log.Info(ctx, "pipeline spec commit looks stale", zap.String("old", rcSpecCommit), zap.String("new", pi.SpecCommit.Id))
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Info(ctx, "pipeline is using stale pachd", zap.String("old", rcPachVersion), zap.String("new", version.PrettyVersion()))
@@ -520,9 +524,9 @@ func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationCont
 // one doesn't exist already), which manages standby and cron inputs, and
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
-func (pc *pipelineController) startPipelineMonitor(pi *pps.PipelineInfo) {
+func (pc *pipelineController) startPipelineMonitor(ctx context.Context, pi *pps.PipelineInfo) {
 	if pc.monitorCancel == nil {
-		pc.monitorCancel = pc.startMonitor(pc.ctx, pi)
+		pc.monitorCancel = pc.startMonitor(ctx, pi)
 	}
 }
 
@@ -570,8 +574,9 @@ func (pc *pipelineController) finishPipelineOutputCommits(ctx context.Context, p
 		}()
 	}
 	pachClient.SetAuthToken(pi.AuthToken)
-	if err := pachClient.ListCommitF(client.NewProjectRepo(pi.Pipeline.Project.GetName(), pi.Pipeline.Name), client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, ""), nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
-		return pachClient.StopProjectJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.ID)
+	c := client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.OutputBranch, "")
+	if err := pachClient.ListCommitF(c.Repo, c, nil, 0, false, func(commitInfo *pfs.CommitInfo) error {
+		return pachClient.StopJob(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, commitInfo.Commit.Id)
 	}); err != nil {
 		if errutil.IsNotFoundError(err) {
 			return nil // already deleted
@@ -614,14 +619,12 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			}
 			// Master is scheduled; see if tasks have been calculated
 			var nTasks int32
-			// TODO: should this run through internal PPS service?
-			err := pc.env.GetPachClient(ctx).ListTask("pps", driver.TaskNamespace(pi), "", func(info *task.TaskInfo) error {
-				switch info.State {
-				case task.State_CLAIMED, task.State_RUNNING:
-					nTasks++
-				}
-				return nil
-			})
+			if pc.env.Config.PPSWorkerPreprocessing {
+				n, _ := pc.env.TaskService.Count(ctx, driver.PreprocessingTaskNamespace(pi))
+				nTasks += int32(n)
+			}
+			n, err := pc.env.TaskService.Count(ctx, driver.ProcessingTaskNamespace(pi))
+			nTasks += int32(n)
 			// Set parallelism
 			log.Debug(ctx, "beginning scale-up check", zap.Int32("currentTasks", nTasks), zap.Int32("currentScale", curScale))
 			switch {

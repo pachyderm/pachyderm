@@ -1,0 +1,315 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Input",
+    "definitions": {
+        "Input": {
+            "properties": {
+                "pfs": {
+                    "$ref": "#/definitions/pps_v2.PFSInput",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                },
+                "join": {
+                    "items": {
+                        "$ref": "#/definitions/Input"
+                    },
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "group": {
+                    "items": {
+                        "$ref": "#/definitions/Input"
+                    },
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "cross": {
+                    "items": {
+                        "$ref": "#/definitions/Input"
+                    },
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "union": {
+                    "items": {
+                        "$ref": "#/definitions/Input"
+                    },
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "array"
+                        }
+                    ]
+                },
+                "cron": {
+                    "$ref": "#/definitions/pps_v2.CronInput",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "Input"
+        },
+        "pfs_v2.Trigger": {
+            "properties": {
+                "branch": {
+                    "type": "string",
+                    "description": "Which branch this trigger refers to"
+                },
+                "all": {
+                    "type": "boolean",
+                    "description": "All indicates that all conditions must be satisfied before the trigger happens, otherwise any conditions being satisfied will trigger it."
+                },
+                "rateLimitSpec": {
+                    "type": "string",
+                    "description": "Triggers if the rate limit spec (cron expression) has been satisfied since the last trigger."
+                },
+                "size": {
+                    "type": "string",
+                    "description": "Triggers if there's been `size` new data added since the last trigger."
+                },
+                "commits": {
+                    "type": "integer",
+                    "description": "Triggers if there's been `commits` new commits added since the last trigger."
+                },
+                "cronSpec": {
+                    "type": "string",
+                    "description": "Creates a background process which fires the trigger on the schedule provided by the cron spec. This condition is mutually exclusive with respect to the others, so setting this will result with the trigger only firing based on the cron schedule."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Trigger",
+            "description": "Trigger defines the conditions under which a head is moved, and to which branch it is moved."
+        },
+        "pps_v2.CronInput": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "project": {
+                    "type": "string"
+                },
+                "repo": {
+                    "type": "string"
+                },
+                "commit": {
+                    "type": "string"
+                },
+                "spec": {
+                    "type": "string"
+                },
+                "overwrite": {
+                    "type": "boolean",
+                    "description": "Overwrite, if true, will expose a single datum that gets overwritten each tick. If false, it will create a new datum for each tick."
+                },
+                "start": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cron Input"
+        },
+        "pps_v2.PFSInput": {
+            "properties": {
+                "project": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "name": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "repo": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "repoType": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "branch": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "commit": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "glob": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "joinOn": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "outerJoin": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "groupBy": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "lazy": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
+                },
+                "emptyFiles": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
+                    "description": "EmptyFiles, if true, will cause files from this PFS input to be presented as empty files. This is useful in shuffle pipelines where you want to read the names of files and reorganize them using symlinks."
+                },
+                "s3": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ],
+                    "description": "S3, if true, will cause the worker to NOT download or link files from this input into the /pfs_v2 directory. Instead, an instance of our S3 gateway service will run on each of the sidecars, and data can be retrieved from this input by querying http://\u003cpipeline\u003e-s3.\u003cnamespace\u003e/\u003cjob id\u003e.\u003cinput\u003e/my/file"
+                },
+                "trigger": {
+                    "$ref": "#/definitions/pfs_v2.Trigger",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ],
+                    "description": "Trigger defines when this input is processed by the pipeline, if it's nil the input is processed anytime something is committed to the input branch."
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "PFS Input"
+        }
+    }
+}

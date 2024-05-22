@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -46,14 +47,28 @@ func cp(src, dst string) error {
 
 func main() {
 	// Copy over pachyderm binaries.
-	for _, bin := range []string{"worker", "pachctl", "pachtf"} {
+	for _, bin := range []string{"worker", "pachctl"} {
 		src, dst := fmt.Sprintf("/app/%s", bin), fmt.Sprintf("/pach-bin/%s", bin)
 		if err := cp(src, dst); err != nil {
 			panic(err)
 		}
 	}
-	// Copy over the correct variant of dumb-init.
-	if err := cp(fmt.Sprintf("/app/dumb-init-%s", runtime.GOARCH), "/pach-bin/dumb-init"); err != nil {
-		panic(err)
+
+	var errs error
+	var copyOK bool
+	srcs := []string{
+		fmt.Sprintf("/app/dumb-init-%s", runtime.GOARCH), // for "docker build" images
+		"/app/dumb-init", // for rules_oci builds
+	}
+	for _, src := range srcs {
+		if err := cp(src, "/pach-bin/dumb-init"); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("copy from %v: %w", src, err))
+		} else {
+			copyOK = true
+			break
+		}
+	}
+	if !copyOK {
+		panic(errs)
 	}
 }

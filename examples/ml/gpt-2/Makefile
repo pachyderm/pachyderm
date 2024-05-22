@@ -7,6 +7,6 @@ docker-push: docker-build
 
 deploy:
 	pachctl update repo queries
-	pachctl create pipeline -f tweets.json
-	pachctl create pipeline -f train.json
-	pachctl create pipeline -f generate.json
+	pachctl create pipeline -f tweets.pipeline.json
+	pachctl create pipeline -f train.pipeline.json
+	pachctl create pipeline -f generate.pipeline.json

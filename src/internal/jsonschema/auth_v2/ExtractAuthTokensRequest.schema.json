@@ -1,0 +1,12 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ExtractAuthTokensRequest",
+    "definitions": {
+        "ExtractAuthTokensRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Extract Auth Tokens Request",
+            "description": "ExtractAuthTokens returns all the hashed robot tokens that have been issued. User tokens are not extracted as they can be recreated by logging in."
+        }
+    }
+}

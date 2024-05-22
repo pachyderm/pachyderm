@@ -5,19 +5,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/task"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -26,7 +26,7 @@ type pipelineTest struct {
 	expectedStates []pps.PipelineState
 }
 
-func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpachd.MockPachd) {
+func ppsMasterHandles(t *testing.T, taskCount int64) (*mockStateDriver, *mockInfraDriver, *testpachd.MockPachd) {
 	ctx := pctx.TestContext(t)
 	sDriver := newMockStateDriver()
 	iDriver := newMockInfraDriver()
@@ -37,20 +37,43 @@ func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpa
 		GetPachClient: func(ctx context.Context) *client.APIClient {
 			return mockEnv.PachClient.WithCtx(ctx)
 		},
-		Config:      *serviceenv.ConfigFromOptions(),
-		TaskService: nil,
+		Config:      *pachconfig.ConfigFromOptions(),
+		TaskService: newMockTaskService(taskCount),
 		DB:          nil,
 		KubeClient:  nil,
 		AuthServer:  nil,
 		PFSServer:   nil,
 		TxnEnv:      nil,
 	}
-	ctx, cf := context.WithCancel(context.Background())
+	ctx, cf := pctx.WithCancel(context.Background())
 	t.Cleanup(func() { cf() })
 	master := newMaster(ctx, env, env.EtcdPrefix, iDriver, sDriver)
 	master.scaleUpInterval = 2 * time.Second
 	go master.run()
 	return sDriver, iDriver, mockEnv.MockPachd
+}
+
+type mockTaskService struct {
+	count int64
+}
+
+func newMockTaskService(count int64) *mockTaskService {
+	return &mockTaskService{
+		count: count,
+	}
+}
+
+func (mts *mockTaskService) NewDoer(_, _ string, _ task.Cache) task.Doer {
+	panic("NewDoer not implemented by mockTaskService")
+}
+func (mts *mockTaskService) NewSource(_ string) task.Source {
+	panic("NewSource not implemented by mockTaskService")
+}
+func (mts *mockTaskService) List(_ context.Context, _, _ string, _ func(string, string, *task.Task, bool) error) error {
+	panic("List not implemented by mockTaskService")
+}
+func (mts *mockTaskService) Count(_ context.Context, _ string) (int64, error) {
+	return mts.count, nil
 }
 
 func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline *pps.Pipeline, state pps.PipelineState) {
@@ -67,22 +90,14 @@ func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline *
 	})
 }
 
-func mockJobRunning(mockPachd *testpachd.MockPachd, taskCount, commitCount int) (done chan struct{}) {
-	mockPachd.PPS.ListTask.Use(func(_ *task.ListTaskRequest, srv pps.API_ListTaskServer) error {
-		for i := 0; i < taskCount; i++ {
-			if err := srv.Send(&task.TaskInfo{State: task.State_RUNNING}); err != nil {
-				return errors.EnsureStack(err)
-			}
-		}
-		return nil
-	})
+func mockJobRunning(mockPachd *testpachd.MockPachd, commitCount int) (done chan struct{}) {
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 		return &pfs.CommitInfo{}, nil
 	})
 	testDone := make(chan struct{})
 	mockPachd.PFS.SubscribeCommit.Use(func(req *pfs.SubscribeCommitRequest, server pfs.API_SubscribeCommitServer) error {
 		for i := 0; i < commitCount; i++ {
-			if err := server.Send(&pfs.CommitInfo{Commit: client.NewProjectCommit(req.Repo.Project.GetName(), req.Repo.Name, "", uuid.NewWithoutDashes())}); err != nil {
+			if err := server.Send(&pfs.CommitInfo{Commit: client.NewCommit(req.Repo.Project.GetName(), req.Repo.Name, "", uuid.NewWithoutDashes())}); err != nil {
 				return errors.EnsureStack(err)
 			}
 		}
@@ -107,9 +122,9 @@ func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, 
 }
 
 func TestBasic(t *testing.T) {
-	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -129,9 +144,9 @@ func TestBasic(t *testing.T) {
 }
 
 func TestDeletePipeline(t *testing.T) {
-	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -164,9 +179,9 @@ func TestDeletePipeline(t *testing.T) {
 }
 
 func TestDeleteRC(t *testing.T) {
-	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -200,10 +215,10 @@ func TestDeleteRC(t *testing.T) {
 }
 
 func TestAutoscalingBasic(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 1)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
-	done := mockJobRunning(mockPachd, 1, 1)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
+	done := mockJobRunning(mockPachd, 1)
 	defer close(done)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: pipeline,
@@ -231,10 +246,10 @@ func TestAutoscalingBasic(t *testing.T) {
 }
 
 func TestAutoscalingManyCommits(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 1)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
-	done := mockJobRunning(mockPachd, 1, 100)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
+	done := mockJobRunning(mockPachd, 100)
 	defer close(done)
 	inspectCount := 0
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
@@ -269,10 +284,10 @@ func TestAutoscalingManyCommits(t *testing.T) {
 }
 
 func TestAutoscalingManyTasks(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 100)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
-	done := mockJobRunning(mockPachd, 100, 1)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
+	done := mockJobRunning(mockPachd, 1)
 	defer close(done)
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 		// wait for pipeline replica scale to update before closing the commit
@@ -313,10 +328,10 @@ func TestAutoscalingManyTasks(t *testing.T) {
 }
 
 func TestAutoscalingNoCommits(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
-	done := mockJobRunning(mockPachd, 0, 0)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
+	done := mockJobRunning(mockPachd, 0)
 	defer close(done)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: pipeline,
@@ -342,9 +357,9 @@ func TestAutoscalingNoCommits(t *testing.T) {
 }
 
 func TestPause(t *testing.T) {
-	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -362,11 +377,11 @@ func TestPause(t *testing.T) {
 		},
 	})
 	// pause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = true
+	stateDriver.specCommits[spec.Id].Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	waitForPipelineState(t, stateDriver, pi.Pipeline, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = false
+	stateDriver.specCommits[spec.Id].Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
@@ -382,10 +397,10 @@ func TestPause(t *testing.T) {
 }
 
 func TestPauseAutoscaling(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 1)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
-	done := mockJobRunning(mockPachd, 1, 1)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
+	done := mockJobRunning(mockPachd, 1)
 	defer close(done)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
@@ -419,11 +434,11 @@ func TestPauseAutoscaling(t *testing.T) {
 		return nil
 	})
 	// pause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = true
+	stateDriver.specCommits[spec.Id].Stopped = true
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	waitForPipelineState(t, stateDriver, pi.Pipeline, pps.PipelineState_PIPELINE_PAUSED)
 	// unpause pipeline
-	stateDriver.specCommits[spec.ID].Stopped = false
+	stateDriver.specCommits[spec.Id].Stopped = false
 	stateDriver.pushWatchEvent(pi, watch.EventPut)
 	validate(t, stateDriver, infraDriver, []pipelineTest{
 		{
@@ -441,9 +456,9 @@ func TestPauseAutoscaling(t *testing.T) {
 }
 
 func TestStaleRestart(t *testing.T) {
-	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
-	pipeline := client.NewProjectPipeline(pfs.DefaultProjectName, pipelineName)
+	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
 		State:    pps.PipelineState_PIPELINE_STARTING,
@@ -498,8 +513,8 @@ func TestEvaluate(t *testing.T) {
 		pi.State = startState
 		actualState, actualSideEffects, _, err := evaluate(pi, rc)
 		require.NoError(t, err)
-		require.Equal(t, expectedState, actualState)
-		require.Equal(t, len(expectedSideEffects), len(actualSideEffects))
+		require.Equal(t, expectedState, actualState, "for start state %v, expected state was %v but got %v", startState, expectedState, actualState)
+		require.Equal(t, len(expectedSideEffects), len(actualSideEffects), "for start state %v, expected side effects are %v but got %v", startState, expectedSideEffects, actualSideEffects)
 		for i := 0; i < len(expectedSideEffects); i++ {
 			require.True(t, expectedSideEffects[i].equals(actualSideEffects[i]))
 		}
@@ -534,6 +549,7 @@ func TestEvaluate(t *testing.T) {
 			state: pps.PipelineState_PIPELINE_RUNNING,
 			sideEffects: []sideEffect{
 				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+				PipelineMonitorSideEffect(sideEffectToggle_DOWN),
 			},
 		},
 		pps.PipelineState_PIPELINE_FAILURE: {
@@ -638,6 +654,7 @@ func TestEvaluate(t *testing.T) {
 			sideEffects: []sideEffect{
 				ResourcesSideEffect(sideEffectToggle_UP),
 				CrashingMonitorSideEffect(sideEffectToggle_DOWN),
+				PipelineMonitorSideEffect(sideEffectToggle_DOWN),
 			},
 		},
 		pps.PipelineState_PIPELINE_PAUSED: {

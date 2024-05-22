@@ -72,6 +72,7 @@
                      "route": "%ROUTE_NAME%",
                      "rx_bytes": "%BYTES_RECEIVED%",
                      "severity": "info",
+                     "stream_id": "%STREAM_ID%",
                      "timestamp": "%START_TIME%",
                      "tx_bytes": "%BYTES_SENT%",
                      "upgrade": "%RESP(UPGRADE)%",
@@ -147,19 +148,24 @@
    "static_resources": {
       "clusters": [
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [
                {
                   "healthy_threshold": 1,
                   "http_health_check": {
                      "host": "localhost",
-                     "path": "/"
+                     "path": "/health"
                   },
                   "interval": "30s",
                   "no_traffic_healthy_interval": "10s",
@@ -195,20 +201,25 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [
                {
                   "grpc_health_check": { },
                   "healthy_threshold": 1,
                   "interval": "10s",
                   "no_traffic_healthy_interval": "10s",
-                  "no_traffic_interval": "10s",
+                  "no_traffic_interval": "1s",
                   "timeout": "10s",
                   "unhealthy_threshold": 2
                }
@@ -248,13 +259,71 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
+            "health_checks": [
+               {
+                  "healthy_threshold": 1,
+                  "http_health_check": {
+                     "host": "localhost",
+                     "path": "/healthz"
+                  },
+                  "interval": "30s",
+                  "no_traffic_healthy_interval": "10s",
+                  "no_traffic_interval": "10s",
+                  "timeout": "10s",
+                  "unhealthy_threshold": 2
+               }
+            ],
+            "lb_policy": "random",
+            "load_assignment": {
+               "cluster_name": "pachd-http",
+               "endpoints": [
+                  {
+                     "lb_endpoints": [
+                        {
+                           "endpoint": {
+                              "address": {
+                                 "socket_address": {
+                                    "address": "pachd-proxy-backend",
+                                    "port_value": 1659
+                                 }
+                              }
+                           }
+                        }
+                     ]
+                  }
+               ]
+            },
+            "name": "pachd-http",
+            "type": "strict_dns",
+            "upstream_connection_options": {
+               "tcp_keepalive": { }
+            }
+         },
+         {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
+            "connect_timeout": "10s",
+            "dns_failure_refresh_rate": {
+               "base_interval": "0.1s",
+               "max_interval": "1s"
+            },
+            "dns_lookup_family": "V4_ONLY",
+            "dns_refresh_rate": "1s",
             "health_checks": [
                {
                   "healthy_threshold": 1,
@@ -296,13 +365,18 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [ ],
             "lb_policy": "random",
             "load_assignment": {
@@ -331,13 +405,18 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [
                {
                   "healthy_threshold": 1,
@@ -379,13 +458,18 @@
             }
          },
          {
+            "common_lb_config": {
+               "healthy_panic_threshold": {
+                  "value": 0
+               }
+            },
             "connect_timeout": "10s",
             "dns_failure_refresh_rate": {
-               "base_interval": "0.05s",
-               "max_interval": "0.1s"
+               "base_interval": "0.1s",
+               "max_interval": "1s"
             },
             "dns_lookup_family": "V4_ONLY",
-            "dns_refresh_rate": "5s",
+            "dns_refresh_rate": "1s",
             "health_checks": [ ],
             "lb_policy": "random",
             "load_assignment": {
@@ -444,6 +528,7 @@
                            "route": "%ROUTE_NAME%",
                            "rx_bytes": "%BYTES_RECEIVED%",
                            "severity": "info",
+                           "stream_id": "%STREAM_ID%",
                            "timestamp": "%START_TIME%",
                            "tx_bytes": "%BYTES_SENT%",
                            "upgrade": "%RESP(UPGRADE)%",
@@ -501,6 +586,7 @@
                                           "route": "%ROUTE_NAME%",
                                           "rx_bytes": "%BYTES_RECEIVED%",
                                           "severity": "info",
+                                          "stream_id": "%STREAM_ID%",
                                           "timestamp": "%START_TIME%",
                                           "tx_bytes": "%BYTES_SENT%",
                                           "upgrade": "%RESP(UPGRADE)%",
@@ -518,6 +604,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -629,6 +720,46 @@
                                        },
                                        {
                                           "match": {
+                                             "prefix": "/archive/"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-http",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
+                                             "prefix": "/jsonschema/"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-http",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
+                                             "prefix": "/pfs"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-http",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
+                                             "prefix": "/api/"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-http",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
                                              "prefix": "/"
                                           },
                                           "route": {
@@ -688,6 +819,7 @@
                            "route": "%ROUTE_NAME%",
                            "rx_bytes": "%BYTES_RECEIVED%",
                            "severity": "info",
+                           "stream_id": "%STREAM_ID%",
                            "timestamp": "%START_TIME%",
                            "tx_bytes": "%BYTES_SENT%",
                            "upgrade": "%RESP(UPGRADE)%",
@@ -745,6 +877,7 @@
                                           "route": "%ROUTE_NAME%",
                                           "rx_bytes": "%BYTES_RECEIVED%",
                                           "severity": "info",
+                                          "stream_id": "%STREAM_ID%",
                                           "timestamp": "%START_TIME%",
                                           "tx_bytes": "%BYTES_SENT%",
                                           "upgrade": "%RESP(UPGRADE)%",
@@ -762,6 +895,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -853,6 +991,7 @@
                            "route": "%ROUTE_NAME%",
                            "rx_bytes": "%BYTES_RECEIVED%",
                            "severity": "info",
+                           "stream_id": "%STREAM_ID%",
                            "timestamp": "%START_TIME%",
                            "tx_bytes": "%BYTES_SENT%",
                            "upgrade": "%RESP(UPGRADE)%",
@@ -910,6 +1049,7 @@
                                           "route": "%ROUTE_NAME%",
                                           "rx_bytes": "%BYTES_RECEIVED%",
                                           "severity": "info",
+                                          "stream_id": "%STREAM_ID%",
                                           "timestamp": "%START_TIME%",
                                           "tx_bytes": "%BYTES_SENT%",
                                           "upgrade": "%RESP(UPGRADE)%",
@@ -927,6 +1067,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1043,6 +1188,7 @@
                            "route": "%ROUTE_NAME%",
                            "rx_bytes": "%BYTES_RECEIVED%",
                            "severity": "info",
+                           "stream_id": "%STREAM_ID%",
                            "timestamp": "%START_TIME%",
                            "tx_bytes": "%BYTES_SENT%",
                            "upgrade": "%RESP(UPGRADE)%",
@@ -1100,6 +1246,7 @@
                                           "route": "%ROUTE_NAME%",
                                           "rx_bytes": "%BYTES_RECEIVED%",
                                           "severity": "info",
+                                          "stream_id": "%STREAM_ID%",
                                           "timestamp": "%START_TIME%",
                                           "tx_bytes": "%BYTES_SENT%",
                                           "upgrade": "%RESP(UPGRADE)%",
@@ -1117,6 +1264,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1215,6 +1367,7 @@
                            "route": "%ROUTE_NAME%",
                            "rx_bytes": "%BYTES_RECEIVED%",
                            "severity": "info",
+                           "stream_id": "%STREAM_ID%",
                            "timestamp": "%START_TIME%",
                            "tx_bytes": "%BYTES_SENT%",
                            "upgrade": "%RESP(UPGRADE)%",
@@ -1272,6 +1425,7 @@
                                           "route": "%ROUTE_NAME%",
                                           "rx_bytes": "%BYTES_RECEIVED%",
                                           "severity": "info",
+                                          "stream_id": "%STREAM_ID%",
                                           "timestamp": "%START_TIME%",
                                           "tx_bytes": "%BYTES_SENT%",
                                           "upgrade": "%RESP(UPGRADE)%",
@@ -1289,6 +1443,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1379,6 +1538,7 @@
                            "route": "%ROUTE_NAME%",
                            "rx_bytes": "%BYTES_RECEIVED%",
                            "severity": "info",
+                           "stream_id": "%STREAM_ID%",
                            "timestamp": "%START_TIME%",
                            "tx_bytes": "%BYTES_SENT%",
                            "upgrade": "%RESP(UPGRADE)%",
@@ -1436,6 +1596,7 @@
                                           "route": "%ROUTE_NAME%",
                                           "rx_bytes": "%BYTES_RECEIVED%",
                                           "severity": "info",
+                                          "stream_id": "%STREAM_ID%",
                                           "timestamp": "%START_TIME%",
                                           "tx_bytes": "%BYTES_SENT%",
                                           "upgrade": "%RESP(UPGRADE)%",
@@ -1453,6 +1614,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1543,6 +1709,7 @@
                            "route": "%ROUTE_NAME%",
                            "rx_bytes": "%BYTES_RECEIVED%",
                            "severity": "info",
+                           "stream_id": "%STREAM_ID%",
                            "timestamp": "%START_TIME%",
                            "tx_bytes": "%BYTES_SENT%",
                            "upgrade": "%RESP(UPGRADE)%",
@@ -1600,6 +1767,7 @@
                                           "route": "%ROUTE_NAME%",
                                           "rx_bytes": "%BYTES_RECEIVED%",
                                           "severity": "info",
+                                          "stream_id": "%STREAM_ID%",
                                           "timestamp": "%START_TIME%",
                                           "tx_bytes": "%BYTES_SENT%",
                                           "upgrade": "%RESP(UPGRADE)%",
@@ -1617,6 +1785,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",
@@ -1693,6 +1866,207 @@
                            "duration_ms": "%DURATION%",
                            "grpc_message": "%RESP(GRPC-MESSAGE):64%",
                            "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                           "listener": "direct-pachd-http",
+                           "message": "listener log",
+                           "method": "%REQ(:method)%",
+                           "pachctl_command": "%REQ(COMMAND):64%",
+                           "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                           "protocol": "%PROTOCOL%",
+                           "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                           "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                           "response_code": "%RESPONSE_CODE%",
+                           "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                           "response_flags": "%RESPONSE_FLAGS%",
+                           "route": "%ROUTE_NAME%",
+                           "rx_bytes": "%BYTES_RECEIVED%",
+                           "severity": "info",
+                           "stream_id": "%STREAM_ID%",
+                           "timestamp": "%START_TIME%",
+                           "tx_bytes": "%BYTES_SENT%",
+                           "upgrade": "%RESP(UPGRADE)%",
+                           "upstream": "%UPSTREAM_CLUSTER%",
+                           "upstream_host": "%UPSTREAM_HOST%",
+                           "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                           "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                           "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                           "user_agent": "%REQ(USER-AGENT)%",
+                           "x-request-id": "%REQ(X-REQUEST-ID)%",
+                           "xff": "%REQ(X-FORWARDED-FOR)%"
+                        },
+                        "omit_empty_values": true
+                     }
+                  }
+               }
+            ],
+            "address": {
+               "socket_address": {
+                  "address": "0.0.0.0",
+                  "port_value": 1659
+               }
+            },
+            "filter_chains": [
+               {
+                  "filters": [
+                     {
+                        "name": "envoy.http_connection_manager",
+                        "typed_config": {
+                           "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+                           "access_log": [
+                              {
+                                 "name": "envoy.access_loggers.stdout",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+                                    "log_format": {
+                                       "json_format": {
+                                          "authority": "%REQ(authority)%",
+                                          "connection_id": "%CONNECTION_ID%",
+                                          "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                                          "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                                          "duration_ms": "%DURATION%",
+                                          "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                                          "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
+                                          "message": "http response",
+                                          "method": "%REQ(:method)%",
+                                          "pachctl_command": "%REQ(COMMAND):64%",
+                                          "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+                                          "protocol": "%PROTOCOL%",
+                                          "request_attempt_count": "%UPSTREAM_REQUEST_ATTEMPT_COUNT%",
+                                          "request_headers_bytes": "%REQUEST_HEADERS_BYTES%",
+                                          "response_code": "%RESPONSE_CODE%",
+                                          "response_code_details": "%RESPONSE_CODE_DETAILS%",
+                                          "response_flags": "%RESPONSE_FLAGS%",
+                                          "route": "%ROUTE_NAME%",
+                                          "rx_bytes": "%BYTES_RECEIVED%",
+                                          "severity": "info",
+                                          "stream_id": "%STREAM_ID%",
+                                          "timestamp": "%START_TIME%",
+                                          "tx_bytes": "%BYTES_SENT%",
+                                          "upgrade": "%RESP(UPGRADE)%",
+                                          "upstream": "%UPSTREAM_CLUSTER%",
+                                          "upstream_host": "%UPSTREAM_HOST%",
+                                          "upstream_local_address": "%UPSTREAM_LOCAL_ADDRESS%",
+                                          "upstream_protocol": "%UPSTREAM_PROTOCOL%",
+                                          "upstream_service_time_ms": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+                                          "user_agent": "%REQ(USER-AGENT)%",
+                                          "x-request-id": "%REQ(X-REQUEST-ID)%",
+                                          "xff": "%REQ(X-FORWARDED-FOR)%"
+                                       },
+                                       "omit_empty_values": true
+                                    }
+                                 }
+                              }
+                           ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
+                           "codec_type": "auto",
+                           "common_http_protocol_options": {
+                              "headers_with_underscores_action": "REJECT_REQUEST",
+                              "idle_timeout": "86400s"
+                           },
+                           "http2_protocol_options": {
+                              "initial_connection_window_size": 1048576,
+                              "initial_stream_window_size": 524288,
+                              "max_concurrent_streams": 100
+                           },
+                           "http_filters": [
+                              {
+                                 "name": "envoy.filters.http.router",
+                                 "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                                 }
+                              }
+                           ],
+                           "http_protocol_options": {
+                              "accept_http_10": false
+                           },
+                           "request_timeout": "604800s",
+                           "route_config": {
+                              "virtual_hosts": [
+                                 {
+                                    "domains": [
+                                       "*"
+                                    ],
+                                    "name": "any",
+                                    "retry_policy": {
+                                       "host_selection_retry_max_attempts": 4,
+                                       "num_retries": 4,
+                                       "retry_on": "connect-failure"
+                                    },
+                                    "routes": [
+                                       {
+                                          "match": {
+                                             "prefix": "/archive/"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-http",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
+                                             "prefix": "/jsonschema/"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-http",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
+                                             "prefix": "/pfs"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-http",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       },
+                                       {
+                                          "match": {
+                                             "prefix": "/api/"
+                                          },
+                                          "route": {
+                                             "cluster": "pachd-http",
+                                             "idle_timeout": "600s",
+                                             "timeout": "604800s"
+                                          }
+                                       }
+                                    ]
+                                 }
+                              ]
+                           },
+                           "stat_prefix": "direct-pachd-http",
+                           "stream_idle_timeout": "86400s",
+                           "use_remote_address": true
+                        }
+                     }
+                  ]
+               }
+            ],
+            "name": "direct-pachd-http",
+            "per_connection_buffer_limit_bytes": 32768,
+            "traffic_direction": "INBOUND"
+         },
+         {
+            "access_log": [
+               {
+                  "name": "envoy.access_loggers.stdout",
+                  "typed_config": {
+                     "@type": "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StderrAccessLog",
+                     "log_format": {
+                        "json_format": {
+                           "authority": "%REQ(authority)%",
+                           "connection_id": "%CONNECTION_ID%",
+                           "connection_termination_details": "%CONNECTION_TERMINATION_DETAILS%",
+                           "downstream_remote_address": "%DOWNSTREAM_DIRECT_REMOTE_ADDRESS_WITHOUT_PORT%",
+                           "duration_ms": "%DURATION%",
+                           "grpc_message": "%RESP(GRPC-MESSAGE):64%",
+                           "grpc_status_code": "%GRPC_STATUS(SNAKE_STRING)%",
                            "listener": "direct-console",
                            "message": "listener log",
                            "method": "%REQ(:method)%",
@@ -1707,6 +2081,7 @@
                            "route": "%ROUTE_NAME%",
                            "rx_bytes": "%BYTES_RECEIVED%",
                            "severity": "info",
+                           "stream_id": "%STREAM_ID%",
                            "timestamp": "%START_TIME%",
                            "tx_bytes": "%BYTES_SENT%",
                            "upgrade": "%RESP(UPGRADE)%",
@@ -1764,6 +2139,7 @@
                                           "route": "%ROUTE_NAME%",
                                           "rx_bytes": "%BYTES_RECEIVED%",
                                           "severity": "info",
+                                          "stream_id": "%STREAM_ID%",
                                           "timestamp": "%START_TIME%",
                                           "tx_bytes": "%BYTES_SENT%",
                                           "upgrade": "%RESP(UPGRADE)%",
@@ -1781,6 +2157,11 @@
                                  }
                               }
                            ],
+                           "access_log_options": {
+                              "access_log_flush_interval": "10s",
+                              "flush_access_log_on_new_request": true,
+                              "flush_log_on_tunnel_successfully_established": true
+                           },
                            "codec_type": "auto",
                            "common_http_protocol_options": {
                               "headers_with_underscores_action": "REJECT_REQUEST",

@@ -3,11 +3,11 @@ package fileset
 import (
 	"bytes"
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"io"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -28,12 +28,16 @@ func newMergeReader(chunks *chunk.Storage, fileSets []FileSet) *MergeReader {
 
 // Iterate iterates over the files in the merge reader.
 func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	ctx = pctx.Child(ctx, "mergeReader")
 	var ss []stream.Stream
-	for _, fs := range mr.fileSets {
-		ss = append(ss, &fileStream{
-			iterator: NewIterator(ctx, fs.IterateDeletes, opts...),
-			deletive: true,
-		})
+	for i, fs := range mr.fileSets {
+		// Ignore the base file set's deletive set since it does not affect the state.
+		if i > 0 {
+			ss = append(ss, &fileStream{
+				iterator: NewIterator(ctx, fs.IterateDeletes, opts...),
+				deletive: true,
+			})
+		}
 		ss = append(ss, &fileStream{
 			iterator: NewIterator(ctx, fs.Iterate, opts...),
 		})
@@ -68,6 +72,7 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ..
 }
 
 func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	ctx = pctx.Child(ctx, "mergedReader")
 	var ss []stream.Stream
 	for _, fs := range mr.fileSets {
 		ss = append(ss, &fileStream{
@@ -84,6 +89,7 @@ func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, 
 // TODO: Look at the sizes?
 // TODO: Come up with better heuristics for sharding.
 func (mr *MergeReader) Shards(ctx context.Context, opts ...index.Option) ([]*index.PathRange, error) {
+	ctx = pctx.Child(ctx, "mergedReader")
 	shards, err := mr.fileSets[0].Shards(ctx, opts...)
 	return shards, errors.EnsureStack(err)
 }
@@ -120,22 +126,16 @@ func (mfr *MergeFileReader) Hash(ctx context.Context) ([]byte, error) {
 	var hashes [][]byte
 	size := index.SizeBytes(mfr.idx)
 	if size >= DefaultBatchThreshold {
-		// TODO: Optimize to handle large files that can mostly be copy by reference?
-		if err := miscutil.WithPipe(func(w io.Writer) error {
-			r := mfr.chunks.NewReader(ctx, mfr.idx.File.DataRefs)
-			return r.Get(w)
-		}, func(r io.Reader) error {
-			uploader := mfr.chunks.NewUploader(ctx, "chunk-uploader-resolver", true, func(_ interface{}, dataRefs []*chunk.DataRef) error {
-				for _, dataRef := range dataRefs {
-					hashes = append(hashes, dataRef.Hash)
-				}
-				return nil
-			})
-			if err := uploader.Upload(nil, r); err != nil {
-				return err
+		uploader := mfr.chunks.NewUploader(ctx, "chunk-uploader-resolver", true, func(_ interface{}, dataRefs []*chunk.DataRef) error {
+			for _, dataRef := range dataRefs {
+				hashes = append(hashes, dataRef.Hash)
 			}
-			return uploader.Close()
-		}); err != nil {
+			return nil
+		})
+		if err := uploader.Copy(nil, mfr.idx.File.DataRefs); err != nil {
+			return nil, err
+		}
+		if err := uploader.Close(); err != nil {
 			return nil, err
 		}
 	} else {

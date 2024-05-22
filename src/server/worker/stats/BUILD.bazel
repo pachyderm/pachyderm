@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "stats",
+    srcs = ["stats.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/worker/stats",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/log",
+        "//src/pps",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
+        "@com_github_prometheus_client_golang//prometheus/promhttp",
+        "@org_uber_go_zap//:zap",
+    ],
+)

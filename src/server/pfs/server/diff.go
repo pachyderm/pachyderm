@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"golang.org/x/sync/errgroup"
@@ -25,7 +26,7 @@ func NewDiffer(a, b Source) *Differ {
 // If both sides have a path, but the content is different, cb is called with the info for both sides at once.
 // If both sides have a path, and the content is the same, cb is not called. The info is not part of the diff.
 func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo) error) error {
-	ctx, cf := context.WithCancel(ctx)
+	ctx, cf := pctx.WithCancel(ctx)
 	defer cf()
 	aInfos := make(chan *pfs.FileInfo)
 	bInfos := make(chan *pfs.FileInfo)
@@ -35,7 +36,7 @@ func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo) er
 		err := d.a.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 			select {
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			case aInfos <- fi:
 				return nil
 			}
@@ -47,7 +48,7 @@ func (d *Differ) Iterate(ctx context.Context, cb func(aFi, bFi *pfs.FileInfo) er
 		err := d.b.Iterate(ctx, func(fi *pfs.FileInfo, _ fileset.File) error {
 			select {
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			case bInfos <- fi:
 				return nil
 			}

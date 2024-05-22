@@ -3,13 +3,17 @@ package pfs
 import (
 	"fmt"
 	"regexp"
+	"runtime"
 	"strings"
+
+	epb "google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // ErrFileNotFound represents a file-not-found error.
@@ -101,17 +105,10 @@ type ErrBaseCommitNotFinished struct {
 	Commit     *pfs.Commit
 }
 
-// ErrAmbiguousCommit represents an error where a user-specified commit did not
-// specify a branch and resolved to multiple commits on different branches.
-type ErrAmbiguousCommit struct {
-	Commit *pfs.Commit
-}
-
 // ErrInconsistentCommit represents an error where a transaction attempts to
 // create a CommitSet with multiple commits in the same branch, which would
 // result in inconsistent data dependencies.
 type ErrInconsistentCommit struct {
-	Branch *pfs.Branch
 	Commit *pfs.Commit
 }
 
@@ -146,6 +143,20 @@ type ErrDropWithChildren struct {
 	Commit *pfs.Commit
 }
 
+// ErrInvalidProvenanceStructure represents an error where more than one branch
+// from a repo is reachable in a DAG. Such a DAG structure is unsupported.
+type ErrInvalidProvenanceStructure struct {
+	Branch *pfs.Branch
+}
+
+// ErrSquashWithSubvenance represents an error where a commit set cannot be deleted
+// because it contains commits that are depended on by commits in another commit set.
+// The dependent commit sets can be deleted by passing a force flag.
+type ErrSquashWithSubvenance struct {
+	CommitSet           *pfs.CommitSet
+	SubvenantCommitSets []*pfs.CommitSet
+}
+
 const GetFileTARSuggestion = "Use GetFileTAR instead"
 
 var (
@@ -154,7 +165,7 @@ var (
 )
 
 func (e ErrFileNotFound) Error() string {
-	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Branch.Repo, e.File.Commit.ID)
+	return fmt.Sprintf("file %v not found in repo %v at commit %v", e.File.Path, e.File.Commit.Repo, e.File.Commit.Id)
 }
 
 func (e ErrFileNotFound) GRPCStatus() *status.Status {
@@ -218,7 +229,7 @@ func (e ErrCommitNotFound) GRPCStatus() *status.Status {
 }
 
 func (e ErrCommitSetNotFound) Error() string {
-	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.ID)
+	return fmt.Sprintf("no commits found for commitset %v", e.CommitSet.Id)
 }
 
 func (e ErrCommitSetNotFound) GRPCStatus() *status.Status {
@@ -261,16 +272,25 @@ func (e ErrCommitNotFinished) Error() string {
 	return fmt.Sprintf("commit %v not finished", e.Commit)
 }
 
+func (err ErrCommitNotFinished) GRPCStatus() *status.Status {
+	s, sErr := status.New(codes.Unavailable, fmt.Sprintf("commit %v not finished", err.Commit)).WithDetails(&epb.ResourceInfo{
+		ResourceType: "pfs:commit",
+		ResourceName: err.Commit.Id,
+		Description:  "commit not finished",
+	})
+	if sErr != nil {
+		_, filename, line, _ := runtime.Caller(0)
+		return status.New(codes.Internal, fmt.Sprintf("internal server error in %s:%d: %v", filename, line, sErr))
+	}
+	return s
+}
+
 func (e ErrBaseCommitNotFinished) Error() string {
 	return fmt.Sprintf("base commit %v for commit %v unfinished", e.BaseCommit, e.Commit)
 }
 
-func (e ErrAmbiguousCommit) Error() string {
-	return fmt.Sprintf("commit %v is ambiguous (specify the branch to resolve)", e.Commit)
-}
-
 func (e ErrInconsistentCommit) Error() string {
-	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s - branch (%s) already has a commit in this transaction", e.Commit, e.Branch.Name)
+	return fmt.Sprintf("inconsistent dependencies: cannot create commit from %s; repo (%s) already has a commit in this transaction", e.Commit, e.Commit.Repo.Name)
 }
 
 func (e ErrCommitOnOutputBranch) Error() string {
@@ -283,6 +303,14 @@ func (e ErrSquashWithoutChildren) Error() string {
 
 func (e ErrDropWithChildren) Error() string {
 	return fmt.Sprintf("cannot drop a commit that has children: %s", e.Commit)
+}
+
+func (e ErrInvalidProvenanceStructure) Error() string {
+	return fmt.Sprintf("multiple branches from the same repo, %q, cannot participate in a DAG", e.Branch.Repo.String())
+}
+
+func (e ErrSquashWithSubvenance) Error() string {
+	return fmt.Sprintf("commit set %q cannot be dropped because it has subvenant commit sets: %v", e.CommitSet, e.SubvenantCommitSets)
 }
 
 var (
@@ -303,6 +331,8 @@ var (
 	commitOnOutputBranchRe    = regexp.MustCompile("cannot start a commit on an output branch")
 	squashWithoutChildrenRe   = regexp.MustCompile("cannot squash a commit that has no children")
 	dropWithChildrenRe        = regexp.MustCompile("cannot drop a commit that has children")
+	invalidBranchStructureRe  = regexp.MustCompile("multiple branches from the same repo, .+, cannot participate in a DAG")
+	squashWithSubvenanceRe    = regexp.MustCompile("commit set .+ cannot be dropped because it has subvenant commit sets: .+")
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -457,6 +487,20 @@ func IsDropWithChildrenErr(err error) bool {
 		return false
 	}
 	return dropWithChildrenRe.MatchString(err.Error())
+}
+
+func IsInvalidBranchStructureErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return invalidBranchStructureRe.MatchString(err.Error())
+}
+
+func IsSquashWithSuvenanceErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return squashWithSubvenanceRe.MatchString(err.Error())
 }
 
 func ValidateSQLDatabaseEgress(sql *pfs.SQLDatabaseEgress) error {

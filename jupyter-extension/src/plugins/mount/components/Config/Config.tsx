@@ -1,5 +1,5 @@
 import React from 'react';
-import {AuthConfig} from 'plugins/mount/types';
+import {AuthConfig, HealthCheck} from 'plugins/mount/types';
 import {useConfig} from './hooks/useConfig';
 import {infoIcon} from '../../../../utils/icons';
 
@@ -8,19 +8,15 @@ import LoadingDots from '../../../../utils/components/LoadingDots/LoadingDots';
 import {KubernetesElephant} from '../../../../utils/components/Svgs';
 
 type ConfigProps = {
-  showConfig: boolean;
-  setShowConfig: (shouldShow: boolean) => void;
-  reposStatus?: number;
   updateConfig: (shouldShow: AuthConfig) => void;
+  healthCheck: HealthCheck;
   authConfig: AuthConfig;
   refresh: () => Promise<void>;
 };
 
 const Config: React.FC<ConfigProps> = ({
-  showConfig,
-  setShowConfig,
-  reposStatus,
   updateConfig,
+  healthCheck,
   authConfig,
   refresh,
 }) => {
@@ -34,40 +30,18 @@ const Config: React.FC<ConfigProps> = ({
     updatePachdAddress,
     callLogin,
     callLogout,
-    shouldShowLogin,
+    status,
     loading,
     showAdvancedOptions,
     setShowAdvancedOptions,
     serverCa,
     setServerCa,
-  } = useConfig(
-    showConfig,
-    setShowConfig,
-    updateConfig,
-    authConfig,
-    refresh,
-    reposStatus,
-  );
-
+  } = useConfig(updateConfig, healthCheck, refresh);
+  const authEnabled =
+    status === 'HEALTHY_LOGGED_IN' || status === 'HEALTHY_LOGGED_OUT';
   return (
     <>
       <div className="pachyderm-mount-config-form-base">
-        {reposStatus === 200 && (
-          <div className="pachyderm-mount-config-back">
-            <button
-              data-testid="Config__back"
-              className="pachyderm-button-link"
-              onClick={() => setShowConfig(false)}
-            >
-              Back{' '}
-              <closeIcon.react
-                tag="span"
-                className="pachyderm-mount-icon-padding"
-              />
-            </button>
-          </div>
-        )}
-
         <div className="pachyderm-mount-config-heading">
           Pachyderm
           <span className="pachyderm-mount-config-subheading">
@@ -113,7 +87,10 @@ const Config: React.FC<ConfigProps> = ({
                   marginBottom: '1rem',
                 }}
               >
-                <span className="pachyderm-mount-config-subheading">
+                <span
+                  className="pachyderm-mount-config-subheading"
+                  data-testid="Config__mountConfigSubheading"
+                >
                   {authConfig.pachd_address
                     ? 'Update Configuration'
                     : 'Connect To a Cluster'}
@@ -230,9 +207,9 @@ const Config: React.FC<ConfigProps> = ({
             </div>
           )}
         </div>
-        {shouldShowLogin && !shouldShowAddressInput && (
+        {authEnabled && !shouldShowAddressInput && (
           <div className="pachyderm-mount-login-container">
-            {reposStatus === 200 ? (
+            {status === 'HEALTHY_LOGGED_IN' ? (
               <button
                 data-testid="Config__logout"
                 className="pachyderm-button"

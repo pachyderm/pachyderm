@@ -3,31 +3,40 @@
 <div class="theme-panel">
   <h2 class="theme-heading">Grant Access</h2>
 
+  <hr class="dex-separator">
   <div>
-    <div>{{ .Client }} would like to:</div>
+    {{ if .Scopes }}
+    <div class="dex-subtle-text">{{ .Client }} would like to:</div>
     <ul class="dex-list">
       {{ range $scope := .Scopes }}
       <li>{{ $scope }}</li>
       {{ end }}
     </ul>
+    {{ else }}
+    <div class="dex-subtle-text">{{ .Client }} has not requested any personal information</div>
+    {{ end }}
   </div>
+  <hr class="dex-separator">
 
-  <div class="theme-submit-row">
-    <form method="post">
-      <input type="hidden" name="req" value="{{ .AuthReqID }}"/>
-      <input type="hidden" name="approval" value="rejected">
-      <button type="submit" class="dex-btn theme-btn-link">
-        <span class="dex-btn-text">Cancel</span>
-      </button>
-    </form>
-
-    <form method="post">
-      <input type="hidden" name="req" value="{{ .AuthReqID }}"/>
-      <input type="hidden" name="approval" value="approve">
-      <button type="submit" class="dex-btn theme-btn--success">
-        <span class="dex-btn-text">Grant Access</span>
-      </button>
-    </form>
+  <div>
+    <div class="theme-form-row">
+      <form method="post">
+        <input type="hidden" name="req" value="{{ .AuthReqID }}"/>
+        <input type="hidden" name="approval" value="approve">
+        <button type="submit" class="dex-btn theme-btn--success">
+            <span class="dex-btn-text">Grant Access</span>
+        </button>
+      </form>
+    </div>
+    <div class="theme-form-row">
+      <form method="post">
+        <input type="hidden" name="req" value="{{ .AuthReqID }}"/>
+        <input type="hidden" name="approval" value="rejected">
+        <button type="submit" class="dex-btn theme-btn-provider">
+            <span class="dex-btn-text">Cancel</span>
+        </button>
+      </form>
+    </div>
   </div>
 
 </div>

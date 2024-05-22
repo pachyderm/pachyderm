@@ -4,13 +4,16 @@
 package driver
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"syscall"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
 )
 
 // Note: these are stubs only meant for tests - the worker does not run on windows
@@ -51,12 +54,16 @@ func (d *driver) moveData(inputs []*common.Input, dir string) error {
 		return err
 	}
 
+	// rename env file
+	src := filepath.Join(dir, common.EnvFileName)
+	dst := filepath.Join(d.InputDir(), common.EnvFileName)
+	if err := os.Rename(src, dst); err != nil {
+		return errors.EnsureStack(err)
+	}
+
 	// sometimes for group inputs, this part may get run multiple times for the same file
 	seen := make(map[string]bool)
 	for _, input := range inputs {
-		if input.S3 {
-			continue
-		}
 		if _, ok := seen[input.Name]; !ok {
 			seen[input.Name] = true
 			src := filepath.Join(dir, input.Name)
@@ -85,4 +92,12 @@ func (d *driver) unmoveData(inputs []*common.Input, dir string) error {
 		}
 	}
 	return nil
+}
+
+func printRusage(ctx context.Context, state *os.ProcessState) {
+	if state == nil {
+		log.Info(ctx, "no process state information after user code exited")
+		return
+	}
+	m.Set(ctx, "cpu_time_seconds", state.UserTime().Seconds()+state.SystemTime().Seconds())
 }

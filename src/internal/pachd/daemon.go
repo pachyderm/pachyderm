@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	pachhttp "github.com/pachyderm/pachyderm/v2/src/server/http"
 )
 
 // daemon is a Pachyderm daemon.
@@ -37,6 +38,7 @@ type daemon struct {
 	internal, external *grpcutil.Server
 	s3                 *s3Server
 	prometheus         *prometheusServer
+	pachhttp           *pachhttp.Server
 
 	// configuration
 	criticalServersOnly bool
@@ -65,6 +67,9 @@ func (d *daemon) serve(ctx context.Context) (err error) {
 	}
 	if d.prometheus != nil {
 		eg.Go(maybeIgnoreErrorFunc(ctx, "Prometheus Server", !d.criticalServersOnly, func() error { return d.prometheus.listenAndServe(ctx, 10*time.Second) }))
+	}
+	if d.pachhttp != nil {
+		eg.Go(maybeIgnoreErrorFunc(ctx, "PachHTTP Server", true, func() error { return d.pachhttp.ListenAndServe(ctx) }))
 	}
 	eg.Go(func() error {
 		<-ctx.Done() // wait for main context to complete

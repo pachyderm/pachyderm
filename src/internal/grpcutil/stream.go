@@ -7,7 +7,7 @@ import (
 	"io"
 
 	units "github.com/docker/go-units"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -110,14 +110,14 @@ func (w *ChunkWriteCloser) Close() error {
 //
 //	rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesServer interface {
-	Send(bytesValue *types.BytesValue) error
+	Send(bytesValue *wrapperspb.BytesValue) error
 }
 
 // StreamingBytesClient represents a client for an rpc method of the form:
 //
 //	rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesClient interface {
-	Recv() (*types.BytesValue, error)
+	Recv() (*wrapperspb.BytesValue, error)
 }
 
 // NewStreamingBytesReader returns an io.Reader for a StreamingBytesClient.
@@ -174,7 +174,7 @@ type streamingBytesWriter struct {
 func (s *streamingBytesWriter) Write(data []byte) (int, error) {
 	var bytesWritten int
 	for _, val := range Chunk(data) {
-		if err := s.streamingBytesServer.Send(&types.BytesValue{Value: val}); err != nil {
+		if err := s.streamingBytesServer.Send(wrapperspb.Bytes(val)); err != nil {
 			return bytesWritten, errors.EnsureStack(err)
 		}
 		bytesWritten += len(val)

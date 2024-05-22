@@ -1,0 +1,35 @@
+{
+  "pipeline": {
+    "name": "metrics"
+  },
+  "description": "A pipeline that collects metrics",
+  "input": {
+    "pfs": {
+      "glob": "/",
+      "repo": "shuffle-symlink"
+    }
+  },
+  "transform": {
+    "cmd": [
+      "python3",
+      "/app/app.py"
+    ],
+    "secrets": [
+      {
+        "name": "metrics-secret",
+        "env_var": "BIGQUERY_AUTH_JSON",
+        "key": "creds"
+      },
+      {
+        "name": "pachyderm-auth",
+        "env_var": "PACH_PYTHON_AUTH_TOKEN",
+        "key": "root-token"
+      }
+    ],
+    "image": "pachyderm/metric-collector:v4",
+    "env": {
+      "LOG_LEVEL": "DEBUG",
+      "WORKLOAD_ID": "krs"
+    }
+  }
+}

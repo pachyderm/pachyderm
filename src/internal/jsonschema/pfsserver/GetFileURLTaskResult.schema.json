@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetFileURLTaskResult",
+    "definitions": {
+        "GetFileURLTaskResult": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get File URL Task Result"
+        }
+    }
+}

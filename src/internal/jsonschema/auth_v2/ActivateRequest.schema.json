@@ -1,0 +1,18 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ActivateRequest",
+    "definitions": {
+        "ActivateRequest": {
+            "properties": {
+                "rootToken": {
+                    "type": "string",
+                    "description": "If set, this token is used as the root user login token. Otherwise the root token is randomly generated and returned in the response."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "// Activation API",
+            "description": "A note on users In Pachyderm, usernames are structured strings. This makes both our API and our data model more flexible (at the loss of some type safety). Basically, anywhere that Pachyderm refers to a subject (i.e. TokenInfo) or principal (ACL, the 'admins' collection), that username will have some structured prefix. Note that externally-facing principals ({Get,Set}{Scope,ACL}, ModifyAdmins, ListAdmins) will have their own conventions The current user formats are: 1) Users synced from an identity provider:      \"user:username\" 2) Pachyderm robot users:      \"robot:robot_user_1\" 3) Pachyderm pipelines:      \"pipeline:terasort\"  // Activation API  ActivateRequest enables authentication on the cluster. It issues an auth token with no expiration for the irrevocable admin user `pach:root`."
+        }
+    }
+}

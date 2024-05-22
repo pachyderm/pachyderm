@@ -1,0 +1,36 @@
+{
+  "input": {
+    "union": [
+      {
+        "pfs": {
+          "glob": "/*.jpeg",
+          "repo": "fruits",
+          "emptyFiles": true
+        }
+      },
+      {
+        "pfs": {
+          "glob": "/*.json",
+          "repo": "pricing",
+          "emptyFiles": true
+        }
+      }
+    ]
+  },
+  "pipeline": {
+    "name": "shuffle"
+  },
+  "description": "A pipeline that places files with a matching name pattern and stored in separate repositories to a corresponding folder in the output repository.",
+  "transform": {
+    "image": "ubuntu:20.04",
+    "cmd": ["/bin/bash"],
+    "stdin": [
+      "echo 'process fruits if any'",
+      "fn=$(find  -L /pfs -not -path \"*/\\.*\"  -type f \\( -path '*/fruits/*' \\))",
+      "for f in $fn; do fruit_name=$(basename $f .jpeg); mkdir -p /pfs/out/$fruit_name/; ln -s $f /pfs/out/$fruit_name/img.jpeg; done",
+      "echo 'process pricing if any'",
+      "fn=$(find  -L /pfs -not -path \"*/\\.*\"  -type f \\( -path '*/pricing/*' \\))",
+      "for f in $fn; do fruit_name=$(basename $f .json); mkdir -p /pfs/out/$fruit_name/; ln -s $f /pfs/out/$fruit_name/cost.json; done"
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetGroupsResponse",
+    "definitions": {
+        "GetGroupsResponse": {
+            "properties": {
+                "groups": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Groups Response"
+        }
+    }
+}

@@ -4,14 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"strings"
 	"testing"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -34,8 +33,9 @@ func TestParseWorkerLines(t *testing.T) {
 		t.Fatalf("sync: %v", err)
 	}
 
-	m := &jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
+	m := &protojson.UnmarshalOptions{
+		DiscardUnknown: true,
+		AllowPartial:   true,
 	}
 	var got []*pps.LogMessage
 	s := bufio.NewScanner(buf)
@@ -43,8 +43,8 @@ func TestParseWorkerLines(t *testing.T) {
 	for s.Scan() {
 		line++
 		var msg pps.LogMessage
-		text := s.Text()
-		if err := m.Unmarshal(strings.NewReader(text), &msg); err != nil {
+		text := s.Bytes()
+		if err := m.Unmarshal(text, &msg); err != nil {
 			t.Logf("line %d: %s", line, text)
 			t.Errorf("unmarshal line %d: %v", line, err)
 		}
@@ -61,29 +61,29 @@ func TestParseWorkerLines(t *testing.T) {
 		{
 			ProjectName:  "projectNameField",
 			PipelineName: "pipelineNameField",
-			WorkerID:     "workerIDField",
+			WorkerId:     "workerIDField",
 			Message:      "debug",
 		},
 		{
 			ProjectName:  "projectNameField",
 			PipelineName: "pipelineNameField",
-			WorkerID:     "workerIDField",
+			WorkerId:     "workerIDField",
 			Message:      "info",
 			Master:       true,
 		},
 		{
 			ProjectName:  "projectNameField",
 			PipelineName: "pipelineNameField",
-			WorkerID:     "workerIDField",
+			WorkerId:     "workerIDField",
 			Message:      "retrying unary invoker failed",
 		},
 		{
 			ProjectName:  "projectNameField",
 			PipelineName: "pipelineNameField",
-			WorkerID:     "workerIDField",
+			WorkerId:     "workerIDField",
 			Message:      "error",
-			JobID:        "jobIDField",
-			DatumID:      "datumIDField",
+			JobId:        "jobIDField",
+			DatumId:      "datumIDField",
 			User:         true,
 			Data: []*pps.InputFile{
 				{

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,21 +21,21 @@ import (
 
 // Test returns a new Context appropriate for use in tests.  Unless you are for some reason reliant
 // upon the global logger, use pctx.TestContext(t).
-func Test(t testing.TB, opts ...zaptest.LoggerOption) context.Context {
+func Test(ctx context.Context, t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 	l := zaptest.NewLogger(t, opts...)
 	t.Cleanup(zap.ReplaceGlobals(l))
 	t.Cleanup(zap.RedirectStdLog(l))
 	t.Cleanup(zap.RedirectStdLog(l))
-	return withLogger(context.Background(), l)
+	return ctx
 }
 
 // Test returns a new Context appropriate for use in parallel tests, at the cost of not logging
 // messages sent to the global logger.  This function is only public so that pctx.TestContext(t) can
 // call it, and you should use that.
-func TestParallel(t testing.TB, opts ...zaptest.LoggerOption) context.Context {
+func TestParallel(ctx context.Context, t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 	lvl := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	opts = append(opts,
-		zaptest.WrapOptions(zap.AddCaller(), zap.AddCallerSkip(1)),
+		zaptest.WrapOptions(zap.AddCaller(), zap.AddCallerSkip(1), zap.Development()),
 		zaptest.Level(lvl),
 	)
 	l := zaptest.NewLogger(t, opts...)
@@ -47,7 +48,7 @@ func TestParallel(t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 		// level here.
 		lvl.SetLevel(zapcore.FatalLevel)
 	})
-	return withLogger(context.Background(), l)
+	return withLogger(ctx, l)
 }
 
 // msg is a log message parsed from pachd-formatted JSON.
@@ -196,7 +197,7 @@ func (h *history) Logs() []*msg {
 }
 
 // HasALog asserts that the logger logged a log.
-func (h *history) HasALog(t *testing.T) {
+func (h *history) HasALog(t testing.TB) {
 	t.Helper()
 	if got := len(h.Logs()); got < 1 {
 		t.Errorf("number of logs:\n  got: %v\n want: %v", got, ">0")
@@ -255,7 +256,7 @@ func testWithCaptureParallelRateLimited(t testing.TB, opts ...zap.Option) (conte
 }
 
 // newTestLogger returns the raw logger used for testWithCapture*
-// Remeber that raw *zap.Loggers don't have caller skip; testWith... above add those.
+// Remember that raw *zap.Loggers don't have caller skip; testWith... above add those.
 func newTestLogger(t testing.TB, sample bool, opts ...zap.Option) (*zap.Logger, *history) {
 	h := new(history)
 	opts = append(opts,
@@ -264,4 +265,31 @@ func newTestLogger(t testing.TB, sample bool, opts ...zap.Option) (*zap.Logger, 
 	)
 	l := makeLogger(zapcore.NewJSONEncoder(pachdEncoder), h, zapcore.DebugLevel, sample, opts)
 	return l, h
+}
+
+type byteCounter struct {
+	c atomic.Int64
+}
+
+func (c *byteCounter) Write(p []byte) (int, error) {
+	c.c.Add(int64(len(p)))
+	return len(p), nil
+}
+
+func (c *byteCounter) Sync() error { return nil }
+
+// NewBenchLogger returns a logger suitable for benchmarks and an *atomic.Int64 containing the
+// number of bytes written to the logger.
+func NewBenchLogger(sample bool) (context.Context, *atomic.Int64) {
+	enc := zapcore.NewJSONEncoder(pachdEncoder)
+	w := new(byteCounter)
+	l := makeLogger(enc, zapcore.Lock(w), zapcore.DebugLevel, sample, []zap.Option{zap.AddCaller()})
+	return withLogger(context.Background(), l), &w.c
+}
+
+func newBenchInfoLogger(sample bool) (context.Context, *atomic.Int64) {
+	enc := zapcore.NewJSONEncoder(pachdEncoder)
+	w := new(byteCounter)
+	l := makeLogger(enc, zapcore.Lock(w), zapcore.InfoLevel, sample, []zap.Option{zap.AddCaller()})
+	return withLogger(context.Background(), l), &w.c
 }

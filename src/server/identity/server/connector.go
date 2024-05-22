@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"net/http"
-	"net/url"
 
 	"github.com/dexidp/dex/connector"
 	"github.com/dexidp/dex/pkg/log"
@@ -24,7 +23,7 @@ func (placeholderConfig) Open(id string, logger log.Logger) (connector.Connector
 
 type placeholder struct{}
 
-func (*placeholder) LoginURL(s connector.Scopes, callbackURL, state string, _ url.Values) (string, error) {
+func (*placeholder) LoginURL(s connector.Scopes, callbackURL, state string) (string, error) {
 	return "/static/not-configured.html", nil
 }
 

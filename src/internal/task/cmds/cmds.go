@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"os"
 
-	pachdclient "github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/task"
 
 	"github.com/spf13/cobra"
 )
 
-func Cmds() []*cobra.Command {
+func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -25,12 +25,12 @@ func Cmds() []*cobra.Command {
 		Use:    "{{alias}} <service>",
 		Short:  "Return info about tasks from a service.",
 		Long:   "Return info about tasks from a service.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			if namespace == "" && group != "" {
 				return errors.Errorf("must set a task namespace to list a group")
 			}
 
-			client, err := pachdclient.NewOnUserMachine("user")
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}

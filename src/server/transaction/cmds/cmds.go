@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tabwriter"
 	"github.com/pachyderm/pachyderm/v2/src/server/transaction/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -16,7 +16,7 @@ import (
 
 // Cmds returns the set of commands used for managing transactions with the
 // Pachyderm CLI tool pachctl.
-func Cmds() []*cobra.Command {
+func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -28,31 +28,27 @@ func Cmds() []*cobra.Command {
 
 	transactionDocs := &cobra.Command{
 		Short: "Docs for transactions.",
-		Long: `Transactions modify several Pachyderm objects in a single operation.
-
-The following pachctl commands are supported in transactions:
-  create repo
-  delete repo
-  start commit
-  finish commit
-  delete commit
-  create branch
-  delete branch
-  create pipeline
-  update pipeline
-
-A transaction can be started with 'start transaction', after which the above
-commands will be stored in the transaction rather than immediately executed.
-The stored commands can be executed as a single operation with 'finish
-transaction' or cancelled with 'delete transaction'.`,
+		Long: "Transactions modify several Pachyderm objects in a single operation. " +
+			"The following pachctl commands are supported in transactions: \n\n" +
+			"\t- create repo\n" +
+			"\t- delete repo\n" +
+			"\t- start commit\n" +
+			"\t- finish commit\n" +
+			"\t- delete commit\n" +
+			"\t- create branch\n" +
+			"\t- delete branch\n" +
+			"\t- create pipeline\n" +
+			"\t- update pipeline\n\n" +
+			"A transaction can be started with `pachctl start transaction`, after which the above commands will be stored in the transaction rather than immediately executed. \n\n" +
+			"The stored commands can be executed as a single operation with `pachctl finish transaction` or cancelled with `pachctl delete transaction`.",
 	}
 	commands = append(commands, cmdutil.CreateDocsAlias(transactionDocs, "transaction", " transaction$"))
 
 	listTransaction := &cobra.Command{
 		Short: "List transactions.",
-		Long:  "List transactions.",
-		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			c, err := client.NewOnUserMachine("user")
+		Long:  "This command lists transactions.",
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -85,9 +81,9 @@ transaction' or cancelled with 'delete transaction'.`,
 
 	startTransaction := &cobra.Command{
 		Short: "Start a new transaction.",
-		Long:  "Start a new transaction.",
-		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			c, err := client.NewOnUserMachine("user")
+		Long:  "This command starts a new transaction.",
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -97,7 +93,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 			if txn != nil {
-				return errors.Errorf("cannot start a new transaction, since transaction with ID %q already exists", txn.ID)
+				return errors.Errorf("cannot start a new transaction, since transaction with ID %q already exists", txn.Id)
 			}
 
 			transaction, err := c.StartTransaction()
@@ -110,7 +106,7 @@ transaction' or cancelled with 'delete transaction'.`,
 			if err != nil {
 				return err
 			}
-			fmt.Printf("started new transaction: %q\n", transaction.ID)
+			fmt.Printf("started new transaction: %q\n", transaction.Id)
 			return nil
 		}),
 	}
@@ -118,8 +114,8 @@ transaction' or cancelled with 'delete transaction'.`,
 
 	stopTransaction := &cobra.Command{
 		Short: "Stop modifying the current transaction.",
-		Long:  "Stop modifying the current transaction.",
-		Run: cmdutil.RunFixedArgs(0, func([]string) error {
+		Long:  "This command stops modifying the current transaction; to be used with `pachctl resume transaction`. This command is ideal for drafting a transaction in multiple steps.",
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
 			txn, err := requireActiveTransaction()
@@ -132,7 +128,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 
-			fmt.Printf("Cleared active transaction: %s\n", txn.ID)
+			fmt.Printf("Cleared active transaction: %s\n", txn.Id)
 			return nil
 		}),
 	}
@@ -141,9 +137,9 @@ transaction' or cancelled with 'delete transaction'.`,
 	finishTransaction := &cobra.Command{
 		Use:   "{{alias}} [<transaction>]",
 		Short: "Execute and clear the currently active transaction.",
-		Long:  "Execute and clear the currently active transaction.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+		Long:  "This command executes and clears the currently active transaction.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -153,7 +149,7 @@ transaction' or cancelled with 'delete transaction'.`,
 			// two commands are run simultaneously
 			var txn *transaction.Transaction
 			if len(args) > 0 {
-				txn = &transaction.Transaction{ID: args[0]}
+				txn = &transaction.Transaction{Id: args[0]}
 			} else {
 				txn, err = requireActiveTransaction()
 				if err != nil {
@@ -171,7 +167,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 
-			fmt.Printf("Completed transaction with %d requests: %s\n", len(info.Responses), info.Transaction.ID)
+			fmt.Printf("Completed transaction with %d requests: %s\n", len(info.Responses), info.Transaction.Id)
 			return nil
 		}),
 	}
@@ -180,9 +176,9 @@ transaction' or cancelled with 'delete transaction'.`,
 	deleteTransaction := &cobra.Command{
 		Use:   "{{alias}} [<transaction>]",
 		Short: "Cancel and delete an existing transaction.",
-		Long:  "Cancel and delete an existing transaction.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+		Long:  "This command cancels and deletes an existing transaction.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -193,13 +189,13 @@ transaction' or cancelled with 'delete transaction'.`,
 			var txn *transaction.Transaction
 			isActive := false
 			if len(args) > 0 {
-				txn = &transaction.Transaction{ID: args[0]}
+				txn = &transaction.Transaction{Id: args[0]}
 
 				// Don't check err here, this is just a quality-of-life check to clean
 				// up the config after a successful delete
 				activeTxn, _ := requireActiveTransaction()
 				if activeTxn != nil {
-					isActive = txn.ID == activeTxn.ID
+					isActive = txn.Id == activeTxn.Id
 				}
 			} else {
 				txn, err = requireActiveTransaction()
@@ -228,9 +224,9 @@ transaction' or cancelled with 'delete transaction'.`,
 	inspectTransaction := &cobra.Command{
 		Use:   "{{alias}} [<transaction>]",
 		Short: "Print information about an open transaction.",
-		Long:  "Print information about an open transaction.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+		Long:  "This command prints information about an open transaction.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -238,7 +234,7 @@ transaction' or cancelled with 'delete transaction'.`,
 
 			var txn *transaction.Transaction
 			if len(args) > 0 {
-				txn = &transaction.Transaction{ID: args[0]}
+				txn = &transaction.Transaction{Id: args[0]}
 			} else {
 				txn, err = requireActiveTransaction()
 				if err != nil {
@@ -251,7 +247,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return grpcutil.ScrubGRPC(err)
 			}
 			if info == nil {
-				return errors.Errorf("transaction %s not found", txn.ID)
+				return errors.Errorf("transaction %s not found", txn.Id)
 			}
 			if raw {
 				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(info))
@@ -271,14 +267,14 @@ transaction' or cancelled with 'delete transaction'.`,
 	resumeTransaction := &cobra.Command{
 		Use:   "{{alias}} <transaction>",
 		Short: "Set an existing transaction as active.",
-		Long:  "Set an existing transaction as active.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine("user")
+		Long:  "This command sets an existing transaction as active; to be used with `pachctl stop transaction`.",
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			info, err := c.InspectTransaction(&transaction.Transaction{ID: args[0]})
+			info, err := c.InspectTransaction(&transaction.Transaction{Id: args[0]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -291,7 +287,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 
-			fmt.Printf("Resuming existing transaction with %d requests: %s\n", len(info.Requests), info.Transaction.ID)
+			fmt.Printf("Resuming existing transaction with %d requests: %s\n", len(info.Requests), info.Transaction.Id)
 			return nil
 		}),
 	}

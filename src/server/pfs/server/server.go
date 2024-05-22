@@ -1,49 +1,71 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
+	"context"
+
+	etcd "go.etcd.io/etcd/client/v3"
+
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
+
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+
+	"gocloud.dev/blob"
 )
 
+type APIServer = *validatedAPIServer
+
+type PipelineInspector interface {
+	InspectPipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
+}
+
+// PFSAuth contains the auth methods called by PFS.
+// It is a subset of what the Auth Service provides.
+type PFSAuth interface {
+	CheckRepoIsAuthorized(ctx context.Context, repo *pfs.Repo, p ...auth.Permission) error
+	WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
+	GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
+
+	CheckProjectIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error
+	CheckRepoIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error
+	CreateRoleBindingInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error
+	DeleteRoleBindingInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, resource *auth.Resource) error
+	GetPermissionsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
+}
+
+// Env is the dependencies needed to run the PFS API server
+type Env struct {
+	ObjectClient obj.Client
+	Bucket       *blob.Bucket
+	DB           *pachsql.DB
+	EtcdPrefix   string
+	EtcdClient   *etcd.Client
+	TaskService  task.Service
+	TxnEnv       *txnenv.TransactionEnv
+	Listener     col.PostgresListener
+
+	Auth                 PFSAuth
+	GetPipelineInspector func() PipelineInspector
+
+	StorageConfig pachconfig.StorageConfiguration
+	GetPPSServer  func() pps_server.APIServer
+}
+
 // NewAPIServer creates an APIServer.
-func NewAPIServer(env Env) (pfsserver.APIServer, error) {
-	a, err := newAPIServer(env)
+func NewAPIServer(ctx context.Context, env Env) (pfsserver.APIServer, error) {
+	a, err := newAPIServer(ctx, env)
 	if err != nil {
 		return nil, err
 	}
-	go a.driver.master(pctx.Child(env.BackgroundContext, "master"))
-	go a.driver.URLWorker(pctx.Child(env.BackgroundContext, "urlWorker"))
-	go func() {
-		pfsload.Worker(env.GetPachClient(pctx.Child(env.BackgroundContext, "pfsload")), env.TaskService) //nolint:errcheck
-	}()
-	taskSource := env.TaskService.NewSource(StorageTaskNamespace)
-	go compactionWorker(pctx.Child(env.BackgroundContext, "compactionWorker"), taskSource, a.driver.storage) //nolint:errcheck
-	return newValidatedAPIServer(a, env.AuthServer), nil
-}
-
-func NewSidecarAPIServer(env Env) (pfsserver.APIServer, error) {
-	a, err := newAPIServer(env)
-	if err != nil {
-		return nil, err
-	}
-	if env.PachwInSidecar {
-		taskSource := env.TaskService.NewSource(StorageTaskNamespace)
-		go compactionWorker(env.BackgroundContext, taskSource, a.driver.storage) //nolint:errcheck
-	}
-	return newValidatedAPIServer(a, env.AuthServer), nil
-}
-
-// NewPachwAPIServer is used when running pachd in Pachw Mode.
-// In Pachw Mode, a pachd instance processes storage and URl related tasks via the task service.
-func NewPachwAPIServer(env Env) (pfsserver.APIServer, error) {
-	a, err := newAPIServer(env)
-	if err != nil {
-		return nil, err
-	}
-	go a.driver.URLWorker(env.BackgroundContext)
-	go func() { pfsload.Worker(env.GetPachClient(env.BackgroundContext), env.TaskService) }() //nolint:errcheck
-	taskSource := env.TaskService.NewSource(StorageTaskNamespace)
-	go compactionWorker(env.BackgroundContext, taskSource, a.driver.storage) //nolint:errcheck
-	return newValidatedAPIServer(a, env.AuthServer), nil
+	return newValidatedAPIServer(a, env.Auth), nil
 }

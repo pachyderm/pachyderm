@@ -13,14 +13,12 @@ func (x *Input) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("file_info", x.FileInfo)
-	enc.AddObject("parent_commit", x.ParentCommit)
 	enc.AddString("name", x.Name)
 	enc.AddString("join_on", x.JoinOn)
 	enc.AddBool("outer_join", x.OuterJoin)
 	enc.AddString("group_by", x.GroupBy)
 	enc.AddBool("lazy", x.Lazy)
 	enc.AddString("branch", x.Branch)
-	enc.AddString("git_url", x.GitURL)
 	enc.AddBool("empty_files", x.EmptyFiles)
 	enc.AddBool("s3", x.S3)
 	return nil

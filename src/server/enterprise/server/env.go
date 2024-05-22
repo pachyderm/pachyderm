@@ -6,12 +6,12 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	kube "k8s.io/client-go/kubernetes"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	ec "github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
 )
@@ -26,13 +26,11 @@ type Env struct {
 
 	AuthServer    auth.APIServer
 	GetPachClient func(context.Context) *client.APIClient
-	getKubeClient func() kube.Interface
+	GetKubeClient func() kube.Interface
+	Namespace     string
 
 	BackgroundContext context.Context
-	namespace         string
-	mode              PauseMode
-	unpausedMode      string
-	Config            serviceenv.Configuration
+	Config            pachconfig.Configuration
 }
 
 // PauseMode represents whether a server is unpaused, paused, a sidecar or an enterprise server.
@@ -44,43 +42,10 @@ const (
 	PausedMode
 )
 
-type Option func(Env) Env
-
-func WithUnpausedMode(mode string) Option {
-	return func(e Env) Env {
-		e.unpausedMode = mode
-		return e
-	}
-}
-
-func WithMode(mode PauseMode) Option {
-	return func(e Env) Env {
-		e.mode = mode
-		return e
-	}
-}
-
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv, options ...Option) *Env {
-	e := Env{
-		DB:       senv.GetDBClient(),
-		Listener: senv.GetPostgresListener(),
-		TxnEnv:   txEnv,
-
-		EtcdClient: senv.GetEtcdClient(),
-		EtcdPrefix: etcdPrefix,
-
-		AuthServer:    senv.AuthServer(),
-		GetPachClient: senv.GetPachClient,
-		getKubeClient: senv.GetKubeClient,
-
-		BackgroundContext: senv.Context(),
-		namespace:         senv.Config().Namespace,
-		Config:            *senv.Config(),
-	}
-	for _, o := range options {
-		e = o(e)
-	}
-	return &e
+type Config struct {
+	Heartbeat    bool
+	Mode         PauseMode
+	UnpausedMode string
 }
 
 func EnterpriseConfigCollection(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
@@ -106,7 +71,7 @@ func EnterpriseConfigPostgresMigration(ctx context.Context, tx *pachsql.Tx, etcd
 		return err
 	}
 	if config != nil {
-		return errors.EnsureStack(EnterpriseConfigCollection(nil, nil).ReadWrite(tx).Put(configKey, config))
+		return errors.EnsureStack(EnterpriseConfigCollection(nil, nil).ReadWrite(tx).Put(ctx, configKey, config))
 	}
 	return nil
 }
@@ -114,7 +79,7 @@ func EnterpriseConfigPostgresMigration(ctx context.Context, tx *pachsql.Tx, etcd
 func checkForEtcdRecord(ctx context.Context, etcd *clientv3.Client) (*ec.EnterpriseConfig, error) {
 	etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &ec.EnterpriseConfig{}, nil, nil)
 	var config ec.EnterpriseConfig
-	if err := etcdConfigCol.ReadOnly(ctx).Get(configKey, &config); err != nil {
+	if err := etcdConfigCol.ReadOnly().Get(ctx, configKey, &config); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, nil
 		}
@@ -126,7 +91,7 @@ func checkForEtcdRecord(ctx context.Context, etcd *clientv3.Client) (*ec.Enterpr
 func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) error {
 	if _, err := col.NewSTM(ctx, etcd, func(stm col.STM) error {
 		etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &ec.EnterpriseConfig{}, nil, nil)
-		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Delete(configKey))
+		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Delete(ctx, configKey))
 	}); err != nil {
 		if !col.IsErrNotFound(err) {
 			return err
@@ -136,6 +101,6 @@ func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) 
 }
 
 // StopWorkers stops all workers
-func (env Env) StopWorkers(ctx context.Context) error {
-	return scaleDownWorkers(ctx, env.getKubeClient(), env.namespace)
+func StopWorkers(ctx context.Context, kc kube.Interface, namespace string) error {
+	return scaleDownWorkers(ctx, kc, namespace)
 }

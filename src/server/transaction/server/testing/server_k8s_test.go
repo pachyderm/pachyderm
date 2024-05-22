@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -21,14 +21,14 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	repo := testutil.UniqueString("in")
 	pipeline := testutil.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
-		require.NoError(t, txnClient.CreateProjectPipeline(pfs.DefaultProjectName,
+		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, repo))
+		require.NoError(t, txnClient.CreatePipeline(pfs.DefaultProjectName,
 			pipeline,
 			"",
 			[]string{"bash"},
 			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo)},
 			&pps.ParallelismSpec{Constant: 1},
-			client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/"),
 			"master",
 			false,
 		))
@@ -36,10 +36,10 @@ func TestCreatePipelineTransaction(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("bar")))
 
-	commitInfo, err := c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
@@ -52,7 +52,7 @@ func TestCreateProjectlessPipelineTransaction(t *testing.T) {
 	repo := testutil.UniqueString("in")
 	pipeline := testutil.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
-		require.NoError(t, txnClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
+		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, repo))
 		_, err := txnClient.PpsAPIClient.CreatePipeline(txnClient.Ctx(),
 			&pps.CreatePipelineRequest{
 				Pipeline: &pps.Pipeline{Name: pipeline},
@@ -62,7 +62,7 @@ func TestCreateProjectlessPipelineTransaction(t *testing.T) {
 					Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out", repo)},
 				},
 				ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
-				Input:           client.NewProjectPFSInput(pfs.DefaultProjectName, repo, "/"),
+				Input:           client.NewPFSInput(pfs.DefaultProjectName, repo, "/"),
 				OutputBranch:    "master",
 			})
 		require.NoError(t, err)
@@ -70,10 +70,10 @@ func TestCreateProjectlessPipelineTransaction(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	commit := client.NewProjectCommit(pfs.DefaultProjectName, repo, "master", "")
+	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("bar")))
 
-	commitInfo, err := c.WaitProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 
 	var buf bytes.Buffer

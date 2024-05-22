@@ -1,12 +1,10 @@
-//go:build unit_test
-
 package server
 
 import (
 	"path"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -22,7 +20,7 @@ import (
 func TestInvalidCreatePipeline(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient
 
 	projectName := tu.UniqueString("prj-")
@@ -30,13 +28,13 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	// Set up repo
 	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
-	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
+	require.NoError(t, c.CreateRepo(projectName, dataRepo))
 
 	pipelineName := tu.UniqueString("pipeline")
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 
 	// Create pipeline with input named "out"
-	err = c.CreateProjectPipeline(projectName,
+	err = c.CreatePipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -44,7 +42,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("out", projectName, dataRepo, "", "/*", "", "", false, false, nil),
+		client.NewPFSInputOpts("out", projectName, dataRepo, "", "/*", "", "", false, false, nil),
 		"master",
 		false,
 	)
@@ -52,7 +50,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	require.Matches(t, "out", err.Error())
 
 	// Create pipeline with no glob
-	err = c.CreateProjectPipeline(projectName,
+	err = c.CreatePipeline(projectName,
 		pipelineName,
 		"",
 		cmd,
@@ -60,22 +58,46 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("input", projectName, dataRepo, "", "", "", "", false, false, nil),
+		client.NewPFSInputOpts("input", projectName, dataRepo, "", "", "", "", false, false, nil),
 		"master",
 		false,
 	)
 	require.YesError(t, err)
 	require.Matches(t, "glob", err.Error())
+
+	// Create pipeline with input commit
+	err = c.CreatePipeline(projectName,
+		pipelineName,
+		"",
+		cmd,
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		&pps.Input{
+			Pfs: &pps.PFSInput{
+				Name:    "input",
+				Project: projectName,
+				Repo:    dataRepo,
+				Glob:    "/*",
+				Commit:  "not_supported",
+			},
+		},
+		"master",
+		false,
+	)
+	require.YesError(t, err)
+	require.Matches(t, "input cannot come from a commit", err.Error())
 }
 
 // Make sure that pipeline validation checks that all inputs exist
 func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient
 	pipelineName := tu.UniqueString("pipeline")
-	require.YesError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+	require.YesError(t, c.CreatePipeline(pfs.DefaultProjectName,
 		pipelineName,
 		"",
 		[]string{"bash"},
@@ -83,7 +105,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInputOpts("whatever", pfs.DefaultProjectName, "nonexistent", "", "/*", "", "", false, false, nil),
+		client.NewPFSInputOpts("whatever", pfs.DefaultProjectName, "nonexistent", "", "/*", "", "", false, false, nil),
 		"master",
 		false,
 	))
@@ -93,7 +115,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient
 
 	projectName := tu.UniqueString("prj-")
@@ -101,9 +123,9 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	require.NoError(t, err)
 
 	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
-	require.NoError(t, c.CreateProjectRepo(projectName, dataRepo))
+	require.NoError(t, c.CreateRepo(projectName, dataRepo))
 
-	require.NoError(t, c.CreateProjectPipeline(projectName,
+	require.NoError(t, c.CreatePipeline(projectName,
 		tu.UniqueString("pipeline-hyphen"),
 		"",
 		[]string{"bash"},
@@ -111,12 +133,12 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(projectName, dataRepo, "/*"),
+		client.NewPFSInput(projectName, dataRepo, "/*"),
 		"",
 		false,
 	))
 
-	require.NoError(t, c.CreateProjectPipeline(projectName,
+	require.NoError(t, c.CreatePipeline(projectName,
 		tu.UniqueString("pipeline_underscore"),
 		"",
 		[]string{"bash"},
@@ -124,7 +146,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewProjectPFSInput(projectName, dataRepo, "/*"),
+		client.NewPFSInput(projectName, dataRepo, "/*"),
 		"",
 		false,
 	))

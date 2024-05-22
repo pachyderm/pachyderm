@@ -18,8 +18,13 @@ spec:
       {{- end }}
   template:
     metadata:
-      {{- if .Values.proxy.annotations }}
       annotations:
+        {{- if .Values.proxy.tls.enabled }}
+        checksum/envoy-config: {{ .Files.Get "envoy-tls.json"  | sha256sum }}
+        {{- else }}
+        checksum/envoy-config: {{ .Files.Get "envoy.json"  | sha256sum }}
+        {{- end }}
+      {{- if .Values.proxy.annotations }}
         {{- toYaml .Values.proxy.annotations | nindent 8 }}
       {{- end }}
       labels:
@@ -74,7 +79,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-          image: "{{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}"
+          image: "{{ .Values.global.image.registry }}{{ .Values.proxy.image.repository }}:{{ .Values.proxy.image.tag }}"
           imagePullPolicy: {{ .Values.proxy.image.pullPolicy }}
           ports:
             - name: admin-port
@@ -95,6 +100,8 @@ spec:
               containerPort: 1658
             - name: metrics-direct
               containerPort: 1656
+            - name: archive-direct
+              containerPort: 1659
           readinessProbe:
             httpGet:
               path: /ready

@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	pathpkg "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -18,10 +17,11 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"go.uber.org/zap"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
@@ -34,12 +34,6 @@ const (
 	full                   // we have full content for this file
 	dirty                  // we have full content for this file and the user has written to it
 )
-
-func (l *loopbackRoot) setState(mountName, state string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.stateMap[mountName] = state
-}
 
 func (l *loopbackRoot) getState(mountName string) string {
 	l.mu.Lock()
@@ -117,7 +111,6 @@ func (n *loopbackNode) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.
 }
 
 func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
-
 	st := syscall.Stat_t{}
 	err := syscall.Stat(r.rootPath, &st)
 	if err != nil {
@@ -125,6 +118,10 @@ func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 	}
 	out.FromStat(&st)
 	return fs.OK
+}
+
+func (r *loopbackRoot) getRepoOptionCommit(repoName string) string {
+	return r.repoOpts[repoName].File.Commit.Id
 }
 
 func (n *loopbackNode) root() *loopbackRoot {
@@ -603,45 +600,33 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	// don't download while we're anything other than mounted
 	// TODO: we probably want some more locking/coordination (in the other
 	// direction) to stop the state machine changing state _during_ a download()
-	// NB: empty string case is to support pachctl mount as well as mount-server
+	// NB: empty string case is to support pachctl mount
 	if !(st == "" || st == "mounted") {
-		log.Info(ctx, "Skipping download because of state", zap.String("origPath", origPath), zap.String("name", name), zap.String("state", st), zap.Int32("getFileState(origPath)", int32(n.getFileState(origPath))), zap.Int32("state", int32(state)))
+		log.Info(pctx.TODO(), "Skipping download because of state", zap.String("origPath", origPath), zap.String("name", name), zap.String("state", st), zap.Int32("getFileState(origPath)", int32(n.getFileState(origPath))), zap.Int32("state", int32(state)))
 		// return an error to stop an empty directory listing being cached by
 		// the OS
 		return errors.WithStack(fmt.Errorf("repo at %s is not mounted", name))
 	}
 	branch := n.root().branch(name)
-	commit, err := n.commit(name)
+	commitID, err := n.commit(name)
 	if err != nil {
 		return err
 	}
-	// log the commit
-	log.Info(ctx, "Downloading", zap.String("path", origPath), zap.String("from", fmt.Sprintf("%s@%s", name, commit)))
-	if commit == "" {
+	if commitID == "" {
 		return nil
 	}
+	// log the commit
+	log.Info(pctx.TODO(), "Downloading", zap.String("path", origPath), zap.String("from", fmt.Sprintf("%s@%s", name, commitID)))
 	ro, ok := n.root().repoOpts[name]
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
-	// Define the callback up front because we use it in two paths
+	projectName := ro.File.Commit.Repo.Project.GetName()
+	repoName := ro.File.Commit.Repo.Name
+	commit := client.NewCommit(projectName, repoName, branch, commitID)
+	filePath := filepath.Join(parts[1:]...)
+	// ListFile callback function
 	createFile := func(fi *pfs.FileInfo) (retErr error) {
-		if !strings.HasPrefix(fi.File.Path, ro.File.Path) && !strings.HasPrefix(ro.File.Path, fi.File.Path) {
-			return nil
-		}
-		if skip := func() bool {
-			if len(ro.Subpaths) == 0 {
-				return false
-			}
-			for _, sp := range ro.Subpaths {
-				if strings.HasPrefix(fi.File.Path, sp) || strings.HasPrefix(sp, fi.File.Path) {
-					return false
-				}
-			}
-			return true
-		}(); skip {
-			return nil
-		}
 		if fi.FileType == pfs.FileType_DIR {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
@@ -678,12 +663,41 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 		}
 		return nil
 	}
-	filePath := pathpkg.Join(parts[1:]...)
-	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
-	repoName := ro.File.Commit.Branch.Repo.Name
-	if err := n.c().ListFile(client.NewProjectCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
-		!pfsserver.IsOutputCommitNotFinishedErr(err) {
-		return err
+	// Calling ListFile on a repo with many files at the top level when we only care about a single
+	// file, for example, is very expensive. Hence the below optimizations.
+	// We only create descendants and ancestors of mounted file ro.File
+	// ro.File.Path is the path of a mounted file, filePath is OS requested path
+	// Example: ro.File.Path = /file, filePath = /files <--- DON'T CREATE
+	// Example: ro.File.Path = /file, filePath = /file/path <--- CREATE
+	// Example: ro.File.Path = /dir/file, filePath = /dir <--- CREATE
+	ancestor, intermediates := isGrandparentOf(filePath, ro.File.Path)
+	switch {
+	case ancestor:
+		path := filepath.Join(n.namePath(name), filePath, intermediates)
+		if err := errors.EnsureStack(os.MkdirAll(path, 0777)); err != nil {
+			return err
+		}
+	case isParentOf(filePath, ro.File.Path):
+		fi, err := n.c().InspectFile(commit, ro.File.Path)
+		if err != nil {
+			return err
+		}
+		if fi.FileType == pfs.FileType_DIR {
+			if err := errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777)); err != nil {
+				return err
+			}
+		} else {
+			if err := n.createFiles(commit, ro.File.Path, createFile); err != nil {
+				return err
+			}
+		}
+	case isDescendantOf(filePath, ro.File.Path):
+		if err := n.createFiles(commit, filePath, createFile); err != nil {
+			return err
+		}
+	default:
+		// If a user creates folders in the mount, they will enter a path that fails the
+		// previous cases. In this case, we ignore, since there's nothing to mount.
 	}
 	return nil
 }
@@ -703,7 +717,7 @@ func (n *loopbackNode) branch(name string) string {
 	if branch, ok := n.root().branches[name]; ok {
 		return branch
 	}
-	return "master"
+	return ""
 }
 
 func (n *loopbackNode) commit(name string) (string, error) {
@@ -722,10 +736,17 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		// worth spamming the logs with this
 		return "", nil
 	}
-	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
-	repoName := ro.File.Commit.Branch.Repo.Name
+	projectName := ro.File.Commit.Repo.Project.GetName()
+	repoName := ro.File.Commit.Repo.Name
 	branch := n.root().branch(name)
-	bi, err := n.root().c.InspectProjectBranch(projectName, repoName, branch)
+	if branch == "" {
+		commitId := n.root().getRepoOptionCommit(repoName)
+		if commitId == "" {
+			return "", errors.New("cannot resolve which commit to mount: not found in branch or repoOptions")
+		}
+		return commitId, nil
+	}
+	bi, err := n.root().c.InspectBranch(projectName, repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		return "", err
 	}
@@ -738,8 +759,8 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		n.root().commits[name] = ""
 		return "", nil
 	}
-	n.root().commits[name] = bi.Head.ID
-	return bi.Head.ID, nil
+	n.root().commits[name] = bi.Head.Id
+	return bi.Head.Id, nil
 }
 
 func (n *loopbackNode) namePath(name string) string {
@@ -776,6 +797,14 @@ func (n *loopbackNode) checkWrite(path string) syscall.Errno {
 		return syscall.EROFS
 	}
 	return 0
+}
+
+func (n *loopbackNode) createFiles(commit *pfs.Commit, path string, cb func(fi *pfs.FileInfo) error) error {
+	if err := n.c().ListFile(commit, path, cb); err != nil && !errutil.IsNotFoundError(err) &&
+		!pfsserver.IsOutputCommitNotFinishedErr(err) {
+		return err
+	}
+	return nil
 }
 
 func isWrite(flags uint32) bool {

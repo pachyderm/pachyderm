@@ -133,6 +133,8 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 	// DECIMAL is used by MySQL
 	case
 		"SMALLINT", "INT2", "INTEGER", "INT", "INT4", "BIGINT", "INT8",
+		"UNSIGNED SMALLINT", "UNSIGNED INT2", "UNSIGNED INTEGER", "UNSIGNED INT",
+		"UNSIGNED INT4", "UNSIGNED BIGINT", "UNSIGNED INT8",
 		"FLOAT", "FLOAT4", "FLOAT8", "REAL", "DOUBLE PRECISION",
 		"NUMERIC", "DECIMAL", "NUMBER", "FIXED":
 		if nullable {
@@ -145,7 +147,7 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 		}
 		return new(string), nil
 	// TIMESTAMP means different things in different databases
-	//     - postgres and snowflake doesn't store time zone related info
+	//     - postgres doesn't store time zone related info
 	//     - mysql stores time zone
 	case "DATE", "TIME", "TIMESTAMP", "TIMESTAMP_LTZ", "TIMESTAMP_NTZ", "TIMESTAMP_TZ", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITHOUT TIME ZONE":
 		if nullable {

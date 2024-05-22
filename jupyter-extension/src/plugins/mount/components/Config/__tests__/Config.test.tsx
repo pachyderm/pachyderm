@@ -4,32 +4,32 @@ import {render, waitFor} from '@testing-library/react';
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
 import userEvent from '@testing-library/user-event';
-import {AuthConfig} from 'plugins/mount/types';
+import {AuthConfig, HealthCheck} from 'plugins/mount/types';
 import Config from '../Config';
 jest.mock('../../../../../handler');
 
 describe('config screen', () => {
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
-  let setShowConfig = jest.fn();
   let updateConfig = jest.fn();
+  const healthCheck: HealthCheck = {
+    status: 'HEALTHY_INVALID_CLUSTER',
+  };
   const authConfig: AuthConfig = {
-    cluster_status: 'INVALID',
+    pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
   };
 
   beforeEach(() => {
-    setShowConfig = jest.fn();
     updateConfig = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
   });
 
   describe('INVALID config', () => {
     it('should ask the user to provide a pachd address', () => {
+      const authConfig: AuthConfig = {};
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
-          reposStatus={401}
           updateConfig={updateConfig}
+          healthCheck={healthCheck}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,
@@ -47,23 +47,21 @@ describe('config screen', () => {
 
   describe('AUTH_ENABLED config', () => {
     it('should show authenticated view', async () => {
-      const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
-        pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_LOGGED_IN',
       };
 
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
+          healthCheck={healthCheck}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,
       );
 
-      getByTestId('Config__back');
+      getByTestId('Config__pachdAddress');
+
       expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
@@ -73,17 +71,14 @@ describe('config screen', () => {
     });
 
     it('should show unauthenticated view', () => {
-      const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
-        pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_LOGGED_OUT',
       };
 
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
-          reposStatus={401}
           updateConfig={updateConfig}
+          healthCheck={healthCheck}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,
@@ -98,18 +93,15 @@ describe('config screen', () => {
       expect(queryByTestId('Config__logout')).not.toBeInTheDocument();
     });
 
-    it('should allow user to login', async () => {
-      const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
-        pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+    it('should allow user to logout', async () => {
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_LOGGED_IN',
       };
 
       const {findByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
+          healthCheck={healthCheck}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,
@@ -125,27 +117,46 @@ describe('config screen', () => {
       });
     });
 
-    it('should allow user to logout', async () => {
-      const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
-        pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+    it('logged in should display option to change address', async () => {
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_LOGGED_IN',
+      };
+
+      const {getByTestId} = render(
+        <Config
+          updateConfig={updateConfig}
+          healthCheck={healthCheck}
+          authConfig={authConfig}
+          refresh={jest.fn()}
+        />,
+      );
+
+      await getByTestId('Config__pachdAddressUpdate').click();
+      expect(getByTestId('Config__mountConfigSubheading')).toHaveTextContent(
+        'Update Configuration',
+      );
+      await getByTestId('Config__pachdAddressCancel').click();
+      expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
+        'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      );
+    });
+
+    it('should allow user to login', async () => {
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_LOGGED_OUT',
       };
 
       window.open = jest.fn();
-
+      const loginUrl =
+        'https://hub-c0-jwn7iwcca9.clusters.pachyderm.io/dex/auth?client_id=pachd';
       mockRequestAPI.requestAPI.mockImplementation(
-        mockedRequestAPI({
-          auth_url:
-            'https://hub-c0-jwn7iwcca9.clusters.pachyderm.io/dex/auth?client_id=pachd',
-        }),
+        mockedRequestAPI({loginUrl: loginUrl}),
       );
 
       const {findByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
-          reposStatus={401}
           updateConfig={updateConfig}
+          healthCheck={healthCheck}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,
@@ -160,33 +171,25 @@ describe('config screen', () => {
         );
       });
 
-      expect(window.open).toHaveBeenCalledWith(
-        'https://hub-c0-jwn7iwcca9.clusters.pachyderm.io/dex/auth?client_id=pachd',
-        '',
-        'width=500,height=500,left=262,top=107.2',
-      );
+      expect(window.open).toHaveBeenCalledWith(loginUrl, '', expect.anything());
     });
   });
 
   describe('AUTH_DISABLED config', () => {
     it('should display default view', () => {
-      const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_DISABLED',
-        pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_NO_AUTH',
       };
 
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
+          healthCheck={healthCheck}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,
       );
 
-      getByTestId('Config__back');
       expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
@@ -194,48 +197,99 @@ describe('config screen', () => {
       expect(queryByTestId('Config__login')).not.toBeInTheDocument();
       expect(queryByTestId('Config__logout')).not.toBeInTheDocument();
     });
-  });
 
-  it('should allow user to navigate back to mount screen if get repos is sucessful', () => {
-    const authConfig: AuthConfig = {
-      cluster_status: 'AUTH_ENABLED',
-      pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
-    };
+    it('should display option to change address', async () => {
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_NO_AUTH',
+      };
 
-    const {getByTestId} = render(
-      <Config
-        showConfig={true}
-        setShowConfig={setShowConfig}
-        reposStatus={200}
-        updateConfig={updateConfig}
-        authConfig={authConfig}
-        refresh={jest.fn()}
-      />,
-    );
+      const {getByTestId} = render(
+        <Config
+          updateConfig={updateConfig}
+          healthCheck={healthCheck}
+          authConfig={authConfig}
+          refresh={jest.fn()}
+        />,
+      );
 
-    expect(setShowConfig).not.toHaveBeenCalled();
-    getByTestId('Config__back').click();
-    expect(setShowConfig).toHaveBeenCalledWith(false);
+      await getByTestId('Config__pachdAddressUpdate').click();
+      expect(getByTestId('Config__mountConfigSubheading')).toHaveTextContent(
+        'Update Configuration',
+      );
+      await getByTestId('Config__pachdAddressCancel').click();
+      expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
+        'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      );
+    });
+
+    it('should show address after address is resubmitted', async () => {
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_NO_AUTH',
+      };
+
+      const {getByTestId} = render(
+        <Config
+          updateConfig={updateConfig}
+          healthCheck={healthCheck}
+          authConfig={authConfig}
+          refresh={jest.fn()}
+        />,
+      );
+
+      mockRequestAPI.requestAPI.mockImplementation(
+        mockedRequestAPI({
+          pachd_address:
+            'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+        }),
+      );
+
+      expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
+        'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      );
+      await getByTestId('Config__pachdAddressUpdate').click();
+      expect(getByTestId('Config__mountConfigSubheading')).toHaveTextContent(
+        'Update Configuration',
+      );
+      const input = getByTestId('Config__pachdAddressInput');
+      userEvent.type(
+        input,
+        'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      );
+      getByTestId('Config__pachdAddressSubmit').click();
+
+      await waitFor(() => {
+        expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
+          'config',
+          'PUT',
+          {
+            pachd_address:
+              'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+          },
+        );
+        expect(updateConfig).toHaveBeenCalledTimes(1);
+      });
+      expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
+        'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      );
+    });
   });
 
   describe('pachd address field', () => {
     it('should validate entered address', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'INVALID',
+        pachd_address: '',
       };
 
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
-          cluster_status: 'INVALID',
+          status: 'HEALTHY_INVALID_CLUSTER',
         }),
       );
 
       const {getByTestId, findByText} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
+          healthCheck={healthCheck}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,
@@ -283,14 +337,12 @@ describe('config screen', () => {
     });
 
     it('should allow user to update config', async () => {
-      const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
-        pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_LOGGED_IN',
       };
 
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
-          cluster_status: 'AUTH_ENABLED',
           pachd_address:
             'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
         }),
@@ -298,10 +350,8 @@ describe('config screen', () => {
 
       const {getByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
+          healthCheck={healthCheck}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,
@@ -331,14 +381,12 @@ describe('config screen', () => {
     });
 
     it('should allow user to set advanced config options', async () => {
-      const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
-        pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_LOGGED_IN',
       };
 
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
-          cluster_status: 'AUTH_ENABLED',
           pachd_address:
             'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
         }),
@@ -346,10 +394,8 @@ describe('config screen', () => {
 
       const {getByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
+          healthCheck={healthCheck}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,

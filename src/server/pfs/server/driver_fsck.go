@@ -7,15 +7,16 @@ import (
 	"io"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsutil"
+
+	"google.golang.org/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -125,13 +126,225 @@ func (e ErrCommitAncestryBroken) Error() string {
 		e.Parent, e.Child)
 }
 
-// ErrMissingBranchHead indicates that a branch has a 'nil' head, which should never happen.
-type ErrMissingBranchHead struct {
-	Branch *pfs.Branch
+// ErrBranchCommitProvenanceMismatch occurs when the head commit of one of the parents of the branch is not found in the direct provenance commits of the head of the branch
+type ErrBranchCommitProvenanceMismatch struct {
+	Branch       *pfs.Branch
+	ParentBranch *pfs.Branch
 }
 
-func (e ErrMissingBranchHead) Error() string {
-	return fmt.Sprintf("consistency error: branch %s does not have a head commit", e.Branch)
+func (e ErrBranchCommitProvenanceMismatch) Error() string {
+	return fmt.Sprintf("consistency error: parent branch %s commit is not in direct provenance of head of branch %s", e.ParentBranch, e.Branch)
+}
+
+func checkBranchProvenances(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, onError func(error) error) error {
+	// we expect the branch's provenance to be the same as the provenances of the branch's direct provenances
+	// i.e. followedProvenances(branch, branch.Provenance) = followedProvenances(branch, branch.DirectProvenance, branch.DirectProvenance.Provenance)
+	direct := bi.DirectProvenance
+	followedProvenances := []*pfs.Branch{bi.Branch}
+
+	for _, directProvenance := range direct {
+		directProvenanceInfo := branchInfos[pfsdb.BranchKey(directProvenance)]
+		if directProvenanceInfo == nil {
+			if err := onError(ErrBranchInfoNotFound{Branch: directProvenance}); err != nil {
+				return err
+			}
+			continue
+		}
+		followedProvenances = append(followedProvenances, directProvenance)
+		followedProvenances = append(followedProvenances, directProvenanceInfo.Provenance...)
+	}
+
+	if !equalBranches(append(bi.Provenance, bi.Branch), followedProvenances) {
+		if err := onError(ErrBranchProvenanceTransitivity{
+			BranchInfo:     bi,
+			FullProvenance: followedProvenances,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func checkBranchSubvenances(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, onError func(error) error) error {
+	for _, provBranch := range bi.Provenance {
+		provBranchInfo := branchInfos[pfsdb.BranchKey(provBranch)]
+		if !branchInSet(bi.Branch, provBranchInfo.Subvenance) {
+			if err := onError(ErrBranchSubvenanceTransitivity{
+				BranchInfo:        provBranchInfo,
+				MissingSubvenance: bi.Branch,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func checkBranchCommitProvenance(bi *pfs.BranchInfo, branchInfos map[string]*pfs.BranchInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+	// build set of all commits in branch head direct provenance
+	headProvenance := make(map[string]bool)
+	headCI, ok := commitInfos[pfsdb.CommitKey(bi.Head)]
+	if !ok {
+		return onError(ErrCommitInfoNotFound{
+			Location: fmt.Sprintf("head commit of %s", bi.Branch),
+			Commit:   bi.Head,
+		})
+	}
+	for _, provCommit := range headCI.DirectProvenance {
+		headProvenance[pfsdb.CommitKey(provCommit)] = true
+	}
+
+	// confirm head of each direct provenant branch is included in the commits of the branch head direct provenance
+	for _, provBranch := range bi.DirectProvenance {
+		provBranchInfo, ok := branchInfos[pfsdb.BranchKey(provBranch)]
+		if !ok {
+			if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, ok := headProvenance[pfsdb.CommitKey(provBranchInfo.Head)]; !ok {
+			if err := onError(ErrBranchCommitProvenanceMismatch{
+				Branch:       bi.Branch,
+				ParentBranch: provBranch,
+			}); err != nil {
+				return err
+			}
+			continue
+		}
+
+	}
+	return nil
+}
+
+func fsckBranches(branchInfos map[string]*pfs.BranchInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+	// for each branch
+	for _, bi := range branchInfos {
+
+		if err := checkBranchProvenances(bi, branchInfos, onError); err != nil {
+			return err
+		}
+
+		// every provenant branch should have this branch in its subvenance
+		if err := checkBranchSubvenances(bi, branchInfos, onError); err != nil {
+			return err
+		}
+
+		if err := checkBranchCommitProvenance(bi, branchInfos, commitInfos, onError); err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+func checkParentCommit(commitInfo *pfs.CommitInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+	if commitInfo.ParentCommit != nil {
+		parentCommitInfo, ok := commitInfos[pfsdb.CommitKey(commitInfo.ParentCommit)]
+		if !ok {
+			if err := onError(ErrCommitInfoNotFound{
+				Location: fmt.Sprintf("parent commit of %s", commitInfo.Commit),
+				Commit:   commitInfo.ParentCommit,
+			}); err != nil {
+				return err
+			}
+		} else {
+			found := false
+			for _, child := range parentCommitInfo.ChildCommits {
+				if proto.Equal(child, commitInfo.Commit) {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				if err := onError(ErrCommitAncestryBroken{
+					Parent: parentCommitInfo.Commit,
+					Child:  commitInfo.Commit,
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func checkChildCommits(commitInfo *pfs.CommitInfo, commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+	for _, child := range commitInfo.ChildCommits {
+		childCommitInfo, ok := commitInfos[pfsdb.CommitKey(child)]
+
+		if !ok {
+			if err := onError(ErrCommitInfoNotFound{
+				Location: fmt.Sprintf("child commit of %s", commitInfo.Commit),
+				Commit:   child,
+			}); err != nil {
+				return err
+			}
+		} else {
+			if childCommitInfo.ParentCommit == nil || !proto.Equal(childCommitInfo.ParentCommit, commitInfo.Commit) {
+				if err := onError(ErrCommitAncestryBroken{
+					Parent: commitInfo.Commit,
+					Child:  childCommitInfo.Commit,
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func fsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) error) error {
+	// For every commit
+	for _, commitInfo := range commitInfos {
+		// Every parent commit info should exist and point to this as a child
+		if err := checkParentCommit(commitInfo, commitInfos, onError); err != nil {
+			return err
+		}
+
+		// Every child commit info should exist and point to this as their parent
+		if err := checkChildCommits(commitInfo, commitInfos, onError); err != nil {
+			return err
+		}
+
+	}
+
+	return nil
+}
+
+func (d *driver) listReferencedCommits(tx *pachsql.Tx) (map[string]*pfs.Commit, error) {
+	cs := make(map[string]*pfs.Commit)
+	var ids []string
+	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
+		return nil, errors.Wrap(err, "select commit ids from pfs.commit_totals")
+	}
+	for _, id := range ids {
+		cs[id] = pfsdb.ParseCommit(id)
+	}
+	ids = make([]string, 0)
+	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_diffs`); err != nil {
+		return nil, errors.Wrap(err, "select commit ids from pfs.commit_diffs")
+	}
+	for _, id := range ids {
+		cs[id] = pfsdb.ParseCommit(id)
+	}
+	return cs, nil
+}
+
+func fsckDanglingCommits(ris map[string]*pfs.RepoInfo, cs map[string]*pfs.Commit) []*pfs.Commit {
+	var danglingCommits []*pfs.Commit
+	for _, c := range cs {
+		if _, ok := ris[pfsdb.RepoKey(c.Repo)]; !ok {
+			danglingCommits = append(danglingCommits, c)
+		}
+	}
+	return danglingCommits
 }
 
 // fsck verifies that pfs satisfies the following invariants:
@@ -147,162 +360,63 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	// collect all the info for the branches and commits in pfs
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
-	newCommitInfos := make(map[string]*pfs.CommitInfo)
-	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadOnly(ctx).List(repoInfo, col.DefaultOptions(), func(string) error {
-		commitInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadOnly(ctx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repoInfo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
-			commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
-			return nil
-		}); err != nil {
-			return errors.EnsureStack(err)
-		}
-		branchInfo := &pfs.BranchInfo{}
-		err := d.branches.ReadOnly(ctx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repoInfo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
-			branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+	repoInfos := make(map[string]*pfs.RepoInfo)
+	referencedCommits := make(map[string]*pfs.Commit)
+	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		err := pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+			repoInfos[repoWithID.RepoInfo.Repo.Key()] = repoWithID.RepoInfo
 			return nil
 		})
-		return errors.EnsureStack(err)
-	}); err != nil {
-		return errors.EnsureStack(err)
+		return errors.Wrap(err, "list repo iterator")
+	}, dbutil.WithReadOnly()); err != nil {
+		return errors.Wrap(err, "fsck: repos")
 	}
-
-	// for each branch
-	for _, bi := range branchInfos {
-		// we expect the branch's provenance to equal the union of the provenances of the branch's direct provenances
-		// i.e. union(branch, branch.Provenance) = union(branch, branch.DirectProvenance, branch.DirectProvenance.Provenance)
-		direct := bi.DirectProvenance
-		union := []*pfs.Branch{bi.Branch}
-		for _, directProvenance := range direct {
-			directProvenanceInfo := branchInfos[pfsdb.BranchKey(directProvenance)]
-			union = append(union, directProvenance)
-			if directProvenanceInfo != nil {
-				union = append(union, directProvenanceInfo.Provenance...)
+	for _, repo := range repoInfos {
+		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+			commits, err := pfsdb.ListCommitTxByFilter(ctx, tx, &pfs.Commit{Repo: repo.Repo})
+			if err != nil {
+				return errors.Wrap(err, "get commits by commits repo index")
 			}
-		}
-
-		if !equalBranches(append(bi.Provenance, bi.Branch), union) {
-			if err := onError(ErrBranchProvenanceTransitivity{
-				BranchInfo:     bi,
-				FullProvenance: union,
-			}); err != nil {
-				return err
+			for _, commitInfo := range commits {
+				commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = commitInfo
 			}
-		}
-
-		// every provenant branch should have this branch in its subvenance
-		for _, provBranch := range bi.Provenance {
-			provBranchInfo := branchInfos[pfsdb.BranchKey(provBranch)]
-			if !branchInSet(bi.Branch, provBranchInfo.Subvenance) {
-				if err := onError(ErrBranchSubvenanceTransitivity{
-					BranchInfo:        provBranchInfo,
-					MissingSubvenance: bi.Branch,
-				}); err != nil {
-					return err
-				}
-			}
-		}
-
-		if bi.Head == nil {
-			if err := onError(ErrMissingBranchHead{
-				Branch: bi.Branch,
-			}); err != nil {
-				return err
-			}
-		} else {
-			// we expect the branch's provenance to equal the HEAD commit's provenance
-			// i.e branch.Provenance contains the branch provBranch and
-			// provBranch.Head != nil implies branch.Head.Provenance contains
-			// provBranch.Head
-			for _, provBranch := range bi.Provenance {
-				provBranchInfo, ok := branchInfos[pfsdb.BranchKey(provBranch)]
-				if !ok {
-					if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
-						return err
-					}
-					continue
-				}
-				if provBranchInfo.Head != nil {
-					// in this case, the headCommit Provenance should contain provBranch.Head
-					if _, ok := commitInfos[pfsdb.CommitKey(bi.Head)]; !ok {
-						if err := onError(ErrCommitInfoNotFound{
-							Location: "head commit provenance (=>)",
-							Commit:   bi.Head,
-						}); err != nil {
-							return err
-						}
-					}
-				}
-			}
+			return errors.Wrap(pfsdb.ForEachBranch(ctx, tx, &pfs.Branch{Repo: repo.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+				branchInfos[pfsdb.BranchKey(branchInfoWithID.Branch)] = branchInfoWithID.BranchInfo
+				return nil
+			}), "delete repo info")
+		}, dbutil.WithReadOnly()); err != nil {
+			return errors.Wrap(err, "for each repo")
 		}
 	}
-
-	// For every commit
-	for _, commitInfo := range commitInfos {
-		// Every parent commit info should exist and point to this as a child
-		if commitInfo.ParentCommit != nil {
-			parentCommitInfo, ok := commitInfos[pfsdb.CommitKey(commitInfo.ParentCommit)]
-			if !ok {
-				if err := onError(ErrCommitInfoNotFound{
-					Location: fmt.Sprintf("parent commit of %s", commitInfo.Commit),
-					Commit:   commitInfo.ParentCommit,
-				}); err != nil {
-					return err
-				}
-			} else {
-				found := false
-				for _, child := range parentCommitInfo.ChildCommits {
-					if proto.Equal(child, commitInfo.Commit) {
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					if err := onError(ErrCommitAncestryBroken{
-						Parent: parentCommitInfo.Commit,
-						Child:  commitInfo.Commit,
-					}); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		// Every child commit info should exist and point to this as their parent
-		for _, child := range commitInfo.ChildCommits {
-			childCommitInfo, ok := commitInfos[pfsdb.CommitKey(child)]
-
-			if !ok {
-				if err := onError(ErrCommitInfoNotFound{
-					Location: fmt.Sprintf("child commit of %s", commitInfo.Commit),
-					Commit:   child,
-				}); err != nil {
-					return err
-				}
-			} else {
-				if childCommitInfo.ParentCommit == nil || !proto.Equal(childCommitInfo.ParentCommit, commitInfo.Commit) {
-					if err := onError(ErrCommitAncestryBroken{
-						Parent: commitInfo.Commit,
-						Child:  childCommitInfo.Commit,
-					}); err != nil {
-						return err
-					}
-				}
-			}
-		}
+	if err := fsckBranches(branchInfos, commitInfos, onError); err != nil {
+		return errors.Wrap(err, "branches")
 	}
-
-	// TODO(global ids): is there any verification we can do for commitsets?
-
+	if err := fsckCommits(commitInfos, onError); err != nil {
+		return errors.Wrap(err, "commits")
+	}
+	var err error
+	if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		referencedCommits, err = d.listReferencedCommits(tx)
+		return errors.Wrap(err, "list referenced commits")
+	}, dbutil.WithReadOnly()); err != nil {
+		return err
+	}
+	dangCs := fsckDanglingCommits(repoInfos, referencedCommits)
+	if !fix && len(dangCs) > 0 {
+		var keys []string
+		for _, dc := range dangCs {
+			keys = append(keys, pfsdb.CommitKey(dc))
+		}
+		return errors.Errorf("commits with dangling references: %v", keys)
+	}
 	if fix {
-		return dbutil.WithTx(ctx, d.env.DB, func(sqlTx *pachsql.Tx) error {
-			for _, ci := range newCommitInfos {
-				// We've observed users getting ErrExists from this create,
-				// which doesn't make a lot of sense, but we insulate against
-				// it anyways so it doesn't prevent the command from working.
-				if err := d.commits.ReadWrite(sqlTx).Create(ci.Commit, ci); err != nil && !col.IsErrExists(err) {
-					return errors.EnsureStack(err)
+		return dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+			for _, dc := range dangCs {
+				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
+					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", pfsdb.CommitKey(dc))
+				}
+				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
+					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_diffs", pfsdb.CommitKey(dc))
 				}
 			}
 			return nil
@@ -358,15 +472,15 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		return err
 	}
 	// now merge with the meta commit to look for extra datums in the output commit
-	return d.storage.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
+	return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
 		if err := r.Add(ctx, *id); err != nil {
 			return err
 		}
-		datumsFS, err := d.storage.Open(ctx, []fileset.ID{*id})
+		datumsFS, err := d.storage.Filesets.Open(ctx, []fileset.ID{*id})
 		if err != nil {
 			return err
 		}
-		_, metaFS, err := d.openCommit(ctx, ppsutil.MetaCommit(outputCommit))
+		_, metaFS, err := d.openCommit(ctx, pfsutil.MetaCommit(outputCommit))
 		if err != nil {
 			return err
 		}

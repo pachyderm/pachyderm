@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -101,7 +101,7 @@ func newDexWeb(env Env, apiServer identity.APIServer, options ...IdentityServerO
 
 // stopWebServer must be called while holding the write mutex
 func (w *dexWeb) stopWebServer() {
-	ctx := pctx.Background("dexWeb")
+	ctx := pctx.Child(w.env.BackgroundContext, "dex")
 	log.Info(ctx, "stopping identity web server")
 	// Stop the background jobs for the existing server
 	if w.serverCancel != nil {
@@ -123,7 +123,7 @@ func (w *dexWeb) serverNeedsRestart(config *identity.IdentityServerConfig, conne
 
 // startWebServer starts a new web server with the appropriate configuration and connectors.
 func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connectors *identity.ListIDPConnectorsResponse) (*dex_server.Server, error) {
-	ctx := pctx.Background("dexWeb")
+	ctx := pctx.Child(w.env.BackgroundContext, "dex")
 	w.Lock()
 	defer w.Unlock()
 
@@ -185,7 +185,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 		Logger:             log.NewLogrus(ctx),
 	}
 
-	ctx, w.serverCancel = context.WithCancel(ctx)
+	ctx, w.serverCancel = pctx.WithCancel(ctx)
 	w.server, err = dex_server.NewServer(ctx, serverConfig)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -239,7 +239,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		if err := dbutil.WithTx(r.Context(), w.env.DB, func(tx *pachsql.Tx) error {
+		if err := dbutil.WithTx(r.Context(), w.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 			err := addUserInTx(r.Context(), tx, authReq.Claims.Email)
 			return errors.Wrapf(err, "unable to record user identity for login")
 		}); err != nil {
@@ -248,7 +248,6 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			log.Error(ctx, "error while adding user in tx", zap.Error(err))
 			return
 		}
-
 		server.ServeHTTP(rw, r)
 	}
 }
@@ -265,6 +264,7 @@ func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/approval", w.interceptApproval(server))
+	mux.HandleFunc("/dex/token", w.idTokenHandler(server))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			fmt.Fprintf(w, "200 OK")

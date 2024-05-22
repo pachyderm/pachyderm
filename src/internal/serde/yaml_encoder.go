@@ -1,7 +1,7 @@
 // yaml_encoder.go is the reverse of decoder.go. It applies the same steps in
 // the opposite order:
 //  1. Serialize structs to JSON using encoding/json or, in the case of
-//     protobufs, using Google's 'jsonpb' library
+//     protobufs, using Google's 'protojson' library
 //  2. Deserialize that text into a generic interface{}
 //  3. Serialize that interface using gopkg.in/yaml.v3
 //
@@ -18,9 +18,9 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	"gopkg.in/yaml.v3"
 )
 
@@ -78,15 +78,16 @@ func (e *YAMLEncoder) EncodeProto(v proto.Message) error {
 // EncodeProtoTransform implements the corresponding method of serde.Encoder
 func (e *YAMLEncoder) EncodeProtoTransform(v proto.Message, f func(map[string]interface{}) error) error {
 	// Encode to JSON first
-	var buf bytes.Buffer
-	m := jsonpb.Marshaler{
-		OrigName: e.origName,
+	m := protojson.MarshalOptions{
+		AllowPartial:  true,
+		UseProtoNames: e.origName,
 	}
-	if err := m.Marshal(&buf, v); err != nil {
+	result, err := m.Marshal(v)
+	if err != nil {
 		return errors.Wrapf(err, "serialization error while canonicalizing output")
 	}
 
-	return e.jsonToYAMLTransform(buf.Bytes(), f)
+	return e.jsonToYAMLTransform(result, f)
 }
 
 func (e *YAMLEncoder) jsonToYAMLTransform(intermediateJSON []byte,

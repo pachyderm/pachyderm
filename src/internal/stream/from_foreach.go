@@ -45,7 +45,7 @@ func (i *forEach[T]) Next(ctx context.Context, dst *T) error {
 	select {
 	case data, more := <-i.dataChan:
 		if !more {
-			return EOS
+			return EOS()
 		}
 		i.copy(dst, &data)
 		return nil

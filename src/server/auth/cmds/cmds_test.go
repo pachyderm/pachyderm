@@ -5,16 +5,19 @@ package cmds
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -117,20 +120,38 @@ func TestLogin(t *testing.T) {
 	// Configure OIDC login
 	require.NoError(t, tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser), false))
 
-	cmd := tu.PachctlBashCmd(t, c, "pachctl auth login --no-browser")
-	out, err := cmd.StdoutPipe()
-	require.NoError(t, err)
-
-	c = tu.UnauthenticatedPachClient(t, c)
-	require.NoError(t, cmd.Start())
-	sc := bufio.NewScanner(out)
-	for sc.Scan() {
-		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
-			tu.DoOAuthExchange(t, c, c, sc.Text())
-			break
+	require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
+		ctx, done := context.WithTimeout(pctx.Background("auth.login"), 30*time.Second)
+		defer done()
+		cmd := tu.PachctlBashCmdCtx(ctx, t, c, "echo '' | pachctl auth use-auth-token && pachctl auth login --no-browser")
+		out, err := cmd.StdoutPipe()
+		if err != nil {
+			return errors.Wrap(err, "StdoutPipe")
 		}
-	}
-	require.NoError(t, cmd.Wait())
+		var buf bytes.Buffer
+		cmd.Stderr = &buf
+
+		c = tu.UnauthenticatedPachClient(t, c)
+		if err := cmd.Start(); err != nil {
+			return errors.Wrap(err, "cmd.Start")
+		}
+		sc := bufio.NewScanner(out)
+		for sc.Scan() {
+			if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
+				url := sc.Text()
+				t.Logf("doing OAuth exchange against %v", url)
+				if err := tu.DoOAuthExchangeOnce(t, c, c, url); err != nil {
+					return errors.Wrap(err, "DoOAuthExchangeOnce")
+				}
+				break
+			}
+		}
+		if err := cmd.Wait(); err != nil {
+			return errors.Wrap(err, "cmd.Wait")
+		}
+		require.False(t, strings.Contains(buf.String(), "Could not inspect"), "does not inspect project when auth is enabled and no credentials are provided")
+		return nil
+	}, time.Second, "should pachctl auth login")
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,
@@ -157,6 +178,30 @@ func TestLoginIDToken(t *testing.T) {
 	).Run())
 }
 
+func TestIDTokenFromEnv(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	c = tu.AuthenticateClient(t, c, auth.RootUser)
+	// Configure OIDC login
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, false))
+	// Get an ID token for a trusted peer app
+	token := tu.GetOIDCTokenForTrustedApp(t, c, false)
+	require.YesError(t, tu.PachctlBashCmd(t, c, `
+                echo "" | pachctl auth use-auth-token;
+		pachctl auth whoami`,
+	).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+                echo "" | pachctl auth use-auth-token;
+                export DEX_TOKEN={{.token}};
+                pachctl auth whoami | match user:{{.user}}`,
+		"user", tu.DexMockConnectorEmail,
+		"token", token,
+	).Run())
+}
+
 func TestWhoAmI(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -170,44 +215,74 @@ func TestWhoAmI(t *testing.T) {
 	).Run())
 }
 
+// TestCheckGetSetRepo tests 3 pachctl auth subcommands: check, get, and set, on repos.
+// Test both modes of `check repo`: 1) check caller's own permissions 2) check another user's permissions.
 func TestCheckGetSetRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
+
+	// alice sets up their own project and repos so that they can run the appropriate auth commands below.
 	alice, bob := tu.UniqueString("robot:alice"), tu.UniqueString("robot:bob")
-	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
+	loginAsUser(t, c, alice)
+	project, repo := tu.UniqueString("project"), tu.UniqueString("repo")
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create project {{.project}}`, "project", project).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo --project {{.project}} {{.repo}}`, "project", pfs.DefaultProjectName, "repo", repo).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo --project {{.project}} {{.repo}}`, "project", project, "repo", repo).Run())
 
-	loginAsUser(t, c, auth.RootUser)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create project nonDefault`).Run())
-
-	for _, project := range []string{pfs.DefaultProjectName, "nonDefault"} {
-		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl config update context --project {{.project}}`, "project", project).Run())
-
-		// Alice creates a repo, and manages its permissions
-		repo := tu.UniqueString("repo")
-		loginAsUser(t, c, alice)
-		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl create repo {{.repo}}`, "repo", repo).Run())
-
-		// Test pachctl auth check
-		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} | match repoOwner`, "repo", repo).Run())
-
-		// Test pachctl auth get
-		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth get repo {{.repo}} | match {{.alice}}`, "repo", repo, "alice", alice).Run())
-
-		// Alice grants Bob repoReader role
-		require.NoError(t, tu.PachctlBashCmd(t, c, `
-			pachctl auth set repo {{.repo}} repoReader {{.bob}}
-			pachctl auth get repo {{.repo}} | match "{{.bob}}: \[repoReader\]"
-		`,
-			"bob", bob,
+	// alice can check, get, and set permissions wrt their own repo
+	// but they can't check other users' permissions because they lack CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL
+	for _, project := range []string{pfs.DefaultProjectName, project} {
+		require.NoError(t, tu.PachctlBashCmd(t, c, `cat $PACH_CONFIG >/tmp/bazquux`,
+			"project", project,
 			"repo", repo,
 		).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+pachctl auth check repo {{.repo}} --project {{.project}} | match repoOwner
+pachctl auth check repo {{.repo}} --project {{.project}} >/tmp/bim 2>&1`,
+			"project", project,
+			"repo", repo,
+		).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth get repo {{.repo}} --project {{.project}} >/tmp/foobar 2>&1`,
+			"project", project,
+			"repo", repo,
+			"alice", alice).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.alice}}: \[repoOwner\]"`,
+			"project", project,
+			"repo", repo,
+			"alice", alice,
+		).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth set repo {{.repo}} repoReader {{.bob}} --project {{.project}}`,
+			"project", project,
+			"repo", repo,
+			"bob", bob,
+		).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.bob}}: \[repoReader\]"`,
+			"project", project,
+			"repo", repo,
+			"bob", bob,
+		).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+			pachctl auth check repo {{.repo}} --project {{.project}} | match repoOwner
+			pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.alice}}: \[repoOwner\]"
+			pachctl auth set repo {{.repo}} repoReader {{.bob}} --project {{.project}}
+			pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.bob}}: \[repoReader\]"
+			`,
+			"project", project,
+			"repo", repo,
+			"alice", alice,
+			"bob", bob,
+		).Run())
 
-		// Root user checks everyone's permissions
-		loginAsUser(t, c, auth.RootUser)
-		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.alice}} | match repoOwner`, "repo", repo, "alice", alice).Run())
-		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.bob}} | match repoReader`, "repo", repo, "bob", bob).Run())
+		require.YesError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}}`, "project", project, "repo", repo, "user", alice).Run())
+	}
+
+	// root user can check everyone's role bindings because they have CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL
+	loginAsUser(t, c, auth.RootUser)
+	for _, project := range []string{pfs.DefaultProjectName, project} {
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}} | match repoOwner`, "project", project, "repo", repo, "user", alice).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}} | match repoReader`, "project", project, "repo", repo, "user", bob).Run())
 	}
 }
 
@@ -223,7 +298,7 @@ func TestCheckGetSetProject(t *testing.T) {
 		pachctl auth get project {{.project}} | match projectOwner
 		pachctl auth set project {{.project}} repoReader,projectOwner pach:root
 		pachctl auth get project {{.project}} | match projectOwner | match repoReader
-	
+
 		pachctl auth get robot-auth-token {{.alice}}
 		pachctl auth check project {{.project}} {{.alice}} | match "Roles: \[\]"
 		pachctl auth set project {{.project}} projectOwner {{.alice}}

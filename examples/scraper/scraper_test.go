@@ -12,6 +12,7 @@ import (
 )
 
 func TestScraper(t *testing.T) {
+	t.Skip("1.4 example not updated for minikubetestenv")
 	require.NoError(t, exec.Command("pachctl", "create", "repo", "urls").Run())
 	require.NoError(t, exec.Command("pachctl", "start", "commit", "urls@master").Run())
 	putFileCmd := exec.Command("pachctl", "put", "file", "urls@master:urls")

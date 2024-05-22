@@ -1,0 +1,42 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DeletePipelinesRequest",
+    "definitions": {
+        "DeletePipelinesRequest": {
+            "properties": {
+                "projects": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Project"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "All pipelines in each project will be deleted if the caller has permission."
+                },
+                "force": {
+                    "type": "boolean"
+                },
+                "keepRepo": {
+                    "type": "boolean"
+                },
+                "all": {
+                    "type": "boolean",
+                    "description": "If set, all pipelines in all projects will be deleted if the caller has permission."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete Pipelines Request",
+            "description": "Delete more than one pipeline."
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        }
+    }
+}

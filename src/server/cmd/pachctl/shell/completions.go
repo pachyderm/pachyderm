@@ -8,15 +8,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pps_pretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	prompt "github.com/c-bata/go-prompt"
 	units "github.com/docker/go-units"
@@ -54,7 +55,7 @@ var (
 
 func getPachClient() *client.APIClient {
 	pachClientOnce.Do(func() {
-		c, err := client.NewOnUserMachine("user-completion")
+		c, err := client.NewOnUserMachine(pctx.TODO(), "user-completion")
 		if err != nil {
 			Fatal(err)
 		}
@@ -101,7 +102,7 @@ func ProjectBranchCompletion(project, flag, text string, maxCompletions int64) (
 		client, err := c.PfsAPIClient.ListBranch(
 			c.Ctx(),
 			&pfs.ListBranchRequest{
-				Repo: partialFile.Commit.Branch.Repo,
+				Repo: partialFile.Commit.Repo,
 			},
 		)
 		if err != nil {
@@ -110,10 +111,10 @@ func ProjectBranchCompletion(project, flag, text string, maxCompletions int64) (
 		if err := grpcutil.ForEach[*pfs.BranchInfo](client, func(bi *pfs.BranchInfo) error {
 			head := "-"
 			if bi.Head != nil {
-				head = bi.Head.ID
+				head = bi.Head.Id
 			}
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Branch.Repo, bi.Branch.Name),
+				Text:        fmt.Sprintf("%s@%s:", partialFile.Commit.Repo, bi.Branch.Name),
 				Description: fmt.Sprintf("(%s)", head),
 			})
 			return nil
@@ -123,7 +124,7 @@ func ProjectBranchCompletion(project, flag, text string, maxCompletions int64) (
 		if len(result) == 0 {
 			// Master should show up even if it doesn't exist yet
 			result = append(result, prompt.Suggest{
-				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Branch.Repo),
+				Text:        fmt.Sprintf("%s@master", partialFile.Commit.Repo),
 				Description: "(nil)",
 			})
 		}
@@ -185,7 +186,7 @@ func ProjectFileCompletion(project, flag, text string, maxCompletions int64) ([]
 				return errutil.ErrBreak
 			}
 			result = append(result, prompt.Suggest{
-				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Branch.Repo, partialFile.Commit.ID, fi.File.Path),
+				Text: fmt.Sprintf("%s@%s:%s", partialFile.Commit.Repo, partialFile.Commit.Id, fi.File.Path),
 			})
 			return nil
 		}); err != nil {
@@ -226,7 +227,7 @@ func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Sugges
 // PipelineCompletion completes pipeline parameters of the form <pipeline>
 func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	client, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{Details: true})
+	client, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{})
 	if err != nil {
 		return nil, CacheNone
 	}
@@ -245,8 +246,8 @@ func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, Ca
 
 func jobSetDesc(jsi *pps.JobSetInfo) string {
 	failure := 0
-	var created *types.Timestamp
-	var modified *types.Timestamp
+	var created *timestamppb.Timestamp
+	var modified *timestamppb.Timestamp
 	for _, job := range jsi.Jobs {
 		if job.State != pps.JobState_JOB_SUCCESS && pps.IsTerminal(job.State) {
 			failure++
@@ -256,10 +257,10 @@ func jobSetDesc(jsi *pps.JobSetInfo) string {
 			created = job.Created
 			modified = job.Created
 		} else {
-			if job.Created.Compare(created) < 0 {
+			if job.Created.AsTime().Before(created.AsTime()) {
 				created = job.Created
 			}
-			if job.Created.Compare(modified) > 0 {
+			if job.Created.AsTime().After(modified.AsTime()) {
 				modified = job.Created
 			}
 		}
@@ -277,7 +278,7 @@ func JobSetCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, C
 	}
 	if err := grpcutil.ForEach[*pps.JobSetInfo](listJobSetClient, func(jsi *pps.JobSetInfo) error {
 		result = append(result, prompt.Suggest{
-			Text:        jsi.JobSet.ID,
+			Text:        jsi.JobSet.Id,
 			Description: jobSetDesc(jsi),
 		})
 		return nil
@@ -301,14 +302,14 @@ func jobDesc(ji *pps.JobInfo) string {
 func JobCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest
-	if err := c.ListProjectJobF("", "", nil, 0, false, func(ji *pps.JobInfo) error {
+	if err := c.ListJobF("", "", nil, 0, false, func(ji *pps.JobInfo) error {
 		if maxCompletions > 0 {
 			maxCompletions--
 		} else {
 			return errutil.ErrBreak
 		}
 		result = append(result, prompt.Suggest{
-			Text:        ji.Job.ID,
+			Text:        ji.Job.Id,
 			Description: jobDesc(ji),
 		})
 		return nil

@@ -50,7 +50,7 @@ parameters:
     default: ""
   go-version:
     type: string
-    default: "1.19"
+    default: "1.22.3"
 # our defined job, and its steps
 jobs:
   setup:
@@ -203,9 +203,12 @@ workflows:
           # 3-column, whitespace-delimited mapping. One mapping per
           # line:
           # <regex path-to-test> <parameter-to-set> <value-of-pipeline-parameter>
+          # Note: The regex is prepended with ^ and appended with $ by the orb
           mapping: |
-            jupyter-extension/.* run-jupyter-jobs true
-            src/.* run-core-jobs true
+            ([^/]+|(.github|.circleci|src|etc|examples|goreleaser|licenses|dex-assets)/.*) run-core-jobs true
+            ((.circleci|jupyter-extension)/.*) run-jupyter-jobs true
+            ((.circleci|python-sdk)/.*) run-python-sdk-jobs true
+            ((.circleci|label-studio)/.*) run-label-studio-jobs true
           base-revision: master # NOTE: This should be updated to reflect the base branch (ie. master, 2.3.x)
           config-path: .circleci/main.yml
       - setup: # Only run setup on tags, otherwise use path filtering
@@ -242,8 +245,6 @@ workflows:
           matrix:
             parameters:
               version:
-                - v2.0.0
-                - v2.3.9
-                - v2.4.0
-                - v2.5.0-alpha.4
+                - v2.4.6
+                - v2.5.1
                 - latest

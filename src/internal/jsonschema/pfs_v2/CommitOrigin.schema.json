@@ -1,0 +1,24 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CommitOrigin",
+    "definitions": {
+        "CommitOrigin": {
+            "properties": {
+                "kind": {
+                    "enum": [
+                        "ORIGIN_KIND_UNKNOWN",
+                        "USER",
+                        "AUTO",
+                        "FSCK"
+                    ],
+                    "type": "string",
+                    "title": "Origin Kind",
+                    "description": "These are the different places where a commit may be originated from"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Commit Origin"
+        }
+    }
+}

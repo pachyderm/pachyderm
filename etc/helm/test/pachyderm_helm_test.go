@@ -11,6 +11,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"fmt"
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/instrumenta/kubeval/kubeval"
@@ -18,6 +19,10 @@ import (
 
 // NB: This file is our oldest tests and probably shouldn't be used
 // as an example for new tests
+
+var (
+	globalImageRegistry = "docker.io/"
+)
 
 func TestConsoleImageAndConfigTag(t *testing.T) {
 
@@ -32,7 +37,9 @@ func TestConsoleImageAndConfigTag(t *testing.T) {
 			"oidc.issuerURI":                  expectedIssuerURI,
 			"console.config.oauthRedirectURI": expectedOauthRedirectURI,
 			"deployTarget":                    "GOOGLE",
+			"pachd.storage.storageURL":        "gs://bucuket",
 			"pachd.storage.google.bucket":     "bucket",
+			"global.image.registry":           globalImageRegistry,
 		},
 	}
 
@@ -41,7 +48,7 @@ func TestConsoleImageAndConfigTag(t *testing.T) {
 	var deployment appsv1.Deployment
 	helm.UnmarshalK8SYaml(t, output, &deployment)
 
-	expectedContainerImage := "pachyderm/haberdashery:abc123"
+	expectedContainerImage := fmt.Sprintf("%spachyderm/haberdashery:abc123", options.SetValues["global.image.registry"])
 	deploymentContainers := deployment.Spec.Template.Spec.Containers
 	if deploymentContainers[0].Image != expectedContainerImage {
 		t.Fatalf("Rendered container image (%s) is not expected (%s)", deploymentContainers[0].Image, expectedContainerImage)
@@ -75,7 +82,9 @@ func TestEtcdImageTag(t *testing.T) {
 		SetValues: map[string]string{
 			"etcd.image.tag":              "blah",
 			"deployTarget":                "GOOGLE",
+			"pachd.storage.storageURL":    "gs://bucket",
 			"pachd.storage.google.bucket": "bucket",
+			"global.image.registry":       globalImageRegistry,
 		},
 	}
 
@@ -84,7 +93,7 @@ func TestEtcdImageTag(t *testing.T) {
 	var statefulSet appsv1.StatefulSet
 	helm.UnmarshalK8SYaml(t, output, &statefulSet)
 
-	expectedContainerImage := "pachyderm/etcd:blah"
+	expectedContainerImage := fmt.Sprintf("%spachyderm/etcd:blah", options.SetValues["global.image.registry"])
 	deploymentContainers := statefulSet.Spec.Template.Spec.Containers
 	if deploymentContainers[0].Image != expectedContainerImage {
 		t.Fatalf("Rendered container image (%s) is not expected (%s)", deploymentContainers[0].Image, expectedContainerImage)
@@ -98,7 +107,9 @@ func TestPachdImageTag(t *testing.T) {
 		SetValues: map[string]string{
 			"pachd.image.tag":             "blah1234",
 			"deployTarget":                "GOOGLE",
+			"pachd.storage.storageURL":    "gs://bucket",
 			"pachd.storage.google.bucket": "bucket",
+			"global.image.registry":       globalImageRegistry,
 		},
 	}
 
@@ -107,7 +118,7 @@ func TestPachdImageTag(t *testing.T) {
 	var deployment appsv1.Deployment
 	helm.UnmarshalK8SYaml(t, output, &deployment)
 
-	expectedContainerImage := "pachyderm/pachd:blah1234"
+	expectedContainerImage := fmt.Sprintf("%spachyderm/pachd:blah1234", options.SetValues["global.image.registry"])
 	deploymentContainers := deployment.Spec.Template.Spec.Containers
 	if deploymentContainers[0].Image != expectedContainerImage {
 		t.Fatalf("Rendered container image (%s) is not expected (%s)", deploymentContainers[0].Image, expectedContainerImage)
@@ -116,15 +127,15 @@ func TestPachdImageTag(t *testing.T) {
 
 func TestPachdImageTagDeploymentEnv(t *testing.T) {
 	helmChartPath := "../pachyderm"
-
 	expectedTag := "blah1234"
-	expectedPachdContainerImage := "pachyderm/pachd:" + expectedTag
-	expectedWorkerContainerImage := "pachyderm/worker:" + expectedTag
+
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"pachd.image.tag":             expectedTag,
 			"deployTarget":                "GOOGLE",
+			"pachd.storage.storageURL":    "gs://bucket",
 			"pachd.storage.google.bucket": "bucket",
+			"global.image.registry":       globalImageRegistry,
 		},
 	}
 
@@ -132,6 +143,9 @@ func TestPachdImageTagDeploymentEnv(t *testing.T) {
 
 	var deployment appsv1.Deployment
 	helm.UnmarshalK8SYaml(t, output, &deployment)
+
+	expectedPachdContainerImage := fmt.Sprintf("%spachyderm/pachd:"+expectedTag, options.SetValues["global.image.registry"])
+	expectedWorkerContainerImage := fmt.Sprintf("%spachyderm/worker:"+expectedTag, options.SetValues["global.image.registry"])
 
 	deploymentContainers := deployment.Spec.Template.Spec.Containers
 
@@ -177,6 +191,7 @@ func TestSetNamespaceWorkerRoleBinding(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"deployTarget":                "GOOGLE",
+			"pachd.storage.storageURL":    "gs://bucket",
 			"pachd.storage.google.bucket": "bucket",
 		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
@@ -203,6 +218,7 @@ func TestSetNamespaceServiceAccount(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"deployTarget":                "GOOGLE",
+			"pachd.storage.storageURL":    "gs://bucket",
 			"pachd.storage.google.bucket": "bucket",
 		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
@@ -229,6 +245,7 @@ func TestSetNamespaceWorkerServiceAccount(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"deployTarget":                "GOOGLE",
+			"pachd.storage.storageURL":    "gs://bucket",
 			"pachd.storage.google.bucket": "bucket",
 		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
@@ -255,6 +272,7 @@ func TestSetNamespaceRoleBinding(t *testing.T) {
 	options := &helm.Options{
 		SetValues: map[string]string{
 			"deployTarget":                "GOOGLE",
+			"pachd.storage.storageURL":    "gs://bucket",
 			"pachd.storage.google.bucket": "bucket",
 		},
 		KubectlOptions: k8s.NewKubectlOptions("", "", expectedNamespace),
@@ -301,6 +319,7 @@ func TestServicePorts(t *testing.T) {
 			&helm.Options{
 				SetStrValues: map[string]string{
 					"deployTarget":                 "LOCAL",
+					"pachd.storage.storageURL":     "gs://bucket",
 					"pachd.storage.local.hostPath": hostPath,
 				}},
 			"../pachyderm/", "release-name", nil))
@@ -428,6 +447,7 @@ func TestGOMAXPROCS(t *testing.T) {
 			&helm.Options{
 				SetStrValues: map[string]string{
 					"deployTarget":                 "LOCAL",
+					"pachd.storage.storageURL":     "gs://bucket",
 					"pachd.storage.local.hostPath": hostPath,
 				}},
 			"../pachyderm/", "release-name", nil))

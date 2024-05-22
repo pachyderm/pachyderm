@@ -1,87 +1,112 @@
 import React from 'react';
-import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
+import {PpsContext, PpsMetadata, MountSettings, GpuMode} from '../../types';
 
 type PipelineProps = {
-  setShowPipeline: (shouldShow: boolean) => void;
+  ppsContext: PpsContext | undefined;
+  settings: MountSettings;
+  isCurrentWidgetNotebook: () => boolean;
+  saveNotebookMetadata: (metadata: PpsMetadata) => void;
+  saveNotebookToDisk: () => Promise<string | null>;
 };
 
-const placeholderInputSpec = `pfs:
+const placeholderAdvancedResourceSpec = `# example:
+gpu:
+  type: nvidia.com/gpu
+  number: 1
+`;
+const placeholderSimpleResourceSpec = `gpu:
+  type: nvidia.com/gpu
+  number: 1
+`;
+const placeholderInputSpec = `# example:
+pfs:
   repo: images
   branch: dev
   glob: /*
 `;
 const placeholderRequirements = './requirements.txt';
+const placeholderExternalFiles = 'library1.py,library2.py';
+const placeholderProject = 'default';
 
-const Pipeline: React.FC<PipelineProps> = ({setShowPipeline}) => {
+const Pipeline: React.FC<PipelineProps> = ({
+  ppsContext,
+  settings,
+  isCurrentWidgetNotebook,
+  saveNotebookMetadata,
+  saveNotebookToDisk,
+}) => {
   const {
     loading,
     pipelineName,
     setPipelineName,
+    pipelineProject,
+    setPipelineProject,
     imageName,
     setImageName,
     inputSpec,
     setInputSpec,
+    pipelinePort,
+    setPipelinePort,
+    gpuMode,
+    setGpuMode,
+    resourceSpec,
+    setResourceSpec,
     requirements,
     setRequirements,
+    externalFiles,
+    setExternalFiles,
     callCreatePipeline,
+    currentNotebook,
     errorMessage,
-  } = usePipeline();
+    responseMessage,
+  } = usePipeline(
+    ppsContext,
+    settings,
+    saveNotebookMetadata,
+    saveNotebookToDisk,
+  );
+  const heading = (
+    <span className="pachyderm-mount-pipeline-subheading">
+      Publish as Pipeline
+    </span>
+  );
+
+  if (!isCurrentWidgetNotebook()) {
+    return (
+      <div className="pachyderm-mount-pipeline-base">
+        {heading}
+        <div className="pachyderm-mount-pipeline-splash">
+          <span>Open a notebook to create a pipeline</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pachyderm-mount-pipeline-base">
-      <div className="pachyderm-mount-pipeline-back">
-        <button
-          data-testid="Pipeline__back"
-          className="pachyderm-button-link"
-          onClick={async () => {
-            setShowPipeline(false);
-          }}
+      {heading}
+      <div className="pachyderm-pipeline-current-notebook-wrapper">
+        <label
+          className="pachyderm-pipeline-current-notebook-label"
+          htmlFor="currentNotebook"
         >
-          Back{' '}
-          <closeIcon.react
-            tag="span"
-            className="pachyderm-mount-icon-padding"
-          />
-        </button>
+          Current Notebook:{'  '}
+        </label>
+        <span
+          className="pachyderm-pipeline-current-notebook-value"
+          data-testid="Pipeline__currentNotebookValue"
+        >
+          {currentNotebook}
+        </span>
       </div>
-      <span className="pachyderm-mount-pipeline-subheading">
-        Notebook-to-Pipeline
-      </span>
-
-      <div className="pachyderm-pipeline-buttons">
-        <button
-          data-testid="Pipeline__save"
-          className="pachyderm-button-link"
-          onClick={async () => {
-            return;
-          }}
-        >
-          Save
-        </button>
-
-        <button
-          data-testid="Pipeline__create_pipeline"
-          className="pachyderm-button-link"
-          onClick={callCreatePipeline}
-        >
-          Create Pipeline
-        </button>
-      </div>
-
-      <span
-        className="pachyderm-pipeline-error"
-        data-testid="Pipeline__errorMessage"
-      >
-        {errorMessage}
-      </span>
 
       <div className="pachyderm-pipeline-input-wrapper">
         <label
           className="pachyderm-pipeline-input-label"
           htmlFor="pipelineName"
         >
-          *Name:{'  '}
+          *Pipeline Name:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -95,8 +120,27 @@ const Pipeline: React.FC<PipelineProps> = ({setShowPipeline}) => {
         ></input>
       </div>
       <div className="pachyderm-pipeline-input-wrapper">
+        <label
+          className="pachyderm-pipeline-input-label"
+          htmlFor="pipelineProjectName"
+        >
+          Pipeline Project Name:{'  '}
+        </label>
+        <input
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__inputPipelineProjectName"
+          name="pipelineName"
+          value={pipelineProject}
+          onChange={(e: any) => {
+            setPipelineProject(e.target.value);
+          }}
+          disabled={loading}
+          placeholder={placeholderProject}
+        ></input>
+      </div>
+      <div className="pachyderm-pipeline-input-wrapper">
         <label className="pachyderm-pipeline-input-label" htmlFor="imageName">
-          *Image:{'  '}
+          *Container Image Name:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -114,7 +158,7 @@ const Pipeline: React.FC<PipelineProps> = ({setShowPipeline}) => {
           className="pachyderm-pipeline-input-label"
           htmlFor="requirements"
         >
-          Requirements:{'  '}
+          Requirements File:{'  '}
         </label>
         <input
           className="pachyderm-pipeline-input"
@@ -128,12 +172,46 @@ const Pipeline: React.FC<PipelineProps> = ({setShowPipeline}) => {
           placeholder={placeholderRequirements}
         ></input>
       </div>
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label
+          className="pachyderm-pipeline-input-label"
+          htmlFor="external-files"
+        >
+          External Files:{'  '}
+        </label>
+        <input
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__inputExternalFiles"
+          name="externalFiles"
+          value={externalFiles}
+          onChange={(e: any) => {
+            setExternalFiles(e.target.value);
+          }}
+          disabled={loading}
+          placeholder={placeholderExternalFiles}
+        ></input>
+      </div>
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label className="pachyderm-pipeline-input-label" htmlFor="port">
+          Port:{'  '}
+        </label>
+        <input
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__inputPort"
+          name="port"
+          value={pipelinePort}
+          onChange={(e: any) => {
+            setPipelinePort(e.target.value);
+          }}
+          disabled={loading}
+        ></input>
+      </div>
       <div className="pachyderm-pipeline-textarea-wrapper">
         <label
           className="pachyderm-pipeline-textarea-label"
           htmlFor="inputSpec"
         >
-          Input Spec
+          Pipeline Input Spec:
         </label>
         <textarea
           className="pachyderm-pipeline-textarea pachyderm-input"
@@ -147,7 +225,47 @@ const Pipeline: React.FC<PipelineProps> = ({setShowPipeline}) => {
           placeholder={placeholderInputSpec}
         ></textarea>
       </div>
-
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label className="pachyderm-pipeline-input-label" htmlFor="gpuMode">
+          *Gpu Mode:{'  '}
+        </label>
+        <select
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__gpuMode"
+          name="gpuMode"
+          value={gpuMode}
+          onChange={(e: any) => {
+            setGpuMode(e.target.value);
+          }}
+        >
+          {(Object.keys(GpuMode) as Array<GpuMode>).map((mode) => (
+            <option key={mode} value={mode}>
+              {mode}
+            </option>
+          ))}
+        </select>
+      </div>
+      {gpuMode === GpuMode.Advanced && (
+        <div className="pachyderm-pipeline-textarea-wrapper">
+          <label
+            className="pachyderm-pipeline-textarea-label"
+            htmlFor="resourceSpec"
+          >
+            Pipeline Resource Spec:
+          </label>
+          <textarea
+            className="pachyderm-pipeline-textarea pachyderm-input"
+            data-testid="Pipeline__resourceSpecInput"
+            name="resourceSpec"
+            value={resourceSpec}
+            onChange={(e: any) => {
+              setResourceSpec(e.target.value);
+            }}
+            disabled={loading}
+            placeholder={placeholderAdvancedResourceSpec}
+          ></textarea>
+        </div>
+      )}
       <div className="pachyderm-pipeline-spec-preview pachyderm-pipeline-textarea-wrapper">
         <label className="pachyderm-pipeline-preview-label">
           Pipeline Spec Preview: {'  '}
@@ -157,7 +275,9 @@ const Pipeline: React.FC<PipelineProps> = ({setShowPipeline}) => {
           style={{backgroundColor: '#80808080'}}
           data-testid="Pipeline__specPreview"
           name="specPreview"
-          value={`name: ${pipelineName}
+          value={`pipeline:
+  name: ${pipelineName}
+  project: ${pipelineProject || placeholderProject}
 transform:
   image: ${imageName}
 input:
@@ -165,10 +285,45 @@ ${inputSpec
   .split('\n')
   .map((line, _, __) => '  ' + line)
   .join('\n')}
-`}
+${
+  gpuMode === GpuMode.None
+    ? ''
+    : 'resource_limits:\n' +
+      (gpuMode === GpuMode.Simple
+        ? placeholderSimpleResourceSpec
+        : gpuMode === GpuMode.Advanced
+        ? resourceSpec
+        : ''
+      )
+        .split('\n')
+        .map((line, _, __) => '  ' + line)
+        .join('\n')
+}`}
           readOnly={true}
         ></textarea>
       </div>
+
+      <div className="pachyderm-pipeline-buttons">
+        <button
+          data-testid="Pipeline__create_pipeline"
+          className="pachyderm-button"
+          onClick={callCreatePipeline}
+        >
+          Run
+        </button>
+      </div>
+      <span
+        className="pachyderm-pipeline-error"
+        data-testid="Pipeline__errorMessage"
+      >
+        {errorMessage}
+      </span>
+      <span
+        className="pachyderm-pipeline-response"
+        data-testid="Pipeline__responseMessage"
+      >
+        {responseMessage}
+      </span>
     </div>
   );
 };

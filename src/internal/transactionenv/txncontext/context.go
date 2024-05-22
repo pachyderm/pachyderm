@@ -2,14 +2,14 @@ package txncontext
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -25,7 +25,7 @@ type TransactionContext struct {
 	// CommitSetID is the ID of the CommitSet corresponding to PFS changes in this transaction.
 	CommitSetID string
 	// Timestamp is the canonical timestamp to be used for writes in this transaction.
-	Timestamp *types.Timestamp
+	Timestamp *timestamppb.Timestamp
 	// PfsPropagater applies commits at the end of the transaction.
 	PfsPropagater PfsPropagater
 	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
@@ -34,7 +34,18 @@ type TransactionContext struct {
 	PpsJobStopper  PpsJobStopper
 	PpsJobFinisher PpsJobFinisher
 
-	ctx context.Context
+	// We rely on listener events to determine whether or not auth is activated, but this is
+	// problematic when activating auth in a transaction.  The cache isn't updated because the
+	// transaction hasn't committed, but this transaction should assume that auth IS activated,
+	// because it will be when the transaction commits.  (If it rolls back, fine; inside the
+	// transaction, auth was on!) The reason we rely on caching the listener events is because
+	// pretty much every RPC in Pachyderm calls "auth.isActiveInTransaction", and the
+	// performance overhead of going to the database to determine this is too high.
+	//
+	// This variable is set to true when auth is successfully enabled in this transaction, and
+	// is checked by isActiveInTransaction.  Other transactions cannot observe this uncommitted
+	// state.
+	AuthBeingActivated atomic.Bool
 }
 
 type identifier interface {
@@ -56,24 +67,12 @@ func New(ctx context.Context, sqlTx *pachsql.Tx, authServer identifier) (*Transa
 		return nil, errors.EnsureStack(err)
 	}
 
-	ts, err := types.TimestampProto(currTime)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error getting transaction timestamp")
-	}
 	return &TransactionContext{
-		ctx:         ctx, // TODO(jonathan): Refactor this API to not capture a context.
 		SqlTx:       sqlTx,
 		CommitSetID: uuid.NewWithoutDashes(),
-		Timestamp:   ts,
+		Timestamp:   timestamppb.New(currTime),
 		username:    username,
 	}, nil
-}
-
-func (t *TransactionContext) Context() context.Context {
-	if t.ctx == nil {
-		return pctx.TODO()
-	}
-	return t.ctx
 }
 
 func (t *TransactionContext) WhoAmI() (*auth.WhoAmIResponse, error) {
@@ -90,10 +89,16 @@ func (t *TransactionContext) PropagateJobs() {
 	t.PpsPropagater.PropagateJobs()
 }
 
-// StopJobs notifies PPS that some commits have been removed and the jobs
-// associated with them should be stopped.
-func (t *TransactionContext) StopJobs(commitset *pfs.CommitSet) {
-	t.PpsJobStopper.StopJobs(commitset)
+// StopJobSet notifies PPS that a commitset has been removed and the jobs
+// associated with it should be stopped.
+func (t *TransactionContext) StopJobSet(commitset *pfs.CommitSet) {
+	t.PpsJobStopper.StopJobSet(commitset)
+}
+
+// StopJob notifies PPS that a commit has been removed and the job
+// associated with it should be stopped.
+func (t *TransactionContext) StopJob(commit *pfs.Commit) {
+	t.PpsJobStopper.StopJob(commit)
 }
 
 func (t *TransactionContext) FinishJob(commitInfo *pfs.CommitInfo) {
@@ -115,24 +120,24 @@ func (t *TransactionContext) DeleteBranch(branch *pfs.Branch) {
 
 // Finish applies the deferred logic in the pfsPropagator and ppsPropagator to
 // the transaction
-func (t *TransactionContext) Finish() error {
+func (t *TransactionContext) Finish(ctx context.Context) error {
 	if t.PfsPropagater != nil {
-		if err := t.PfsPropagater.Run(); err != nil {
+		if err := t.PfsPropagater.Run(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 	if t.PpsPropagater != nil {
-		if err := t.PpsPropagater.Run(); err != nil {
+		if err := t.PpsPropagater.Run(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 	if t.PpsJobStopper != nil {
-		if err := t.PpsJobStopper.Run(); err != nil {
+		if err := t.PpsJobStopper.Run(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 	if t.PpsJobFinisher != nil {
-		if err := t.PpsJobFinisher.Run(); err != nil {
+		if err := t.PpsJobFinisher.Run(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -144,25 +149,26 @@ func (t *TransactionContext) Finish() error {
 type PfsPropagater interface {
 	PropagateBranch(branch *pfs.Branch) error
 	DeleteBranch(branch *pfs.Branch)
-	Run() error
+	Run(context.Context) error
 }
 
 // PpsPropagater is the interface that PPS implements to start jobs at the end
 // of a transaction.  It is defined here to avoid a circular dependency.
 type PpsPropagater interface {
 	PropagateJobs()
-	Run() error
+	Run(context.Context) error
 }
 
 // PpsJobStopper is the interface that PPS implements to stop jobs of deleted
 // commitsets at the end of a transaction.  It is defined here to avoid a
 // circular dependency.
 type PpsJobStopper interface {
-	StopJobs(commitset *pfs.CommitSet)
-	Run() error
+	StopJobSet(commitset *pfs.CommitSet)
+	StopJob(commit *pfs.Commit)
+	Run(context.Context) error
 }
 
 type PpsJobFinisher interface {
 	FinishJob(commitInfo *pfs.CommitInfo)
-	Run() error
+	Run(context.Context) error
 }

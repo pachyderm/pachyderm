@@ -1,0 +1,57 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/RandomFileSourceSpec",
+    "definitions": {
+        "RandomFileSourceSpec": {
+            "properties": {
+                "directory": {
+                    "$ref": "#/definitions/pfsload.RandomDirectorySpec",
+                    "additionalProperties": false
+                },
+                "sizes": {
+                    "items": {
+                        "$ref": "#/definitions/pfsload.SizeSpec"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "incrementPath": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Random File Source Spec"
+        },
+        "pfsload.RandomDirectorySpec": {
+            "properties": {
+                "depth": {
+                    "$ref": "#/definitions/pfsload.SizeSpec",
+                    "additionalProperties": false
+                },
+                "run": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Random Directory Spec"
+        },
+        "pfsload.SizeSpec": {
+            "properties": {
+                "min": {
+                    "type": "integer"
+                },
+                "max": {
+                    "type": "integer"
+                },
+                "prob": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Size Spec"
+        }
+    }
+}

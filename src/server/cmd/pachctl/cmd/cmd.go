@@ -10,20 +10,21 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
-	"syscall"
 	"text/template"
 	"time"
 	"unicode"
 
 	"go.uber.org/zap/zapcore"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	admincmds "github.com/pachyderm/pachyderm/v2/src/server/admin/cmds"
@@ -34,6 +35,8 @@ import (
 	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
 	identitycmds "github.com/pachyderm/pachyderm/v2/src/server/identity/cmds"
 	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
+	logscmds "github.com/pachyderm/pachyderm/v2/src/server/logs/cmds"
+	metadatacmds "github.com/pachyderm/pachyderm/v2/src/server/metadata/cmds"
 	misccmds "github.com/pachyderm/pachyderm/v2/src/server/misc/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/v2/src/server/pps/cmds"
@@ -42,10 +45,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/types"
 	"github.com/juju/ansiterm"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -302,22 +306,10 @@ __custom_func() {
 }`
 )
 
-func newClient(enterprise bool, options ...client.Option) (*client.APIClient, error) {
-	if enterprise {
-		c, err := client.NewEnterpriseClientOnUserMachine("user", options...)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Fprintf(os.Stderr, "Using enterprise context: %v\n", c.ClientContextName())
-		return c, nil
-	}
-	return client.NewOnUserMachine("user", options...)
-}
-
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
-	var verbose bool
+	pachctlCfg := new(pachctl.Config)
 
 	var raw bool
 	var output string
@@ -334,19 +326,18 @@ func PachctlCmd() (*cobra.Command, error) {
 
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
-		Long: `Access the Pachyderm API.
-
-Environment variables:
-  PACH_CONFIG=<path>, the path where pachctl will attempt to load your config.
-  JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_TRACE
-    is set
-  PACH_TRACE={true,false}, if true, and JAEGER_ENDPOINT is set, attach a Jaeger
-    trace to any outgoing RPCs.
-  PACH_TRACE_DURATION=<duration>, the amount of time for which PPS should trace
-    a pipeline after 'pachctl create-pipeline' (PACH_TRACE must also be set).
-`,
+		Long: "Access the Pachyderm API." +
+			"\n\n" +
+			"PachCTL Environment Variables:" +
+			"\n" +
+			"\t- PACH_CONFIG=<path> | (Req) PachCTL config location. \n" +
+			"\t- PACH_TRACE={true,false} | (Opt) Attach Jaeger trace to outgoing RPCs; JAEGER_ENDPOINT must be specified. \n" +
+			"\t\t[req. PACH_TRACE={true}]: \n" +
+			"\t\t- JAEGER_ENDPOINT=<host>:<port>  | Jaeger server to connect to. \n" +
+			"\t\t- PACH_TRACE_DURATION=<duration> | Duration to trace pipelines after 'pachctl create-pipeline'. \n \n" +
+			"Documentation: https://docs.pachyderm.com/latest/",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			if verbose {
+			if pachctlCfg.Verbose {
 				log.SetLevel(log.DebugLevel)
 				log.SetGRPCLogLevel(zapcore.DebugLevel)
 				cmdutil.PrintErrorStacks = true
@@ -354,18 +345,21 @@ Environment variables:
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
+	rootCmd.PersistentFlags().BoolVarP(&pachctlCfg.Verbose, "verbose", "v", false, "Output verbose logs.")
 	rootCmd.PersistentFlags().BoolVar(&color.NoColor, "no-color", false, "Turn off colors.")
+	rootCmd.PersistentFlags().DurationVar(&pachctlCfg.Timeout, "rpc-timeout", 0, "If non-zero, perform all client operations with this RPC deadline.")
 
 	var subcommands []*cobra.Command
 
 	var clientOnly bool
 	var timeoutFlag string
 	var enterprise bool
+	var compare bool
 	versionCmd := &cobra.Command{
 		Short: "Print Pachyderm version information.",
 		Long:  "Print Pachyderm version information.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
+			ctx := cmd.Context()
 			if !raw && output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -409,17 +403,17 @@ Environment variables:
 				if err != nil {
 					return errors.Wrapf(err, "could not parse timeout duration %q", timeout)
 				}
-				pachClient, err = newClient(enterprise, client.WithDialTimeout(timeout))
+				pachClient, err = pachctlCfg.NewOnUserMachine(ctx, enterprise, client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = newClient(enterprise)
+				pachClient, err = pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			}
 			if err != nil {
 				return err
 			}
 			defer pachClient.Close()
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(ctx, time.Second)
 			defer cancel()
-			version, err := pachClient.GetVersion(ctx, &types.Empty{})
+			serverVersion, err := pachClient.GetVersion(ctx, &emptypb.Empty{})
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
@@ -431,10 +425,20 @@ Environment variables:
 
 			// print server version
 			if raw {
-				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(version))
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(serverVersion))
 			}
-			printVersion(writer, "pachd", version)
-			return errors.EnsureStack(writer.Flush())
+			printVersion(writer, "pachd", serverVersion)
+			if err := writer.Flush(); err != nil {
+				return errors.Wrap(err, "flush")
+			}
+			if compare {
+				if proto.Equal(version.Version, serverVersion) {
+					os.Exit(0)
+				} else {
+					os.Exit(1)
+				}
+			}
+			return nil
 		}),
 	}
 	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+
@@ -448,12 +452,13 @@ Environment variables:
 	versionCmd.Flags().BoolVar(&enterprise, "enterprise", false, "If set, "+
 		"'pachctl version' will run on the active enterprise context.")
 	versionCmd.Flags().AddFlagSet(outputFlags)
+	versionCmd.Flags().BoolVar(&compare, "compare", false, "If set, exit 1 if the server and client versions differ at all, or exit 0 if they are exactly the same.")
 	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 
 	buildInfo := &cobra.Command{
 		Short: "Print go buildinfo.",
 		Long:  "Print information about the build environment.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			info, _ := debug.ReadBuildInfo()
 			fmt.Println(info)
 			return nil
@@ -464,7 +469,7 @@ Environment variables:
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",
 		Long:  "Exit the pachctl shell.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error { return nil }),
+		Run:   cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error { return nil }),
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(exitCmd, "exit"))
 
@@ -472,7 +477,7 @@ Environment variables:
 	shellCmd := &cobra.Command{
 		Short: "Run the pachyderm shell.",
 		Long:  "Run the pachyderm shell.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(true, false)
 			if err != nil {
 				return err
@@ -491,8 +496,8 @@ Environment variables:
 		Short: "Delete everything.",
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine("user")
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -506,7 +511,7 @@ This resets the cluster to its initial state.`,
 			for _, ri := range repoInfos {
 				repos = append(repos, red(ri.Repo.Name))
 			}
-			c, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{Details: false})
+			c, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{})
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -529,7 +534,7 @@ This resets the cluster to its initial state.`,
 				return nil
 			}
 
-			if err := client.DeleteAll(); err != nil {
+			if err := client.DeleteAll(client.Ctx()); err != nil {
 				return err
 			}
 			return txncmds.ClearActiveTransaction()
@@ -551,7 +556,7 @@ This resets the cluster to its initial state.`,
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			// TODO(ys): remove the `--namespace` flag here eventually
 			if namespace != "" {
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
@@ -662,7 +667,7 @@ This resets the cluster to its initial state.`,
 			ch := make(chan os.Signal, 1)
 			// Handle Control-C, closing the terminal window, and pkill (and friends)
 			// cleanly.
-			signal.Notify(ch, os.Interrupt, syscall.SIGHUP, syscall.SIGTERM)
+			signal.Notify(ch, signals.TerminationSignals...)
 			<-ch
 
 			return nil
@@ -686,7 +691,7 @@ This resets the cluster to its initial state.`,
 	completionBash := &cobra.Command{
 		Short: "Print or install the bash completion code.",
 		Long:  "Print or install the bash completion code.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			return createCompletions(rootCmd, install, installPathBash, rootCmd.GenBashCompletion)
 		}),
 	}
@@ -698,7 +703,7 @@ This resets the cluster to its initial state.`,
 	completionZsh := &cobra.Command{
 		Short: "Print or install the zsh completion code.",
 		Long:  "Print or install the zsh completion code.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			return createCompletions(rootCmd, install, installPathZsh, rootCmd.GenZshCompletion)
 		}),
 	}
@@ -793,7 +798,7 @@ This resets the cluster to its initial state.`,
 
 	getDocs := &cobra.Command{
 		Short: "Get the raw data represented by a Pachyderm resource.",
-		Long:  "Get the raw data represented by a Pachyderm resource.",
+		Long:  `Get the raw data represented by a Pachyderm resource.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(getDocs, "get"))
 
@@ -851,19 +856,33 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(nextDocs, "next"))
 
-	subcommands = append(subcommands, pfscmds.Cmds(pachCtx)...)
-	subcommands = append(subcommands, ppscmds.Cmds(pachCtx)...)
-	subcommands = append(subcommands, authcmds.Cmds(pachCtx)...)
-	subcommands = append(subcommands, enterprisecmds.Cmds()...)
-	subcommands = append(subcommands, licensecmds.Cmds()...)
-	subcommands = append(subcommands, identitycmds.Cmds()...)
-	subcommands = append(subcommands, admincmds.Cmds()...)
-	subcommands = append(subcommands, debugcmds.Cmds()...)
-	subcommands = append(subcommands, txncmds.Cmds()...)
-	subcommands = append(subcommands, configcmds.Cmds()...)
-	subcommands = append(subcommands, configcmds.ConnectCmds()...)
-	subcommands = append(subcommands, taskcmds.Cmds()...)
-	subcommands = append(subcommands, misccmds.Cmds()...)
+	validateDocs := &cobra.Command{
+		Short: "Validate the specification of a Pachyderm resource.",
+		Long:  "Validate the specification of a Pachyderm resource.  Client-side only.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(validateDocs, "validate"))
+
+	rerunDocs := &cobra.Command{
+		Short: "Manually rerun a Pachyderm resource.",
+		Long:  "Manually rerun a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(rerunDocs, "rerun"))
+
+	subcommands = append(subcommands, pfscmds.Cmds(pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, ppscmds.Cmds(pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, authcmds.Cmds(pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, enterprisecmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, licensecmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, identitycmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, admincmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, debugcmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, txncmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, configcmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, configcmds.ConnectCmds(pachctlCfg)...)
+	subcommands = append(subcommands, taskcmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, misccmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, logscmds.Cmds(pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, metadatacmds.Cmds(pachCtx, pachctlCfg)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 
@@ -917,7 +936,8 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"start",
 			"stop",
 			"subscribe",
-			"update":
+			"update",
+			"validate":
 			actions = append(actions, subcmd)
 		case
 			"extract",

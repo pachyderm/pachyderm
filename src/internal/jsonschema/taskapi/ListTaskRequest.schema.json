@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ListTaskRequest",
+    "definitions": {
+        "ListTaskRequest": {
+            "properties": {
+                "group": {
+                    "$ref": "#/definitions/taskapi.Group",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "List Task Request"
+        },
+        "taskapi.Group": {
+            "properties": {
+                "namespace": {
+                    "type": "string"
+                },
+                "group": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Group"
+        }
+    }
+}

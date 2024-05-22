@@ -53,6 +53,12 @@ spec:
         - --mode
         - "$(MODE)"
         env:
+        - name: GOCDK_ENABLED
+          value: {{ .Values.pachd.storage.gocdkEnabled | quote }}
+        {{- if and (ne .Values.deployTarget "LOCAL") .Values.pachd.storage.gocdkEnabled  }}
+        - name: STORAGE_URL
+          value: {{ required "storage URL required" .Values.pachd.storage.storageURL | quote }}
+        {{- end }}
         - name: PACHW_IN_SIDECARS
           value: {{ .Values.pachw.inSidecars | quote }}
         - name: PACHW_MIN_REPLICAS
@@ -94,7 +100,7 @@ spec:
           value: "$({{ snakecase .Release.Name | upper }}_LOKI_SERVICE_HOST)"
         {{- end }}
         - name: LOKI_SERVICE_PORT
-        {{- if .Values.pachd.lokiPort }}
+        {{- if ne 0 (int .Values.pachd.lokiPort) }}
           value:  {{ .Values.pachd.lokiPort | quote}}
         {{ else }}
           value: "$({{ snakecase .Release.Name | upper }}_LOKI_SERVICE_PORT)"
@@ -118,7 +124,7 @@ spec:
           value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
         {{- end }}
         - name: WORKER_IMAGE
-          value: "{{ .Values.pachd.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+          value: "{{ .Values.global.image.registry }}{{ .Values.pachd.worker.image.repository }}:{{ default .Chart.AppVersion (or .Values.pachd.worker.image.tag .Values.pachd.image.tag) }}"
         {{- if and (eq ( include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
         - name: WORKER_USES_ROOT
           value: "True"
@@ -128,7 +134,7 @@ spec:
           value: "{{ join "," .Values.global.imagePullSecrets }}"
         {{- end }}
         - name: WORKER_SIDECAR_IMAGE
-          value: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+          value: "{{ .Values.global.image.registry }}{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         - name: WORKER_IMAGE_PULL_POLICY
           value: {{ .Values.pachd.worker.image.pullPolicy | quote }}
         - name: WORKER_SERVICE_ACCOUNT
@@ -140,11 +146,23 @@ spec:
           value: "{{ .Values.pachd.metrics.endpoint }}"
         {{- end }}
         {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
-        - name: GOMAXPROCS # Needs to be PR'd to 2.0
+        - name: GOMAXPROCS
           value: {{ .Values.pachd.goMaxProcs | quote }}
         {{- end }}
-        - name: LOG_LEVEL
+        - name: PACHYDERM_LOG_LEVEL
           value: {{ .Values.pachd.logLevel }}
+        {{- if .Values.pachd.developmentLogger }}
+        - name: PACHYDERM_DEVELOPMENT_LOGGER
+          value: "1"
+        {{- end }}
+        {{- if .Values.pachd.disableLogSampling }}
+        - name: PACHYDERM_DISABLE_LOG_SAMPLING
+          value: "1"
+        {{- end }}
+        {{- if .Values.pachd.sqlQueryLogs }}
+        - name: POSTGRES_QUERY_LOGGING
+          value: "1"
+        {{- end }}
         - name: PACH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -159,6 +177,8 @@ spec:
               fieldPath: metadata.name
         - name: PPS_WORKER_GRPC_PORT
           value: {{ .Values.pachd.ppsWorkerGRPCPort | quote }}
+        - name: PPS_WORKER_PREPROCESSING
+          value: {{ .Values.pachd.ppsWorkerPreprocessing | quote }}
         - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT
@@ -295,6 +315,15 @@ spec:
               name: {{ default ("pachyderm-console-secret") .Values.console.config.oauthClientSecretSecretName  }}
               key: OAUTH_CLIENT_SECRET
         {{- end }}
+        {{- if and .Values.determined.oidc .Values.determined.oidc.enabled }}
+        - name: DETERMINED_OAUTH_ID
+          value: {{ default "determined" .Values.determined.oidc.clientId }}
+        - name: DETERMINED_OAUTH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ default .Values.determined.oidc.clientSecretName "det-oidc-client-secret" }}
+              key: {{ default .Values.determined.oidc.clientSecretKey "oidc-client-secret" }}
+        {{- end }}
         {{ if .Values.global.proxy }}
         - name: http_proxy
           value: {{ .Values.global.proxy }}
@@ -384,6 +413,44 @@ spec:
         - name: PIPELINE_DEFAULT_STORAGE_REQUEST
           value: {{ .Values.pachd.defaultPipelineStorageRequest | quote }}
         {{- end }}
+        {{- if ne .Values.pachd.determined.credentialsSecretName "" }}
+        - name: DETERMINED_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.determined.credentialsSecretName }}
+              key: determined-username
+        - name: DETERMINED_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.pachd.determined.credentialsSecretName }}
+              key: determined-password
+        {{- end }}
+        {{- if ne .Values.pachd.determined.apiEndpoint "" }}
+        - name: DETERMINED_API_URL
+          value: {{ .Values.pachd.determined.apiEndpoint | quote }}
+        {{- end }}
+        {{- if .Values.determined.tlsSecret }}
+        - name: DETERMINED_TLS
+          value: "true"
+        {{- end }}
+        {{- if ne .Values.pachd.defaultSidecarCPURequest "" }}
+        - name: SIDECAR_DEFAULT_CPU_REQUEST
+          value: {{ .Values.pachd.defaultSidecarCPURequest | quote }}
+        {{- end }}
+        {{- if ne .Values.pachd.defaultSidecarMemoryRequest "" }}
+        - name: SIDECAR_DEFAULT_MEMORY_REQUEST
+          value: {{ .Values.pachd.defaultSidecarMemoryRequest | quote }}
+        {{- end }}
+        {{- if ne .Values.pachd.defaultSidecarStorageRequest "" }}
+        - name: SIDECAR_DEFAULT_STORAGE_REQUEST
+          value: {{ .Values.pachd.defaultSidecarStorageRequest | quote }}
+        {{- end }}
+        - name: GOCOVERDIR
+          value: /tmp
+        - name: PACHYDERM_PUBLIC_HOST
+          value: {{ include "pachyderm.host" . }}
+        - name: PACHYDERM_PUBLIC_TLS
+          value: "{{ .Values.proxy.tls.enabled | ternary "true" "false" }}"
         envFrom:
           - secretRef:
               name: pachyderm-storage-secret
@@ -395,7 +462,7 @@ spec:
               # is currently used to manage the pause/unpause feature.
               name: pachd-config
               optional: true
-        image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        image: "{{ .Values.global.image.registry }}{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachd
         ports:
@@ -417,25 +484,39 @@ spec:
         - containerPort: 1656
           name: prom-metrics
           protocol: TCP
+        - containerPort: 1659
+          name: archive-port
+          protocol: TCP
         readinessProbe:
           exec:
             command:
             - /pachd
             - --readiness
+          initialDelaySeconds: {{ .Values.pachd.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.pachd.readinessProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.pachd.readinessProbe.periodSeconds }}
+          successThreshold: {{ .Values.pachd.readinessProbe.successThreshold }}
+          failureThreshold: {{ .Values.pachd.readinessProbe.failureThreshold }}
         livenessProbe:
           exec:
             command:
             - /pachd
             - --readiness
-          failureThreshold: 10
-          timeoutSeconds: 30
+          initialDelaySeconds: {{ .Values.pachd.livenessProbe.initialDelaySeconds }}
+          failureThreshold: {{ .Values.pachd.livenessProbe.failureThreshold }}
+          periodSeconds: {{ .Values.pachd.livenessProbe.periodSeconds }}
+          successThreshold: {{ .Values.pachd.livenessProbe.successThreshold }}
+          timeoutSeconds: {{ .Values.pachd.livenessProbe.timeoutSeconds }}
         startupProbe:
           exec:
             command:
             - /pachd
             - --readiness
-          failureThreshold: 10
-          timeoutSeconds: 30
+          initialDelaySeconds: {{ .Values.pachd.startupProbe.initialDelaySeconds }}
+          failureThreshold: {{ .Values.pachd.startupProbe.failureThreshold }}
+          periodSeconds: {{ .Values.pachd.startupProbe.periodSeconds }}
+          successThreshold: {{ .Values.pachd.startupProbe.successThreshold }}
+          timeoutSeconds: {{ .Values.pachd.startupProbe.timeoutSeconds }}
         {{- if .Values.pachd.resources }}
         resources: {{ toYaml .Values.pachd.resources | nindent 10 }}
         {{- end }}

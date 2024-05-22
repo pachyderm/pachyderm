@@ -9,7 +9,7 @@ docker-image-group-retail:
 	@docker build -t $(CONTAINER_TAG) .  --platform linux/amd64
 	@docker push $(CONTAINER_TAG)
 
-# This target can be used during the development/update of the pipeline's code of the retail example. 
+# This target can be used during the development/update of the pipeline's code of the retail example.
 # Change your python's file (check the `src` dir of this example) or update your template, then run the following target.
 # Your code will be built, tagged, and your pipeline updated all at once, using Minikube's local registry.
 # Make sure that you have run `make setup-retail` and `make deploy-retail` first to create your mockup data and repos.
@@ -21,9 +21,9 @@ dev-update-image-group-retail:
 	docker tag $(CONTAINER_TAG) $(CONTAINER_TAG).$(IMAGE_TAG)
 	pachctl update pipeline --jsonnet pipelines/retail/retail_group.jsonnet --arg tag=$(CONTAINER_VERSION).$(IMAGE_TAG) --arg suffix=jsonnet
 
-# Lab-1 Create mockup data for lab example  
+# Lab-1 Create mockup data for lab example
 setup-lab:
-	mkdir -p ./labresults 
+	mkdir -p ./labresults
 	printf "PID|PATID1\nORC|ORD777888\nOBX|1|NM|2093-3^Cholesterol|196|mg/dL\nOBX|2|NM|2571-8^Triglyceride|100|mg/dL" \
 	>./labresults/T1606707557-LIPID-PATID1-CLIA24D9871327.txt
 	printf "PID|PATID2\nORC|ORD777889\nOBX|1|NM|2093-3^Cholesterol|212|mg/dL\nOBX|2|NM|2571-8^Triglyceride|110|mg/dL" \
@@ -45,10 +45,10 @@ deploy-lab:
 
 # Lab-3 Create pipelines
 create-lab:
-	pachctl create pipeline -f pipelines/lab/lab_group_by_hospital.json 
-	pachctl create pipeline -f pipelines/lab/lab_group_by_patient.json
-	pachctl create pipeline -f pipelines/lab/reduce_group_by_hospital.json 
-	pachctl create pipeline -f pipelines/lab/reduce_group_by_patient.json
+	pachctl create pipeline -f pipelines/lab/lab_group_by_hospital.pipeline.json
+	pachctl create pipeline -f pipelines/lab/lab_group_by_patient.pipeline.json
+	pachctl create pipeline -f pipelines/lab/reduce_group_by_hospital.pipeline.json
+	pachctl create pipeline -f pipelines/lab/reduce_group_by_patient.pipeline.json
 
 # Retail-1 Create mockup data for retail example
 setup-retail:
@@ -95,15 +95,10 @@ deploy-retail:
 	pachctl put file -r stores@master:/ -f stores
 	pachctl list file stores@master
 	pachctl put file -r purchases@master:/ -f purchases
-	pachctl list file purchases@master	
+	pachctl list file purchases@master
 	pachctl put file -r returns@master:/ -f returns
-	pachctl list file returns@master	
+	pachctl list file returns@master
 
 # Retail-3 Create pipelines
 create-pipeline-retail:
-	pachctl create pipeline -f pipelines/retail/retail_group.json
-
-
-
-
-
+	pachctl create pipeline -f pipelines/retail/retail_group.pipeline.json

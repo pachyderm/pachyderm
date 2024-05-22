@@ -1,5 +1,3 @@
-//go:build unit_test
-
 package server_test
 
 import (
@@ -8,16 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestActivate tests that we can activate the license server
@@ -27,7 +25,7 @@ import (
 func TestActivate(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 
@@ -46,17 +44,16 @@ func TestActivate(t *testing.T) {
 func TestExpired(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateEnterprise(t, client, peerPort)
 
 	expires := time.Now().Add(-30 * time.Second)
-	expiresProto, err := types.TimestampProto(expires)
-	require.NoError(t, err)
+	expiresProto := timestamppb.New(expires)
 
 	// Activate Enterprise with an expiration in the past
-	_, err = client.License.Activate(context.Background(),
+	_, err := client.License.Activate(context.Background(),
 		&license.ActivateRequest{
 			ActivationCode: tu.GetTestEnterpriseCode(t),
 			Expires:        expiresProto,
@@ -75,7 +72,7 @@ func TestExpired(t *testing.T) {
 func TestGetActivationCodeNotAdmin(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateAuthClient(t, client, peerPort)
@@ -90,7 +87,7 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 func TestDeleteAll(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateEnterprise(t, client, peerPort)
@@ -126,7 +123,7 @@ func TestDeleteAll(t *testing.T) {
 func TestDeleteAllNotAdmin(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -140,7 +137,7 @@ func TestDeleteAllNotAdmin(t *testing.T) {
 func TestClusterCRUD(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateAuthClient(t, client, peerPort)
@@ -256,7 +253,7 @@ func TestClusterCRUD(t *testing.T) {
 func TestAddClusterAddressValidation(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateEnterprise(t, client, peerPort)
@@ -274,7 +271,7 @@ func TestAddClusterAddressValidation(t *testing.T) {
 func TestUpdateClusterAddressValidation(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateEnterprise(t, client, peerPort)
@@ -292,7 +289,7 @@ func TestUpdateClusterAddressValidation(t *testing.T) {
 func TestAddClusterNoLicense(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
@@ -308,7 +305,7 @@ func TestAddClusterNoLicense(t *testing.T) {
 func TestClusterCRUDNotAdmin(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	client := env.PachClient
 	tu.ActivateAuthClient(t, client, peerPort)
@@ -342,7 +339,7 @@ func TestClusterCRUDNotAdmin(t *testing.T) {
 func TestHeartbeat(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -371,14 +368,14 @@ func TestHeartbeat(t *testing.T) {
 	require.Equal(t, 1, len(newClusters.Clusters))
 	require.Equal(t, true, newClusters.Clusters[0].AuthEnabled)
 	require.Equal(t, "some weird version", newClusters.Clusters[0].Version)
-	require.True(t, newClusters.Clusters[0].LastHeartbeat.After(*clusters.Clusters[0].LastHeartbeat))
+	require.True(t, protoutil.MustTime(newClusters.Clusters[0].LastHeartbeat).After(protoutil.MustTime(clusters.Clusters[0].LastHeartbeat)))
 }
 
 // TestHeartbeatWrongSecret tests that Heartbeat doesn't update the record if the shared secret is incorrect
 func TestHeartbeatWrongSecret(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	pachClient := env.PachClient
 	_, err := pachClient.License.Heartbeat(pachClient.Ctx(), &license.HeartbeatRequest{
 		Id:          "localhost",
@@ -392,7 +389,7 @@ func TestHeartbeatWrongSecret(t *testing.T) {
 func TestListUserClusters(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	client := env.PachClient
 	tu.ActivateAuthClient(t, client, peerPort)

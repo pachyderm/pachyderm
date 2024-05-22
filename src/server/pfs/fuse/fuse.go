@@ -11,10 +11,11 @@ import (
 
 	"github.com/hanwen/go-fuse/v2/fs"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
+	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 )
 
 // Mount pfs to target, opts may be left nil.
@@ -28,8 +29,6 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 		// Behavior of `pachctl mount` with no args is to mount everything. Make
 		// that explicit here before we pass in the configuration to avoid
 		// needing to special-case this deep within the FUSE implementation.
-		// (`pachctl mount-server` does _not_ have the same behavior. It mounts
-		// nothing to begin with.)
 		ris, err := c.ListRepo()
 		if err != nil {
 			return err
@@ -39,11 +38,9 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 				continue
 			}
 			// Behavior here is that we explicitly mount repos to mounts named
-			// by the repo name. This is different to `pachctl mount-server`
-			// which supports mounting different versions of the same repo at
-			// different named paths.
+			// by the repo name.
 			branch := "master"
-			bi, err := c.InspectProjectBranch(ri.Repo.Project.GetName(), ri.Repo.Name, branch)
+			bi, err := c.InspectBranch(ri.Repo.Project.GetName(), ri.Repo.Name, branch)
 			if err != nil && !errutil.IsNotFoundError(err) {
 				return err
 			}
@@ -56,7 +53,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 				// mount name is same as repo name, i.e. mount it at a directory
 				// named the same as the repo itself
 				Name:  ri.Repo.Name,
-				File:  client.NewProjectFile(ri.Repo.Project.GetName(), ri.Repo.Name, branch, "", ""),
+				File:  client.NewFile(ri.Repo.Project.GetName(), ri.Repo.Name, branch, "", ""),
 				Write: write,
 			}
 		}
@@ -67,17 +64,17 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 	commits := make(map[string]string)
 	if opts != nil {
 		for repo, ropts := range opts.RepoOptions {
-			if ropts.File.Commit.ID != "" && ropts.File.Commit.Branch.Name == "" {
-				commits[repo] = ropts.File.Commit.ID
-				cis, err := c.InspectCommitSet(ropts.File.Commit.ID)
+			if ropts.File.Commit.Id != "" && ropts.File.Commit.Branch != nil && ropts.File.Commit.GetBranch().GetName() == "" {
+				commits[repo] = ropts.File.Commit.Id
+				cis, err := c.InspectCommitSet(ropts.File.Commit.Id)
 				if err != nil {
 					return err
 				}
 				branch := ""
 				for _, ci := range cis {
-					if ci.Commit.Branch.Repo.Name == repo {
+					if ci.Commit.Branch != nil && ci.Commit.Branch.Repo.Name == repo {
 						if branch != "" {
-							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.File.Commit.ID)
+							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.File.Commit.Id)
 						}
 						branch = ci.Commit.Branch.Name
 					}
@@ -104,7 +101,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 		return errors.WithStack(err)
 	}
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
+	signal.Notify(sigChan, signals.TerminationSignals...)
 	go func() {
 		select {
 		case <-sigChan:
@@ -118,7 +115,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 		if mfc, ok := mfcs[repo]; ok {
 			return mfc, nil
 		}
-		mfc, err := c.NewModifyFileClient(client.NewProjectCommit(project, repo, root.branch(repo), ""))
+		mfc, err := c.NewModifyFileClient(client.NewCommit(project, repo, root.branch(repo), ""))
 		if err != nil {
 			return nil, err
 		}

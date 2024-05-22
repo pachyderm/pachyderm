@@ -8,12 +8,20 @@
 .pachyderm-mount-base {
   color: var(--jp-ui-font-color0);
   background-color: var(--jp-layout-color1);
-  height: 100%;
 }
 
 .pachyderm-mount-base-title {
   padding: 0.25rem 0rem 0.25rem 0.75rem;
   font-weight: 800;
+}
+
+/* Adjust the font to match pachyderm-button-link, which we use for the
+ * top-area "view" selections. This class is applied to the top title in the
+ * Repo view, so that it doesn't clash with the buttons that are right next to
+ * it.
+ */
+.pachyderm-mount-base-title-button-font {
+  font-family: 'Montserrat', sans-serif;
 }
 
 .pachyderm-mount-icon-padding {
@@ -26,146 +34,16 @@
   padding-right: 0.75rem;
 }
 
-/* === ListItem === */
-.pachyderm-mount-list-item-base {
-  display: flex;
-  align-items: baseline;
-}
-
-.pachyderm-mount-list-item-name-branch-wrapper {
-  display: flex;
-  flex-direction: column;
-  width: 75%;
-  padding-left: 5px;
-}
-
-.pachyderm-mount-list-item-name {
-  width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-weight: 500;
-}
-
-.pachyderm-mount-list-item-branch {
-  width: 100%;
-  margin-left: 0.625rem;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.pachyderm-mount-list-item-branch-select {
-  justify-content: left;
-  width: 90%;
-  max-width: fit-content;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.pachyderm-mount-list-item-action {
-  width: auto;
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-}
-
-.pachyderm-mount-list-item-status {
-  display: flex;
-  justify-content: right;
-}
-
-.pachyderm-mount-list-item-status-circle {
-  margin: 5px 0px 0px 0px;
-}
-
-.pachyderm-mount-list-item-status-icon {
-  margin-top: -1px;
-  transform: scale(0.7);
-}
-
-/* === DirListing === */
-
-.pachyderm-mount-sortableList {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  outline: 0;
-  height: calc(100% - 1.563rem);
-}
-
-.pachyderm-mount-sortableList:focus-visible {
-  border: 1px solid var(--jp-brand-color1);
-}
-
-.pachyderm-mount-sortableList-header,
-.pachyderm-mount-sortableList-projectFilter {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: row;
-  overflow: hidden;
-  border-top: var(--jp-border-width) solid var(--jp-border-color2);
-  border-bottom: var(--jp-border-width) solid var(--jp-border-color1);
-  z-index: 2;
-}
-
-.pachyderm-mount-sortableList-headerItem,
-.pachyderm-mount-projectFilter-headerItem {
-  padding: 0.25rem 0.75rem 0.125rem 0.75rem;
-  font-weight: 500;
-  display: flex;
-  flex: 1;
-  flex-direction: row;
-  justify-content: space-between;
-}
-
-.pachyderm-mount-sortableList-headerItem:hover {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  background: var(--jp-layout-color2);
-}
-
-.pachyderm-mount-sortableList-content {
-  flex: 1 1 auto;
-  margin: 0;
-  padding: 0;
-  list-style-type: none;
-  overflow-x: hidden;
-  overflow-y: scroll;
-  background-color: var(--jp-layout-color1);
-}
-
-.pachyderm-mount-sortableList-item {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  padding: 0.25rem 0.75rem;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  border-bottom: 1px solid var(--jp-border-color2);
-}
-
-.pachyderm-mount-sortableList-item:hover {
-  background: var(--jp-layout-color2);
-}
-
-.pachyderm-mount-sortableList-disabled {
-  opacity: 50%;
-  pointer-events: none;
-}
-
-.pachyderm-mount-list-item-branch-select {
-  color: var(--jp-ui-font-color0);
-  background: var(--jp-layout-color1);
-}
-
-.pachyderm-mount-list-item-branch-select:hover {
-  background: var(--jp-layout-color2);
+#pachyderm-mount {
+  .lm-TabBar-tabIcon {
+    width: 0;
+  }
+  .lm-TabBar-tabLabel {
+    text-align: center;
+  }
+  .pachyderm-config-tab {
+    max-width: 32px;
+  }
 }
 
 /* === Config === */
@@ -292,11 +170,6 @@
   height: 100%;
 }
 
-.pachyderm-mount-datum-back {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .pachyderm-mount-datum-subheading {
   font-size: medium;
   font-weight: 300;
@@ -345,11 +218,7 @@
   flex-direction: column;
   margin: 0.25rem 16px;
   height: 100%;
-}
-
-.pachyderm-mount-pipeline-back {
-  display: flex;
-  justify-content: flex-end;
+  overflow: auto;
 }
 
 .pachyderm-mount-pipeline-subheading {
@@ -391,4 +260,95 @@ textarea {
 
 .pachyderm-mount-pipeline-error {
   color: var(--jp-error-color0);
+}
+
+.pachyderm-mount-pipeline-splash {
+  display: flex;
+  height: 100%;
+  text-align: center;
+}
+
+.pachyderm-mount-pipeline-splash span {
+  font-size: x-large;
+  font-weight: 500;
+  margin: auto;
+}
+
+.pachyderm-pipeline-current-notebook-wrapper {
+  display: flex;
+  align-content: center;
+  padding: 0.5em;
+}
+
+.pachyderm-pipeline-current-notebook-label {
+  padding: 0.5em;
+}
+
+.pachyderm-pipeline-current-notebook-value {
+  background-color: lightgrey;
+  border-color: darkgrey;
+  border-radius: 0.5em;
+  border-style: solid;
+  border-width: 0.25em;
+  flex-grow: 2;
+  padding: 0.25em;
+  text-align: center;
+}
+
+.jp-DirListing-content[loading="true"] {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.jp-DirPagination {
+  flex: 0 0 auto;
+  display: flex;
+}
+
+.jp-DirPagination * {
+  color: black;
+  flex: 1;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.jp-DirPagination a.active {
+  background-color: var(--pachyderm-hover-plum);
+  color: white;
+}
+
+.jp-DirPagination a:hover:not(.active) {
+  background-color: var(--jp-layout-color0);
+}
+
+.pachyderm-pipeline-error {
+  color: red;
+}
+
+.pachyderm-config-tab .p-TabBar-tabIcon svg {
+  transform: translate(-1px, 3px)
+}
+
+.jp-FileBrowser-filterBox {
+  padding-top: 1em;
+  margin-top: 0;
+}
+
+.pachyderm-explore-widget > .p-SplitPanel-handle {
+  /* Hides unnecessary split panel adjuster since height is static */
+  display: none;
+}
+
+.pachyderm-explore-widget {
+  /* Locks the top part of the explore SplitPanel to be exactly 6.1em even if adjusted by JS */
+  min-height: 6.1em;
+  max-height: 6.1em;
+  height: 6.1em;
+
+  /* Resets the z-index from JuypterLab to allow Dropdowns to appear over content */
+  z-index: initial;
+
+  /* Necessary for absolute positioning Dropdowns on a z-index above the explore widget */
+  overflow: visible;
+  position: relative;
 }

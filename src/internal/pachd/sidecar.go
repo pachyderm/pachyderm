@@ -8,12 +8,15 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 )
 
 // sidecarBuilder builds a sidecar-mode pachd instance.
@@ -27,7 +30,7 @@ func newSidecarBuilder(config any) *sidecarBuilder {
 }
 
 func (sb *sidecarBuilder) registerAuthServer(ctx context.Context) error {
-	apiServer, err := authserver.NewAuthServer(authserver.EnvFromServiceEnv(sb.env, sb.txnEnv), false, false, false)
+	apiServer, err := authserver.NewAuthServer(AuthEnv(sb.env, sb.txnEnv), false, false, false)
 	if err != nil {
 		return err
 	}
@@ -39,11 +42,11 @@ func (sb *sidecarBuilder) registerAuthServer(ctx context.Context) error {
 }
 
 func (sb *sidecarBuilder) registerPFSServer(ctx context.Context) error {
-	env, err := pfs_server.EnvFromServiceEnv(sb.env, sb.txnEnv)
+	env, err := PFSEnv(sb.env, sb.txnEnv)
 	if err != nil {
 		return err
 	}
-	apiServer, err := pfs_server.NewSidecarAPIServer(*env)
+	apiServer, err := pfs_server.NewAPIServer(ctx, *env)
 	if err != nil {
 		return err
 	}
@@ -52,8 +55,21 @@ func (sb *sidecarBuilder) registerPFSServer(ctx context.Context) error {
 	return nil
 }
 
+func (sb *sidecarBuilder) registerStorageServer(ctx context.Context) error {
+	env, err := StorageEnv(sb.env)
+	if err != nil {
+		return err
+	}
+	server, err := storageserver.New(ctx, *env)
+	if err != nil {
+		return err
+	}
+	sb.forGRPCServer(func(s *grpc.Server) { storage.RegisterFilesetServer(s, server) })
+	return nil
+}
+
 func (sb *sidecarBuilder) registerPPSServer(ctx context.Context) error {
-	apiServer, err := pps_server.NewSidecarAPIServer(pps_server.EnvFromServiceEnv(sb.env, sb.txnEnv, nil),
+	apiServer, err := pps_server.NewSidecarAPIServer(PPSEnv(sb.env, sb.txnEnv, nil),
 		sb.env.Config().Namespace,
 		sb.env.Config().PPSWorkerPort,
 		sb.env.Config().PeerPort)
@@ -73,13 +89,15 @@ func (sb *sidecarBuilder) registerPPSServer(ctx context.Context) error {
 // TODO: refactor the four modes to have a cleaner license/enterprise server
 // abstraction.
 func (sb *sidecarBuilder) registerEnterpriseServer(ctx context.Context) error {
-	sb.enterpriseEnv = eprsserver.EnvFromServiceEnv(
+	sb.enterpriseEnv = EnterpriseEnv(
 		sb.env,
 		path.Join(sb.env.Config().EtcdPrefix, sb.env.Config().EnterpriseEtcdPrefix),
 		sb.txnEnv)
 	apiServer, err := eprsserver.NewEnterpriseServer(
 		sb.enterpriseEnv,
-		false,
+		eprsserver.Config{
+			Heartbeat: false,
+		},
 	)
 	if err != nil {
 		return err
@@ -102,12 +120,14 @@ func (sb *sidecarBuilder) buildAndRun(ctx context.Context) error {
 		sb.initInternalServer,
 		sb.registerAuthServer,
 		sb.registerPFSServer,
+		sb.registerStorageServer,
 		sb.registerPPSServer,
 		sb.registerEnterpriseServer,
 		sb.registerTransactionServer,
 		sb.registerHealthServer,
 		sb.resumeHealth,
 		sb.registerDebugServer,
+		sb.initPrometheusServer,
 
 		sb.initTransaction,
 		sb.internallyListen,
@@ -119,6 +139,6 @@ func (sb *sidecarBuilder) buildAndRun(ctx context.Context) error {
 //
 // Sidecar mode is run as a sidecar in a pipeline pod; it provides services to
 // the pipeline worker code running in that pod.
-func SidecarMode(ctx context.Context, config any) error {
+func SidecarMode(ctx context.Context, config *pachconfig.PachdFullConfiguration) error {
 	return newSidecarBuilder(config).buildAndRun(ctx)
 }

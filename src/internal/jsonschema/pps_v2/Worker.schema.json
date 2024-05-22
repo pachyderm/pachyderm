@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Worker",
+    "definitions": {
+        "Worker": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "state": {
+                    "enum": [
+                        "WORKER_STATE_UNKNOWN",
+                        "POD_RUNNING",
+                        "POD_SUCCESS",
+                        "POD_FAILED"
+                    ],
+                    "type": "string",
+                    "title": "Worker State"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Worker"
+        }
+    }
+}

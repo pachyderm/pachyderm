@@ -5,6 +5,7 @@
 package identity
 
 import (
+	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -13,9 +14,7 @@ func (x *User) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("email", x.Email)
-	if t := x.LastAuthenticated; t != nil {
-		enc.AddTime("last_authenticated", *t)
-	}
+	protoextensions.AddTimestamp(enc, "last_authenticated", x.LastAuthenticated)
 	return nil
 }
 

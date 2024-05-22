@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -23,8 +22,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 )
 
 type PipelineStateDriver interface {
@@ -67,13 +68,9 @@ func newPipelineStateDriver(
 // takes pc.ctx
 func (sd *stateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (*pps.PipelineInfo, context.Context, error) {
 	// query pipelineInfo
-	var pi *pps.PipelineInfo
-	var err error
-	if pi, err = sd.tryLoadLatestPipelineInfo(ctx, pipeline); err != nil && collection.IsErrNotFound(err) {
-		// if the pipeline info is not found, interpret the operation as a delete
-		return nil, nil, nil
-	} else if err != nil {
-		return nil, nil, err
+	pi, err := sd.tryLoadLatestPipelineInfo(ctx, pipeline)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "fetch pipeline state")
 	}
 	tracing.TagAnySpan(ctx,
 		"current-state", pi.State.String(),
@@ -100,8 +97,8 @@ func (sd *stateDriver) SetState(ctx context.Context, specCommit *pfs.Commit, sta
 func (sd *stateDriver) TransitionState(ctx context.Context, specCommit *pfs.Commit, from []pps.PipelineState, to pps.PipelineState, reason string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/TransitionPipelineState",
-		"project", specCommit.Branch.Repo.Project.GetName(),
-		"pipeline", specCommit.Branch.Repo.Name,
+		"project", specCommit.Repo.Project.GetName(),
+		"pipeline", specCommit.Repo.Name,
 		"from-state", from,
 		"to-state", to)
 	defer func() {
@@ -113,7 +110,7 @@ func (sd *stateDriver) TransitionState(ctx context.Context, specCommit *pfs.Comm
 }
 
 func (sd *stateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
-	pipelineWatcher, err := sd.pipelines.ReadOnly(ctx).Watch()
+	pipelineWatcher, err := sd.pipelines.ReadOnly().Watch(ctx)
 	if err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
@@ -126,7 +123,8 @@ func (sd *stateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.Pipelin
 
 func (sd *stateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error) {
 	var pipelineInfo pps.PipelineInfo
-	if err := sd.pipelines.ReadOnly(ctx).GetUniqueByIndex(
+	if err := sd.pipelines.ReadOnly().GetUniqueByIndex(
+		ctx,
 		ppsdb.PipelinesVersionIndex,
 		ppsdb.VersionKey(pipeline, uint64(version)),
 		&pipelineInfo); err != nil {
@@ -161,7 +159,7 @@ func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline *pps
 	if err != nil {
 		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
 	}
-	if err := sd.pipelines.ReadOnly(ctx).Get(specCommit, message); err != nil {
+	if err := sd.pipelines.ReadOnly().Get(ctx, specCommit, message); err != nil {
 		return errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
 	return nil
@@ -184,10 +182,10 @@ func newMockStateDriver() *mockStateDriver {
 }
 
 func (d *mockStateDriver) SetState(ctx context.Context, specCommit *pfs.Commit, state pps.PipelineState, reason string) error {
-	if pi, ok := d.specCommits[specCommit.ID]; ok {
+	if pi, ok := d.specCommits[specCommit.Id]; ok {
 		pi = proto.Clone(pi).(*pps.PipelineInfo)
 		pi.State = state
-		d.specCommits[specCommit.ID] = pi
+		d.specCommits[specCommit.Id] = pi
 		d.states[toKey(pi.Pipeline)] = append(d.states[toKey(pi.Pipeline)], state)
 		d.pushWatchEvent(pi, watch.EventPut)
 		return nil
@@ -204,7 +202,7 @@ func (d *mockStateDriver) TransitionState(ctx context.Context, specCommit *pfs.C
 		}
 		return false
 	}
-	if pi, ok := d.specCommits[specCommit.ID]; ok {
+	if pi, ok := d.specCommits[specCommit.Id]; ok {
 		if fromContains(pi.State) {
 			return d.SetState(ctx, specCommit, to, reason)
 		}
@@ -224,7 +222,7 @@ func (d *mockStateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline
 			return pi, ctx, nil
 		}
 	}
-	return nil, nil, nil
+	return nil, nil, ppsserver.ErrPipelineNotFound{Pipeline: pipeline}
 }
 
 func (d *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
@@ -232,7 +230,7 @@ func (d *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(
 		defer close(d.eChan)
 		select {
 		case <-ctx.Done():
-			d.eChan <- &watch.Event{Type: watch.EventError, Err: ctx.Err()}
+			d.eChan <- &watch.Event{Type: watch.EventError, Err: context.Cause(ctx)}
 			return
 		case <-d.closeEChan:
 			return
@@ -267,10 +265,10 @@ func (d *mockStateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pip
 }
 
 func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
-	mockSpecCommit := client.NewProjectCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
+	mockSpecCommit := client.NewCommit(pi.Pipeline.Project.GetName(), pi.Pipeline.Name, "master", uuid.NewWithoutDashes())
 	pi.SpecCommit = mockSpecCommit
-	d.pipelines[toKey(pi.Pipeline)] = pi.SpecCommit.ID
-	d.specCommits[mockSpecCommit.ID] = pi
+	d.pipelines[toKey(pi.Pipeline)] = pi.SpecCommit.Id
+	d.specCommits[mockSpecCommit.Id] = pi
 	if ss, ok := d.states[toKey(pi.Pipeline)]; ok {
 		d.states[toKey(pi.Pipeline)] = append(ss, pi.State)
 	} else {
@@ -282,7 +280,7 @@ func (d *mockStateDriver) upsertPipeline(pi *pps.PipelineInfo) *pfs.Commit {
 
 func (d *mockStateDriver) pushWatchEvent(pi *pps.PipelineInfo, et watch.EventType) {
 	d.eChan <- &watch.Event{
-		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline, pi.SpecCommit.ID)),
+		Key:  []byte(fmt.Sprintf("%s@%s", pi.Pipeline, pi.SpecCommit.Id)),
 		Type: et,
 	}
 }

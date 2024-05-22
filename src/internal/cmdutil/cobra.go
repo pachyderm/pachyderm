@@ -9,8 +9,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -23,55 +23,55 @@ import (
 // errors that are returned by the run commands.
 var PrintErrorStacks bool
 
-// RunFixedArgs wraps a function in a function
-// that checks its exact argument count.
-func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []string) {
+// RunFixedArgs wraps a function in a function that checks its exact argument
+// count.
+func RunFixedArgs(numArgs int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
-		if len(args) != numArgs {
-			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
+		if expected, got := numArgs, len(args); expected != got {
+			fmt.Fprintf(cmd.OutOrStderr(), "expected %d arguments, got %d\n\n", expected, got)
 			cmd.Usage()
-		} else {
-			if err := run(args); err != nil {
-				ErrorAndExitf("%v", err)
-			}
+			os.Exit(1)
+		}
+		if err := run(cmd, args); err != nil {
+			ErrorAndExitf("%v", err)
 		}
 	}
 }
 
-// RunBoundedArgs wraps a function in a function
-// that checks its argument count is within a range.
-func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Command, []string) {
+// RunBoundedArgs wraps a function in a function that checks its argument
+// count is within a range.
+func RunBoundedArgs(min int, max int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) < min || len(args) > max {
-			fmt.Printf("expected %d to %d arguments, got %d\n\n", min, max, len(args))
+			fmt.Fprintf(cmd.OutOrStderr(), "expected %d to %d arguments, got %d\n\n", min, max, len(args))
 			cmd.Usage()
-		} else {
-			if err := run(args); err != nil {
-				ErrorAndExitf("%v", err)
-			}
+			os.Exit(1)
+		}
+		if err := run(cmd, args); err != nil {
+			ErrorAndExitf("%v", err)
 		}
 	}
 }
 
-// RunMinimumArgs wraps a function in a function
-// that checks its argument count is above a minimum amount
-func RunMinimumArgs(min int, run func([]string) error) func(*cobra.Command, []string) {
+// RunMinimumArgs wraps a function in a function that checks its argument count
+// is above a minimum amount
+func RunMinimumArgs(min int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) < min {
-			fmt.Printf("expected at least %d arguments, got %d\n\n", min, len(args))
+			fmt.Fprintf(cmd.OutOrStderr(), "expected at least %d arguments, got %d\n\n", min, len(args))
 			cmd.Usage()
-		} else {
-			if err := run(args); err != nil {
-				ErrorAndExitf("%v", err)
-			}
+			os.Exit(1)
+		}
+		if err := run(cmd, args); err != nil {
+			ErrorAndExitf("%v", err)
 		}
 	}
 }
 
 // Run makes a new cobra run function that wraps the given function.
-func Run(run func(args []string) error) func(*cobra.Command, []string) {
-	return func(_ *cobra.Command, args []string) {
-		if err := run(args); err != nil {
+func Run(run func(cmd *cobra.Command, args []string) error) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		if err := run(cmd, args); err != nil {
 			ErrorAndExitf("%v", err)
 		}
 	}
@@ -190,7 +190,7 @@ func ParseBranch(project, arg string) (*pfs.Branch, error) {
 	if err != nil {
 		return nil, err
 	}
-	if commit.ID != "" {
+	if commit.Id != "" {
 		return nil, errors.Errorf("invalid branch \"%s\": cannot specify a commit or ancestry", arg)
 	}
 	return commit.Branch, nil
@@ -206,7 +206,7 @@ func ParseJob(project, arg string) (*pps.Job, error) {
 	if len(parts) != 2 {
 		return nil, errors.Errorf("invalid format \"%s\": expected pipeline@job-id", arg)
 	}
-	return client.NewProjectJob(project, parts[0], parts[1]), nil
+	return client.NewJob(project, parts[0], parts[1]), nil
 }
 
 // ParseBranches converts all arguments to *pfs.Commit structs using the
@@ -243,7 +243,7 @@ func ParsePartialFile(project, arg string) *pfs.File {
 	if err == nil {
 		return file
 	}
-	return client.NewProjectFile(project, arg, "", "", "")
+	return client.NewFile(project, arg, "", "", "")
 }
 
 // ParseHistory parses a --history flag argument. Permissable values are "all"

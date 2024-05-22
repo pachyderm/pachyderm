@@ -1,0 +1,29 @@
+# All
+/src/*/*.proto           @pachyderm/CORE @pachyderm/INT
+
+# PFS
+/src/pfs/                @pachyderm/PFS
+/src/server/pfs/         @pachyderm/PFS
+/src/internal/pfsdb/     @pachyderm/PFS
+/src/internal/storage/   @pachyderm/PFS
+
+# Integrations
+/src/server/pfs/s3       @pachyderm/INT
+/src/server/pfs/fuse     @pachyderm/INT
+/python-sdk              @pachyderm/INT
+
+# CORE
+/src/auth                @pachyderm/CORE
+/src/debug               @pachyderm/CORE
+/src/enterprise          @pachyderm/CORE
+/src/identity            @pachyderm/CORE
+/src/license             @pachyderm/CORE
+/src/pps                 @pachyderm/CORE
+/src/worker              @pachyderm/CORE
+/src/server/auth         @pachyderm/CORE
+/src/server/debug        @pachyderm/CORE
+/src/server/enterprise   @pachyderm/CORE
+/src/server/identity     @pachyderm/CORE
+/src/server/license      @pachyderm/CORE
+/src/server/pps          @pachyderm/CORE
+/src/server/worker       @pachyderm/CORE

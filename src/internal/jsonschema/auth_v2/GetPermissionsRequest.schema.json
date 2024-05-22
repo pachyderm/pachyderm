@@ -1,0 +1,41 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetPermissionsRequest",
+    "definitions": {
+        "GetPermissionsRequest": {
+            "properties": {
+                "resource": {
+                    "$ref": "#/definitions/auth_v2.Resource",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Permissions Request",
+            "description": "GetPermissions evaluates the current user's permissions on a resource"
+        },
+        "auth_v2.Resource": {
+            "properties": {
+                "type": {
+                    "enum": [
+                        "RESOURCE_TYPE_UNKNOWN",
+                        "CLUSTER",
+                        "REPO",
+                        "SPEC_REPO",
+                        "PROJECT"
+                    ],
+                    "type": "string",
+                    "title": "Resource Type",
+                    "description": "ResourceType represents the type of a Resource"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Resource",
+            "description": "Resource represents any resource that has role-bindings in the system"
+        }
+    }
+}

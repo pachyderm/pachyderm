@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "server",
+    srcs = [
+        "api_server.go",
+        "client.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/worker/server",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/debug",
+        "//src/internal/client",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/ppsutil",
+        "//src/pps",
+        "//src/server/worker/driver",
+        "//src/worker",
+        "@io_etcd_go_etcd_client_v3//:client",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials/insecure",
+        "@org_golang_google_protobuf//types/known/emptypb",
+        "@org_uber_go_zap//:zap",
+    ],
+)

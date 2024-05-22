@@ -7,13 +7,15 @@ import (
 	"net/url"
 	"strconv"
 	"testing"
+	"time"
 
 	"golang.org/x/oauth2"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -27,9 +29,9 @@ func OIDCOIDCConfig(host, issuerPort, redirectPort string, local bool) *auth.OID
 
 	return &auth.OIDCConfig{
 		Issuer:          "http://" + host + ":" + issuerPort + "/dex",
-		ClientID:        "pachyderm",
+		ClientId:        "pachyderm",
 		ClientSecret:    "notsecret",
-		RedirectURI:     "http://" + host + ":" + redirectPort + "/authorization-code/callback",
+		RedirectUri:     "http://" + host + ":" + redirectPort + "/authorization-code/callback",
 		LocalhostIssuer: local,
 		Scopes:          auth.DefaultOIDCScopes,
 	}
@@ -119,18 +121,34 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
 	// outside the cluster.
-	c := &http.Client{}
+	require.NoErrorWithinTRetryConstant(t, 2*time.Minute, func() error {
+		return DoOAuthExchangeOnce(t, pachClient, enterpriseClient, loginURL)
+	}, time.Second, "failed DoOAuthExchange")
+}
+
+func DoOAuthExchangeOnce(t testing.TB, pachClient, enterpriseClient *client.APIClient, loginURL string) error {
+	c := NewLoggingHTTPClient(t)
+	c.Timeout = 15 * time.Second
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
 
 	// Get the initial URL from the grpc, which should point to the dex login page
 	resp, err := c.Get(RewriteURL(t, loginURL, DexHost(enterpriseClient)))
-	require.NoError(t, err)
-
+	if err != nil {
+		return errors.Wrap(err, "getting dex login page")
+	}
+	if got, want := resp.StatusCode, http.StatusFound; got != want {
+		return errors.Wrapf(err, "getting dex login page status code got %v want %v", got, want)
+	}
 	// Dex login redirects to the provider page, which will generate it's own state
 	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(enterpriseClient)))
-	require.NoError(t, err)
+	if err != nil {
+		return errors.Wrap(err, "getting dex login redirect")
+	}
+	if got, want := resp.StatusCode, http.StatusFound; got != want {
+		return errors.Wrapf(err, "getting dex login redirect status code got %v want %v", got, want)
+	}
 
 	// Because we've only configured username/password login, there's a redirect
 	// to the login page. The params have the session state. POST our hard-coded
@@ -140,15 +158,22 @@ func DoOAuthExchange(t testing.TB, pachClient, enterpriseClient *client.APIClien
 	vals.Add("password", "password")
 
 	resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(enterpriseClient)), vals)
-	require.NoError(t, err)
-
-	// The username/password flow redirects back to the dex /approval endpoint
-	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(enterpriseClient)))
-	require.NoError(t, err)
+	if err != nil {
+		return errors.Wrap(err, "posting dex login creds")
+	}
+	if got, want := resp.StatusCode, http.StatusSeeOther; got != want {
+		return errors.Wrapf(err, "login status code got %v want %v", got, want)
+	}
 
 	// Follow the resulting redirect back to pachd to complete the flow
-	_, err = c.Get(RewriteRedirect(t, resp, pachHost(pachClient)))
-	require.NoError(t, err)
+	resp, err = c.Get(RewriteRedirect(t, resp, pachHost(pachClient)))
+	if err != nil {
+		return errors.Wrap(err, "getting redirect back to pachyderm")
+	}
+	if got, want := resp.StatusCode, http.StatusOK; got != want {
+		return errors.Wrapf(err, "after login redirect status code got %v want %v", got, want)
+	}
+	return nil
 }
 
 func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitTest bool) string {
@@ -156,7 +181,7 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 	// We rewrite the host names for each redirect to avoid issues because
 	// pachd is configured to reach dex with kube dns, but the tests might be
 	// outside the cluster.
-	c := &http.Client{}
+	c := NewLoggingHTTPClient(t)
 	c.CheckRedirect = func(_ *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
@@ -181,34 +206,45 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 			"audience:server:client_id:pachyderm",
 		},
 	}
+	var token *oauth2.Token
+	require.NoErrorWithinTRetry(t, time.Minute*5, func() error {
+		// Hit the dex login page for the test client with a fixed nonce
+		resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
 
-	// Hit the dex login page for the test client with a fixed nonce
-	resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
-	require.NoError(t, err)
+		// Dex login redirects to the provider page, which will generate it's own state
+		resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
 
-	// Dex login redirects to the provider page, which will generate it's own state
-	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
-	require.NoError(t, err)
+		// Because we've only configured username/password login, there's a redirect
+		// to the login page. The params have the session state. POST our hard-coded
+		// credentials to the login page.
+		vals := make(url.Values)
+		vals.Add("login", "admin")
+		vals.Add("password", "password")
 
-	// Because we've only configured username/password login, there's a redirect
-	// to the login page. The params have the session state. POST our hard-coded
-	// credentials to the login page.
-	vals := make(url.Values)
-	vals.Add("login", "admin")
-	vals.Add("password", "password")
+		resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(testClient)), vals)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		if got, want := resp.StatusCode, http.StatusSeeOther; got != want {
+			return errors.Errorf("login status code got %v want %v", got, want)
+		}
 
-	resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(testClient)), vals)
-	require.NoError(t, err)
+		// The username/password flow used to redirect to the /approval endpoint, but now it goes
+		// right to our redirect.
+		codeURL, err := url.Parse(resp.Header.Get("Location"))
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
 
-	// The username/password flow redirects back to the dex /approval endpoint
-	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
-	require.NoError(t, err)
-
-	codeURL, err := url.Parse(resp.Header.Get("Location"))
-	require.NoError(t, err)
-
-	token, err := oauthConfig.Exchange(context.Background(), codeURL.Query().Get("code"))
-	require.NoError(t, err)
+		token, err = oauthConfig.Exchange(context.Background(), codeURL.Query().Get("code"))
+		return errors.EnsureStack(err)
+	}, "OIDC token exchange for trusted app")
 
 	return token.Extra("id_token").(string)
 }

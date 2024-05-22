@@ -1,5 +1,4 @@
 import React, {useRef} from 'react';
-import {closeIcon} from '@jupyterlab/ui-components';
 import isVisible, {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
 import {
@@ -7,14 +6,15 @@ import {
   CurrentDatumResponse,
   PfsInput,
 } from 'plugins/mount/types';
+import {ReadonlyPartialJSONObject} from '@lumino/coreutils';
 
 type DatumProps = {
-  showDatum: boolean;
-  setShowDatum: (shouldShow: boolean) => Promise<void>;
-  keepMounted: boolean;
-  setKeepMounted: (keep: boolean) => void;
   open: (path: string) => void;
   pollRefresh: () => Promise<void>;
+  executeCommand: (
+    id: string,
+    args?: ReadonlyPartialJSONObject | undefined,
+  ) => void;
   currentDatumInfo?: CurrentDatumResponse;
   repoViewInputSpec: CrossInputSpec | PfsInput;
 };
@@ -25,12 +25,9 @@ const placeholderText = `pfs:
 `;
 
 const Datum: React.FC<DatumProps> = ({
-  showDatum,
-  setShowDatum,
-  keepMounted,
-  setKeepMounted,
   open,
   pollRefresh,
+  executeCommand,
   currentDatumInfo,
   repoViewInputSpec,
 }) => {
@@ -39,47 +36,20 @@ const Datum: React.FC<DatumProps> = ({
   const {
     loading,
     shouldShowCycler,
+    shouldShowDownload,
     currDatum,
-    currIdx,
-    setCurrIdx,
     inputSpec,
     setInputSpec,
     callMountDatums,
-    callUnmountAll,
+    callNextDatum,
+    callPrevDatum,
+    callDownloadDatum,
     errorMessage,
-    saveInputSpec,
     initialInputSpec,
-  } = useDatum(
-    showDatum,
-    keepMounted,
-    setKeepMounted,
-    open,
-    pollRefresh,
-    repoViewInputSpec,
-    currentDatumInfo,
-  );
+  } = useDatum(open, pollRefresh, repoViewInputSpec, currentDatumInfo);
 
   return (
     <div className="pachyderm-mount-datum-base">
-      <div className="pachyderm-mount-datum-back">
-        <button
-          data-testid="Datum__back"
-          className="pachyderm-button-link"
-          onClick={async () => {
-            await callUnmountAll();
-            saveInputSpec();
-            setKeepMounted(false);
-            await setShowDatum(false);
-          }}
-        >
-          Back{' '}
-          <closeIcon.react
-            tag="span"
-            className="pachyderm-mount-icon-padding"
-          />
-        </button>
-      </div>
-
       <span className="pachyderm-mount-datum-subheading">Test Datums</span>
 
       <div className="pachyderm-mount-datum-input-wrapper">
@@ -89,7 +59,7 @@ const Datum: React.FC<DatumProps> = ({
         <textarea
           className="pachyderm-input"
           data-testid="Datum__inputSpecInput"
-          style={{minHeight: '200px'}}
+          style={{minHeight: '200px', resize: 'none'}}
           name="inputSpec"
           value={inputSpec}
           onChange={(e: any) => {
@@ -116,14 +86,42 @@ const Datum: React.FC<DatumProps> = ({
             shouldShowCycler &&
             'Drag line below to show datum cycler'}
         </span>
-        <button
-          data-testid="Datum__mountDatums"
-          className="pachyderm-button-link"
-          onClick={callMountDatums}
-          style={{padding: '0.5rem'}}
+        <div
+          className="pachyderm-mount-datum-actions"
+          style={{display: 'flex'}}
         >
-          Mount Datums
-        </button>
+          <button
+            data-testid="Datum__loadDatums"
+            className="pachyderm-button-link"
+            onClick={() => {
+              // Only show the datum order warning if the input spec is more complicated than a simple mount
+              if (!inputSpec.startsWith('pfs:')) {
+                executeCommand('apputils:notify', {
+                  message: 'Datum order not guaranteed when loading datums.',
+                  type: 'info',
+                  options: {
+                    autoClose: 10000, // 10 seconds
+                  },
+                });
+              }
+
+              callMountDatums();
+            }}
+            style={{padding: '0.5rem'}}
+          >
+            Load Datums
+          </button>
+          {shouldShowDownload && (
+            <button
+              data-testid="Datum__downloadDatum"
+              className="pachyderm-button-link"
+              onClick={callDownloadDatum}
+              style={{padding: '0.5rem'}}
+            >
+              Download Datum
+            </button>
+          )}
+        </div>
         {shouldShowCycler && (
           <div
             className="pachyderm-mount-datum-cycler"
@@ -135,28 +133,28 @@ const Datum: React.FC<DatumProps> = ({
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__cyclerLeft"
-                disabled={currIdx <= 0}
-                onClick={() => {
-                  if (currIdx >= 1) {
-                    setCurrIdx(currIdx - 1);
-                  }
-                }}
+                disabled={currDatum.idx <= 0}
+                onClick={callPrevDatum}
               >
                 <caretLeftIcon.react
                   tag="span"
                   className="pachyderm-mount-datum-left"
                 />
               </button>
-              {'(' + (currIdx + 1) + '/' + currDatum.num_datums + ')'}
+              {'(' +
+                (currDatum.idx + 1) +
+                '/' +
+                currDatum.num_datums +
+                (currDatum.all_datums_received ? '' : '+') +
+                ')'}
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__cyclerRight"
-                disabled={currIdx >= currDatum.num_datums - 1}
-                onClick={() => {
-                  if (currIdx < currDatum.num_datums - 1) {
-                    setCurrIdx(currIdx + 1);
-                  }
-                }}
+                disabled={
+                  currDatum.idx >= currDatum.num_datums - 1 &&
+                  currDatum.all_datums_received
+                }
+                onClick={callNextDatum}
               >
                 <caretRightIcon.react
                   tag="span"

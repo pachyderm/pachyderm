@@ -1,7 +1,5 @@
 // TODO: the s2 library checks the type of the error to decide how to handle it,
 // which doesn't work properly with wrapped errors
-//
-//nolint:wrapcheck
 package s3
 
 import (
@@ -13,14 +11,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsClient "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"go.uber.org/zap"
 
@@ -66,11 +62,15 @@ func multipartKeepArgs(path string) (repo string, branch string, key string, upl
 }
 
 func parentDirPath(bucket *Bucket, key string, uploadID string) string {
-	commitID := bucket.Commit.ID
+	commitID := bucket.Commit.Id
 	if commitID == "" {
 		commitID = "latest"
 	}
-	return path.Join(bucket.Commit.Branch.Repo.Name, bucket.Commit.Branch.Repo.Type, bucket.Commit.Branch.Name, commitID, key, uploadID)
+	branch := ""
+	if bucket.Commit.Branch != nil {
+		branch = bucket.Commit.Branch.Name
+	}
+	return path.Join(bucket.Commit.Repo.Name, bucket.Commit.Repo.Type, branch, commitID, key, uploadID)
 }
 
 func chunkPath(bucket *Bucket, key string, uploadID string, partNumber int) string {
@@ -82,14 +82,14 @@ func keepPath(bucket *Bucket, key string, uploadID string) string {
 }
 
 func (c *controller) ensureRepo(pc *client.APIClient) error {
-	_, err := pc.InspectProjectBranch(c.project, c.repo, "master")
+	_, err := pc.InspectBranch(c.project, c.repo, "master")
 	if err != nil {
-		err = pc.UpdateProjectRepo(c.project, c.repo)
+		err = pc.UpdateRepo(c.project, c.repo)
 		if err != nil {
 			return err
 		}
 
-		err = pc.CreateProjectBranch(c.project, c.repo, "master", "", "", nil)
+		err = pc.CreateBranch(c.project, c.repo, "master", "", "", nil)
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 	}
 
 	globPattern := keepPath(bucket, "*", "*")
-	err = pc.GlobFile(client.NewProjectCommit(c.project, c.repo, "master", ""), globPattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(client.NewCommit(c.project, c.repo, "master", ""), globPattern, func(fileInfo *pfs.FileInfo) error {
 		_, _, key, uploadID, err := multipartKeepArgs(fileInfo.File.Path)
 		if err != nil {
 			return nil
@@ -133,10 +133,7 @@ func (c *controller) ListMultipart(r *http.Request, bucketName, keyMarker, uploa
 			return errutil.ErrBreak
 		}
 
-		timestamp, err := types.TimestampFromProto(fileInfo.Committed)
-		if err != nil {
-			return err
-		}
+		timestamp := fileInfo.Committed.AsTime()
 
 		result.Uploads = append(result.Uploads, &s2.Upload{
 			Key:          key,
@@ -174,7 +171,7 @@ func (c *controller) InitMultipart(r *http.Request, bucketName, key string) (str
 
 	uploadID := uuid.NewWithoutDashes()
 
-	if err := pc.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), keepPath(bucket, key, uploadID), strings.NewReader("")); err != nil {
+	if err := pc.PutFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), keepPath(bucket, key, uploadID), strings.NewReader("")); err != nil {
 		return "", err
 	}
 
@@ -194,12 +191,12 @@ func (c *controller) AbortMultipart(r *http.Request, bucketName, key, uploadID s
 		return err
 	}
 
-	_, err = pc.InspectFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), keepPath(bucket, key, uploadID))
+	_, err = pc.InspectFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), keepPath(bucket, key, uploadID))
 	if err != nil {
 		return s2.NoSuchUploadError(r)
 	}
 
-	err = pc.DeleteFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), parentDirPath(bucket, key, uploadID))
+	err = pc.DeleteFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), parentDirPath(bucket, key, uploadID))
 	if err != nil {
 		return s2.InternalError(r, err)
 	}
@@ -228,7 +225,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		return nil, s2.NotImplementedError(r)
 	}
 
-	_, err = pc.InspectFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), keepPath(bucket, key, uploadID))
+	_, err = pc.InspectFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), keepPath(bucket, key, uploadID))
 	if err != nil {
 		if pfsServer.IsFileNotFoundErr(err) {
 			return nil, s2.NoSuchUploadError(r)
@@ -243,7 +240,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 	for i, part := range parts {
 		srcPath := chunkPath(bucket, key, uploadID, part.PartNumber)
 
-		fileInfo, err := pc.InspectFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), srcPath)
+		fileInfo, err := pc.InspectFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), srcPath)
 		if err != nil {
 			if pfsServer.IsFileNotFoundErr(err) {
 				return nil, s2.InvalidPartError(r)
@@ -266,22 +263,22 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 		}
 
 		if err := pc.CopyFile(
-			client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), tmpPath,
-			client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), srcPath,
+			client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), tmpPath,
+			client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), srcPath,
 			client.WithAppendCopyFile()); err != nil {
 			return nil, err
 		}
 	}
 
 	// overwrite file, for "last write wins" behavior
-	if err := pc.CopyFile(bucket.Commit, key, client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), tmpPath); err != nil {
+	if err := pc.CopyFile(bucket.Commit, key, client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), tmpPath); err != nil {
 		if errutil.IsWriteToOutputBranchError(err) {
 			return nil, writeToOutputBranchError(r)
 		}
 		return nil, err
 	}
 
-	err = pc.DeleteFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), parentDirPath(bucket, key, uploadID))
+	err = pc.DeleteFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), parentDirPath(bucket, key, uploadID))
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +291,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucketName, key, uploadI
 	result := s2.CompleteMultipartResult{Location: globalLocation}
 	if fileInfo != nil {
 		result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
-		result.Version = fileInfo.File.Commit.ID
+		result.Version = fileInfo.File.Commit.Id
 	}
 
 	return &result, nil
@@ -321,7 +318,7 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucketName, key, uploa
 	}
 
 	globPattern := path.Join(parentDirPath(bucket, key, uploadID), "*")
-	err = pc.GlobFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), globPattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = pc.GlobFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), globPattern, func(fileInfo *pfs.FileInfo) error {
 		_, _, _, _, partNumber, err := multipartChunkArgs(fileInfo.File.Path)
 		if err != nil {
 			return nil
@@ -362,7 +359,7 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 		return "", err
 	}
 
-	_, err = pc.InspectFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), keepPath(bucket, key, uploadID))
+	_, err = pc.InspectFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), keepPath(bucket, key, uploadID))
 	if err != nil {
 		if pfsServer.IsFileNotFoundErr(err) {
 			return "", s2.NoSuchUploadError(r)
@@ -371,11 +368,11 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucketName, key, uplo
 	}
 
 	path := chunkPath(bucket, key, uploadID, partNumber)
-	if err := pc.PutFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), path, reader); err != nil {
+	if err := pc.PutFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), path, reader); err != nil {
 		return "", err
 	}
 
-	fileInfo, err := pc.InspectFile(client.NewProjectCommit(pfs.DefaultProjectName, c.repo, "master", ""), path)
+	fileInfo, err := pc.InspectFile(client.NewCommit(pfs.DefaultProjectName, c.repo, "master", ""), path)
 	if err != nil {
 		return "", err
 	}

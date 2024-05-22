@@ -1,17 +1,18 @@
 package client
 
 import (
-	"context"
 	"io"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -84,12 +85,12 @@ func NewJob(pipelineName, jobID string) *pps.Job {
 
 // NewProjectJob creates a pps.Job.
 func NewProjectJob(projectName, pipelineName, jobID string) *pps.Job {
-	return &pps.Job{Pipeline: NewProjectPipeline(projectName, pipelineName), ID: jobID}
+	return &pps.Job{Pipeline: NewProjectPipeline(projectName, pipelineName), Id: jobID}
 }
 
 // NewJobSet creates a pps.JobSet.
 func NewJobSet(id string) *pps.JobSet {
-	return &pps.JobSet{ID: id}
+	return &pps.JobSet{Id: id}
 }
 
 // NewPFSInput returns a new PFS input. It only includes required options.
@@ -208,7 +209,7 @@ func NewCronInput(name string, spec string) *pps.Input {
 // It uses cron syntax to specify the schedule. The input will be exposed to
 // jobs as `/pfs/<name>/<timestamp>`. The timestamp uses the RFC 3339 format,
 // e.g. `2006-01-02T15:04:05Z07:00`. It includes all the options.
-func NewCronInputOpts(name string, repo string, spec string, overwrite bool, start *types.Timestamp) *pps.Input {
+func NewCronInputOpts(name string, repo string, spec string, overwrite bool, start *timestamppb.Timestamp) *pps.Input {
 	return &pps.Input{
 		Cron: &pps.CronInput{
 			Name:      name,
@@ -294,7 +295,7 @@ func (c APIClient) WaitProjectJob(projectName, pipelineName, jobID string, detai
 }
 
 func (c APIClient) inspectJobSet(id string, wait bool, details bool, cb func(*pps.JobInfo) error) (retErr error) {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	req := &pps.InspectJobSetRequest{
 		JobSet:  NewJobSet(id),
@@ -502,7 +503,7 @@ func (c APIClient) ListProjectJobFilterF(projectName, pipelineName string, input
 	if projectName != "" && pipelineName != "" {
 		pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListJob(
 		ctx,
@@ -543,7 +544,7 @@ func (c APIClient) SubscribeJob(pipelineName string, details bool, cb func(*pps.
 // SubscribeProjectJob calls the given callback with each open job in the given
 // pipeline until cancelled.
 func (c APIClient) SubscribeProjectJob(projectName, pipelineName string, details bool, cb func(*pps.JobInfo) error) error {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.SubscribeJob(
 		ctx,
@@ -700,7 +701,7 @@ func (c APIClient) ListDatumInputAll(input *pps.Input) (_ []*pps.DatumInfo, retE
 }
 
 func (c APIClient) listDatum(req *pps.ListDatumRequest, cb func(*pps.DatumInfo) error) (retErr error) {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListDatum(ctx, req)
 	if err != nil {
@@ -736,7 +737,7 @@ func (c APIClient) InspectProjectDatum(projectName, pipelineName, jobID, datumID
 		c.Ctx(),
 		&pps.InspectDatumRequest{
 			Datum: &pps.Datum{
-				ID:  datumID,
+				Id:  datumID,
 				Job: NewProjectJob(projectName, pipelineName, jobID),
 			},
 		},
@@ -827,7 +828,9 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 		Master:         master,
 		Follow:         follow,
 		UseLokiBackend: useLoki,
-		Since:          types.DurationProto(since),
+	}
+	if since != 0 {
+		request.Since = durationpb.New(since)
 	}
 	if pipelineName != "" {
 		request.Pipeline = NewProjectPipeline(projectName, pipelineName)
@@ -839,26 +842,13 @@ func (c APIClient) getLogs(projectName, pipelineName, jobID string, data []strin
 	if datumID != "" {
 		request.Datum = &pps.Datum{
 			Job: NewProjectJob(projectName, pipelineName, jobID),
-			ID:  datumID,
+			Id:  datumID,
 		}
 	}
 	resp := &LogsIter{}
 	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
 	resp.err = grpcutil.ScrubGRPC(resp.err)
 	return resp
-}
-
-func (c APIClient) GetKubeEvents(since time.Duration) ([]*pps.LokiLogMessage, error) {
-	ctx, cf := context.WithCancel(c.Ctx())
-	defer cf()
-	request := pps.LokiRequest{
-		Since: types.DurationProto(since),
-	}
-	client, err := c.PpsAPIClient.GetKubeEvents(ctx, &request)
-	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
-	}
-	return grpcutil.Collect[*pps.LokiLogMessage](client, 1000)
 }
 
 // CreatePipeline creates a new pipeline, pipelines are the main computation
@@ -960,13 +950,13 @@ func (c APIClient) InspectProjectPipeline(projectName, pipelineName string, deta
 	return pipelineInfo, grpcutil.ScrubGRPC(err)
 }
 
-// ListPipeline returns info about all pipelines.
+// ListPipeline returns info about all pipelines.  The details argument is ignored.
 func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListPipeline(
 		ctx,
-		&pps.ListPipelineRequest{Details: details},
+		&pps.ListPipelineRequest{},
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -999,24 +989,25 @@ func (c APIClient) ListPipelineHistory(pipelineName string, history int64, detai
 // pipelines.
 //
 // `history` specifies how many historical revisions to return:
-
+//
 // - 0: Return the current version of the pipeline or pipelines.
 // - 1: Return the above and the next most recent version
 // - 2: etc.
 // - -1: Return all historical versions.
+//
+// The `details` argument is ignored.
 func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, history int64, details bool) ([]*pps.PipelineInfo, error) {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewProjectPipeline(projectName, pipelineName)
 	}
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListPipeline(
 		ctx,
 		&pps.ListPipelineRequest{
 			Pipeline: pipeline,
 			History:  history,
-			Details:  details,
 		},
 	)
 	if err != nil {
@@ -1101,7 +1092,7 @@ func (c APIClient) RunProjectPipeline(projectName, pipelineName string, provenan
 		&pps.RunPipelineRequest{
 			Pipeline:   NewProjectPipeline(projectName, pipelineName),
 			Provenance: provenance,
-			JobID:      jobID,
+			JobId:      jobID,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
@@ -1166,7 +1157,7 @@ func (c APIClient) InspectSecret(secret string) (*pps.SecretInfo, error) {
 func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 	secretInfos, err := c.PpsAPIClient.ListSecret(
 		c.Ctx(),
-		&types.Empty{},
+		&emptypb.Empty{},
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -1229,11 +1220,8 @@ func (c APIClient) WithDefaultTransformUser(x string) *APIClient {
 // GetDatumTotalTime sums the timing stats from a DatumInfo
 func GetDatumTotalTime(s *pps.ProcessStats) time.Duration {
 	totalDuration := time.Duration(0)
-	duration, _ := types.DurationFromProto(s.DownloadTime)
-	totalDuration += duration
-	duration, _ = types.DurationFromProto(s.ProcessTime)
-	totalDuration += duration
-	duration, _ = types.DurationFromProto(s.UploadTime)
-	totalDuration += duration
+	totalDuration += s.DownloadTime.AsDuration()
+	totalDuration += s.ProcessTime.AsDuration()
+	totalDuration += s.UploadTime.AsDuration()
 	return totalDuration
 }

@@ -56,6 +56,12 @@ spec:
         env:
         - name: IS_PACHW
           value: "true"
+        - name: GOCDK_ENABLED
+          value: {{ .Values.pachd.storage.gocdkEnabled | quote }}
+        {{- if and (ne .Values.deployTarget "LOCAL") .Values.pachd.storage.gocdkEnabled  }}
+        - name: STORAGE_URL
+          value: {{ required "storage URL required" .Values.pachd.storage.storageURL | quote }}
+        {{- end }}
         - name: POSTGRES_HOST
           value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
         - name: POSTGRES_PORT
@@ -101,11 +107,23 @@ spec:
           value: "{{ join "," .Values.global.imagePullSecrets }}"
         {{- end }}
         {{- if and .Values.pachd.goMaxProcs (gt .Values.pachd.goMaxProcs 0.0)}}
-        - name: GOMAXPROCS # Needs to be PR'd to 2.0
+        - name: GOMAXPROCS
           value: {{ .Values.pachd.goMaxProcs | quote }}
         {{- end }}
-        - name: LOG_LEVEL
+        - name: PACHYDERM_LOG_LEVEL
           value: {{ .Values.pachd.logLevel }}
+        {{- if .Values.pachd.developmentLogger }}
+        - name: PACHYDERM_DEVELOPMENT_LOGGER
+          value: "1"
+        {{- end }}
+        {{- if .Values.pachd.disableLogSampling }}
+        - name: PACHYDERM_DISABLE_LOG_SAMPLING
+          value: "1"
+        {{- end }}
+        {{- if .Values.pachd.sqlQueryLogs }}
+        - name: POSTGRES_QUERY_LOGGING
+          value: "1"
+        {{- end }}
         - name: PACH_NAMESPACE
           valueFrom:
             fieldRef:
@@ -172,7 +190,7 @@ spec:
         - configMapRef:
             name: pachd-config
             optional: true
-        image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        image: "{{ .Values.global.image.registry }}{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachw
         readinessProbe:

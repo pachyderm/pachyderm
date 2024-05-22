@@ -1,11 +1,15 @@
 package pbutil
 
 import (
+	"database/sql"
 	"encoding/binary"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
+	"time"
 	"unsafe"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -92,4 +96,32 @@ func NewWriter(w io.Writer) Writer {
 // NewReadWriter returns a new ReadWriter with rw as both its source and its sink.
 func NewReadWriter(rw io.ReadWriter) ReadWriter {
 	return &readWriter{r: rw, w: rw}
+}
+
+func SanitizeTimestampPb(timestamp *timestamppb.Timestamp) sql.NullTime {
+	if timestamp == nil {
+		return sql.NullTime{Valid: false, Time: time.Time{}}
+	}
+	return sql.NullTime{Valid: true, Time: timestamp.AsTime()}
+}
+
+func DurationPbToBigInt(duration *durationpb.Duration) sql.NullInt64 {
+	if duration == nil {
+		return sql.NullInt64{Valid: false, Int64: 0}
+	}
+	return sql.NullInt64{Valid: true, Int64: duration.Seconds}
+}
+
+func TimeToTimestamppb(t sql.NullTime) *timestamppb.Timestamp {
+	if !t.Valid {
+		return nil
+	}
+	return timestamppb.New(t.Time)
+}
+
+func BigIntToDurationpb(s sql.NullInt64) *durationpb.Duration {
+	if !s.Valid {
+		return nil
+	}
+	return durationpb.New(time.Duration(s.Int64))
 }

@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DeleteOIDCClientResponse",
+    "definitions": {
+        "DeleteOIDCClientResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete OIDC Client Response"
+        }
+    }
+}

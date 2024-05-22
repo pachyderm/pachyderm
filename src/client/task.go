@@ -1,17 +1,17 @@
 package client
 
 import (
-	"context"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/task"
 )
 
 // ListTask lists tasks in the given namespace and group
 func (c APIClient) ListTask(service string, namespace, group string, cb func(*task.TaskInfo) error) (retErr error) {
-	ctx, cancel := context.WithCancel(c.Ctx())
+	ctx, cancel := pctx.WithCancel(c.Ctx())
 	defer cancel()
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)

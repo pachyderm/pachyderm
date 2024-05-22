@@ -3,10 +3,11 @@ package serviceenv
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -18,16 +19,18 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/client-go/dynamic"
 	kube "k8s.io/client-go/kubernetes"
 )
 
 // TestServiceEnv is a simple implementation of ServiceEnv that can be constructed with
 // existing clients.
 type TestServiceEnv struct {
-	Configuration            *Configuration
+	Configuration            *pachconfig.Configuration
 	PachClient               *client.APIClient
 	EtcdClient               *etcd.Client
 	KubeClient               kube.Interface
+	DynamicKubeClient        dynamic.Interface
 	LokiClient               *loki.Client
 	DBClient, DirectDBClient *pachsql.DB
 	PostgresListener         col.PostgresListener
@@ -55,7 +58,7 @@ type TestServiceEnv struct {
 	Ready chan interface{}
 }
 
-func (s *TestServiceEnv) Config() *Configuration {
+func (s *TestServiceEnv) Config() *pachconfig.Configuration {
 	return s.Configuration
 }
 
@@ -71,6 +74,9 @@ func (s *TestServiceEnv) GetTaskService(prefix string) task.Service {
 }
 func (s *TestServiceEnv) GetKubeClient() kube.Interface {
 	return s.KubeClient
+}
+func (s *TestServiceEnv) GetDynamicKubeClient() dynamic.Interface {
+	return s.DynamicKubeClient
 }
 func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
 	return s.LokiClient, nil
@@ -170,6 +176,11 @@ func (env *TestServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
 // SetKubeClient can be used to override the kubeclient in testing.
 func (env *TestServiceEnv) SetKubeClient(s kube.Interface) {
 	env.KubeClient = s
+}
+
+// SetDynamicKubeClient can be used to override the dynamic kubeclient in testing.
+func (env *TestServiceEnv) SetDynamicKubeClient(s dynamic.Interface) {
+	env.DynamicKubeClient = s
 }
 
 // InitDexDB implements the ServiceEnv interface.

@@ -13,10 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
@@ -25,22 +22,28 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	workerStats "github.com/pachyderm/pachyderm/v2/src/server/worker/stats"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
+
+// TODO: Switch from path.Join to filepath.Join for all local filesystem paths.
 
 const (
 	defaultNumRetries = 3
 )
 
-func CreateSets(pachClient *client.APIClient, setSpec *SetSpec, fileSetID string, basePathRange *pfs.PathRange) ([]*pfs.PathRange, error) {
-	commit := client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fileSetID)
+func CreateSets(ctx context.Context, c pfs.APIClient, setSpec *SetSpec, fileSetID string, basePathRange *pfs.PathRange) ([]*pfs.PathRange, error) {
+	commit := client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fileSetID)
 	pathRange := &pfs.PathRange{
 		Lower: basePathRange.Lower,
 	}
 	shouldCreateSet := shouldCreateSetFunc(setSpec)
 	var sets []*pfs.PathRange
-	if err := iterateMeta(pachClient, commit, basePathRange, func(path string, meta *Meta) error {
+	if err := iterateMeta(ctx, c, commit, basePathRange, func(path string, meta *Meta) error {
 		if shouldCreateSet(meta) {
 			pathRange.Upper = path
 			sets = append(sets, pathRange)
@@ -160,6 +163,7 @@ type Datum struct {
 	recoveryCallback func(context.Context) error
 	timeout          time.Duration
 	IDPrefix         string
+	env              []string
 }
 
 func newDatum(set *Set, meta *Meta, opts ...Option) *Datum {
@@ -189,11 +193,7 @@ func (d *Datum) MetaStorageRoot() string {
 }
 
 func (d *Datum) finish(err error) (retErr error) {
-	defer func() {
-		if err := MergeProcessStats(d.set.stats.ProcessStats, d.meta.Stats); retErr == nil {
-			retErr = err
-		}
-	}()
+	defer MergeProcessStats(d.set.stats.ProcessStats, d.meta.Stats)
 	if err != nil {
 		d.handleFailed(err)
 		return d.uploadMetaOutput()
@@ -210,8 +210,8 @@ func (d *Datum) handleFailed(err error) {
 	d.meta.State = State_FAILED
 	d.meta.Reason = err.Error()
 	d.set.stats.Failed++
-	if d.set.stats.FailedID == "" {
-		d.set.stats.FailedID = d.ID
+	if d.set.stats.FailedId == "" {
+		d.set.stats.FailedId = d.ID
 	}
 }
 
@@ -225,6 +225,9 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 			retErr = errors.EnsureStack(err)
 		}
 	}()
+	if err := d.createEnvFile(); err != nil {
+		return err
+	}
 	return pfssync.WithDownloader(d.set.cacheClient, func(downloader pfssync.Downloader) error {
 		// TODO: Move to copy file for inputs to datum file set.
 		if err := d.downloadData(downloader); err != nil {
@@ -234,11 +237,20 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 	})
 }
 
+func (d *Datum) createEnvFile() error {
+	var envStr string
+	for _, e := range d.env {
+		envStr += e + "\n"
+	}
+	err := os.WriteFile(path.Join(d.PFSStorageRoot(), common.EnvFileName), []byte(envStr), 0666)
+	return errors.EnsureStack(err)
+}
+
 func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 	start := time.Now()
 	defer func() {
 		duration := time.Since(start)
-		d.meta.Stats.DownloadTime = types.DurationProto(duration)
+		d.meta.Stats.DownloadTime = durationpb.New(duration)
 		labels := workerStats.JobLabels(d.meta.Job)
 		workerStats.DatumDownloadSize.With(labels).Observe(float64(d.meta.Stats.DownloadBytes))
 		workerStats.DatumDownloadBytesCount.With(labels).Add(float64(d.meta.Stats.DownloadBytes))
@@ -248,6 +260,13 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 	d.meta.Stats.DownloadBytes = 0
 	var mu sync.Mutex
 	for _, input := range d.meta.Inputs {
+		inputPath := path.Join(d.PFSStorageRoot(), input.Name)
+		if input.S3 {
+			if err := os.MkdirAll(inputPath, 0700); err != nil {
+				return errors.EnsureStack(err)
+			}
+			continue
+		}
 		// TODO: Need some validation to catch lazy & empty since they are incompatible.
 		// Probably should catch this at the input validation during pipeline creation?
 		opts := []pfssync.DownloadOption{
@@ -264,7 +283,7 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 		if input.EmptyFiles {
 			opts = append(opts, pfssync.WithEmpty())
 		}
-		if err := downloader.Download(path.Join(d.PFSStorageRoot(), input.Name), input.FileInfo.File, opts...); err != nil {
+		if err := downloader.Download(inputPath, input.FileInfo.File, opts...); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -275,7 +294,7 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 func (d *Datum) Run(ctx context.Context, cb func(ctx context.Context) error) error {
 	start := time.Now()
 	defer func() {
-		d.meta.Stats.ProcessTime = types.DurationProto(time.Since(start))
+		d.meta.Stats.ProcessTime = durationpb.New(time.Since(start))
 	}()
 	if d.timeout > 0 {
 		timeoutCtx, cancel := context.WithTimeout(ctx, d.timeout)
@@ -320,14 +339,16 @@ func (d *Datum) uploadMetaOutput() (retErr error) {
 }
 
 func (d *Datum) uploadMetaFile(mf client.ModifyFile) error {
-	marshaler := &jsonpb.Marshaler{}
-	buf := &bytes.Buffer{}
-	if err := marshaler.Marshal(buf, d.meta); err != nil {
-		return errors.EnsureStack(err)
+	marshaler := &protojson.MarshalOptions{}
+	result, err := marshaler.Marshal(d.meta)
+	if err != nil {
+		return errors.Wrap(err, "marshal metadata")
 	}
 	fullPath := common.MetaFilePath(d.IDPrefix + d.ID)
-	err := mf.PutFile(fullPath, buf, client.WithAppendPutFile(), client.WithDatumPutFile(d.ID))
-	return errors.EnsureStack(err)
+	if err := mf.PutFile(fullPath, bytes.NewReader(result), client.WithAppendPutFile(), client.WithDatumPutFile(d.ID)); err != nil {
+		return errors.Wrap(err, "put meta file")
+	}
+	return nil
 }
 
 func (d *Datum) uploadOutput() error {
@@ -335,6 +356,9 @@ func (d *Datum) uploadOutput() error {
 		start := time.Now()
 		d.meta.Stats.UploadBytes = 0
 		if err := d.upload(d.set.pfsOutputClient, path.Join(d.PFSStorageRoot(), common.OutputPrefix), func(hdr *tar.Header) error {
+			if err := server.ValidateFilename(hdr.Name); err != nil {
+				return errors.Wrap(err, "cannot upload file produced by the user code because its name cannot be represented in PFS")
+			}
 			d.meta.Stats.UploadBytes += hdr.Size
 			return nil
 		}); err != nil {
@@ -342,7 +366,7 @@ func (d *Datum) uploadOutput() error {
 		}
 		// TODO: stats should probably include meta upload as well
 		duration := time.Since(start)
-		d.meta.Stats.UploadTime = types.DurationProto(duration)
+		d.meta.Stats.UploadTime = durationpb.New(duration)
 		labels := workerStats.JobLabels(d.meta.Job)
 		workerStats.DatumUploadSize.With(labels).Observe(float64(d.meta.Stats.UploadBytes))
 		workerStats.DatumUploadBytesCount.With(labels).Add(float64(d.meta.Stats.UploadBytes))
@@ -411,6 +435,9 @@ func (d *Datum) handleSymlinks(mf client.ModifyFile, storageRoot string) error {
 			if i.Name == pathSplit[0] {
 				input = i
 			}
+		}
+		if input == nil {
+			return errors.Errorf("could not find input %q", pathSplit[0])
 		}
 		// Upload the local files if they are not using the empty or lazy files feature.
 		if !(input.EmptyFiles || input.Lazy) {

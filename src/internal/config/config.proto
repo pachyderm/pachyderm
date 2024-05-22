@@ -3,8 +3,6 @@ syntax = "proto3";
 package config_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/config";
 
-import "gogoproto/gogo.proto";
-
 // Config specifies the pachyderm config that is read and interpreted by the
 // pachctl command-line tool. Right now, this is stored at
 // $HOME/.pachyderm/config.
@@ -16,7 +14,7 @@ import "gogoproto/gogo.proto";
 // These structures are stored in a JSON format, so it should be safe to modify
 // fields as long as compatibility is ensured with previous versions.
 message Config {
-    string user_id = 1 [(gogoproto.customname) = "UserID"];
+    string user_id = 1;
 
     // Configuration options. Exactly one of these fields should be set
     // (depending on which version of the config is being used)
@@ -31,7 +29,7 @@ message ConfigV1 {
 
     // Trusted root certificates (overrides installed certificates), formatted
     // as base64-encoded PEM
-    string server_cas = 2 [(gogoproto.customname) = "ServerCAs"];
+    string server_cas = 2;
 
     // A secret token identifying the current pachctl user within their
     // pachyderm cluster. This is included in all RPCs sent by pachctl, and used
@@ -62,7 +60,7 @@ message Context {
 
     // Trusted root certificates (overrides installed certificates), formatted
     // as base64-encoded PEM.
-    string server_cas = 3 [(gogoproto.customname) = "ServerCAs"];
+    string server_cas = 3;
 
     // A secret token identifying the current pachctl user within their
     // pachyderm cluster. This is included in all RPCs sent by pachctl, and used
@@ -90,7 +88,7 @@ message Context {
     // A unique ID for the cluster deployment. At client initialization time,
     // we ensure this is the same as what the cluster reports back, to prevent
     // us from connecting to the wrong cluster.
-    string cluster_deployment_id = 10 [(gogoproto.customname) = "ClusterDeploymentID"];
+    string cluster_deployment_id = 10;
 
     // A boolean that records whether the context points at an enterprise server.
     // If false, the context points at a stand-alone pachd.

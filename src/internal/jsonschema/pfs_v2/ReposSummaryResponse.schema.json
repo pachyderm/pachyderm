@@ -1,0 +1,51 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ReposSummaryResponse",
+    "definitions": {
+        "ReposSummaryResponse": {
+            "properties": {
+                "summaries": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.ReposSummary"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "repo summaries for the requested projects"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Repos Summary Response"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        },
+        "pfs_v2.ReposSummary": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false,
+                    "description": "the project the ReposSummary corresponds to"
+                },
+                "userRepoCount": {
+                    "type": "integer",
+                    "description": "the count of user repos in the summary"
+                },
+                "sizeBytes": {
+                    "type": "integer",
+                    "description": "aggregate size of all the repos returned in the summary"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Repos Summary"
+        }
+    }
+}

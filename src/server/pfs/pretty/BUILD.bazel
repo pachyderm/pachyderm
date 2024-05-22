@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "pretty",
+    srcs = ["pretty.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/grpcutil",
+        "//src/internal/pretty",
+        "//src/internal/tabwriter",
+        "//src/pfs",
+        "@com_github_docker_go_units//:go-units",
+        "@com_github_fatih_color//:color",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

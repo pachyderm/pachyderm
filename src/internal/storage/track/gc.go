@@ -4,11 +4,12 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"go.uber.org/zap"
 )
 
 // Deleter is used to delete external data associated with a tracked object
@@ -55,7 +56,7 @@ func (gc *GarbageCollector) RunForever(ctx context.Context) error {
 		}
 		select {
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		case <-ticker.C:
 		}
 	}
@@ -76,9 +77,9 @@ func (gc *GarbageCollector) RunUntilEmpty(ctx context.Context) error {
 }
 
 // RunOnce run's one cycle of garbage collection.
-func (gc *GarbageCollector) RunOnce(ctx context.Context) (_ int, retErr error) {
-	defer log.Span(ctx, "RunOnce")(log.Errorp(&retErr))
-	var n int
+func (gc *GarbageCollector) RunOnce(ctx context.Context) (n int, retErr error) {
+	ctx, done := log.SpanContext(ctx, "RunOnce")
+	defer done(log.Errorp(&retErr), zap.Int("n", n))
 	err := gc.tracker.IterateDeletable(ctx, func(id string) error {
 		if err := gc.deleteObject(ctx, id); err != nil {
 			log.Error(ctx, "error deleting object", zap.String("id", id), zap.Error(err))
@@ -92,7 +93,7 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (_ int, retErr error) {
 
 func (gc *GarbageCollector) deleteObject(ctx context.Context, id string) error {
 	db := gc.tracker.DB()
-	return dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 		if err := gc.tracker.DeleteTx(tx, id); err != nil {
 			return errors.EnsureStack(err)
 		}

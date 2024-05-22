@@ -1,12 +1,10 @@
-//go:build unit_test
-
-package server_test
+package testing_test
 
 import (
 	"strconv"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -25,7 +23,7 @@ import (
 func TestSetGetConfigBasic(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -38,9 +36,9 @@ func TestSetGetConfigBasic(t *testing.T) {
 	// Set a configuration
 	conf := &auth.OIDCConfig{
 		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
-		ClientID:        "configtest",
+		ClientId:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		RedirectUri:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
@@ -58,7 +56,7 @@ func TestSetGetConfigBasic(t *testing.T) {
 func TestIssuerNotLocalhost(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -80,9 +78,9 @@ func TestIssuerNotLocalhost(t *testing.T) {
 	// Set a configuration
 	conf := &auth.OIDCConfig{
 		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
-		ClientID:        "configtest",
+		ClientId:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		RedirectUri:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
@@ -101,7 +99,7 @@ func TestIssuerNotLocalhost(t *testing.T) {
 func TestGetSetConfigAdminOnly(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -123,9 +121,9 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	// Alice tries to set the current configuration and fails
 	conf := &auth.OIDCConfig{
 		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
-		ClientID:        "configtest",
+		ClientId:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		RedirectUri:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err = aliceClient.SetConfiguration(aliceClient.Ctx(),
@@ -171,7 +169,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 func TestConfigRestartAuth(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -185,9 +183,9 @@ func TestConfigRestartAuth(t *testing.T) {
 	// Set a configuration
 	conf := &auth.OIDCConfig{
 		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
-		ClientID:        "configtest",
+		ClientId:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		RedirectUri:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
@@ -259,7 +257,7 @@ func TestConfigRestartAuth(t *testing.T) {
 func TestSetGetNilConfig(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -273,9 +271,9 @@ func TestSetGetNilConfig(t *testing.T) {
 	// Set a configuration
 	conf := &auth.OIDCConfig{
 		Issuer:          "http://" + issuerHost + ":" + issuerPort + "/dex",
-		ClientID:        "configtest",
+		ClientId:        "configtest",
 		ClientSecret:    "newsecret",
-		RedirectURI:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
+		RedirectUri:     "http://" + issuerHost + ":" + redirectPort + "/authorization-code/test",
 		LocalhostIssuer: false,
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),

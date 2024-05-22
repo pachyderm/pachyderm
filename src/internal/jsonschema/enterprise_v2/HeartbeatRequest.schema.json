@@ -1,0 +1,12 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/HeartbeatRequest",
+    "definitions": {
+        "HeartbeatRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Heartbeat Request",
+            "description": "Heartbeat in the enterprise service just triggers a heartbeat for testing purposes. The RPC used to communicate with the license service is defined in the license service."
+        }
+    }
+}

@@ -14,15 +14,19 @@ import (
 )
 
 const (
-	// PrometheusPort is the port the aggregated metrics are served on for scraping
+	// PrometheusPort is the port the aggregated metrics are served on by
+	// the user container for scraping.
 	PrometheusPort = 9090
+	// SidecarPrometheusPort is the port the sidecar (storage) container
+	// serves metrics on.
+	SidecarPrometheusPort = 9091
 )
 
 func JobLabels(job *pps.Job) prometheus.Labels {
 	return prometheus.Labels{
 		"project":  job.Pipeline.Project.GetName(),
 		"pipeline": job.Pipeline.Name,
-		"job":      job.ID,
+		"job":      job.Id,
 	}
 }
 
@@ -30,7 +34,7 @@ func DatumLabels(job *pps.Job, state string) prometheus.Labels {
 	return prometheus.Labels{
 		"project":  job.Pipeline.Project.GetName(),
 		"pipeline": job.Pipeline.Name,
-		"job":      job.ID,
+		"job":      job.Id,
 		"state":    state,
 	}
 }

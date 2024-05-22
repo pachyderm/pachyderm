@@ -1,14 +1,12 @@
 package server
 
 import (
-	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
@@ -16,143 +14,25 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/testing/protocmp"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 )
-
-type lokiResult struct {
-	Stream map[string]string `json:"stream"`
-	Values [][2]string       `json:"values"`
-}
-
-type data struct {
-	ResultType string       `json:"resultType"`
-	Result     []lokiResult `json:"result"`
-}
-type response struct {
-	Status string `json:"status"`
-	Data   data   `json:"data"`
-}
-
-func mustParseQuerystringInt64(r *http.Request, field string) int64 {
-	x, err := strconv.ParseInt(r.URL.Query().Get(field), 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	return x
-}
-
-type fakeLoki struct {
-	entries     []loki.Entry // Must be sorted by time ascending.
-	page        int          // Keep track of the current page.
-	sleepAtPage int          // Which page to put the server to sleep. 0 means don't sleep.
-}
-
-func (l *fakeLoki) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Simulate the bug where Loki server hangs due to large logs.
-	l.page++
-	if l.sleepAtPage > 0 && l.page >= l.sleepAtPage {
-		// wait for request to time out on purpose
-		<-r.Context().Done()
-		return
-	}
-
-	var (
-		start, end time.Time
-		limit      int
-	)
-	direction := r.URL.Query().Get("direction")
-	if r.URL.Query().Get("start") != "" {
-		start = time.Unix(0, mustParseQuerystringInt64(r, "start"))
-	} else {
-		start = time.Now().Add(-1 * time.Hour)
-	}
-	if r.URL.Query().Get("end") != "" {
-		end = time.Unix(0, mustParseQuerystringInt64(r, "end"))
-	} else {
-		end = time.Now()
-	}
-	if r.URL.Query().Get("limit") != "" {
-		limit = int(mustParseQuerystringInt64(r, "limit"))
-	}
-
-	if end.Before(start) {
-		panic("end is before start")
-	}
-	if end.Sub(start) >= 721*time.Hour { // Not documented, but what a local Loki rejects.
-		panic("query range too long")
-	}
-
-	var match []loki.Entry
-
-	// From the logcli docs:
-	// --from=FROM          Start looking for logs at this absolute time (inclusive)
-	// --to=TO              Stop looking for logs at this absolute time (exclusive)
-	// To is "end" and From is "start", so end is exclusive and start is inclusive.
-	inRange := func(e loki.Entry) bool {
-		return (e.Timestamp.After(start) || e.Timestamp.Equal(start)) && e.Timestamp.Before(end)
-	}
-
-	switch direction {
-	case "FORWARD":
-		for _, e := range l.entries {
-			if inRange(e) {
-				if len(match) >= limit {
-					break
-				}
-				match = append(match, e)
-			}
-		}
-	case "BACKWARD":
-		for i := len(l.entries) - 1; i >= 0; i-- {
-			e := l.entries[i]
-			if inRange(e) {
-				if len(match) >= limit {
-					break
-				}
-				match = append(match, e)
-			}
-		}
-	default:
-		panic("invalid direction")
-	}
-
-	result := response{
-		Status: "success",
-		Data: data{
-			ResultType: "streams",
-			Result: []lokiResult{
-				{
-					Stream: map[string]string{"test": "stream"},
-					Values: [][2]string{},
-				},
-			},
-		},
-	}
-	for _, e := range match {
-		result.Data.Result[0].Values = append(result.Data.Result[0].Values, [2]string{
-			strconv.FormatInt(e.Timestamp.UnixNano(), 10),
-			e.Line,
-		})
-	}
-
-	content, err := json.Marshal(&result)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write(content); err != nil {
-		panic(err)
-	}
-}
 
 func TestQueryLoki(t *testing.T) {
 	testData := []struct {
@@ -321,20 +201,23 @@ func TestQueryLoki(t *testing.T) {
 			entries := test.buildEntries()
 			want := test.buildWant()
 
-			s := httptest.NewServer(&fakeLoki{
-				entries:     entries,
-				sleepAtPage: test.sleepAtPage,
+			s := httptest.NewServer(&lokiutil.FakeServer{
+				Entries:     entries,
+				SleepAtPage: test.sleepAtPage,
 			})
+			defer s.Close()
 			d := &debugServer{
-				env: &serviceenv.TestServiceEnv{
-					LokiClient: &loki.Client{Address: s.URL},
+				env: Env{
+					GetLokiClient: func() (*loki.Client, error) {
+						return &loki.Client{Address: s.URL}, nil
+					},
 				},
 			}
 
 			var got []int
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
-			out, err := d.queryLoki(ctx, `{foo="bar"}`)
+			out, err := d.queryLoki(ctx, `{foo="bar"}`, 30000)
 			if err != nil {
 				t.Fatalf("query loki: %v", err)
 			}
@@ -430,72 +313,74 @@ metadata:
 	// Build a debug server connected to fake k8s that contains a few valid and invalid sample
 	// secrets.
 	s := &debugServer{
-		env: &serviceenv.TestServiceEnv{
-			KubeClient: fake.NewSimpleClientset(
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "secret",
-						Namespace: "default",
-					},
-					Data: map[string][]byte{
-						"super-secret": []byte("not helm"),
-					},
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "some-mistagged-secret",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+		env: Env{
+			GetKubeClient: func() kubernetes.Interface {
+				return fake.NewSimpleClientset(
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "secret",
+							Namespace: "default",
+						},
+						Data: map[string][]byte{
+							"super-secret": []byte("not helm"),
 						},
 					},
-					Data: map[string][]byte{
-						"release": []byte("pure junk"),
-					},
-					Type: "helm.sh/release.v1",
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "sh.helm.release.v1.pachyderm.v9",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "some-mistagged-secret",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
 						},
-					},
-					Data: map[string][]byte{
-						"release": releaseBytes,
-					},
-					Type: "helm.sh/release.v1",
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "sh.helm.release.v1.pachyderm.v10",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+						Data: map[string][]byte{
+							"release": []byte("pure junk"),
 						},
+						Type: "helm.sh/release.v1",
 					},
-					Data: map[string][]byte{
-						"release": releaseBytesCompressed,
-					},
-					Type: "helm.sh/release.v1",
-				},
-				&v1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "sh.helm.release.v2.pachyderm.v11",
-						Namespace: "default",
-						Labels: map[string]string{
-							"owner": "helm",
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "sh.helm.release.v1.pachyderm.v9",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
 						},
+						Data: map[string][]byte{
+							"release": releaseBytes,
+						},
+						Type: "helm.sh/release.v1",
 					},
-					Data: map[string][]byte{
-						"release": []byte("some junk we don't understand"),
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "sh.helm.release.v1.pachyderm.v10",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
+						},
+						Data: map[string][]byte{
+							"release": releaseBytesCompressed,
+						},
+						Type: "helm.sh/release.v1",
 					},
-					Type: "helm.sh/release.v2",
-				},
-			),
-			Configuration: &serviceenv.Configuration{
-				GlobalConfiguration: &serviceenv.GlobalConfiguration{
+					&v1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "sh.helm.release.v2.pachyderm.v11",
+							Namespace: "default",
+							Labels: map[string]string{
+								"owner": "helm",
+							},
+						},
+						Data: map[string][]byte{
+							"release": []byte("some junk we don't understand"),
+						},
+						Type: "helm.sh/release.v2",
+					},
+				)
+			},
+			Config: pachconfig.Configuration{
+				GlobalConfiguration: &pachconfig.GlobalConfiguration{
 					Namespace: "default",
 				},
 			},
@@ -504,11 +389,11 @@ metadata:
 
 	// Build the debug dump .tar file with just helm release data.
 	got := new(bytes.Buffer)
-	w := tar.NewWriter(got)
-	if err := s.helmReleases(ctx, w); err != nil {
-		t.Fatalf("helmRealses: %v", err)
+	if err := writeTar(ctx, got, func(ctx context.Context, dfs DumpFS) error {
+		return s.collectHelm(ctx, dfs, nil)
+	}); err != nil {
+		t.Fatalf("helmReleases: %v", err)
 	}
-
 	// Iterate over the debug dump, comparing the content of generated files with the reference.
 	wantFiles := map[string]any{
 		"helm/some-mistagged-secret/metadata.json": map[string]any{
@@ -520,7 +405,6 @@ metadata:
 			},
 		},
 		"helm/some-mistagged-secret/release/error.txt": "decode base64: illegal base64 data at input byte 4\n",
-		"helm/some-mistagged-secret/error.txt":         "some-mistagged-secret: unmarshal release json: unexpected end of JSON input\n",
 		"helm/sh.helm.release.v1.pachyderm.v9/metadata.json": map[string]any{
 			"name":              "sh.helm.release.v1.pachyderm.v9",
 			"namespace":         "default",
@@ -599,5 +483,151 @@ metadata:
 	// Check that we saw all the files we expected.
 	for f := range wantFiles {
 		t.Errorf("did not see expected file %v", f)
+	}
+}
+
+func TestLoadTestEmbed(t *testing.T) {
+	for _, s := range defaultLoadSpecs {
+		require.NotEqual(t, "", s)
+	}
+}
+
+func TestListApps(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	s := &debugServer{
+		env: Env{
+			GetKubeClient: func() kubernetes.Interface {
+				return fake.NewSimpleClientset(
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "etcd-0",
+							Namespace: "default",
+							Labels: map[string]string{
+								"suite": "pachyderm",
+								"app":   "etcd",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Name: "etcd",
+								},
+							},
+						},
+						Status: v1.PodStatus{
+							PodIP: "10.0.0.2",
+						},
+					},
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "etcd-1",
+							Namespace: "default",
+							Labels: map[string]string{
+								"suite": "pachyderm",
+								"app":   "etcd",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Name: "etcd",
+								},
+							},
+						},
+						Status: v1.PodStatus{
+							PodIP: "10.0.0.3",
+						},
+					},
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "default-edges-abc123",
+							Namespace: "default",
+							Labels: map[string]string{
+								"suite":           "pachyderm",
+								"app":             "pipeline",
+								"pipelineProject": "default",
+								"pipelineName":    "edges",
+							},
+						},
+						Spec: v1.PodSpec{
+							InitContainers: []v1.Container{
+								{
+									Name: "init",
+								},
+							},
+							Containers: []v1.Container{
+								{
+									Name: "user",
+								},
+								{
+									Name: "storage",
+								},
+							},
+						},
+						Status: v1.PodStatus{
+							PodIP: "10.0.0.4",
+						},
+					},
+				)
+			},
+			Config: pachconfig.Configuration{
+				GlobalConfiguration: &pachconfig.GlobalConfiguration{
+					Namespace: "default",
+				},
+			},
+		},
+	}
+	gotRunning, gotPossible, err := s.listApps(ctx, []*pps.Pipeline{
+		{Project: &pfs.Project{Name: "default"}, Name: "edges"},
+		{Project: &pfs.Project{Name: "default"}, Name: "montage"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPossible := []*debug.App{
+		{
+			Name: "default/edges",
+			Pipeline: &debug.Pipeline{
+				Project: "default",
+				Name:    "edges",
+			},
+			Pods: []*debug.Pod{
+				{
+					Name:       "default-edges-abc123",
+					Ip:         "10.0.0.4",
+					Containers: []string{"user", "storage"},
+				},
+			},
+		},
+		{
+			Name: "default/montage",
+			Pipeline: &debug.Pipeline{
+				Project: "default",
+				Name:    "montage",
+			},
+		},
+		{
+			Name: "etcd",
+			Pods: []*debug.Pod{
+				{
+					Name:       "etcd-0",
+					Ip:         "10.0.0.2",
+					Containers: []string{"etcd"},
+				},
+				{
+					Name:       "etcd-1",
+					Ip:         "10.0.0.3",
+					Containers: []string{"etcd"},
+				},
+			},
+		},
+	}
+	if diff := cmp.Diff(wantPossible, gotPossible, protocmp.Transform()); diff != "" {
+		t.Errorf("possible apps (-want +got):\n%s", diff)
+	}
+
+	wantRunning := []*debug.App{wantPossible[0], wantPossible[2]}
+	if diff := cmp.Diff(wantRunning, gotRunning, protocmp.Transform()); diff != "" {
+		t.Errorf("running apps (-want +got):\n%s", diff)
 	}
 }

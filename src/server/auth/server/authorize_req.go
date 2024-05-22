@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"sort"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -8,7 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 )
 
-type groupLookupFn func(txnCtx *txncontext.TransactionContext, subject string) ([]string, error)
+type groupLookupFn func(ctx context.Context, txnCtx *txncontext.TransactionContext, subject string) ([]string, error)
 
 // authorizeRequest is a helper struct used to evaluate an incoming Authorize request.
 // It's initialized with the subject and set of permissions required for an Operation,
@@ -38,7 +39,7 @@ func newAuthorizeRequest(subject string, permissions map[auth.Permission]bool, g
 func (r *authorizeRequest) rolesForResourceType(rt auth.ResourceType) []string {
 	roles := make([]string, 0, len(r.roleMap))
 	for r, def := range r.roleMap {
-		if roleAppliesToResource(def, rt) {
+		if roleReturnedForResource(def, rt) {
 			roles = append(roles, r)
 		}
 	}
@@ -73,7 +74,7 @@ func (r *authorizeRequest) missing() []auth.Permission {
 // - role bindings that refer to them by name
 // - role bindings that refer to allClusterUsers
 // - role bindings that refer to any group the subject belongs to
-func (r *authorizeRequest) evaluateRoleBinding(txnCtx *txncontext.TransactionContext, binding *auth.RoleBinding) error {
+func (r *authorizeRequest) evaluateRoleBinding(ctx context.Context, txnCtx *txncontext.TransactionContext, binding *auth.RoleBinding) error {
 	if err := r.evaluateRoleBindingForSubject(r.subject, binding); err != nil {
 		return err
 	}
@@ -95,7 +96,7 @@ func (r *authorizeRequest) evaluateRoleBinding(txnCtx *txncontext.TransactionCon
 	// bindings to cover the set of permissions.
 	if r.groups == nil {
 		var err error
-		r.groups, err = r.groupsForSubject(txnCtx, r.subject)
+		r.groups, err = r.groupsForSubject(ctx, txnCtx, r.subject)
 		if err != nil {
 			return err
 		}

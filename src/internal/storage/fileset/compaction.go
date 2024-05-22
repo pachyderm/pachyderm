@@ -6,42 +6,68 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
-// IsCompacted returns true if the file sets are already in compacted form.
-func (s *Storage) IsCompacted(ctx context.Context, ids []ID) (bool, error) {
-	prims, err := s.flattenPrimitives(ctx, ids)
-	if err != nil {
+// IsCompacted returns true if the file sets are already in a compacted form.
+func (s *Storage) IsCompacted(ctx context.Context, id ID) (bool, error) {
+	var prev *Primitive
+	compacted := true
+	if err := s.Flatten(ctx, []ID{id}, func(fsId ID) error {
+		curr, err := s.getPrimitive(ctx, fsId)
+		if err != nil {
+			return err
+		}
+		if prev != nil && !s.isCompactedPair(prev, curr) {
+			compacted = false
+			return errutil.ErrBreak
+		}
+		prev = curr
+		return nil
+	}); err != nil {
 		return false, err
 	}
-	return isCompacted(s.compactionConfig, prims), nil
+	return compacted, nil
 }
 
-func isCompacted(config *CompactionConfig, prims []*Primitive) bool {
-	return config.FixedDelay > int64(len(prims)) || indexOfCompacted(config.LevelFactor, prims) == len(prims)
+func (s *Storage) isCompactedPair(left, right *Primitive) bool {
+	return compactionScore(left) >= compactionScore(right)*s.compactionConfig.LevelFactor
+}
+
+func (s *Storage) isCompacted(prims []*Primitive) bool {
+	return s.indexOfCompacted(prims) == len(prims)
 }
 
 // indexOfCompacted returns the last value of i for which the "compacted relationship" is maintained for all layers[:i+1].
 // The "compacted relationship" is defined as leftScore >= (rightScore * factor).
 // If there is an element at i+1, it will be the first element which does not satisfy the compacted relationship with i.
-func indexOfCompacted(factor int64, prims []*Primitive) int {
+func (s *Storage) indexOfCompacted(prims []*Primitive) int {
 	for i := 0; i < len(prims)-1; i++ {
-		leftScore := compactionScore(prims[i])
-		rightScore := compactionScore(prims[i+1])
-		if leftScore < rightScore*factor {
+		if !s.isCompactedPair(prims[i], prims[i+1]) {
+			return i
+		}
+	}
+	return len(prims)
+}
+
+// indexOfCompactedOptimized is like indexOfCompacted but runs an optimization to reduce extra compaction operations.
+func (s *Storage) indexOfCompactedOptimized(prims []*Primitive) int {
+	for i := 0; i < len(prims)-1; i++ {
+		if !s.isCompactedPair(prims[i], prims[i+1]) {
 			var score int64
 			for j := i; j < len(prims); j++ {
 				score += compactionScore(prims[j])
 			}
 			for ; i > 0; i-- {
-				if compactionScore(prims[i-1]) >= score*factor {
+				if compactionScore(prims[i-1]) >= score*s.compactionConfig.LevelFactor {
 					return i
 				}
 				score += compactionScore(prims[i-1])
@@ -95,7 +121,7 @@ type CompactCallback func(context.Context, []ID, time.Duration) (*ID, error)
 
 // CompactLevelBased performs a level-based compaction on the passed in file sets.
 func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
-	ids, err := s.Flatten(ctx, ids)
+	ids, err := s.FlattenAll(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -103,19 +129,19 @@ func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int,
 	if err != nil {
 		return nil, err
 	}
-	if isCompacted(s.compactionConfig, prims) {
+	if s.isCompacted(prims) {
 		return s.Compose(ctx, ids, ttl)
 	}
 	var id *ID
 	if err := s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
-		i := indexOfCompacted(s.compactionConfig.LevelFactor, prims)
+		i := s.indexOfCompactedOptimized(prims)
 		if err := log.LogStep(ctx, "compactLevels", func(ctx context.Context) error {
 			id, err = s.compactLevels(ctx, ids[i:], maxFanIn, ttl, compact)
 			if err != nil {
 				return err
 			}
 			return renewer.Add(ctx, *id)
-		}, zap.Int("indexOfCompacted", i), zap.Int("ids", len(ids))); err != nil {
+		}, zap.Int("indexOfCompactedOptimized", i), zap.Int("ids", len(ids))); err != nil {
 			return err
 		}
 		id, err = s.CompactLevelBased(ctx, append(ids[:i], *id), maxFanIn, ttl, compact)

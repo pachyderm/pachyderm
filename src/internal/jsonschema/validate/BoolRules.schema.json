@@ -1,0 +1,18 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/BoolRules",
+    "definitions": {
+        "BoolRules": {
+            "properties": {
+                "const": {
+                    "type": "boolean",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Bool Rules",
+            "description": "BoolRules describes the constraints applied to `bool` values"
+        }
+    }
+}

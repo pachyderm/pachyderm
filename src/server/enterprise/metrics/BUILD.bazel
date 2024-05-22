@@ -1,0 +1,8 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "metrics",
+    srcs = ["metrics.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics",
+    visibility = ["//visibility:public"],
+)

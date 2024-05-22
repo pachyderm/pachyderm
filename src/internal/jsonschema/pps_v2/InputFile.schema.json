@@ -1,0 +1,23 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/InputFile",
+    "definitions": {
+        "InputFile": {
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "This file's absolute path within its pfs repo."
+                },
+                "hash": {
+                    "type": "string",
+                    "description": "This file's hash",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Input File"
+        }
+    }
+}

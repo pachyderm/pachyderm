@@ -64,8 +64,9 @@ message PutFileURLTaskResult {
 
 message GetFileURLTask {
   string URL = 1;
-  pfs_v2.File file = 2;
+  string Fileset = 4;
   pfs_v2.PathRange path_range = 3;
+  reserved 2;
 }
 
 message GetFileURLTaskResult {}

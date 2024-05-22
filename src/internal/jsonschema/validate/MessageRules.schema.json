@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/MessageRules",
+    "definitions": {
+        "MessageRules": {
+            "properties": {
+                "skip": {
+                    "type": "boolean",
+                    "description": "Skip specifies that the validation rules of this field should not be evaluated"
+                },
+                "required": {
+                    "type": "boolean",
+                    "description": "Required specifies that this field must be set"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Message Rules",
+            "description": "MessageRules describe the constraints applied to embedded message values. For message-type fields, validation is performed recursively."
+        }
+    }
+}

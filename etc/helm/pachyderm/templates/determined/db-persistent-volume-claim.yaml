@@ -1,0 +1,22 @@
+{{- if .Values.determined.enabled }}
+{{- if or .Values.determined.db.hostAddress .Values.determined.db.disablePVC }}
+{{ else }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: determined-db-pvc-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: determined-db-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ required  "A valid Values.db.storageSize entry is required!" .Values.determined.db.storageSize }}
+  {{- if .Values.determined.db.storageClassName }}
+  storageClassName: {{ .Values.determined.db.storageClassName }}
+  {{ end }}
+{{ end }}
+{{ end }}

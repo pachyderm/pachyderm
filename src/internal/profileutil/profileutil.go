@@ -6,7 +6,7 @@ import (
 
 	"cloud.google.com/go/profiler"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"go.uber.org/zap"
 )
@@ -19,7 +19,7 @@ import (
 // Service is the name of this binary (pachd, worker, etc.).
 //
 // If there is a problem starting the cloud profiler, it logs a message but we continue.
-func StartCloudProfiler(ctx context.Context, service string, config *serviceenv.Configuration) {
+func StartCloudProfiler(ctx context.Context, service string, config *pachconfig.Configuration) {
 	if config == nil {
 		log.Error(ctx, "nil configuration passed to StartCloudProfiler; profiling not enabled")
 		return

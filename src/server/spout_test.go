@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -44,7 +44,7 @@ func TestSpoutPachctl(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -64,7 +64,7 @@ func TestSpoutPachctl(t *testing.T) {
 		countBreakFunc := newCountBreakFunc(6)
 		var prevLength int64
 		count := 0
-		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
 				if count == 1 {
@@ -84,9 +84,9 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 
 		// make sure we can delete commits
-		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		require.NoError(t, err)
-		require.NoError(t, c.DropCommitSet(commitInfo.Commit.ID))
+		require.NoError(t, c.DropCommitSet(commitInfo.Commit.Id))
 
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
@@ -104,7 +104,7 @@ func TestSpoutPachctl(t *testing.T) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -122,7 +122,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// get 6 successive commits
 		countBreakFunc := newCountBreakFunc(6)
 		count := 0
-		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
 				if count == 1 {
@@ -143,11 +143,11 @@ func TestSpoutPachctl(t *testing.T) {
 		// seeing the latest commit in commitInfo and dropping it, and we can't drop a
 		// commit other than the most recent.
 		require.NoErrorWithinTRetry(t, time.Minute, func() error {
-			commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 			if err != nil {
 				return fmt.Errorf("inspect commit: %w", err) //nolint:wrapcheck
 			}
-			if err := c.DropCommitSet(commitInfo.Commit.ID); err != nil {
+			if err := c.DropCommitSet(commitInfo.Commit.Id); err != nil {
 				return fmt.Errorf("drop commit set: %w", err) //nolint:wrapcheck
 			}
 			return nil
@@ -156,7 +156,7 @@ func TestSpoutPachctl(t *testing.T) {
 		// get 6 successive commits
 		countBreakFunc = newCountBreakFunc(6)
 		count = 0
-		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
 				if count == 1 {
@@ -178,7 +178,7 @@ func TestSpoutPachctl(t *testing.T) {
 		}))
 
 		// Make sure the pipeline is still running
-		pipelineInfo, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+		pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
 		require.NoError(t, err)
 
 		require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
@@ -207,7 +207,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -226,7 +226,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		countBreakFunc := newCountBreakFunc(6)
 		var prevLength int64
 		count := 0
-		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
 				if count == 1 {
@@ -246,25 +246,25 @@ func testSpout(t *testing.T, usePachctl bool) {
 		}))
 
 		// make sure we can delete commits
-		commitInfo, err := c.InspectProjectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		require.NoError(t, err)
-		require.NoError(t, c.DropCommitSet(commitInfo.Commit.ID))
+		require.NoError(t, c.DropCommitSet(commitInfo.Commit.Id))
 
 		// and make sure we can attach a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
-		require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
+		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 			downstreamPipeline,
 			"",
 			[]string{"/bin/bash"},
 			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
 			nil,
-			client.NewProjectPFSInput(pfs.DefaultProjectName, pipeline, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, pipeline, "/*"),
 			"",
 			false,
 		))
 
 		// we should have one job on the downstream pipeline
-		jobInfos, err := c.ListProjectJob(pfs.DefaultProjectName, downstreamPipeline, nil, -1, false)
+		jobInfos, err := c.ListJob(pfs.DefaultProjectName, downstreamPipeline, nil, -1, false)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobInfos))
 
@@ -288,7 +288,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 	})
 
 	t.Run("SpoutOverwrite", func(t *testing.T) {
@@ -296,7 +296,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -319,7 +319,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		countBreakFunc := newCountBreakFunc(6)
 		var count int
 		var prevLength int64
-		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				count++
 				if count == 1 {
@@ -344,7 +344,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 	})
 
 	t.Run("SpoutProvenance", func(t *testing.T) {
@@ -353,7 +353,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -367,23 +367,26 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Spout: &pps.Spout{},
 			})
 		require.NoError(t, err)
-
 		// and we want to make sure that these commits all have provenance on the spec repo
-		specBranch := client.NewSystemProjectRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType).NewBranch("master")
+		specRepo := client.NewSystemRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType)
+		specCi, err := c.PfsAPIClient.InspectCommit(c.Ctx(), &pfs.InspectCommitRequest{Commit: &pfs.Commit{
+			Repo:   specRepo,
+			Branch: specRepo.NewBranch("master"),
+		}})
+		require.NoError(t, err)
 		countBreakFunc := newCountBreakFunc(3)
-		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				require.Equal(t, 1, len(ci.DirectProvenance))
-				require.Equal(t, specBranch, ci.DirectProvenance[0])
+				require.Equal(t, specCi.Commit.Repo, ci.DirectProvenance[0].Repo)
 				return nil
 			})
 		}))
-
 		// now we'll update the pipeline
 		_, err = c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -398,16 +401,14 @@ func testSpout(t *testing.T, usePachctl bool) {
 				Update: true,
 			})
 		require.NoError(t, err)
-
 		countBreakFunc = newCountBreakFunc(6)
-		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, pipeline), "", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			return countBreakFunc(func() error {
 				require.Equal(t, 1, len(ci.DirectProvenance))
-				require.Equal(t, specBranch, ci.DirectProvenance[0])
+				require.Equal(t, specCi.Commit.Repo, ci.DirectProvenance[0].Repo)
 				return nil
 			})
 		}))
-
 		// finally, let's make sure that the provenance is in a consistent state after running the spout test
 		require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 			if resp.Error != "" {
@@ -415,7 +416,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 	})
 	t.Run("SpoutService", func(t *testing.T) {
 		annotations := map[string]string{"foo": "bar"}
@@ -436,7 +437,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Metadata: &pps.Metadata{
 					Annotations: annotations,
 				},
@@ -500,7 +501,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		}, backoff.NewTestingBackOff())
 
 		count := 0
-		require.NoError(t, c.SubscribeCommit(client.NewProjectRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
+		require.NoError(t, c.SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, pipeline), "master", "", pfs.CommitState_FINISHED, func(ci *pfs.CommitInfo) error {
 			count++
 			if count == 1 {
 				return nil // Empty head commit
@@ -524,18 +525,18 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 	})
 
 	t.Run("SpoutInputValidation", func(t *testing.T) {
 		dataRepo := tu.UniqueString("TestSpoutInputValidation_data")
-		require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName, dataRepo))
+		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 		pipeline := tu.UniqueString("pipelinespoutinputvalidation")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"/bin/sh"},
 					Stdin: []string{
@@ -546,7 +547,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 						basicPutFile("./date*"),
 						"done"},
 				},
-				Input: client.NewProjectPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+				Input: client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
 				Spout: &pps.Spout{},
 			})
 		require.YesError(t, err)
@@ -557,7 +558,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 	})
 
 	t.Run("SpoutRestart", func(t *testing.T) {
@@ -565,7 +566,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
-				Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, pipeline),
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd: []string{"sleep", "infinity"},
 				},
@@ -574,7 +575,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		)
 		require.NoError(t, err)
 		require.NoError(t, backoff.Retry(func() error {
-			pi, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+			pi, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
 			require.NoError(t, err)
 			if pi.State != pps.PipelineState_PIPELINE_RUNNING {
 				return errors.Errorf("expected pipeline state: %s, but got: %s", pps.PipelineState_PIPELINE_RUNNING, pi.State)
@@ -583,15 +584,15 @@ func testSpout(t *testing.T, usePachctl bool) {
 		}, backoff.NewTestingBackOff()))
 
 		// stop and start spout pipeline
-		require.NoError(t, c.StopProjectPipeline(pfs.DefaultProjectName, pipeline))
+		require.NoError(t, c.StopPipeline(pfs.DefaultProjectName, pipeline))
 		require.NoError(t, backoff.Retry(func() error {
-			pi, err := c.InspectProjectPipeline(pfs.DefaultProjectName, pipeline, false)
+			pi, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
 			require.NoError(t, err)
 			if pi.State != pps.PipelineState_PIPELINE_PAUSED {
 				return errors.Errorf("expected pipeline state: %s, but got: %s", pps.PipelineState_PIPELINE_PAUSED, pi.State)
 			}
 			return nil
 		}, backoff.NewTestingBackOff()))
-		require.NoError(t, c.StartProjectPipeline(pfs.DefaultProjectName, pipeline))
+		require.NoError(t, c.StartPipeline(pfs.DefaultProjectName, pipeline))
 	})
 }
