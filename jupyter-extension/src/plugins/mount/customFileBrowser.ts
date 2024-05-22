@@ -23,6 +23,7 @@ const createCustomFileBrowser = (
   path: string,
   downloadPath: string,
   nameSuffix: string,
+  unmountRepo: () => void,
 ): FileBrowser => {
   const id = `jupyterlab-pachyderm-browser-${nameSuffix}`;
   const drive = new MountDrive(
@@ -33,6 +34,7 @@ const createCustomFileBrowser = (
     async () => {
       await browser.model.cd();
     },
+    unmountRepo,
   );
   manager.services.contents.addDrive(drive);
 

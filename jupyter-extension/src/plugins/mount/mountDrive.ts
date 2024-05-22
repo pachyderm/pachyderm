@@ -59,6 +59,8 @@ export class MountDrive implements Contents.IDrive {
   // True if the FileBrowser contents scrolling event listener has been setup, false if not. Avoids setting up multiple
   // scroll event listeners.
   private _hasScrollEventListener: boolean;
+  // Function to call when the repo needs to be unmounted likely due to some error state.
+  private _unmountRepo: () => void;
 
   constructor(
     registry: DocumentRegistry,
@@ -66,6 +68,7 @@ export class MountDrive implements Contents.IDrive {
     nameSuffix: string,
     id: string,
     rerenderFileBrowser: () => Promise<void>,
+    unmountRepo: () => void,
   ) {
     this._registry = registry;
     this._cache = {
@@ -82,6 +85,7 @@ export class MountDrive implements Contents.IDrive {
     this._previousFilter = null;
     this._index = 0;
     this._hasScrollEventListener = false;
+    this._unmountRepo = unmountRepo;
   }
 
   get name(): string {
@@ -139,7 +143,8 @@ export class MountDrive implements Contents.IDrive {
         content: '0',
       });
     } catch (e) {
-      showErrorMessage('Get Error', url + ' not found');
+      console.debug('Get Error', url + ' not found. Unmounting repo.')
+      this._unmountRepo();
       return DEFAULT_CONTENT_MODEL;
     }
 
