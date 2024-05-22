@@ -6197,11 +6197,13 @@ func TestUnionInput(t *testing.T) {
 	}
 
 	numFiles := 2
+	counter := 0
 	for _, repo := range repos {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		for i := 0; i < numFiles; i++ {
-			require.NoError(t, c.PutFile(commit, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
+			require.NoError(t, c.PutFile(commit, fmt.Sprintf("file-%d", counter), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
+			counter++
 		}
 		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
 	}
