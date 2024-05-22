@@ -4,6 +4,11 @@ from distutils.util import strtobool
 
 from pachyderm_sdk.constants import CONFIG_PATH_LOCAL
 
+# JUPYTER_SERVER_ROOT is the root path from which all data and notebook files
+#   are relative to. This may be different from the CWD which, if different,
+#   is specified under JUPYTER_RUNTIME_DIR.
+JUPYTER_SERVER_ROOT = Path(os.environ["JUPYTER_SERVER_ROOT"])
+
 PACH_CONFIG = Path(
     os.path.expanduser(os.environ.get("PACH_CONFIG", CONFIG_PATH_LOCAL))
 ).resolve()

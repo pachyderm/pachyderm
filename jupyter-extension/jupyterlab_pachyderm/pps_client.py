@@ -13,6 +13,7 @@ from pachyderm_sdk.api import pfs, pps
 from nbconvert import PythonExporter
 from tornado.web import HTTPError
 
+from .env import JUPYTER_SERVER_ROOT
 from .log import get_logger
 
 METADATA_KEY = "pachyderm_pps"
@@ -239,7 +240,7 @@ class PPSClient:
         """
         get_logger().debug(f"path: {path}")
 
-        path = Path(path.lstrip("/"))
+        path = Path(path.lstrip("/")).relative_to(JUPYTER_SERVER_ROOT)
         if not path.exists():
             raise HTTPError(status_code=400, reason=f"notebook does not exist: {path}")
 
