@@ -127,6 +127,18 @@ const uploadFinish = async (
         },
         description: upload.description,
       });
+
+      // https://pachyderm.atlassian.net/browse/FREQQ-426
+      // we need to manually add back the branch info because
+      // grpc interceptor deletes branch information from responses
+      commit.branch = {
+        name: upload.branch,
+        repo: {
+          type: 'user',
+          name: upload.repo,
+        },
+      };
+
       await pachClient.pfs.addFileSet({
         projectId: upload.projectId,
         fileSetId: composedFileSet,
