@@ -1,0 +1,25 @@
+&map[app:console container:console filename:/var/log/pods/default_console-86d4769794-jwtk2_def035a4-378e-4971-a2a4-80090ee7f4cc/console/0.log job:default/console namespace:default node_name:pach-control-plane pod:console-86d4769794-jwtk2 pod_template_hash:86d4769794 stream:stdout suite:pachyderm]
+
+> @pachyderm/dash-backend@0.0.1 start
+> NODE_PATH=dist/ NODE_ENV=production DOTENV_FLOW_PATH=../ node -r module-alias/register -r dotenv-flow/config dist/index.js
+
+&map[app:console container:console filename:/var/log/pods/default_console-86d4769794-jwtk2_def035a4-378e-4971-a2a4-80090ee7f4cc/console/0.log job:default/console namespace:default node_name:pach-control-plane pod:console-86d4769794-jwtk2 pod_template_hash:86d4769794 stream:stderr suite:pachyderm]
+dotenv-flow: "REACT_APP_RELEASE_VERSION" is already defined in `process.env` and will not be overwritten
+dotenv-flow: "REACT_APP_RUNTIME_ISSUER_URI" is already defined in `process.env` and will not be overwritten
+dotenv-flow: "REACT_APP_RUNTIME_DISABLE_TELEMETRY" is already defined in `process.env` and will not be overwritten
+dotenv-flow: "ISSUER_URI" is already defined in `process.env` and will not be overwritten
+dotenv-flow: "OAUTH_REDIRECT_URI" is already defined in `process.env` and will not be overwritten
+dotenv-flow: "OAUTH_CLIENT_ID" is already defined in `process.env` and will not be overwritten
+dotenv-flow: "OAUTH_CLIENT_SECRET" is already defined in `process.env` and will not be overwritten
+dotenv-flow: "GRAPHQL_PORT" is already defined in `process.env` and will not be overwritten
+dotenv-flow: "OAUTH_PACHD_CLIENT_ID" is already defined in `process.env` and will not be overwritten
+dotenv-flow: "PACHD_ADDRESS" is already defined in `process.env` and will not be overwritten
+Persisted queries are enabled and are using an unbounded cache. Your server is vulnerable to denial of service attacks via memory exhaustion. Set `cache: "bounded"` or `persistedQueries: false` in your ApolloServer constructor, or see https://go.apollo.dev/s/cache-backends for other alternatives.
+&map[app:console container:console filename:/var/log/pods/default_console-86d4769794-jwtk2_def035a4-378e-4971-a2a4-80090ee7f4cc/console/0.log job:default/console namespace:default node_name:pach-control-plane pod:console-86d4769794-jwtk2 pod_template_hash:86d4769794 stream:stdout suite:pachyderm]
+{"name":"dash-api","hostname":"console-86d4769794-jwtk2","pid":25,"requestId":"53bb9521-1f32-3998-ab81-dde21af90f9b","eventSource":"grpc client","pachdAddress":"pachd-peer.default.svc.cluster.local:30653","level":30,"msg":"Creating pach client","time":"2024-04-29T20:13:09.289Z","v":0}
+{"name":"dash-api","hostname":"console-86d4769794-jwtk2","pid":25,"requestId":"53bb9521-1f32-3998-ab81-dde21af90f9b","eventSource":"grpc client","pachdAddress":"pachd-peer.default.svc.cluster.local:30653","level":30,"msg":"inspectCluster request started","time":"2024-04-29T20:13:09.296Z","v":0}
+{"name":"dash-api","hostname":"console-86d4769794-jwtk2","pid":25,"requestId":"53bb9521-1f32-3998-ab81-dde21af90f9b","eventSource":"grpc client","pachdAddress":"pachd-peer.default.svc.cluster.local:30653","level":30,"msg":"getState request started","time":"2024-04-29T20:13:09.299Z","v":0}
+{"name":"dash-api","hostname":"console-86d4769794-jwtk2","pid":25,"level":30,"msg":"Server ready at https://localhost:4000/graphql","time":"2024-04-29T20:13:09.303Z","v":0}
+{"name":"dash-api","hostname":"console-86d4769794-jwtk2","pid":25,"level":30,"msg":"Websocket server ready at wss://localhost:4000/graphql","time":"2024-04-29T20:13:09.329Z","v":0}
+{"name":"dash-api","hostname":"console-86d4769794-jwtk2","pid":25,"requestId":"53bb9521-1f32-3998-ab81-dde21af90f9b","eventSource":"grpc client","pachdAddress":"pachd-peer.default.svc.cluster.local:30653","level":30,"msg":"getState request completed","time":"2024-04-29T20:13:09.346Z","v":0}
+{"name":"dash-api","hostname":"console-86d4769794-jwtk2","pid":25,"requestId":"53bb9521-1f32-3998-ab81-dde21af90f9b","eventSource":"grpc client","pachdAddress":"pachd-peer.default.svc.cluster.local:30653","level":30,"msg":"inspectCluster request completed","time":"2024-04-29T20:13:09.348Z","v":0}

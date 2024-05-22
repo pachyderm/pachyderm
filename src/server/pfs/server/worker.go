@@ -32,12 +32,13 @@ type Worker struct {
 	storage *storage.Server
 }
 
-func NewWorker(env WorkerEnv, config WorkerConfig) (*Worker, error) {
-	ss, err := storage.New(storage.Env{
+func NewWorker(ctx context.Context, env WorkerEnv, config WorkerConfig) (*Worker, error) {
+	ss, err := storage.New(ctx, storage.Env{
 		DB:          env.DB,
 		Bucket:      env.Bucket,
 		ObjectStore: env.ObjClient,
-	}, config.Storage)
+		Config:      config.Storage,
+	})
 	if err != nil {
 		return nil, err
 	}

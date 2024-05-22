@@ -1,6 +1,7 @@
 package collection
 
 import (
+	"context"
 	"strings"
 	"sync/atomic"
 
@@ -70,7 +71,7 @@ func listFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1 *m
 	return from, compare
 }
 
-func listRevision(c *etcdReadOnlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+func listRevision(ctx context.Context, c *etcdReadOnlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
 	etcdOpts := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(opts.Target, opts.Order)}
 	var fromKey *mvccpb.KeyValue
 	from, compare := listFuncs(opts)
@@ -78,7 +79,7 @@ func listRevision(c *etcdReadOnlyCollection, prefix string, limitPtr *int64, opt
 		if fromKey != nil {
 			etcdOpts = append(etcdOpts, from(fromKey))
 		}
-		resp, done, err := getWithLimit(c, prefix, limitPtr, etcdOpts)
+		resp, done, err := getWithLimit(ctx, c, prefix, limitPtr, etcdOpts)
 		if err != nil {
 			return err
 		}
@@ -116,10 +117,10 @@ func getNewKeys(respKvs []*mvccpb.KeyValue, fromKey *mvccpb.KeyValue) []*mvccpb.
 	return nil
 }
 
-func getWithLimit(c *etcdReadOnlyCollection, key string, limitPtr *int64, opts []etcd.OpOption) (*etcd.GetResponse, bool, error) {
+func getWithLimit(ctx context.Context, c *etcdReadOnlyCollection, key string, limitPtr *int64, opts []etcd.OpOption) (*etcd.GetResponse, bool, error) {
 	for {
 		limit := atomic.LoadInt64(limitPtr)
-		resp, err := c.etcdClient.Get(c.ctx, key, append(opts, etcd.WithLimit(limit))...)
+		resp, err := c.etcdClient.Get(ctx, key, append(opts, etcd.WithLimit(limit))...)
 		if err != nil {
 			if status.Convert(err).Code() == codes.ResourceExhausted && limit > 1 {
 				atomic.CompareAndSwapInt64(limitPtr, limit, limit/2)

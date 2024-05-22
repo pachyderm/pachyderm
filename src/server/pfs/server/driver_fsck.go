@@ -363,7 +363,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	repoInfos := make(map[string]*pfs.RepoInfo)
 	referencedCommits := make(map[string]*pfs.Commit)
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		err := pfsdb.ForEachRepo(ctx, tx, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+		err := pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			repoInfos[repoWithID.RepoInfo.Repo.Key()] = repoWithID.RepoInfo
 			return nil
 		})

@@ -3,13 +3,14 @@ module(
     repo_name = "com_github_pachyderm_pachyderm",
 )
 
-bazel_dep(name = "aspect_bazel_lib", version = "2.1.0")  # Needed for arm64 jq and rules_oci/#425.
+bazel_dep(name = "aspect_bazel_lib", version = "2.5.3")  # Needed for arm64 jq and rules_oci/#425.
+bazel_dep(name = "circl", version = "1.3.7")
 bazel_dep(name = "container_structure_test", version = "1.16.0")
-bazel_dep(name = "gazelle", version = "0.35.0")
+bazel_dep(name = "gazelle", version = "0.36.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
-bazel_dep(name = "rules_go", version = "0.45.1")
-bazel_dep(name = "rules_oci", version = "1.5.1")
-bazel_dep(name = "rules_python", version = "0.27.1")
+bazel_dep(name = "rules_go", version = "0.47.0")
+bazel_dep(name = "rules_oci", version = "1.7.5")
+bazel_dep(name = "rules_python", version = "0.31.0")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
@@ -17,7 +18,7 @@ go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.nogo(nogo = "//:nogo")
 go_sdk.download(
     name = "go_sdk",
-    version = "1.21.5",
+    version = "1.22.3",
 )
 use_repo(go_sdk, "go_sdk")
 
@@ -112,6 +113,23 @@ go_deps.gazelle_override(
     path = "sourcegraph.com/sourcegraph/appdash",
 )
 
+# These next two directives are necessary if google.golang.org/protobuf in go.mod is different from
+# what rules_go bundles (see go/private/repositories.bzl for the version they use).
+go_deps.gazelle_override(
+    build_file_generation = "off",
+    path = "google.golang.org/protobuf",
+)
+go_deps.module_override(
+    patch_strip = 1,
+    patches = [
+        # This patch is from running: `gazelle -repo_root . -go_prefix google.golang.org/protobuf
+        # -go_naming_convention import_alias -proto disable_global` in a checkout of
+        # google.golang.org/protobuf corresponding to the version we use in go.mod.
+        "//private:google-golang-org-protobuf.patch",
+    ],
+    path = "google.golang.org/protobuf",
+)
+
 # This is a program and not a module, but we depend on it since there aren't prebuilt binaries
 # available.
 go_deps.module(
@@ -141,25 +159,11 @@ go_deps.module(
     sum = "h1:05I4QRnGpI0m37iZQRuskXh+w77mr6Z41lwQzuHLwW0=",
     version = "v0.2.0",
 )
-go_deps.module(
-    path = "github.com/xeipuuv/gojsonpointer",
-    sum = "h1:6cLsL+2FW6dRAdl5iMtHgRogVCff0QpRi9653YmdcJA=",
-    version = "v0.0.0-20190809123943-df4f5c81cb3b",
-)
-go_deps.module(
-    path = "github.com/xeipuuv/gojsonreference",
-    sum = "h1:EzJWgHovont7NscjpAxXsDA8S8BMYve8Y5+7cuRE7R0=",
-    version = "v0.0.0-20180127040603-bd5ef7bd5415",
-)
-go_deps.module(
-    path = "github.com/xeipuuv/gojsonschema",
-    sum = "h1:LhYJRs+L4fBtjZUfuSZIKGeVu0QRy8e5Xi7D17UxZ74=",
-    version = "v1.2.0",
-)
 use_repo(
     go_deps,
     "com_github_adrg_xdg",
     "com_github_alecthomas_jsonschema",
+    "com_github_alecthomas_participle_v2",
     "com_github_alessio_shellescape",
     "com_github_aws_aws_lambda_go",
     "com_github_aws_aws_sdk_go",
@@ -203,6 +207,7 @@ use_repo(
     "com_github_hashicorp_golang_lru_v2",
     "com_github_iancoleman_orderedmap",
     "com_github_iancoleman_strcase",
+    "com_github_instrumenta_kubeval",
     "com_github_itchyny_gojq",
     "com_github_jackc_pgconn",
     "com_github_jackc_pgerrcode",
@@ -244,13 +249,12 @@ use_repo(
     "com_github_vbauerster_mpb_v6",
     "com_github_wader_readline",
     "com_github_wcharczuk_go_chart",
-    "com_github_xeipuuv_gojsonpointer",
-    "com_github_xeipuuv_gojsonreference",
-    "com_github_xeipuuv_gojsonschema",
+    "com_github_zeebo_blake3",
     "com_github_zeebo_xxh3",
     "com_google_cloud_go_profiler",
     "com_google_cloud_go_storage",
     "dev_gocloud",
+    "in_gopkg_yaml_v2",
     "in_gopkg_yaml_v3",
     "io_etcd_go_etcd_api_v3",
     "io_etcd_go_etcd_client_v3",
@@ -288,6 +292,10 @@ use_repo(
     non_module_deps,
     # *args is disallowed by the starlark compiler in MODULE.bazel files, so we have to name each
     # dependency twice; once here, and once in //private:repositories.bzl.
+    "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_linux",
+    "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_macos",
+    "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_linux",
+    "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_macos",
     "com_github_bufbuild_protoc_gen_validate_aarch64_linux",
     "com_github_bufbuild_protoc_gen_validate_aarch64_macos",
     "com_github_bufbuild_protoc_gen_validate_x86_64_linux",
@@ -296,6 +304,14 @@ use_repo(
     "com_github_containers_skopeo_aarch64_macos",
     "com_github_containers_skopeo_x86_64_linux",
     "com_github_containers_skopeo_x86_64_macos",
+    "com_github_grafana_loki_logcli_aarch64_linux",
+    "com_github_grafana_loki_logcli_aarch64_macos",
+    "com_github_grafana_loki_logcli_x86_64_linux",
+    "com_github_grafana_loki_logcli_x86_64_macos",
+    "com_github_grafana_loki_loki_aarch64_linux",
+    "com_github_grafana_loki_loki_aarch64_macos",
+    "com_github_grafana_loki_loki_x86_64_linux",
+    "com_github_grafana_loki_loki_x86_64_macos",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_linux",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_macos",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_linux",
@@ -321,6 +337,10 @@ use_repo(
     "com_github_pseudomuto_protoc_gen_doc_aarch64_macos",
     "com_github_pseudomuto_protoc_gen_doc_x86_64_linux",
     "com_github_pseudomuto_protoc_gen_doc_x86_64_macos",
+    "com_github_yannh_kubeconform_aarch64_linux",
+    "com_github_yannh_kubeconform_aarch64_macos",
+    "com_github_yannh_kubeconform_x86_64_linux",
+    "com_github_yannh_kubeconform_x86_64_macos",
     "com_github_yelp_dumb_init_aarch64_linux",
     "com_github_yelp_dumb_init_x86_64_linux",
     "io_k8s_dl_kubectl_aarch64_linux",
@@ -378,8 +398,24 @@ oci.pull(
 )
 use_repo(oci, "distroless", "pause", "zot_amd64", "zot_arm64")
 
-python = use_extension("@rules_python//python:extensions.bzl", "python")
+# Python
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
-    is_default = True,
-    python_version = "3.12.1",
+    python_version = "3.9",
 )
+
+# Load in both the strict and dev requirements for the jupyter extension.
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "jupyter-pip-requirements",
+    python_version = "3.9",
+    requirements_lock = "//jupyter-extension:requirements-lock.txt",
+)
+pip.parse(
+    hub_name = "jupyter-pip-requirements-dev",
+    python_version = "3.9",
+    requirements_darwin = "//jupyter-extension:requirements-dev-lock-darwin.txt",
+    requirements_linux = "//jupyter-extension:requirements-dev-lock-linux.txt",
+    requirements_lock = "//jupyter-extension:requirements-dev-lock.txt",
+)
+use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")

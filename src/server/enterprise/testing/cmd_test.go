@@ -55,7 +55,7 @@ func resetClusterState(ctx context.Context, t *testing.T, c *client.APIClient) {
 	require.NoError(t, err)
 	// Set the root token, in case a previous test failed
 	ec.SetAuthToken(enterpriseRootToken)
-	require.NoError(t, ec.DeleteAllEnterprise())
+	require.NoError(t, ec.DeleteAllEnterprise(ec.Ctx()))
 
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 	pachctl config set context  --overwrite enterprise <<EOF

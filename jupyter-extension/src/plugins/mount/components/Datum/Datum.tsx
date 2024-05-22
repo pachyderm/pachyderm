@@ -1,5 +1,4 @@
 import React, {useRef} from 'react';
-import {closeIcon} from '@jupyterlab/ui-components';
 import isVisible, {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
 import {
@@ -7,12 +6,15 @@ import {
   CurrentDatumResponse,
   PfsInput,
 } from 'plugins/mount/types';
+import {ReadonlyPartialJSONObject} from '@lumino/coreutils';
 
 type DatumProps = {
-  showDatum: boolean;
-  setShowDatum: (shouldShow: boolean) => Promise<void>;
   open: (path: string) => void;
   pollRefresh: () => Promise<void>;
+  executeCommand: (
+    id: string,
+    args?: ReadonlyPartialJSONObject | undefined,
+  ) => void;
   currentDatumInfo?: CurrentDatumResponse;
   repoViewInputSpec: CrossInputSpec | PfsInput;
 };
@@ -23,10 +25,9 @@ const placeholderText = `pfs:
 `;
 
 const Datum: React.FC<DatumProps> = ({
-  showDatum,
-  setShowDatum,
   open,
   pollRefresh,
+  executeCommand,
   currentDatumInfo,
   repoViewInputSpec,
 }) => {
@@ -44,35 +45,11 @@ const Datum: React.FC<DatumProps> = ({
     callPrevDatum,
     callDownloadDatum,
     errorMessage,
-    saveInputSpec,
     initialInputSpec,
-  } = useDatum(
-    showDatum,
-    open,
-    pollRefresh,
-    repoViewInputSpec,
-    currentDatumInfo,
-  );
+  } = useDatum(open, pollRefresh, repoViewInputSpec, currentDatumInfo);
 
   return (
     <div className="pachyderm-mount-datum-base">
-      <div className="pachyderm-mount-datum-back">
-        <button
-          data-testid="Datum__back"
-          className="pachyderm-button-link"
-          onClick={async () => {
-            saveInputSpec();
-            await setShowDatum(false);
-          }}
-        >
-          Back{' '}
-          <closeIcon.react
-            tag="span"
-            className="pachyderm-mount-icon-padding"
-          />
-        </button>
-      </div>
-
       <span className="pachyderm-mount-datum-subheading">Test Datums</span>
 
       <div className="pachyderm-mount-datum-input-wrapper">
@@ -82,7 +59,7 @@ const Datum: React.FC<DatumProps> = ({
         <textarea
           className="pachyderm-input"
           data-testid="Datum__inputSpecInput"
-          style={{minHeight: '200px'}}
+          style={{minHeight: '200px', resize: 'none'}}
           name="inputSpec"
           value={inputSpec}
           onChange={(e: any) => {
@@ -116,7 +93,20 @@ const Datum: React.FC<DatumProps> = ({
           <button
             data-testid="Datum__loadDatums"
             className="pachyderm-button-link"
-            onClick={callMountDatums}
+            onClick={() => {
+              // Only show the datum order warning if the input spec is more complicated than a simple mount
+              if (!inputSpec.startsWith('pfs:')) {
+                executeCommand('apputils:notify', {
+                  message: 'Datum order not guaranteed when loading datums.',
+                  type: 'info',
+                  options: {
+                    autoClose: 10000, // 10 seconds
+                  },
+                });
+              }
+
+              callMountDatums();
+            }}
             style={{padding: '0.5rem'}}
           >
             Load Datums

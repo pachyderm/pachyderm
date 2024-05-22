@@ -1,4 +1,6 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+# gazelle:go_test file
 
 go_library(
     name = "client",
@@ -10,9 +12,35 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client",
     visibility = ["//src:__subpackages__"],
     deps = [
+        "//src/internal/backoff",
         "//src/internal/errors",
+        "//src/internal/log",
         "//src/internal/promutil",
         "@com_github_json_iterator_go//:go",
         "@com_github_modern_go_reflect2//:reflect2",
+        "@in_gopkg_yaml_v2//:yaml_v2",
+        "@org_golang_x_net//websocket",
+        "@org_uber_go_zap//:zap",
     ],
+)
+
+go_test(
+    name = "client_test",
+    size = "small",
+    srcs = ["client_test.go"],
+    deps = [
+        ":client",
+        "//src/internal/errors",
+        "//src/internal/lokiutil/testloki",
+        "//src/internal/pctx",
+        "//src/internal/require",
+    ],
+)
+
+go_test(
+    name = "protocol_test",
+    size = "small",
+    srcs = ["protocol_test.go"],
+    embed = [":client"],
+    deps = ["//src/internal/require"],
 )

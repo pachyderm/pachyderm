@@ -3,7 +3,6 @@ package fileset
 import (
 	"context"
 	"io"
-	"math"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -24,7 +23,6 @@ type UnorderedWriter struct {
 	ids                        []ID
 	getParentID                func() (*ID, error)
 	validator                  func(string) error
-	maxFanIn                   int
 }
 
 func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold, fileThreshold int64, opts ...UnorderedWriterOption) (*UnorderedWriter, error) {
@@ -41,7 +39,6 @@ func newUnorderedWriter(ctx context.Context, storage *Storage, memThreshold, fil
 		memAvailable:  memThreshold,
 		memThreshold:  memThreshold,
 		buffer:        NewBuffer(),
-		maxFanIn:      math.MaxInt32,
 	}
 	for _, opt := range opts {
 		opt(uw)

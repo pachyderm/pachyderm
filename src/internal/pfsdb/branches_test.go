@@ -8,10 +8,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -20,28 +23,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-func compareHead(expected, got *pfs.Commit) bool {
-	return expected.Id == got.Id &&
-		expected.Repo.Name == got.Repo.Name &&
-		expected.Repo.Type == got.Repo.Type &&
-		expected.Repo.Project.Name == got.Repo.Project.Name
-}
-
-func compareBranch(expected, got *pfs.Branch) bool {
-	return expected.Name == got.Name &&
-		expected.Repo.Name == got.Repo.Name &&
-		expected.Repo.Type == got.Repo.Type &&
-		expected.Repo.Project.Name == got.Repo.Project.Name
-}
-
 func compareBranchOpts() []cmp.Option {
 	return []cmp.Option{
-		cmpopts.IgnoreUnexported(pfs.BranchInfo{}),
 		cmpopts.SortSlices(func(a, b *pfs.Branch) bool { return a.Key() < b.Key() }), // Note that this is before compareBranch because we need to sort first.
 		cmpopts.SortMaps(func(a, b pfsdb.BranchID) bool { return a < b }),
 		cmpopts.EquateEmpty(),
-		cmp.Comparer(compareBranch),
-		cmp.Comparer(compareHead),
+		protocmp.Transform(),
+		protocmp.IgnoreEmptyMessages(),
 	}
 }
 
@@ -75,6 +63,7 @@ func newCommitInfo(repo *pfs.Repo, id string, parent *pfs.Commit) *pfs.CommitInf
 		Description:  "test commit",
 		ParentCommit: parent,
 		Origin:       &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Metadata:     map[string]string{"key": "value"},
 		Started:      timestamppb.New(time.Now()),
 	}
 }
@@ -135,10 +124,10 @@ func TestBranchUpsert(t *testing.T) {
 			require.NoError(t, err)
 			gotBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, id)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchInfo, gotBranchInfo, compareBranchOpts())
 			gotBranchByName, err := pfsdb.GetBranchInfoWithID(ctx, tx, branchInfo.Branch)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchByName.BranchInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchInfo, gotBranchByName.BranchInfo, compareBranchOpts())
 
 			// Update branch to point to second commit
 			commitInfoWithID2 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitInfoWithID1.CommitInfo.Commit))
@@ -148,7 +137,70 @@ func TestBranchUpsert(t *testing.T) {
 			require.Equal(t, id, id2, "UpsertBranch should keep id stable")
 			gotBranchInfo2, err := pfsdb.GetBranchInfo(ctx, tx, id2)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchInfo2, compareBranchOpts()...))
+			require.NoDiff(t, branchInfo, gotBranchInfo2, compareBranchOpts())
+
+			// Change metadata
+			branchInfo.Metadata = map[string]string{"new key": "new value"}
+			id3, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+			require.Equal(t, id, id3, "UpsertBranch should keep id stable")
+			gotBranchInfo3, err := pfsdb.GetBranchInfo(ctx, tx, id2)
+			require.NoError(t, err)
+			require.NoDiff(t, branchInfo, gotBranchInfo3, compareBranchOpts())
+		})
+	})
+}
+
+func TestBranchInfoWithIDProvenance(t *testing.T) {
+	t.Parallel()
+	size := 10
+	branches := make(map[int]*pfsdb.BranchInfoWithID)
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			for i := 1; i <= size; i++ { // row ID in postgres starts at 1.
+				commit := testCommit(ctx, t, tx, fmt.Sprintf("r%d", i))
+				_, err := pfsdb.CreateCommit(ctx, tx, commit)
+				require.NoError(t, err, "should be able to create commit")
+				branch := &pfs.BranchInfo{
+					Branch: &pfs.Branch{
+						Name: "master",
+						Repo: commit.Commit.Repo,
+					},
+					Head: commit.Commit,
+				}
+				if i > 1 { // make every branch provenant on the branch before it.
+					branch.DirectProvenance = []*pfs.Branch{branches[i-1].Branch}
+				}
+				id, err := pfsdb.UpsertBranch(ctx, tx, branch)
+				require.NoError(t, err, "should be able to upsert branch")
+				branches[i] = &pfsdb.BranchInfoWithID{
+					ID:         id,
+					BranchInfo: branch,
+				}
+			}
+			provenantBranches, err := pfsdb.GetBranchInfoWithIDProvenance(ctx, tx, pfsdb.BranchID(size))
+			require.NoError(t, err, "should be able to get branch info with provenance")
+			require.Equal(t, len(provenantBranches), size-1)
+			for _, branch := range provenantBranches {
+				_, ok := branches[int(branch.ID)]
+				require.True(t, ok, "found provenant branch should exist in map of created branches")
+			}
+			subvenantBranches, err := pfsdb.GetBranchInfoWithIDSubvenance(ctx, tx, pfsdb.BranchID(1))
+			require.NoError(t, err, "should be able to get branch info with subvenance")
+			require.Equal(t, len(subvenantBranches), size-1)
+			for _, branch := range subvenantBranches {
+				_, ok := branches[int(branch.ID)]
+				require.True(t, ok, "found subvenant branch should exist in map of created branches")
+			}
+			// test options
+			maxDepth := uint64(5)
+			provenantBranches, err = pfsdb.GetBranchInfoWithIDProvenance(ctx, tx, pfsdb.BranchID(size), pfsdb.WithMaxDepth(maxDepth))
+			require.NoError(t, err, "should be able to get branch info with provenance")
+			require.Equal(t, len(provenantBranches), int(maxDepth))
+			limit := uint64(2)
+			subvenantBranches, err = pfsdb.GetBranchInfoWithIDSubvenance(ctx, tx, pfsdb.BranchID(1), pfsdb.WithLimit(limit))
+			require.NoError(t, err, "should be able to get branch info with provenance")
+			require.Equal(t, len(subvenantBranches), int(limit))
 		})
 	})
 }
@@ -209,13 +261,13 @@ func TestBranchProvenance(t *testing.T) {
 				branchInfo := branchInfoWithID.BranchInfo
 				gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts())
 				gotProv, err := pfsdb.GetBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Provenance, gotProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Provenance, gotProv, compareBranchOpts())
 				gotSubv, err := pfsdb.GetBranchSubvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Subvenance, gotSubv, compareBranchOpts())
 			}
 			// Update provenance DAG to A <- B -> C, to test adding and deleting prov relationships
 			branchAInfo.DirectProvenance = nil
@@ -243,13 +295,13 @@ func TestBranchProvenance(t *testing.T) {
 				branchInfo := branchInfoWithID.BranchInfo
 				gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts())
 				gotProv, err := pfsdb.GetBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Provenance, gotProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Provenance, gotProv, compareBranchOpts())
 				gotSubv, err := pfsdb.GetBranchSubvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Subvenance, gotSubv, compareBranchOpts())
 			}
 		})
 	})
@@ -448,7 +500,7 @@ func TestBranchDelete(t *testing.T) {
 			require.NoError(t, err)
 			gotBranchAInfo, err := pfsdb.GetBranchInfo(ctx, tx, branchAID)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchAInfo, gotBranchAInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchAInfo, gotBranchAInfo, compareBranchOpts())
 			// Verify BranchC no longer has BranchB in its provenance, nor does it have the trigger
 			branchCInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch}
 			branchCInfo.Provenance = []*pfs.Branch{branchAInfo.Branch}
@@ -457,7 +509,7 @@ func TestBranchDelete(t *testing.T) {
 			require.NoError(t, err)
 			gotBranchCInfo, err := pfsdb.GetBranchInfo(ctx, tx, branchCID)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchCInfo, gotBranchCInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchCInfo, gotBranchCInfo, compareBranchOpts())
 		})
 	})
 }
@@ -544,5 +596,46 @@ func TestBranchTrigger(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, &pfsdb.BranchInfoWithID{ID: stagingBranchID, BranchInfo: stagingBranchInfo}, true /* force */))
 		})
+	})
+}
+
+func testBranchPicker() *pfs.BranchPicker {
+	return &pfs.BranchPicker{
+		Picker: &pfs.BranchPicker_Name{
+			Name: &pfs.BranchPicker_BranchName{
+				Name: "test-branch",
+				Repo: testRepoPicker(),
+			},
+		},
+	}
+}
+
+func TestPickBranch(t *testing.T) {
+	t.Parallel()
+	namePicker := testBranchPicker()
+	badBranchPicker := proto.Clone(namePicker).(*pfs.BranchPicker)
+	badBranchPicker.GetName().Name = "does not exist"
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, testRepoName, testRepoType)
+		commitInfoWithID1 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+		branchInfo := &pfs.BranchInfo{
+			Branch: &pfs.Branch{
+				Repo: repoInfo.Repo,
+				Name: "test-branch",
+			},
+			Head: commitInfoWithID1.CommitInfo.Commit,
+		}
+		id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+		require.NoError(t, err, "should be able to upsert branch")
+		got, err := pfsdb.PickBranch(ctx, namePicker, tx)
+		require.NoError(t, err, "should be able to pick branch")
+		require.Equal(t, id, got.ID)
+		_, err = pfsdb.PickBranch(ctx, nil, tx)
+		require.YesError(t, err, "pick branch should error with a nil picker")
+		_, err = pfsdb.PickBranch(ctx, badBranchPicker, tx)
+		require.YesError(t, err, "pick branch should error with bad picker")
+		require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{}))
 	})
 }

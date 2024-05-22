@@ -234,6 +234,35 @@ func TestCheckGetSetRepo(t *testing.T) {
 	// alice can check, get, and set permissions wrt their own repo
 	// but they can't check other users' permissions because they lack CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL
 	for _, project := range []string{pfs.DefaultProjectName, project} {
+		require.NoError(t, tu.PachctlBashCmd(t, c, `cat $PACH_CONFIG >/tmp/bazquux`,
+			"project", project,
+			"repo", repo,
+		).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `
+pachctl auth check repo {{.repo}} --project {{.project}} | match repoOwner
+pachctl auth check repo {{.repo}} --project {{.project}} >/tmp/bim 2>&1`,
+			"project", project,
+			"repo", repo,
+		).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth get repo {{.repo}} --project {{.project}} >/tmp/foobar 2>&1`,
+			"project", project,
+			"repo", repo,
+			"alice", alice).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.alice}}: \[repoOwner\]"`,
+			"project", project,
+			"repo", repo,
+			"alice", alice,
+		).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth set repo {{.repo}} repoReader {{.bob}} --project {{.project}}`,
+			"project", project,
+			"repo", repo,
+			"bob", bob,
+		).Run())
+		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.bob}}: \[repoReader\]"`,
+			"project", project,
+			"repo", repo,
+			"bob", bob,
+		).Run())
 		require.NoError(t, tu.PachctlBashCmd(t, c, `
 			pachctl auth check repo {{.repo}} --project {{.project}} | match repoOwner
 			pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.alice}}: \[repoOwner\]"

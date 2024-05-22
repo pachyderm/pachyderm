@@ -36,14 +36,14 @@ const (
 	defaultNumRetries = 3
 )
 
-func CreateSets(pachClient *client.APIClient, setSpec *SetSpec, fileSetID string, basePathRange *pfs.PathRange) ([]*pfs.PathRange, error) {
+func CreateSets(ctx context.Context, c pfs.APIClient, setSpec *SetSpec, fileSetID string, basePathRange *pfs.PathRange) ([]*pfs.PathRange, error) {
 	commit := client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fileSetID)
 	pathRange := &pfs.PathRange{
 		Lower: basePathRange.Lower,
 	}
 	shouldCreateSet := shouldCreateSetFunc(setSpec)
 	var sets []*pfs.PathRange
-	if err := iterateMeta(pachClient.Ctx(), pachClient.PfsAPIClient, commit, basePathRange, func(path string, meta *Meta) error {
+	if err := iterateMeta(ctx, c, commit, basePathRange, func(path string, meta *Meta) error {
 		if shouldCreateSet(meta) {
 			pathRange.Upper = path
 			sets = append(sets, pathRange)

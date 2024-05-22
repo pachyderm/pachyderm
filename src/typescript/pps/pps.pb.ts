@@ -81,6 +81,10 @@ export enum PipelineInfoPipelineType {
   PIPELINE_TYPE_SERVICE = "PIPELINE_TYPE_SERVICE",
 }
 
+export enum PipelinePageOrdering {
+  RECENT = "RECENT",
+}
+
 export type SecretMount = {
   name?: string
   key?: string
@@ -491,10 +495,21 @@ export type ListDatumRequest = {
   reverse?: boolean
 }
 
-export type CreateDatumRequest = {
+export type StartCreateDatumRequest = {
   input?: Input
-  number?: string
+  number?: number
 }
+
+export type ContinueCreateDatumRequest = {
+  number?: number
+}
+
+
+type BaseCreateDatumRequest = {
+}
+
+export type CreateDatumRequest = BaseCreateDatumRequest
+  & OneOf<{ start: StartCreateDatumRequest; continue: ContinueCreateDatumRequest }>
 
 export type DatumSetSpec = {
   number?: string
@@ -571,6 +586,13 @@ export type ListPipelineRequest = {
   jqFilter?: string
   commitSet?: Pfs_v2Pfs.CommitSet
   projects?: Pfs_v2Pfs.Project[]
+  page?: PipelinePage
+}
+
+export type PipelinePage = {
+  order?: PipelinePageOrdering
+  pageSize?: string
+  pageIndex?: string
 }
 
 export type DeletePipelineRequest = {
@@ -741,6 +763,22 @@ export type SetProjectDefaultsResponse = {
   affectedPipelines?: Pipeline[]
 }
 
+export type PipelinesSummaryRequest = {
+  projects?: Pfs_v2Pfs.ProjectPicker[]
+}
+
+export type PipelinesSummaryResponse = {
+  summaries?: PipelinesSummary[]
+}
+
+export type PipelinesSummary = {
+  project?: Pfs_v2Pfs.Project
+  activePipelines?: string
+  pausedPipelines?: string
+  failedPipelines?: string
+  unhealthyPipelines?: string
+}
+
 export class API {
   static InspectJob(req: InspectJobRequest, initReq?: fm.InitReq): Promise<JobInfo> {
     return fm.fetchReq<InspectJobRequest, JobInfo>(`/pps_v2.API/InspectJob`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
@@ -861,5 +899,8 @@ export class API {
   }
   static SetProjectDefaults(req: SetProjectDefaultsRequest, initReq?: fm.InitReq): Promise<SetProjectDefaultsResponse> {
     return fm.fetchReq<SetProjectDefaultsRequest, SetProjectDefaultsResponse>(`/pps_v2.API/SetProjectDefaults`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static PipelinesSummary(req: PipelinesSummaryRequest, initReq?: fm.InitReq): Promise<PipelinesSummaryResponse> {
+    return fm.fetchReq<PipelinesSummaryRequest, PipelinesSummaryResponse>(`/pps_v2.API/PipelinesSummary`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
 }

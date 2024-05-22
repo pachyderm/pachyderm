@@ -12,6 +12,8 @@ import (
 	identity_v2 "github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	license_v2 "github.com/pachyderm/pachyderm/v2/src/license"
+	logs "github.com/pachyderm/pachyderm/v2/src/logs"
+	metadata "github.com/pachyderm/pachyderm/v2/src/metadata"
 	pfs_v2 "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pjs "github.com/pachyderm/pachyderm/v2/src/pjs"
 	pps_v2 "github.com/pachyderm/pachyderm/v2/src/pps"
@@ -170,6 +172,10 @@ func (c *unsupportedDebugBuilderClient) SetLogLevel(_ context.Context, _ *debug_
 	return nil, unsupportedError("SetLogLevel")
 }
 
+func (c *unsupportedDebugBuilderClient) Trace(_ context.Context, _ *debug_v2.TraceRequest, opts ...grpc.CallOption) (debug_v2.Debug_TraceClient, error) {
+	return nil, unsupportedError("Trace")
+}
+
 type unsupportedEnterpriseBuilderClient struct{}
 
 func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise_v2.ActivateRequest, opts ...grpc.CallOption) (*enterprise_v2.ActivateResponse, error) {
@@ -294,6 +300,18 @@ func (c *unsupportedLicenseBuilderClient) ListUserClusters(_ context.Context, _ 
 
 func (c *unsupportedLicenseBuilderClient) UpdateCluster(_ context.Context, _ *license_v2.UpdateClusterRequest, opts ...grpc.CallOption) (*license_v2.UpdateClusterResponse, error) {
 	return nil, unsupportedError("UpdateCluster")
+}
+
+type unsupportedLogsBuilderClient struct{}
+
+func (c *unsupportedLogsBuilderClient) GetLogs(_ context.Context, _ *logs.GetLogsRequest, opts ...grpc.CallOption) (logs.API_GetLogsClient, error) {
+	return nil, unsupportedError("GetLogs")
+}
+
+type unsupportedMetadataBuilderClient struct{}
+
+func (c *unsupportedMetadataBuilderClient) EditMetadata(_ context.Context, _ *metadata.EditMetadataRequest, opts ...grpc.CallOption) (*metadata.EditMetadataResponse, error) {
+	return nil, unsupportedError("EditMetadata")
 }
 
 type unsupportedPfsBuilderClient struct{}
@@ -474,6 +492,10 @@ func (c *unsupportedPfsBuilderClient) RenewFileSet(_ context.Context, _ *pfs_v2.
 	return nil, unsupportedError("RenewFileSet")
 }
 
+func (c *unsupportedPfsBuilderClient) ReposSummary(_ context.Context, _ *pfs_v2.ReposSummaryRequest, opts ...grpc.CallOption) (*pfs_v2.ReposSummaryResponse, error) {
+	return nil, unsupportedError("ReposSummary")
+}
+
 func (c *unsupportedPfsBuilderClient) ShardFileSet(_ context.Context, _ *pfs_v2.ShardFileSetRequest, opts ...grpc.CallOption) (*pfs_v2.ShardFileSetResponse, error) {
 	return nil, unsupportedError("ShardFileSet")
 }
@@ -492,6 +514,22 @@ func (c *unsupportedPfsBuilderClient) StartCommit(_ context.Context, _ *pfs_v2.S
 
 func (c *unsupportedPfsBuilderClient) SubscribeCommit(_ context.Context, _ *pfs_v2.SubscribeCommitRequest, opts ...grpc.CallOption) (pfs_v2.API_SubscribeCommitClient, error) {
 	return nil, unsupportedError("SubscribeCommit")
+}
+
+func (c *unsupportedPfsBuilderClient) WalkBranchProvenance(_ context.Context, _ *pfs_v2.WalkBranchProvenanceRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkBranchProvenanceClient, error) {
+	return nil, unsupportedError("WalkBranchProvenance")
+}
+
+func (c *unsupportedPfsBuilderClient) WalkBranchSubvenance(_ context.Context, _ *pfs_v2.WalkBranchSubvenanceRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkBranchSubvenanceClient, error) {
+	return nil, unsupportedError("WalkBranchSubvenance")
+}
+
+func (c *unsupportedPfsBuilderClient) WalkCommitProvenance(_ context.Context, _ *pfs_v2.WalkCommitProvenanceRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkCommitProvenanceClient, error) {
+	return nil, unsupportedError("WalkCommitProvenance")
+}
+
+func (c *unsupportedPfsBuilderClient) WalkCommitSubvenance(_ context.Context, _ *pfs_v2.WalkCommitSubvenanceRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkCommitSubvenanceClient, error) {
+	return nil, unsupportedError("WalkCommitSubvenance")
 }
 
 func (c *unsupportedPfsBuilderClient) WalkFile(_ context.Context, _ *pfs_v2.WalkFileRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkFileClient, error) {
@@ -640,6 +678,10 @@ func (c *unsupportedPpsBuilderClient) ListSecret(_ context.Context, _ *emptypb.E
 
 func (c *unsupportedPpsBuilderClient) ListTask(_ context.Context, _ *taskapi.ListTaskRequest, opts ...grpc.CallOption) (pps_v2.API_ListTaskClient, error) {
 	return nil, unsupportedError("ListTask")
+}
+
+func (c *unsupportedPpsBuilderClient) PipelinesSummary(_ context.Context, _ *pps_v2.PipelinesSummaryRequest, opts ...grpc.CallOption) (*pps_v2.PipelinesSummaryResponse, error) {
+	return nil, unsupportedError("PipelinesSummary")
 }
 
 func (c *unsupportedPpsBuilderClient) QueryLoki(_ context.Context, _ *pps_v2.LokiRequest, opts ...grpc.CallOption) (pps_v2.API_QueryLokiClient, error) {

@@ -8,11 +8,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 )
 
 // authHandlers is a mapping of RPCs to authorization levels required to access them.
@@ -73,6 +72,7 @@ var authHandlers = map[string]authHandler{
 	"/debug_v2.Debug/GetDumpV2Template":     authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 	"/debug_v2.Debug/DumpV2":                authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 	"/debug_v2.Debug/SetLogLevel":           authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/Trace":                 authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 	"/debug_v2.Debug/RunPFSLoadTest":        authDisabledOr(authenticated),
 	"/debug_v2.Debug/RunPFSLoadTestDefault": authDisabledOr(authenticated),
 
@@ -131,36 +131,40 @@ var authHandlers = map[string]authHandler{
 	//
 
 	// TODO: Add methods to handle repo permissions
-	"/pfs_v2.API/ActivateAuth":     clusterPermissions(auth.Permission_CLUSTER_AUTH_ACTIVATE),
-	"/pfs_v2.API/CreateRepo":       authDisabledOr(authenticated),
-	"/pfs_v2.API/InspectRepo":      authDisabledOr(authenticated),
-	"/pfs_v2.API/ListRepo":         authDisabledOr(authenticated),
-	"/pfs_v2.API/DeleteRepo":       authDisabledOr(authenticated),
-	"/pfs_v2.API/DeleteRepos":      authDisabledOr(authenticated),
-	"/pfs_v2.API/StartCommit":      authDisabledOr(authenticated),
-	"/pfs_v2.API/FinishCommit":     authDisabledOr(authenticated),
-	"/pfs_v2.API/InspectCommit":    authDisabledOr(authenticated),
-	"/pfs_v2.API/ListCommit":       authDisabledOr(authenticated),
-	"/pfs_v2.API/SubscribeCommit":  authDisabledOr(authenticated),
-	"/pfs_v2.API/ClearCommit":      authDisabledOr(authenticated),
-	"/pfs_v2.API/SquashCommit":     authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
-	"/pfs_v2.API/DropCommit":       authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
-	"/pfs_v2.API/InspectCommitSet": authDisabledOr(authenticated),
-	"/pfs_v2.API/ListCommitSet":    authDisabledOr(authenticated),
-	"/pfs_v2.API/SquashCommitSet":  authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
-	"/pfs_v2.API/DropCommitSet":    authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
-	"/pfs_v2.API/CreateBranch":     authDisabledOr(authenticated),
-	"/pfs_v2.API/InspectBranch":    authDisabledOr(authenticated),
-	"/pfs_v2.API/ListBranch":       authDisabledOr(authenticated),
-	"/pfs_v2.API/DeleteBranch":     authDisabledOr(authenticated),
-	"/pfs_v2.API/FindCommits":      authDisabledOr(authenticated),
-	"/pfs_v2.API/CreateProject":    authDisabledOr(clusterPermissions(auth.Permission_PROJECT_CREATE)),
-	"/pfs_v2.API/InspectProject":   authDisabledOr(authenticated),
-	"/pfs_v2.API/InspectProjectV2": authDisabledOr(authenticated),
-	"/pfs_v2.API/ListProject":      authDisabledOr(authenticated),
-	"/pfs_v2.API/DeleteProject":    authDisabledOr(authenticated),
-	"/pfs_v2.API/ModifyFile":       authDisabledOr(authenticated),
-	"/pfs_v2.API/GetFile":          authDisabledOr(authenticated),
+	"/pfs_v2.API/ActivateAuth":         clusterPermissions(auth.Permission_CLUSTER_AUTH_ACTIVATE),
+	"/pfs_v2.API/CreateRepo":           authDisabledOr(authenticated),
+	"/pfs_v2.API/InspectRepo":          authDisabledOr(authenticated),
+	"/pfs_v2.API/ListRepo":             authDisabledOr(authenticated),
+	"/pfs_v2.API/DeleteRepo":           authDisabledOr(authenticated),
+	"/pfs_v2.API/DeleteRepos":          authDisabledOr(authenticated),
+	"/pfs_v2.API/StartCommit":          authDisabledOr(authenticated),
+	"/pfs_v2.API/FinishCommit":         authDisabledOr(authenticated),
+	"/pfs_v2.API/InspectCommit":        authDisabledOr(authenticated),
+	"/pfs_v2.API/ListCommit":           authDisabledOr(authenticated),
+	"/pfs_v2.API/SubscribeCommit":      authDisabledOr(authenticated),
+	"/pfs_v2.API/ClearCommit":          authDisabledOr(authenticated),
+	"/pfs_v2.API/SquashCommit":         authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
+	"/pfs_v2.API/DropCommit":           authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
+	"/pfs_v2.API/InspectCommitSet":     authDisabledOr(authenticated),
+	"/pfs_v2.API/ListCommitSet":        authDisabledOr(authenticated),
+	"/pfs_v2.API/SquashCommitSet":      authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
+	"/pfs_v2.API/DropCommitSet":        authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
+	"/pfs_v2.API/FindCommits":          authDisabledOr(authenticated),
+	"/pfs_v2.API/WalkCommitProvenance": authDisabledOr(authenticated),
+	"/pfs_v2.API/WalkCommitSubvenance": authDisabledOr(authenticated),
+	"/pfs_v2.API/CreateBranch":         authDisabledOr(authenticated),
+	"/pfs_v2.API/InspectBranch":        authDisabledOr(authenticated),
+	"/pfs_v2.API/ListBranch":           authDisabledOr(authenticated),
+	"/pfs_v2.API/DeleteBranch":         authDisabledOr(authenticated),
+	"/pfs_v2.API/WalkBranchProvenance": authDisabledOr(authenticated),
+	"/pfs_v2.API/WalkBranchSubvenance": authDisabledOr(authenticated),
+	"/pfs_v2.API/CreateProject":        authDisabledOr(clusterPermissions(auth.Permission_PROJECT_CREATE)),
+	"/pfs_v2.API/InspectProject":       authDisabledOr(authenticated),
+	"/pfs_v2.API/InspectProjectV2":     authDisabledOr(authenticated),
+	"/pfs_v2.API/ListProject":          authDisabledOr(authenticated),
+	"/pfs_v2.API/DeleteProject":        authDisabledOr(authenticated),
+	"/pfs_v2.API/ModifyFile":           authDisabledOr(authenticated),
+	"/pfs_v2.API/GetFile":              authDisabledOr(authenticated),
 	// TODO: GetFileTAR is unauthenticated for performance reasons. Normal authentication
 	// will be applied internally when a commit is used. When a file set id is used, we lean
 	// on the capability based authentication of file sets.
@@ -184,6 +188,17 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/ClearCache":     authDisabledOr(authenticated),
 	"/pfs_v2.API/ListTask":       authDisabledOr(authenticated),
 	"/pfs_v2.API/Egress":         authDisabledOr(authenticated),
+	"/pfs_v2.API/ReposSummary":   authDisabledOr(authenticated),
+
+	//
+	// Storage API
+	//
+
+	"/storage.Fileset/CreateFileset":  authDisabledOr(authenticated),
+	"/storage.Fileset/ReadFileset":    authDisabledOr(authenticated),
+	"/storage.Fileset/RenewFileset":   authDisabledOr(authenticated),
+	"/storage.Fileset/ComposeFileset": authDisabledOr(authenticated),
+	"/storage.Fileset/ShardFileset":   authDisabledOr(authenticated),
 
 	//
 	// PPS API
@@ -202,6 +217,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/InspectDatum":     authDisabledOr(authenticated),
 	"/pps_v2.API/ListDatum":        authDisabledOr(authenticated),
 	"/pps_v2.API/ListDatumStream":  authDisabledOr(authenticated),
+	"/pps_v2.API/CreateDatum":      authDisabledOr(authenticated),
 	"/pps_v2.API/RestartDatum":     authDisabledOr(authenticated),
 	"/pps_v2.API/CreatePipeline":   authDisabledOr(authenticated),
 	"/pps_v2.API/CreatePipelineV2": authDisabledOr(authenticated),
@@ -215,6 +231,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/CheckStatus":      authDisabledOr(authenticated),
 	"/pps_v2.API/RunCron":          authDisabledOr(authenticated),
 	"/pps_v2.API/GetLogs":          authDisabledOr(authenticated),
+	"/logs.API/GetLogs":            authDisabledOr(authenticated),
 	"/pps_v2.API/GarbageCollect":   authDisabledOr(authenticated),
 	"/pps_v2.API/UpdateJobState":   authDisabledOr(authenticated),
 	"/pps_v2.API/ListPipeline":     authDisabledOr(authenticated),
@@ -235,6 +252,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/SetClusterDefaults": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_SET_DEFAULTS)),
 	"/pps_v2.API/GetProjectDefaults": authDisabledOr(authenticated),
 	"/pps_v2.API/SetProjectDefaults": authDisabledOr(authenticated),
+	"/pps_v2.API/PipelinesSummary":   authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI
@@ -260,6 +278,11 @@ var authHandlers = map[string]authHandler{
 
 	// TODO: Only the pachd sidecar instances should be able to use this endpoint.
 	"/proxy.API/Listen": unauthenticated,
+
+	//
+	// Metadata API
+	//
+	"/metadata.API/EditMetadata": authDisabledOr(authenticated),
 }
 
 // NewInterceptor instantiates a new Interceptor
@@ -271,32 +294,12 @@ func NewInterceptor(getAuthServer func() authserver.APIServer) *Interceptor {
 
 // we use ServerStreamWrapper to set the stream's Context with added values
 type ServerStreamWrapper struct {
-	stream grpc.ServerStream
-	ctx    context.Context
+	grpc.ServerStream
+	ctx context.Context
 }
 
 func (s ServerStreamWrapper) Context() context.Context {
 	return s.ctx
-}
-
-func (s ServerStreamWrapper) SetHeader(md metadata.MD) error {
-	return errors.EnsureStack(s.stream.SetHeader(md))
-}
-
-func (s ServerStreamWrapper) SendHeader(md metadata.MD) error {
-	return errors.EnsureStack(s.stream.SendHeader(md))
-}
-
-func (s ServerStreamWrapper) SetTrailer(md metadata.MD) {
-	s.stream.SetTrailer(md)
-}
-
-func (s ServerStreamWrapper) SendMsg(m interface{}) error {
-	return errors.EnsureStack(s.stream.SendMsg(m))
-}
-
-func (s ServerStreamWrapper) RecvMsg(m interface{}) error {
-	return errors.EnsureStack(s.stream.RecvMsg(m))
 }
 
 // Interceptor checks the authentication metadata in unary and streaming RPCs
@@ -305,24 +308,17 @@ type Interceptor struct {
 	getAuthServer func() authserver.APIServer
 }
 
-func peerNameOrUnknown(ctx context.Context) string {
-	if p, ok := peer.FromContext(ctx); ok {
-		return p.Addr.String()
-	}
-	return "<unknown ip>"
-}
-
 // InterceptUnary applies authentication rules to unary RPCs
 func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
-		log.Error(ctx, "no auth function defined", zap.String("fullMethod", info.FullMethod))
+		log.DPanic(ctx, "no auth function defined")
 		return nil, errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
+	username, err := a(pctx.Child(ctx, "checkAuth"), i.getAuthServer(), info.FullMethod)
 	if err != nil {
-		log.Info(ctx, "denied unary call", zap.String("fullMethod", info.FullMethod), zap.String("username", nameOrUnauthenticated(username)), zap.String("remoteAddress", peerNameOrUnknown(ctx)))
+		log.Info(ctx, "denied unary call", zap.Error(err), zap.String("user", username))
 		return nil, err
 	}
 
@@ -338,13 +334,13 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 	ctx := stream.Context()
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
-		log.Error(ctx, "no auth function defined", zap.String("fullMethod", info.FullMethod))
+		log.DPanic(ctx, "no auth function defined")
 		return errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
+	username, err := a(pctx.Child(ctx, "checkAuth"), i.getAuthServer(), info.FullMethod)
 	if err != nil {
-		log.Info(ctx, "denied streaming call", zap.String("fullMethod", info.FullMethod), zap.String("username", nameOrUnauthenticated(username)), zap.String("remoteAddress", peerNameOrUnknown(ctx)))
+		log.Info(ctx, "denied streaming call", zap.Error(err), zap.String("user", username))
 		return err
 	}
 
@@ -353,11 +349,4 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 		stream = ServerStreamWrapper{stream, newCtx}
 	}
 	return handler(srv, stream)
-}
-
-func nameOrUnauthenticated(name string) string {
-	if name == "" {
-		return "unauthenticated"
-	}
-	return name
 }

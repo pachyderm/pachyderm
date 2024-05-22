@@ -1,10 +1,10 @@
 include LICENSE
 include *.md
 include pyproject.toml
+include requirements.txt
 recursive-include jupyter-config *.json
 include jupyterlab_pachyderm/tests/data/*
 
-exclude ci-requirements.txt
 exclude .circleci/*
 exclude cypress/*
 exclude cypress.json
@@ -12,6 +12,15 @@ exclude Dockerfile
 exclude scripts/*
 exclude infra/*
 exclude svg-images/*
+exclude BUILD.bazel
+exclude MODULE.bazel
+exclude MODULE.bazel.lock
+exclude WORKSPACE
+exclude requirements-dev-lock.txt
+exclude requirements-dev.txt
+exclude requirements-lock.txt
+exclude requirements-dev-lock-darwin.txt
+exclude requirements-dev-lock-linux.txt
 
 include package.json
 include install.json

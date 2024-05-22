@@ -203,6 +203,8 @@ enum Permission {
   SECRET_DELETE          = 145;
   SECRET_INSPECT         = 146;
 
+  CLUSTER_EDIT_CLUSTER_METADATA = 151;
+
   CLUSTER_DELETE_ALL             = 138;
 
   REPO_READ                   = 200;

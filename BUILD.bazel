@@ -7,6 +7,7 @@ licenses(["notice"])
 exports_files([
     "LICENSE",
     ".bazelversion",
+    "MODULE.bazel",
 ])
 
 # Conifigure supported architectures.  Note that some architectures are only supported for tooling
@@ -99,6 +100,7 @@ buildifier_test(
     lint_mode = "warn",
     mode = "diff",
     no_sandbox = True,
+    tags = ["style"],
     workspace = "//:MODULE.bazel",
 )
 
@@ -136,5 +138,20 @@ test_suite(
     tags = ["manual"],
     tests = [
         "//src/server/pfs/fuse:fuse_test",
+    ],
+)
+
+# Style tests are style tests that have to be run manually, because they look at a lot of files in
+# the workspace.  Hermetic style tests (that depend on a few named files, for example) don't need to
+# be added here.  If the original test doesn't have the "manual" tag, you don't need to add it here.
+test_suite(
+    name = "style_tests",
+    tags = [
+        "manual",
+        "style",
+    ],
+    tests = [
+        ":buildifier_test",
+        "//src/proto:run_test",
     ],
 )

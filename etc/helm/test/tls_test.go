@@ -120,7 +120,7 @@ func TestEnableconsoleTLSExistingSecret(t *testing.T) {
 
 }
 
-func TestconsoleTLSNewSecretNoEnable(t *testing.T) {
+func TestConsoleTLSNewSecretNoEnable(t *testing.T) {
 	helmChartPath := "../pachyderm"
 	options := &helm.Options{
 		SetValues: map[string]string{

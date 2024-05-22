@@ -250,59 +250,59 @@ def helm_deps():
     build = """exports_files(["helm"])"""
     http_archive(
         name = "sh_helm_x86_64_linux",
-        url = "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz",
+        url = "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz",
         build_file_content = build,
-        sha256 = "f43e1c3387de24547506ab05d24e5309c0ce0b228c23bd8aa64e9ec4b8206651",
+        sha256 = "0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5",
         strip_prefix = "linux-amd64",
     )
     http_archive(
         name = "sh_helm_aarch64_linux",
-        url = "https://get.helm.sh/helm-v3.14.0-linux-arm64.tar.gz",
+        url = "https://get.helm.sh/helm-v3.14.2-linux-arm64.tar.gz",
         build_file_content = build,
-        sha256 = "b29e61674731b15f6ad3d1a3118a99d3cc2ab25a911aad1b8ac8c72d5a9d2952",
+        sha256 = "c65d6a9557bb359abc2c0d26670de850b52327dc3976ad6f9e14c298ea3e1b61",
         strip_prefix = "linux-arm64",
     )
     http_archive(
         name = "sh_helm_x86_64_macos",
-        url = "https://get.helm.sh/helm-v3.14.0-darwin-amd64.tar.gz",
+        url = "https://get.helm.sh/helm-v3.14.2-darwin-amd64.tar.gz",
         build_file_content = build,
-        sha256 = "804586896496f7b3da97f56089ea00f220e075e969b6fdf6c0b7b9cdc22de120",
+        sha256 = "64c633ae194bde77b7e7b7936a2814a7417817dc8b7bb7d270bd24a7a17b8d12",
         strip_prefix = "darwin-amd64",
     )
     http_archive(
         name = "sh_helm_aarch64_macos",
-        url = "https://get.helm.sh/helm-v3.14.0-darwin-arm64.tar.gz",
+        url = "https://get.helm.sh/helm-v3.14.2-darwin-arm64.tar.gz",
         build_file_content = build,
-        sha256 = "c2f36f3289a01c7c93ca11f84d740a170e0af1d2d0280bd523a409a62b8dfa1d",
+        sha256 = "ff502fd39b06497fa3d5a51ec2ced02b9fcfdb0e9a948d315fb1b2f13ddc39fb",
         strip_prefix = "darwin-arm64",
     )
 
 def kind_deps():
     http_file(
         name = "io_k8s_sigs_kind_x86_64_linux",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-amd64",
-        sha256 = "513a7213d6d3332dd9ef27c24dab35e5ef10a04fa27274fe1c14d8a246493ded",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-amd64",
+        sha256 = "e4264d7ee07ca642fe52818d7c0ed188b193c214889dd055c929dbcb968d1f62",
         executable = True,
         downloaded_file_path = "kind",
     )
     http_file(
         name = "io_k8s_sigs_kind_aarch64_linux",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-arm64",
-        sha256 = "639f7808443559aa30c3642d9913b1615d611a071e34f122340afeda97b8f422",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-arm64",
+        sha256 = "4431805115da3b54290e3e976fe2db9a7e703f116177aace6735dfa1d8a4f3fe",
         executable = True,
         downloaded_file_path = "kind",
     )
     http_file(
         name = "io_k8s_sigs_kind_x86_64_macos",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-amd64",
-        sha256 = "bffd8fb2006dc89fa0d1dde5ba6bf48caacb707e4df8551528f49145ebfeb7ad",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-darwin-amd64",
+        sha256 = "28a9f7ad7fd77922c639e21c034d0f989b33402693f4f842099cd9185b144d20",
         executable = True,
         downloaded_file_path = "kind",
     )
     http_file(
         name = "io_k8s_sigs_kind_aarch64_macos",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-arm64",
-        sha256 = "8df041a5cae55471f3b039c3c9942226eb909821af63b5677fc80904caffaabf",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-darwin-arm64",
+        sha256 = "c8dd3b287965150ae4db668294edc48229116e95d94620c306d8fae932ee633f",
         executable = True,
         downloaded_file_path = "kind",
     )
@@ -310,29 +310,29 @@ def kind_deps():
 def kubectl_deps():
     http_file(
         name = "io_k8s_dl_kubectl_x86_64_linux",
-        url = "https://dl.k8s.io/release/v1.29.1/bin/linux/amd64/kubectl",
-        sha256 = "69ab3a931e826bf7ac14d38ba7ca637d66a6fcb1ca0e3333a2cafdf15482af9f",
+        url = "https://dl.k8s.io/release/v1.29.2/bin/linux/amd64/kubectl",
+        sha256 = "7816d067740f47f949be826ac76943167b7b3a38c4f0c18b902fffa8779a5afa",
         executable = True,
         downloaded_file_path = "kubectl",
     )
     http_file(
         name = "io_k8s_dl_kubectl_aarch64_linux",
-        url = "https://dl.k8s.io/release/v1.29.1/bin/linux/arm64/kubectl",
-        sha256 = "96d6dc7b2bdcd344ce58d17631c452225de5bbf59b83fd3c89c33c6298fb5d8b",
+        url = "https://dl.k8s.io/release/v1.29.2/bin/linux/arm64/kubectl",
+        sha256 = "3507ecb4224cf05ae2151a98d4932253624e7762159936d5347b19fe037655ca",
         executable = True,
         downloaded_file_path = "kubectl",
     )
     http_file(
         name = "io_k8s_dl_kubectl_x86_64_macos",
-        url = "https://dl.k8s.io/release/v1.29.1/bin/darwin/amd64/kubectl",
-        sha256 = "c4da86e5c0fc9415db14a48d9ef1515b0b472346cbc9b7f015175b6109505d2c",
+        url = "https://dl.k8s.io/release/v1.29.2/bin/darwin/amd64/kubectl",
+        sha256 = "bb04d9450d9c9fa120956c5cc7c8dfaa700297038ff9c941741e730b02bbd1f3",
         executable = True,
         downloaded_file_path = "kubectl",
     )
     http_file(
         name = "io_k8s_dl_kubectl_aarch64_macos",
-        url = "https://dl.k8s.io/release/v1.29.1/bin/darwin/arm64/kubectl",
-        sha256 = "c31b99d7bf0faa486a6554c5f96e36af4821a488e90176a12ba18298bc4c8fb0",
+        url = "https://dl.k8s.io/release/v1.29.2/bin/darwin/arm64/kubectl",
+        sha256 = "ce030f86625df96560402573d86d4e6f4b8b956ca3e3b9df57cb8ccf2b9a540c",
         executable = True,
         downloaded_file_path = "kubectl",
     )
@@ -363,29 +363,29 @@ def skopeo_deps():
     # So we'll do this terrible thing instead.  Take that, the software supply chain!
     http_file(
         name = "com_github_containers_skopeo_x86_64_linux",
-        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-amd64",
-        sha256 = "5f5898a9775bbb6c6261a695686cde22675a8b103cd7a78b3027d472ca5d3d79",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-linux-amd64",
+        sha256 = "51218f93a2b079e36a36f7fbe2d2d86778be0a6947653031b4f9e254e2469224",
         executable = True,
         downloaded_file_path = "skopeo",
     )
     http_file(
         name = "com_github_containers_skopeo_aarch64_linux",
-        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-arm64",
-        sha256 = "22ce9c3ffaebde0d72c01994b468265fb9fc1ffbee9d4256f1539f9878df67bc",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-linux-arm64",
+        sha256 = "364c46085de31edf4b312f13587442f4eade1f181bc5a9ea2ab2ffab5b575916",
         executable = True,
         downloaded_file_path = "skopeo",
     )
     http_file(
         name = "com_github_containers_skopeo_x86_64_macos",
-        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-darwin-amd64",
-        sha256 = "26bc8faf3bca3f32c97fb7c05504dcf3b0770dc51c8d3fec089e7a590d323a44",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-darwin-amd64",
+        sha256 = "5a82082f439508255fd2588e1aecbe9b61bf5ad62442cde2bab5d3ba665ad63f",
         executable = True,
         downloaded_file_path = "skopeo",
     )
     http_file(
         name = "com_github_containers_skopeo_aarch64_macos",
-        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-darwin-arm64",
-        sha256 = "b7ec503d5efe0e2afbab980e0085f20c3693b20f37c4d92df52de267bc877c2b",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.2/skopeo-darwin-arm64",
+        sha256 = "77a31136eaa04643120b4999e526da35735e01ccc80f1c97752a33b3fed64547",
         executable = True,
         downloaded_file_path = "skopeo",
     )
@@ -396,4 +396,114 @@ def pachdev_deps():
         url = "https://github.com/kubernetes-sigs/metrics-server/releases/download/metrics-server-helm-chart-3.11.0/metrics-server-3.11.0.tgz",
         sha256 = "e7cba5a2d7e2b0949b3ea1aa48fc3780b71eba17e1edccc8273f5da67048164b",
         downloaded_file_path = "metrics-server.tgz",
+    )
+
+def kubeconform_deps():
+    """https://github.com/yannh/kubeconform"""
+    build_file_content = """exports_files(["kubeconform"])"""
+    http_archive(
+        name = "com_github_yannh_kubeconform_x86_64_linux",
+        url = "https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-linux-amd64.tar.gz",
+        sha256 = "2b4ebeaa4d5ac4843cf8f7b7e66a8874252b6b71bc7cbfc4ef1cbf85acec7c07",
+        build_file_content = build_file_content,
+    )
+    http_archive(
+        name = "com_github_yannh_kubeconform_aarch64_linux",
+        url = "https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-linux-arm64.tar.gz",
+        sha256 = "582a8a3eb3c33feb065928728ddac6e544c4f0b1234fd78fc1e4c4175a422b22",
+        build_file_content = build_file_content,
+    )
+    http_archive(
+        name = "com_github_yannh_kubeconform_x86_64_macos",
+        url = "https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-darwin-amd64.tar.gz",
+        sha256 = "805bbc2ab900925be01b8e72039d3689c0a6d4f8aa4b2fad24dd1243387a2b18",
+        build_file_content = build_file_content,
+    )
+    http_archive(
+        name = "com_github_yannh_kubeconform_aarch64_macos",
+        url = "https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-darwin-arm64.tar.gz",
+        sha256 = "95f9097e54c2c1abe9099d0fedc57a2d5c674b2e32231b901a6e60411899afdd",
+        build_file_content = build_file_content,
+    )
+
+def ibazel_deps():
+    """https://github.com/bazelbuild/bazel-watcher"""
+    http_file(
+        name = "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_linux",
+        url = "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_linux_amd64",
+        sha256 = "32979dfb172e4695ed92e240ec4374d73e01efac140e74ec054aa08c1a10235b",
+        downloaded_file_path = "ibazel",
+        executable = True,
+    )
+    http_file(
+        name = "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_linux",
+        url = "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_linux_arm64",
+        sha256 = "90aa01f1473650d2587c8c353ecb65c1bc748e5e9bf7bb45716ec213bc0987e6",
+        downloaded_file_path = "ibazel",
+        executable = True,
+    )
+    http_file(
+        name = "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_macos",
+        url = "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_darwin_amd64",
+        sha256 = "354bab8a58e81d7c8ba0df50799d14d40f56e57323129c94a983b39b755a9d40",
+        downloaded_file_path = "ibazel",
+        executable = True,
+    )
+    http_file(
+        name = "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_macos",
+        url = "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_darwin_arm64",
+        sha256 = "3af24483cd7afd6155711acc3e97b36dd408710c8773ebab45729c139cfa2bc4",
+        downloaded_file_path = "ibazel",
+        executable = True,
+    )
+
+def loki_deps():
+    """loki and logcli binaries, for //tools."""
+    http_archive(
+        name = "com_github_grafana_loki_loki_x86_64_linux",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/loki-linux-amd64.zip",
+        sha256 = "f9c577d54e35e5f46b1a9d0e0788299a0c1e69975ee999d27c3dc711942cc973",
+        build_file_content = """exports_files(["loki-linux-amd64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_loki_aarch64_linux",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/loki-linux-arm64.zip",
+        sha256 = "8679a7a6260ae67bdc50d50ba51cfa2817b6aba9ededf63b62dc8670552507a1",
+        build_file_content = """exports_files(["loki-linux-arm64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_loki_x86_64_macos",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/loki-darwin-amd64.zip",
+        sha256 = "ab18da94a900edcda0bee6b59d10f385fd47486282ebf08accc7adb012edd93e",
+        build_file_content = """exports_files(["loki-darwin-amd64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_loki_aarch64_macos",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/loki-darwin-arm64.zip",
+        sha256 = "dd63acd073ef5305f0f90651d75d6fe2810d5f2811ec366bf05e7545eb8aa6ff",
+        build_file_content = """exports_files(["loki-darwin-arm64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_logcli_x86_64_linux",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-linux-amd64.zip",
+        sha256 = "8fe59a3b2f83c02920f29251a97ad1f6d4a83a8bbbc20097b73fb839d946cb75",
+        build_file_content = """exports_files(["logcli-linux-amd64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_logcli_aarch64_linux",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-linux-arm64.zip",
+        sha256 = "e2c3cb728402087cadc120e190d617db8e0b39eb21bbff73f0d040e535822ca8",
+        build_file_content = """exports_files(["logcli-linux-arm64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_logcli_x86_64_macos",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-darwin-amd64.zip",
+        sha256 = "f2c8583460e86fd8ba07cd055340b9f7432cf8df05d5afd333f6277dc420b009",
+        build_file_content = """exports_files(["logcli-darwin-amd64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_logcli_aarch64_macos",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-darwin-arm64.zip",
+        sha256 = "81dafec9d6357fa3303bc3d913df45e11a364dbc2577fa6b948f2bd0620ab565",
+        build_file_content = """exports_files(["logcli-darwin-arm64"])""",
     )

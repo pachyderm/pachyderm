@@ -1,5 +1,2 @@
 examples/
-etc/helm/
-etc/testing/kafka/
-etc/testing/spout/
-etc/testing/circle/workloads/pulumi/
+.envrc

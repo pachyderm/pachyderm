@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -18,6 +19,7 @@ import (
 
 // DoOrdered processes tasks in parallel, but returns outputs in order via the provided callback cb.
 func DoOrdered(ctx context.Context, doer Doer, inputs chan *anypb.Any, parallelism int, cb CollectFunc) error {
+	ctx = pctx.Child(ctx, "doOrdered")
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(parallelism)))
 	for {
 		select {
@@ -61,7 +63,7 @@ func DoOne(ctx context.Context, doer Doer, input *anypb.Any) (*anypb.Any, error)
 
 // DoBatch executes a batch of tasks.
 func DoBatch(ctx context.Context, doer Doer, inputs []*anypb.Any, cb CollectFunc) error {
-	var eg errgroup.Group
+	eg, ctx := errgroup.WithContext(ctx)
 	inputChan := make(chan *anypb.Any)
 	eg.Go(func() error {
 		return errors.EnsureStack(doer.Do(ctx, inputChan, cb))

@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 
 	v2_8_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0"
+	pfsdb "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0/pfsdb_28x"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -28,8 +28,8 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	setupTestData(t, ctx, db)
 
 	// Apply migrations up to and including 2.8.0
-	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_8_0))
-	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_8_0))
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, State_2_8_0))
+	require.NoError(t, migrations.BlockUntil(ctx, db, State_2_8_0))
 
 	// Get all collections commits.
 	expectedCommits, expectedAncestries, err := v2_8_0.ListCommitsFromCollection(ctx, db)

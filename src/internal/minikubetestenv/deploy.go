@@ -84,16 +84,18 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset        uint16
-	DisableLoki       bool
-	EnterpriseMember  bool
-	EnterpriseServer  bool
-	Determined        bool
-	ValueOverrides    map[string]string
-	TLS               bool
-	CertPool          *x509.CertPool
-	ValuesFiles       []string
-	InstallPrometheus bool
+	PortOffset       uint16
+	DisableLoki      bool
+	EnterpriseMember bool
+	EnterpriseServer bool
+	Determined       bool
+	ValueOverrides   map[string]string
+	// ValuesStrOverrides is used to override SetStrValues map.
+	ValuesStrOverrides map[string]string
+	TLS                bool
+	CertPool           *x509.CertPool
+	ValuesFiles        []string
+	InstallPrometheus  bool
 }
 
 func getLocalImage() string {
@@ -243,16 +245,14 @@ func withPachd(image string) *helm.Options {
 func withMinio() *helm.Options {
 	return &helm.Options{
 		SetValues: map[string]string{
-			"deployTarget":                 "custom",
-			"pachd.storage.backend":        "MINIO",
-			"pachd.storage.minio.bucket":   MinioBucket,
-			"pachd.storage.minio.endpoint": MinioEndpoint,
-			"pachd.storage.minio.id":       "minioadmin",
-			"pachd.storage.minio.secret":   "minioadmin",
+			"deployTarget":                "custom",
+			"pachd.storage.backend":       "AMAZON",
+			"pachd.storage.gocdkEnabled":  "true",
+			"pachd.storage.amazon.id":     "minioadmin",
+			"pachd.storage.amazon.secret": "minioadmin",
 		},
 		SetStrValues: map[string]string{
-			"pachd.storage.minio.signature": "",
-			"pachd.storage.minio.secure":    "false",
+			"pachd.storage.storageURL": fmt.Sprintf("s3://%s?endpoint=%s&disableSSL=true&region=dummy-region", MinioBucket, MinioEndpoint),
 		},
 	}
 }
@@ -548,7 +548,7 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
 		}
 		// Ensure that pachd is really ready to receive requests.
-		if _, err := c.InspectCluster(); err != nil {
+		if _, err := c.InspectCluster(c.Ctx()); err != nil {
 			scrubbedErr := grpcutil.ScrubGRPC(err)
 			t.Logf("retryable: failed to inspect cluster on port %v: %v", pachAddress.Port, scrubbedErr)
 			return errors.Wrapf(scrubbedErr, "failed to inspect cluster on port %v", pachAddress.Port)
@@ -790,6 +790,24 @@ func leaseRenewer(t testing.TB, ctx context.Context, kube *kube.Clientset, initi
 	}
 }
 
+func syncDetPriorityClasses(
+	t testing.TB,
+	ctx context.Context,
+	kubeClient *kube.Clientset,
+	opts *DeployOpts,
+	helmOpts *helm.Options,
+) {
+	if opts.Determined {
+		// PriorityClasses are non-namespaced objects and attempting to recreate them when they were already created
+		// by the same Helm Install in a different namespace will fail to install.
+		// Determined has the createNonNamespacedObjects flag that skips creation of these PriorityClasses.
+		// If we try and fail we should re-check to see if the classes exist, it's possible another test in
+		// another namespace created these objects as we were trying to do the install.
+		opts.ValueOverrides["determined.createNonNamespacedObjects"] = strconv.FormatBool(!determinedPriorityClassesExist(t, ctx, kubeClient))
+		helmOpts.SetValues["determined.createNonNamespacedObjects"] = opts.ValueOverrides["determined.createNonNamespacedObjects"]
+	}
+}
+
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, mustUpgrade bool, opts *DeployOpts) *client.APIClient {
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
@@ -859,6 +877,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.ValueOverrides != nil {
 		helmOpts = union(helmOpts, &helm.Options{SetValues: opts.ValueOverrides})
 	}
+	if opts.ValuesStrOverrides != nil {
+		helmOpts = union(helmOpts, &helm.Options{SetStrValues: opts.ValuesStrOverrides})
+	}
 	if opts.TLS {
 		pachAddress.Secured = true
 	}
@@ -885,6 +906,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoErrorWithinTRetry(t,
 			time.Minute,
 			func() error {
+				syncDetPriorityClasses(t, ctx, kubeClient, opts, helmOpts)
 				return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
 			})
 		waitForInstallFinished()
@@ -897,6 +919,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 				time.Minute,
 				func() error {
 					deleteRelease(t, context.Background(), namespace, kubeClient)
+					syncDetPriorityClasses(t, ctx, kubeClient, opts, helmOpts)
 					return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
 				})
 		}

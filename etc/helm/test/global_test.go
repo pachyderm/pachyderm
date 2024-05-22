@@ -5,13 +5,13 @@ package helmtest
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
+	stderr "errors"
 	"io"
 	"reflect"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/logger"
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	goyaml "gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
@@ -35,12 +35,12 @@ func splitYAML(manifest string) ([]string, error) {
 		if err := dec.Decode(&value); err == io.EOF {
 			break
 		} else if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "decode")
 		}
 		//fmt.Printf("%+v\n", value.Content[0].Content[0].HeadComment)
 		b, err := goyaml.Marshal(&value)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "marshal")
 		}
 		res = append(res, string(b))
 	}
@@ -50,13 +50,13 @@ func splitYAML(manifest string) ([]string, error) {
 func manifestToObjects(manifest string) ([]interface{}, error) {
 	files, err := splitYAML(manifest)
 	if err != nil {
-		return nil, fmt.Errorf("couldn’t split YAML: %w", err)
+		return nil, errors.Wrap(err, "splitYAML")
 	}
 	var objects []interface{}
 	for i, f := range files {
 		object, _, err := scheme.Codecs.UniversalDeserializer().Decode([]byte(f), nil, nil)
 		if err != nil {
-			return nil, fmt.Errorf("couldn’t decode file %d: %w", i, err)
+			return nil, errors.Wrapf(err, "decode %v (%d)", f, i)
 		}
 		objects = append(objects, object)
 	}
@@ -147,7 +147,7 @@ func GetEnvVarByName(envVars []v1.EnvVar, name string) (error, string) {
 			return nil, v.Value
 		}
 	}
-	return errors.New("Not found"), ""
+	return stderr.New("Not found"), "" //nolint:wrapcheck
 }
 
 // GetContainerByName returns container or nil

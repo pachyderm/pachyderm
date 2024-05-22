@@ -268,6 +268,82 @@ func TestPutFileFilePathWithoutSlashSingleSource(t *testing.T) {
     `, "repo", repoName, "targetFilePath", targetFilePath, "fileName", tmpFile.Name()).Run())
 }
 
+func TestPutFileRecursiveFullPathWithFilePathOfSlash(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	mockInspectCluster(env)
+	c := env.PachClient
+
+	// Create two temporary files in a nested directory
+	tmpDir, err := os.MkdirTemp("", "pachyderm_test_full_path_recursive_with_file_path_of_slash")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	nestedDir := filepath.Join(tmpDir, "nested/dir")
+	require.NoError(t, os.MkdirAll(nestedDir, 0755))
+
+	filePath1 := filepath.Join(nestedDir, "testfile1.txt")
+	require.NoError(t, os.WriteFile(filePath1, []byte("test data 1"), 0644))
+
+	filePath2 := filepath.Join(nestedDir, "testfile2.txt")
+	require.NoError(t, os.WriteFile(filePath2, []byte("test data 2"), 0644))
+
+	repoName := tu.UniqueString("TestPutFileRecursiveFullPathWithFilePathOfSlash")
+	targetPrefix := "/"
+
+	// Create repo, put file with recursive and fullPath flag, and verify
+	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+        pachctl create repo {{.repo}}
+        pachctl put file {{.repo}}@master:{{.targetPrefix}} -r -f {{.nestedDir}} --full-path
+        pachctl get file "{{.repo}}@master:{{.filePath1}}" \
+          | match "test data 1"
+		pachctl get file "{{.repo}}@master:{{.filePath2}}" \
+          | match "test data 2"
+    `, "repo", repoName, "targetPrefix", targetPrefix, "nestedDir", nestedDir, "filePath1", filePath1, "filePath2", filePath2).Run())
+}
+
+func TestPutFileRecursiveWithFilePathOfSlash(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	mockInspectCluster(env)
+	c := env.PachClient
+
+	// Create two temporary files in a nested directory
+	tmpDir, err := os.MkdirTemp("", "pachyderm_test_recursive_with_file_path_of_slash")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	nestedDir := filepath.Join(tmpDir, "nested/dir")
+	require.NoError(t, os.MkdirAll(nestedDir, 0755))
+
+	filePath1 := filepath.Join(nestedDir, "testfile1.txt")
+	require.NoError(t, os.WriteFile(filePath1, []byte("test data 1"), 0644))
+
+	filePath2 := filepath.Join(nestedDir, "testfile2.txt")
+	require.NoError(t, os.WriteFile(filePath2, []byte("test data 2"), 0644))
+
+	repoName := tu.UniqueString("TestPutFileRecursiveWithFilePathOfSlash")
+	targetPrefix := "/"
+
+	// Create repo, put file with recursive and fullPath flag, and verify
+	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+        pachctl create repo {{.repo}}
+        pachctl put file {{.repo}}@master:{{.targetPrefix}} -r -f {{.nestedDir}}
+        pachctl get file "{{.repo}}@master:{{.filePath1}}" \
+          | match "test data 1"
+		pachctl get file "{{.repo}}@master:{{.filePath2}}" \
+          | match "test data 2"
+    `, "repo", repoName, "targetPrefix", targetPrefix, "nestedDir", nestedDir, "filePath1", filepath.Base(filePath1), "filePath2", filepath.Base(filePath2)).Run())
+}
+
 func TestPutFileTAR(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

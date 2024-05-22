@@ -68,6 +68,7 @@
                             "CLUSTER_LIST_SECRETS",
                             "SECRET_DELETE",
                             "SECRET_INSPECT",
+                            "CLUSTER_EDIT_CLUSTER_METADATA",
                             "CLUSTER_DELETE_ALL",
                             "REPO_READ",
                             "REPO_WRITE",
@@ -137,6 +138,12 @@
                 "createdAt": {
                     "type": "string",
                     "format": "date-time"
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
                 }
             },
             "additionalProperties": false,

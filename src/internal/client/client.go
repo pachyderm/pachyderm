@@ -25,7 +25,7 @@ import (
 	// Import registers the grpc GZIP encoder
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/metadata"
+	gmd "google.golang.org/grpc/metadata"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -40,9 +40,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -63,6 +66,9 @@ const (
 
 // PfsAPIClient is an alias for pfs.APIClient.
 type PfsAPIClient pfs.APIClient
+
+// FilesetClient is an alias for storage.FilesetClient.
+type FilesetClient storage.FilesetClient
 
 // PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
@@ -88,9 +94,13 @@ type DebugClient debug.DebugClient
 // ProxyClient is an alias of proxy.APIClient
 type ProxyClient proxy.APIClient
 
+// MetadataClient is an alias of metadata.APIClient
+type MetadataClient metadata.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
+	FilesetClient
 	PpsAPIClient
 	AuthAPIClient
 	IdentityAPIClient
@@ -99,6 +109,8 @@ type APIClient struct {
 	TransactionAPIClient
 	DebugClient
 	ProxyClient
+	LogsClient logs.APIClient
+	MetadataClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 	License    license.APIClient
 
@@ -144,6 +156,9 @@ type APIClient struct {
 
 	// inspectClusterResult is the result from the InspectCluster call made at connection time.
 	inspectClusterResult *admin.ClusterInfo
+
+	// closeHook is code to run when the client is closed.
+	closeHook []func()
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -405,7 +420,6 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddrStr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
-		fmt.Fprintln(os.Stderr, "WARNING: 'PACHD_ADDRESS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
 
 		envAddr, err := grpcutil.ParsePachdAddress(envAddrStr)
 		if err != nil {
@@ -601,10 +615,10 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	}
 
 	// Verify cluster deployment ID and project.
-	clusterInfo, err := client.InspectClusterWithVersionAndProject(version.Version, &pfs.Project{Name: context.Project})
+	clusterInfo, err := client.InspectClusterWithVersionAndProject(client.Ctx(), version.Version, &pfs.Project{Name: context.Project})
 	if err != nil && (status.Code(err) == codes.Unauthenticated || status.Code(err) == codes.PermissionDenied) {
 		fmt.Fprintf(os.Stderr, "error checking for project %q: %v; retrying without project check", context.Project, err)
-		clusterInfo, err = client.InspectClusterWithVersionAndProject(version.Version, nil)
+		clusterInfo, err = client.InspectClusterWithVersionAndProject(client.Ctx(), version.Version, nil)
 	}
 	if err != nil {
 		scrubbedErr := grpcutil.ScrubGRPC(err)
@@ -715,45 +729,51 @@ func (c *APIClient) Close() error {
 		c.portForwarder.Close()
 	}
 
+	for _, f := range c.closeHook {
+		if f != nil {
+			f()
+		}
+	}
+
 	return nil
 }
 
 // DeleteAll deletes everything in the cluster.
 // Use with caution, there is no undo.
 // TODO: rewrite this to use transactions
-func (c APIClient) DeleteAll() error {
+func (c APIClient) DeleteAll(ctx context.Context) error {
 	if _, err := c.IdentityAPIClient.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&identity.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.AuthAPIClient.Deactivate(
-		c.Ctx(),
+		ctx,
 		&auth.DeactivateRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.License.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&license.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.PpsAPIClient.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&emptypb.Empty{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&emptypb.Empty{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.TransactionAPIClient.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&transaction.DeleteAllRequest{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -764,21 +784,21 @@ func (c APIClient) DeleteAll() error {
 // DeleteAllEnterprise deletes everything in the enterprise server.
 // Use with caution, there is no undo.
 // TODO: rewrite this to use transactions
-func (c APIClient) DeleteAllEnterprise() error {
+func (c APIClient) DeleteAllEnterprise(ctx context.Context) error {
 	if _, err := c.IdentityAPIClient.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&identity.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.AuthAPIClient.Deactivate(
-		c.Ctx(),
+		ctx,
 		&auth.DeactivateRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.License.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&license.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
@@ -836,6 +856,7 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 		return err
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
+	c.FilesetClient = storage.NewFilesetClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.IdentityAPIClient = identity.NewAPIClient(clientConn)
@@ -846,6 +867,8 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
 	c.ProxyClient = proxy.NewAPIClient(clientConn)
+	c.LogsClient = logs.NewAPIClient(clientConn)
+	c.MetadataClient = metadata.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = grpc_health_v1.NewHealthClient(clientConn)
 	c.ctx = rctx
@@ -896,16 +919,16 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 	// metadata.NewOutgoingContext() would drop them). Note that this is similar
 	// to metadata.Join(), but distinct because it discards conflicting k/v pairs
 	// instead of merging them)
-	incomingMD, _ := metadata.FromIncomingContext(ctx)
-	outgoingMD, _ := metadata.FromOutgoingContext(ctx)
-	clientMD := metadata.New(clientData)
-	finalMD := make(metadata.MD) // Collect k/v pairs
-	for _, md := range []metadata.MD{incomingMD, outgoingMD, clientMD} {
+	incomingMD, _ := gmd.FromIncomingContext(ctx)
+	outgoingMD, _ := gmd.FromOutgoingContext(ctx)
+	clientMD := gmd.New(clientData)
+	finalMD := make(gmd.MD) // Collect k/v pairs
+	for _, md := range []gmd.MD{incomingMD, outgoingMD, clientMD} {
 		for k, v := range md {
 			finalMD[k] = v
 		}
 	}
-	return metadata.NewOutgoingContext(ctx, finalMD)
+	return gmd.NewOutgoingContext(ctx, finalMD)
 }
 
 func SetAuthToken(ctx context.Context, token string) context.Context {
@@ -916,17 +939,17 @@ func SetAuthToken(ctx context.Context, token string) context.Context {
 	// metadata.NewOutgoingContext() would drop them). Note that this is similar
 	// to metadata.Join(), but distinct because it discards conflicting k/v pairs
 	// instead of merging them)
-	incomingMD, _ := metadata.FromIncomingContext(ctx)
-	outgoingMD, _ := metadata.FromOutgoingContext(ctx)
-	finalMD := make(metadata.MD) // Collect k/v pairs
-	for _, md := range []metadata.MD{incomingMD, outgoingMD} {
+	incomingMD, _ := gmd.FromIncomingContext(ctx)
+	outgoingMD, _ := gmd.FromOutgoingContext(ctx)
+	finalMD := make(gmd.MD) // Collect k/v pairs
+	for _, md := range []gmd.MD{incomingMD, outgoingMD} {
 		for k, v := range md {
 			finalMD[k] = v
 		}
 	}
 	finalMD[auth.ContextTokenKey] = []string{token}
 
-	return metadata.NewOutgoingContext(ctx, finalMD)
+	return gmd.NewOutgoingContext(ctx, finalMD)
 }
 
 // Ctx is a convenience function that returns adds Pachyderm authn metadata
@@ -945,6 +968,17 @@ func (c *APIClient) Ctx() context.Context {
 func (c *APIClient) WithCtx(ctx context.Context) *APIClient {
 	result := *c // copy c
 	result.ctx = ctx
+	return &result
+}
+
+// WithCtxCancel returns a new APIClient that uses ctx for requests it sends and calls cancelFunc
+// when closing the client. Note that the new APIClient will still use the authentication token and
+// metrics metadata of this client, so this is only useful for propagating other context-associated
+// metadata.
+func (c *APIClient) WithCtxCancel(ctx context.Context, cancelFunc context.CancelFunc) *APIClient {
+	result := *c // copy c
+	result.ctx = ctx
+	result.closeHook = append(result.closeHook, cancelFunc)
 	return &result
 }
 

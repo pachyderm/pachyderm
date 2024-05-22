@@ -8,7 +8,7 @@ import {requestAPI} from '../../../../../handler';
 import {
   CrossInputSpec,
   CurrentDatumResponse,
-  ListMountsResponse,
+  DownloadPath,
   MountDatumResponse,
   PfsInput,
 } from 'plugins/mount/types';
@@ -24,14 +24,11 @@ export type useDatumResponse = {
   callNextDatum: () => Promise<void>;
   callPrevDatum: () => Promise<void>;
   callDownloadDatum: () => Promise<void>;
-  callUnmountAll: () => Promise<void>;
   errorMessage: string;
-  saveInputSpec: () => void;
   initialInputSpec: JSONObject;
 };
 
 export const useDatum = (
-  showDatum: boolean,
   open: (path: string) => void,
   pollRefresh: () => Promise<void>,
   repoViewInputSpec: CrossInputSpec | PfsInput,
@@ -54,38 +51,36 @@ export const useDatum = (
   >({});
 
   useEffect(() => {
-    if (showDatum) {
-      // Executes when browser reloaded; resume at currently mounted datum
-      if (currentDatumInfo) {
-        setShouldShowCycler(true);
-        setShouldShowDownload(true);
-        setCurrDatum({
-          id: '',
-          idx: currentDatumInfo.idx,
-          num_datums: currentDatumInfo.num_datums,
-          all_datums_received: currentDatumInfo.all_datums_received,
-        });
-        setInputSpec(inputSpecObjToText(currentDatumInfo.input));
-      }
-      // Pre-populate input spec from mounted repos
-      else {
-        if (typeof datumViewInputSpec === 'string') {
-          setInputSpec(datumViewInputSpec);
+    // Executes when browser reloaded; resume at currently mounted datum
+    if (currentDatumInfo) {
+      setShouldShowCycler(true);
+      setShouldShowDownload(true);
+      setCurrDatum({
+        id: '',
+        idx: currentDatumInfo.idx,
+        num_datums: currentDatumInfo.num_datums,
+        all_datums_received: currentDatumInfo.all_datums_received,
+      });
+      setInputSpec(inputSpecObjToText(currentDatumInfo.input));
+    }
+    // Pre-populate input spec from mounted repos
+    else {
+      if (typeof datumViewInputSpec === 'string') {
+        setInputSpec(datumViewInputSpec);
+      } else {
+        let specToShow = {};
+        if (Object.keys(datumViewInputSpec).length === 0) {
+          specToShow = repoViewInputSpec;
         } else {
-          let specToShow = {};
-          if (Object.keys(datumViewInputSpec).length === 0) {
-            specToShow = repoViewInputSpec;
-          } else {
-            specToShow = datumViewInputSpec;
-          }
-          setInputSpec(inputSpecObjToText(specToShow));
-          setInitialInputSpec(specToShow);
+          specToShow = datumViewInputSpec;
         }
+        setInputSpec(inputSpecObjToText(specToShow));
+        setInitialInputSpec(specToShow);
       }
     }
-  }, [showDatum, repoViewInputSpec]);
+  }, [repoViewInputSpec]);
 
-  const saveInputSpec = (): void => {
+  useEffect(() => {
     try {
       const inputSpecObj = inputSpecTextToObj();
       if (isEqual(repoViewInputSpec, inputSpecObj)) {
@@ -100,7 +95,7 @@ export const useDatum = (
         throw e;
       }
     }
-  };
+  }, [inputSpec]);
 
   const inputSpecTextToObj = (): JSONObject => {
     let spec = {};
@@ -147,13 +142,12 @@ export const useDatum = (
       setInputSpec(inputSpecObjToText(spec));
       setErrorMessage('');
     } catch (e) {
-      console.log(e);
       if (e instanceof YAML.YAMLParseError) {
         setErrorMessage(
           'Poorly formatted input spec- must be either YAML or JSON',
         );
       } else if (e instanceof ServerConnection.ResponseError) {
-        setErrorMessage('Bad data in input spec');
+        setErrorMessage('Bad data in input spec: ' + e.response.statusText);
       } else {
         setErrorMessage('Error mounting datums');
       }
@@ -206,37 +200,12 @@ export const useDatum = (
     setErrorMessage('');
 
     try {
-      // TODO: receiving a 500 response shows success message
-      const res = await requestAPI<any>('datums/_download', 'PUT');
+      const res = await requestAPI<DownloadPath>('datums/_download', 'PUT');
+      setErrorMessage('Datum downloaded to ' + res.path);
     } catch (e) {
       setErrorMessage('Error downloading datum: ' + e);
       console.log(e);
     }
-    setErrorMessage('Datum downloaded to /pfs');
-    setLoading(false);
-  };
-
-  const callUnmountAll = async () => {
-    setLoading(true);
-
-    try {
-      open('');
-      await requestAPI<ListMountsResponse>('_unmount_all', 'PUT');
-      open('');
-      await pollRefresh();
-      setCurrDatum({
-        id: '',
-        idx: -1,
-        num_datums: 0,
-        all_datums_received: false,
-      });
-      setShouldShowCycler(false);
-      setShouldShowDownload(false);
-    } catch (e) {
-      console.log(e);
-    }
-
-    setErrorMessage('');
     setLoading(false);
   };
 
@@ -251,9 +220,7 @@ export const useDatum = (
     callNextDatum,
     callPrevDatum,
     callDownloadDatum,
-    callUnmountAll,
     errorMessage,
-    saveInputSpec,
     initialInputSpec,
   };
 };

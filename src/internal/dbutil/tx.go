@@ -81,6 +81,8 @@ var (
 	}, []string{"outcome"})
 )
 
+type noNestedTransactions struct{}
+
 type withTxConfig struct {
 	sql.TxOptions
 	backoff.BackOff
@@ -116,6 +118,9 @@ func WithBackOff(bo backoff.BackOff) WithTxOption {
 // The transaction is committed IFF cb returns nil.
 // If cb returns an error the transaction is rolled back.
 func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, tx *pachsql.Tx) error, opts ...WithTxOption) error {
+	if ctx.Value(noNestedTransactions{}) != nil {
+		log.DPanic(ctx, "attempt to nest transactions", zap.Stack("stack"))
+	}
 	backoffStrategy := backoff.NewExponentialBackOff()
 	backoffStrategy.InitialInterval = 1 * time.Millisecond
 	backoffStrategy.MaxElapsedTime = 0
@@ -140,9 +145,24 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 	}()
 
 	txStartedMetric.Inc()
-	err := backoff.RetryUntilCancel(ctx, func() error {
+	err := backoff.RetryUntilCancel(ctx, func() (retErr error) {
+		attemptStart := time.Now()
 		ctx, cf := pctx.WithCancel(ctx)
 		defer cf()
+
+		ctx, done := log.SpanContext(ctx, "WithTx", zap.Int("tx_attempt", attempts))
+		var doneFields []log.Field
+		defer func() {
+			if !errors.Is(retErr, sql.ErrTxDone) {
+				// It's a common pattern that we call tx.Rollback ourselves, and
+				// then the tryTxFunc calls tx.Commit and gets an error.  That
+				// should not fail the span, so only add a zap.Error field when the
+				// error is not that type.
+				doneFields = append(doneFields, zap.Error(retErr))
+			}
+			done(doneFields...)
+		}()
+
 		underlyingTxStartedMetric.Inc()
 		attempts++
 		tx, err := db.BeginTxx(ctx, &c.TxOptions)
@@ -150,6 +170,37 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 			underlyingTxFinishMetric.WithLabelValues("failed_start").Inc()
 			return errors.EnsureStack(err)
 		}
+
+		// Note: query logging includes a pgx.pid field that does not match this one.
+		// That's because it's the pid on the pgbouncer side (a property that is negotiated
+		// as part of the connection setup), whereas the one we're fetching here is the pid
+		// on the postgres side.  This one is what you can look up in pg_stat_activity, so
+		// is more useful.
+		var xactId, pid uint32
+		row := tx.QueryRowxContext(ctx, "select pg_current_xact_id(), pg_backend_pid()")
+		if err := row.Scan(&xactId, &pid); err != nil {
+			log.Debug(ctx, "failed to fetch current transaction and backend ids", zap.Error(err))
+		} else {
+			// If the query worked, then include xact_id and pid on tryTxFunc's logs
+			// (which will often be pgx's logs when query logging is enabled).  We add
+			// them to doneFields so that if tryTxFunc doesn't log anything, we still
+			// get them when the span is complete.
+			doneFields = append(doneFields, zap.Uint32("xact_id", xactId), zap.Uint32("pid", pid))
+			ctx = pctx.Child(ctx, "", pctx.WithFields(doneFields...))
+		}
+
+		// Report long transactions.
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(10 * time.Second):
+					log.Info(ctx, "ongoing long database transaction", zap.Duration("attempt_duration", time.Since(attemptStart)), zap.Duration("total_duration", time.Since(start)))
+				}
+			}
+		}()
+
 		return tryTxFunc(ctx, tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
 		if errutil.IsDatabaseDisconnect(err) {
@@ -178,7 +229,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 }
 
 func tryTxFunc(ctx context.Context, tx *pachsql.Tx, cb func(cbCtx context.Context, tx *pachsql.Tx) error) error {
-	if err := cb(ctx, tx); err != nil {
+	if err := cb(context.WithValue(ctx, noNestedTransactions{}, true), tx); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			underlyingTxFinishMetric.WithLabelValues("rollback_failed").Inc()
 			log.Info(ctx, "tryTxFunc encountered an error on rollback", zap.Error(rbErr))

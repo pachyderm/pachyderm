@@ -12,6 +12,13 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/exp/maps"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
+	md "google.golang.org/grpc/metadata"
+
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
@@ -23,18 +30,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"github.com/pachyderm/pachyderm/v2/src/worker"
-	"golang.org/x/exp/maps"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/metadata"
 )
 
 type gRPCParams struct {
@@ -51,9 +55,12 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		enterprise.File_enterprise_enterprise_proto,
 		identity.File_identity_identity_proto,
 		license.File_license_license_proto,
+		logs.File_logs_logs_proto,
+		metadata.File_metadata_metadata_proto,
 		pfs.File_pfs_pfs_proto,
 		pps.File_pps_pps_proto,
 		proxy.File_proxy_proxy_proto,
+		storage.File_storage_fileset_proto,
 		transaction.File_transaction_transaction_proto,
 		versionpb.File_version_versionpb_version_proto,
 		worker.File_worker_worker_proto,
@@ -144,7 +151,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		if len(parts) != 2 {
 			return errors.Errorf("malformed --header %q; use Key=Value", h)
 		}
-		authCtx = metadata.AppendToOutgoingContext(authCtx, parts[0], parts[1])
+		authCtx = md.AppendToOutgoingContext(authCtx, parts[0], parts[1])
 	}
 
 	// Add a note during "long" RPCs.

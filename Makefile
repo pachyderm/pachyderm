@@ -90,9 +90,6 @@ release-docker-images:
 release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --clean -f goreleaser/pachctl.yml
 
-release-mount-server:
-	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --clean -f goreleaser/mount-server.yml
-
 docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --clean -f goreleaser/docker.yml
 
@@ -108,12 +105,6 @@ docker-build-coverage:
 docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
-
-docker-build-kafka:
-	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t kafka-demo etc/testing/kafka
-
-docker-build-spout-test:
-	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t spout-test etc/testing/spout
 
 docker-push-gpu:
 	$(SKIP) docker push pachyderm/nvidia_driver_install
@@ -134,7 +125,6 @@ docker-pull:
 	$(SKIP) docker pull pachyderm/pachd:$(VERSION)
 	$(SKIP) docker pull pachyderm/worker:$(VERSION)
 	$(SKIP) docker pull pachyderm/pachctl:$(VERSION)
-	$(SKIP) docker pull pachyderm/mount-server:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1
@@ -241,7 +231,7 @@ enterprise-code-checkin-test:
 	  false; \
 	fi
 
-test-pps: launch-stats docker-build-spout-test
+test-pps: launch-stats
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 -tags=k8s ./src/server -parallel $(PARALLELISM) -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
@@ -321,13 +311,6 @@ test-worker-helper:
 	  go test -v -count=1 -tags=k8s ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
 
 clean: clean-launch clean-launch-kube
-
-clean-launch-kafka:
-	kubectl delete -f etc/kubernetes-kafka -R
-
-launch-kafka:
-	kubectl apply -f etc/kubernetes-kafka -R
-	kubectl wait --for=condition=ready pod -l app=kafka --timeout=5m
 
 clean-launch-stats:
 	kubectl delete --filename etc/kubernetes-prometheus -R
@@ -423,8 +406,6 @@ check-bazel:
 	docker-build \
 	docker-build-coverage \
 	docker-build-gpu \
-	docker-build-kafka \
-	docker-build-spout-test \
 	docker-build-netcat \
 	docker-push-gpu \
 	docker-push-gpu-dev \
@@ -461,8 +442,6 @@ check-bazel:
 	test-worker \
 	test-worker-helper \
 	clean \
-	clean-launch-kafka \
-	launch-kafka \
 	clean-launch-stats \
 	launch-stats \
 	launch-loki \
