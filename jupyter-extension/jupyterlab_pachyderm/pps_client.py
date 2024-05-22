@@ -243,7 +243,7 @@ class PPSClient:
         """
         get_logger().debug(f"path: {path}")
 
-        path = Path(path.lstrip("/")).absolute().relative_to(self.root_dir)
+        path = self.root_dir.joinpath(path.lstrip("/")).resolve()
         if not path.exists():
             raise HTTPError(status_code=400, reason=f"notebook does not exist: {path}")
 
@@ -263,7 +263,7 @@ class PPSClient:
         """
         get_logger().debug(f"path: {path} | body: {body}")
 
-        path = Path(path.lstrip("/")).absolute().relative_to(self.root_dir)
+        path = self.root_dir.joinpath(path.lstrip("/")).resolve()
         if not path.exists():
             raise HTTPError(status_code=400, reason=f"notebook does not exist: {path}")
 
