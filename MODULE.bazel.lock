@@ -3801,10 +3801,10 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "e4337ab43d303f1f8a774ec9c62a6edb4117553f98f525884e94e2a82aa57b08",
+          "@@//:go.mod": "1bcc2765ac20c49bba11782a9068dd92962d124b0cd56d00734d26b4cc721779",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.46.0//:go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
-          "@@//:go.sum": "30ab33d4f9e5812a9cace3000e03e5a3e9858459763f100b51ee13a3b3e475ec",
+          "@@//:go.sum": "86ac5c3c93abdbaf6fc0cd846c48dee48cb926de8cbda7dcb9b68a3b673448b6",
           "@@gazelle~0.35.0//:go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@gazelle~0.35.0//:go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@rules_go~0.46.0//:go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
@@ -4095,9 +4095,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:vIXrkId+0/J2Ymu2m7VjGvbSlAId9XNRPhn2p4b+d8w=",
+              "sum": "h1:BOIssBaW1La0/qbNZHXOOa71dZfZEQOzW7dqQf3phss=",
               "replace": "",
-              "version": "v1.1.3"
+              "version": "v1.1.12"
             }
           },
           "com_github_opencontainers_image_spec": {
