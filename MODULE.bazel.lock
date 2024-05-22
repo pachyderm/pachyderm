@@ -3801,7 +3801,7 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "f06649262bf7a5cdcfab5e777ccea89ce3de948de00144a544e7f7d26bfa6dc6",
+          "@@//:go.mod": "e4337ab43d303f1f8a774ec9c62a6edb4117553f98f525884e94e2a82aa57b08",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.46.0//:go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
           "@@//:go.sum": "30ab33d4f9e5812a9cace3000e03e5a3e9858459763f100b51ee13a3b3e475ec",
