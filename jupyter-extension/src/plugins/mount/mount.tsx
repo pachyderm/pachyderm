@@ -177,7 +177,7 @@ export class MountPlugin implements IMountPlugin {
       'datum',
       () => {
         this.updateMountedRepo(null, null)
-      }
+      },
     );
 
     this._datumScreen = new SplitPanel({orientation: 'vertical'});

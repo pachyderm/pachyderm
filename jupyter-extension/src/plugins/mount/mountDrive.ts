@@ -2,7 +2,6 @@ import {ModelDB} from '@jupyterlab/observables';
 import {Contents, ServerConnection} from '@jupyterlab/services';
 import {PartialJSONObject} from '@lumino/coreutils';
 import {Signal, ISignal} from '@lumino/signaling';
-import {showErrorMessage} from '@jupyterlab/apputils';
 import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {URLExt} from '@jupyterlab/coreutils';
 import {requestAPI} from '../../handler';
@@ -287,7 +286,8 @@ export class MountDrive implements Contents.IDrive {
       }
 
       // This should never happen and means some critical backend error has occured.
-      showErrorMessage('Failed Fetching Next Results', e);
+      console.debug(`Failed Fetching Next Results ${e}. Umounting repo`)
+      this._unmountRepo();
     });
   }
 
