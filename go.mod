@@ -18,7 +18,7 @@ require (
 	github.com/chrusty/protoc-gen-jsonschema v0.0.0-20230418203306-956cc32e45d6
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/determined-ai/determined/proto v0.0.0-20230615001349-d3aff5bab560
-	github.com/dexidp/dex v0.0.0-20230320125501-2bb4896d120e
+	github.com/dexidp/dex v2.36.0+incompatible
 	github.com/dexidp/dex/api/v2 v2.1.0
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/docker v20.10.27+incompatible
