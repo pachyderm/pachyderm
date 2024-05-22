@@ -1354,6 +1354,16 @@ export namespace PipelineInfo {
         getDetermined(): Determined | undefined;
         setDetermined(value?: Determined): Details;
 
+        hasMaximumExpectedUptime(): boolean;
+        clearMaximumExpectedUptime(): void;
+        getMaximumExpectedUptime(): google_protobuf_duration_pb.Duration | undefined;
+        setMaximumExpectedUptime(value?: google_protobuf_duration_pb.Duration): Details;
+
+        hasWorkersStartedAt(): boolean;
+        clearWorkersStartedAt(): void;
+        getWorkersStartedAt(): google_protobuf_timestamp_pb.Timestamp | undefined;
+        setWorkersStartedAt(value?: google_protobuf_timestamp_pb.Timestamp): Details;
+
         serializeBinary(): Uint8Array;
         toObject(includeInstance?: boolean): Details.AsObject;
         static toObject(includeInstance: boolean, msg: Details): Details.AsObject;
@@ -1400,6 +1410,8 @@ export namespace PipelineInfo {
             tolerationsList: Array<Toleration.AsObject>,
             sidecarResourceRequests?: ResourceSpec.AsObject,
             determined?: Determined.AsObject,
+            maximumExpectedUptime?: google_protobuf_duration_pb.Duration.AsObject,
+            workersStartedAt?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         }
     }
 
@@ -1964,6 +1976,90 @@ export namespace ListDatumRequest {
 
 }
 
+export class StartCreateDatumRequest extends jspb.Message { 
+
+    hasInput(): boolean;
+    clearInput(): void;
+    getInput(): Input | undefined;
+    setInput(value?: Input): StartCreateDatumRequest;
+    getNumber(): number;
+    setNumber(value: number): StartCreateDatumRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): StartCreateDatumRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: StartCreateDatumRequest): StartCreateDatumRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: StartCreateDatumRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): StartCreateDatumRequest;
+    static deserializeBinaryFromReader(message: StartCreateDatumRequest, reader: jspb.BinaryReader): StartCreateDatumRequest;
+}
+
+export namespace StartCreateDatumRequest {
+    export type AsObject = {
+        input?: Input.AsObject,
+        number: number,
+    }
+}
+
+export class ContinueCreateDatumRequest extends jspb.Message { 
+    getNumber(): number;
+    setNumber(value: number): ContinueCreateDatumRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ContinueCreateDatumRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ContinueCreateDatumRequest): ContinueCreateDatumRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ContinueCreateDatumRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ContinueCreateDatumRequest;
+    static deserializeBinaryFromReader(message: ContinueCreateDatumRequest, reader: jspb.BinaryReader): ContinueCreateDatumRequest;
+}
+
+export namespace ContinueCreateDatumRequest {
+    export type AsObject = {
+        number: number,
+    }
+}
+
+export class CreateDatumRequest extends jspb.Message { 
+
+    hasStart(): boolean;
+    clearStart(): void;
+    getStart(): StartCreateDatumRequest | undefined;
+    setStart(value?: StartCreateDatumRequest): CreateDatumRequest;
+
+    hasContinue(): boolean;
+    clearContinue(): void;
+    getContinue(): ContinueCreateDatumRequest | undefined;
+    setContinue(value?: ContinueCreateDatumRequest): CreateDatumRequest;
+
+    getBodyCase(): CreateDatumRequest.BodyCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CreateDatumRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: CreateDatumRequest): CreateDatumRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CreateDatumRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CreateDatumRequest;
+    static deserializeBinaryFromReader(message: CreateDatumRequest, reader: jspb.BinaryReader): CreateDatumRequest;
+}
+
+export namespace CreateDatumRequest {
+    export type AsObject = {
+        start?: StartCreateDatumRequest.AsObject,
+        pb_continue?: ContinueCreateDatumRequest.AsObject,
+    }
+
+    export enum BodyCase {
+        BODY_NOT_SET = 0,
+        START = 1,
+        CONTINUE = 2,
+    }
+
+}
+
 export class DatumSetSpec extends jspb.Message { 
     getNumber(): number;
     setNumber(value: number): DatumSetSpec;
@@ -2166,6 +2262,11 @@ export class CreatePipelineRequest extends jspb.Message {
     getDetermined(): Determined | undefined;
     setDetermined(value?: Determined): CreatePipelineRequest;
 
+    hasMaximumExpectedUptime(): boolean;
+    clearMaximumExpectedUptime(): void;
+    getMaximumExpectedUptime(): google_protobuf_duration_pb.Duration | undefined;
+    setMaximumExpectedUptime(value?: google_protobuf_duration_pb.Duration): CreatePipelineRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CreatePipelineRequest.AsObject;
     static toObject(includeInstance: boolean, msg: CreatePipelineRequest): CreatePipelineRequest.AsObject;
@@ -2210,6 +2311,7 @@ export namespace CreatePipelineRequest {
         sidecarResourceRequests?: ResourceSpec.AsObject,
         dryRun: boolean,
         determined?: Determined.AsObject,
+        maximumExpectedUptime?: google_protobuf_duration_pb.Duration.AsObject,
     }
 }
 
@@ -2310,6 +2412,11 @@ export class ListPipelineRequest extends jspb.Message {
     setProjectsList(value: Array<pfs_pfs_pb.Project>): ListPipelineRequest;
     addProjects(value?: pfs_pfs_pb.Project, index?: number): pfs_pfs_pb.Project;
 
+    hasPage(): boolean;
+    clearPage(): void;
+    getPage(): PipelinePage | undefined;
+    setPage(value?: PipelinePage): ListPipelineRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListPipelineRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListPipelineRequest): ListPipelineRequest.AsObject;
@@ -2328,7 +2435,39 @@ export namespace ListPipelineRequest {
         jqfilter: string,
         commitSet?: pfs_pfs_pb.CommitSet.AsObject,
         projectsList: Array<pfs_pfs_pb.Project.AsObject>,
+        page?: PipelinePage.AsObject,
     }
+}
+
+export class PipelinePage extends jspb.Message { 
+    getOrder(): PipelinePage.Ordering;
+    setOrder(value: PipelinePage.Ordering): PipelinePage;
+    getPageSize(): number;
+    setPageSize(value: number): PipelinePage;
+    getPageIndex(): number;
+    setPageIndex(value: number): PipelinePage;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PipelinePage.AsObject;
+    static toObject(includeInstance: boolean, msg: PipelinePage): PipelinePage.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PipelinePage, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PipelinePage;
+    static deserializeBinaryFromReader(message: PipelinePage, reader: jspb.BinaryReader): PipelinePage;
+}
+
+export namespace PipelinePage {
+    export type AsObject = {
+        order: PipelinePage.Ordering,
+        pageSize: number,
+        pageIndex: number,
+    }
+
+    export enum Ordering {
+    RECENT = 0,
+    }
+
 }
 
 export class DeletePipelineRequest extends jspb.Message { 
@@ -2519,6 +2658,78 @@ export class RunCronRequest extends jspb.Message {
 export namespace RunCronRequest {
     export type AsObject = {
         pipeline?: Pipeline.AsObject,
+    }
+}
+
+export class CheckStatusRequest extends jspb.Message { 
+
+    hasAll(): boolean;
+    clearAll(): void;
+    getAll(): boolean;
+    setAll(value: boolean): CheckStatusRequest;
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): pfs_pfs_pb.Project | undefined;
+    setProject(value?: pfs_pfs_pb.Project): CheckStatusRequest;
+
+    getContextCase(): CheckStatusRequest.ContextCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CheckStatusRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: CheckStatusRequest): CheckStatusRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CheckStatusRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CheckStatusRequest;
+    static deserializeBinaryFromReader(message: CheckStatusRequest, reader: jspb.BinaryReader): CheckStatusRequest;
+}
+
+export namespace CheckStatusRequest {
+    export type AsObject = {
+        all: boolean,
+        project?: pfs_pfs_pb.Project.AsObject,
+    }
+
+    export enum ContextCase {
+        CONTEXT_NOT_SET = 0,
+        ALL = 1,
+        PROJECT = 2,
+    }
+
+}
+
+export class CheckStatusResponse extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): pfs_pfs_pb.Project | undefined;
+    setProject(value?: pfs_pfs_pb.Project): CheckStatusResponse;
+
+    hasPipeline(): boolean;
+    clearPipeline(): void;
+    getPipeline(): Pipeline | undefined;
+    setPipeline(value?: Pipeline): CheckStatusResponse;
+    clearAlertsList(): void;
+    getAlertsList(): Array<string>;
+    setAlertsList(value: Array<string>): CheckStatusResponse;
+    addAlerts(value: string, index?: number): string;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CheckStatusResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: CheckStatusResponse): CheckStatusResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CheckStatusResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CheckStatusResponse;
+    static deserializeBinaryFromReader(message: CheckStatusResponse, reader: jspb.BinaryReader): CheckStatusResponse;
+}
+
+export namespace CheckStatusResponse {
+    export type AsObject = {
+        project?: pfs_pfs_pb.Project.AsObject,
+        pipeline?: Pipeline.AsObject,
+        alertsList: Array<string>,
     }
 }
 
@@ -2989,6 +3200,208 @@ export namespace CreatePipelineTransaction {
         createPipelineRequest?: CreatePipelineRequest.AsObject,
         userJson: string,
         effectiveJson: string,
+    }
+}
+
+export class ProjectDefaults extends jspb.Message { 
+
+    hasCreatePipelineRequest(): boolean;
+    clearCreatePipelineRequest(): void;
+    getCreatePipelineRequest(): CreatePipelineRequest | undefined;
+    setCreatePipelineRequest(value?: CreatePipelineRequest): ProjectDefaults;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ProjectDefaults.AsObject;
+    static toObject(includeInstance: boolean, msg: ProjectDefaults): ProjectDefaults.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ProjectDefaults, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ProjectDefaults;
+    static deserializeBinaryFromReader(message: ProjectDefaults, reader: jspb.BinaryReader): ProjectDefaults;
+}
+
+export namespace ProjectDefaults {
+    export type AsObject = {
+        createPipelineRequest?: CreatePipelineRequest.AsObject,
+    }
+}
+
+export class GetProjectDefaultsRequest extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): pfs_pfs_pb.Project | undefined;
+    setProject(value?: pfs_pfs_pb.Project): GetProjectDefaultsRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetProjectDefaultsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: GetProjectDefaultsRequest): GetProjectDefaultsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetProjectDefaultsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetProjectDefaultsRequest;
+    static deserializeBinaryFromReader(message: GetProjectDefaultsRequest, reader: jspb.BinaryReader): GetProjectDefaultsRequest;
+}
+
+export namespace GetProjectDefaultsRequest {
+    export type AsObject = {
+        project?: pfs_pfs_pb.Project.AsObject,
+    }
+}
+
+export class GetProjectDefaultsResponse extends jspb.Message { 
+    getProjectDefaultsJson(): string;
+    setProjectDefaultsJson(value: string): GetProjectDefaultsResponse;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): GetProjectDefaultsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: GetProjectDefaultsResponse): GetProjectDefaultsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: GetProjectDefaultsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): GetProjectDefaultsResponse;
+    static deserializeBinaryFromReader(message: GetProjectDefaultsResponse, reader: jspb.BinaryReader): GetProjectDefaultsResponse;
+}
+
+export namespace GetProjectDefaultsResponse {
+    export type AsObject = {
+        projectDefaultsJson: string,
+    }
+}
+
+export class SetProjectDefaultsRequest extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): pfs_pfs_pb.Project | undefined;
+    setProject(value?: pfs_pfs_pb.Project): SetProjectDefaultsRequest;
+    getRegenerate(): boolean;
+    setRegenerate(value: boolean): SetProjectDefaultsRequest;
+    getReprocess(): boolean;
+    setReprocess(value: boolean): SetProjectDefaultsRequest;
+    getDryRun(): boolean;
+    setDryRun(value: boolean): SetProjectDefaultsRequest;
+    getProjectDefaultsJson(): string;
+    setProjectDefaultsJson(value: string): SetProjectDefaultsRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetProjectDefaultsRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SetProjectDefaultsRequest): SetProjectDefaultsRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetProjectDefaultsRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetProjectDefaultsRequest;
+    static deserializeBinaryFromReader(message: SetProjectDefaultsRequest, reader: jspb.BinaryReader): SetProjectDefaultsRequest;
+}
+
+export namespace SetProjectDefaultsRequest {
+    export type AsObject = {
+        project?: pfs_pfs_pb.Project.AsObject,
+        regenerate: boolean,
+        reprocess: boolean,
+        dryRun: boolean,
+        projectDefaultsJson: string,
+    }
+}
+
+export class SetProjectDefaultsResponse extends jspb.Message { 
+    clearAffectedPipelinesList(): void;
+    getAffectedPipelinesList(): Array<Pipeline>;
+    setAffectedPipelinesList(value: Array<Pipeline>): SetProjectDefaultsResponse;
+    addAffectedPipelines(value?: Pipeline, index?: number): Pipeline;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SetProjectDefaultsResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SetProjectDefaultsResponse): SetProjectDefaultsResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SetProjectDefaultsResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SetProjectDefaultsResponse;
+    static deserializeBinaryFromReader(message: SetProjectDefaultsResponse, reader: jspb.BinaryReader): SetProjectDefaultsResponse;
+}
+
+export namespace SetProjectDefaultsResponse {
+    export type AsObject = {
+        affectedPipelinesList: Array<Pipeline.AsObject>,
+    }
+}
+
+export class PipelinesSummaryRequest extends jspb.Message { 
+    clearProjectsList(): void;
+    getProjectsList(): Array<pfs_pfs_pb.ProjectPicker>;
+    setProjectsList(value: Array<pfs_pfs_pb.ProjectPicker>): PipelinesSummaryRequest;
+    addProjects(value?: pfs_pfs_pb.ProjectPicker, index?: number): pfs_pfs_pb.ProjectPicker;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PipelinesSummaryRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: PipelinesSummaryRequest): PipelinesSummaryRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PipelinesSummaryRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PipelinesSummaryRequest;
+    static deserializeBinaryFromReader(message: PipelinesSummaryRequest, reader: jspb.BinaryReader): PipelinesSummaryRequest;
+}
+
+export namespace PipelinesSummaryRequest {
+    export type AsObject = {
+        projectsList: Array<pfs_pfs_pb.ProjectPicker.AsObject>,
+    }
+}
+
+export class PipelinesSummaryResponse extends jspb.Message { 
+    clearSummariesList(): void;
+    getSummariesList(): Array<PipelinesSummary>;
+    setSummariesList(value: Array<PipelinesSummary>): PipelinesSummaryResponse;
+    addSummaries(value?: PipelinesSummary, index?: number): PipelinesSummary;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PipelinesSummaryResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: PipelinesSummaryResponse): PipelinesSummaryResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PipelinesSummaryResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PipelinesSummaryResponse;
+    static deserializeBinaryFromReader(message: PipelinesSummaryResponse, reader: jspb.BinaryReader): PipelinesSummaryResponse;
+}
+
+export namespace PipelinesSummaryResponse {
+    export type AsObject = {
+        summariesList: Array<PipelinesSummary.AsObject>,
+    }
+}
+
+export class PipelinesSummary extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): pfs_pfs_pb.Project | undefined;
+    setProject(value?: pfs_pfs_pb.Project): PipelinesSummary;
+    getActivePipelines(): number;
+    setActivePipelines(value: number): PipelinesSummary;
+    getPausedPipelines(): number;
+    setPausedPipelines(value: number): PipelinesSummary;
+    getFailedPipelines(): number;
+    setFailedPipelines(value: number): PipelinesSummary;
+    getUnhealthyPipelines(): number;
+    setUnhealthyPipelines(value: number): PipelinesSummary;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): PipelinesSummary.AsObject;
+    static toObject(includeInstance: boolean, msg: PipelinesSummary): PipelinesSummary.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: PipelinesSummary, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): PipelinesSummary;
+    static deserializeBinaryFromReader(message: PipelinesSummary, reader: jspb.BinaryReader): PipelinesSummary;
+}
+
+export namespace PipelinesSummary {
+    export type AsObject = {
+        project?: pfs_pfs_pb.Project.AsObject,
+        activePipelines: number,
+        pausedPipelines: number,
+        failedPipelines: number,
+        unhealthyPipelines: number,
     }
 }
 

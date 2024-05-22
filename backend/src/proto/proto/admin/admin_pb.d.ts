@@ -31,6 +31,9 @@ export class ClusterInfo extends jspb.Message {
     getWebResources(): WebResource | undefined;
     setWebResources(value?: WebResource): ClusterInfo;
 
+    getMetadataMap(): jspb.Map<string, string>;
+    clearMetadataMap(): void;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ClusterInfo.AsObject;
     static toObject(includeInstance: boolean, msg: ClusterInfo): ClusterInfo.AsObject;
@@ -51,6 +54,8 @@ export namespace ClusterInfo {
         proxyTls: boolean,
         paused: boolean,
         webResources?: WebResource.AsObject,
+
+        metadataMap: Array<[string, string]>,
     }
 }
 

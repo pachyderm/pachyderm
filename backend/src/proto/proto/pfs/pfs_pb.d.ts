@@ -43,6 +43,68 @@ export namespace Repo {
     }
 }
 
+export class RepoPicker extends jspb.Message { 
+
+    hasName(): boolean;
+    clearName(): void;
+    getName(): RepoPicker.RepoName | undefined;
+    setName(value?: RepoPicker.RepoName): RepoPicker;
+
+    getPickerCase(): RepoPicker.PickerCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RepoPicker.AsObject;
+    static toObject(includeInstance: boolean, msg: RepoPicker): RepoPicker.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RepoPicker, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RepoPicker;
+    static deserializeBinaryFromReader(message: RepoPicker, reader: jspb.BinaryReader): RepoPicker;
+}
+
+export namespace RepoPicker {
+    export type AsObject = {
+        name?: RepoPicker.RepoName.AsObject,
+    }
+
+
+    export class RepoName extends jspb.Message { 
+
+        hasProject(): boolean;
+        clearProject(): void;
+        getProject(): ProjectPicker | undefined;
+        setProject(value?: ProjectPicker): RepoName;
+        getName(): string;
+        setName(value: string): RepoName;
+        getType(): string;
+        setType(value: string): RepoName;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): RepoName.AsObject;
+        static toObject(includeInstance: boolean, msg: RepoName): RepoName.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: RepoName, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): RepoName;
+        static deserializeBinaryFromReader(message: RepoName, reader: jspb.BinaryReader): RepoName;
+    }
+
+    export namespace RepoName {
+        export type AsObject = {
+            project?: ProjectPicker.AsObject,
+            name: string,
+            type: string,
+        }
+    }
+
+
+    export enum PickerCase {
+        PICKER_NOT_SET = 0,
+        NAME = 1,
+    }
+
+}
+
 export class Branch extends jspb.Message { 
 
     hasRepo(): boolean;
@@ -67,6 +129,65 @@ export namespace Branch {
         repo?: Repo.AsObject,
         name: string,
     }
+}
+
+export class BranchPicker extends jspb.Message { 
+
+    hasName(): boolean;
+    clearName(): void;
+    getName(): BranchPicker.BranchName | undefined;
+    setName(value?: BranchPicker.BranchName): BranchPicker;
+
+    getPickerCase(): BranchPicker.PickerCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): BranchPicker.AsObject;
+    static toObject(includeInstance: boolean, msg: BranchPicker): BranchPicker.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: BranchPicker, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): BranchPicker;
+    static deserializeBinaryFromReader(message: BranchPicker, reader: jspb.BinaryReader): BranchPicker;
+}
+
+export namespace BranchPicker {
+    export type AsObject = {
+        name?: BranchPicker.BranchName.AsObject,
+    }
+
+
+    export class BranchName extends jspb.Message { 
+
+        hasRepo(): boolean;
+        clearRepo(): void;
+        getRepo(): RepoPicker | undefined;
+        setRepo(value?: RepoPicker): BranchName;
+        getName(): string;
+        setName(value: string): BranchName;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): BranchName.AsObject;
+        static toObject(includeInstance: boolean, msg: BranchName): BranchName.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: BranchName, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): BranchName;
+        static deserializeBinaryFromReader(message: BranchName, reader: jspb.BinaryReader): BranchName;
+    }
+
+    export namespace BranchName {
+        export type AsObject = {
+            repo?: RepoPicker.AsObject,
+            name: string,
+        }
+    }
+
+
+    export enum PickerCase {
+        PICKER_NOT_SET = 0,
+        NAME = 1,
+    }
+
 }
 
 export class File extends jspb.Message { 
@@ -128,6 +249,9 @@ export class RepoInfo extends jspb.Message {
     getDetails(): RepoInfo.Details | undefined;
     setDetails(value?: RepoInfo.Details): RepoInfo;
 
+    getMetadataMap(): jspb.Map<string, string>;
+    clearMetadataMap(): void;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): RepoInfo.AsObject;
     static toObject(includeInstance: boolean, msg: RepoInfo): RepoInfo.AsObject;
@@ -147,6 +271,8 @@ export namespace RepoInfo {
         branchesList: Array<Branch.AsObject>,
         authInfo?: AuthInfo.AsObject,
         details?: RepoInfo.Details.AsObject,
+
+        metadataMap: Array<[string, string]>,
     }
 
 
@@ -228,6 +354,9 @@ export class BranchInfo extends jspb.Message {
     getTrigger(): Trigger | undefined;
     setTrigger(value?: Trigger): BranchInfo;
 
+    getMetadataMap(): jspb.Map<string, string>;
+    clearMetadataMap(): void;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): BranchInfo.AsObject;
     static toObject(includeInstance: boolean, msg: BranchInfo): BranchInfo.AsObject;
@@ -246,6 +375,8 @@ export namespace BranchInfo {
         subvenanceList: Array<Branch.AsObject>,
         directProvenanceList: Array<Branch.AsObject>,
         trigger?: Trigger.AsObject,
+
+        metadataMap: Array<[string, string]>,
     }
 }
 
@@ -336,6 +467,138 @@ export namespace Commit {
     }
 }
 
+export class CommitPicker extends jspb.Message { 
+
+    hasBranchHead(): boolean;
+    clearBranchHead(): void;
+    getBranchHead(): BranchPicker | undefined;
+    setBranchHead(value?: BranchPicker): CommitPicker;
+
+    hasId(): boolean;
+    clearId(): void;
+    getId(): CommitPicker.CommitByGlobalId | undefined;
+    setId(value?: CommitPicker.CommitByGlobalId): CommitPicker;
+
+    hasAncestor(): boolean;
+    clearAncestor(): void;
+    getAncestor(): CommitPicker.AncestorOf | undefined;
+    setAncestor(value?: CommitPicker.AncestorOf): CommitPicker;
+
+    hasBranchRoot(): boolean;
+    clearBranchRoot(): void;
+    getBranchRoot(): CommitPicker.BranchRoot | undefined;
+    setBranchRoot(value?: CommitPicker.BranchRoot): CommitPicker;
+
+    getPickerCase(): CommitPicker.PickerCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): CommitPicker.AsObject;
+    static toObject(includeInstance: boolean, msg: CommitPicker): CommitPicker.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: CommitPicker, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): CommitPicker;
+    static deserializeBinaryFromReader(message: CommitPicker, reader: jspb.BinaryReader): CommitPicker;
+}
+
+export namespace CommitPicker {
+    export type AsObject = {
+        branchHead?: BranchPicker.AsObject,
+        id?: CommitPicker.CommitByGlobalId.AsObject,
+        ancestor?: CommitPicker.AncestorOf.AsObject,
+        branchRoot?: CommitPicker.BranchRoot.AsObject,
+    }
+
+
+    export class CommitByGlobalId extends jspb.Message { 
+
+        hasRepo(): boolean;
+        clearRepo(): void;
+        getRepo(): RepoPicker | undefined;
+        setRepo(value?: RepoPicker): CommitByGlobalId;
+        getId(): string;
+        setId(value: string): CommitByGlobalId;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): CommitByGlobalId.AsObject;
+        static toObject(includeInstance: boolean, msg: CommitByGlobalId): CommitByGlobalId.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: CommitByGlobalId, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): CommitByGlobalId;
+        static deserializeBinaryFromReader(message: CommitByGlobalId, reader: jspb.BinaryReader): CommitByGlobalId;
+    }
+
+    export namespace CommitByGlobalId {
+        export type AsObject = {
+            repo?: RepoPicker.AsObject,
+            id: string,
+        }
+    }
+
+    export class BranchRoot extends jspb.Message { 
+        getOffset(): number;
+        setOffset(value: number): BranchRoot;
+
+        hasBranch(): boolean;
+        clearBranch(): void;
+        getBranch(): BranchPicker | undefined;
+        setBranch(value?: BranchPicker): BranchRoot;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): BranchRoot.AsObject;
+        static toObject(includeInstance: boolean, msg: BranchRoot): BranchRoot.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: BranchRoot, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): BranchRoot;
+        static deserializeBinaryFromReader(message: BranchRoot, reader: jspb.BinaryReader): BranchRoot;
+    }
+
+    export namespace BranchRoot {
+        export type AsObject = {
+            offset: number,
+            branch?: BranchPicker.AsObject,
+        }
+    }
+
+    export class AncestorOf extends jspb.Message { 
+        getOffset(): number;
+        setOffset(value: number): AncestorOf;
+
+        hasStart(): boolean;
+        clearStart(): void;
+        getStart(): CommitPicker | undefined;
+        setStart(value?: CommitPicker): AncestorOf;
+
+        serializeBinary(): Uint8Array;
+        toObject(includeInstance?: boolean): AncestorOf.AsObject;
+        static toObject(includeInstance: boolean, msg: AncestorOf): AncestorOf.AsObject;
+        static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+        static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+        static serializeBinaryToWriter(message: AncestorOf, writer: jspb.BinaryWriter): void;
+        static deserializeBinary(bytes: Uint8Array): AncestorOf;
+        static deserializeBinaryFromReader(message: AncestorOf, reader: jspb.BinaryReader): AncestorOf;
+    }
+
+    export namespace AncestorOf {
+        export type AsObject = {
+            offset: number,
+            start?: CommitPicker.AsObject,
+        }
+    }
+
+
+    export enum PickerCase {
+        PICKER_NOT_SET = 0,
+        BRANCH_HEAD = 1,
+        ID = 2,
+        ANCESTOR = 3,
+        BRANCH_ROOT = 4,
+    }
+
+}
+
 export class CommitInfo extends jspb.Message { 
 
     hasCommit(): boolean;
@@ -377,6 +640,10 @@ export class CommitInfo extends jspb.Message {
     getDirectProvenanceList(): Array<Commit>;
     setDirectProvenanceList(value: Array<Commit>): CommitInfo;
     addDirectProvenance(value?: Commit, index?: number): Commit;
+    clearDirectSubvenanceList(): void;
+    getDirectSubvenanceList(): Array<Commit>;
+    setDirectSubvenanceList(value: Array<Commit>): CommitInfo;
+    addDirectSubvenance(value?: Commit, index?: number): Commit;
     getError(): string;
     setError(value: string): CommitInfo;
     getSizeBytesUpperBound(): number;
@@ -386,6 +653,9 @@ export class CommitInfo extends jspb.Message {
     clearDetails(): void;
     getDetails(): CommitInfo.Details | undefined;
     setDetails(value?: CommitInfo.Details): CommitInfo;
+
+    getMetadataMap(): jspb.Map<string, string>;
+    clearMetadataMap(): void;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): CommitInfo.AsObject;
@@ -408,9 +678,12 @@ export namespace CommitInfo {
         finishing?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         finished?: google_protobuf_timestamp_pb.Timestamp.AsObject,
         directProvenanceList: Array<Commit.AsObject>,
+        directSubvenanceList: Array<Commit.AsObject>,
         error: string,
         sizeBytesUpperBound: number,
         details?: CommitInfo.Details.AsObject,
+
+        metadataMap: Array<[string, string]>,
     }
 
 
@@ -575,6 +848,9 @@ export class ProjectInfo extends jspb.Message {
     getCreatedAt(): google_protobuf_timestamp_pb.Timestamp | undefined;
     setCreatedAt(value?: google_protobuf_timestamp_pb.Timestamp): ProjectInfo;
 
+    getMetadataMap(): jspb.Map<string, string>;
+    clearMetadataMap(): void;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ProjectInfo.AsObject;
     static toObject(includeInstance: boolean, msg: ProjectInfo): ProjectInfo.AsObject;
@@ -591,7 +867,40 @@ export namespace ProjectInfo {
         description: string,
         authInfo?: AuthInfo.AsObject,
         createdAt?: google_protobuf_timestamp_pb.Timestamp.AsObject,
+
+        metadataMap: Array<[string, string]>,
     }
+}
+
+export class ProjectPicker extends jspb.Message { 
+
+    hasName(): boolean;
+    clearName(): void;
+    getName(): string;
+    setName(value: string): ProjectPicker;
+
+    getPickerCase(): ProjectPicker.PickerCase;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ProjectPicker.AsObject;
+    static toObject(includeInstance: boolean, msg: ProjectPicker): ProjectPicker.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ProjectPicker, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ProjectPicker;
+    static deserializeBinaryFromReader(message: ProjectPicker, reader: jspb.BinaryReader): ProjectPicker;
+}
+
+export namespace ProjectPicker {
+    export type AsObject = {
+        name: string,
+    }
+
+    export enum PickerCase {
+        PICKER_NOT_SET = 0,
+        NAME = 1,
+    }
+
 }
 
 export class CreateRepoRequest extends jspb.Message { 
@@ -654,6 +963,11 @@ export class ListRepoRequest extends jspb.Message {
     setProjectsList(value: Array<Project>): ListRepoRequest;
     addProjects(value?: Project, index?: number): Project;
 
+    hasPage(): boolean;
+    clearPage(): void;
+    getPage(): RepoPage | undefined;
+    setPage(value?: RepoPage): ListRepoRequest;
+
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ListRepoRequest.AsObject;
     static toObject(includeInstance: boolean, msg: ListRepoRequest): ListRepoRequest.AsObject;
@@ -668,7 +982,39 @@ export namespace ListRepoRequest {
     export type AsObject = {
         type: string,
         projectsList: Array<Project.AsObject>,
+        page?: RepoPage.AsObject,
     }
+}
+
+export class RepoPage extends jspb.Message { 
+    getOrder(): RepoPage.Ordering;
+    setOrder(value: RepoPage.Ordering): RepoPage;
+    getPageSize(): number;
+    setPageSize(value: number): RepoPage;
+    getPageIndex(): number;
+    setPageIndex(value: number): RepoPage;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RepoPage.AsObject;
+    static toObject(includeInstance: boolean, msg: RepoPage): RepoPage.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RepoPage, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RepoPage;
+    static deserializeBinaryFromReader(message: RepoPage, reader: jspb.BinaryReader): RepoPage;
+}
+
+export namespace RepoPage {
+    export type AsObject = {
+        order: RepoPage.Ordering,
+        pageSize: number,
+        pageIndex: number,
+    }
+
+    export enum Ordering {
+    PROJECT_REPO = 0,
+    }
+
 }
 
 export class DeleteRepoRequest extends jspb.Message { 
@@ -1069,6 +1415,204 @@ export namespace ClearCommitRequest {
     }
 }
 
+export class SquashCommitRequest extends jspb.Message { 
+
+    hasCommit(): boolean;
+    clearCommit(): void;
+    getCommit(): Commit | undefined;
+    setCommit(value?: Commit): SquashCommitRequest;
+    getRecursive(): boolean;
+    setRecursive(value: boolean): SquashCommitRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SquashCommitRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: SquashCommitRequest): SquashCommitRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SquashCommitRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SquashCommitRequest;
+    static deserializeBinaryFromReader(message: SquashCommitRequest, reader: jspb.BinaryReader): SquashCommitRequest;
+}
+
+export namespace SquashCommitRequest {
+    export type AsObject = {
+        commit?: Commit.AsObject,
+        recursive: boolean,
+    }
+}
+
+export class SquashCommitResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): SquashCommitResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: SquashCommitResponse): SquashCommitResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: SquashCommitResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): SquashCommitResponse;
+    static deserializeBinaryFromReader(message: SquashCommitResponse, reader: jspb.BinaryReader): SquashCommitResponse;
+}
+
+export namespace SquashCommitResponse {
+    export type AsObject = {
+    }
+}
+
+export class DropCommitRequest extends jspb.Message { 
+
+    hasCommit(): boolean;
+    clearCommit(): void;
+    getCommit(): Commit | undefined;
+    setCommit(value?: Commit): DropCommitRequest;
+    getRecursive(): boolean;
+    setRecursive(value: boolean): DropCommitRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DropCommitRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: DropCommitRequest): DropCommitRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DropCommitRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DropCommitRequest;
+    static deserializeBinaryFromReader(message: DropCommitRequest, reader: jspb.BinaryReader): DropCommitRequest;
+}
+
+export namespace DropCommitRequest {
+    export type AsObject = {
+        commit?: Commit.AsObject,
+        recursive: boolean,
+    }
+}
+
+export class WalkCommitProvenanceRequest extends jspb.Message { 
+    clearStartList(): void;
+    getStartList(): Array<CommitPicker>;
+    setStartList(value: Array<CommitPicker>): WalkCommitProvenanceRequest;
+    addStart(value?: CommitPicker, index?: number): CommitPicker;
+    getMaxCommits(): number;
+    setMaxCommits(value: number): WalkCommitProvenanceRequest;
+    getMaxDepth(): number;
+    setMaxDepth(value: number): WalkCommitProvenanceRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WalkCommitProvenanceRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: WalkCommitProvenanceRequest): WalkCommitProvenanceRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WalkCommitProvenanceRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WalkCommitProvenanceRequest;
+    static deserializeBinaryFromReader(message: WalkCommitProvenanceRequest, reader: jspb.BinaryReader): WalkCommitProvenanceRequest;
+}
+
+export namespace WalkCommitProvenanceRequest {
+    export type AsObject = {
+        startList: Array<CommitPicker.AsObject>,
+        maxCommits: number,
+        maxDepth: number,
+    }
+}
+
+export class WalkCommitSubvenanceRequest extends jspb.Message { 
+    clearStartList(): void;
+    getStartList(): Array<CommitPicker>;
+    setStartList(value: Array<CommitPicker>): WalkCommitSubvenanceRequest;
+    addStart(value?: CommitPicker, index?: number): CommitPicker;
+    getMaxCommits(): number;
+    setMaxCommits(value: number): WalkCommitSubvenanceRequest;
+    getMaxDepth(): number;
+    setMaxDepth(value: number): WalkCommitSubvenanceRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WalkCommitSubvenanceRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: WalkCommitSubvenanceRequest): WalkCommitSubvenanceRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WalkCommitSubvenanceRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WalkCommitSubvenanceRequest;
+    static deserializeBinaryFromReader(message: WalkCommitSubvenanceRequest, reader: jspb.BinaryReader): WalkCommitSubvenanceRequest;
+}
+
+export namespace WalkCommitSubvenanceRequest {
+    export type AsObject = {
+        startList: Array<CommitPicker.AsObject>,
+        maxCommits: number,
+        maxDepth: number,
+    }
+}
+
+export class WalkBranchProvenanceRequest extends jspb.Message { 
+    clearStartList(): void;
+    getStartList(): Array<BranchPicker>;
+    setStartList(value: Array<BranchPicker>): WalkBranchProvenanceRequest;
+    addStart(value?: BranchPicker, index?: number): BranchPicker;
+    getMaxBranches(): number;
+    setMaxBranches(value: number): WalkBranchProvenanceRequest;
+    getMaxDepth(): number;
+    setMaxDepth(value: number): WalkBranchProvenanceRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WalkBranchProvenanceRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: WalkBranchProvenanceRequest): WalkBranchProvenanceRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WalkBranchProvenanceRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WalkBranchProvenanceRequest;
+    static deserializeBinaryFromReader(message: WalkBranchProvenanceRequest, reader: jspb.BinaryReader): WalkBranchProvenanceRequest;
+}
+
+export namespace WalkBranchProvenanceRequest {
+    export type AsObject = {
+        startList: Array<BranchPicker.AsObject>,
+        maxBranches: number,
+        maxDepth: number,
+    }
+}
+
+export class WalkBranchSubvenanceRequest extends jspb.Message { 
+    clearStartList(): void;
+    getStartList(): Array<BranchPicker>;
+    setStartList(value: Array<BranchPicker>): WalkBranchSubvenanceRequest;
+    addStart(value?: BranchPicker, index?: number): BranchPicker;
+    getMaxBranches(): number;
+    setMaxBranches(value: number): WalkBranchSubvenanceRequest;
+    getMaxDepth(): number;
+    setMaxDepth(value: number): WalkBranchSubvenanceRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): WalkBranchSubvenanceRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: WalkBranchSubvenanceRequest): WalkBranchSubvenanceRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: WalkBranchSubvenanceRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): WalkBranchSubvenanceRequest;
+    static deserializeBinaryFromReader(message: WalkBranchSubvenanceRequest, reader: jspb.BinaryReader): WalkBranchSubvenanceRequest;
+}
+
+export namespace WalkBranchSubvenanceRequest {
+    export type AsObject = {
+        startList: Array<BranchPicker.AsObject>,
+        maxBranches: number,
+        maxDepth: number,
+    }
+}
+
+export class DropCommitResponse extends jspb.Message { 
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): DropCommitResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: DropCommitResponse): DropCommitResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: DropCommitResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): DropCommitResponse;
+    static deserializeBinaryFromReader(message: DropCommitResponse, reader: jspb.BinaryReader): DropCommitResponse;
+}
+
+export namespace DropCommitResponse {
+    export type AsObject = {
+    }
+}
+
 export class CreateBranchRequest extends jspb.Message { 
 
     hasHead(): boolean;
@@ -1306,6 +1850,55 @@ export class InspectProjectRequest extends jspb.Message {
 export namespace InspectProjectRequest {
     export type AsObject = {
         project?: Project.AsObject,
+    }
+}
+
+export class InspectProjectV2Request extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): Project | undefined;
+    setProject(value?: Project): InspectProjectV2Request;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InspectProjectV2Request.AsObject;
+    static toObject(includeInstance: boolean, msg: InspectProjectV2Request): InspectProjectV2Request.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InspectProjectV2Request, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InspectProjectV2Request;
+    static deserializeBinaryFromReader(message: InspectProjectV2Request, reader: jspb.BinaryReader): InspectProjectV2Request;
+}
+
+export namespace InspectProjectV2Request {
+    export type AsObject = {
+        project?: Project.AsObject,
+    }
+}
+
+export class InspectProjectV2Response extends jspb.Message { 
+
+    hasInfo(): boolean;
+    clearInfo(): void;
+    getInfo(): ProjectInfo | undefined;
+    setInfo(value?: ProjectInfo): InspectProjectV2Response;
+    getDefaultsJson(): string;
+    setDefaultsJson(value: string): InspectProjectV2Response;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): InspectProjectV2Response.AsObject;
+    static toObject(includeInstance: boolean, msg: InspectProjectV2Response): InspectProjectV2Response.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: InspectProjectV2Response, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): InspectProjectV2Response;
+    static deserializeBinaryFromReader(message: InspectProjectV2Response, reader: jspb.BinaryReader): InspectProjectV2Response;
+}
+
+export namespace InspectProjectV2Response {
+    export type AsObject = {
+        info?: ProjectInfo.AsObject,
+        defaultsJson: string,
     }
 }
 
@@ -1842,6 +2435,8 @@ export class GetFileSetRequest extends jspb.Message {
     clearCommit(): void;
     getCommit(): Commit | undefined;
     setCommit(value?: Commit): GetFileSetRequest;
+    getType(): GetFileSetRequest.FileSetType;
+    setType(value: GetFileSetRequest.FileSetType): GetFileSetRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): GetFileSetRequest.AsObject;
@@ -1856,7 +2451,14 @@ export class GetFileSetRequest extends jspb.Message {
 export namespace GetFileSetRequest {
     export type AsObject = {
         commit?: Commit.AsObject,
+        type: GetFileSetRequest.FileSetType,
     }
+
+    export enum FileSetType {
+    TOTAL = 0,
+    DIFF = 1,
+    }
+
 }
 
 export class AddFileSetRequest extends jspb.Message { 
@@ -1939,6 +2541,10 @@ export namespace ComposeFileSetRequest {
 export class ShardFileSetRequest extends jspb.Message { 
     getFileSetId(): string;
     setFileSetId(value: string): ShardFileSetRequest;
+    getNumFiles(): number;
+    setNumFiles(value: number): ShardFileSetRequest;
+    getSizeBytes(): number;
+    setSizeBytes(value: number): ShardFileSetRequest;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): ShardFileSetRequest.AsObject;
@@ -1953,6 +2559,8 @@ export class ShardFileSetRequest extends jspb.Message {
 export namespace ShardFileSetRequest {
     export type AsObject = {
         fileSetId: string,
+        numFiles: number,
+        sizeBytes: number,
     }
 }
 
@@ -2416,6 +3024,79 @@ export namespace EgressResponse {
         SQL_DATABASE = 2,
     }
 
+}
+
+export class ReposSummaryRequest extends jspb.Message { 
+    clearProjectsList(): void;
+    getProjectsList(): Array<ProjectPicker>;
+    setProjectsList(value: Array<ProjectPicker>): ReposSummaryRequest;
+    addProjects(value?: ProjectPicker, index?: number): ProjectPicker;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ReposSummaryRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: ReposSummaryRequest): ReposSummaryRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ReposSummaryRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ReposSummaryRequest;
+    static deserializeBinaryFromReader(message: ReposSummaryRequest, reader: jspb.BinaryReader): ReposSummaryRequest;
+}
+
+export namespace ReposSummaryRequest {
+    export type AsObject = {
+        projectsList: Array<ProjectPicker.AsObject>,
+    }
+}
+
+export class ReposSummary extends jspb.Message { 
+
+    hasProject(): boolean;
+    clearProject(): void;
+    getProject(): Project | undefined;
+    setProject(value?: Project): ReposSummary;
+    getUserRepoCount(): number;
+    setUserRepoCount(value: number): ReposSummary;
+    getSizeBytes(): number;
+    setSizeBytes(value: number): ReposSummary;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ReposSummary.AsObject;
+    static toObject(includeInstance: boolean, msg: ReposSummary): ReposSummary.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ReposSummary, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ReposSummary;
+    static deserializeBinaryFromReader(message: ReposSummary, reader: jspb.BinaryReader): ReposSummary;
+}
+
+export namespace ReposSummary {
+    export type AsObject = {
+        project?: Project.AsObject,
+        userRepoCount: number,
+        sizeBytes: number,
+    }
+}
+
+export class ReposSummaryResponse extends jspb.Message { 
+    clearSummariesList(): void;
+    getSummariesList(): Array<ReposSummary>;
+    setSummariesList(value: Array<ReposSummary>): ReposSummaryResponse;
+    addSummaries(value?: ReposSummary, index?: number): ReposSummary;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): ReposSummaryResponse.AsObject;
+    static toObject(includeInstance: boolean, msg: ReposSummaryResponse): ReposSummaryResponse.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: ReposSummaryResponse, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): ReposSummaryResponse;
+    static deserializeBinaryFromReader(message: ReposSummaryResponse, reader: jspb.BinaryReader): ReposSummaryResponse;
+}
+
+export namespace ReposSummaryResponse {
+    export type AsObject = {
+        summariesList: Array<ReposSummary.AsObject>,
+    }
 }
 
 export enum OriginKind {

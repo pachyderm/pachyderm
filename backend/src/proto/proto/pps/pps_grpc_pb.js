@@ -45,6 +45,39 @@ function deserialize_pps_v2_ActivateAuthResponse(buffer_arg) {
   return pps_pps_pb.ActivateAuthResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pps_v2_CheckStatusRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.CheckStatusRequest)) {
+    throw new Error('Expected argument of type pps_v2.CheckStatusRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_CheckStatusRequest(buffer_arg) {
+  return pps_pps_pb.CheckStatusRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_CheckStatusResponse(arg) {
+  if (!(arg instanceof pps_pps_pb.CheckStatusResponse)) {
+    throw new Error('Expected argument of type pps_v2.CheckStatusResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_CheckStatusResponse(buffer_arg) {
+  return pps_pps_pb.CheckStatusResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_CreateDatumRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.CreateDatumRequest)) {
+    throw new Error('Expected argument of type pps_v2.CreateDatumRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_CreateDatumRequest(buffer_arg) {
+  return pps_pps_pb.CreateDatumRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pps_v2_CreatePipelineRequest(arg) {
   if (!(arg instanceof pps_pps_pb.CreatePipelineRequest)) {
     throw new Error('Expected argument of type pps_v2.CreatePipelineRequest');
@@ -186,6 +219,28 @@ function serialize_pps_v2_GetLogsRequest(arg) {
 
 function deserialize_pps_v2_GetLogsRequest(buffer_arg) {
   return pps_pps_pb.GetLogsRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_GetProjectDefaultsRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.GetProjectDefaultsRequest)) {
+    throw new Error('Expected argument of type pps_v2.GetProjectDefaultsRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_GetProjectDefaultsRequest(buffer_arg) {
+  return pps_pps_pb.GetProjectDefaultsRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_GetProjectDefaultsResponse(arg) {
+  if (!(arg instanceof pps_pps_pb.GetProjectDefaultsResponse)) {
+    throw new Error('Expected argument of type pps_v2.GetProjectDefaultsResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_GetProjectDefaultsResponse(buffer_arg) {
+  return pps_pps_pb.GetProjectDefaultsResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_v2_InspectDatumRequest(arg) {
@@ -353,6 +408,28 @@ function deserialize_pps_v2_PipelineInfo(buffer_arg) {
   return pps_pps_pb.PipelineInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pps_v2_PipelinesSummaryRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.PipelinesSummaryRequest)) {
+    throw new Error('Expected argument of type pps_v2.PipelinesSummaryRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_PipelinesSummaryRequest(buffer_arg) {
+  return pps_pps_pb.PipelinesSummaryRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_PipelinesSummaryResponse(arg) {
+  if (!(arg instanceof pps_pps_pb.PipelinesSummaryResponse)) {
+    throw new Error('Expected argument of type pps_v2.PipelinesSummaryResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_PipelinesSummaryResponse(buffer_arg) {
+  return pps_pps_pb.PipelinesSummaryResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pps_v2_RenderTemplateRequest(arg) {
   if (!(arg instanceof pps_pps_pb.RenderTemplateRequest)) {
     throw new Error('Expected argument of type pps_v2.RenderTemplateRequest');
@@ -483,6 +560,28 @@ function serialize_pps_v2_SetClusterDefaultsResponse(arg) {
 
 function deserialize_pps_v2_SetClusterDefaultsResponse(buffer_arg) {
   return pps_pps_pb.SetClusterDefaultsResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_SetProjectDefaultsRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.SetProjectDefaultsRequest)) {
+    throw new Error('Expected argument of type pps_v2.SetProjectDefaultsRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_SetProjectDefaultsRequest(buffer_arg) {
+  return pps_pps_pb.SetProjectDefaultsRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pps_v2_SetProjectDefaultsResponse(arg) {
+  if (!(arg instanceof pps_pps_pb.SetProjectDefaultsResponse)) {
+    throw new Error('Expected argument of type pps_v2.SetProjectDefaultsResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_SetProjectDefaultsResponse(buffer_arg) {
+  return pps_pps_pb.SetProjectDefaultsResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pps_v2_StartPipelineRequest(arg) {
@@ -665,6 +764,19 @@ listDatum: {
     responseSerialize: serialize_pps_v2_DatumInfo,
     responseDeserialize: deserialize_pps_v2_DatumInfo,
   },
+  // CreateDatum prioritizes time to first datum. Each request returns a batch
+// of datums.
+createDatum: {
+    path: '/pps_v2.API/CreateDatum',
+    requestStream: true,
+    responseStream: true,
+    requestType: pps_pps_pb.CreateDatumRequest,
+    responseType: pps_pps_pb.DatumInfo,
+    requestSerialize: serialize_pps_v2_CreateDatumRequest,
+    requestDeserialize: deserialize_pps_v2_CreateDatumRequest,
+    responseSerialize: serialize_pps_v2_DatumInfo,
+    responseDeserialize: deserialize_pps_v2_DatumInfo,
+  },
   restartDatum: {
     path: '/pps_v2.API/RestartDatum',
     requestStream: false,
@@ -796,6 +908,18 @@ listDatum: {
     requestDeserialize: deserialize_pps_v2_RunCronRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  // Check Status returns the status of pipelines within a project.
+checkStatus: {
+    path: '/pps_v2.API/CheckStatus',
+    requestStream: false,
+    responseStream: true,
+    requestType: pps_pps_pb.CheckStatusRequest,
+    responseType: pps_pps_pb.CheckStatusResponse,
+    requestSerialize: serialize_pps_v2_CheckStatusRequest,
+    requestDeserialize: deserialize_pps_v2_CheckStatusRequest,
+    responseSerialize: serialize_pps_v2_CheckStatusResponse,
+    responseDeserialize: deserialize_pps_v2_CheckStatusResponse,
   },
   createSecret: {
     path: '/pps_v2.API/CreateSecret',
@@ -984,6 +1108,42 @@ setClusterDefaults: {
     requestDeserialize: deserialize_pps_v2_SetClusterDefaultsRequest,
     responseSerialize: serialize_pps_v2_SetClusterDefaultsResponse,
     responseDeserialize: deserialize_pps_v2_SetClusterDefaultsResponse,
+  },
+  // GetProjectDefaults returns the defaults for a particular project.
+getProjectDefaults: {
+    path: '/pps_v2.API/GetProjectDefaults',
+    requestStream: false,
+    responseStream: false,
+    requestType: pps_pps_pb.GetProjectDefaultsRequest,
+    responseType: pps_pps_pb.GetProjectDefaultsResponse,
+    requestSerialize: serialize_pps_v2_GetProjectDefaultsRequest,
+    requestDeserialize: deserialize_pps_v2_GetProjectDefaultsRequest,
+    responseSerialize: serialize_pps_v2_GetProjectDefaultsResponse,
+    responseDeserialize: deserialize_pps_v2_GetProjectDefaultsResponse,
+  },
+  // SetProjectDefaults sets the defaults for a particular project.
+setProjectDefaults: {
+    path: '/pps_v2.API/SetProjectDefaults',
+    requestStream: false,
+    responseStream: false,
+    requestType: pps_pps_pb.SetProjectDefaultsRequest,
+    responseType: pps_pps_pb.SetProjectDefaultsResponse,
+    requestSerialize: serialize_pps_v2_SetProjectDefaultsRequest,
+    requestDeserialize: deserialize_pps_v2_SetProjectDefaultsRequest,
+    responseSerialize: serialize_pps_v2_SetProjectDefaultsResponse,
+    responseDeserialize: deserialize_pps_v2_SetProjectDefaultsResponse,
+  },
+  // PipelinesSummary summarizes the pipelines for each requested project.
+pipelinesSummary: {
+    path: '/pps_v2.API/PipelinesSummary',
+    requestStream: false,
+    responseStream: false,
+    requestType: pps_pps_pb.PipelinesSummaryRequest,
+    responseType: pps_pps_pb.PipelinesSummaryResponse,
+    requestSerialize: serialize_pps_v2_PipelinesSummaryRequest,
+    requestDeserialize: deserialize_pps_v2_PipelinesSummaryRequest,
+    responseSerialize: serialize_pps_v2_PipelinesSummaryResponse,
+    responseDeserialize: deserialize_pps_v2_PipelinesSummaryResponse,
   },
 };
 

@@ -137,7 +137,8 @@ proto.admin_v2.ClusterInfo.toObject = function(includeInstance, msg) {
     proxyHost: jspb.Message.getFieldWithDefault(msg, 5, ""),
     proxyTls: jspb.Message.getBooleanFieldWithDefault(msg, 6, false),
     paused: jspb.Message.getBooleanFieldWithDefault(msg, 7, false),
-    webResources: (f = msg.getWebResources()) && proto.admin_v2.WebResource.toObject(includeInstance, f)
+    webResources: (f = msg.getWebResources()) && proto.admin_v2.WebResource.toObject(includeInstance, f),
+    metadataMap: (f = msg.getMetadataMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -206,6 +207,12 @@ proto.admin_v2.ClusterInfo.deserializeBinaryFromReader = function(msg, reader) {
       var value = new proto.admin_v2.WebResource;
       reader.readMessage(value,proto.admin_v2.WebResource.deserializeBinaryFromReader);
       msg.setWebResources(value);
+      break;
+    case 9:
+      var value = msg.getMetadataMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
+         });
       break;
     default:
       reader.skipField();
@@ -292,6 +299,10 @@ proto.admin_v2.ClusterInfo.serializeBinaryToWriter = function(message, writer) {
       f,
       proto.admin_v2.WebResource.serializeBinaryToWriter
     );
+  }
+  f = message.getMetadataMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(9, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
   }
 };
 
@@ -476,6 +487,28 @@ proto.admin_v2.ClusterInfo.prototype.clearWebResources = function() {
 proto.admin_v2.ClusterInfo.prototype.hasWebResources = function() {
   return jspb.Message.getField(this, 8) != null;
 };
+
+
+/**
+ * map<string, string> metadata = 9;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,string>}
+ */
+proto.admin_v2.ClusterInfo.prototype.getMetadataMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,string>} */ (
+      jspb.Message.getMapField(this, 9, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.admin_v2.ClusterInfo} returns this
+ */
+proto.admin_v2.ClusterInfo.prototype.clearMetadataMap = function() {
+  this.getMetadataMap().clear();
+  return this;};
 
 
 

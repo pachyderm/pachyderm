@@ -298,6 +298,28 @@ function deserialize_pfs_v2_DiffFileResponse(buffer_arg) {
   return pfs_pfs_pb.DiffFileResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_DropCommitRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.DropCommitRequest)) {
+    throw new Error('Expected argument of type pfs_v2.DropCommitRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_DropCommitRequest(buffer_arg) {
+  return pfs_pfs_pb.DropCommitRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_DropCommitResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.DropCommitResponse)) {
+    throw new Error('Expected argument of type pfs_v2.DropCommitResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_DropCommitResponse(buffer_arg) {
+  return pfs_pfs_pb.DropCommitResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_DropCommitSetRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.DropCommitSetRequest)) {
     throw new Error('Expected argument of type pfs_v2.DropCommitSetRequest');
@@ -507,6 +529,28 @@ function deserialize_pfs_v2_InspectProjectRequest(buffer_arg) {
   return pfs_pfs_pb.InspectProjectRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_InspectProjectV2Request(arg) {
+  if (!(arg instanceof pfs_pfs_pb.InspectProjectV2Request)) {
+    throw new Error('Expected argument of type pfs_v2.InspectProjectV2Request');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_InspectProjectV2Request(buffer_arg) {
+  return pfs_pfs_pb.InspectProjectV2Request.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_InspectProjectV2Response(arg) {
+  if (!(arg instanceof pfs_pfs_pb.InspectProjectV2Response)) {
+    throw new Error('Expected argument of type pfs_v2.InspectProjectV2Response');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_InspectProjectV2Response(buffer_arg) {
+  return pfs_pfs_pb.InspectProjectV2Response.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_InspectRepoRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.InspectRepoRequest)) {
     throw new Error('Expected argument of type pfs_v2.InspectRepoRequest');
@@ -639,6 +683,28 @@ function deserialize_pfs_v2_RepoInfo(buffer_arg) {
   return pfs_pfs_pb.RepoInfo.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pfs_v2_ReposSummaryRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ReposSummaryRequest)) {
+    throw new Error('Expected argument of type pfs_v2.ReposSummaryRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_ReposSummaryRequest(buffer_arg) {
+  return pfs_pfs_pb.ReposSummaryRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_ReposSummaryResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.ReposSummaryResponse)) {
+    throw new Error('Expected argument of type pfs_v2.ReposSummaryResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_ReposSummaryResponse(buffer_arg) {
+  return pfs_pfs_pb.ReposSummaryResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pfs_v2_ShardFileSetRequest(arg) {
   if (!(arg instanceof pfs_pfs_pb.ShardFileSetRequest)) {
     throw new Error('Expected argument of type pfs_v2.ShardFileSetRequest');
@@ -659,6 +725,28 @@ function serialize_pfs_v2_ShardFileSetResponse(arg) {
 
 function deserialize_pfs_v2_ShardFileSetResponse(buffer_arg) {
   return pfs_pfs_pb.ShardFileSetResponse.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_SquashCommitRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.SquashCommitRequest)) {
+    throw new Error('Expected argument of type pfs_v2.SquashCommitRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_SquashCommitRequest(buffer_arg) {
+  return pfs_pfs_pb.SquashCommitRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_SquashCommitResponse(arg) {
+  if (!(arg instanceof pfs_pfs_pb.SquashCommitResponse)) {
+    throw new Error('Expected argument of type pfs_v2.SquashCommitResponse');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_SquashCommitResponse(buffer_arg) {
+  return pfs_pfs_pb.SquashCommitResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_SquashCommitSetRequest(arg) {
@@ -692,6 +780,50 @@ function serialize_pfs_v2_SubscribeCommitRequest(arg) {
 
 function deserialize_pfs_v2_SubscribeCommitRequest(buffer_arg) {
   return pfs_pfs_pb.SubscribeCommitRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_WalkBranchProvenanceRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.WalkBranchProvenanceRequest)) {
+    throw new Error('Expected argument of type pfs_v2.WalkBranchProvenanceRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_WalkBranchProvenanceRequest(buffer_arg) {
+  return pfs_pfs_pb.WalkBranchProvenanceRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_WalkBranchSubvenanceRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.WalkBranchSubvenanceRequest)) {
+    throw new Error('Expected argument of type pfs_v2.WalkBranchSubvenanceRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_WalkBranchSubvenanceRequest(buffer_arg) {
+  return pfs_pfs_pb.WalkBranchSubvenanceRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_WalkCommitProvenanceRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.WalkCommitProvenanceRequest)) {
+    throw new Error('Expected argument of type pfs_v2.WalkCommitProvenanceRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_WalkCommitProvenanceRequest(buffer_arg) {
+  return pfs_pfs_pb.WalkCommitProvenanceRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
+function serialize_pfs_v2_WalkCommitSubvenanceRequest(arg) {
+  if (!(arg instanceof pfs_pfs_pb.WalkCommitSubvenanceRequest)) {
+    throw new Error('Expected argument of type pfs_v2.WalkCommitSubvenanceRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pfs_v2_WalkCommitSubvenanceRequest(buffer_arg) {
+  return pfs_pfs_pb.WalkCommitSubvenanceRequest.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
 function serialize_pfs_v2_WalkFileRequest(arg) {
@@ -866,6 +998,30 @@ subscribeCommit: {
     responseSerialize: serialize_pfs_v2_CommitInfo,
     responseDeserialize: deserialize_pfs_v2_CommitInfo,
   },
+  // SquashCommit squashes the provided commit into its children.
+squashCommit: {
+    path: '/pfs_v2.API/SquashCommit',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.SquashCommitRequest,
+    responseType: pfs_pfs_pb.SquashCommitResponse,
+    requestSerialize: serialize_pfs_v2_SquashCommitRequest,
+    requestDeserialize: deserialize_pfs_v2_SquashCommitRequest,
+    responseSerialize: serialize_pfs_v2_SquashCommitResponse,
+    responseDeserialize: deserialize_pfs_v2_SquashCommitResponse,
+  },
+  // DropCommit drops the provided commit.
+dropCommit: {
+    path: '/pfs_v2.API/DropCommit',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.DropCommitRequest,
+    responseType: pfs_pfs_pb.DropCommitResponse,
+    requestSerialize: serialize_pfs_v2_DropCommitRequest,
+    requestDeserialize: deserialize_pfs_v2_DropCommitRequest,
+    responseSerialize: serialize_pfs_v2_DropCommitResponse,
+    responseDeserialize: deserialize_pfs_v2_DropCommitResponse,
+  },
   // InspectCommitSet returns the info about a CommitSet.
 inspectCommitSet: {
     path: '/pfs_v2.API/InspectCommitSet',
@@ -891,6 +1047,7 @@ listCommitSet: {
     responseDeserialize: deserialize_pfs_v2_CommitSetInfo,
   },
   // SquashCommitSet squashes the commits of a CommitSet into their children.
+// Deprecated: Use SquashCommit instead.
 squashCommitSet: {
     path: '/pfs_v2.API/SquashCommitSet',
     requestStream: false,
@@ -903,6 +1060,7 @@ squashCommitSet: {
     responseDeserialize: deserialize_google_protobuf_Empty,
   },
   // DropCommitSet drops the commits of a CommitSet and all data included in the commits.
+// Deprecated: Use DropCommit instead.
 dropCommitSet: {
     path: '/pfs_v2.API/DropCommitSet',
     requestStream: false,
@@ -925,6 +1083,30 @@ findCommits: {
     requestDeserialize: deserialize_pfs_v2_FindCommitsRequest,
     responseSerialize: serialize_pfs_v2_FindCommitsResponse,
     responseDeserialize: deserialize_pfs_v2_FindCommitsResponse,
+  },
+  // WalkCommitProvenance traverses a commit's provenance graph and streams back each commit encountered.
+walkCommitProvenance: {
+    path: '/pfs_v2.API/WalkCommitProvenance',
+    requestStream: false,
+    responseStream: true,
+    requestType: pfs_pfs_pb.WalkCommitProvenanceRequest,
+    responseType: pfs_pfs_pb.CommitInfo,
+    requestSerialize: serialize_pfs_v2_WalkCommitProvenanceRequest,
+    requestDeserialize: deserialize_pfs_v2_WalkCommitProvenanceRequest,
+    responseSerialize: serialize_pfs_v2_CommitInfo,
+    responseDeserialize: deserialize_pfs_v2_CommitInfo,
+  },
+  // WalkCommitSubvenance traverses a commit's subvenance graph and streams back each commit encountered.
+walkCommitSubvenance: {
+    path: '/pfs_v2.API/WalkCommitSubvenance',
+    requestStream: false,
+    responseStream: true,
+    requestType: pfs_pfs_pb.WalkCommitSubvenanceRequest,
+    responseType: pfs_pfs_pb.CommitInfo,
+    requestSerialize: serialize_pfs_v2_WalkCommitSubvenanceRequest,
+    requestDeserialize: deserialize_pfs_v2_WalkCommitSubvenanceRequest,
+    responseSerialize: serialize_pfs_v2_CommitInfo,
+    responseDeserialize: deserialize_pfs_v2_CommitInfo,
   },
   // CreateBranch creates a new branch.
 createBranch: {
@@ -973,6 +1155,30 @@ deleteBranch: {
     requestDeserialize: deserialize_pfs_v2_DeleteBranchRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  // WalkBranchProvenance traverses a branch's provenance graph and streams back each branch encountered.
+walkBranchProvenance: {
+    path: '/pfs_v2.API/WalkBranchProvenance',
+    requestStream: false,
+    responseStream: true,
+    requestType: pfs_pfs_pb.WalkBranchProvenanceRequest,
+    responseType: pfs_pfs_pb.BranchInfo,
+    requestSerialize: serialize_pfs_v2_WalkBranchProvenanceRequest,
+    requestDeserialize: deserialize_pfs_v2_WalkBranchProvenanceRequest,
+    responseSerialize: serialize_pfs_v2_BranchInfo,
+    responseDeserialize: deserialize_pfs_v2_BranchInfo,
+  },
+  // WalkBranchSubvenance traverses a branch's subvenance graph and streams back each branch encountered.
+walkBranchSubvenance: {
+    path: '/pfs_v2.API/WalkBranchSubvenance',
+    requestStream: false,
+    responseStream: true,
+    requestType: pfs_pfs_pb.WalkBranchSubvenanceRequest,
+    responseType: pfs_pfs_pb.BranchInfo,
+    requestSerialize: serialize_pfs_v2_WalkBranchSubvenanceRequest,
+    requestDeserialize: deserialize_pfs_v2_WalkBranchSubvenanceRequest,
+    responseSerialize: serialize_pfs_v2_BranchInfo,
+    responseDeserialize: deserialize_pfs_v2_BranchInfo,
   },
   // ModifyFile performs modifications on a set of files.
 modifyFile: {
@@ -1272,6 +1478,18 @@ inspectProject: {
     responseSerialize: serialize_pfs_v2_ProjectInfo,
     responseDeserialize: deserialize_pfs_v2_ProjectInfo,
   },
+  // InspectProjectV2 returns info about and defaults for a project.
+inspectProjectV2: {
+    path: '/pfs_v2.API/InspectProjectV2',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.InspectProjectV2Request,
+    responseType: pfs_pfs_pb.InspectProjectV2Response,
+    requestSerialize: serialize_pfs_v2_InspectProjectV2Request,
+    requestDeserialize: deserialize_pfs_v2_InspectProjectV2Request,
+    responseSerialize: serialize_pfs_v2_InspectProjectV2Response,
+    responseDeserialize: deserialize_pfs_v2_InspectProjectV2Response,
+  },
   // ListProject returns info about all projects.
 listProject: {
     path: '/pfs_v2.API/ListProject',
@@ -1295,6 +1513,19 @@ deleteProject: {
     requestDeserialize: deserialize_pfs_v2_DeleteProjectRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  // Summary API
+// ReposSummary returns a list of summaries about the repos for each of the requested projects.
+reposSummary: {
+    path: '/pfs_v2.API/ReposSummary',
+    requestStream: false,
+    responseStream: false,
+    requestType: pfs_pfs_pb.ReposSummaryRequest,
+    responseType: pfs_pfs_pb.ReposSummaryResponse,
+    requestSerialize: serialize_pfs_v2_ReposSummaryRequest,
+    requestDeserialize: deserialize_pfs_v2_ReposSummaryRequest,
+    responseSerialize: serialize_pfs_v2_ReposSummaryResponse,
+    responseDeserialize: deserialize_pfs_v2_ReposSummaryResponse,
   },
 };
 

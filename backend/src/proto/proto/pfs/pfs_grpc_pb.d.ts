@@ -27,15 +27,21 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     inspectCommit: IAPIService_IInspectCommit;
     listCommit: IAPIService_IListCommit;
     subscribeCommit: IAPIService_ISubscribeCommit;
+    squashCommit: IAPIService_ISquashCommit;
+    dropCommit: IAPIService_IDropCommit;
     inspectCommitSet: IAPIService_IInspectCommitSet;
     listCommitSet: IAPIService_IListCommitSet;
     squashCommitSet: IAPIService_ISquashCommitSet;
     dropCommitSet: IAPIService_IDropCommitSet;
     findCommits: IAPIService_IFindCommits;
+    walkCommitProvenance: IAPIService_IWalkCommitProvenance;
+    walkCommitSubvenance: IAPIService_IWalkCommitSubvenance;
     createBranch: IAPIService_ICreateBranch;
     inspectBranch: IAPIService_IInspectBranch;
     listBranch: IAPIService_IListBranch;
     deleteBranch: IAPIService_IDeleteBranch;
+    walkBranchProvenance: IAPIService_IWalkBranchProvenance;
+    walkBranchSubvenance: IAPIService_IWalkBranchSubvenance;
     modifyFile: IAPIService_IModifyFile;
     getFile: IAPIService_IGetFile;
     getFileTAR: IAPIService_IGetFileTAR;
@@ -61,8 +67,10 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     egress: IAPIService_IEgress;
     createProject: IAPIService_ICreateProject;
     inspectProject: IAPIService_IInspectProject;
+    inspectProjectV2: IAPIService_IInspectProjectV2;
     listProject: IAPIService_IListProject;
     deleteProject: IAPIService_IDeleteProject;
+    reposSummary: IAPIService_IReposSummary;
 }
 
 interface IAPIService_ICreateRepo extends grpc.MethodDefinition<pfs_pfs_pb.CreateRepoRequest, google_protobuf_empty_pb.Empty> {
@@ -164,6 +172,24 @@ interface IAPIService_ISubscribeCommit extends grpc.MethodDefinition<pfs_pfs_pb.
     responseSerialize: grpc.serialize<pfs_pfs_pb.CommitInfo>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitInfo>;
 }
+interface IAPIService_ISquashCommit extends grpc.MethodDefinition<pfs_pfs_pb.SquashCommitRequest, pfs_pfs_pb.SquashCommitResponse> {
+    path: "/pfs_v2.API/SquashCommit";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.SquashCommitRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.SquashCommitRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.SquashCommitResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.SquashCommitResponse>;
+}
+interface IAPIService_IDropCommit extends grpc.MethodDefinition<pfs_pfs_pb.DropCommitRequest, pfs_pfs_pb.DropCommitResponse> {
+    path: "/pfs_v2.API/DropCommit";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.DropCommitRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.DropCommitRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.DropCommitResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.DropCommitResponse>;
+}
 interface IAPIService_IInspectCommitSet extends grpc.MethodDefinition<pfs_pfs_pb.InspectCommitSetRequest, pfs_pfs_pb.CommitInfo> {
     path: "/pfs_v2.API/InspectCommitSet";
     requestStream: false;
@@ -209,6 +235,24 @@ interface IAPIService_IFindCommits extends grpc.MethodDefinition<pfs_pfs_pb.Find
     responseSerialize: grpc.serialize<pfs_pfs_pb.FindCommitsResponse>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.FindCommitsResponse>;
 }
+interface IAPIService_IWalkCommitProvenance extends grpc.MethodDefinition<pfs_pfs_pb.WalkCommitProvenanceRequest, pfs_pfs_pb.CommitInfo> {
+    path: "/pfs_v2.API/WalkCommitProvenance";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.WalkCommitProvenanceRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.WalkCommitProvenanceRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.CommitInfo>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitInfo>;
+}
+interface IAPIService_IWalkCommitSubvenance extends grpc.MethodDefinition<pfs_pfs_pb.WalkCommitSubvenanceRequest, pfs_pfs_pb.CommitInfo> {
+    path: "/pfs_v2.API/WalkCommitSubvenance";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.WalkCommitSubvenanceRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.WalkCommitSubvenanceRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.CommitInfo>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.CommitInfo>;
+}
 interface IAPIService_ICreateBranch extends grpc.MethodDefinition<pfs_pfs_pb.CreateBranchRequest, google_protobuf_empty_pb.Empty> {
     path: "/pfs_v2.API/CreateBranch";
     requestStream: false;
@@ -244,6 +288,24 @@ interface IAPIService_IDeleteBranch extends grpc.MethodDefinition<pfs_pfs_pb.Del
     requestDeserialize: grpc.deserialize<pfs_pfs_pb.DeleteBranchRequest>;
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
+}
+interface IAPIService_IWalkBranchProvenance extends grpc.MethodDefinition<pfs_pfs_pb.WalkBranchProvenanceRequest, pfs_pfs_pb.BranchInfo> {
+    path: "/pfs_v2.API/WalkBranchProvenance";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.WalkBranchProvenanceRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.WalkBranchProvenanceRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.BranchInfo>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.BranchInfo>;
+}
+interface IAPIService_IWalkBranchSubvenance extends grpc.MethodDefinition<pfs_pfs_pb.WalkBranchSubvenanceRequest, pfs_pfs_pb.BranchInfo> {
+    path: "/pfs_v2.API/WalkBranchSubvenance";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.WalkBranchSubvenanceRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.WalkBranchSubvenanceRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.BranchInfo>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.BranchInfo>;
 }
 interface IAPIService_IModifyFile extends grpc.MethodDefinition<pfs_pfs_pb.ModifyFileRequest, google_protobuf_empty_pb.Empty> {
     path: "/pfs_v2.API/ModifyFile";
@@ -470,6 +532,15 @@ interface IAPIService_IInspectProject extends grpc.MethodDefinition<pfs_pfs_pb.I
     responseSerialize: grpc.serialize<pfs_pfs_pb.ProjectInfo>;
     responseDeserialize: grpc.deserialize<pfs_pfs_pb.ProjectInfo>;
 }
+interface IAPIService_IInspectProjectV2 extends grpc.MethodDefinition<pfs_pfs_pb.InspectProjectV2Request, pfs_pfs_pb.InspectProjectV2Response> {
+    path: "/pfs_v2.API/InspectProjectV2";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.InspectProjectV2Request>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.InspectProjectV2Request>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.InspectProjectV2Response>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.InspectProjectV2Response>;
+}
 interface IAPIService_IListProject extends grpc.MethodDefinition<pfs_pfs_pb.ListProjectRequest, pfs_pfs_pb.ProjectInfo> {
     path: "/pfs_v2.API/ListProject";
     requestStream: false;
@@ -488,6 +559,15 @@ interface IAPIService_IDeleteProject extends grpc.MethodDefinition<pfs_pfs_pb.De
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
+interface IAPIService_IReposSummary extends grpc.MethodDefinition<pfs_pfs_pb.ReposSummaryRequest, pfs_pfs_pb.ReposSummaryResponse> {
+    path: "/pfs_v2.API/ReposSummary";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pfs_pfs_pb.ReposSummaryRequest>;
+    requestDeserialize: grpc.deserialize<pfs_pfs_pb.ReposSummaryRequest>;
+    responseSerialize: grpc.serialize<pfs_pfs_pb.ReposSummaryResponse>;
+    responseDeserialize: grpc.deserialize<pfs_pfs_pb.ReposSummaryResponse>;
+}
 
 export const APIService: IAPIService;
 
@@ -503,15 +583,21 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     inspectCommit: grpc.handleUnaryCall<pfs_pfs_pb.InspectCommitRequest, pfs_pfs_pb.CommitInfo>;
     listCommit: grpc.handleServerStreamingCall<pfs_pfs_pb.ListCommitRequest, pfs_pfs_pb.CommitInfo>;
     subscribeCommit: grpc.handleServerStreamingCall<pfs_pfs_pb.SubscribeCommitRequest, pfs_pfs_pb.CommitInfo>;
+    squashCommit: grpc.handleUnaryCall<pfs_pfs_pb.SquashCommitRequest, pfs_pfs_pb.SquashCommitResponse>;
+    dropCommit: grpc.handleUnaryCall<pfs_pfs_pb.DropCommitRequest, pfs_pfs_pb.DropCommitResponse>;
     inspectCommitSet: grpc.handleServerStreamingCall<pfs_pfs_pb.InspectCommitSetRequest, pfs_pfs_pb.CommitInfo>;
     listCommitSet: grpc.handleServerStreamingCall<pfs_pfs_pb.ListCommitSetRequest, pfs_pfs_pb.CommitSetInfo>;
     squashCommitSet: grpc.handleUnaryCall<pfs_pfs_pb.SquashCommitSetRequest, google_protobuf_empty_pb.Empty>;
     dropCommitSet: grpc.handleUnaryCall<pfs_pfs_pb.DropCommitSetRequest, google_protobuf_empty_pb.Empty>;
     findCommits: grpc.handleServerStreamingCall<pfs_pfs_pb.FindCommitsRequest, pfs_pfs_pb.FindCommitsResponse>;
+    walkCommitProvenance: grpc.handleServerStreamingCall<pfs_pfs_pb.WalkCommitProvenanceRequest, pfs_pfs_pb.CommitInfo>;
+    walkCommitSubvenance: grpc.handleServerStreamingCall<pfs_pfs_pb.WalkCommitSubvenanceRequest, pfs_pfs_pb.CommitInfo>;
     createBranch: grpc.handleUnaryCall<pfs_pfs_pb.CreateBranchRequest, google_protobuf_empty_pb.Empty>;
     inspectBranch: grpc.handleUnaryCall<pfs_pfs_pb.InspectBranchRequest, pfs_pfs_pb.BranchInfo>;
     listBranch: grpc.handleServerStreamingCall<pfs_pfs_pb.ListBranchRequest, pfs_pfs_pb.BranchInfo>;
     deleteBranch: grpc.handleUnaryCall<pfs_pfs_pb.DeleteBranchRequest, google_protobuf_empty_pb.Empty>;
+    walkBranchProvenance: grpc.handleServerStreamingCall<pfs_pfs_pb.WalkBranchProvenanceRequest, pfs_pfs_pb.BranchInfo>;
+    walkBranchSubvenance: grpc.handleServerStreamingCall<pfs_pfs_pb.WalkBranchSubvenanceRequest, pfs_pfs_pb.BranchInfo>;
     modifyFile: grpc.handleClientStreamingCall<pfs_pfs_pb.ModifyFileRequest, google_protobuf_empty_pb.Empty>;
     getFile: grpc.handleServerStreamingCall<pfs_pfs_pb.GetFileRequest, google_protobuf_wrappers_pb.BytesValue>;
     getFileTAR: grpc.handleServerStreamingCall<pfs_pfs_pb.GetFileRequest, google_protobuf_wrappers_pb.BytesValue>;
@@ -537,8 +623,10 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     egress: grpc.handleUnaryCall<pfs_pfs_pb.EgressRequest, pfs_pfs_pb.EgressResponse>;
     createProject: grpc.handleUnaryCall<pfs_pfs_pb.CreateProjectRequest, google_protobuf_empty_pb.Empty>;
     inspectProject: grpc.handleUnaryCall<pfs_pfs_pb.InspectProjectRequest, pfs_pfs_pb.ProjectInfo>;
+    inspectProjectV2: grpc.handleUnaryCall<pfs_pfs_pb.InspectProjectV2Request, pfs_pfs_pb.InspectProjectV2Response>;
     listProject: grpc.handleServerStreamingCall<pfs_pfs_pb.ListProjectRequest, pfs_pfs_pb.ProjectInfo>;
     deleteProject: grpc.handleUnaryCall<pfs_pfs_pb.DeleteProjectRequest, google_protobuf_empty_pb.Empty>;
+    reposSummary: grpc.handleUnaryCall<pfs_pfs_pb.ReposSummaryRequest, pfs_pfs_pb.ReposSummaryResponse>;
 }
 
 export interface IAPIClient {
@@ -572,6 +660,12 @@ export interface IAPIClient {
     listCommit(request: pfs_pfs_pb.ListCommitRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     subscribeCommit(request: pfs_pfs_pb.SubscribeCommitRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     subscribeCommit(request: pfs_pfs_pb.SubscribeCommitRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    squashCommit(request: pfs_pfs_pb.SquashCommitRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.SquashCommitResponse) => void): grpc.ClientUnaryCall;
+    squashCommit(request: pfs_pfs_pb.SquashCommitRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.SquashCommitResponse) => void): grpc.ClientUnaryCall;
+    squashCommit(request: pfs_pfs_pb.SquashCommitRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.SquashCommitResponse) => void): grpc.ClientUnaryCall;
+    dropCommit(request: pfs_pfs_pb.DropCommitRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DropCommitResponse) => void): grpc.ClientUnaryCall;
+    dropCommit(request: pfs_pfs_pb.DropCommitRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DropCommitResponse) => void): grpc.ClientUnaryCall;
+    dropCommit(request: pfs_pfs_pb.DropCommitRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DropCommitResponse) => void): grpc.ClientUnaryCall;
     inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     listCommitSet(request: pfs_pfs_pb.ListCommitSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitSetInfo>;
@@ -584,6 +678,10 @@ export interface IAPIClient {
     dropCommitSet(request: pfs_pfs_pb.DropCommitSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     findCommits(request: pfs_pfs_pb.FindCommitsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FindCommitsResponse>;
     findCommits(request: pfs_pfs_pb.FindCommitsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FindCommitsResponse>;
+    walkCommitProvenance(request: pfs_pfs_pb.WalkCommitProvenanceRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    walkCommitProvenance(request: pfs_pfs_pb.WalkCommitProvenanceRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    walkCommitSubvenance(request: pfs_pfs_pb.WalkCommitSubvenanceRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    walkCommitSubvenance(request: pfs_pfs_pb.WalkCommitSubvenanceRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     createBranch(request: pfs_pfs_pb.CreateBranchRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -595,6 +693,10 @@ export interface IAPIClient {
     deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    walkBranchProvenance(request: pfs_pfs_pb.WalkBranchProvenanceRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
+    walkBranchProvenance(request: pfs_pfs_pb.WalkBranchProvenanceRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
+    walkBranchSubvenance(request: pfs_pfs_pb.WalkBranchSubvenanceRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
+    walkBranchSubvenance(request: pfs_pfs_pb.WalkBranchSubvenanceRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
     modifyFile(callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
     modifyFile(metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
     modifyFile(options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
@@ -664,11 +766,17 @@ export interface IAPIClient {
     inspectProject(request: pfs_pfs_pb.InspectProjectRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ProjectInfo) => void): grpc.ClientUnaryCall;
     inspectProject(request: pfs_pfs_pb.InspectProjectRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ProjectInfo) => void): grpc.ClientUnaryCall;
     inspectProject(request: pfs_pfs_pb.InspectProjectRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ProjectInfo) => void): grpc.ClientUnaryCall;
+    inspectProjectV2(request: pfs_pfs_pb.InspectProjectV2Request, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.InspectProjectV2Response) => void): grpc.ClientUnaryCall;
+    inspectProjectV2(request: pfs_pfs_pb.InspectProjectV2Request, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.InspectProjectV2Response) => void): grpc.ClientUnaryCall;
+    inspectProjectV2(request: pfs_pfs_pb.InspectProjectV2Request, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.InspectProjectV2Response) => void): grpc.ClientUnaryCall;
     listProject(request: pfs_pfs_pb.ListProjectRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.ProjectInfo>;
     listProject(request: pfs_pfs_pb.ListProjectRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.ProjectInfo>;
     deleteProject(request: pfs_pfs_pb.DeleteProjectRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteProject(request: pfs_pfs_pb.DeleteProjectRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     deleteProject(request: pfs_pfs_pb.DeleteProjectRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    reposSummary(request: pfs_pfs_pb.ReposSummaryRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ReposSummaryResponse) => void): grpc.ClientUnaryCall;
+    reposSummary(request: pfs_pfs_pb.ReposSummaryRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ReposSummaryResponse) => void): grpc.ClientUnaryCall;
+    reposSummary(request: pfs_pfs_pb.ReposSummaryRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ReposSummaryResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class APIClient extends grpc.Client implements IAPIClient {
@@ -703,6 +811,12 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public listCommit(request: pfs_pfs_pb.ListCommitRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     public subscribeCommit(request: pfs_pfs_pb.SubscribeCommitRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     public subscribeCommit(request: pfs_pfs_pb.SubscribeCommitRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    public squashCommit(request: pfs_pfs_pb.SquashCommitRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.SquashCommitResponse) => void): grpc.ClientUnaryCall;
+    public squashCommit(request: pfs_pfs_pb.SquashCommitRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.SquashCommitResponse) => void): grpc.ClientUnaryCall;
+    public squashCommit(request: pfs_pfs_pb.SquashCommitRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.SquashCommitResponse) => void): grpc.ClientUnaryCall;
+    public dropCommit(request: pfs_pfs_pb.DropCommitRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DropCommitResponse) => void): grpc.ClientUnaryCall;
+    public dropCommit(request: pfs_pfs_pb.DropCommitRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DropCommitResponse) => void): grpc.ClientUnaryCall;
+    public dropCommit(request: pfs_pfs_pb.DropCommitRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.DropCommitResponse) => void): grpc.ClientUnaryCall;
     public inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     public inspectCommitSet(request: pfs_pfs_pb.InspectCommitSetRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     public listCommitSet(request: pfs_pfs_pb.ListCommitSetRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitSetInfo>;
@@ -715,6 +829,10 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public dropCommitSet(request: pfs_pfs_pb.DropCommitSetRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public findCommits(request: pfs_pfs_pb.FindCommitsRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FindCommitsResponse>;
     public findCommits(request: pfs_pfs_pb.FindCommitsRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.FindCommitsResponse>;
+    public walkCommitProvenance(request: pfs_pfs_pb.WalkCommitProvenanceRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    public walkCommitProvenance(request: pfs_pfs_pb.WalkCommitProvenanceRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    public walkCommitSubvenance(request: pfs_pfs_pb.WalkCommitSubvenanceRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
+    public walkCommitSubvenance(request: pfs_pfs_pb.WalkCommitSubvenanceRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.CommitInfo>;
     public createBranch(request: pfs_pfs_pb.CreateBranchRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createBranch(request: pfs_pfs_pb.CreateBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -726,6 +844,10 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteBranch(request: pfs_pfs_pb.DeleteBranchRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public walkBranchProvenance(request: pfs_pfs_pb.WalkBranchProvenanceRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
+    public walkBranchProvenance(request: pfs_pfs_pb.WalkBranchProvenanceRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
+    public walkBranchSubvenance(request: pfs_pfs_pb.WalkBranchSubvenanceRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
+    public walkBranchSubvenance(request: pfs_pfs_pb.WalkBranchSubvenanceRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.BranchInfo>;
     public modifyFile(callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
     public modifyFile(metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
     public modifyFile(options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientWritableStream<pfs_pfs_pb.ModifyFileRequest>;
@@ -795,9 +917,15 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public inspectProject(request: pfs_pfs_pb.InspectProjectRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ProjectInfo) => void): grpc.ClientUnaryCall;
     public inspectProject(request: pfs_pfs_pb.InspectProjectRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ProjectInfo) => void): grpc.ClientUnaryCall;
     public inspectProject(request: pfs_pfs_pb.InspectProjectRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ProjectInfo) => void): grpc.ClientUnaryCall;
+    public inspectProjectV2(request: pfs_pfs_pb.InspectProjectV2Request, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.InspectProjectV2Response) => void): grpc.ClientUnaryCall;
+    public inspectProjectV2(request: pfs_pfs_pb.InspectProjectV2Request, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.InspectProjectV2Response) => void): grpc.ClientUnaryCall;
+    public inspectProjectV2(request: pfs_pfs_pb.InspectProjectV2Request, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.InspectProjectV2Response) => void): grpc.ClientUnaryCall;
     public listProject(request: pfs_pfs_pb.ListProjectRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.ProjectInfo>;
     public listProject(request: pfs_pfs_pb.ListProjectRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pfs_pfs_pb.ProjectInfo>;
     public deleteProject(request: pfs_pfs_pb.DeleteProjectRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteProject(request: pfs_pfs_pb.DeleteProjectRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public deleteProject(request: pfs_pfs_pb.DeleteProjectRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public reposSummary(request: pfs_pfs_pb.ReposSummaryRequest, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ReposSummaryResponse) => void): grpc.ClientUnaryCall;
+    public reposSummary(request: pfs_pfs_pb.ReposSummaryRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ReposSummaryResponse) => void): grpc.ClientUnaryCall;
+    public reposSummary(request: pfs_pfs_pb.ReposSummaryRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pfs_pfs_pb.ReposSummaryResponse) => void): grpc.ClientUnaryCall;
 }

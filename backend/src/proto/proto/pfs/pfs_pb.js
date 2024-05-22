@@ -46,6 +46,9 @@ goog.exportSymbol('proto.pfs_v2.AddFileSetRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.AuthInfo', null, global);
 goog.exportSymbol('proto.pfs_v2.Branch', null, global);
 goog.exportSymbol('proto.pfs_v2.BranchInfo', null, global);
+goog.exportSymbol('proto.pfs_v2.BranchPicker', null, global);
+goog.exportSymbol('proto.pfs_v2.BranchPicker.BranchName', null, global);
+goog.exportSymbol('proto.pfs_v2.BranchPicker.PickerCase', null, global);
 goog.exportSymbol('proto.pfs_v2.CheckStorageRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.CheckStorageResponse', null, global);
 goog.exportSymbol('proto.pfs_v2.ClearCacheRequest', null, global);
@@ -54,6 +57,11 @@ goog.exportSymbol('proto.pfs_v2.Commit', null, global);
 goog.exportSymbol('proto.pfs_v2.CommitInfo', null, global);
 goog.exportSymbol('proto.pfs_v2.CommitInfo.Details', null, global);
 goog.exportSymbol('proto.pfs_v2.CommitOrigin', null, global);
+goog.exportSymbol('proto.pfs_v2.CommitPicker', null, global);
+goog.exportSymbol('proto.pfs_v2.CommitPicker.AncestorOf', null, global);
+goog.exportSymbol('proto.pfs_v2.CommitPicker.BranchRoot', null, global);
+goog.exportSymbol('proto.pfs_v2.CommitPicker.CommitByGlobalId', null, global);
+goog.exportSymbol('proto.pfs_v2.CommitPicker.PickerCase', null, global);
 goog.exportSymbol('proto.pfs_v2.CommitSet', null, global);
 goog.exportSymbol('proto.pfs_v2.CommitSetInfo', null, global);
 goog.exportSymbol('proto.pfs_v2.CommitState', null, global);
@@ -73,6 +81,8 @@ goog.exportSymbol('proto.pfs_v2.DeleteReposResponse', null, global);
 goog.exportSymbol('proto.pfs_v2.Delimiter', null, global);
 goog.exportSymbol('proto.pfs_v2.DiffFileRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.DiffFileResponse', null, global);
+goog.exportSymbol('proto.pfs_v2.DropCommitRequest', null, global);
+goog.exportSymbol('proto.pfs_v2.DropCommitResponse', null, global);
 goog.exportSymbol('proto.pfs_v2.DropCommitSetRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.EgressRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.EgressRequest.TargetCase', null, global);
@@ -94,12 +104,15 @@ goog.exportSymbol('proto.pfs_v2.GetCacheRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.GetCacheResponse', null, global);
 goog.exportSymbol('proto.pfs_v2.GetFileRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.GetFileSetRequest', null, global);
+goog.exportSymbol('proto.pfs_v2.GetFileSetRequest.FileSetType', null, global);
 goog.exportSymbol('proto.pfs_v2.GlobFileRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.InspectBranchRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.InspectCommitRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.InspectCommitSetRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.InspectFileRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.InspectProjectRequest', null, global);
+goog.exportSymbol('proto.pfs_v2.InspectProjectV2Request', null, global);
+goog.exportSymbol('proto.pfs_v2.InspectProjectV2Response', null, global);
 goog.exportSymbol('proto.pfs_v2.InspectRepoRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.ListBranchRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.ListCommitRequest', null, global);
@@ -114,21 +127,37 @@ goog.exportSymbol('proto.pfs_v2.OriginKind', null, global);
 goog.exportSymbol('proto.pfs_v2.PathRange', null, global);
 goog.exportSymbol('proto.pfs_v2.Project', null, global);
 goog.exportSymbol('proto.pfs_v2.ProjectInfo', null, global);
+goog.exportSymbol('proto.pfs_v2.ProjectPicker', null, global);
+goog.exportSymbol('proto.pfs_v2.ProjectPicker.PickerCase', null, global);
 goog.exportSymbol('proto.pfs_v2.PutCacheRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.RenewFileSetRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.Repo', null, global);
 goog.exportSymbol('proto.pfs_v2.RepoInfo', null, global);
 goog.exportSymbol('proto.pfs_v2.RepoInfo.Details', null, global);
+goog.exportSymbol('proto.pfs_v2.RepoPage', null, global);
+goog.exportSymbol('proto.pfs_v2.RepoPage.Ordering', null, global);
+goog.exportSymbol('proto.pfs_v2.RepoPicker', null, global);
+goog.exportSymbol('proto.pfs_v2.RepoPicker.PickerCase', null, global);
+goog.exportSymbol('proto.pfs_v2.RepoPicker.RepoName', null, global);
+goog.exportSymbol('proto.pfs_v2.ReposSummary', null, global);
+goog.exportSymbol('proto.pfs_v2.ReposSummaryRequest', null, global);
+goog.exportSymbol('proto.pfs_v2.ReposSummaryResponse', null, global);
 goog.exportSymbol('proto.pfs_v2.SQLDatabaseEgress', null, global);
 goog.exportSymbol('proto.pfs_v2.SQLDatabaseEgress.FileFormat', null, global);
 goog.exportSymbol('proto.pfs_v2.SQLDatabaseEgress.FileFormat.Type', null, global);
 goog.exportSymbol('proto.pfs_v2.SQLDatabaseEgress.Secret', null, global);
 goog.exportSymbol('proto.pfs_v2.ShardFileSetRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.ShardFileSetResponse', null, global);
+goog.exportSymbol('proto.pfs_v2.SquashCommitRequest', null, global);
+goog.exportSymbol('proto.pfs_v2.SquashCommitResponse', null, global);
 goog.exportSymbol('proto.pfs_v2.SquashCommitSetRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.StartCommitRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.SubscribeCommitRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.Trigger', null, global);
+goog.exportSymbol('proto.pfs_v2.WalkBranchProvenanceRequest', null, global);
+goog.exportSymbol('proto.pfs_v2.WalkBranchSubvenanceRequest', null, global);
+goog.exportSymbol('proto.pfs_v2.WalkCommitProvenanceRequest', null, global);
+goog.exportSymbol('proto.pfs_v2.WalkCommitSubvenanceRequest', null, global);
 goog.exportSymbol('proto.pfs_v2.WalkFileRequest', null, global);
 /**
  * Generated by JsPbCodeGenerator.
@@ -161,6 +190,48 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
+proto.pfs_v2.RepoPicker = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.pfs_v2.RepoPicker.oneofGroups_);
+};
+goog.inherits(proto.pfs_v2.RepoPicker, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.RepoPicker.displayName = 'proto.pfs_v2.RepoPicker';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.RepoPicker.RepoName = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.RepoPicker.RepoName, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.RepoPicker.RepoName.displayName = 'proto.pfs_v2.RepoPicker.RepoName';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
 proto.pfs_v2.Branch = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
@@ -171,6 +242,48 @@ if (goog.DEBUG && !COMPILED) {
    * @override
    */
   proto.pfs_v2.Branch.displayName = 'proto.pfs_v2.Branch';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.BranchPicker = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.pfs_v2.BranchPicker.oneofGroups_);
+};
+goog.inherits(proto.pfs_v2.BranchPicker, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.BranchPicker.displayName = 'proto.pfs_v2.BranchPicker';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.BranchPicker.BranchName = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.BranchPicker.BranchName, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.BranchPicker.BranchName.displayName = 'proto.pfs_v2.BranchPicker.BranchName';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -350,6 +463,90 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
+proto.pfs_v2.CommitPicker = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.pfs_v2.CommitPicker.oneofGroups_);
+};
+goog.inherits(proto.pfs_v2.CommitPicker, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.CommitPicker.displayName = 'proto.pfs_v2.CommitPicker';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.CommitPicker.CommitByGlobalId, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.CommitPicker.CommitByGlobalId.displayName = 'proto.pfs_v2.CommitPicker.CommitByGlobalId';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.CommitPicker.BranchRoot = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.CommitPicker.BranchRoot, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.CommitPicker.BranchRoot.displayName = 'proto.pfs_v2.CommitPicker.BranchRoot';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.CommitPicker.AncestorOf = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.CommitPicker.AncestorOf, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.CommitPicker.AncestorOf.displayName = 'proto.pfs_v2.CommitPicker.AncestorOf';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
 proto.pfs_v2.CommitInfo = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, proto.pfs_v2.CommitInfo.repeatedFields_, null);
 };
@@ -497,6 +694,27 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
+proto.pfs_v2.ProjectPicker = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.pfs_v2.ProjectPicker.oneofGroups_);
+};
+goog.inherits(proto.pfs_v2.ProjectPicker, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.ProjectPicker.displayName = 'proto.pfs_v2.ProjectPicker';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
 proto.pfs_v2.CreateRepoRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
@@ -549,6 +767,27 @@ if (goog.DEBUG && !COMPILED) {
    * @override
    */
   proto.pfs_v2.ListRepoRequest.displayName = 'proto.pfs_v2.ListRepoRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.RepoPage = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.RepoPage, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.RepoPage.displayName = 'proto.pfs_v2.RepoPage';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -854,6 +1093,174 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
+proto.pfs_v2.SquashCommitRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.SquashCommitRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.SquashCommitRequest.displayName = 'proto.pfs_v2.SquashCommitRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.SquashCommitResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.SquashCommitResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.SquashCommitResponse.displayName = 'proto.pfs_v2.SquashCommitResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.DropCommitRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.DropCommitRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.DropCommitRequest.displayName = 'proto.pfs_v2.DropCommitRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.pfs_v2.WalkCommitProvenanceRequest.repeatedFields_, null);
+};
+goog.inherits(proto.pfs_v2.WalkCommitProvenanceRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.WalkCommitProvenanceRequest.displayName = 'proto.pfs_v2.WalkCommitProvenanceRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.pfs_v2.WalkCommitSubvenanceRequest.repeatedFields_, null);
+};
+goog.inherits(proto.pfs_v2.WalkCommitSubvenanceRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.WalkCommitSubvenanceRequest.displayName = 'proto.pfs_v2.WalkCommitSubvenanceRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.pfs_v2.WalkBranchProvenanceRequest.repeatedFields_, null);
+};
+goog.inherits(proto.pfs_v2.WalkBranchProvenanceRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.WalkBranchProvenanceRequest.displayName = 'proto.pfs_v2.WalkBranchProvenanceRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.pfs_v2.WalkBranchSubvenanceRequest.repeatedFields_, null);
+};
+goog.inherits(proto.pfs_v2.WalkBranchSubvenanceRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.WalkBranchSubvenanceRequest.displayName = 'proto.pfs_v2.WalkBranchSubvenanceRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.DropCommitResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.DropCommitResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.DropCommitResponse.displayName = 'proto.pfs_v2.DropCommitResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
 proto.pfs_v2.CreateBranchRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, proto.pfs_v2.CreateBranchRequest.repeatedFields_, null);
 };
@@ -1011,6 +1418,48 @@ if (goog.DEBUG && !COMPILED) {
    * @override
    */
   proto.pfs_v2.InspectProjectRequest.displayName = 'proto.pfs_v2.InspectProjectRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.InspectProjectV2Request = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.InspectProjectV2Request, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.InspectProjectV2Request.displayName = 'proto.pfs_v2.InspectProjectV2Request';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.InspectProjectV2Response = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.InspectProjectV2Response, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.InspectProjectV2Response.displayName = 'proto.pfs_v2.InspectProjectV2Response';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1852,6 +2301,69 @@ if (goog.DEBUG && !COMPILED) {
    */
   proto.pfs_v2.EgressResponse.SQLDatabaseResult.displayName = 'proto.pfs_v2.EgressResponse.SQLDatabaseResult';
 }
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.ReposSummaryRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.pfs_v2.ReposSummaryRequest.repeatedFields_, null);
+};
+goog.inherits(proto.pfs_v2.ReposSummaryRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.ReposSummaryRequest.displayName = 'proto.pfs_v2.ReposSummaryRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.ReposSummary = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.pfs_v2.ReposSummary, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.ReposSummary.displayName = 'proto.pfs_v2.ReposSummary';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.pfs_v2.ReposSummaryResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, proto.pfs_v2.ReposSummaryResponse.repeatedFields_, null);
+};
+goog.inherits(proto.pfs_v2.ReposSummaryResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.pfs_v2.ReposSummaryResponse.displayName = 'proto.pfs_v2.ReposSummaryResponse';
+}
 
 
 
@@ -2064,6 +2576,393 @@ proto.pfs_v2.Repo.prototype.hasProject = function() {
 
 
 
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.pfs_v2.RepoPicker.oneofGroups_ = [[1]];
+
+/**
+ * @enum {number}
+ */
+proto.pfs_v2.RepoPicker.PickerCase = {
+  PICKER_NOT_SET: 0,
+  NAME: 1
+};
+
+/**
+ * @return {proto.pfs_v2.RepoPicker.PickerCase}
+ */
+proto.pfs_v2.RepoPicker.prototype.getPickerCase = function() {
+  return /** @type {proto.pfs_v2.RepoPicker.PickerCase} */(jspb.Message.computeOneofCase(this, proto.pfs_v2.RepoPicker.oneofGroups_[0]));
+};
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.RepoPicker.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.RepoPicker.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.RepoPicker} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.RepoPicker.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: (f = msg.getName()) && proto.pfs_v2.RepoPicker.RepoName.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.RepoPicker}
+ */
+proto.pfs_v2.RepoPicker.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.RepoPicker;
+  return proto.pfs_v2.RepoPicker.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.RepoPicker} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.RepoPicker}
+ */
+proto.pfs_v2.RepoPicker.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.RepoPicker.RepoName;
+      reader.readMessage(value,proto.pfs_v2.RepoPicker.RepoName.deserializeBinaryFromReader);
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.RepoPicker.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.RepoPicker.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.RepoPicker} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.RepoPicker.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getName();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.RepoPicker.RepoName.serializeBinaryToWriter
+    );
+  }
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.RepoPicker.RepoName.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.RepoPicker.RepoName.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.RepoPicker.RepoName} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.RepoPicker.RepoName.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    project: (f = msg.getProject()) && proto.pfs_v2.ProjectPicker.toObject(includeInstance, f),
+    name: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    type: jspb.Message.getFieldWithDefault(msg, 3, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.RepoPicker.RepoName}
+ */
+proto.pfs_v2.RepoPicker.RepoName.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.RepoPicker.RepoName;
+  return proto.pfs_v2.RepoPicker.RepoName.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.RepoPicker.RepoName} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.RepoPicker.RepoName}
+ */
+proto.pfs_v2.RepoPicker.RepoName.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.ProjectPicker;
+      reader.readMessage(value,proto.pfs_v2.ProjectPicker.deserializeBinaryFromReader);
+      msg.setProject(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    case 3:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setType(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.RepoPicker.RepoName.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.RepoPicker.RepoName.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.RepoPicker.RepoName} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.RepoPicker.RepoName.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getProject();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.ProjectPicker.serializeBinaryToWriter
+    );
+  }
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getType();
+  if (f.length > 0) {
+    writer.writeString(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional ProjectPicker project = 1;
+ * @return {?proto.pfs_v2.ProjectPicker}
+ */
+proto.pfs_v2.RepoPicker.RepoName.prototype.getProject = function() {
+  return /** @type{?proto.pfs_v2.ProjectPicker} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.ProjectPicker, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.ProjectPicker|undefined} value
+ * @return {!proto.pfs_v2.RepoPicker.RepoName} returns this
+*/
+proto.pfs_v2.RepoPicker.RepoName.prototype.setProject = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.RepoPicker.RepoName} returns this
+ */
+proto.pfs_v2.RepoPicker.RepoName.prototype.clearProject = function() {
+  return this.setProject(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.RepoPicker.RepoName.prototype.hasProject = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional string name = 2;
+ * @return {string}
+ */
+proto.pfs_v2.RepoPicker.RepoName.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.pfs_v2.RepoPicker.RepoName} returns this
+ */
+proto.pfs_v2.RepoPicker.RepoName.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional string type = 3;
+ * @return {string}
+ */
+proto.pfs_v2.RepoPicker.RepoName.prototype.getType = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.pfs_v2.RepoPicker.RepoName} returns this
+ */
+proto.pfs_v2.RepoPicker.RepoName.prototype.setType = function(value) {
+  return jspb.Message.setProto3StringField(this, 3, value);
+};
+
+
+/**
+ * optional RepoName name = 1;
+ * @return {?proto.pfs_v2.RepoPicker.RepoName}
+ */
+proto.pfs_v2.RepoPicker.prototype.getName = function() {
+  return /** @type{?proto.pfs_v2.RepoPicker.RepoName} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.RepoPicker.RepoName, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.RepoPicker.RepoName|undefined} value
+ * @return {!proto.pfs_v2.RepoPicker} returns this
+*/
+proto.pfs_v2.RepoPicker.prototype.setName = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 1, proto.pfs_v2.RepoPicker.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.RepoPicker} returns this
+ */
+proto.pfs_v2.RepoPicker.prototype.clearName = function() {
+  return this.setName(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.RepoPicker.prototype.hasName = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -2241,6 +3140,363 @@ proto.pfs_v2.Branch.prototype.getName = function() {
  */
 proto.pfs_v2.Branch.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.pfs_v2.BranchPicker.oneofGroups_ = [[1]];
+
+/**
+ * @enum {number}
+ */
+proto.pfs_v2.BranchPicker.PickerCase = {
+  PICKER_NOT_SET: 0,
+  NAME: 1
+};
+
+/**
+ * @return {proto.pfs_v2.BranchPicker.PickerCase}
+ */
+proto.pfs_v2.BranchPicker.prototype.getPickerCase = function() {
+  return /** @type {proto.pfs_v2.BranchPicker.PickerCase} */(jspb.Message.computeOneofCase(this, proto.pfs_v2.BranchPicker.oneofGroups_[0]));
+};
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.BranchPicker.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.BranchPicker.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.BranchPicker} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.BranchPicker.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: (f = msg.getName()) && proto.pfs_v2.BranchPicker.BranchName.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.BranchPicker}
+ */
+proto.pfs_v2.BranchPicker.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.BranchPicker;
+  return proto.pfs_v2.BranchPicker.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.BranchPicker} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.BranchPicker}
+ */
+proto.pfs_v2.BranchPicker.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.BranchPicker.BranchName;
+      reader.readMessage(value,proto.pfs_v2.BranchPicker.BranchName.deserializeBinaryFromReader);
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.BranchPicker.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.BranchPicker.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.BranchPicker} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.BranchPicker.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getName();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.BranchPicker.BranchName.serializeBinaryToWriter
+    );
+  }
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.BranchPicker.BranchName.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.BranchPicker.BranchName.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.BranchPicker.BranchName} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.BranchPicker.BranchName.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    repo: (f = msg.getRepo()) && proto.pfs_v2.RepoPicker.toObject(includeInstance, f),
+    name: jspb.Message.getFieldWithDefault(msg, 2, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.BranchPicker.BranchName}
+ */
+proto.pfs_v2.BranchPicker.BranchName.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.BranchPicker.BranchName;
+  return proto.pfs_v2.BranchPicker.BranchName.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.BranchPicker.BranchName} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.BranchPicker.BranchName}
+ */
+proto.pfs_v2.BranchPicker.BranchName.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.RepoPicker;
+      reader.readMessage(value,proto.pfs_v2.RepoPicker.deserializeBinaryFromReader);
+      msg.setRepo(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.BranchPicker.BranchName.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.BranchPicker.BranchName.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.BranchPicker.BranchName} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.BranchPicker.BranchName.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getRepo();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.RepoPicker.serializeBinaryToWriter
+    );
+  }
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional RepoPicker repo = 1;
+ * @return {?proto.pfs_v2.RepoPicker}
+ */
+proto.pfs_v2.BranchPicker.BranchName.prototype.getRepo = function() {
+  return /** @type{?proto.pfs_v2.RepoPicker} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.RepoPicker, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.RepoPicker|undefined} value
+ * @return {!proto.pfs_v2.BranchPicker.BranchName} returns this
+*/
+proto.pfs_v2.BranchPicker.BranchName.prototype.setRepo = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.BranchPicker.BranchName} returns this
+ */
+proto.pfs_v2.BranchPicker.BranchName.prototype.clearRepo = function() {
+  return this.setRepo(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.BranchPicker.BranchName.prototype.hasRepo = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional string name = 2;
+ * @return {string}
+ */
+proto.pfs_v2.BranchPicker.BranchName.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.pfs_v2.BranchPicker.BranchName} returns this
+ */
+proto.pfs_v2.BranchPicker.BranchName.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional BranchName name = 1;
+ * @return {?proto.pfs_v2.BranchPicker.BranchName}
+ */
+proto.pfs_v2.BranchPicker.prototype.getName = function() {
+  return /** @type{?proto.pfs_v2.BranchPicker.BranchName} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.BranchPicker.BranchName, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.BranchPicker.BranchName|undefined} value
+ * @return {!proto.pfs_v2.BranchPicker} returns this
+*/
+proto.pfs_v2.BranchPicker.prototype.setName = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 1, proto.pfs_v2.BranchPicker.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.BranchPicker} returns this
+ */
+proto.pfs_v2.BranchPicker.prototype.clearName = function() {
+  return this.setName(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.BranchPicker.prototype.hasName = function() {
+  return jspb.Message.getField(this, 1) != null;
 };
 
 
@@ -2501,7 +3757,8 @@ proto.pfs_v2.RepoInfo.toObject = function(includeInstance, msg) {
     branchesList: jspb.Message.toObjectList(msg.getBranchesList(),
     proto.pfs_v2.Branch.toObject, includeInstance),
     authInfo: (f = msg.getAuthInfo()) && proto.pfs_v2.AuthInfo.toObject(includeInstance, f),
-    details: (f = msg.getDetails()) && proto.pfs_v2.RepoInfo.Details.toObject(includeInstance, f)
+    details: (f = msg.getDetails()) && proto.pfs_v2.RepoInfo.Details.toObject(includeInstance, f),
+    metadataMap: (f = msg.getMetadataMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -2570,6 +3827,12 @@ proto.pfs_v2.RepoInfo.deserializeBinaryFromReader = function(msg, reader) {
       var value = new proto.pfs_v2.RepoInfo.Details;
       reader.readMessage(value,proto.pfs_v2.RepoInfo.Details.deserializeBinaryFromReader);
       msg.setDetails(value);
+      break;
+    case 8:
+      var value = msg.getMetadataMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
+         });
       break;
     default:
       reader.skipField();
@@ -2653,6 +3916,10 @@ proto.pfs_v2.RepoInfo.serializeBinaryToWriter = function(message, writer) {
       f,
       proto.pfs_v2.RepoInfo.Details.serializeBinaryToWriter
     );
+  }
+  f = message.getMetadataMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(8, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
   }
 };
 
@@ -3009,6 +4276,28 @@ proto.pfs_v2.RepoInfo.prototype.hasDetails = function() {
 };
 
 
+/**
+ * map<string, string> metadata = 8;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,string>}
+ */
+proto.pfs_v2.RepoInfo.prototype.getMetadataMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,string>} */ (
+      jspb.Message.getMapField(this, 8, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.pfs_v2.RepoInfo} returns this
+ */
+proto.pfs_v2.RepoInfo.prototype.clearMetadataMap = function() {
+  this.getMetadataMap().clear();
+  return this;};
+
+
 
 /**
  * List of repeated fields within this message type.
@@ -3263,7 +4552,8 @@ proto.pfs_v2.BranchInfo.toObject = function(includeInstance, msg) {
     proto.pfs_v2.Branch.toObject, includeInstance),
     directProvenanceList: jspb.Message.toObjectList(msg.getDirectProvenanceList(),
     proto.pfs_v2.Branch.toObject, includeInstance),
-    trigger: (f = msg.getTrigger()) && proto.pfs_v2.Trigger.toObject(includeInstance, f)
+    trigger: (f = msg.getTrigger()) && proto.pfs_v2.Trigger.toObject(includeInstance, f),
+    metadataMap: (f = msg.getMetadataMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -3329,6 +4619,12 @@ proto.pfs_v2.BranchInfo.deserializeBinaryFromReader = function(msg, reader) {
       var value = new proto.pfs_v2.Trigger;
       reader.readMessage(value,proto.pfs_v2.Trigger.deserializeBinaryFromReader);
       msg.setTrigger(value);
+      break;
+    case 7:
+      var value = msg.getMetadataMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
+         });
       break;
     default:
       reader.skipField();
@@ -3406,6 +4702,10 @@ proto.pfs_v2.BranchInfo.serializeBinaryToWriter = function(message, writer) {
       f,
       proto.pfs_v2.Trigger.serializeBinaryToWriter
     );
+  }
+  f = message.getMetadataMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(7, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
   }
 };
 
@@ -3633,6 +4933,28 @@ proto.pfs_v2.BranchInfo.prototype.clearTrigger = function() {
 proto.pfs_v2.BranchInfo.prototype.hasTrigger = function() {
   return jspb.Message.getField(this, 6) != null;
 };
+
+
+/**
+ * map<string, string> metadata = 7;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,string>}
+ */
+proto.pfs_v2.BranchInfo.prototype.getMetadataMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,string>} */ (
+      jspb.Message.getMapField(this, 7, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.pfs_v2.BranchInfo} returns this
+ */
+proto.pfs_v2.BranchInfo.prototype.clearMetadataMap = function() {
+  this.getMetadataMap().clear();
+  return this;};
 
 
 
@@ -4279,11 +5601,886 @@ proto.pfs_v2.Commit.prototype.hasBranch = function() {
 
 
 /**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.pfs_v2.CommitPicker.oneofGroups_ = [[1,2,3,4]];
+
+/**
+ * @enum {number}
+ */
+proto.pfs_v2.CommitPicker.PickerCase = {
+  PICKER_NOT_SET: 0,
+  BRANCH_HEAD: 1,
+  ID: 2,
+  ANCESTOR: 3,
+  BRANCH_ROOT: 4
+};
+
+/**
+ * @return {proto.pfs_v2.CommitPicker.PickerCase}
+ */
+proto.pfs_v2.CommitPicker.prototype.getPickerCase = function() {
+  return /** @type {proto.pfs_v2.CommitPicker.PickerCase} */(jspb.Message.computeOneofCase(this, proto.pfs_v2.CommitPicker.oneofGroups_[0]));
+};
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.CommitPicker.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.CommitPicker.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.CommitPicker} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.CommitPicker.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    branchHead: (f = msg.getBranchHead()) && proto.pfs_v2.BranchPicker.toObject(includeInstance, f),
+    id: (f = msg.getId()) && proto.pfs_v2.CommitPicker.CommitByGlobalId.toObject(includeInstance, f),
+    ancestor: (f = msg.getAncestor()) && proto.pfs_v2.CommitPicker.AncestorOf.toObject(includeInstance, f),
+    branchRoot: (f = msg.getBranchRoot()) && proto.pfs_v2.CommitPicker.BranchRoot.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.CommitPicker}
+ */
+proto.pfs_v2.CommitPicker.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.CommitPicker;
+  return proto.pfs_v2.CommitPicker.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.CommitPicker} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.CommitPicker}
+ */
+proto.pfs_v2.CommitPicker.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.BranchPicker;
+      reader.readMessage(value,proto.pfs_v2.BranchPicker.deserializeBinaryFromReader);
+      msg.setBranchHead(value);
+      break;
+    case 2:
+      var value = new proto.pfs_v2.CommitPicker.CommitByGlobalId;
+      reader.readMessage(value,proto.pfs_v2.CommitPicker.CommitByGlobalId.deserializeBinaryFromReader);
+      msg.setId(value);
+      break;
+    case 3:
+      var value = new proto.pfs_v2.CommitPicker.AncestorOf;
+      reader.readMessage(value,proto.pfs_v2.CommitPicker.AncestorOf.deserializeBinaryFromReader);
+      msg.setAncestor(value);
+      break;
+    case 4:
+      var value = new proto.pfs_v2.CommitPicker.BranchRoot;
+      reader.readMessage(value,proto.pfs_v2.CommitPicker.BranchRoot.deserializeBinaryFromReader);
+      msg.setBranchRoot(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.CommitPicker.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.CommitPicker.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.CommitPicker} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.CommitPicker.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getBranchHead();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.BranchPicker.serializeBinaryToWriter
+    );
+  }
+  f = message.getId();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.pfs_v2.CommitPicker.CommitByGlobalId.serializeBinaryToWriter
+    );
+  }
+  f = message.getAncestor();
+  if (f != null) {
+    writer.writeMessage(
+      3,
+      f,
+      proto.pfs_v2.CommitPicker.AncestorOf.serializeBinaryToWriter
+    );
+  }
+  f = message.getBranchRoot();
+  if (f != null) {
+    writer.writeMessage(
+      4,
+      f,
+      proto.pfs_v2.CommitPicker.BranchRoot.serializeBinaryToWriter
+    );
+  }
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.CommitPicker.CommitByGlobalId.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.CommitPicker.CommitByGlobalId} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    repo: (f = msg.getRepo()) && proto.pfs_v2.RepoPicker.toObject(includeInstance, f),
+    id: jspb.Message.getFieldWithDefault(msg, 2, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.CommitPicker.CommitByGlobalId}
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.CommitPicker.CommitByGlobalId;
+  return proto.pfs_v2.CommitPicker.CommitByGlobalId.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.CommitPicker.CommitByGlobalId} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.CommitPicker.CommitByGlobalId}
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.RepoPicker;
+      reader.readMessage(value,proto.pfs_v2.RepoPicker.deserializeBinaryFromReader);
+      msg.setRepo(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setId(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.CommitPicker.CommitByGlobalId.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.CommitPicker.CommitByGlobalId} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getRepo();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.RepoPicker.serializeBinaryToWriter
+    );
+  }
+  f = message.getId();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional RepoPicker repo = 1;
+ * @return {?proto.pfs_v2.RepoPicker}
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.prototype.getRepo = function() {
+  return /** @type{?proto.pfs_v2.RepoPicker} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.RepoPicker, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.RepoPicker|undefined} value
+ * @return {!proto.pfs_v2.CommitPicker.CommitByGlobalId} returns this
+*/
+proto.pfs_v2.CommitPicker.CommitByGlobalId.prototype.setRepo = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.CommitPicker.CommitByGlobalId} returns this
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.prototype.clearRepo = function() {
+  return this.setRepo(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.prototype.hasRepo = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional string id = 2;
+ * @return {string}
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.prototype.getId = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.pfs_v2.CommitPicker.CommitByGlobalId} returns this
+ */
+proto.pfs_v2.CommitPicker.CommitByGlobalId.prototype.setId = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.CommitPicker.BranchRoot.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.CommitPicker.BranchRoot} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    offset: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    branch: (f = msg.getBranch()) && proto.pfs_v2.BranchPicker.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.CommitPicker.BranchRoot}
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.CommitPicker.BranchRoot;
+  return proto.pfs_v2.CommitPicker.BranchRoot.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.CommitPicker.BranchRoot} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.CommitPicker.BranchRoot}
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {number} */ (reader.readUint32());
+      msg.setOffset(value);
+      break;
+    case 2:
+      var value = new proto.pfs_v2.BranchPicker;
+      reader.readMessage(value,proto.pfs_v2.BranchPicker.deserializeBinaryFromReader);
+      msg.setBranch(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.CommitPicker.BranchRoot.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.CommitPicker.BranchRoot} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getOffset();
+  if (f !== 0) {
+    writer.writeUint32(
+      1,
+      f
+    );
+  }
+  f = message.getBranch();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.pfs_v2.BranchPicker.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional uint32 offset = 1;
+ * @return {number}
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.prototype.getOffset = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.CommitPicker.BranchRoot} returns this
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.prototype.setOffset = function(value) {
+  return jspb.Message.setProto3IntField(this, 1, value);
+};
+
+
+/**
+ * optional BranchPicker branch = 2;
+ * @return {?proto.pfs_v2.BranchPicker}
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.prototype.getBranch = function() {
+  return /** @type{?proto.pfs_v2.BranchPicker} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.BranchPicker, 2));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.BranchPicker|undefined} value
+ * @return {!proto.pfs_v2.CommitPicker.BranchRoot} returns this
+*/
+proto.pfs_v2.CommitPicker.BranchRoot.prototype.setBranch = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.CommitPicker.BranchRoot} returns this
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.prototype.clearBranch = function() {
+  return this.setBranch(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.CommitPicker.BranchRoot.prototype.hasBranch = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.CommitPicker.AncestorOf.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.CommitPicker.AncestorOf} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    offset: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    start: (f = msg.getStart()) && proto.pfs_v2.CommitPicker.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.CommitPicker.AncestorOf}
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.CommitPicker.AncestorOf;
+  return proto.pfs_v2.CommitPicker.AncestorOf.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.CommitPicker.AncestorOf} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.CommitPicker.AncestorOf}
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {number} */ (reader.readUint32());
+      msg.setOffset(value);
+      break;
+    case 2:
+      var value = new proto.pfs_v2.CommitPicker;
+      reader.readMessage(value,proto.pfs_v2.CommitPicker.deserializeBinaryFromReader);
+      msg.setStart(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.CommitPicker.AncestorOf.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.CommitPicker.AncestorOf} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getOffset();
+  if (f !== 0) {
+    writer.writeUint32(
+      1,
+      f
+    );
+  }
+  f = message.getStart();
+  if (f != null) {
+    writer.writeMessage(
+      2,
+      f,
+      proto.pfs_v2.CommitPicker.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional uint32 offset = 1;
+ * @return {number}
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.prototype.getOffset = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.CommitPicker.AncestorOf} returns this
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.prototype.setOffset = function(value) {
+  return jspb.Message.setProto3IntField(this, 1, value);
+};
+
+
+/**
+ * optional CommitPicker start = 2;
+ * @return {?proto.pfs_v2.CommitPicker}
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.prototype.getStart = function() {
+  return /** @type{?proto.pfs_v2.CommitPicker} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.CommitPicker, 2));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.CommitPicker|undefined} value
+ * @return {!proto.pfs_v2.CommitPicker.AncestorOf} returns this
+*/
+proto.pfs_v2.CommitPicker.AncestorOf.prototype.setStart = function(value) {
+  return jspb.Message.setWrapperField(this, 2, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.CommitPicker.AncestorOf} returns this
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.prototype.clearStart = function() {
+  return this.setStart(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.CommitPicker.AncestorOf.prototype.hasStart = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * optional BranchPicker branch_head = 1;
+ * @return {?proto.pfs_v2.BranchPicker}
+ */
+proto.pfs_v2.CommitPicker.prototype.getBranchHead = function() {
+  return /** @type{?proto.pfs_v2.BranchPicker} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.BranchPicker, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.BranchPicker|undefined} value
+ * @return {!proto.pfs_v2.CommitPicker} returns this
+*/
+proto.pfs_v2.CommitPicker.prototype.setBranchHead = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 1, proto.pfs_v2.CommitPicker.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.CommitPicker} returns this
+ */
+proto.pfs_v2.CommitPicker.prototype.clearBranchHead = function() {
+  return this.setBranchHead(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.CommitPicker.prototype.hasBranchHead = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional CommitByGlobalId id = 2;
+ * @return {?proto.pfs_v2.CommitPicker.CommitByGlobalId}
+ */
+proto.pfs_v2.CommitPicker.prototype.getId = function() {
+  return /** @type{?proto.pfs_v2.CommitPicker.CommitByGlobalId} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.CommitPicker.CommitByGlobalId, 2));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.CommitPicker.CommitByGlobalId|undefined} value
+ * @return {!proto.pfs_v2.CommitPicker} returns this
+*/
+proto.pfs_v2.CommitPicker.prototype.setId = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 2, proto.pfs_v2.CommitPicker.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.CommitPicker} returns this
+ */
+proto.pfs_v2.CommitPicker.prototype.clearId = function() {
+  return this.setId(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.CommitPicker.prototype.hasId = function() {
+  return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * optional AncestorOf ancestor = 3;
+ * @return {?proto.pfs_v2.CommitPicker.AncestorOf}
+ */
+proto.pfs_v2.CommitPicker.prototype.getAncestor = function() {
+  return /** @type{?proto.pfs_v2.CommitPicker.AncestorOf} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.CommitPicker.AncestorOf, 3));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.CommitPicker.AncestorOf|undefined} value
+ * @return {!proto.pfs_v2.CommitPicker} returns this
+*/
+proto.pfs_v2.CommitPicker.prototype.setAncestor = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 3, proto.pfs_v2.CommitPicker.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.CommitPicker} returns this
+ */
+proto.pfs_v2.CommitPicker.prototype.clearAncestor = function() {
+  return this.setAncestor(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.CommitPicker.prototype.hasAncestor = function() {
+  return jspb.Message.getField(this, 3) != null;
+};
+
+
+/**
+ * optional BranchRoot branch_root = 4;
+ * @return {?proto.pfs_v2.CommitPicker.BranchRoot}
+ */
+proto.pfs_v2.CommitPicker.prototype.getBranchRoot = function() {
+  return /** @type{?proto.pfs_v2.CommitPicker.BranchRoot} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.CommitPicker.BranchRoot, 4));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.CommitPicker.BranchRoot|undefined} value
+ * @return {!proto.pfs_v2.CommitPicker} returns this
+*/
+proto.pfs_v2.CommitPicker.prototype.setBranchRoot = function(value) {
+  return jspb.Message.setOneofWrapperField(this, 4, proto.pfs_v2.CommitPicker.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.CommitPicker} returns this
+ */
+proto.pfs_v2.CommitPicker.prototype.clearBranchRoot = function() {
+  return this.setBranchRoot(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.CommitPicker.prototype.hasBranchRoot = function() {
+  return jspb.Message.getField(this, 4) != null;
+};
+
+
+
+/**
  * List of repeated fields within this message type.
  * @private {!Array<number>}
  * @const
  */
-proto.pfs_v2.CommitInfo.repeatedFields_ = [5,13];
+proto.pfs_v2.CommitInfo.repeatedFields_ = [5,13,15];
 
 
 
@@ -4327,9 +6524,12 @@ proto.pfs_v2.CommitInfo.toObject = function(includeInstance, msg) {
     finished: (f = msg.getFinished()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f),
     directProvenanceList: jspb.Message.toObjectList(msg.getDirectProvenanceList(),
     proto.pfs_v2.Commit.toObject, includeInstance),
+    directSubvenanceList: jspb.Message.toObjectList(msg.getDirectSubvenanceList(),
+    proto.pfs_v2.Commit.toObject, includeInstance),
     error: jspb.Message.getFieldWithDefault(msg, 10, ""),
     sizeBytesUpperBound: jspb.Message.getFieldWithDefault(msg, 11, 0),
-    details: (f = msg.getDetails()) && proto.pfs_v2.CommitInfo.Details.toObject(includeInstance, f)
+    details: (f = msg.getDetails()) && proto.pfs_v2.CommitInfo.Details.toObject(includeInstance, f),
+    metadataMap: (f = msg.getMetadataMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -4410,6 +6610,11 @@ proto.pfs_v2.CommitInfo.deserializeBinaryFromReader = function(msg, reader) {
       reader.readMessage(value,proto.pfs_v2.Commit.deserializeBinaryFromReader);
       msg.addDirectProvenance(value);
       break;
+    case 15:
+      var value = new proto.pfs_v2.Commit;
+      reader.readMessage(value,proto.pfs_v2.Commit.deserializeBinaryFromReader);
+      msg.addDirectSubvenance(value);
+      break;
     case 10:
       var value = /** @type {string} */ (reader.readString());
       msg.setError(value);
@@ -4422,6 +6627,12 @@ proto.pfs_v2.CommitInfo.deserializeBinaryFromReader = function(msg, reader) {
       var value = new proto.pfs_v2.CommitInfo.Details;
       reader.readMessage(value,proto.pfs_v2.CommitInfo.Details.deserializeBinaryFromReader);
       msg.setDetails(value);
+      break;
+    case 14:
+      var value = msg.getMetadataMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
+         });
       break;
     default:
       reader.skipField();
@@ -4523,6 +6734,14 @@ proto.pfs_v2.CommitInfo.serializeBinaryToWriter = function(message, writer) {
       proto.pfs_v2.Commit.serializeBinaryToWriter
     );
   }
+  f = message.getDirectSubvenanceList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      15,
+      f,
+      proto.pfs_v2.Commit.serializeBinaryToWriter
+    );
+  }
   f = message.getError();
   if (f.length > 0) {
     writer.writeString(
@@ -4544,6 +6763,10 @@ proto.pfs_v2.CommitInfo.serializeBinaryToWriter = function(message, writer) {
       f,
       proto.pfs_v2.CommitInfo.Details.serializeBinaryToWriter
     );
+  }
+  f = message.getMetadataMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(14, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
   }
 };
 
@@ -5097,6 +7320,44 @@ proto.pfs_v2.CommitInfo.prototype.clearDirectProvenanceList = function() {
 
 
 /**
+ * repeated Commit direct_subvenance = 15;
+ * @return {!Array<!proto.pfs_v2.Commit>}
+ */
+proto.pfs_v2.CommitInfo.prototype.getDirectSubvenanceList = function() {
+  return /** @type{!Array<!proto.pfs_v2.Commit>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.pfs_v2.Commit, 15));
+};
+
+
+/**
+ * @param {!Array<!proto.pfs_v2.Commit>} value
+ * @return {!proto.pfs_v2.CommitInfo} returns this
+*/
+proto.pfs_v2.CommitInfo.prototype.setDirectSubvenanceList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 15, value);
+};
+
+
+/**
+ * @param {!proto.pfs_v2.Commit=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.pfs_v2.Commit}
+ */
+proto.pfs_v2.CommitInfo.prototype.addDirectSubvenance = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 15, opt_value, proto.pfs_v2.Commit, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.pfs_v2.CommitInfo} returns this
+ */
+proto.pfs_v2.CommitInfo.prototype.clearDirectSubvenanceList = function() {
+  return this.setDirectSubvenanceList([]);
+};
+
+
+/**
  * optional string error = 10;
  * @return {string}
  */
@@ -5167,6 +7428,28 @@ proto.pfs_v2.CommitInfo.prototype.clearDetails = function() {
 proto.pfs_v2.CommitInfo.prototype.hasDetails = function() {
   return jspb.Message.getField(this, 12) != null;
 };
+
+
+/**
+ * map<string, string> metadata = 14;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,string>}
+ */
+proto.pfs_v2.CommitInfo.prototype.getMetadataMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,string>} */ (
+      jspb.Message.getMapField(this, 14, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.pfs_v2.CommitInfo} returns this
+ */
+proto.pfs_v2.CommitInfo.prototype.clearMetadataMap = function() {
+  this.getMetadataMap().clear();
+  return this;};
 
 
 
@@ -5991,7 +8274,8 @@ proto.pfs_v2.ProjectInfo.toObject = function(includeInstance, msg) {
     project: (f = msg.getProject()) && proto.pfs_v2.Project.toObject(includeInstance, f),
     description: jspb.Message.getFieldWithDefault(msg, 2, ""),
     authInfo: (f = msg.getAuthInfo()) && proto.pfs_v2.AuthInfo.toObject(includeInstance, f),
-    createdAt: (f = msg.getCreatedAt()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f)
+    createdAt: (f = msg.getCreatedAt()) && google_protobuf_timestamp_pb.Timestamp.toObject(includeInstance, f),
+    metadataMap: (f = msg.getMetadataMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -6046,6 +8330,12 @@ proto.pfs_v2.ProjectInfo.deserializeBinaryFromReader = function(msg, reader) {
       var value = new google_protobuf_timestamp_pb.Timestamp;
       reader.readMessage(value,google_protobuf_timestamp_pb.Timestamp.deserializeBinaryFromReader);
       msg.setCreatedAt(value);
+      break;
+    case 5:
+      var value = msg.getMetadataMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readString, null, "", "");
+         });
       break;
     default:
       reader.skipField();
@@ -6106,6 +8396,10 @@ proto.pfs_v2.ProjectInfo.serializeBinaryToWriter = function(message, writer) {
       f,
       google_protobuf_timestamp_pb.Timestamp.serializeBinaryToWriter
     );
+  }
+  f = message.getMetadataMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(5, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeString);
   }
 };
 
@@ -6236,6 +8530,201 @@ proto.pfs_v2.ProjectInfo.prototype.clearCreatedAt = function() {
  */
 proto.pfs_v2.ProjectInfo.prototype.hasCreatedAt = function() {
   return jspb.Message.getField(this, 4) != null;
+};
+
+
+/**
+ * map<string, string> metadata = 5;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,string>}
+ */
+proto.pfs_v2.ProjectInfo.prototype.getMetadataMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,string>} */ (
+      jspb.Message.getMapField(this, 5, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.pfs_v2.ProjectInfo} returns this
+ */
+proto.pfs_v2.ProjectInfo.prototype.clearMetadataMap = function() {
+  this.getMetadataMap().clear();
+  return this;};
+
+
+
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.pfs_v2.ProjectPicker.oneofGroups_ = [[1]];
+
+/**
+ * @enum {number}
+ */
+proto.pfs_v2.ProjectPicker.PickerCase = {
+  PICKER_NOT_SET: 0,
+  NAME: 1
+};
+
+/**
+ * @return {proto.pfs_v2.ProjectPicker.PickerCase}
+ */
+proto.pfs_v2.ProjectPicker.prototype.getPickerCase = function() {
+  return /** @type {proto.pfs_v2.ProjectPicker.PickerCase} */(jspb.Message.computeOneofCase(this, proto.pfs_v2.ProjectPicker.oneofGroups_[0]));
+};
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.ProjectPicker.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.ProjectPicker.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.ProjectPicker} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.ProjectPicker.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: jspb.Message.getFieldWithDefault(msg, 1, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.ProjectPicker}
+ */
+proto.pfs_v2.ProjectPicker.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.ProjectPicker;
+  return proto.pfs_v2.ProjectPicker.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.ProjectPicker} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.ProjectPicker}
+ */
+proto.pfs_v2.ProjectPicker.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.ProjectPicker.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.ProjectPicker.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.ProjectPicker} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.ProjectPicker.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = /** @type {string} */ (jspb.Message.getField(message, 1));
+  if (f != null) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string name = 1;
+ * @return {string}
+ */
+proto.pfs_v2.ProjectPicker.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.pfs_v2.ProjectPicker} returns this
+ */
+proto.pfs_v2.ProjectPicker.prototype.setName = function(value) {
+  return jspb.Message.setOneofField(this, 1, proto.pfs_v2.ProjectPicker.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.pfs_v2.ProjectPicker} returns this
+ */
+proto.pfs_v2.ProjectPicker.prototype.clearName = function() {
+  return jspb.Message.setOneofField(this, 1, proto.pfs_v2.ProjectPicker.oneofGroups_[0], undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.ProjectPicker.prototype.hasName = function() {
+  return jspb.Message.getField(this, 1) != null;
 };
 
 
@@ -6642,7 +9131,8 @@ proto.pfs_v2.ListRepoRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     type: jspb.Message.getFieldWithDefault(msg, 1, ""),
     projectsList: jspb.Message.toObjectList(msg.getProjectsList(),
-    proto.pfs_v2.Project.toObject, includeInstance)
+    proto.pfs_v2.Project.toObject, includeInstance),
+    page: (f = msg.getPage()) && proto.pfs_v2.RepoPage.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -6688,6 +9178,11 @@ proto.pfs_v2.ListRepoRequest.deserializeBinaryFromReader = function(msg, reader)
       reader.readMessage(value,proto.pfs_v2.Project.deserializeBinaryFromReader);
       msg.addProjects(value);
       break;
+    case 3:
+      var value = new proto.pfs_v2.RepoPage;
+      reader.readMessage(value,proto.pfs_v2.RepoPage.deserializeBinaryFromReader);
+      msg.setPage(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -6730,6 +9225,14 @@ proto.pfs_v2.ListRepoRequest.serializeBinaryToWriter = function(message, writer)
       2,
       f,
       proto.pfs_v2.Project.serializeBinaryToWriter
+    );
+  }
+  f = message.getPage();
+  if (f != null) {
+    writer.writeMessage(
+      3,
+      f,
+      proto.pfs_v2.RepoPage.serializeBinaryToWriter
     );
   }
 };
@@ -6788,6 +9291,240 @@ proto.pfs_v2.ListRepoRequest.prototype.addProjects = function(opt_value, opt_ind
  */
 proto.pfs_v2.ListRepoRequest.prototype.clearProjectsList = function() {
   return this.setProjectsList([]);
+};
+
+
+/**
+ * optional RepoPage page = 3;
+ * @return {?proto.pfs_v2.RepoPage}
+ */
+proto.pfs_v2.ListRepoRequest.prototype.getPage = function() {
+  return /** @type{?proto.pfs_v2.RepoPage} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.RepoPage, 3));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.RepoPage|undefined} value
+ * @return {!proto.pfs_v2.ListRepoRequest} returns this
+*/
+proto.pfs_v2.ListRepoRequest.prototype.setPage = function(value) {
+  return jspb.Message.setWrapperField(this, 3, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.ListRepoRequest} returns this
+ */
+proto.pfs_v2.ListRepoRequest.prototype.clearPage = function() {
+  return this.setPage(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.ListRepoRequest.prototype.hasPage = function() {
+  return jspb.Message.getField(this, 3) != null;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.RepoPage.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.RepoPage.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.RepoPage} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.RepoPage.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    order: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    pageSize: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    pageIndex: jspb.Message.getFieldWithDefault(msg, 3, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.RepoPage}
+ */
+proto.pfs_v2.RepoPage.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.RepoPage;
+  return proto.pfs_v2.RepoPage.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.RepoPage} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.RepoPage}
+ */
+proto.pfs_v2.RepoPage.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {!proto.pfs_v2.RepoPage.Ordering} */ (reader.readEnum());
+      msg.setOrder(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setPageSize(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setPageIndex(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.RepoPage.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.RepoPage.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.RepoPage} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.RepoPage.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getOrder();
+  if (f !== 0.0) {
+    writer.writeEnum(
+      1,
+      f
+    );
+  }
+  f = message.getPageSize();
+  if (f !== 0) {
+    writer.writeInt64(
+      2,
+      f
+    );
+  }
+  f = message.getPageIndex();
+  if (f !== 0) {
+    writer.writeInt64(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * @enum {number}
+ */
+proto.pfs_v2.RepoPage.Ordering = {
+  PROJECT_REPO: 0
+};
+
+/**
+ * optional Ordering order = 1;
+ * @return {!proto.pfs_v2.RepoPage.Ordering}
+ */
+proto.pfs_v2.RepoPage.prototype.getOrder = function() {
+  return /** @type {!proto.pfs_v2.RepoPage.Ordering} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+};
+
+
+/**
+ * @param {!proto.pfs_v2.RepoPage.Ordering} value
+ * @return {!proto.pfs_v2.RepoPage} returns this
+ */
+proto.pfs_v2.RepoPage.prototype.setOrder = function(value) {
+  return jspb.Message.setProto3EnumField(this, 1, value);
+};
+
+
+/**
+ * optional int64 page_size = 2;
+ * @return {number}
+ */
+proto.pfs_v2.RepoPage.prototype.getPageSize = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.RepoPage} returns this
+ */
+proto.pfs_v2.RepoPage.prototype.setPageSize = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+/**
+ * optional int64 page_index = 3;
+ * @return {number}
+ */
+proto.pfs_v2.RepoPage.prototype.getPageIndex = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.RepoPage} returns this
+ */
+proto.pfs_v2.RepoPage.prototype.setPageIndex = function(value) {
+  return jspb.Message.setProto3IntField(this, 3, value);
 };
 
 
@@ -9668,6 +12405,1450 @@ proto.pfs_v2.ClearCommitRequest.prototype.hasCommit = function() {
 
 
 
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.SquashCommitRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.SquashCommitRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.SquashCommitRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.SquashCommitRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    commit: (f = msg.getCommit()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
+    recursive: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.SquashCommitRequest}
+ */
+proto.pfs_v2.SquashCommitRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.SquashCommitRequest;
+  return proto.pfs_v2.SquashCommitRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.SquashCommitRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.SquashCommitRequest}
+ */
+proto.pfs_v2.SquashCommitRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.Commit;
+      reader.readMessage(value,proto.pfs_v2.Commit.deserializeBinaryFromReader);
+      msg.setCommit(value);
+      break;
+    case 2:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setRecursive(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.SquashCommitRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.SquashCommitRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.SquashCommitRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.SquashCommitRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getCommit();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.Commit.serializeBinaryToWriter
+    );
+  }
+  f = message.getRecursive();
+  if (f) {
+    writer.writeBool(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional Commit commit = 1;
+ * @return {?proto.pfs_v2.Commit}
+ */
+proto.pfs_v2.SquashCommitRequest.prototype.getCommit = function() {
+  return /** @type{?proto.pfs_v2.Commit} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.Commit, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.Commit|undefined} value
+ * @return {!proto.pfs_v2.SquashCommitRequest} returns this
+*/
+proto.pfs_v2.SquashCommitRequest.prototype.setCommit = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.SquashCommitRequest} returns this
+ */
+proto.pfs_v2.SquashCommitRequest.prototype.clearCommit = function() {
+  return this.setCommit(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.SquashCommitRequest.prototype.hasCommit = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional bool recursive = 2;
+ * @return {boolean}
+ */
+proto.pfs_v2.SquashCommitRequest.prototype.getRecursive = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pfs_v2.SquashCommitRequest} returns this
+ */
+proto.pfs_v2.SquashCommitRequest.prototype.setRecursive = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 2, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.SquashCommitResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.SquashCommitResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.SquashCommitResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.SquashCommitResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.SquashCommitResponse}
+ */
+proto.pfs_v2.SquashCommitResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.SquashCommitResponse;
+  return proto.pfs_v2.SquashCommitResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.SquashCommitResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.SquashCommitResponse}
+ */
+proto.pfs_v2.SquashCommitResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.SquashCommitResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.SquashCommitResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.SquashCommitResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.SquashCommitResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.DropCommitRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.DropCommitRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.DropCommitRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.DropCommitRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    commit: (f = msg.getCommit()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
+    recursive: jspb.Message.getBooleanFieldWithDefault(msg, 2, false)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.DropCommitRequest}
+ */
+proto.pfs_v2.DropCommitRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.DropCommitRequest;
+  return proto.pfs_v2.DropCommitRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.DropCommitRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.DropCommitRequest}
+ */
+proto.pfs_v2.DropCommitRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.Commit;
+      reader.readMessage(value,proto.pfs_v2.Commit.deserializeBinaryFromReader);
+      msg.setCommit(value);
+      break;
+    case 2:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setRecursive(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.DropCommitRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.DropCommitRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.DropCommitRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.DropCommitRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getCommit();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.Commit.serializeBinaryToWriter
+    );
+  }
+  f = message.getRecursive();
+  if (f) {
+    writer.writeBool(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional Commit commit = 1;
+ * @return {?proto.pfs_v2.Commit}
+ */
+proto.pfs_v2.DropCommitRequest.prototype.getCommit = function() {
+  return /** @type{?proto.pfs_v2.Commit} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.Commit, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.Commit|undefined} value
+ * @return {!proto.pfs_v2.DropCommitRequest} returns this
+*/
+proto.pfs_v2.DropCommitRequest.prototype.setCommit = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.DropCommitRequest} returns this
+ */
+proto.pfs_v2.DropCommitRequest.prototype.clearCommit = function() {
+  return this.setCommit(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.DropCommitRequest.prototype.hasCommit = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional bool recursive = 2;
+ * @return {boolean}
+ */
+proto.pfs_v2.DropCommitRequest.prototype.getRecursive = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.pfs_v2.DropCommitRequest} returns this
+ */
+proto.pfs_v2.DropCommitRequest.prototype.setRecursive = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 2, value);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.WalkCommitProvenanceRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.WalkCommitProvenanceRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    startList: jspb.Message.toObjectList(msg.getStartList(),
+    proto.pfs_v2.CommitPicker.toObject, includeInstance),
+    maxCommits: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    maxDepth: jspb.Message.getFieldWithDefault(msg, 3, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.WalkCommitProvenanceRequest}
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.WalkCommitProvenanceRequest;
+  return proto.pfs_v2.WalkCommitProvenanceRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.WalkCommitProvenanceRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.WalkCommitProvenanceRequest}
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.CommitPicker;
+      reader.readMessage(value,proto.pfs_v2.CommitPicker.deserializeBinaryFromReader);
+      msg.addStart(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readUint64());
+      msg.setMaxCommits(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readUint64());
+      msg.setMaxDepth(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.WalkCommitProvenanceRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.WalkCommitProvenanceRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getStartList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      1,
+      f,
+      proto.pfs_v2.CommitPicker.serializeBinaryToWriter
+    );
+  }
+  f = message.getMaxCommits();
+  if (f !== 0) {
+    writer.writeUint64(
+      2,
+      f
+    );
+  }
+  f = message.getMaxDepth();
+  if (f !== 0) {
+    writer.writeUint64(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * repeated CommitPicker start = 1;
+ * @return {!Array<!proto.pfs_v2.CommitPicker>}
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.prototype.getStartList = function() {
+  return /** @type{!Array<!proto.pfs_v2.CommitPicker>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.pfs_v2.CommitPicker, 1));
+};
+
+
+/**
+ * @param {!Array<!proto.pfs_v2.CommitPicker>} value
+ * @return {!proto.pfs_v2.WalkCommitProvenanceRequest} returns this
+*/
+proto.pfs_v2.WalkCommitProvenanceRequest.prototype.setStartList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 1, value);
+};
+
+
+/**
+ * @param {!proto.pfs_v2.CommitPicker=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.pfs_v2.CommitPicker}
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.prototype.addStart = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.pfs_v2.CommitPicker, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.pfs_v2.WalkCommitProvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.prototype.clearStartList = function() {
+  return this.setStartList([]);
+};
+
+
+/**
+ * optional uint64 max_commits = 2;
+ * @return {number}
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.prototype.getMaxCommits = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.WalkCommitProvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.prototype.setMaxCommits = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+/**
+ * optional uint64 max_depth = 3;
+ * @return {number}
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.prototype.getMaxDepth = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.WalkCommitProvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkCommitProvenanceRequest.prototype.setMaxDepth = function(value) {
+  return jspb.Message.setProto3IntField(this, 3, value);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.WalkCommitSubvenanceRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.WalkCommitSubvenanceRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    startList: jspb.Message.toObjectList(msg.getStartList(),
+    proto.pfs_v2.CommitPicker.toObject, includeInstance),
+    maxCommits: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    maxDepth: jspb.Message.getFieldWithDefault(msg, 3, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.WalkCommitSubvenanceRequest}
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.WalkCommitSubvenanceRequest;
+  return proto.pfs_v2.WalkCommitSubvenanceRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.WalkCommitSubvenanceRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.WalkCommitSubvenanceRequest}
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.CommitPicker;
+      reader.readMessage(value,proto.pfs_v2.CommitPicker.deserializeBinaryFromReader);
+      msg.addStart(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readUint64());
+      msg.setMaxCommits(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readUint64());
+      msg.setMaxDepth(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.WalkCommitSubvenanceRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.WalkCommitSubvenanceRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getStartList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      1,
+      f,
+      proto.pfs_v2.CommitPicker.serializeBinaryToWriter
+    );
+  }
+  f = message.getMaxCommits();
+  if (f !== 0) {
+    writer.writeUint64(
+      2,
+      f
+    );
+  }
+  f = message.getMaxDepth();
+  if (f !== 0) {
+    writer.writeUint64(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * repeated CommitPicker start = 1;
+ * @return {!Array<!proto.pfs_v2.CommitPicker>}
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.prototype.getStartList = function() {
+  return /** @type{!Array<!proto.pfs_v2.CommitPicker>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.pfs_v2.CommitPicker, 1));
+};
+
+
+/**
+ * @param {!Array<!proto.pfs_v2.CommitPicker>} value
+ * @return {!proto.pfs_v2.WalkCommitSubvenanceRequest} returns this
+*/
+proto.pfs_v2.WalkCommitSubvenanceRequest.prototype.setStartList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 1, value);
+};
+
+
+/**
+ * @param {!proto.pfs_v2.CommitPicker=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.pfs_v2.CommitPicker}
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.prototype.addStart = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.pfs_v2.CommitPicker, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.pfs_v2.WalkCommitSubvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.prototype.clearStartList = function() {
+  return this.setStartList([]);
+};
+
+
+/**
+ * optional uint64 max_commits = 2;
+ * @return {number}
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.prototype.getMaxCommits = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.WalkCommitSubvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.prototype.setMaxCommits = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+/**
+ * optional uint64 max_depth = 3;
+ * @return {number}
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.prototype.getMaxDepth = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.WalkCommitSubvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkCommitSubvenanceRequest.prototype.setMaxDepth = function(value) {
+  return jspb.Message.setProto3IntField(this, 3, value);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.WalkBranchProvenanceRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.WalkBranchProvenanceRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    startList: jspb.Message.toObjectList(msg.getStartList(),
+    proto.pfs_v2.BranchPicker.toObject, includeInstance),
+    maxBranches: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    maxDepth: jspb.Message.getFieldWithDefault(msg, 3, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.WalkBranchProvenanceRequest}
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.WalkBranchProvenanceRequest;
+  return proto.pfs_v2.WalkBranchProvenanceRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.WalkBranchProvenanceRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.WalkBranchProvenanceRequest}
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.BranchPicker;
+      reader.readMessage(value,proto.pfs_v2.BranchPicker.deserializeBinaryFromReader);
+      msg.addStart(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readUint64());
+      msg.setMaxBranches(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readUint64());
+      msg.setMaxDepth(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.WalkBranchProvenanceRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.WalkBranchProvenanceRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getStartList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      1,
+      f,
+      proto.pfs_v2.BranchPicker.serializeBinaryToWriter
+    );
+  }
+  f = message.getMaxBranches();
+  if (f !== 0) {
+    writer.writeUint64(
+      2,
+      f
+    );
+  }
+  f = message.getMaxDepth();
+  if (f !== 0) {
+    writer.writeUint64(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * repeated BranchPicker start = 1;
+ * @return {!Array<!proto.pfs_v2.BranchPicker>}
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.prototype.getStartList = function() {
+  return /** @type{!Array<!proto.pfs_v2.BranchPicker>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.pfs_v2.BranchPicker, 1));
+};
+
+
+/**
+ * @param {!Array<!proto.pfs_v2.BranchPicker>} value
+ * @return {!proto.pfs_v2.WalkBranchProvenanceRequest} returns this
+*/
+proto.pfs_v2.WalkBranchProvenanceRequest.prototype.setStartList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 1, value);
+};
+
+
+/**
+ * @param {!proto.pfs_v2.BranchPicker=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.pfs_v2.BranchPicker}
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.prototype.addStart = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.pfs_v2.BranchPicker, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.pfs_v2.WalkBranchProvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.prototype.clearStartList = function() {
+  return this.setStartList([]);
+};
+
+
+/**
+ * optional uint64 max_branches = 2;
+ * @return {number}
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.prototype.getMaxBranches = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.WalkBranchProvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.prototype.setMaxBranches = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+/**
+ * optional uint64 max_depth = 3;
+ * @return {number}
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.prototype.getMaxDepth = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.WalkBranchProvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkBranchProvenanceRequest.prototype.setMaxDepth = function(value) {
+  return jspb.Message.setProto3IntField(this, 3, value);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.WalkBranchSubvenanceRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.WalkBranchSubvenanceRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    startList: jspb.Message.toObjectList(msg.getStartList(),
+    proto.pfs_v2.BranchPicker.toObject, includeInstance),
+    maxBranches: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    maxDepth: jspb.Message.getFieldWithDefault(msg, 3, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.WalkBranchSubvenanceRequest}
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.WalkBranchSubvenanceRequest;
+  return proto.pfs_v2.WalkBranchSubvenanceRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.WalkBranchSubvenanceRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.WalkBranchSubvenanceRequest}
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.BranchPicker;
+      reader.readMessage(value,proto.pfs_v2.BranchPicker.deserializeBinaryFromReader);
+      msg.addStart(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readUint64());
+      msg.setMaxBranches(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readUint64());
+      msg.setMaxDepth(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.WalkBranchSubvenanceRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.WalkBranchSubvenanceRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getStartList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      1,
+      f,
+      proto.pfs_v2.BranchPicker.serializeBinaryToWriter
+    );
+  }
+  f = message.getMaxBranches();
+  if (f !== 0) {
+    writer.writeUint64(
+      2,
+      f
+    );
+  }
+  f = message.getMaxDepth();
+  if (f !== 0) {
+    writer.writeUint64(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * repeated BranchPicker start = 1;
+ * @return {!Array<!proto.pfs_v2.BranchPicker>}
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.prototype.getStartList = function() {
+  return /** @type{!Array<!proto.pfs_v2.BranchPicker>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.pfs_v2.BranchPicker, 1));
+};
+
+
+/**
+ * @param {!Array<!proto.pfs_v2.BranchPicker>} value
+ * @return {!proto.pfs_v2.WalkBranchSubvenanceRequest} returns this
+*/
+proto.pfs_v2.WalkBranchSubvenanceRequest.prototype.setStartList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 1, value);
+};
+
+
+/**
+ * @param {!proto.pfs_v2.BranchPicker=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.pfs_v2.BranchPicker}
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.prototype.addStart = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.pfs_v2.BranchPicker, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.pfs_v2.WalkBranchSubvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.prototype.clearStartList = function() {
+  return this.setStartList([]);
+};
+
+
+/**
+ * optional uint64 max_branches = 2;
+ * @return {number}
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.prototype.getMaxBranches = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.WalkBranchSubvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.prototype.setMaxBranches = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+/**
+ * optional uint64 max_depth = 3;
+ * @return {number}
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.prototype.getMaxDepth = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.WalkBranchSubvenanceRequest} returns this
+ */
+proto.pfs_v2.WalkBranchSubvenanceRequest.prototype.setMaxDepth = function(value) {
+  return jspb.Message.setProto3IntField(this, 3, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.DropCommitResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.DropCommitResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.DropCommitResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.DropCommitResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.DropCommitResponse}
+ */
+proto.pfs_v2.DropCommitResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.DropCommitResponse;
+  return proto.pfs_v2.DropCommitResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.DropCommitResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.DropCommitResponse}
+ */
+proto.pfs_v2.DropCommitResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.DropCommitResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.DropCommitResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.DropCommitResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.DropCommitResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
 /**
  * List of repeated fields within this message type.
  * @private {!Array<number>}
@@ -11351,6 +15532,338 @@ proto.pfs_v2.InspectProjectRequest.prototype.clearProject = function() {
  */
 proto.pfs_v2.InspectProjectRequest.prototype.hasProject = function() {
   return jspb.Message.getField(this, 1) != null;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.InspectProjectV2Request.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.InspectProjectV2Request.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.InspectProjectV2Request} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.InspectProjectV2Request.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    project: (f = msg.getProject()) && proto.pfs_v2.Project.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.InspectProjectV2Request}
+ */
+proto.pfs_v2.InspectProjectV2Request.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.InspectProjectV2Request;
+  return proto.pfs_v2.InspectProjectV2Request.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.InspectProjectV2Request} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.InspectProjectV2Request}
+ */
+proto.pfs_v2.InspectProjectV2Request.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.Project;
+      reader.readMessage(value,proto.pfs_v2.Project.deserializeBinaryFromReader);
+      msg.setProject(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.InspectProjectV2Request.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.InspectProjectV2Request.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.InspectProjectV2Request} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.InspectProjectV2Request.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getProject();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.Project.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional Project project = 1;
+ * @return {?proto.pfs_v2.Project}
+ */
+proto.pfs_v2.InspectProjectV2Request.prototype.getProject = function() {
+  return /** @type{?proto.pfs_v2.Project} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.Project, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.Project|undefined} value
+ * @return {!proto.pfs_v2.InspectProjectV2Request} returns this
+*/
+proto.pfs_v2.InspectProjectV2Request.prototype.setProject = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.InspectProjectV2Request} returns this
+ */
+proto.pfs_v2.InspectProjectV2Request.prototype.clearProject = function() {
+  return this.setProject(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.InspectProjectV2Request.prototype.hasProject = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.InspectProjectV2Response.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.InspectProjectV2Response.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.InspectProjectV2Response} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.InspectProjectV2Response.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    info: (f = msg.getInfo()) && proto.pfs_v2.ProjectInfo.toObject(includeInstance, f),
+    defaultsJson: jspb.Message.getFieldWithDefault(msg, 2, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.InspectProjectV2Response}
+ */
+proto.pfs_v2.InspectProjectV2Response.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.InspectProjectV2Response;
+  return proto.pfs_v2.InspectProjectV2Response.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.InspectProjectV2Response} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.InspectProjectV2Response}
+ */
+proto.pfs_v2.InspectProjectV2Response.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.ProjectInfo;
+      reader.readMessage(value,proto.pfs_v2.ProjectInfo.deserializeBinaryFromReader);
+      msg.setInfo(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setDefaultsJson(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.InspectProjectV2Response.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.InspectProjectV2Response.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.InspectProjectV2Response} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.InspectProjectV2Response.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getInfo();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.ProjectInfo.serializeBinaryToWriter
+    );
+  }
+  f = message.getDefaultsJson();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional ProjectInfo info = 1;
+ * @return {?proto.pfs_v2.ProjectInfo}
+ */
+proto.pfs_v2.InspectProjectV2Response.prototype.getInfo = function() {
+  return /** @type{?proto.pfs_v2.ProjectInfo} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.ProjectInfo, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.ProjectInfo|undefined} value
+ * @return {!proto.pfs_v2.InspectProjectV2Response} returns this
+*/
+proto.pfs_v2.InspectProjectV2Response.prototype.setInfo = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.InspectProjectV2Response} returns this
+ */
+proto.pfs_v2.InspectProjectV2Response.prototype.clearInfo = function() {
+  return this.setInfo(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.InspectProjectV2Response.prototype.hasInfo = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional string defaults_json = 2;
+ * @return {string}
+ */
+proto.pfs_v2.InspectProjectV2Response.prototype.getDefaultsJson = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.pfs_v2.InspectProjectV2Response} returns this
+ */
+proto.pfs_v2.InspectProjectV2Response.prototype.setDefaultsJson = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
 };
 
 
@@ -15027,7 +19540,8 @@ proto.pfs_v2.GetFileSetRequest.prototype.toObject = function(opt_includeInstance
  */
 proto.pfs_v2.GetFileSetRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    commit: (f = msg.getCommit()) && proto.pfs_v2.Commit.toObject(includeInstance, f)
+    commit: (f = msg.getCommit()) && proto.pfs_v2.Commit.toObject(includeInstance, f),
+    type: jspb.Message.getFieldWithDefault(msg, 2, 0)
   };
 
   if (includeInstance) {
@@ -15069,6 +19583,10 @@ proto.pfs_v2.GetFileSetRequest.deserializeBinaryFromReader = function(msg, reade
       reader.readMessage(value,proto.pfs_v2.Commit.deserializeBinaryFromReader);
       msg.setCommit(value);
       break;
+    case 2:
+      var value = /** @type {!proto.pfs_v2.GetFileSetRequest.FileSetType} */ (reader.readEnum());
+      msg.setType(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -15106,8 +19624,23 @@ proto.pfs_v2.GetFileSetRequest.serializeBinaryToWriter = function(message, write
       proto.pfs_v2.Commit.serializeBinaryToWriter
     );
   }
+  f = message.getType();
+  if (f !== 0.0) {
+    writer.writeEnum(
+      2,
+      f
+    );
+  }
 };
 
+
+/**
+ * @enum {number}
+ */
+proto.pfs_v2.GetFileSetRequest.FileSetType = {
+  TOTAL: 0,
+  DIFF: 1
+};
 
 /**
  * optional Commit commit = 1;
@@ -15143,6 +19676,24 @@ proto.pfs_v2.GetFileSetRequest.prototype.clearCommit = function() {
  */
 proto.pfs_v2.GetFileSetRequest.prototype.hasCommit = function() {
   return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional FileSetType type = 2;
+ * @return {!proto.pfs_v2.GetFileSetRequest.FileSetType}
+ */
+proto.pfs_v2.GetFileSetRequest.prototype.getType = function() {
+  return /** @type {!proto.pfs_v2.GetFileSetRequest.FileSetType} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {!proto.pfs_v2.GetFileSetRequest.FileSetType} value
+ * @return {!proto.pfs_v2.GetFileSetRequest} returns this
+ */
+proto.pfs_v2.GetFileSetRequest.prototype.setType = function(value) {
+  return jspb.Message.setProto3EnumField(this, 2, value);
 };
 
 
@@ -15735,7 +20286,9 @@ proto.pfs_v2.ShardFileSetRequest.prototype.toObject = function(opt_includeInstan
  */
 proto.pfs_v2.ShardFileSetRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
-    fileSetId: jspb.Message.getFieldWithDefault(msg, 1, "")
+    fileSetId: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    numFiles: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    sizeBytes: jspb.Message.getFieldWithDefault(msg, 3, 0)
   };
 
   if (includeInstance) {
@@ -15776,6 +20329,14 @@ proto.pfs_v2.ShardFileSetRequest.deserializeBinaryFromReader = function(msg, rea
       var value = /** @type {string} */ (reader.readString());
       msg.setFileSetId(value);
       break;
+    case 2:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setNumFiles(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setSizeBytes(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -15812,6 +20373,20 @@ proto.pfs_v2.ShardFileSetRequest.serializeBinaryToWriter = function(message, wri
       f
     );
   }
+  f = message.getNumFiles();
+  if (f !== 0) {
+    writer.writeInt64(
+      2,
+      f
+    );
+  }
+  f = message.getSizeBytes();
+  if (f !== 0) {
+    writer.writeInt64(
+      3,
+      f
+    );
+  }
 };
 
 
@@ -15830,6 +20405,42 @@ proto.pfs_v2.ShardFileSetRequest.prototype.getFileSetId = function() {
  */
 proto.pfs_v2.ShardFileSetRequest.prototype.setFileSetId = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional int64 num_files = 2;
+ * @return {number}
+ */
+proto.pfs_v2.ShardFileSetRequest.prototype.getNumFiles = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.ShardFileSetRequest} returns this
+ */
+proto.pfs_v2.ShardFileSetRequest.prototype.setNumFiles = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+/**
+ * optional int64 size_bytes = 3;
+ * @return {number}
+ */
+proto.pfs_v2.ShardFileSetRequest.prototype.getSizeBytes = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.ShardFileSetRequest} returns this
+ */
+proto.pfs_v2.ShardFileSetRequest.prototype.setSizeBytes = function(value) {
+  return jspb.Message.setProto3IntField(this, 3, value);
 };
 
 
@@ -18886,6 +23497,537 @@ proto.pfs_v2.EgressResponse.prototype.clearSqlDatabase = function() {
  */
 proto.pfs_v2.EgressResponse.prototype.hasSqlDatabase = function() {
   return jspb.Message.getField(this, 2) != null;
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.pfs_v2.ReposSummaryRequest.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.ReposSummaryRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.ReposSummaryRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.ReposSummaryRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.ReposSummaryRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    projectsList: jspb.Message.toObjectList(msg.getProjectsList(),
+    proto.pfs_v2.ProjectPicker.toObject, includeInstance)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.ReposSummaryRequest}
+ */
+proto.pfs_v2.ReposSummaryRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.ReposSummaryRequest;
+  return proto.pfs_v2.ReposSummaryRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.ReposSummaryRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.ReposSummaryRequest}
+ */
+proto.pfs_v2.ReposSummaryRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.ProjectPicker;
+      reader.readMessage(value,proto.pfs_v2.ProjectPicker.deserializeBinaryFromReader);
+      msg.addProjects(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.ReposSummaryRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.ReposSummaryRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.ReposSummaryRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.ReposSummaryRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getProjectsList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      1,
+      f,
+      proto.pfs_v2.ProjectPicker.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * repeated ProjectPicker projects = 1;
+ * @return {!Array<!proto.pfs_v2.ProjectPicker>}
+ */
+proto.pfs_v2.ReposSummaryRequest.prototype.getProjectsList = function() {
+  return /** @type{!Array<!proto.pfs_v2.ProjectPicker>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.pfs_v2.ProjectPicker, 1));
+};
+
+
+/**
+ * @param {!Array<!proto.pfs_v2.ProjectPicker>} value
+ * @return {!proto.pfs_v2.ReposSummaryRequest} returns this
+*/
+proto.pfs_v2.ReposSummaryRequest.prototype.setProjectsList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 1, value);
+};
+
+
+/**
+ * @param {!proto.pfs_v2.ProjectPicker=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.pfs_v2.ProjectPicker}
+ */
+proto.pfs_v2.ReposSummaryRequest.prototype.addProjects = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.pfs_v2.ProjectPicker, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.pfs_v2.ReposSummaryRequest} returns this
+ */
+proto.pfs_v2.ReposSummaryRequest.prototype.clearProjectsList = function() {
+  return this.setProjectsList([]);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.ReposSummary.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.ReposSummary.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.ReposSummary} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.ReposSummary.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    project: (f = msg.getProject()) && proto.pfs_v2.Project.toObject(includeInstance, f),
+    userRepoCount: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    sizeBytes: jspb.Message.getFieldWithDefault(msg, 3, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.ReposSummary}
+ */
+proto.pfs_v2.ReposSummary.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.ReposSummary;
+  return proto.pfs_v2.ReposSummary.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.ReposSummary} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.ReposSummary}
+ */
+proto.pfs_v2.ReposSummary.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.Project;
+      reader.readMessage(value,proto.pfs_v2.Project.deserializeBinaryFromReader);
+      msg.setProject(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setUserRepoCount(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setSizeBytes(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.ReposSummary.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.ReposSummary.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.ReposSummary} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.ReposSummary.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getProject();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.pfs_v2.Project.serializeBinaryToWriter
+    );
+  }
+  f = message.getUserRepoCount();
+  if (f !== 0) {
+    writer.writeInt64(
+      2,
+      f
+    );
+  }
+  f = message.getSizeBytes();
+  if (f !== 0) {
+    writer.writeInt64(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional Project project = 1;
+ * @return {?proto.pfs_v2.Project}
+ */
+proto.pfs_v2.ReposSummary.prototype.getProject = function() {
+  return /** @type{?proto.pfs_v2.Project} */ (
+    jspb.Message.getWrapperField(this, proto.pfs_v2.Project, 1));
+};
+
+
+/**
+ * @param {?proto.pfs_v2.Project|undefined} value
+ * @return {!proto.pfs_v2.ReposSummary} returns this
+*/
+proto.pfs_v2.ReposSummary.prototype.setProject = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.pfs_v2.ReposSummary} returns this
+ */
+proto.pfs_v2.ReposSummary.prototype.clearProject = function() {
+  return this.setProject(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.pfs_v2.ReposSummary.prototype.hasProject = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+/**
+ * optional int64 user_repo_count = 2;
+ * @return {number}
+ */
+proto.pfs_v2.ReposSummary.prototype.getUserRepoCount = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.ReposSummary} returns this
+ */
+proto.pfs_v2.ReposSummary.prototype.setUserRepoCount = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+/**
+ * optional int64 size_bytes = 3;
+ * @return {number}
+ */
+proto.pfs_v2.ReposSummary.prototype.getSizeBytes = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.pfs_v2.ReposSummary} returns this
+ */
+proto.pfs_v2.ReposSummary.prototype.setSizeBytes = function(value) {
+  return jspb.Message.setProto3IntField(this, 3, value);
+};
+
+
+
+/**
+ * List of repeated fields within this message type.
+ * @private {!Array<number>}
+ * @const
+ */
+proto.pfs_v2.ReposSummaryResponse.repeatedFields_ = [1];
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.pfs_v2.ReposSummaryResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.pfs_v2.ReposSummaryResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.pfs_v2.ReposSummaryResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.ReposSummaryResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    summariesList: jspb.Message.toObjectList(msg.getSummariesList(),
+    proto.pfs_v2.ReposSummary.toObject, includeInstance)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.pfs_v2.ReposSummaryResponse}
+ */
+proto.pfs_v2.ReposSummaryResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.pfs_v2.ReposSummaryResponse;
+  return proto.pfs_v2.ReposSummaryResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.pfs_v2.ReposSummaryResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.pfs_v2.ReposSummaryResponse}
+ */
+proto.pfs_v2.ReposSummaryResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.pfs_v2.ReposSummary;
+      reader.readMessage(value,proto.pfs_v2.ReposSummary.deserializeBinaryFromReader);
+      msg.addSummaries(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.pfs_v2.ReposSummaryResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.pfs_v2.ReposSummaryResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.pfs_v2.ReposSummaryResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.pfs_v2.ReposSummaryResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getSummariesList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      1,
+      f,
+      proto.pfs_v2.ReposSummary.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * repeated ReposSummary summaries = 1;
+ * @return {!Array<!proto.pfs_v2.ReposSummary>}
+ */
+proto.pfs_v2.ReposSummaryResponse.prototype.getSummariesList = function() {
+  return /** @type{!Array<!proto.pfs_v2.ReposSummary>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.pfs_v2.ReposSummary, 1));
+};
+
+
+/**
+ * @param {!Array<!proto.pfs_v2.ReposSummary>} value
+ * @return {!proto.pfs_v2.ReposSummaryResponse} returns this
+*/
+proto.pfs_v2.ReposSummaryResponse.prototype.setSummariesList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 1, value);
+};
+
+
+/**
+ * @param {!proto.pfs_v2.ReposSummary=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.pfs_v2.ReposSummary}
+ */
+proto.pfs_v2.ReposSummaryResponse.prototype.addSummaries = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 1, opt_value, proto.pfs_v2.ReposSummary, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.pfs_v2.ReposSummaryResponse} returns this
+ */
+proto.pfs_v2.ReposSummaryResponse.prototype.clearSummariesList = function() {
+  return this.setSummariesList([]);
 };
 
 

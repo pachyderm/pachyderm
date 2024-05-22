@@ -25,6 +25,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     stopJob: IAPIService_IStopJob;
     inspectDatum: IAPIService_IInspectDatum;
     listDatum: IAPIService_IListDatum;
+    createDatum: IAPIService_ICreateDatum;
     restartDatum: IAPIService_IRestartDatum;
     rerunPipeline: IAPIService_IRerunPipeline;
     createPipeline: IAPIService_ICreatePipeline;
@@ -37,6 +38,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     stopPipeline: IAPIService_IStopPipeline;
     runPipeline: IAPIService_IRunPipeline;
     runCron: IAPIService_IRunCron;
+    checkStatus: IAPIService_ICheckStatus;
     createSecret: IAPIService_ICreateSecret;
     deleteSecret: IAPIService_IDeleteSecret;
     listSecret: IAPIService_IListSecret;
@@ -53,6 +55,9 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     queryLoki: IAPIService_IQueryLoki;
     getClusterDefaults: IAPIService_IGetClusterDefaults;
     setClusterDefaults: IAPIService_ISetClusterDefaults;
+    getProjectDefaults: IAPIService_IGetProjectDefaults;
+    setProjectDefaults: IAPIService_ISetProjectDefaults;
+    pipelinesSummary: IAPIService_IPipelinesSummary;
 }
 
 interface IAPIService_IInspectJob extends grpc.MethodDefinition<pps_pps_pb.InspectJobRequest, pps_pps_pb.JobInfo> {
@@ -133,6 +138,15 @@ interface IAPIService_IListDatum extends grpc.MethodDefinition<pps_pps_pb.ListDa
     responseStream: true;
     requestSerialize: grpc.serialize<pps_pps_pb.ListDatumRequest>;
     requestDeserialize: grpc.deserialize<pps_pps_pb.ListDatumRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.DatumInfo>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.DatumInfo>;
+}
+interface IAPIService_ICreateDatum extends grpc.MethodDefinition<pps_pps_pb.CreateDatumRequest, pps_pps_pb.DatumInfo> {
+    path: "/pps_v2.API/CreateDatum";
+    requestStream: true;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pps_pps_pb.CreateDatumRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.CreateDatumRequest>;
     responseSerialize: grpc.serialize<pps_pps_pb.DatumInfo>;
     responseDeserialize: grpc.deserialize<pps_pps_pb.DatumInfo>;
 }
@@ -243,6 +257,15 @@ interface IAPIService_IRunCron extends grpc.MethodDefinition<pps_pps_pb.RunCronR
     requestDeserialize: grpc.deserialize<pps_pps_pb.RunCronRequest>;
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
+}
+interface IAPIService_ICheckStatus extends grpc.MethodDefinition<pps_pps_pb.CheckStatusRequest, pps_pps_pb.CheckStatusResponse> {
+    path: "/pps_v2.API/CheckStatus";
+    requestStream: false;
+    responseStream: true;
+    requestSerialize: grpc.serialize<pps_pps_pb.CheckStatusRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.CheckStatusRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.CheckStatusResponse>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.CheckStatusResponse>;
 }
 interface IAPIService_ICreateSecret extends grpc.MethodDefinition<pps_pps_pb.CreateSecretRequest, google_protobuf_empty_pb.Empty> {
     path: "/pps_v2.API/CreateSecret";
@@ -388,6 +411,33 @@ interface IAPIService_ISetClusterDefaults extends grpc.MethodDefinition<pps_pps_
     responseSerialize: grpc.serialize<pps_pps_pb.SetClusterDefaultsResponse>;
     responseDeserialize: grpc.deserialize<pps_pps_pb.SetClusterDefaultsResponse>;
 }
+interface IAPIService_IGetProjectDefaults extends grpc.MethodDefinition<pps_pps_pb.GetProjectDefaultsRequest, pps_pps_pb.GetProjectDefaultsResponse> {
+    path: "/pps_v2.API/GetProjectDefaults";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pps_pps_pb.GetProjectDefaultsRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.GetProjectDefaultsRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.GetProjectDefaultsResponse>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.GetProjectDefaultsResponse>;
+}
+interface IAPIService_ISetProjectDefaults extends grpc.MethodDefinition<pps_pps_pb.SetProjectDefaultsRequest, pps_pps_pb.SetProjectDefaultsResponse> {
+    path: "/pps_v2.API/SetProjectDefaults";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pps_pps_pb.SetProjectDefaultsRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.SetProjectDefaultsRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.SetProjectDefaultsResponse>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.SetProjectDefaultsResponse>;
+}
+interface IAPIService_IPipelinesSummary extends grpc.MethodDefinition<pps_pps_pb.PipelinesSummaryRequest, pps_pps_pb.PipelinesSummaryResponse> {
+    path: "/pps_v2.API/PipelinesSummary";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pps_pps_pb.PipelinesSummaryRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.PipelinesSummaryRequest>;
+    responseSerialize: grpc.serialize<pps_pps_pb.PipelinesSummaryResponse>;
+    responseDeserialize: grpc.deserialize<pps_pps_pb.PipelinesSummaryResponse>;
+}
 
 export const APIService: IAPIService;
 
@@ -401,6 +451,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     stopJob: grpc.handleUnaryCall<pps_pps_pb.StopJobRequest, google_protobuf_empty_pb.Empty>;
     inspectDatum: grpc.handleUnaryCall<pps_pps_pb.InspectDatumRequest, pps_pps_pb.DatumInfo>;
     listDatum: grpc.handleServerStreamingCall<pps_pps_pb.ListDatumRequest, pps_pps_pb.DatumInfo>;
+    createDatum: grpc.handleBidiStreamingCall<pps_pps_pb.CreateDatumRequest, pps_pps_pb.DatumInfo>;
     restartDatum: grpc.handleUnaryCall<pps_pps_pb.RestartDatumRequest, google_protobuf_empty_pb.Empty>;
     rerunPipeline: grpc.handleUnaryCall<pps_pps_pb.RerunPipelineRequest, google_protobuf_empty_pb.Empty>;
     createPipeline: grpc.handleUnaryCall<pps_pps_pb.CreatePipelineRequest, google_protobuf_empty_pb.Empty>;
@@ -413,6 +464,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     stopPipeline: grpc.handleUnaryCall<pps_pps_pb.StopPipelineRequest, google_protobuf_empty_pb.Empty>;
     runPipeline: grpc.handleUnaryCall<pps_pps_pb.RunPipelineRequest, google_protobuf_empty_pb.Empty>;
     runCron: grpc.handleUnaryCall<pps_pps_pb.RunCronRequest, google_protobuf_empty_pb.Empty>;
+    checkStatus: grpc.handleServerStreamingCall<pps_pps_pb.CheckStatusRequest, pps_pps_pb.CheckStatusResponse>;
     createSecret: grpc.handleUnaryCall<pps_pps_pb.CreateSecretRequest, google_protobuf_empty_pb.Empty>;
     deleteSecret: grpc.handleUnaryCall<pps_pps_pb.DeleteSecretRequest, google_protobuf_empty_pb.Empty>;
     listSecret: grpc.handleUnaryCall<google_protobuf_empty_pb.Empty, pps_pps_pb.SecretInfos>;
@@ -429,6 +481,9 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     queryLoki: grpc.handleServerStreamingCall<pps_pps_pb.LokiRequest, pps_pps_pb.LokiLogMessage>;
     getClusterDefaults: grpc.handleUnaryCall<pps_pps_pb.GetClusterDefaultsRequest, pps_pps_pb.GetClusterDefaultsResponse>;
     setClusterDefaults: grpc.handleUnaryCall<pps_pps_pb.SetClusterDefaultsRequest, pps_pps_pb.SetClusterDefaultsResponse>;
+    getProjectDefaults: grpc.handleUnaryCall<pps_pps_pb.GetProjectDefaultsRequest, pps_pps_pb.GetProjectDefaultsResponse>;
+    setProjectDefaults: grpc.handleUnaryCall<pps_pps_pb.SetProjectDefaultsRequest, pps_pps_pb.SetProjectDefaultsResponse>;
+    pipelinesSummary: grpc.handleUnaryCall<pps_pps_pb.PipelinesSummaryRequest, pps_pps_pb.PipelinesSummaryResponse>;
 }
 
 export interface IAPIClient {
@@ -454,6 +509,9 @@ export interface IAPIClient {
     inspectDatum(request: pps_pps_pb.InspectDatumRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.DatumInfo) => void): grpc.ClientUnaryCall;
     listDatum(request: pps_pps_pb.ListDatumRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.DatumInfo>;
     listDatum(request: pps_pps_pb.ListDatumRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.DatumInfo>;
+    createDatum(): grpc.ClientDuplexStream<pps_pps_pb.CreateDatumRequest, pps_pps_pb.DatumInfo>;
+    createDatum(options: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<pps_pps_pb.CreateDatumRequest, pps_pps_pb.DatumInfo>;
+    createDatum(metadata: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<pps_pps_pb.CreateDatumRequest, pps_pps_pb.DatumInfo>;
     restartDatum(request: pps_pps_pb.RestartDatumRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     restartDatum(request: pps_pps_pb.RestartDatumRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     restartDatum(request: pps_pps_pb.RestartDatumRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -489,6 +547,8 @@ export interface IAPIClient {
     runCron(request: pps_pps_pb.RunCronRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     runCron(request: pps_pps_pb.RunCronRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     runCron(request: pps_pps_pb.RunCronRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    checkStatus(request: pps_pps_pb.CheckStatusRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.CheckStatusResponse>;
+    checkStatus(request: pps_pps_pb.CheckStatusRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.CheckStatusResponse>;
     createSecret(request: pps_pps_pb.CreateSecretRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createSecret(request: pps_pps_pb.CreateSecretRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createSecret(request: pps_pps_pb.CreateSecretRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -533,6 +593,15 @@ export interface IAPIClient {
     setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
     setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
     setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    getProjectDefaults(request: pps_pps_pb.GetProjectDefaultsRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    getProjectDefaults(request: pps_pps_pb.GetProjectDefaultsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    getProjectDefaults(request: pps_pps_pb.GetProjectDefaultsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    setProjectDefaults(request: pps_pps_pb.SetProjectDefaultsRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    setProjectDefaults(request: pps_pps_pb.SetProjectDefaultsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    setProjectDefaults(request: pps_pps_pb.SetProjectDefaultsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    pipelinesSummary(request: pps_pps_pb.PipelinesSummaryRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelinesSummaryResponse) => void): grpc.ClientUnaryCall;
+    pipelinesSummary(request: pps_pps_pb.PipelinesSummaryRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelinesSummaryResponse) => void): grpc.ClientUnaryCall;
+    pipelinesSummary(request: pps_pps_pb.PipelinesSummaryRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelinesSummaryResponse) => void): grpc.ClientUnaryCall;
 }
 
 export class APIClient extends grpc.Client implements IAPIClient {
@@ -559,6 +628,8 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public inspectDatum(request: pps_pps_pb.InspectDatumRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.DatumInfo) => void): grpc.ClientUnaryCall;
     public listDatum(request: pps_pps_pb.ListDatumRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.DatumInfo>;
     public listDatum(request: pps_pps_pb.ListDatumRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.DatumInfo>;
+    public createDatum(options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<pps_pps_pb.CreateDatumRequest, pps_pps_pb.DatumInfo>;
+    public createDatum(metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientDuplexStream<pps_pps_pb.CreateDatumRequest, pps_pps_pb.DatumInfo>;
     public restartDatum(request: pps_pps_pb.RestartDatumRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public restartDatum(request: pps_pps_pb.RestartDatumRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public restartDatum(request: pps_pps_pb.RestartDatumRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -594,6 +665,8 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public runCron(request: pps_pps_pb.RunCronRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public runCron(request: pps_pps_pb.RunCronRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public runCron(request: pps_pps_pb.RunCronRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public checkStatus(request: pps_pps_pb.CheckStatusRequest, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.CheckStatusResponse>;
+    public checkStatus(request: pps_pps_pb.CheckStatusRequest, metadata?: grpc.Metadata, options?: Partial<grpc.CallOptions>): grpc.ClientReadableStream<pps_pps_pb.CheckStatusResponse>;
     public createSecret(request: pps_pps_pb.CreateSecretRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createSecret(request: pps_pps_pb.CreateSecretRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createSecret(request: pps_pps_pb.CreateSecretRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -638,4 +711,13 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
     public setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
     public setClusterDefaults(request: pps_pps_pb.SetClusterDefaultsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetClusterDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public getProjectDefaults(request: pps_pps_pb.GetProjectDefaultsRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public getProjectDefaults(request: pps_pps_pb.GetProjectDefaultsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public getProjectDefaults(request: pps_pps_pb.GetProjectDefaultsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.GetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public setProjectDefaults(request: pps_pps_pb.SetProjectDefaultsRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public setProjectDefaults(request: pps_pps_pb.SetProjectDefaultsRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public setProjectDefaults(request: pps_pps_pb.SetProjectDefaultsRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.SetProjectDefaultsResponse) => void): grpc.ClientUnaryCall;
+    public pipelinesSummary(request: pps_pps_pb.PipelinesSummaryRequest, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelinesSummaryResponse) => void): grpc.ClientUnaryCall;
+    public pipelinesSummary(request: pps_pps_pb.PipelinesSummaryRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelinesSummaryResponse) => void): grpc.ClientUnaryCall;
+    public pipelinesSummary(request: pps_pps_pb.PipelinesSummaryRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: pps_pps_pb.PipelinesSummaryResponse) => void): grpc.ClientUnaryCall;
 }
