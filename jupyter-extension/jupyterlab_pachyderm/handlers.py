@@ -624,9 +624,12 @@ def setup_handlers(
                 "Could not find config file -- no pachyderm client instantiated"
             )
 
+    # server_root_dir is the root path from which all data and notebook files
+    #   are relative. This may be different from the CWD.
+    root_dir = Path(web_app.settings.get("server_root_dir", os.getcwd())).resolve()
     if client:
         web_app.settings["pachyderm_client"] = client
-        web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
+        web_app.settings["pachyderm_pps_client"] = PPSClient(client=client, root_dir=root_dir)
         web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
         web_app.settings["datum_contents_manager"] = DatumManager(client=client)
 

@@ -13,7 +13,6 @@ from pachyderm_sdk.api import pfs, pps
 from nbconvert import PythonExporter
 from tornado.web import HTTPError
 
-from .env import JUPYTER_SERVER_ROOT
 from .log import get_logger
 
 METADATA_KEY = "pachyderm_pps"
@@ -227,12 +226,16 @@ def upload_environment(
 class PPSClient:
     """Client interface for the PPS extension backend."""
 
-    def __init__(self, client: Client):
+    def __init__(self, client: Client, root_dir: Path):
+        """
+        client: The pachyderm client.
+        root_dir: The root path from which all data and notebook files are relative.
+        """
         self.nbconvert = PythonExporter()
         self.client = client
+        self.root_dir = root_dir
 
-    @staticmethod
-    async def generate(path):
+    async def generate(self, path):
         """Generates the pipeline spec from the Notebook file specified.
 
         Args:
@@ -240,7 +243,7 @@ class PPSClient:
         """
         get_logger().debug(f"path: {path}")
 
-        path = Path(path.lstrip("/")).relative_to(JUPYTER_SERVER_ROOT)
+        path = Path(path.lstrip("/")).relative_to(self.root_dir)
         if not path.exists():
             raise HTTPError(status_code=400, reason=f"notebook does not exist: {path}")
 
@@ -260,7 +263,7 @@ class PPSClient:
         """
         get_logger().debug(f"path: {path} | body: {body}")
 
-        path = Path(path.lstrip("/"))
+        path = Path(path.lstrip("/")).relative_to(self.root_dir)
         if not path.exists():
             raise HTTPError(status_code=400, reason=f"notebook does not exist: {path}")
 
