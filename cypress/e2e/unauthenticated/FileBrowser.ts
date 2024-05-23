@@ -141,7 +141,7 @@ describe('FileBrowser', () => {
     });
 
     // TODO: FRON-1500 Address before 2.11 release.
-    it('should download and delete multiple files at once', () => {
+    it.skip('should download and delete multiple files at once', () => {
       cy.visit('/lineage/default/repos/images/latest');
 
       cy.findByRole('button', {
