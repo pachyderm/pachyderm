@@ -483,7 +483,7 @@ class DatumManager(FileContentsManager):
                     raise ValueError(f"Input contains non-existent branch {branch}")
                 raise err
 
-            commit = pfs.Commit(repo=repo, id=commit_id, branch=branch)
+            commit = pfs.Commit(id=commit_id)
             commit_uri = commit.as_uri()
             if commit_uri in self._repo_names:
                 raise ValueError(
