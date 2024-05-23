@@ -468,9 +468,9 @@ jupyter-packaging==0.12.3 \
     --hash=sha256:9d9b2b63b97ffd67a8bc5391c32a421bc415b264a32c99e4d8d8dd31daae9cf4 \
     --hash=sha256:c1a376b23bcaced6dfc9ab0e924b015ce11552a1a5bccf783c6476957c538348
     # via -r jupyter-extension/requirements-dev.txt
-jupyter-server==2.13.0 \
-    --hash=sha256:77b2b49c3831fbbfbdb5048cef4350d12946191f833a24e5f83e5f8f4803e97b \
-    --hash=sha256:c80bfb049ea20053c3d9641c2add4848b38073bf79f1729cea1faed32fc1c78e
+jupyter-server==2.11.2 \
+    --hash=sha256:0c548151b54bcb516ca466ec628f7f021545be137d01b5467877e87f6fff4374 \
+    --hash=sha256:0c99f9367b0f24141e527544522430176613f9249849be80504c6d2b955004bb
     # via
     #   jupyter-server-fileid
     #   jupyterlab
