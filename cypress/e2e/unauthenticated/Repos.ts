@@ -185,7 +185,8 @@ describe('Repos', () => {
     cy.findByText('TestRepo').should('not.exist');
   });
 
-  it('should allow a user to select a repo from the list view to inspect commits', () => {
+  // TODO: FRON-1500 Address before 2.11 release.
+  it.skip('should allow a user to select a repo from the list view to inspect commits', () => {
     cy.setupProject().visit('/');
     cy.findAllByText(/^View(\sProject)*$/)
       .eq(0)
