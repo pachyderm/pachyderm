@@ -3,25 +3,30 @@ package logs
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 )
-
-type ResponsePublisher interface {
-	// Publish publishes a single GetLogsResponse to the client.
-	Publish(context.Context, *logs.GetLogsResponse) error
-}
 
 // LogService implements the core logs functionality.
 type LogService struct {
 	GetLokiClient func() (*loki.Client, error)
+	AuthServer    authserver.APIServer
 }
 
 var (
@@ -29,14 +34,29 @@ var (
 	ErrUnimplemented = errors.New("unimplemented")
 	// ErrPublish is returned whenever publishing fails (say, due to a closed client).
 	ErrPublish = errors.New("error publishing")
+	// ErrBadRequest indicates that the client made an erroneous request.
+	ErrBadRequest = errors.New("bad request")
+)
+
+func userLogQueryValidateErr(requestType, missingArg string) error {
+	return errors.Wrapf(ErrBadRequest, "%s UserLogQuery request requires a %s argument", requestType, missingArg)
+}
+
+func adminLogQueryValidateErr(requestType, missingArg string) error {
+	return errors.Wrapf(ErrBadRequest, "%s AdminLogQuery request requires a %s argument", requestType, missingArg)
+}
+
+type logDirection string
+
+const (
+	forwardLogDirection  logDirection = "forward"
+	backwardLogDirection logDirection = "backward"
 )
 
 // GetLogs gets logs according its request and publishes them.  The pattern is
 // similar to that used when handling an HTTP request.
 func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, publisher ResponsePublisher) error {
-	if err := validateGetLogsRequest(request); err != nil {
-		return errors.Wrap(err, "invalid GetLogs request")
-	}
+	var direction = forwardLogDirection
 
 	if request == nil {
 		request = &logs.GetLogsRequest{}
@@ -47,6 +67,9 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		filter = new(logs.LogFilter)
 		request.Filter = filter
 	}
+	if filter.Limit > math.MaxInt {
+		return errors.Wrapf(ErrBadRequest, "limit %d > maxint", filter.Limit)
+	}
 	switch {
 	case filter.TimeRange == nil || (filter.TimeRange.From == nil && filter.TimeRange.Until == nil):
 		now := time.Now()
@@ -54,80 +77,464 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			From:  timestamppb.New(now.Add(-700 * time.Hour)),
 			Until: timestamppb.New(now),
 		}
-	case filter.TimeRange.From == nil:
+	case filter.TimeRange.From == nil || filter.TimeRange.From.AsTime().IsZero():
 		filter.TimeRange.From = timestamppb.New(filter.TimeRange.Until.AsTime().Add(-700 * time.Hour))
-	case filter.TimeRange.Until == nil:
+	case filter.TimeRange.Until == nil || filter.TimeRange.Until.AsTime().IsZero():
 		filter.TimeRange.Until = timestamppb.New(filter.TimeRange.From.AsTime().Add(700 * time.Hour))
-	}
-
-	if request.WantPagingHint {
-		hint := &logs.PagingHint{
-			Older: proto.Clone(request).(*logs.GetLogsRequest),
-			Newer: proto.Clone(request).(*logs.GetLogsRequest),
-		}
-		from, until := request.Filter.TimeRange.From.AsTime(), request.Filter.TimeRange.Until.AsTime()
-		hint.Older.Filter.TimeRange.From = timestamppb.New(from.Add(from.Sub(until)))
-		hint.Older.Filter.TimeRange.Until = timestamppb.New(from)
-		hint.Newer.Filter.TimeRange.From = timestamppb.New(until)
-		hint.Newer.Filter.TimeRange.Until = timestamppb.New(until.Add(until.Sub(from)))
-		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
-			ResponseType: &logs.GetLogsResponse_PagingHint{
-				PagingHint: hint,
-			},
-		}); err != nil {
-			return errors.WithStack(fmt.Errorf("%w paging hint: %w", ErrPublish, err))
-		}
 	}
 
 	c, err := ls.GetLokiClient()
 	if err != nil {
 		return errors.Wrap(err, "loki client error")
 	}
-	resp, err := c.QueryRange(ctx, request.GetQuery().GetAdmin().GetLogql(), int(filter.GetLimit()), filter.GetTimeRange().GetFrom().AsTime(), filter.GetTimeRange().GetUntil().AsTime(), "forward", 0, 0, true)
-	if err != nil {
-		return errors.Wrap(err, "Loki QueryRange")
+	start := filter.TimeRange.From.AsTime()
+	end := filter.TimeRange.Until.AsTime()
+	if start.Equal(end) {
+		return errors.Errorf("start equals end (%v)", start)
 	}
-	streams, ok := resp.Data.Result.(loki.Streams)
-	if !ok {
-		return errors.Errorf("resp.Data.Result must be of type loghttp.Streams, not %T, to call ForEachStream on it", resp.Data.Result)
+	if start.After(end) {
+		direction = backwardLogDirection
+		start, end = end, start
 	}
-	for _, s := range streams {
-		for _, e := range s.Entries {
-			var resp *logs.GetLogsResponse
-			switch request.LogFormat {
-			case logs.LogFormat_LOG_FORMAT_UNKNOWN:
-				return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
-			case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
-				resp = &logs.GetLogsResponse{
-					ResponseType: &logs.GetLogsResponse_Log{
-						Log: &logs.LogMessage{
-							LogType: &logs.LogMessage_Verbatim{
-								Verbatim: &logs.VerbatimLogMessage{
-									Line: []byte(e.Line),
-								},
-							},
-						},
-					},
-				}
-			default:
-				return errors.Wrapf(ErrUnimplemented, "%v not supported", request.LogFormat)
-			}
 
-			if err := publisher.Publish(ctx, resp); err != nil {
-				return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+	var (
+		adapter = adapter{responsePublisher: publisher}
+		logQL   string
+	)
+	logQL, adapter.pass, err = ls.compileRequest(ctx, request)
+	if err != nil {
+		return errors.Wrap(err, "cannot convert request to LogQL")
+	}
+	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, uint(filter.TimeRange.Offset), direction, adapter.publish); err != nil {
+		var invalidBatchSizeErr ErrInvalidBatchSize
+		switch {
+		case errors.As(err, &invalidBatchSizeErr):
+			// try to requery
+			err = doQuery(ctx, c, logQL, invalidBatchSizeErr.RecommendedBatchSize(), start, end, 0, direction, adapter.publish)
+			if err != nil {
+				return errors.Wrap(err, "invalid batch size requery failed")
 			}
+		default:
+			return errors.Wrap(err, "doQuery failed")
+		}
+	}
+	if request.WantPagingHint {
+		hint := &logs.PagingHint{
+			Older: proto.Clone(request).(*logs.GetLogsRequest),
+			Newer: proto.Clone(request).(*logs.GetLogsRequest),
+		}
+		window := end.Sub(start)
+		// The older hint should run backwards from the request from time.
+		if filter.Limit != 0 && direction == backwardLogDirection {
+			if adapter.count > 0 {
+				start = adapter.last
+			}
+			hint.Older.Filter.TimeRange.Offset = uint64(adapter.offset)
+		}
+		hint.Older.Filter.TimeRange.From = timestamppb.New(start)
+		hint.Older.Filter.TimeRange.Until = timestamppb.New(start.Add(-window))
+		if filter.Limit != 0 && direction == forwardLogDirection {
+			if adapter.count > 0 {
+				end = adapter.last
+			}
+			hint.Newer.Filter.TimeRange.Offset = uint64(adapter.offset) + 1
+		}
+		hint.Newer.Filter.TimeRange.From = timestamppb.New(end)
+		hint.Newer.Filter.TimeRange.Until = timestamppb.New(end.Add(window))
+		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
+			ResponseType: &logs.GetLogsResponse_PagingHint{
+				PagingHint: hint,
+			},
+		}); err != nil {
+			return errors.Errorf("%w paging hint: %w", ErrPublish, err)
 		}
 	}
 
 	return nil
 }
 
-func validateGetLogsRequest(request *logs.GetLogsRequest) error {
-	if request.GetWantPagingHint() {
-		// TODO(CORE-2189): actually need to have logs to implement the logic with limits
-		if request.GetFilter().GetLimit() > 0 {
-			return errors.Wrap(ErrUnimplemented, "paging hints with limit > 0")
+func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRequest) (string, func(*logs.LogMessage) bool, error) {
+	if request == nil {
+		return "", nil, errors.New("nil request")
+	}
+	query := request.Query
+	if query == nil {
+		return "", nil, nil
+	}
+	switch query := query.QueryType.(type) {
+	case *logs.LogQuery_User:
+		return ls.compileUserLogQueryReq(ctx, query.User, true)
+	case *logs.LogQuery_Admin:
+		if ls.AuthServer != nil {
+			if err := ls.AuthServer.CheckClusterIsAuthorized(ctx, auth.Permission_CLUSTER_GET_LOKI_LOGS); err != nil && !auth.IsErrNotActivated(err) {
+				return "", nil, errors.EnsureStack(err)
+			}
+		}
+		switch query := query.Admin.GetAdminType().(type) {
+		case *logs.AdminLogQuery_Logql:
+			if query.Logql == "" {
+				return "", nil, adminLogQueryValidateErr("Logql", "Logql")
+			}
+			return query.Logql, func(*logs.LogMessage) bool { return true }, nil
+		case *logs.AdminLogQuery_Pod:
+			if query.Pod == "" {
+				return "", nil, adminLogQueryValidateErr("Pod", "Pod")
+			}
+			return fmt.Sprintf(`{suite="pachyderm",pod=%q}`, query.Pod), func(*logs.LogMessage) bool { return true }, nil
+		case *logs.AdminLogQuery_PodContainer:
+			if query.PodContainer.Pod == "" {
+				return "", nil, adminLogQueryValidateErr("PodContainer", "Pod")
+			}
+			if query.PodContainer.Container == "" {
+				return "", nil, adminLogQueryValidateErr("PodContainer", "Container")
+			}
+			return fmt.Sprintf(`{suite="pachyderm",pod=%q,container=%q}`, query.PodContainer.Pod, query.PodContainer.Container),
+				func(*logs.LogMessage) bool { return true }, nil
+		case *logs.AdminLogQuery_App:
+			if query.App == "" {
+				return "", nil, adminLogQueryValidateErr("App", "App")
+			}
+			return fmt.Sprintf(`{suite="pachyderm",app=%q}`, query.App), func(*logs.LogMessage) bool { return true }, nil
+		case *logs.AdminLogQuery_Master:
+			pipeline := query.Master.Pipeline
+			project := query.Master.Project
+			if pipeline == "" {
+				return "", nil, adminLogQueryValidateErr("Master", "Pipeline")
+			}
+			if project == "" {
+				return "", nil, adminLogQueryValidateErr("Master", "Project")
+			}
+			return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline), func(msg *logs.LogMessage) bool {
+				if msg.GetPpsLogMessage().Master {
+					return true
+				}
+				ff := msg.GetObject().GetFields()
+				if ff != nil {
+					v, ok := ff["master"]
+					if ok {
+						if v.GetBoolValue() {
+							return true
+						}
+					}
+				}
+				return false
+			}, nil
+		case *logs.AdminLogQuery_Storage:
+			pipeline := query.Storage.Pipeline
+			project := query.Storage.Project
+			if pipeline == "" {
+				return "", nil, adminLogQueryValidateErr("Storage", "Pipeline")
+			}
+			if project == "" {
+				return "", nil, adminLogQueryValidateErr("Storage", "Project")
+			}
+			return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="storage",pipelineProject=%q,pipelineName=%q}`, project, pipeline),
+				func(*logs.LogMessage) bool {
+					return true
+				}, nil
+		case *logs.AdminLogQuery_User:
+			return ls.compileUserLogQueryReq(ctx, query.User, false)
+		default:
+			return "", nil, nil
+		}
+	default:
+		return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
+	}
+}
+
+func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.UserLogQuery, checkAuth bool) (string, func(*logs.LogMessage) bool, error) {
+	switch query := query.GetUserType().(type) {
+	case *logs.UserLogQuery_Pipeline:
+		pipeline := query.Pipeline.Pipeline
+		project := query.Pipeline.Project
+		if checkAuth {
+			if pass := ls.authPipelineLogs(ctx, pipeline, project, nil); !pass {
+				return "", nil, nil
+			}
+		}
+		return ls.compilePipelineLogsReq(project, pipeline)
+	case *logs.UserLogQuery_JobDatum:
+		authCache := make(map[string]bool)
+		return ls.compileJobDatumsLogsReq(ctx, query.JobDatum.Job, query.JobDatum.Datum, checkAuth, authCache)
+	case *logs.UserLogQuery_Datum:
+		authCache := make(map[string]bool)
+		return ls.compileDatumsLogsReq(ctx, query.Datum, checkAuth, authCache)
+	case *logs.UserLogQuery_Project:
+		authCache := make(map[string]bool)
+		return ls.compileProjectLogsReq(ctx, query.Project, checkAuth, authCache)
+	case *logs.UserLogQuery_Job:
+		authCache := make(map[string]bool)
+		return ls.compileJobLogsReq(ctx, query.Job, checkAuth, authCache)
+	case *logs.UserLogQuery_PipelineJob:
+		project := query.PipelineJob.Pipeline.Project
+		pipeline := query.PipelineJob.Pipeline.Pipeline
+		if checkAuth {
+			if pass := ls.authPipelineLogs(ctx, pipeline, project, nil); !pass {
+				return "", nil, nil
+			}
+		}
+		job := query.PipelineJob.Job
+		return ls.compilePipelineJobLogsReq(project, pipeline, job)
+	default:
+		return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
+	}
+}
+
+func (ls LogService) compilePipelineLogsReq(project, pipeline string) (string, func(*logs.LogMessage) bool, error) {
+	if pipeline == "" {
+		return "", nil, userLogQueryValidateErr("Pipeline", "Pipeline")
+	}
+	if project == "" {
+		return "", nil, userLogQueryValidateErr("Pipeline", "Project")
+	}
+	return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline),
+		func(msg *logs.LogMessage) bool {
+			if msg.GetPpsLogMessage().GetUser() {
+				return true
+			}
+			ff := msg.GetObject().GetFields()
+			if ff != nil {
+				v, ok := ff["user"]
+				if ok {
+					if v.GetBoolValue() {
+						return true
+					}
+				}
+			}
+			return false
+		}, nil
+}
+
+func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum string, checkAuth bool, authCache map[string]bool) (string, func(*logs.LogMessage) bool, error) {
+	if job == "" {
+		return "", nil, userLogQueryValidateErr("JobDatum", "Job")
+	}
+	if datum == "" {
+		return "", nil, userLogQueryValidateErr("JobDatum", "Datum")
+	}
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), func(msg *logs.LogMessage) bool {
+		logDatumId := msg.GetPpsLogMessage().GetDatumId()
+		logJobId := msg.GetPpsLogMessage().GetJobId()
+		if logJobId != "" && logDatumId != "" {
+			if logDatumId != datum && logJobId != job {
+				return false
+			}
+		} else {
+			ff := msg.GetObject().GetFields()
+			if ff != nil {
+				d, okDatum := ff["datumId"]
+				j, okJob := ff["jobId"]
+				if !okJob || !okDatum {
+					return false
+				}
+				if d.GetStringValue() != datum || j.GetStringValue() != job {
+					return false
+				}
+			}
+		}
+		if checkAuth {
+			return ls.authLogMessage(ctx, msg, authCache)
+		}
+		return true
+	}, nil
+}
+
+func (ls LogService) compileDatumsLogsReq(ctx context.Context, datum string, checkAuth bool, authCache map[string]bool) (string, func(*logs.LogMessage) bool, error) {
+	if datum == "" {
+		return "", nil, userLogQueryValidateErr("Datum", "Datum")
+	}
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), func(msg *logs.LogMessage) bool {
+		if msg.GetPpsLogMessage().GetDatumId() != "" && msg.GetPpsLogMessage().GetDatumId() != datum {
+			return false
+		}
+		ff := msg.GetObject().GetFields()
+		if ff != nil {
+			v, ok := ff["datumId"]
+			if !ok {
+				return false
+			}
+			if v.GetStringValue() != datum {
+				return false
+			}
+		}
+		if checkAuth {
+			return ls.authLogMessage(ctx, msg, authCache)
+		}
+		return true
+	}, nil
+}
+
+func (ls LogService) compileProjectLogsReq(ctx context.Context, project string, checkAuth bool, authCache map[string]bool) (string, func(*logs.LogMessage) bool, error) {
+	if project == "" {
+		return "", nil, userLogQueryValidateErr("Project", "Project")
+	}
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline",pipelineProject=%q}`, project), func(msg *logs.LogMessage) bool {
+		if checkAuth {
+			return ls.authLogMessage(ctx, msg, authCache)
+		}
+		return true
+	}, nil
+}
+
+func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAuth bool, authCache map[string]bool) (string, func(*logs.LogMessage) bool, error) {
+	if job == "" {
+		return "", nil, userLogQueryValidateErr("Job", "Job")
+	}
+	return `{suite="pachyderm",app="pipeline"}`, func(msg *logs.LogMessage) bool {
+		if msg.GetPpsLogMessage().GetJobId() != "" && msg.GetPpsLogMessage().GetJobId() != job {
+			return false
+		}
+		ff := msg.GetObject().GetFields()
+		if ff != nil {
+			v, ok := ff["jobId"]
+			if !ok {
+				return false
+			}
+			if v.GetStringValue() != job {
+				return false
+			}
+		}
+		if checkAuth {
+			return ls.authLogMessage(ctx, msg, authCache)
+		}
+		return true
+	}, nil
+}
+
+func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (string, func(*logs.LogMessage) bool, error) {
+	if project == "" {
+		return "", nil, userLogQueryValidateErr("PipelineJob", "Project")
+	}
+	if pipeline == "" {
+		return "", nil, userLogQueryValidateErr("PipelineJob", "Pipeline")
+	}
+	if job == "" {
+		return "", nil, userLogQueryValidateErr("PipelineJob", "Job")
+	}
+	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), func(msg *logs.LogMessage) bool {
+		if msg.GetPpsLogMessage().GetJobId() == job {
+			return true
+		}
+		ff := msg.GetObject().GetFields()
+		if ff != nil {
+			v, ok := ff["jobId"]
+			if ok {
+				if v.GetStringValue() == job {
+					return true
+				}
+			}
+		}
+		return false
+	}, nil
+
+}
+
+func (ls LogService) authLogMessage(ctx context.Context, msg *logs.LogMessage, cache map[string]bool) bool {
+	pipeline := msg.GetPpsLogMessage().GetPipelineName()
+	project := msg.GetPpsLogMessage().GetProjectName()
+	if pipeline != "" && project != "" {
+		return ls.authPipelineLogs(ctx, pipeline, project, cache)
+	}
+	ff := msg.GetObject().GetFields()
+	if ff != nil {
+		pipeline, ok := ff["pipelineName"]
+		if ok {
+			project, ok := ff["projectName"]
+			if ok {
+				return ls.authPipelineLogs(ctx, pipeline.GetStringValue(), project.GetStringValue(), cache)
+			}
 		}
 	}
-	return nil
+	return false
+}
+
+func (ls LogService) authPipelineLogs(ctx context.Context, pipeline, project string, cache map[string]bool) bool {
+	if ls.AuthServer == nil {
+		return true
+	}
+	repo := &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: project}, Name: pipeline}
+	if cache != nil {
+		if pass, ok := cache[repo.String()]; ok {
+			return pass
+		}
+	}
+	var pass bool
+	err := ls.AuthServer.CheckRepoIsAuthorized(ctx, repo, auth.Permission_REPO_READ)
+	if err != nil && !auth.IsErrNotActivated(err) {
+		log.Info(ctx, "unauthorized to retrieve logs for pipeline", zap.Error(err), zap.String("pipeline", project+"@"+pipeline))
+		pass = false
+	} else {
+		pass = true
+	}
+	if cache != nil {
+		cache[repo.String()] = pass
+	}
+	return pass
+}
+
+type ResponsePublisher interface {
+	// Publish publishes a single GetLogsResponse to the client.
+	Publish(context.Context, *logs.GetLogsResponse) error
+}
+
+// An adapter publishes log entries to a ResponsePublisher in a specified format.
+type adapter struct {
+	responsePublisher ResponsePublisher
+	first, last       time.Time
+	gotFirst          bool
+	pass              func(*logs.LogMessage) bool
+	offset            uint
+	count             uint
+}
+
+func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
+	var msg = &logs.LogMessage{
+		Verbatim: &logs.VerbatimLogMessage{
+			Line:      []byte(entry.Line),
+			Timestamp: timestamppb.New(entry.Timestamp),
+		},
+	}
+	msg.Object = new(structpb.Struct)
+	if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
+		log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
+		msg.Object = nil
+	} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
+		if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
+			msg.NativeTimestamp = timestamppb.New(t)
+		}
+	}
+	msg.PpsLogMessage = new(pps.LogMessage)
+	m := protojson.UnmarshalOptions{
+		AllowPartial:   true,
+		DiscardUnknown: true,
+	}
+	if err := m.Unmarshal([]byte(entry.Line), msg.PpsLogMessage); err != nil {
+		log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
+		msg.PpsLogMessage = nil
+	} else if msg.PpsLogMessage.Ts != nil {
+		msg.NativeTimestamp = msg.PpsLogMessage.Ts
+	}
+
+	if a.pass != nil && !a.pass(msg) {
+		return true, nil
+	}
+	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
+		ResponseType: &logs.GetLogsResponse_Log{
+			Log: msg,
+		},
+	}); err != nil {
+		return false, errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+	}
+	a.count++
+	if !a.gotFirst {
+		a.gotFirst = true
+		a.first = msg.Verbatim.Timestamp.AsTime()
+	}
+	if a.last.Equal(msg.Verbatim.Timestamp.AsTime()) {
+		a.offset++
+	} else {
+		a.offset = 0
+	}
+	a.last = msg.Verbatim.Timestamp.AsTime()
+	return false, nil
 }

@@ -59,6 +59,8 @@ message UserLogQuery {
     string job = 4;
     // One job in one pipeline
     PipelineJobLogQuery pipeline_job = 5;
+    // One datum in one job
+    JobDatumLogQuery job_datum = 6;
   }
 }
 
@@ -70,6 +72,11 @@ message PipelineLogQuery {
 message PipelineJobLogQuery {
   PipelineLogQuery pipeline = 1;
   string job = 2;
+}
+
+message JobDatumLogQuery {
+  string job = 1;
+  string datum = 2;
 }
 
 message LogFilter {
@@ -85,6 +92,8 @@ message TimeRangeLogFilter {
   google.protobuf.Timestamp from = 1;
   // Can be null
   google.protobuf.Timestamp until = 2;
+  // Offset from which to return results
+  uint64 offset = 3;
 }
 
 message RegexLogFilter {
@@ -92,20 +101,11 @@ message RegexLogFilter {
   bool negate = 2;
 }
 
-enum LogFormat {
-  // error
-  LOG_FORMAT_UNKNOWN = 0;
-  LOG_FORMAT_VERBATIM_WITH_TIMESTAMP = 1;
-  LOG_FORMAT_PARSED_JSON = 2;
-  LOG_FORMAT_PPS_LOGMESSAGE = 3;
-}
-
 message GetLogsRequest {
   LogQuery query = 1;
   LogFilter filter = 2;
   bool tail = 3;
   bool want_paging_hint = 4;
-  LogFormat log_format = 5 [(validate.rules).enum = {not_in: [0]}];
 }
 
 message GetLogsResponse {
@@ -120,20 +120,12 @@ message PagingHint {
   GetLogsRequest newer = 2;
 }
 
-message LogMessage {
-  oneof log_type {
-    VerbatimLogMessage verbatim = 1;
-    ParsedJSONLogMessage json = 2;
-    pps_v2.LogMessage pps_log_message = 3;
-  }
-}
-
 message VerbatimLogMessage {
   bytes line = 1;
   google.protobuf.Timestamp timestamp = 2;
 }
 
-message ParsedJSONLogMessage {
+message LogMessage {
   // The verbatim line from Loki
   VerbatimLogMessage verbatim = 1;
   // A raw JSON parse of the entire line

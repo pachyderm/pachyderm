@@ -40,7 +40,7 @@ parameters:
     default: docker.io/pachyderm/ci-runner:20240327-e244f4987bb95479ace93f62388b267c5afc12ef@sha256:6eca53ba260096076ae7decbfb66a779b3d78984ae5f249c8d28514f34c02ef4
   go-version:
     type: string
-    default: "1.22.2"
+    default: "1.22.3"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -851,8 +851,8 @@ jobs:
             cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
 
             pachctl create repo images
-            pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
-            pachctl put file images@branch:branch.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
+            pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/mldm/opencv/liberty.jpg
+            pachctl put file images@branch:branch.png -f https://docs.pachyderm.com/images/mldm/opencv/liberty.jpg
             pachctl list repo
 
             mkdir pfs

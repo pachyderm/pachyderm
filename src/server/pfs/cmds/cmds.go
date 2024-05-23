@@ -686,7 +686,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					return err
 				}
 
-				repo := toCommit.Branch.Repo
+				repo := toCommit.Repo
 
 				var fromCommit *pfs.Commit
 				if from != "" {
@@ -1550,11 +1550,11 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			defer progress.Wait()
 
 			// check whether or not the repo exists before attempting to upload
-			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Project.GetName(), file.Commit.Branch.Repo.Name); err != nil {
+			if _, err = c.InspectRepo(file.Commit.Branch.Repo.Project.GetName(), file.Commit.Repo.Name); err != nil {
 				if errutil.IsNotFoundError(err) {
 					return err
 				}
-				return errors.Wrapf(err, "could not inspect repo %s", err, file.Commit.Branch.Repo.Name)
+				return errors.Wrapf(err, "could not inspect repo %s", err, file.Commit.Repo.Name)
 			}
 
 			// TODO: Rethink put file parallelism for 2.0.

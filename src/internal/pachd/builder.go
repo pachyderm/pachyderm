@@ -26,6 +26,7 @@ import (
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
@@ -150,7 +151,7 @@ func (b *builder) setupDB(ctx context.Context) error {
 }
 
 func (b *builder) waitForDBState(ctx context.Context) error {
-	return awaitMigrations(b.env.GetDBClient()).Fn(ctx)
+	return awaitMigrations(b.env.GetDBClient(), clusterstate.DesiredClusterState).Fn(ctx)
 }
 
 func (b *builder) initDexDB(ctx context.Context) error {
@@ -171,18 +172,22 @@ func (b *builder) initInternalServer(ctx context.Context) error {
 		ctx,
 		false,
 		grpc.ChainUnaryInterceptor(
+			b.loggingInterceptor.UnarySetup,
 			errorsmw.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			b.authInterceptor.InterceptUnary,
-			b.loggingInterceptor.UnaryServerInterceptor,
+			b.loggingInterceptor.UnaryAnnounce,
 			validation.UnaryServerInterceptor,
+			recovery.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
+			b.loggingInterceptor.StreamSetup,
 			errorsmw.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			b.authInterceptor.InterceptStream,
-			b.loggingInterceptor.StreamServerInterceptor,
+			b.loggingInterceptor.StreamAnnounce,
 			validation.StreamServerInterceptor,
+			recovery.StreamServerInterceptor,
 		),
 	)
 	return err
@@ -194,20 +199,24 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 		ctx,
 		true,
 		grpc.ChainUnaryInterceptor(
+			b.loggingInterceptor.UnarySetup,
 			errorsmw.UnaryServerInterceptor,
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			b.authInterceptor.InterceptUnary,
-			b.loggingInterceptor.UnaryServerInterceptor,
+			b.loggingInterceptor.UnaryAnnounce,
 			validation.UnaryServerInterceptor,
+			recovery.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
+			b.loggingInterceptor.StreamSetup,
 			errorsmw.StreamServerInterceptor,
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			b.authInterceptor.InterceptStream,
-			b.loggingInterceptor.StreamServerInterceptor,
+			b.loggingInterceptor.StreamAnnounce,
 			validation.StreamServerInterceptor,
+			recovery.StreamServerInterceptor,
 		),
 	)
 	return err
@@ -345,6 +354,7 @@ func (b *builder) registerProxyServer(ctx context.Context) error {
 func (b *builder) registerLogsServer(ctx context.Context) error {
 	apiServer, err := logsserver.NewAPIServer(logsserver.Env{
 		GetLokiClient: b.env.GetLokiClient,
+		AuthServer:    b.env.AuthServer(),
 	})
 	if err != nil {
 		return err

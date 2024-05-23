@@ -25,10 +25,9 @@ pachd:
   enterpriseLicenseKey: ""
   oauthRedirectURI: "http://localhost:8283/authorization-code/callback" 
   storage:
+    storageURL: "s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region"
     backend: AMAZON
     amazon:
-      gocdkEnabled: "true"
-      storageURL: "s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region"
       id: "minioadmin"
       secret: "minioadmin"
 
@@ -78,7 +77,7 @@ determined:
   enterpriseEdition: true
   useNodePortForMaster: false
   useNodePortForDB: false
-  detVersion: 0.27.1 # set to latest in tests
+  detVersion: 0.31.0 # set to latest in tests
   masterPort: 8282
   masterCpuRequest: 250m
   masterMemRequest: 256M

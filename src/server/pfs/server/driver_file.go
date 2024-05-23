@@ -31,13 +31,13 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 		// Store the originally-requested parameters because they will be overwritten by inspectCommit
 		branch := proto.Clone(commit.Branch).(*pfs.Branch)
 		commitID := commit.Id
-		if branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {
+		if branch != nil && branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {
 			branch.Name = commitID
 			commitID = ""
 		}
 		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 		if err != nil {
-			if !errutil.IsNotFoundError(err) || branch.Name == "" {
+			if !errutil.IsNotFoundError(err) || branch == nil || branch.Name == "" {
 				return err
 			}
 			return d.oneOffModifyFile(ctx, renewer, branch, cb)

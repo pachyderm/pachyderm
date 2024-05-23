@@ -40,7 +40,6 @@ func TestTestPachd(t *testing.T) {
 		Filter: &logs.LogFilter{
 			Limit: 1,
 		},
-		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 	})
 	if err != nil {
 		t.Fatalf("GetLogs: %v", err)

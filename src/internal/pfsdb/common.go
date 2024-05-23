@@ -108,9 +108,40 @@ func (i *pageIterator[T]) next(ctx context.Context, extCtx sqlx.ExtContext) (*T,
 	return &t, i.revision, nil
 }
 
+type GraphOption func(g *graphOptions)
+
+// graphOptions are used to configure depth and limit parameters for provenance and subvenance queries.
+type graphOptions struct {
+	maxDepth uint64
+	limit    uint64
+}
+
 func IsNotFoundError(err error) bool {
 	return errors.As(err, &RepoNotFoundError{}) ||
 		errors.As(err, &ProjectNotFoundError{}) ||
 		errors.As(err, &CommitNotFoundError{}) ||
 		errors.As(err, &BranchNotFoundError{})
+}
+
+func WithMaxDepth(maxDepth uint64) GraphOption {
+	return func(g *graphOptions) {
+		if maxDepth > 0 {
+			g.maxDepth = maxDepth
+		}
+	}
+}
+
+func WithLimit(limit uint64) GraphOption {
+	return func(g *graphOptions) {
+		if limit > 0 {
+			g.limit = limit
+		}
+	}
+}
+
+func defaultGraphOptions() *graphOptions {
+	return &graphOptions{
+		maxDepth: uint64(MaxSearchDepth),
+		limit:    uint64(10_000),
+	}
 }

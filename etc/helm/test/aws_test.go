@@ -111,6 +111,7 @@ func TestAWS(t *testing.T) {
 		"deployTarget": "AMAZON",
 		`pachd.serviceAccount.additionalAnnotations.eks\.amazonaws\.com/role-arn`:        expectedServiceAccount,
 		`pachd.worker.serviceAccount.additionalAnnotations.eks\.amazonaws\.com/role-arn`: expectedServiceAccount,
+		"pachd.storage.storageURL": "s3://my-bucket",
 	}
 	for _, tc := range testCases {
 		helmValues[tc.helmKey] = tc.value

@@ -64,7 +64,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 	commits := make(map[string]string)
 	if opts != nil {
 		for repo, ropts := range opts.RepoOptions {
-			if ropts.File.Commit.Id != "" && ropts.File.Commit.GetBranch().GetName() == "" {
+			if ropts.File.Commit.Id != "" && ropts.File.Commit.Branch != nil && ropts.File.Commit.GetBranch().GetName() == "" {
 				commits[repo] = ropts.File.Commit.Id
 				cis, err := c.InspectCommitSet(ropts.File.Commit.Id)
 				if err != nil {

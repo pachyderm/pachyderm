@@ -28,12 +28,10 @@ limits_config:
     enforce_metric_name: false
     max_entries_limit_per_query: 5000
     reject_old_samples: true
-    reject_old_samples_max_age: 168h
-    retention_period: 24h
-    retention_stream:
-        - period: 168h
-          priority: 1
-          selector: '{suite="pachyderm"}'
+    reject_old_samples_max_age: 100y
+    retention_period: 100y
+    creation_grace_period: 100y
+    unordered_writes: true
 
 query_scheduler:
     grpc_client_config:
@@ -44,7 +42,9 @@ server:
     http_listen_port: 3100 # replaced in go
     grpc_server_max_recv_msg_size: 67108864
     graceful_shutdown_timeout: 0.1s
+
 ingester:
+    max_chunk_age: 876000h # 100 years
     lifecycler:
         min_ready_duration: 0.2s
 frontend:

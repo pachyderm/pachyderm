@@ -24,13 +24,6 @@ export enum LogLevel {
   LOG_LEVEL_ERROR = "LOG_LEVEL_ERROR",
 }
 
-export enum LogFormat {
-  LOG_FORMAT_UNKNOWN = "LOG_FORMAT_UNKNOWN",
-  LOG_FORMAT_VERBATIM_WITH_TIMESTAMP = "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
-  LOG_FORMAT_PARSED_JSON = "LOG_FORMAT_PARSED_JSON",
-  LOG_FORMAT_PPS_LOGMESSAGE = "LOG_FORMAT_PPS_LOGMESSAGE",
-}
-
 
 type BaseLogQuery = {
 }
@@ -55,7 +48,7 @@ type BaseUserLogQuery = {
 }
 
 export type UserLogQuery = BaseUserLogQuery
-  & OneOf<{ project: string; pipeline: PipelineLogQuery; datum: string; job: string; pipelineJob: PipelineJobLogQuery }>
+  & OneOf<{ project: string; pipeline: PipelineLogQuery; datum: string; job: string; pipelineJob: PipelineJobLogQuery; jobDatum: JobDatumLogQuery }>
 
 export type PipelineLogQuery = {
   project?: string
@@ -65,6 +58,11 @@ export type PipelineLogQuery = {
 export type PipelineJobLogQuery = {
   pipeline?: PipelineLogQuery
   job?: string
+}
+
+export type JobDatumLogQuery = {
+  job?: string
+  datum?: string
 }
 
 export type LogFilter = {
@@ -77,6 +75,7 @@ export type LogFilter = {
 export type TimeRangeLogFilter = {
   from?: GoogleProtobufTimestamp.Timestamp
   until?: GoogleProtobufTimestamp.Timestamp
+  offset?: string
 }
 
 export type RegexLogFilter = {
@@ -89,7 +88,6 @@ export type GetLogsRequest = {
   filter?: LogFilter
   tail?: boolean
   wantPagingHint?: boolean
-  logFormat?: LogFormat
 }
 
 
@@ -104,19 +102,12 @@ export type PagingHint = {
   newer?: GetLogsRequest
 }
 
-
-type BaseLogMessage = {
-}
-
-export type LogMessage = BaseLogMessage
-  & OneOf<{ verbatim: VerbatimLogMessage; json: ParsedJSONLogMessage; ppsLogMessage: Pps_v2Pps.LogMessage }>
-
 export type VerbatimLogMessage = {
   line?: Uint8Array
   timestamp?: GoogleProtobufTimestamp.Timestamp
 }
 
-export type ParsedJSONLogMessage = {
+export type LogMessage = {
   verbatim?: VerbatimLogMessage
   object?: GoogleProtobufStruct.Struct
   nativeTimestamp?: GoogleProtobufTimestamp.Timestamp

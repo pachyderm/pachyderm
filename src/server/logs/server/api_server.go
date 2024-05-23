@@ -11,12 +11,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 )
 
 type APIServer = *apiServer
 
 type Env struct {
 	GetLokiClient func() (*loki.Client, error)
+	AuthServer    authserver.APIServer
 }
 
 type apiServer struct {
@@ -30,6 +32,7 @@ func NewAPIServer(env Env) (*apiServer, error) {
 		env: env,
 		service: logservice.LogService{
 			GetLokiClient: env.GetLokiClient,
+			AuthServer:    env.AuthServer,
 		},
 	}, nil
 }
@@ -44,10 +47,15 @@ func (glsp getLogsServerPublisher) Publish(ctx context.Context, response *logs.G
 
 func (l *apiServer) GetLogs(request *logs.GetLogsRequest, apiGetLogsServer logs.API_GetLogsServer) error {
 	if err := l.service.GetLogs(apiGetLogsServer.Context(), request, getLogsServerPublisher{apiGetLogsServer}); err != nil {
-		if errors.Is(err, logservice.ErrUnimplemented) {
+		switch {
+		case errors.Is(err, logservice.ErrUnimplemented):
 			return status.Error(codes.Unimplemented, err.Error())
+		case errors.Is(err, logservice.ErrBadRequest):
+			return status.Error(codes.InvalidArgument, err.Error())
+		default:
+			// by definition, if we don’t understand the error then it’s an internal server error
+			return status.Error(codes.Internal, err.Error())
 		}
-		return status.Error(codes.Internal, err.Error())
 	}
 
 	return nil

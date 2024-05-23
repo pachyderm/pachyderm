@@ -1,4 +1,5 @@
 """Tests for the gRPC interceptor callback."""
+
 from tests.fixtures import *
 
 

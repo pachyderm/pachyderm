@@ -18,6 +18,7 @@ go_library(
         "//src/internal/promutil",
         "@com_github_json_iterator_go//:go",
         "@com_github_modern_go_reflect2//:reflect2",
+        "@in_gopkg_yaml_v2//:yaml_v2",
         "@org_golang_x_net//websocket",
         "@org_uber_go_zap//:zap",
     ],

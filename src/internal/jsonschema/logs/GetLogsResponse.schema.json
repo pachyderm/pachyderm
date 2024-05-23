@@ -120,21 +120,24 @@
                 },
                 "wantPagingHint": {
                     "type": "boolean"
-                },
-                "logFormat": {
-                    "enum": [
-                        "LOG_FORMAT_UNKNOWN",
-                        "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
-                        "LOG_FORMAT_PARSED_JSON",
-                        "LOG_FORMAT_PPS_LOGMESSAGE"
-                    ],
-                    "type": "string",
-                    "title": "Log Format"
                 }
             },
             "additionalProperties": false,
             "type": "object",
             "title": "Get Logs Request"
+        },
+        "logs.JobDatumLogQuery": {
+            "properties": {
+                "job": {
+                    "type": "string"
+                },
+                "datum": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Job Datum Log Query"
         },
         "logs.LogFilter": {
             "properties": {
@@ -167,36 +170,27 @@
             "properties": {
                 "verbatim": {
                     "$ref": "#/definitions/logs.VerbatimLogMessage",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "The verbatim line from Loki"
                 },
-                "json": {
-                    "$ref": "#/definitions/logs.ParsedJSONLogMessage",
-                    "additionalProperties": false
+                "object": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "description": "A raw JSON parse of the entire line"
+                },
+                "nativeTimestamp": {
+                    "type": "string",
+                    "description": "If a parseable timestamp was found in `fields`",
+                    "format": "date-time"
                 },
                 "ppsLogMessage": {
                     "$ref": "#/definitions/pps_v2.LogMessage",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "For code that wants to filter on pipeline/job/etc"
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "oneOf": [
-                {
-                    "required": [
-                        "verbatim"
-                    ]
-                },
-                {
-                    "required": [
-                        "json"
-                    ]
-                },
-                {
-                    "required": [
-                        "pps_log_message"
-                    ]
-                }
-            ],
             "title": "Log Message"
         },
         "logs.LogQuery": {
@@ -240,33 +234,6 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Paging Hint"
-        },
-        "logs.ParsedJSONLogMessage": {
-            "properties": {
-                "verbatim": {
-                    "$ref": "#/definitions/logs.VerbatimLogMessage",
-                    "additionalProperties": false,
-                    "description": "The verbatim line from Loki"
-                },
-                "object": {
-                    "additionalProperties": false,
-                    "type": "object",
-                    "description": "A raw JSON parse of the entire line"
-                },
-                "nativeTimestamp": {
-                    "type": "string",
-                    "description": "If a parseable timestamp was found in `fields`",
-                    "format": "date-time"
-                },
-                "ppsLogMessage": {
-                    "$ref": "#/definitions/pps_v2.LogMessage",
-                    "additionalProperties": false,
-                    "description": "For code that wants to filter on pipeline/job/etc"
-                }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "title": "Parsed JSON Log Message"
         },
         "logs.PipelineJobLogQuery": {
             "properties": {
@@ -332,6 +299,10 @@
                     "type": "string",
                     "description": "Can be null",
                     "format": "date-time"
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "Offset from which to return results"
                 }
             },
             "additionalProperties": false,
@@ -361,6 +332,11 @@
                     "$ref": "#/definitions/logs.PipelineJobLogQuery",
                     "additionalProperties": false,
                     "description": "One job in one pipeline"
+                },
+                "jobDatum": {
+                    "$ref": "#/definitions/logs.JobDatumLogQuery",
+                    "additionalProperties": false,
+                    "description": "One datum in one job"
                 }
             },
             "additionalProperties": false,
@@ -389,6 +365,11 @@
                 {
                     "required": [
                         "pipeline_job"
+                    ]
+                },
+                {
+                    "required": [
+                        "job_datum"
                     ]
                 }
             ],

@@ -31,7 +31,7 @@ def pachyderm_data(pach_client):
     ) as commit:
         commit.put_file_from_url(
             path="/liberty.jpg",
-            url="https://docs.pachyderm.com/images/opencv/liberty.jpg",
+            url="https://docs.pachyderm.com/images/mldm/opencv/liberty.jpg",
         )
         commit_id = commit.id
 

@@ -62,6 +62,7 @@ const (
 	API_SetClusterDefaults_FullMethodName = "/pps_v2.API/SetClusterDefaults"
 	API_GetProjectDefaults_FullMethodName = "/pps_v2.API/GetProjectDefaults"
 	API_SetProjectDefaults_FullMethodName = "/pps_v2.API/SetProjectDefaults"
+	API_PipelinesSummary_FullMethodName   = "/pps_v2.API/PipelinesSummary"
 )
 
 // APIClient is the client API for API service.
@@ -128,6 +129,8 @@ type APIClient interface {
 	GetProjectDefaults(ctx context.Context, in *GetProjectDefaultsRequest, opts ...grpc.CallOption) (*GetProjectDefaultsResponse, error)
 	// SetProjectDefaults sets the defaults for a particular project.
 	SetProjectDefaults(ctx context.Context, in *SetProjectDefaultsRequest, opts ...grpc.CallOption) (*SetProjectDefaultsResponse, error)
+	// PipelinesSummary summarizes the pipelines for each requested project.
+	PipelinesSummary(ctx context.Context, in *PipelinesSummaryRequest, opts ...grpc.CallOption) (*PipelinesSummaryResponse, error)
 }
 
 type aPIClient struct {
@@ -782,6 +785,15 @@ func (c *aPIClient) SetProjectDefaults(ctx context.Context, in *SetProjectDefaul
 	return out, nil
 }
 
+func (c *aPIClient) PipelinesSummary(ctx context.Context, in *PipelinesSummaryRequest, opts ...grpc.CallOption) (*PipelinesSummaryResponse, error) {
+	out := new(PipelinesSummaryResponse)
+	err := c.cc.Invoke(ctx, API_PipelinesSummary_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 // All implementations must embed UnimplementedAPIServer
 // for forward compatibility
@@ -846,6 +858,8 @@ type APIServer interface {
 	GetProjectDefaults(context.Context, *GetProjectDefaultsRequest) (*GetProjectDefaultsResponse, error)
 	// SetProjectDefaults sets the defaults for a particular project.
 	SetProjectDefaults(context.Context, *SetProjectDefaultsRequest) (*SetProjectDefaultsResponse, error)
+	// PipelinesSummary summarizes the pipelines for each requested project.
+	PipelinesSummary(context.Context, *PipelinesSummaryRequest) (*PipelinesSummaryResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -975,6 +989,9 @@ func (UnimplementedAPIServer) GetProjectDefaults(context.Context, *GetProjectDef
 }
 func (UnimplementedAPIServer) SetProjectDefaults(context.Context, *SetProjectDefaultsRequest) (*SetProjectDefaultsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetProjectDefaults not implemented")
+}
+func (UnimplementedAPIServer) PipelinesSummary(context.Context, *PipelinesSummaryRequest) (*PipelinesSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PipelinesSummary not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
@@ -1768,6 +1785,24 @@ func _API_SetProjectDefaults_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_PipelinesSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PipelinesSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).PipelinesSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_PipelinesSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).PipelinesSummary(ctx, req.(*PipelinesSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // API_ServiceDesc is the grpc.ServiceDesc for API service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1890,6 +1925,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetProjectDefaults",
 			Handler:    _API_SetProjectDefaults_Handler,
+		},
+		{
+			MethodName: "PipelinesSummary",
+			Handler:    _API_PipelinesSummary_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

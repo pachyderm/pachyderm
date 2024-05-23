@@ -45,7 +45,7 @@ func TestVerbatimRequest(t *testing.T) {
 			c.LokiHost, c.LokiPort = u.Hostname(), u.Port()
 		})
 	logsClient := logs.NewAPIClient(env.PachClient.ClientConn())
-	respStream, err := logsClient.GetLogs(ctx, &logs.GetLogsRequest{LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP})
+	respStream, err := logsClient.GetLogs(ctx, &logs.GetLogsRequest{})
 	require.NoError(t, err, "logs.GetLogs request error")
 	resp, err := respStream.Recv()
 	require.NoError(t, err, "logs.GetLogs stream error")

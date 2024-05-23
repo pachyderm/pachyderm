@@ -82,6 +82,11 @@ func (x *UserLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("pipeline_job", x.GetPipelineJob())
 	}
+	if obj, ok := interface{}(x.GetJobDatum()).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("job_datum", obj)
+	} else {
+		enc.AddReflected("job_datum", x.GetJobDatum())
+	}
 	return nil
 }
 
@@ -104,6 +109,15 @@ func (x *PipelineJobLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		enc.AddReflected("pipeline", x.Pipeline)
 	}
 	enc.AddString("job", x.Job)
+	return nil
+}
+
+func (x *JobDatumLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("job", x.Job)
+	enc.AddString("datum", x.Datum)
 	return nil
 }
 
@@ -132,6 +146,7 @@ func (x *TimeRangeLogFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	protoextensions.AddTimestamp(enc, "from", x.From)
 	protoextensions.AddTimestamp(enc, "until", x.Until)
+	enc.AddUint64("offset", x.Offset)
 	return nil
 }
 
@@ -160,7 +175,6 @@ func (x *GetLogsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddBool("tail", x.Tail)
 	enc.AddBool("want_paging_hint", x.WantPagingHint)
-	enc.AddString("log_format", x.LogFormat.String())
 	return nil
 }
 
@@ -198,24 +212,6 @@ func (x *PagingHint) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *LogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	if obj, ok := interface{}(x.GetVerbatim()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("verbatim", obj)
-	} else {
-		enc.AddReflected("verbatim", x.GetVerbatim())
-	}
-	if obj, ok := interface{}(x.GetJson()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("json", obj)
-	} else {
-		enc.AddReflected("json", x.GetJson())
-	}
-	enc.AddObject("pps_log_message", x.GetPpsLogMessage())
-	return nil
-}
-
 func (x *VerbatimLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -225,7 +221,7 @@ func (x *VerbatimLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *ParsedJSONLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *LogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}

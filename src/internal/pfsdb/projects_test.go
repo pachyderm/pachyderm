@@ -3,12 +3,11 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"google.golang.org/protobuf/proto"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -208,7 +207,7 @@ func testProjectPicker() *pfs.ProjectPicker {
 func TestPickProject(t *testing.T) {
 	t.Parallel()
 	namePicker := testProjectPicker()
-	badProjectPicker := deepcopy.Copy(namePicker).(*pfs.ProjectPicker)
+	badProjectPicker := proto.Clone(namePicker).(*pfs.ProjectPicker)
 	badProjectPicker.Picker.(*pfs.ProjectPicker_Name).Name = "does not exist"
 	expected := &pfsdb.ProjectWithID{ID: 1}
 	ctx := pctx.TestContext(t)

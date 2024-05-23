@@ -31,8 +31,8 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "set project",
-			args: []string{"project", "default", "set", `{"key":"value", "key2":"value2"}`},
+			name: "replace project",
+			args: []string{"project", "default", "replace", `{"key":"value", "key2":"value2"}`},
 			want: &metadata.EditMetadataRequest{
 				Edits: []*metadata.Edit{
 					{
@@ -126,7 +126,7 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 		{
 			name: "do everything to a project",
 			args: []string{
-				"project", "default", "set", `{"key":"value", "key2":"value2"}`,
+				"project", "default", "replace", `{"key":"value", "key2":"value2"}`,
 				"project", "default", "add", "key3=value",
 				"project", "default", "edit", "key=new",
 				"project", "default", "delete", "key",
@@ -198,8 +198,30 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 			},
 		},
 		{
-			name:    "wrong syntax for set",
-			args:    []string{"project", "default", "set", "key=value"},
+			name: "replace metadata for a project",
+			args: []string{"project", "default", "replace", "key=new"},
+			want: &metadata.EditMetadataRequest{
+				Edits: []*metadata.Edit{
+					{
+						Target: &metadata.Edit_Project{
+							Project: &pfs.ProjectPicker{
+								Picker: &pfs.ProjectPicker_Name{
+									Name: "default",
+								},
+							},
+						},
+						Op: &metadata.Edit_Replace_{
+							Replace: &metadata.Edit_Replace{
+								Replacement: map[string]string{"key": "new"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "wrong syntax for replace",
+			args:    []string{"project", "default", "replace", ";key=value"},
 			wantErr: true,
 		},
 		{
@@ -427,28 +449,28 @@ func TestEditMetadata(t *testing.T) {
 		{
 			name: "commit",
 			code: `
-				pachctl edit metadata commit test@master set '{"key":"value"}'
+				pachctl edit metadata commit test@master replace '{"key":"value"}'
 				pachctl inspect commit test@master --raw | match '"key":[[:space:]]+"value"'
 			`,
 		},
 		{
 			name: "branch",
 			code: `
-				pachctl edit metadata branch test@master set '{"key":"value"}'
+				pachctl edit metadata branch test@master replace '{"key":"value"}'
 				pachctl inspect branch test@master --raw | match '"key":[[:space:]]+"value"'
 			`,
 		},
 		{
 			name: "repo",
 			code: `
-				pachctl edit metadata repo test set '{"key":"value"}'
+				pachctl edit metadata repo test replace '{"key":"value"}'
 				pachctl inspect repo test --raw | match '"key":[[:space:]]+"value"'
 			`,
 		},
 		{
 			name: "cluster",
 			code: `
-				pachctl edit metadata cluster . set '{"key":"value"}'
+				pachctl edit metadata cluster . replace '{"key":"value"}'
 				pachctl inspect cluster --raw | match '"key":[[:space:]]+"value"'
 			`,
 		},
@@ -457,7 +479,7 @@ func TestEditMetadata(t *testing.T) {
 			code: `
 				pachctl inspect project default
 				pachctl edit metadata \
-					project default set '{"key":"value","key2":"value"}' \
+					project default replace '{"key":"value","key2":"value"}' \
 					project default add key3=value3 \
 					project default delete key \
 					project default edit key2=value2

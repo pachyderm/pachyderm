@@ -53,6 +53,7 @@ pachd:
     apiGRPCPort: 31400
     s3GatewayPort: 30600
   storage:
+    storageURL: "gs://test-bucket"
     google:
       # bucket is configured per workspace.
       bucket: "test-bucket"

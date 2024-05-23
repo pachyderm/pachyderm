@@ -28,8 +28,8 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	setupTestData(t, ctx, db)
 
 	// Apply migrations up to and including 2.8.0
-	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_8_0))
-	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_8_0))
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, State_2_8_0))
+	require.NoError(t, migrations.BlockUntil(ctx, db, State_2_8_0))
 
 	// Get all collections commits.
 	expectedCommits, expectedAncestries, err := v2_8_0.ListCommitsFromCollection(ctx, db)

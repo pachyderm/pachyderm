@@ -9,6 +9,7 @@ go_library(
         "//src/internal/errors",
         "//src/internal/lokiutil/client",
         "//src/logs",
+        "//src/server/auth",
         "//src/server/logs",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",

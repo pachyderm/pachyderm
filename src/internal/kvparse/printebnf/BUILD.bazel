@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "printebnf_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/kvparse/printebnf",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/kvparse/kvgrammar",
+        "@com_github_alecthomas_participle_v2//:participle",
+        "@com_github_alecthomas_participle_v2//lexer",
+    ],
+)
+
+go_binary(
+    name = "printebnf",
+    embed = [":printebnf_lib"],
+    visibility = ["//src:__subpackages__"],
+)

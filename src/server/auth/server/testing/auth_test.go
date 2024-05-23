@@ -122,7 +122,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err := bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -145,7 +145,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can update the ACL
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole}))
@@ -176,7 +176,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("1"), client.WithAppendPutFile())
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id)) // # commits = 1
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id)) // # commits = 1
 	buf := &bytes.Buffer{}
 	require.NoError(t, aliceClient.GetFile(dataCommit, "/file", buf))
 	require.Equal(t, "1", buf.String())
@@ -194,7 +194,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 	require.Equal(t, 3, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can update the ACL
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole}))
@@ -221,7 +221,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Equal(t, 4, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 	require.Equal(t, 5, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 	// bob can't update the ACL
 	err = bobClient.ModifyRepoRoleBinding(bobClient.Ctx(), pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
@@ -2096,7 +2096,7 @@ func TestPutFileURL(t *testing.T) {
 		}
 	}
 	check()
-	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(aliceClient, repo, "", commit.Id))
 	check()
 }
 
@@ -2157,7 +2157,7 @@ func TestGetFileURL(t *testing.T) {
 		}
 	}
 	check()
-	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(aliceClient, repo, "", commit.Id))
 	check()
 }
 

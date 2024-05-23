@@ -47,11 +47,7 @@ stringData:
     db:
       user: {{ required "A valid Values.db.user entry required!" .Values.determined.db.user | quote }}
       password: {{ required "A valid Values.db.password entry required!" .Values.determined.db.password | quote }}
-      {{- if .Values.determined.db.hostAddress }}
-      host: {{ .Values.determined.db.hostAddress }}
-      {{- else }}
-      host: determined-db-service-{{ .Release.Name }}
-      {{- end  }}
+      host: {{ include "determined.dbHost" . }}
       port: {{ .Values.determined.db.port }}
       name: {{ .Values.determined.db.name | quote }}
       {{- if .Values.determined.db.sslMode }}
@@ -61,6 +57,9 @@ stringData:
       {{- end }}
 
     security:
+      {{- if .Values.determined.initialUserPassword }}
+      initial_user_password: {{ coalesce .Values.determined.initialUserPassword .Values.determined.defaultPassword | quote }}
+      {{- end }}
       {{- if .Values.determined.tlsSecret }}
       tls:
         cert: {{ include "determined.secretPath" . }}tls.crt
@@ -98,8 +97,11 @@ stringData:
       {{- if .Values.determined.oidc.autoProvisionUsers }}
       auto_provision_users: {{ .Values.determined.oidc.autoProvisionUsers }}
       {{- end }}
-      {{- if .Values.determined.oidc.groupsClaimName }}
-      groups_claim_name: {{ .Values.determined.oidc.groupsClaimName }}
+      {{- if .Values.determined.oidc.groupsAttributeName }}
+      groups_attribute_name: {{ .Values.determined.oidc.groupsAttributeName }}
+      {{- end }}
+       {{- if .Values.determined.oidc.displayNameAttributeName }}
+      display_name_attribute_name: {{ .Values.determined.oidc.displayNameAttributeName }}
       {{- end }}
     {{- end }}
 
@@ -116,6 +118,21 @@ stringData:
         username: {{ required "A valid username is required!" .Values.determined.scim.auth.username }}
         password: {{ required "A valid password type is required!" .Values.determined.scim.auth.password }}
         {{- end }}
+    {{- end }}
+    {{- end }}
+
+    {{- if .Values.determined.genai }}
+    {{- if .Values.determined.genai.version }}
+    feature_switches:
+      - genai
+
+    {{- $port := (required "A valid .Values.determined.genai.port entry required!" .Values.determined.genai.port) }}
+    __internal:
+      proxied_servers:
+        - destination: "http://genai-backend-service-{{ .Release.Name }}:{{ $port }}/lore"
+          path_prefix: /lore
+        - destination: "http://genai-backend-service-{{ .Release.Name }}:{{ $port }}/genai"
+          path_prefix: /genai
     {{- end }}
     {{- end }}
 
@@ -145,6 +162,17 @@ stringData:
       default_aux_resource_pool: {{.Values.determined.defaultAuxResourcePool}}
       default_compute_resource_pool: {{.Values.determined.defaultComputeResourcePool}}
 
+    {{- if .Values.determined.additional_resource_managers}}
+    additional_resource_managers:
+    {{- range $index, $manager_and_pools := .Values.determined.additional_resource_managers }}
+    - resource_manager:
+        {{- omit $manager_and_pools.resource_manager "kubeconfig_secret_name" "kubeconfig_secret_value" | toYaml | nindent 8 }}
+        kubeconfig_path: {{ include "determined.secretPath" . }}{{ $index }}/{{ required "for each additional_resource_managers, resource_manager.kubeconfig_secret_value must be specified" $manager_and_pools.resource_manager.kubeconfig_secret_value }}
+      resource_pools:
+        {{- toYaml $manager_and_pools.resource_pools | nindent 8}}
+    {{- end }}
+    {{- end }}
+
     {{- if .Values.determined.resourcePools}}
     resource_pools:
       {{- toYaml .Values.determined.resourcePools | nindent 6}}
@@ -163,6 +191,9 @@ stringData:
       {{- end }}
       {{- if .Values.determined.taskContainerDefaults.gpuPodSpec }}
       gpu_pod_spec: {{ .Values.determined.taskContainerDefaults.gpuPodSpec | toJson }}
+      {{- end }}
+      {{- if .Values.determined.taskContainerDefaults.startupHook }}
+      startup_hook: {{ .Values.determined.taskContainerDefaults.startupHook | quote}}
       {{- end }}
       {{- if .Values.determined.taskContainerDefaults.logPolicies }}
       log_policies:

@@ -26,7 +26,7 @@ import '@testing-library/cypress/add-commands';
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
 Cypress.Commands.add('resetApp', () => {
-  cy.request('PUT', 'http://localhost:8888/pachyderm/v2/_unmount_all');
+  cy.clearLocalStorage();
   cy.visit('?reset');
 });
 

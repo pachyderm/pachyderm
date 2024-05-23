@@ -4,24 +4,39 @@ import {requestAPI} from '../../handler';
 import {
   AuthConfig,
   HealthCheck,
-  Mount,
-  ListMountsResponse,
+  Repos,
   Repo,
-  ProjectInfo,
+  MountedRepo,
+  Branch,
+  CrossInputSpec,
+  PfsInput,
 } from './types';
 import {ServerConnection} from '@jupyterlab/services';
 
 export class PollMounts {
+  static MOUNTED_REPO_LOCAL_STORAGE_KEY = 'mountedRepo';
+
   constructor(name: string) {
     this.name = name;
+
+    const mountedRepoString = localStorage.getItem(
+      PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
+    );
+    if (!mountedRepoString) {
+      return;
+    }
+
+    try {
+      const mountedRepo: MountedRepo = JSON.parse(mountedRepoString);
+      this.mountedRepo = mountedRepo;
+    } catch (e) {
+      localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+    }
   }
   readonly name: string;
 
-  private _rawData: ListMountsResponse = <ListMountsResponse>{};
-
-  private _mounted: Mount[] = [];
-  private _unmounted: Repo[] = [];
-  private _projects: ProjectInfo[] = [];
+  private _repos: Repos = {};
+  private _mountedRepo: MountedRepo | null = null;
   private _config: AuthConfig = {
     pachd_address: '',
   };
@@ -30,9 +45,8 @@ export class PollMounts {
     message: '',
   };
 
-  private _mountedSignal = new Signal<this, Mount[]>(this);
-  private _unmountedSignal = new Signal<this, Repo[]>(this);
-  private _projectSignal = new Signal<this, ProjectInfo[]>(this);
+  private _reposSignal = new Signal<this, Repos>(this);
+  private _mountedRepoSignal = new Signal<this, MountedRepo | null>(this);
   private _configSignal = new Signal<this, AuthConfig>(this);
   private _healthSignal = new Signal<this, HealthCheck>(this);
 
@@ -46,40 +60,22 @@ export class PollMounts {
     },
   });
 
-  get mounted(): Mount[] {
-    return this._mounted;
+  get repos(): Repos {
+    return this._repos;
   }
 
-  set mounted(data: Mount[]) {
-    if (data === this._mounted) {
-      return;
-    }
-    this._mounted = data;
-    this._mountedSignal.emit(data);
+  set repos(data: Repos) {
+    this._repos = data;
+    this._reposSignal.emit(data);
   }
 
-  get unmounted(): Repo[] {
-    return this._unmounted;
+  get mountedRepo(): MountedRepo | null {
+    return this._mountedRepo;
   }
 
-  set unmounted(data: Repo[]) {
-    if (data === this._unmounted) {
-      return;
-    }
-    this._unmounted = data;
-    this._unmountedSignal.emit(data);
-  }
-
-  get projects(): ProjectInfo[] {
-    return this._projects;
-  }
-
-  set projects(data: ProjectInfo[]) {
-    if (data === this._projects) {
-      return;
-    }
-    this._projects = data;
-    this._projectSignal.emit(data);
+  set mountedRepo(data: MountedRepo | null) {
+    this._mountedRepo = data;
+    this._mountedRepoSignal.emit(data);
   }
 
   get health(): HealthCheck {
@@ -107,14 +103,12 @@ export class PollMounts {
     this._configSignal.emit(config);
   }
 
-  get mountedSignal(): ISignal<this, Mount[]> {
-    return this._mountedSignal;
+  get reposSignal(): ISignal<this, Repos> {
+    return this._reposSignal;
   }
-  get unmountedSignal(): ISignal<this, Repo[]> {
-    return this._unmountedSignal;
-  }
-  get projectSignal(): ISignal<this, ProjectInfo[]> {
-    return this._projectSignal;
+
+  get mountedRepoSignal(): ISignal<this, MountedRepo | null> {
+    return this._mountedRepoSignal;
   }
 
   get healthSignal(): ISignal<this, HealthCheck> {
@@ -129,23 +123,58 @@ export class PollMounts {
     return this._dataPoll;
   }
 
+  updateMountedRepo = (
+    repo: Repo | null,
+    mountedBranch: Branch | null,
+  ): void => {
+    if (repo === null) {
+      localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+      this.mountedRepo = null;
+      return;
+    }
+
+    if (!mountedBranch) {
+      mountedBranch = repo?.branches[0] || null;
+      for (const branch of repo.branches) {
+        if (branch.name === 'master') {
+          mountedBranch = branch;
+        }
+      }
+    }
+
+    this.mountedRepo = {
+      mountedBranch,
+      repo,
+    };
+    localStorage.setItem(
+      PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
+      JSON.stringify(this.mountedRepo),
+    );
+  };
+
+  getMountedRepoInputSpec = (): CrossInputSpec | PfsInput => {
+    const mountedRepo = this.mountedRepo;
+    if (mountedRepo === null) {
+      return {};
+    }
+
+    let repo = mountedRepo.repo.name;
+    if (mountedRepo.repo.project !== 'default') {
+      repo = `${mountedRepo.repo.project}_name`;
+    }
+
+    return {
+      pfs: {
+        name: `${mountedRepo.repo.project}_${mountedRepo.repo.name}_${mountedRepo.mountedBranch.name}`,
+        repo,
+        glob: '/*',
+      },
+    };
+  };
+
   refresh = async (): Promise<void> => {
     await this._dataPoll.refresh();
     await this._dataPoll.tick;
-  };
-
-  updateData = (data: ListMountsResponse): void => {
-    if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
-      this._rawData = data;
-      this.mounted = Array.from(Object.values(data.mounted));
-      this.unmounted = Array.from(Object.values(data.unmounted));
-    }
-  };
-
-  updateProjects = (data: ProjectInfo[]): void => {
-    if (JSON.stringify(data) !== JSON.stringify(this.projects)) {
-      this.projects = data;
-    }
   };
 
   async getData(): Promise<void> {
@@ -158,10 +187,8 @@ export class PollMounts {
       ) {
         const config = await requestAPI<AuthConfig>('config', 'GET');
         this.config = config;
-        const data = await requestAPI<ListMountsResponse>('mounts', 'GET');
-        this.updateData(data);
-        const project = await requestAPI<ProjectInfo[]>('projects', 'GET');
-        this.updateProjects(project);
+        const data = await requestAPI<Repos>('repos', 'GET');
+        this.repos = data;
       }
     } catch (error) {
       if (error instanceof ServerConnection.ResponseError) {

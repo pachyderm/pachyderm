@@ -3,11 +3,8 @@ package testpachd
 import (
 	"context"
 	"net"
-	"runtime"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -31,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -94,21 +92,21 @@ type RotateRootTokenFunc func(context.Context, *auth.RotateRootTokenRequest) (*a
 type checkClusterIsAuthorizedFunc func(context.Context, ...auth.Permission) error
 type checkProjectIsAuthorizedFunc func(context.Context, *pfs.Project, ...auth.Permission) error
 type checkRepoIsAuthorizedFunc func(context.Context, *pfs.Repo, ...auth.Permission) error
-type checkClusterIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, ...auth.Permission) error
-type checkProjectIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, *pfs.Project, ...auth.Permission) error
-type checkRepoIsAuthorizedInTransactionFunc func(*txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error
-type authorizeInTransactionFunc func(*txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
-type modifyRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
-type getRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
-type addPipelineReaderToRepoInTransactionFunc func(*txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
-type addPipelineWriterToRepoInTransactionFunc func(*txncontext.TransactionContext, *pps.Pipeline) error
-type addPipelineWriterToSourceRepoInTransactionFunc func(*txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
-type removePipelineReaderFromRepoInTransactionFunc func(*txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
-type createRoleBindingInTransactionFunc func(*txncontext.TransactionContext, string, []string, *auth.Resource) error
-type deleteRoleBindingInTransactionFunc func(*txncontext.TransactionContext, *auth.Resource) error
-type getPipelineAuthTokenInTransactionFunc func(*txncontext.TransactionContext, *pps.Pipeline) (string, error)
-type revokeAuthTokenInTransactionFunc func(*txncontext.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
-type getPermissionsInTransactionFunc func(*txncontext.TransactionContext, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
+type checkClusterIsAuthorizedInTransactionFunc func(context.Context, *txncontext.TransactionContext, ...auth.Permission) error
+type checkProjectIsAuthorizedInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pfs.Project, ...auth.Permission) error
+type checkRepoIsAuthorizedInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pfs.Repo, ...auth.Permission) error
+type authorizeInTransactionFunc func(context.Context, *txncontext.TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
+type modifyRoleBindingInTransactionFunc func(context.Context, *txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
+type getRoleBindingInTransactionFunc func(context.Context, *txncontext.TransactionContext, *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error)
+type addPipelineReaderToRepoInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
+type addPipelineWriterToRepoInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pps.Pipeline) error
+type addPipelineWriterToSourceRepoInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
+type removePipelineReaderFromRepoInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pfs.Repo, *pps.Pipeline) error
+type createRoleBindingInTransactionFunc func(context.Context, *txncontext.TransactionContext, string, []string, *auth.Resource) error
+type deleteRoleBindingInTransactionFunc func(context.Context, *txncontext.TransactionContext, *auth.Resource) error
+type getPipelineAuthTokenInTransactionFunc func(context.Context, *txncontext.TransactionContext, *pps.Pipeline) (string, error)
+type revokeAuthTokenInTransactionFunc func(context.Context, *txncontext.TransactionContext, *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error)
+type getPermissionsInTransactionFunc func(context.Context, *txncontext.TransactionContext, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
 
 type mockActivateAuth struct{ handler activateAuthFunc }
 type mockDeactivateAuth struct{ handler deactivateAuthFunc }
@@ -503,107 +501,107 @@ func (api *authServerAPI) CheckRepoIsAuthorized(ctx context.Context, repo *pfs.R
 	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorized")
 }
 
-func (api *authServerAPI) CheckClusterIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, permission ...auth.Permission) error {
+func (api *authServerAPI) CheckClusterIsAuthorizedInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, permission ...auth.Permission) error {
 	if api.mock.CheckClusterIsAuthorizedInTransaction.handler != nil {
-		return api.mock.CheckClusterIsAuthorizedInTransaction.handler(transactionContext, permission...)
+		return api.mock.CheckClusterIsAuthorizedInTransaction.handler(ctx, transactionContext, permission...)
 	}
 	return errors.Errorf("unhandled pachd mock auth.CheckClusterIsAuthorizedInTransaction")
 }
 
-func (api *authServerAPI) CheckRepoIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, repo *pfs.Repo, permission ...auth.Permission) error {
+func (api *authServerAPI) CheckRepoIsAuthorizedInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, repo *pfs.Repo, permission ...auth.Permission) error {
 	if api.mock.CheckRepoIsAuthorizedInTransaction.handler != nil {
-		return api.mock.CheckRepoIsAuthorizedInTransaction.handler(transactionContext, repo, permission...)
+		return api.mock.CheckRepoIsAuthorizedInTransaction.handler(ctx, transactionContext, repo, permission...)
 	}
 	return errors.Errorf("unhandled pachd mock auth.CheckRepoIsAuthorizedInTransaction")
 }
 
-func (api *authServerAPI) CheckProjectIsAuthorizedInTransaction(transactionContext *txncontext.TransactionContext, project *pfs.Project, permission ...auth.Permission) error {
+func (api *authServerAPI) CheckProjectIsAuthorizedInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, project *pfs.Project, permission ...auth.Permission) error {
 	if api.mock.CheckProjectIsAuthorizedInTransaction.handler != nil {
-		return api.mock.CheckProjectIsAuthorizedInTransaction.handler(transactionContext, project, permission...)
+		return api.mock.CheckProjectIsAuthorizedInTransaction.handler(ctx, transactionContext, project, permission...)
 	}
 	return errors.Errorf("unhandled pachd mock auth.CheckProjectIsAuthorizedInTransaction")
 }
 
-func (api *authServerAPI) AuthorizeInTransaction(transactionContext *txncontext.TransactionContext, request *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
+func (api *authServerAPI) AuthorizeInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, request *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
 	if api.mock.AuthorizeInTransaction.handler != nil {
-		return api.mock.AuthorizeInTransaction.handler(transactionContext, request)
+		return api.mock.AuthorizeInTransaction.handler(ctx, transactionContext, request)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.AuthorizeInTransaction")
 }
 
-func (api *authServerAPI) ModifyRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, request *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
+func (api *authServerAPI) ModifyRoleBindingInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, request *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
 	if api.mock.ModifyRoleBindingInTransaction.handler != nil {
-		return api.mock.ModifyRoleBindingInTransaction.handler(transactionContext, request)
+		return api.mock.ModifyRoleBindingInTransaction.handler(ctx, transactionContext, request)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.ModifyRoleBindingInTransaction")
 }
 
-func (api *authServerAPI) GetRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, request *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error) {
+func (api *authServerAPI) GetRoleBindingInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, request *auth.GetRoleBindingRequest) (*auth.GetRoleBindingResponse, error) {
 	if api.mock.GetRoleBindingInTransaction.handler != nil {
-		return api.mock.GetRoleBindingInTransaction.handler(transactionContext, request)
+		return api.mock.GetRoleBindingInTransaction.handler(ctx, transactionContext, request)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.GetRoleBindingInTransaction")
 }
 
-func (api *authServerAPI) AddPipelineReaderToRepoInTransaction(transactionContext *txncontext.TransactionContext, r *pfs.Repo, p *pps.Pipeline) error {
+func (api *authServerAPI) AddPipelineReaderToRepoInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, r *pfs.Repo, p *pps.Pipeline) error {
 	if api.mock.AddPipelineReaderToRepoInTransaction.handler != nil {
-		return api.mock.AddPipelineReaderToRepoInTransaction.handler(transactionContext, r, p)
+		return api.mock.AddPipelineReaderToRepoInTransaction.handler(ctx, transactionContext, r, p)
 	}
 	return errors.Errorf("unhandled pachd mock auth.AddPipelineReaderToRepoInTransaction")
 }
 
-func (api *authServerAPI) AddPipelineWriterToRepoInTransaction(transactionContext *txncontext.TransactionContext, p *pps.Pipeline) error {
+func (api *authServerAPI) AddPipelineWriterToRepoInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, p *pps.Pipeline) error {
 	if api.mock.AddPipelineWriterToRepoInTransaction.handler != nil {
-		return api.mock.AddPipelineWriterToRepoInTransaction.handler(transactionContext, p)
+		return api.mock.AddPipelineWriterToRepoInTransaction.handler(ctx, transactionContext, p)
 	}
 	return errors.Errorf("unhandled pachd mock auth.AddPipelineWriterToRepoInTransaction")
 }
 
-func (api *authServerAPI) AddPipelineWriterToSourceRepoInTransaction(transactionContext *txncontext.TransactionContext, r *pfs.Repo, p *pps.Pipeline) error {
+func (api *authServerAPI) AddPipelineWriterToSourceRepoInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, r *pfs.Repo, p *pps.Pipeline) error {
 	if api.mock.AddPipelineWriterToSourceRepoInTransaction.handler != nil {
-		return api.mock.AddPipelineWriterToSourceRepoInTransaction.handler(transactionContext, r, p)
+		return api.mock.AddPipelineWriterToSourceRepoInTransaction.handler(ctx, transactionContext, r, p)
 	}
 	return errors.Errorf("unhandled pachd mock auth.AddPipelineWriterToSourceRepoInTransaction")
 }
 
-func (api *authServerAPI) RemovePipelineReaderFromRepoInTransaction(transactionContext *txncontext.TransactionContext, r *pfs.Repo, p *pps.Pipeline) error {
+func (api *authServerAPI) RemovePipelineReaderFromRepoInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, r *pfs.Repo, p *pps.Pipeline) error {
 	if api.mock.RemovePipelineReaderFromRepoInTransaction.handler != nil {
-		return api.mock.RemovePipelineReaderFromRepoInTransaction.handler(transactionContext, r, p)
+		return api.mock.RemovePipelineReaderFromRepoInTransaction.handler(ctx, transactionContext, r, p)
 	}
 	return errors.Errorf("unhandled pachd mock auth.RemovePipelineReaderFromRepoInTransaction")
 }
 
-func (api *authServerAPI) CreateRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, s string, strings []string, resource *auth.Resource) error {
+func (api *authServerAPI) CreateRoleBindingInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, s string, strings []string, resource *auth.Resource) error {
 	if api.mock.CreateRoleBindingInTransaction.handler != nil {
-		return api.mock.CreateRoleBindingInTransaction.handler(transactionContext, s, strings, resource)
+		return api.mock.CreateRoleBindingInTransaction.handler(ctx, transactionContext, s, strings, resource)
 	}
 	return errors.Errorf("unhandled pachd mock auth.CreateRoleBindingInTransaction")
 }
 
-func (api *authServerAPI) DeleteRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, resource *auth.Resource) error {
+func (api *authServerAPI) DeleteRoleBindingInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, resource *auth.Resource) error {
 	if api.mock.DeleteRoleBindingInTransaction.handler != nil {
-		return api.mock.DeleteRoleBindingInTransaction.handler(transactionContext, resource)
+		return api.mock.DeleteRoleBindingInTransaction.handler(ctx, transactionContext, resource)
 	}
 	return errors.Errorf("unhandled pachd mock auth.DeleteRoleBindingInTransaction")
 }
 
-func (api *authServerAPI) GetPipelineAuthTokenInTransaction(transactionContext *txncontext.TransactionContext, p *pps.Pipeline) (string, error) {
+func (api *authServerAPI) GetPipelineAuthTokenInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, p *pps.Pipeline) (string, error) {
 	if api.mock.GetPipelineAuthTokenInTransaction.handler != nil {
-		return api.mock.GetPipelineAuthTokenInTransaction.handler(transactionContext, p)
+		return api.mock.GetPipelineAuthTokenInTransaction.handler(ctx, transactionContext, p)
 	}
 	return "", errors.Errorf("unhandled pachd mock auth.GetPipelineAuthTokenInTransaction")
 }
 
-func (api *authServerAPI) RevokeAuthTokenInTransaction(transactionContext *txncontext.TransactionContext, request *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
+func (api *authServerAPI) RevokeAuthTokenInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, request *auth.RevokeAuthTokenRequest) (*auth.RevokeAuthTokenResponse, error) {
 	if api.mock.RevokeAuthTokenInTransaction.handler != nil {
-		return api.mock.RevokeAuthTokenInTransaction.handler(transactionContext, request)
+		return api.mock.RevokeAuthTokenInTransaction.handler(ctx, transactionContext, request)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.RevokeAuthTokenInTransaction")
 }
 
-func (api *authServerAPI) GetPermissionsInTransaction(transactionContext *txncontext.TransactionContext, request *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {
+func (api *authServerAPI) GetPermissionsInTransaction(ctx context.Context, transactionContext *txncontext.TransactionContext, request *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {
 	if api.mock.GetPermissionsInTransaction.handler != nil {
-		return api.mock.GetPermissionsInTransaction.handler(transactionContext, request)
+		return api.mock.GetPermissionsInTransaction.handler(ctx, transactionContext, request)
 	}
 	return nil, errors.Errorf("unhandled pachd mock auth.GetPermissionsInTransaction")
 }
@@ -1642,6 +1640,7 @@ type getClusterDefaultsFunc func(context.Context, *pps.GetClusterDefaultsRequest
 type setClusterDefaultsFunc func(context.Context, *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error)
 type getProjectDefaultsFunc func(context.Context, *pps.GetProjectDefaultsRequest) (*pps.GetProjectDefaultsResponse, error)
 type setProjectDefaultsFunc func(context.Context, *pps.SetProjectDefaultsRequest) (*pps.SetProjectDefaultsResponse, error)
+type pipelinesSummaryFunc func(context.Context, *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error)
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1687,6 +1686,7 @@ type mockGetClusterDefaults struct{ handler getClusterDefaultsFunc }
 type mockSetClusterDefaults struct{ handler setClusterDefaultsFunc }
 type mockGetProjectDefaults struct{ handler getProjectDefaultsFunc }
 type mockSetProjectDefaults struct{ handler setProjectDefaultsFunc }
+type mockPipelinesSummary struct{ handler pipelinesSummaryFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -1732,6 +1732,7 @@ func (mock *mockGetClusterDefaults) Use(cb getClusterDefaultsFunc) { mock.handle
 func (mock *mockSetClusterDefaults) Use(cb setClusterDefaultsFunc) { mock.handler = cb }
 func (mock *mockGetProjectDefaults) Use(cb getProjectDefaultsFunc) { mock.handler = cb }
 func (mock *mockSetProjectDefaults) Use(cb setProjectDefaultsFunc) { mock.handler = cb }
+func (mock *mockPipelinesSummary) Use(cb pipelinesSummaryFunc)     { mock.handler = cb }
 
 type ppsServerAPI struct {
 	pps.UnsafeAPIServer
@@ -1782,6 +1783,7 @@ type mockPPSServer struct {
 	SetClusterDefaults           mockSetClusterDefaults
 	GetProjectDefaults           mockGetProjectDefaults
 	SetProjectDefaults           mockSetProjectDefaults
+	PipelinesSummary             mockPipelinesSummary
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -2038,6 +2040,12 @@ func (api *ppsServerAPI) SetProjectDefaults(ctx context.Context, req *pps.SetPro
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.SetProjectDefaults")
 }
+func (api *ppsServerAPI) PipelinesSummary(ctx context.Context, req *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error) {
+	if api.mock.PipelinesSummary.handler != nil {
+		return api.mock.PipelinesSummary.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.PipelinesSummary")
+}
 
 /* Transaction Server Mocks */
 
@@ -2287,34 +2295,11 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(ctx)
 	unaryOpts := []grpc.UnaryServerInterceptor{
 		errorsmw.UnaryServerInterceptor,
-		loggingInterceptor.UnaryServerInterceptor,
-		validation.UnaryServerInterceptor,
-		func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
-			defer func() {
-				if err := recover(); err != nil {
-					stack := make([]byte, 16384)
-					n := runtime.Stack(stack, false)
-					stack = stack[:n]
-					retErr = status.Errorf(codes.Aborted, "panic: %v\n%s", err, stack)
-				}
-			}()
-			return handler(ctx, req)
-		},
+		loggingInterceptor.UnarySetup,
 	}
 	streamOpts := []grpc.StreamServerInterceptor{
 		errorsmw.StreamServerInterceptor,
-		loggingInterceptor.StreamServerInterceptor,
-		validation.StreamServerInterceptor,
-		func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
-			defer func() {
-				if err := recover(); err != nil {
-					stack := make([]byte, 16384)
-					runtime.Stack(stack, false)
-					retErr = status.Errorf(codes.Aborted, "panic: %v\n%s", err, stack)
-				}
-			}()
-			return handler(srv, ss)
-		},
+		loggingInterceptor.StreamSetup,
 	}
 	for _, opt := range options {
 		interceptor := opt(mock)
@@ -2325,6 +2310,16 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 			streamOpts = append(streamOpts, interceptor.StreamServerInterceptor)
 		}
 	}
+	unaryOpts = append(unaryOpts,
+		loggingInterceptor.UnaryAnnounce,
+		validation.UnaryServerInterceptor,
+		recovery.UnaryServerInterceptor,
+	)
+	streamOpts = append(streamOpts,
+		loggingInterceptor.StreamAnnounce,
+		validation.StreamServerInterceptor,
+		recovery.StreamServerInterceptor,
+	)
 	server, err := grpcutil.NewServer(ctx, false,
 		grpc.ChainUnaryInterceptor(
 			unaryOpts...,
