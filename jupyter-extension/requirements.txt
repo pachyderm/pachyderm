@@ -1,3 +1,7 @@
 pyyaml>=6.0,<7.0
 jupyter_server>=2.7.0,<2.8
 pachyderm_sdk>=2.9.0,<2.10.0
+
+
+# security patches
+jinja2!=3.1.3
