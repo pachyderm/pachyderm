@@ -1,0 +1,13 @@
+load("//private/rules:rules.bzl", "host_native_binary")
+
+host_native_binary(
+    name = "_kubeconform",
+    repo = "@com_github_yannh_kubeconform",
+    target = ":kubeconform",
+)
+
+alias(
+    name = "kubeconform",
+    actual = "_kubeconform_bin",
+    visibility = ["//visibility:public"],
+)

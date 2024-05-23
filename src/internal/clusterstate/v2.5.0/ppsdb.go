@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -77,9 +77,9 @@ func pipelineCommitKey(commit *pfs.Commit) (string, error) {
 		return "", errors.Errorf("commit %s is not from a spec repo", commit)
 	}
 	if projectName := commit.Branch.Repo.Project.GetName(); projectName != "" {
-		return fmt.Sprintf("%s/%s@%s", projectName, commit.Branch.Repo.Name, commit.ID), nil
+		return fmt.Sprintf("%s/%s@%s", projectName, commit.Branch.Repo.Name, commit.Id), nil
 	}
-	return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.ID), nil
+	return fmt.Sprintf("%s@%s", commit.Branch.Repo.Name, commit.Id), nil
 }
 
 func jobsPipelineKey(p *pps.Pipeline) string {
@@ -109,7 +109,7 @@ var jobsTerminalIndex = &index{
 var jobsJobSetIndex = &index{
 	Name: "jobset",
 	Extract: func(val proto.Message) string {
-		return val.(*pps.JobInfo).Job.ID
+		return val.(*pps.JobInfo).Job.Id
 	},
 }
 
@@ -119,7 +119,7 @@ var jobsIndexes = []*index{jobsPipelineIndex, jobsTerminalIndex, jobsJobSetIndex
 // key.  It will include the project if the project name is not the empty
 // string.
 func jobKey(j *pps.Job) string {
-	return fmt.Sprintf("%s@%s", j.Pipeline, j.ID)
+	return fmt.Sprintf("%s@%s", j.Pipeline, j.Id)
 }
 
 func migrateJobInfo(j *pps.JobInfo) (*pps.JobInfo, error) {

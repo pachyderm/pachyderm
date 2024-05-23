@@ -8,13 +8,9 @@ import (
 	"path"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	opentracing "github.com/opentracing/opentracing-go"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
-
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -25,6 +21,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // startMonitor starts a new goroutine running monitorPipeline for
@@ -40,11 +38,7 @@ func (pc *pipelineController) startMonitor(ctx context.Context, pipelineInfo *pp
 		pctx.Child(ctx, fmt.Sprintf("monitorPipeline(%s)", pipelineInfo.Pipeline),
 			pctx.WithFields(zap.Stringer("pipeline", pipelineInfo.Pipeline))),
 		func(ctx context.Context) {
-			// monitorPipeline needs auth privileges to call subscribeCommit and
-			// inspectCommit
-			pachClient := pc.env.GetPachClient(ctx)
-			pachClient.SetAuthToken(pipelineInfo.AuthToken)
-			pc.monitorPipeline(pachClient.Ctx(), pipelineInfo)
+			pc.monitorPipeline(ctx, pipelineInfo)
 		})
 }
 
@@ -69,7 +63,7 @@ func (pc *pipelineController) startCrashingMonitor(ctx context.Context, pipeline
 // APIServer's fields, just wrapps the passed function in a goroutine, and
 // returns a cancel() fn to cancel it and block until it returns.
 func startMonitorThread(ctx context.Context, f func(ctx context.Context)) func() {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	done := make(chan struct{})
 	go func() {
 		f(ctx)
@@ -113,8 +107,11 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 			defer close(ciChan)
 			return backoff.RetryUntilCancel(ctx, func() error {
 				pachClient := pc.env.GetPachClient(ctx)
-				return pachClient.SubscribeCommit(client.NewProjectRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineName), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
-					ciChan <- ci
+				return pachClient.SubscribeCommit(client.NewRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineName), "", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+					select {
+					case ciChan <- ci:
+					case <-ctx.Done():
+					}
 					return nil
 				})
 			}, backoff.NewInfiniteBackOff(),
@@ -176,7 +173,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 						childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 							pc.env.EtcdClient, pipelineInfo.Pipeline,
 							"/pps.Master/MonitorPipeline/SpinUp",
-							"commit", ci.Commit.ID)
+							"commit", ci.Commit.Id)
 
 						if err := pc.psDriver.TransitionState(ctx,
 							pipelineInfo.SpecCommit,
@@ -194,11 +191,9 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 						// Stay running while commits are available and there's still job-related compaction to do
 					running:
 						for {
-							pachClient := pc.env.GetPachClient(ctx)
-							if err := pc.blockStandby(pachClient, ci.Commit); err != nil {
+							if err := pc.blockStandby(pc.env.GetPachClient(ctx), ci.Commit); err != nil {
 								return err
 							}
-
 							tracing.FinishAnySpan(childSpan)
 							childSpan = nil
 							select {
@@ -209,7 +204,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 								childSpan, ctx = extended.AddSpanToAnyPipelineTrace(oldCtx,
 									pc.env.EtcdClient, pipelineInfo.Pipeline,
 									"/pps.Master/MonitorPipeline/WatchNext",
-									"commit", ci.Commit.ID)
+									"commit", ci.Commit.Id)
 							default:
 								break running
 							}
@@ -233,7 +228,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 							return errors.EnsureStack(err)
 						}
 					case <-ctx.Done():
-						return errors.EnsureStack(ctx.Err())
+						return errors.EnsureStack(context.Cause(ctx))
 					}
 				}
 			}, backoff.NewInfiniteBackOff(),
@@ -274,7 +269,7 @@ func (pc *pipelineController) blockStandby(pachClient *client.APIClient, commit 
 }
 
 func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
-	ctx, cancelInner := context.WithCancel(ctx)
+	ctx, cancelInner := pctx.WithCancel(ctx)
 	if err := backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		currRC, _, err := pc.getRC(ctx, pipelineInfo)
 		if err != nil {
@@ -307,7 +302,7 @@ func (pc *pipelineController) monitorCrashingPipeline(ctx context.Context, pipel
 
 func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) error {
 	if err := pachClient.WithModifyFileClient(
-		client.NewProjectRepo(cron.Project, cron.Repo).NewCommit("master", ""),
+		client.NewRepo(cron.Project, cron.Repo).NewCommit("master", ""),
 		func(m client.ModifyFile) error {
 			if cron.Overwrite {
 				if err := m.DeleteFile("/"); err != nil {
@@ -337,7 +332,6 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 	if err != nil {
 		return errors.Wrap(err, "getLatestCronTime")
 	}
-
 	for {
 		// get the time of the next time from the latest time using the cron schedule
 		next := schedule.Next(latestTime)
@@ -350,7 +344,7 @@ func makeCronCommits(ctx context.Context, env Env, in *pps.Input) error {
 		select {
 		case <-time.After(time.Until(next)):
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		}
 		if err := cronTick(pachClient, next, in.Cron); err != nil {
 			return errors.Wrap(err, "cronTick")
@@ -369,7 +363,7 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 	var latestTime time.Time
 	pachClient := env.GetPachClient(ctx)
 	defer log.Span(ctx, "getLatestCronTime")(zap.Timep("latest", &retTime), log.Errorp(&retErr))
-	files, err := pachClient.ListFileAll(client.NewProjectCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
+	files, err := pachClient.ListFileAll(client.NewCommit(in.Cron.Project, in.Cron.Repo, "master", ""), "")
 	// bail if cron repo is not accessible
 	if err != nil {
 		return latestTime, err
@@ -385,11 +379,9 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 			return latestTime, err //nolint:wrapcheck
 		}
 		// get cron start time to compare if previous start time was updated
-		startTime, err := types.TimestampFromProto(in.Cron.Start)
+		startTime := in.Cron.Start.AsTime()
 		// return latest time from filename if start time cannot be determined
-		if err != nil {
-			return latestTime, err //nolint:wrapcheck
-		}
+
 		if latestTime.After(startTime) {
 			return latestTime, nil
 		} else {
@@ -397,9 +389,6 @@ func getLatestCronTime(ctx context.Context, env Env, in *pps.Input) (retTime tim
 		}
 	}
 	// otherwise return cron start time since there are no files in cron repo
-	startTime, err := types.TimestampFromProto(in.Cron.Start)
-	if err != nil {
-		return startTime, err //nolint:wrapcheck
-	}
+	startTime := in.Cron.Start.AsTime()
 	return startTime, nil
 }

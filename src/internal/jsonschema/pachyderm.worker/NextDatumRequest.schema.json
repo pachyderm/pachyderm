@@ -1,0 +1,17 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/NextDatumRequest",
+    "definitions": {
+        "NextDatumRequest": {
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Next Datum Request",
+            "description": "Error indicates that the processing of the current datum errored. Datum error semantics with datum batching enabled are similar to datum error semantics without datum batching enabled in that the datum may be retried, recovered, or result with a job failure."
+        }
+    }
+}

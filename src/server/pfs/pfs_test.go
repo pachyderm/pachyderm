@@ -1,17 +1,18 @@
-//go:build unit_test
-
 package pfs
 
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"google.golang.org/grpc/status"
+
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 func TestErrorMatching(t *testing.T) {
-	c := client.NewProjectCommit(pfs.DefaultProjectName, "foo", "bar", "")
+	c := client.NewCommit(pfs.DefaultProjectName, "foo", "bar", "")
 	require.True(t, IsCommitNotFoundErr(ErrCommitNotFound{c}))
 	require.False(t, IsCommitNotFoundErr(ErrCommitDeleted{c}))
 	require.False(t, IsCommitNotFoundErr(ErrCommitFinished{c}))
@@ -24,3 +25,7 @@ func TestErrorMatching(t *testing.T) {
 	require.False(t, IsCommitFinishedErr(ErrCommitDeleted{c}))
 	require.True(t, IsCommitFinishedErr(ErrCommitFinished{c}))
 }
+
+type grpcStatus interface{ GRPCStatus() *status.Status }
+
+var _ grpcStatus = ErrCommitNotFinished{}

@@ -2,7 +2,6 @@ package backoff_test
 
 import (
 	"bytes"
-	"context"
 	"strings"
 	"testing"
 	"time"
@@ -46,7 +45,7 @@ func TestRetry(t *testing.T) {
 
 func TestRetryUntilCancel(t *testing.T) {
 	var results []int
-	ctx, cancel := context.WithCancel(pctx.TestContext(t))
+	ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		results = append(results, len(results))
 		if len(results) >= 3 {
@@ -60,7 +59,7 @@ func TestRetryUntilCancel(t *testing.T) {
 }
 
 func TestRetryUntilCancelZeroBackoff(t *testing.T) {
-	ctx, cancel := context.WithCancel(pctx.TestContext(t))
+	ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
 	first := true
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		if first {
@@ -157,7 +156,7 @@ func TestNotifyContinue(t *testing.T) {
 		t.Cleanup(zap.ReplaceGlobals(l))
 
 		var results []int
-		ctx, cancel := context.WithCancel(pctx.TestContext(t))
+		ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
 		backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 			results = append(results, len(results))
 			if len(results) < 3 {
@@ -176,7 +175,7 @@ func TestNotifyContinue(t *testing.T) {
 
 func TestMustLoop(t *testing.T) {
 	var results []int
-	ctx, cancel := context.WithCancel(pctx.TestContext(t))
+	ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
 	backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error { //nolint:errcheck
 		results = append(results, len(results)+1)
 		switch len(results) {

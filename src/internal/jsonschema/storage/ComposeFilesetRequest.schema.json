@@ -1,0 +1,23 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ComposeFilesetRequest",
+    "definitions": {
+        "ComposeFilesetRequest": {
+            "properties": {
+                "filesetIds": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "ttlSeconds": {
+                    "type": "integer",
+                    "description": "The TTL, in seconds, for the composite fileset that is created."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Compose Fileset Request"
+        }
+    }
+}

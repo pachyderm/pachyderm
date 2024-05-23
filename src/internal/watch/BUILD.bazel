@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "watch",
+    srcs = [
+        "op.go",
+        "watch.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/watch",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "@io_etcd_go_etcd_client_v3//:client",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

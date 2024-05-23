@@ -11,16 +11,16 @@ docker-image:
 	@docker push $(CONTAINER_TAG)-amd64
 	@docker push $(CONTAINER_TAG)-arm64
 	#@docker manifest rm $(CONTAINER_TAG)
-	@docker manifest create $(CONTAINER_TAG) $(CONTAINER_TAG)-arm64 $(CONTAINER_TAG)-amd64 
+	@docker manifest create $(CONTAINER_TAG) $(CONTAINER_TAG)-arm64 $(CONTAINER_TAG)-amd64
 	@docker manifest push $(CONTAINER_TAG)
 
 
 wordcount:
 	pachctl create repo urls --project $(PROJECT)
 	cd data && pachctl put file urls@master -f Wikipedia --project $(PROJECT)
-	pachctl create pipeline -f pipelines/scraper.json --project $(PROJECT)
-	pachctl create pipeline -f pipelines/map.json --project $(PROJECT)
-	pachctl create pipeline -f pipelines/reduce.json --project $(PROJECT)
+	pachctl create pipeline -f pipelines/scraper.pipeline.json --project $(PROJECT)
+	pachctl create pipeline -f pipelines/map.pipeline.json --project $(PROJECT)
+	pachctl create pipeline -f pipelines/reduce.pipeline.json --project $(PROJECT)
 
 clean:
 	pachctl delete pipeline reduce --project $(PROJECT)

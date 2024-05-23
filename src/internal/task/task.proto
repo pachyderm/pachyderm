@@ -3,7 +3,6 @@ syntax = "proto3";
 package task;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/task";
 
-import "gogoproto/gogo.proto";
 import "google/protobuf/any.proto";
 
 enum State {
@@ -17,7 +16,7 @@ message Group {}
 
 // TODO: Consider splitting this up into separate structures for each state in a oneof.
 message Task {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
   State state = 2;
   google.protobuf.Any input = 3;
   google.protobuf.Any output = 4;
@@ -28,5 +27,5 @@ message Task {
 message Claim {}
 
 message TestTask {
-  string id = 1 [(gogoproto.customname) = "ID"];
+  string id = 1;
 }

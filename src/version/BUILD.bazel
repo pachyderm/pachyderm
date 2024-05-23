@@ -1,0 +1,17 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "version",
+    srcs = [
+        "api_server.go",
+        "client.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/version",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/errors",
+        "//src/version/versionpb",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_protobuf//types/known/emptypb",
+    ],
+)

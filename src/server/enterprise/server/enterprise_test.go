@@ -1,5 +1,3 @@
-//go:build unit_test
-
 package server_test
 
 import (
@@ -8,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
@@ -30,7 +28,7 @@ import (
 const year = 365 * 24 * time.Hour
 
 func realEnvWithLicense(ctx context.Context, t *testing.T, expireTime ...time.Time) (*realenv.RealEnv, string) {
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	testutil.ActivateLicense(t, env.PachClient, peerPort, expireTime...)
 	_, err := env.PachClient.Enterprise.Activate(ctx,
@@ -59,8 +57,7 @@ func TestGetState(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.State, enterprise.State_ACTIVE)
 
-	expires, err := types.TimestampFromProto(resp.Info.Expires)
-	require.NoError(t, err)
+	expires := resp.Info.Expires.AsTime()
 	untilExpires := time.Until(expires)
 	require.True(t, untilExpires >= year)
 
@@ -71,8 +68,7 @@ func TestGetState(t *testing.T) {
 
 	// Make current enterprise token expire
 	expires = time.Now().Add(-30 * time.Second)
-	expiresProto, err := types.TimestampProto(expires)
-	require.NoError(t, err)
+	expiresProto := timestamppb.New(expires)
 
 	_, err = client.License.Activate(client.Ctx(),
 		&lc.ActivateRequest{
@@ -112,8 +108,7 @@ func TestGetActivationCode(t *testing.T) {
 
 	// Make current enterprise token expire
 	expires := time.Now().Add(-30 * time.Second)
-	expiresProto, err := types.TimestampProto(expires)
-	require.NoError(t, err)
+	expiresProto := timestamppb.New(expires)
 	_, err = client.License.Activate(client.Ctx(),
 		&lc.ActivateRequest{
 			ActivationCode: testutil.GetTestEnterpriseCode(t),
@@ -187,7 +182,7 @@ func TestDoubleDeactivate(t *testing.T) {
 func TestGetActivationCodeNotAdmin(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	aliceClient := testutil.AuthenticatedPachClient(t, c, "robot:alice", peerPort)
@@ -266,7 +261,7 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 
 	etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &enterprise.EnterpriseConfig{}, nil, nil)
 	_, err := col.NewSTM(ctx, etcd, func(stm col.STM) error {
-		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Put("config", config))
+		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Put(ctx, "config", config))
 	})
 	require.NoError(t, err)
 
@@ -295,12 +290,12 @@ func TestEnterpriseConfigMigration(t *testing.T) {
 
 	pgCol := server.EnterpriseConfigCollection(db, nil)
 	result := &enterprise.EnterpriseConfig{}
-	require.NoError(t, pgCol.ReadOnly(ctx).Get("config", result))
+	require.NoError(t, pgCol.ReadOnly().Get(ctx, "config", result))
 	require.Equal(t, config.Id, result.Id)
 	require.Equal(t, config.LicenseServer, result.LicenseServer)
 	require.Equal(t, config.Secret, result.Secret)
 
-	err = etcdConfigCol.ReadOnly(ctx).Get("config", &enterprise.EnterpriseConfig{})
+	err = etcdConfigCol.ReadOnly().Get(ctx, "config", &enterprise.EnterpriseConfig{})
 	require.YesError(t, err)
 	require.True(t, col.IsErrNotFound(err))
 }

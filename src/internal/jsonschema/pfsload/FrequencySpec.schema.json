@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/FrequencySpec",
+    "definitions": {
+        "FrequencySpec": {
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "prob": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Frequency Spec"
+        }
+    }
+}

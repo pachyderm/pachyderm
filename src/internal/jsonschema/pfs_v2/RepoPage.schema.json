@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/RepoPage",
+    "definitions": {
+        "RepoPage": {
+            "properties": {
+                "order": {
+                    "enum": [
+                        "PROJECT_REPO"
+                    ],
+                    "type": "string",
+                    "title": "Ordering"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "pageIndex": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Repo Page"
+        }
+    }
+}

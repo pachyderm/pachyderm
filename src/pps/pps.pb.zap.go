@@ -94,7 +94,7 @@ func (x *TFJob) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("tf_job", x.TFJob)
+	enc.AddString("tf_job", x.TfJob)
 	return nil
 }
 
@@ -108,12 +108,26 @@ func (x *Egress) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *Determined) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	workspacesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Workspaces {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("workspaces", zapcore.ArrayMarshalerFunc(workspacesArrMarshaller))
+	return nil
+}
+
 func (x *Job) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
 	enc.AddObject("pipeline", x.Pipeline)
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	return nil
 }
 
@@ -142,7 +156,7 @@ func (x *Service) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddInt32("internal_port", x.InternalPort)
 	enc.AddInt32("external_port", x.ExternalPort)
-	enc.AddString("ip", x.IP)
+	enc.AddString("ip", x.Ip)
 	enc.AddString("type", x.Type)
 	return nil
 }
@@ -260,7 +274,7 @@ func (x *Datum) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("job", x.Job)
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	return nil
 }
 
@@ -323,8 +337,8 @@ func (x *WorkerStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("worker_id", x.WorkerID)
-	enc.AddString("job_id", x.JobID)
+	enc.AddString("worker_id", x.WorkerId)
+	enc.AddString("job_id", x.JobId)
 	enc.AddObject("datum_status", x.DatumStatus)
 	return nil
 }
@@ -399,6 +413,7 @@ func (x *JobInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	protoextensions.AddTimestamp(enc, "started", x.Started)
 	protoextensions.AddTimestamp(enc, "finished", x.Finished)
 	enc.AddObject("details", x.Details)
+	enc.AddString("auth_token", x.AuthToken)
 	return nil
 }
 
@@ -479,6 +494,8 @@ func (x *PipelineInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("type", x.Type.String())
 	enc.AddString("auth_token", x.AuthToken)
 	enc.AddObject("details", x.Details)
+	enc.AddString("user_spec_json", x.UserSpecJson)
+	enc.AddString("effective_spec_json", x.EffectiveSpecJson)
 	return nil
 }
 
@@ -487,7 +504,7 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddObject("transform", x.Transform)
-	enc.AddObject("tf_job", x.TFJob)
+	enc.AddObject("tf_job", x.TfJob)
 	enc.AddObject("parallelism_spec", x.ParallelismSpec)
 	enc.AddObject("egress", x.Egress)
 	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
@@ -525,6 +542,9 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
 	enc.AddObject("sidecar_resource_requests", x.SidecarResourceRequests)
+	enc.AddObject("determined", x.Determined)
+	protoextensions.AddDuration(enc, "maximum_expected_uptime", x.MaximumExpectedUptime)
+	protoextensions.AddTimestamp(enc, "workers_started_at", x.WorkersStartedAt)
 	return nil
 }
 
@@ -546,7 +566,7 @@ func (x *JobSet) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	return nil
 }
 
@@ -575,6 +595,7 @@ func (x *ListJobSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	protoextensions.AddTimestamp(enc, "paginationMarker", x.PaginationMarker)
 	enc.AddInt64("number", x.Number)
 	enc.AddBool("reverse", x.Reverse)
+	enc.AddString("jqFilter", x.JqFilter)
 	return nil
 }
 
@@ -687,9 +708,9 @@ func (x *LogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddString("project_name", x.ProjectName)
 	enc.AddString("pipeline_name", x.PipelineName)
-	enc.AddString("job_id", x.JobID)
-	enc.AddString("worker_id", x.WorkerID)
-	enc.AddString("datum_id", x.DatumID)
+	enc.AddString("job_id", x.JobId)
+	enc.AddString("worker_id", x.WorkerId)
+	enc.AddString("datum_id", x.DatumId)
 	enc.AddBool("master", x.Master)
 	dataArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Data {
@@ -754,6 +775,32 @@ func (x *ListDatumRequest_Filter) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	return nil
 }
 
+func (x *StartCreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("input", x.Input)
+	enc.AddInt32("number", x.Number)
+	return nil
+}
+
+func (x *ContinueCreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddInt32("number", x.Number)
+	return nil
+}
+
+func (x *CreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("start", x.GetStart())
+	enc.AddObject("continue", x.GetContinue())
+	return nil
+}
+
 func (x *DatumSetSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -778,12 +825,21 @@ func (x *SchedulingSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *RerunPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddBool("reprocess", x.Reprocess)
+	return nil
+}
+
 func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
 	enc.AddObject("pipeline", x.Pipeline)
-	enc.AddObject("tf_job", x.TFJob)
+	enc.AddObject("tf_job", x.TfJob)
 	enc.AddObject("transform", x.Transform)
 	enc.AddObject("parallelism_spec", x.ParallelismSpec)
 	enc.AddObject("egress", x.Egress)
@@ -818,6 +874,28 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	}
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
 	enc.AddObject("sidecar_resource_requests", x.SidecarResourceRequests)
+	enc.AddBool("dry_run", x.DryRun)
+	enc.AddObject("determined", x.Determined)
+	protoextensions.AddDuration(enc, "maximum_expected_uptime", x.MaximumExpectedUptime)
+	return nil
+}
+
+func (x *CreatePipelineV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("create_pipeline_request_json", x.CreatePipelineRequestJson)
+	enc.AddBool("dry_run", x.DryRun)
+	enc.AddBool("update", x.Update)
+	enc.AddBool("reprocess", x.Reprocess)
+	return nil
+}
+
+func (x *CreatePipelineV2Response) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("effective_create_pipeline_request_json", x.EffectiveCreatePipelineRequestJson)
 	return nil
 }
 
@@ -846,6 +924,17 @@ func (x *ListPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
+	enc.AddObject("page", x.Page)
+	return nil
+}
+
+func (x *PipelinePage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("order", x.Order.String())
+	enc.AddInt64("page_size", x.PageSize)
+	enc.AddInt64("page_index", x.PageIndex)
 	return nil
 }
 
@@ -857,6 +946,7 @@ func (x *DeletePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	enc.AddBool("all", x.All)
 	enc.AddBool("force", x.Force)
 	enc.AddBool("keep_repo", x.KeepRepo)
+	enc.AddBool("must_exist", x.MustExist)
 	return nil
 }
 
@@ -904,6 +994,7 @@ func (x *StopPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddBool("must_exist", x.MustExist)
 	return nil
 }
 
@@ -919,7 +1010,7 @@ func (x *RunPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("provenance", zapcore.ArrayMarshalerFunc(provenanceArrMarshaller))
-	enc.AddString("job_id", x.JobID)
+	enc.AddString("job_id", x.JobId)
 	return nil
 }
 
@@ -928,6 +1019,31 @@ func (x *RunCronRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("pipeline", x.Pipeline)
+	return nil
+}
+
+func (x *CheckStatusRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("all", x.GetAll())
+	enc.AddObject("project", x.GetProject())
+	return nil
+}
+
+func (x *CheckStatusResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	enc.AddObject("pipeline", x.Pipeline)
+	alertsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Alerts {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("alerts", zapcore.ArrayMarshalerFunc(alertsArrMarshaller))
 	return nil
 }
 
@@ -1066,5 +1182,153 @@ func (x *LokiLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("message", x.Message)
+	return nil
+}
+
+func (x *ClusterDefaults) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("create_pipeline_request", x.CreatePipelineRequest)
+	return nil
+}
+
+func (x *GetClusterDefaultsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	return nil
+}
+
+func (x *GetClusterDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("cluster_defaults_json", x.ClusterDefaultsJson)
+	return nil
+}
+
+func (x *SetClusterDefaultsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("regenerate", x.Regenerate)
+	enc.AddBool("reprocess", x.Reprocess)
+	enc.AddBool("dry_run", x.DryRun)
+	enc.AddString("cluster_defaults_json", x.ClusterDefaultsJson)
+	return nil
+}
+
+func (x *SetClusterDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	affected_pipelinesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.AffectedPipelines {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("affected_pipelines", zapcore.ArrayMarshalerFunc(affected_pipelinesArrMarshaller))
+	return nil
+}
+
+func (x *CreatePipelineTransaction) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("create_pipeline_request", x.CreatePipelineRequest)
+	enc.AddString("user_json", x.UserJson)
+	enc.AddString("effective_json", x.EffectiveJson)
+	return nil
+}
+
+func (x *ProjectDefaults) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("create_pipeline_request", x.CreatePipelineRequest)
+	return nil
+}
+
+func (x *GetProjectDefaultsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	return nil
+}
+
+func (x *GetProjectDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("project_defaults_json", x.ProjectDefaultsJson)
+	return nil
+}
+
+func (x *SetProjectDefaultsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	enc.AddBool("regenerate", x.Regenerate)
+	enc.AddBool("reprocess", x.Reprocess)
+	enc.AddBool("dry_run", x.DryRun)
+	enc.AddString("project_defaults_json", x.ProjectDefaultsJson)
+	return nil
+}
+
+func (x *SetProjectDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	affected_pipelinesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.AffectedPipelines {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("affected_pipelines", zapcore.ArrayMarshalerFunc(affected_pipelinesArrMarshaller))
+	return nil
+}
+
+func (x *PipelinesSummaryRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	projectsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Projects {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
+	return nil
+}
+
+func (x *PipelinesSummaryResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	summariesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Summaries {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("summaries", zapcore.ArrayMarshalerFunc(summariesArrMarshaller))
+	return nil
+}
+
+func (x *PipelinesSummary) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	enc.AddInt64("active_pipelines", x.ActivePipelines)
+	enc.AddInt64("paused_pipelines", x.PausedPipelines)
+	enc.AddInt64("failed_pipelines", x.FailedPipelines)
+	enc.AddInt64("unhealthy_pipelines", x.UnhealthyPipelines)
 	return nil
 }

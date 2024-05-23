@@ -56,6 +56,12 @@ spec:
         env:
         - name: IS_PACHW
           value: "true"
+        - name: GOCDK_ENABLED
+          value: {{ .Values.pachd.storage.gocdkEnabled | quote }}
+        {{- if and (ne .Values.deployTarget "LOCAL") .Values.pachd.storage.gocdkEnabled  }}
+        - name: STORAGE_URL
+          value: {{ required "storage URL required" .Values.pachd.storage.storageURL | quote }}
+        {{- end }}
         - name: POSTGRES_HOST
           value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
         - name: POSTGRES_PORT
@@ -184,7 +190,7 @@ spec:
         - configMapRef:
             name: pachd-config
             optional: true
-        image: "{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+        image: "{{ .Values.global.image.registry }}{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
         name: pachw
         readinessProbe:

@@ -12,7 +12,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
@@ -117,10 +117,9 @@ type jobHandler interface {
 func (s *sidecarS3G) serveS3Instances(ctx context.Context) {
 	// Watch for new jobs & initialize s3g for each new job
 	(&handleJobsCtx{
-		ctx: ctx,
-		s:   s,
-		h:   &s3InstanceCreatingJobHandler{s},
-	}).start()
+		s: s,
+		h: &s3InstanceCreatingJobHandler{s},
+	}).start(ctx)
 }
 
 func (s *sidecarS3G) createK8sServices(ctx context.Context) {
@@ -143,10 +142,9 @@ func (s *sidecarS3G) createK8sServices(ctx context.Context) {
 
 		// Watch for new jobs & create kubernetes service for each new job
 		(&handleJobsCtx{
-			ctx: ctx,
-			s:   s,
-			h:   &k8sServiceCreatingJobHandler{s},
-		}).start()
+			s: s,
+			h: &k8sServiceCreatingJobHandler{s},
+		}).start(ctx)
 
 		// Retry the unlock inside the larger retry as other sidecars may not be
 		// able to obtain mastership until the key expires if unlock is unsuccessful
@@ -171,7 +169,7 @@ type s3InstanceCreatingJobHandler struct {
 
 func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pps.JobInfo) {
 	// serve new S3 gateway & add to s.server routers
-	if ok := s.s.server.ContainsRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID)); ok {
+	if ok := s.s.server.ContainsRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.Id)); ok {
 		return // s3g handler already created
 	}
 
@@ -180,7 +178,7 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	err := pps.VisitInput(jobInfo.Details.Input, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
 			inputBuckets = append(inputBuckets, &s3.Bucket{
-				Commit: client.NewSystemProjectRepo(in.Pfs.Project, in.Pfs.Repo, in.Pfs.RepoType).NewCommit(in.Pfs.Branch, in.Pfs.Commit),
+				Commit: client.NewSystemRepo(in.Pfs.Project, in.Pfs.Repo, in.Pfs.RepoType).NewCommit(in.Pfs.Branch, in.Pfs.Commit),
 				Name:   in.Pfs.Name,
 			})
 		}
@@ -196,11 +194,11 @@ func (s *s3InstanceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 	}
 	driver := s3.NewWorkerDriver(inputBuckets, outputBucket)
 	router := s3.Router(ctx, driver, s.s.apiServer.env.GetPachClient)
-	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID), router)
+	s.s.server.AddRouter(ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.Id), router)
 }
 
 func (s *s3InstanceCreatingJobHandler) OnTerminate(jobCtx context.Context, job *pps.Job) {
-	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline, job.ID))
+	s.s.server.RemoveRouter(ppsutil.SidecarS3GatewayService(job.Pipeline, job.Id))
 }
 
 type k8sServiceCreatingJobHandler struct {
@@ -232,14 +230,14 @@ func (s *k8sServiceCreatingJobHandler) OnCreate(ctx context.Context, jobInfo *pp
 		selectorlabels[pipelineProjectLabel] = projectName
 	}
 	svcLabels := copyMap(selectorlabels)
-	svcLabels["job"] = jobInfo.Job.ID // for reference, we also want to leave info about the job in the service definition
+	svcLabels["job"] = jobInfo.Job.Id // for reference, we also want to leave info about the job in the service definition
 	service := &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.ID),
+			Name:   ppsutil.SidecarS3GatewayService(jobInfo.Job.Pipeline, jobInfo.Job.Id),
 			Labels: svcLabels,
 		},
 		Spec: v1.ServiceSpec{
@@ -280,7 +278,7 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(ctx context.Context, job *pps
 	if err := backoff.RetryNotify(func() error {
 		err := s.s.apiServer.env.KubeClient.CoreV1().Services(s.s.apiServer.namespace).Delete(
 			ctx,
-			ppsutil.SidecarS3GatewayService(job.Pipeline, job.ID),
+			ppsutil.SidecarS3GatewayService(job.Pipeline, job.Id),
 			metav1.DeleteOptions{OrphanDependents: new(bool) /* false */})
 		if err != nil && errutil.IsNotFoundError(err) {
 			return nil // service already deleted
@@ -295,12 +293,11 @@ func (s *k8sServiceCreatingJobHandler) OnTerminate(ctx context.Context, job *pps
 }
 
 type handleJobsCtx struct {
-	ctx context.Context
-	s   *sidecarS3G
-	h   jobHandler
+	s *sidecarS3G
+	h jobHandler
 }
 
-func (h *handleJobsCtx) start() {
+func (h *handleJobsCtx) start(ctx context.Context) {
 	defer func() {
 		panic("sidecar s3 gateway: start() is exiting; this should never happen")
 	}()
@@ -308,8 +305,8 @@ func (h *handleJobsCtx) start() {
 		var watcher watch.Watcher
 		backoff.Retry(func() error { //nolint:errcheck
 			var err error
-			watcher, err = h.s.apiServer.jobs.ReadOnly(context.Background()).WatchByIndex(
-				ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(h.s.pipelineInfo.Pipeline))
+			watcher, err = h.s.apiServer.jobs.ReadOnly().WatchByIndex(
+				ctx, ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(h.s.pipelineInfo.Pipeline))
 			if err != nil {
 				return errors.Wrapf(err, "error creating watch")
 			}
@@ -318,17 +315,17 @@ func (h *handleJobsCtx) start() {
 
 		for e := range watcher.Watch() {
 			if e.Type == watch.EventError {
-				log.Error(h.ctx, "sidecar s3 gateway watch error", zap.Error(e.Err))
+				log.Error(ctx, "sidecar s3 gateway watch error", zap.Error(e.Err))
 				break // reestablish watch
 			}
 
 			var key string
 			jobInfo := &pps.JobInfo{}
 			if err := e.Unmarshal(&key, jobInfo); err != nil {
-				log.Error(h.ctx, "sidecar s3 gateway watch unmarshal error", zap.Error(err))
+				log.Error(ctx, "sidecar s3 gateway watch unmarshal error", zap.Error(err))
 			}
 
-			h.processJobEvent(context.Background(), e.Type, jobInfo.Job)
+			h.processJobEvent(ctx, e.Type, jobInfo.Job)
 		}
 		watcher.Close()
 	}
@@ -342,36 +339,36 @@ func (h *handleJobsCtx) processJobEvent(jobCtx context.Context, t watch.EventTyp
 	// 'e' is a Put event (new or updated job)
 	pachClient := h.s.pachClient.WithCtx(jobCtx)
 	// Inspect the job and make sure it's relevant, as this worker may be old
-	log.Info(h.ctx, "sidecar s3 gateway: inspecting job to begin serving inputs over s3 gateway", log.Proto("job", job))
+	log.Info(jobCtx, "sidecar s3 gateway: inspecting job to begin serving inputs over s3 gateway", log.Proto("job", job))
 
 	var jobInfo *pps.JobInfo
 	if err := backoff.RetryNotify(func() error {
 		var err error
-		jobInfo, err = pachClient.InspectProjectJob(h.s.pipelineInfo.Pipeline.Project.GetName(), h.s.pipelineInfo.Pipeline.Name, job.ID, true)
+		jobInfo, err = pachClient.InspectJob(h.s.pipelineInfo.Pipeline.Project.GetName(), h.s.pipelineInfo.Pipeline.Name, job.Id, true)
 		if err != nil {
 			if col.IsErrNotFound(err) {
 				// TODO(msteffen): I'm not sure what this means--maybe that the service
 				// was created and immediately deleted, and there's a pending deletion
 				// event? In any case, without a job that exists there's nothing to act on
-				log.Error(h.ctx, "sidecar s3 gateway: job not found", log.Proto("job", job), zap.Error(err))
+				log.Error(jobCtx, "sidecar s3 gateway: job not found", log.Proto("job", job), zap.Error(err))
 				return nil
 			}
 			return err
 		}
 		return nil
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
-		log.Error(h.ctx, "error inspecting job; retrying", log.Proto("job", job), zap.Error(err), zap.Duration("retryAfter", d))
+		log.Error(jobCtx, "error inspecting job; retrying", log.Proto("job", job), zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
 	}); err != nil {
-		log.Error(h.ctx, "permanent error inspecting job", log.Proto("job", job), zap.Error(err))
+		log.Error(jobCtx, "permanent error inspecting job", log.Proto("job", job), zap.Error(err))
 		return // leak the job; better than getting stuck?
 	}
 	if jobInfo.PipelineVersion < h.s.pipelineInfo.Version {
-		log.Info(h.ctx, "skipping job as it uses old pipeline version", log.Proto("job", job), zap.Uint64("jobVersion", jobInfo.PipelineVersion), zap.Uint64("ourVersion", h.s.pipelineInfo.Version))
+		log.Info(jobCtx, "skipping job as it uses old pipeline version", log.Proto("job", job), zap.Uint64("jobVersion", jobInfo.PipelineVersion), zap.Uint64("ourVersion", h.s.pipelineInfo.Version))
 		return
 	}
 	if jobInfo.PipelineVersion > h.s.pipelineInfo.Version {
-		log.Info(h.ctx, "skipping job as its pipeline version version is "+
+		log.Info(jobCtx, "skipping job as its pipeline version version is "+
 			"greater than this worker's pipeline version; this should "+
 			"automatically resolve when the worker is updated",
 			log.Proto("job", job), zap.Uint64("jobVersion", jobInfo.PipelineVersion), zap.Uint64("ourVersion", h.s.pipelineInfo.Version))

@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/FileOptions",
+    "definitions": {
+        "FileOptions": {
+            "properties": {
+                "ignore": {
+                    "type": "boolean",
+                    "description": "Files tagged with this will not be processed"
+                },
+                "extension": {
+                    "type": "string",
+                    "description": "Override the default file extension for schemas generated from this file"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "File Options",
+            "description": "Custom FileOptions"
+        }
+    }
+}

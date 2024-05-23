@@ -1,5 +1,3 @@
-//go:build unit_test
-
 package s3_test
 
 import (
@@ -19,7 +17,7 @@ import (
 
 	minio "github.com/minio/minio-go/v6"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )

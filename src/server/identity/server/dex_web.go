@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -185,7 +185,7 @@ func (w *dexWeb) startWebServer(config *identity.IdentityServerConfig, connector
 		Logger:             log.NewLogrus(ctx),
 	}
 
-	ctx, w.serverCancel = context.WithCancel(ctx)
+	ctx, w.serverCancel = pctx.WithCancel(ctx)
 	w.server, err = dex_server.NewServer(ctx, serverConfig)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -239,7 +239,7 @@ func (w *dexWeb) interceptApproval(server *dex_server.Server) func(http.Response
 			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		if err := dbutil.WithTx(r.Context(), w.env.DB, func(tx *pachsql.Tx) error {
+		if err := dbutil.WithTx(r.Context(), w.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 			err := addUserInTx(r.Context(), tx, authReq.Claims.Email)
 			return errors.Wrapf(err, "unable to record user identity for login")
 		}); err != nil {
@@ -264,6 +264,7 @@ func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/approval", w.interceptApproval(server))
+	mux.HandleFunc("/dex/token", w.idTokenHandler(server))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			fmt.Fprintf(w, "200 OK")

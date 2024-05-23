@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 )
 
 // SetOption configures a set.

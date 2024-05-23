@@ -1,0 +1,5 @@
+<tr>
+    <td><a href="{{ .File.Path | basename }}">{{ .File.Path | basename }}</a></td>
+    <td>{{ .SizeBytes | humanizeBytes }}</td>
+    <td>{{ .File.Datum }}</td>
+</tr>

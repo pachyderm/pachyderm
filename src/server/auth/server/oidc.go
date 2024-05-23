@@ -52,11 +52,11 @@ func validateOIDCConfig(ctx context.Context, config *auth.OIDCConfig) error {
 		return errors.Wrapf(err, "provided OIDC issuer does not implement OIDC protocol")
 	}
 
-	if _, err := url.Parse(config.RedirectURI); err != nil {
+	if _, err := url.Parse(config.RedirectUri); err != nil {
 		return errors.Wrapf(err, "OIDC redirect_uri must be a valid URL")
 	}
 
-	if config.ClientID == "" {
+	if config.ClientId == "" {
 		return errors.Errorf("OIDC configuration must have a non-empty client_id")
 	}
 
@@ -112,9 +112,9 @@ func newOIDCConfig(ctx context.Context, config *auth.OIDCConfig) (*oidcConfig, e
 		rewriteClient:     rewriteClient,
 		userAccessAddress: config.UserAccessibleIssuerHost,
 		oauthConfig: oauth2.Config{
-			ClientID:     config.ClientID,
+			ClientID:     config.ClientId,
 			ClientSecret: config.ClientSecret,
-			RedirectURL:  config.RedirectURI,
+			RedirectURL:  config.RedirectUri,
 			Endpoint:     oidcProvider.Endpoint(),
 			Scopes:       config.Scopes,
 		},
@@ -152,7 +152,7 @@ func (a *apiServer) GetOIDCLoginURL(ctx context.Context) (string, string, error)
 	nonce := random.String(30)
 
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-		return errors.EnsureStack(a.oidcStates.ReadWrite(stm).PutTTL(state, &auth.SessionInfo{
+		return errors.EnsureStack(a.oidcStates.ReadWrite(stm).PutTTL(ctx, state, &auth.SessionInfo{
 			Nonce: nonce, // read & verified by /authorization-code/callback
 		}, threeMinutes))
 	}); err != nil {
@@ -190,7 +190,7 @@ func (a *apiServer) OIDCStateToEmail(ctx context.Context, state string) (email s
 	}()
 	// reestablish watch in a loop, in case there's a watch error
 	if err := backoff.RetryNotify(func() error {
-		watcher, err := a.oidcStates.ReadOnly(ctx).WatchOne(state)
+		watcher, err := a.oidcStates.ReadOnly().WatchOne(ctx, state)
 		if err != nil {
 			log.Error(ctx, "error watching OIDC state token during authorization",
 				zap.String("state", state), zap.Error(err))
@@ -287,7 +287,7 @@ func (a *apiServer) handleOIDCExchange(w http.ResponseWriter, req *http.Request)
 	nonce, email, conversionErr := a.handleOIDCExchangeInternal(ctx, code, state)
 	_, txErr := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
 		var si auth.SessionInfo
-		err := a.oidcStates.ReadWrite(stm).Update(state, &si, func() error {
+		err := a.oidcStates.ReadWrite(stm).Update(ctx, state, &si, func() error {
 			// nonce can only be checked inside postgres txn, but if nonces don't match
 			// that's a non-retryable authentication error, so set conversionErr as
 			// if handleOIDCExchangeInternal had errored and proceed
@@ -343,7 +343,7 @@ func (a *apiServer) validateIDToken(ctx context.Context, rawIDToken string) (*oi
 		return nil, nil, err
 	}
 
-	var verifier = config.oidcProvider.Verifier(&oidc.Config{ClientID: config.ClientID})
+	var verifier = config.oidcProvider.Verifier(&oidc.Config{ClientID: config.ClientId})
 	idToken, err := verifier.Verify(config.Ctx(ctx), rawIDToken)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "could not verify token")

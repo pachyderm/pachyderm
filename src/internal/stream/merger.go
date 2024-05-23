@@ -77,7 +77,7 @@ func (m *Merger[T]) Next(ctx context.Context, dst *Merged[T]) error {
 	// read into dst
 	me, exists := m.heap.Pop()
 	if !exists {
-		return EOS
+		return EOS()
 	}
 	dst.Indexes = append(dst.Indexes, me.index)
 	if err := appendNext[T](ctx, me.it, &dst.Values); err != nil {

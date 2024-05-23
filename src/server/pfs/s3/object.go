@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -35,7 +34,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 		return nil, s2.NoSuchKeyError(r)
 	}
 
-	commitID := bucket.Commit.ID
+	commitID := bucket.Commit.Id
 	if version != "" {
 		if !bucketCaps.historicVersions {
 			return nil, s2.NotImplementedError(r)
@@ -69,10 +68,7 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 		return nil, s2.NoSuchKeyError(r)
 	}
 
-	modTime, err := types.TimestampFromProto(fileInfo.Committed)
-	if err != nil {
-		log.Debug(r.Context(), "Warning: using nil timestamp (file probably in open commit)", zap.Error(err))
-	}
+	modTime := fileInfo.Committed.AsTime()
 
 	content, err := pc.GetFileReadSeeker(bucket.Commit, file)
 	if err != nil {
@@ -132,7 +128,7 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 	}
 	var version string
 	if fileInfo != nil {
-		version = fileInfo.File.Commit.ID
+		version = fileInfo.File.Commit.Id
 	}
 
 	return version, nil
@@ -176,7 +172,7 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 	result := s2.PutObjectResult{}
 	if fileInfo != nil {
 		result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
-		result.Version = fileInfo.File.Commit.ID
+		result.Version = fileInfo.File.Commit.Id
 	}
 
 	return &result, nil

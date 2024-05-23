@@ -1,0 +1,44 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "metrics",
+    srcs = [
+        "metrics.go",
+        "metrics.pb.go",
+        "metrics.pb.validate.go",
+        "metrics.pb.zap.go",
+        "router.go",
+        "segment.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/metrics",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/auth",
+        "//src/enterprise",
+        "//src/internal/config",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "//src/internal/serviceenv",
+        "//src/internal/uuid",
+        "//src/pps",
+        "//src/server/enterprise/metrics",
+        "//src/version",
+        "@com_github_segmentio_analytics_go//:analytics-go",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_client_go//kubernetes",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/anypb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+        "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

@@ -26,7 +26,7 @@ func DeployResources() pulumi.RunFunc {
 		if err != nil {
 			return err
 		}
-		err = DeployApp(ctx, k8sProvider, saRole, rdsInstance, bucket)
+		_, err = DeployApp(ctx, k8sProvider, saRole, rdsInstance, bucket)
 		if err != nil {
 			return err
 		}

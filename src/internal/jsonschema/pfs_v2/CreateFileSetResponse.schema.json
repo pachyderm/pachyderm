@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CreateFileSetResponse",
+    "definitions": {
+        "CreateFileSetResponse": {
+            "properties": {
+                "fileSetId": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Create File Set Response"
+        }
+    }
+}

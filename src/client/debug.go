@@ -1,11 +1,11 @@
 package client
 
 import (
-	"context"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 
 // Profile collects a set of pprof profiles.
@@ -40,7 +40,7 @@ func (c APIClient) Dump(filter *debug.Filter, limit int64, w io.Writer) (retErr 
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	dumpC, err := c.DebugClient.Dump(ctx, &debug.DumpRequest{
 		Filter: filter,

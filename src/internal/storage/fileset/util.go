@@ -3,6 +3,9 @@ package fileset
 import (
 	"archive/tar"
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"go.uber.org/zap"
 	"io"
 	"path"
 	"strings"
@@ -20,7 +23,7 @@ import (
 
 // NewTestStorage constructs a local storage instance scoped to the lifetime of the test
 func NewTestStorage(ctx context.Context, t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...StorageOption) *Storage {
-	_, chunks := chunk.NewTestStorage(ctx, t, db, tr)
+	_, chunks := chunk.NewTestStorage(t, db, tr)
 	store := NewTestStore(ctx, t, db)
 	return NewStorage(store, tr, chunks, opts...)
 }
@@ -99,6 +102,7 @@ type Iterator struct {
 type iterFunc = func(ctx context.Context, cb func(File) error, opts ...index.Option) error
 
 func NewIterator(ctx context.Context, iter iterFunc, opts ...index.Option) *Iterator {
+	ctx = pctx.Child(ctx, "imperativeIterator")
 	fileChan := make(chan File)
 	errChan := make(chan error, 1)
 	go func() {
@@ -165,4 +169,21 @@ func SizeFromIndex(idx *index.Index) (size int64) {
 		size += dr.SizeBytes
 	}
 	return size
+}
+
+// LogIndex returns a zap field with prefix keyPrefix for use by logging contexts passed into fileset related functions.
+func LogIndex(idx *index.Index, keyPrefix string) zap.Field {
+	if keyPrefix != "" {
+		keyPrefix += "."
+	}
+	if idx == nil {
+		return zap.String(keyPrefix+"idx", "nil")
+	}
+	fieldName := "idx.file.path"
+	topIdx := idx.Path
+	if idx.Range != nil {
+		fieldName = "idx.range.hash"
+		topIdx = pfs.EncodeHash(idx.Range.ChunkRef.Hash)
+	}
+	return zap.String(keyPrefix+fieldName, topIdx)
 }

@@ -1,56 +1,93 @@
 package server
 
 import (
+	"context"
 	"time"
 
 	units "github.com/docker/go-units"
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // triggerCommit is called when a commit is finished, it updates branches in
 // the repo if they trigger on the change
-func (d *driver) triggerCommit(
-	txnCtx *txncontext.TransactionContext,
-	commit *pfs.Commit,
-) error {
-	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.SqlTx).Get(commit.Repo, repoInfo); err != nil {
-		return errors.EnsureStack(err)
+func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
+	branchInfos := make(map[string]*pfs.BranchInfo)
+	err := pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: commitInfo.Commit.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+		branchInfos[branchInfoWithID.Branch.Key()] = branchInfoWithID.BranchInfo
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "trigger commit")
 	}
-	newHead := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(commit, newHead); err != nil {
-		return errors.EnsureStack(err)
+	// Recursively check / fire trigger chains.
+	newHeads := make(map[string]*pfs.CommitInfo)
+	// the branch can be nil in the case where the commit's branch was deleted before the commit was finished in the backend.
+	if commitInfo.Commit.Branch != nil {
+		newHeads[pfsdb.BranchKey(commitInfo.Commit.Branch)] = commitInfo
 	}
-	for _, b := range repoInfo.Branches {
-		bi := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
-			return errors.EnsureStack(err)
+	var triggerBranch func(*pfs.BranchInfo) (*pfs.CommitInfo, error)
+	triggerBranch = func(bi *pfs.BranchInfo) (*pfs.CommitInfo, error) {
+		branchKey := pfsdb.BranchKey(bi.Branch)
+		head, ok := newHeads[branchKey]
+		if ok {
+			return head, nil
 		}
-		oldHead := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
-			return errors.EnsureStack(err)
+		newHeads[branchKey] = nil
+		if bi.Trigger == nil || bi.Trigger.CronSpec != "" {
+			return nil, nil
 		}
-		triggered, err := d.isTriggered(txnCtx, bi.Trigger, oldHead, newHead)
+		// Recurse through the trigger chain, checking / firing earlier triggers first.
+		triggerBranchKey := pfsdb.BranchKey(bi.Branch.Repo.NewBranch(bi.Trigger.Branch))
+		triggerBranchInfo, ok := branchInfos[triggerBranchKey]
+		if !ok {
+			return nil, nil
+		}
+		newHead, err := triggerBranch(triggerBranchInfo)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if triggered {
-			var trigBi pfs.BranchInfo
-			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, &trigBi, func() error {
-				trigBi.Head = newHead.Commit
-				return nil
-			}); err != nil {
-				return errors.EnsureStack(err)
-			}
-			if err := txnCtx.PropagateBranch(bi.Branch); err != nil {
-				return err
-			}
+		if newHead == nil || proto.Equal(bi.Head, newHead.Commit) {
+			return nil, nil
+		}
+		// Check if the trigger should fire based on the new head commit.
+		oldHead, err := pfsdb.GetCommitByCommitKey(ctx, txnCtx.SqlTx, bi.Head)
+		if err != nil {
+			return nil, errors.Wrap(err, "trigger commit")
+		}
+		triggered, err := d.isTriggered(ctx, txnCtx, bi.Trigger, oldHead, newHead)
+		if err != nil {
+			return nil, err
+		}
+		if !triggered {
+			return nil, nil
+		}
+		// Fire the trigger.
+		trigBIWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, bi.Branch)
+		if err != nil {
+			return nil, errors.Wrap(err, "trigger commit")
+		}
+		trigBI := trigBIWithID.BranchInfo
+		trigBI.Head = newHead.Commit
+		_, err = pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, trigBI)
+		if err != nil {
+			return nil, err
+		}
+		newHeads[branchKey] = newHead
+		if err := txnCtx.PropagateBranch(trigBI.Branch); err != nil {
+			return nil, err
+		}
+		return newHead, nil
+	}
+	for _, bi := range branchInfos {
+		if _, err := triggerBranch(bi); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -58,10 +95,7 @@ func (d *driver) triggerCommit(
 
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
-func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
-	if t == nil {
-		return false, nil
-	}
+func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
 	result := t.All
 	merge := func(cond bool) {
 		if t.All {
@@ -70,8 +104,8 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 			result = result || cond
 		}
 	}
-	if t.Size_ != "" {
-		size, err := units.FromHumanSize(t.Size_)
+	if t.Size != "" {
+		size, err := units.FromHumanSize(t.Size)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
 			return false, errors.EnsureStack(err)
@@ -82,25 +116,19 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		}
 		merge(newHead.Details.SizeBytes-oldSize >= size)
 	}
-	if t.CronSpec != "" {
+	if t.RateLimitSpec != "" {
 		// Shouldn't be possible to error here since we validate on ingress
-		schedule, err := cronutil.ParseCronExpression(t.CronSpec)
+		schedule, err := cronutil.ParseCronExpression(t.RateLimitSpec)
 		if err != nil {
 			// Shouldn't be possible to error here since we validate on ingress
 			return false, errors.EnsureStack(err)
 		}
 		var oldTime, newTime time.Time
 		if oldHead != nil && oldHead.Finishing != nil {
-			oldTime, err = types.TimestampFromProto(oldHead.Finishing)
-			if err != nil {
-				return false, errors.EnsureStack(err)
-			}
+			oldTime = oldHead.Finishing.AsTime()
 		}
 		if newHead.Finishing != nil {
-			newTime, err = types.TimestampFromProto(newHead.Finishing)
-			if err != nil {
-				return false, errors.EnsureStack(err)
-			}
+			newTime = newHead.Finishing.AsTime()
 		}
 		merge(schedule.Next(oldTime).Before(newTime))
 	}
@@ -108,16 +136,22 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		ci := newHead
 		var commits int64
 		for commits < t.Commits {
-			commits++
-			if ci.ParentCommit != nil && oldHead.Commit.ID != ci.ParentCommit.ID {
-				var err error
-				ci, err = d.resolveCommit(txnCtx.SqlTx, ci.ParentCommit)
-				if err != nil {
-					return false, err
+			if ci.ParentCommit == nil {
+				// TODO: We need a better mechanism for identifying the empty commits we create.
+				if ci.Origin.Kind != pfs.OriginKind_AUTO {
+					commits++
 				}
-			} else {
 				break
 			}
+			if oldHead.Commit.Id == ci.Commit.Id {
+				break
+			}
+			var err error
+			ci, err = d.resolveCommit(ctx, txnCtx.SqlTx, ci.ParentCommit)
+			if err != nil {
+				return false, err
+			}
+			commits++
 		}
 		merge(commits == t.Commits)
 	}
@@ -125,7 +159,7 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 }
 
 // validateTrigger returns an error if a trigger is invalid
-func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
+func (d *driver) validateTrigger(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
 	if trigger == nil {
 		return nil
 	}
@@ -135,19 +169,22 @@ func (d *driver) validateTrigger(txnCtx *txncontext.TransactionContext, branch *
 	if err := ancestry.ValidateName(trigger.Branch); err != nil {
 		return err
 	}
-	if _, err := cronutil.ParseCronExpression(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
-		return errors.Wrapf(err, "invalid trigger cron spec")
+	if _, err := cronutil.ParseCronExpression(trigger.RateLimitSpec); trigger.RateLimitSpec != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger rate limit spec")
 	}
-	if _, err := units.FromHumanSize(trigger.Size_); trigger.Size_ != "" && err != nil {
+	if _, err := units.FromHumanSize(trigger.Size); trigger.Size != "" && err != nil {
 		return errors.Wrapf(err, "invalid trigger size")
 	}
 	if trigger.Commits < 0 {
 		return errors.Errorf("can't trigger on a negative number of commits")
 	}
+	if _, err := cronutil.ParseCronExpression(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger cron spec")
+	}
 
 	biMaps := make(map[string]*pfs.BranchInfo)
-	if err := d.listBranchInTransaction(txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
-		biMaps[bi.Branch.Name] = bi
+	if err := d.listBranchInTransaction(ctx, txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
+		biMaps[bi.Branch.Name] = proto.Clone(bi).(*pfs.BranchInfo)
 		return nil
 	}); err != nil {
 		return err

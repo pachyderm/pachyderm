@@ -36,14 +36,19 @@ spec:
       containers:
       - name: cloud-sql-proxy
         image: {{ .Values.cloudsqlAuthProxy.image.repository }}:{{ .Values.cloudsqlAuthProxy.image.tag }}
-        command:
-          - "/cloud_sql_proxy"
-          {{- if .Values.cloudsqlAuthProxy.iamLogin }}
-          - "-enable-iam-login"
-          {{- end }}
-          - "-instances={{ .Values.cloudsqlAuthProxy.connectionName }}=tcp:0.0.0.0:{{ .Values.cloudsqlAuthProxy.port }}"
         ports:
         - containerPort: {{ .Values.cloudsqlAuthProxy.port }}
+        env:
+        - name: CSQL_PROXY_INSTANCE_CONNECTION_NAME
+          value: "{{ .Values.cloudsqlAuthProxy.connectionName }}"
+        - name: CSQL_PROXY_PORT
+          value: "{{ .Values.cloudsqlAuthProxy.port }}"
+        - name: CSQL_PROXY_ADDRESS
+          value: "0.0.0.0"
+          {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: CSQL_PROXY_AUTO_IAM_AUTHN
+          value: "true"
+          {{- end }}
         resources: {{ toYaml .Values.cloudsqlAuthProxy.resources | nindent 10 }}
       {{- if .Values.global.securityContexts.enabled }}
         securityContext:

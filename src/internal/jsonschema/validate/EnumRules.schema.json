@@ -1,0 +1,36 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/EnumRules",
+    "definitions": {
+        "EnumRules": {
+            "properties": {
+                "const": {
+                    "type": "integer",
+                    "description": "Const specifies that this field must be exactly the specified value"
+                },
+                "definedOnly": {
+                    "type": "boolean",
+                    "description": "DefinedOnly specifies that this field must be only one of the defined values for this enum, failing on any undefined value."
+                },
+                "in": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "In specifies that this field must be equal to one of the specified values"
+                },
+                "notIn": {
+                    "items": {
+                        "type": "integer"
+                    },
+                    "type": "array",
+                    "description": "NotIn specifies that this field cannot be equal to one of the specified values"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Enum Rules",
+            "description": "EnumRules describe the constraints applied to enum values"
+        }
+    }
+}

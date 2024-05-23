@@ -1,0 +1,12 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/EditMetadataResponse",
+    "definitions": {
+        "EditMetadataResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Edit Metadata Response",
+            "description": "EditMetadataResponse is the result of editing metadata."
+        }
+    }
+}

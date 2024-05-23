@@ -1,0 +1,57 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/TimestampRules",
+    "definitions": {
+        "TimestampRules": {
+            "properties": {
+                "required": {
+                    "type": "boolean",
+                    "description": "Required specifies that this field must be set"
+                },
+                "const": {
+                    "type": "string",
+                    "description": "Const specifies that this field must be exactly the specified value",
+                    "format": "date-time"
+                },
+                "lt": {
+                    "type": "string",
+                    "description": "Lt specifies that this field must be less than the specified value, exclusive",
+                    "format": "date-time"
+                },
+                "lte": {
+                    "type": "string",
+                    "description": "Lte specifies that this field must be less than the specified value, inclusive",
+                    "format": "date-time"
+                },
+                "gt": {
+                    "type": "string",
+                    "description": "Gt specifies that this field must be greater than the specified value, exclusive",
+                    "format": "date-time"
+                },
+                "gte": {
+                    "type": "string",
+                    "description": "Gte specifies that this field must be greater than the specified value, inclusive",
+                    "format": "date-time"
+                },
+                "ltNow": {
+                    "type": "boolean",
+                    "description": "LtNow specifies that this must be less than the current time. LtNow can only be used with the Within rule."
+                },
+                "gtNow": {
+                    "type": "boolean",
+                    "description": "GtNow specifies that this must be greater than the current time. GtNow can only be used with the Within rule."
+                },
+                "within": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "Within specifies that this field must be within this duration of the current time. This constraint can be used alone or with the LtNow and GtNow rules.",
+                    "format": "regex"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Timestamp Rules",
+            "description": "TimestampRules describe the constraints applied exclusively to the `google.protobuf.Timestamp` well-known type"
+        }
+    }
+}

@@ -1,0 +1,17 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetRobotTokenResponse",
+    "definitions": {
+        "GetRobotTokenResponse": {
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "description": "A new auth token for the requested robot"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Robot Token Response"
+        }
+    }
+}

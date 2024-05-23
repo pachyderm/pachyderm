@@ -4,14 +4,39 @@ import (
 	"context"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
+
+func projects(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		"projects",
+		db,
+		listener,
+		&pfs.ProjectInfo{},
+		nil,
+		col.WithKeyGen(func(key interface{}) (string, error) {
+			if project, ok := key.(*pfs.Project); !ok {
+				return "", errors.New("key must be a project")
+			} else {
+				return project.Name, nil
+			}
+		}),
+		col.WithNotFoundMessage(func(key interface{}) string {
+			return pfsserver.ErrProjectNotFound{Project: key.(*pfs.Project)}.Error()
+		}),
+		col.WithExistsMessage(func(key interface{}) string {
+			return pfsserver.ErrProjectExists{Project: key.(*pfs.Project)}.Error()
+		}),
+	)
+}
 
 var reposTypeIndex = &index{
 	Name: "type",
@@ -62,18 +87,18 @@ var commitsBranchlessIndex = &index{
 var commitsCommitSetIndex = &index{
 	Name: "commitset",
 	Extract: func(val proto.Message) string {
-		return val.(*CommitInfo).Commit.ID
+		return val.(*CommitInfo).Commit.Id
 	},
 }
 
 var commitsIndexes = []*index{commitsRepoIndex, commitsBranchlessIndex, commitsCommitSetIndex}
 
 func commitKey(commit *pfs.Commit) string {
-	return branchKey(commit.Branch) + "=" + commit.ID
+	return branchKey(commit.Branch) + "=" + commit.Id
 }
 
 func commitBranchlessKey(commit *pfs.Commit) string {
-	return repoKey(commit.Branch.Repo) + "@" + commit.ID
+	return repoKey(commit.Branch.Repo) + "@" + commit.Id
 }
 
 var branchesRepoIndex = &index{
@@ -171,12 +196,15 @@ func migratePFSDB(ctx context.Context, tx *pachsql.Tx) error {
 	// default project were still identified without the project (e.g. as
 	// images.user@master=da4016a16f8944cba94038ab5bcc9933 rather than
 	// /images.user@master=da4016a16f8944cba94038ab5bcc9933).
+	log.Info(ctx, "Updating commit_diffs to include default project")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_diffs SET commit_id = regexp_replace(commit_id, '^([-a-zA-Z0-9_]+)', 'default/\1') WHERE commit_id ~ '^[-a-zA-Z0-9_]+\.';`); err != nil {
 		return errors.Wrap(err, "could not update pfs.commit_diffs")
 	}
+	log.Info(ctx, "Updating commit_totals to include default project")
 	if _, err := tx.ExecContext(ctx, `UPDATE pfs.commit_totals SET commit_id = regexp_replace(commit_id, '^([-a-zA-Z0-9_]+)', 'default/\1') WHERE commit_id ~ '^[-a-zA-Z0-9_]+\.';`); err != nil {
 		return errors.Wrap(err, "could not update pfs.commit_totals")
 	}
+	log.Info(ctx, "Updating storage.tracker_objects to include default project")
 	if _, err := tx.ExecContext(ctx, `UPDATE storage.tracker_objects SET str_id = regexp_replace(str_id, 'commit/([-a-zA-Z0-9_]+)', 'commit/default/\1') WHERE str_id ~ '^commit/[-a-zA-Z0-9_]+\.';`); err != nil {
 		return errors.Wrapf(err, "could not update storage.tracker_objects")
 	}
@@ -184,7 +212,6 @@ func migratePFSDB(ctx context.Context, tx *pachsql.Tx) error {
 	if err := migratePostgreSQLCollection(ctx, tx, "repos", reposIndexes, oldRepo, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 		oldRepo = migrateRepoInfo(oldRepo)
 		return repoKey(oldRepo.Repo), oldRepo, nil
-
 	},
 		withKeyCheck(repoKeyCheck),
 		withKeyGen(func(key interface{}) (string, error) {

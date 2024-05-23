@@ -3,6 +3,7 @@ package fileset
 import (
 	"bytes"
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"io"
 	"strings"
 
@@ -27,6 +28,7 @@ func newMergeReader(chunks *chunk.Storage, fileSets []FileSet) *MergeReader {
 
 // Iterate iterates over the files in the merge reader.
 func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	ctx = pctx.Child(ctx, "mergeReader")
 	var ss []stream.Stream
 	for i, fs := range mr.fileSets {
 		// Ignore the base file set's deletive set since it does not affect the state.
@@ -70,6 +72,7 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ..
 }
 
 func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, opts ...index.Option) error {
+	ctx = pctx.Child(ctx, "mergedReader")
 	var ss []stream.Stream
 	for _, fs := range mr.fileSets {
 		ss = append(ss, &fileStream{
@@ -86,6 +89,7 @@ func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, 
 // TODO: Look at the sizes?
 // TODO: Come up with better heuristics for sharding.
 func (mr *MergeReader) Shards(ctx context.Context, opts ...index.Option) ([]*index.PathRange, error) {
+	ctx = pctx.Child(ctx, "mergedReader")
 	shards, err := mr.fileSets[0].Shards(ctx, opts...)
 	return shards, errors.EnsureStack(err)
 }

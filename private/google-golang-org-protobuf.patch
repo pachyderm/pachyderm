@@ -1,0 +1,4309 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+new file mode 100644
+index 00000000..0426cfee
+--- /dev/null
++++ b/BUILD.bazel
+@@ -0,0 +1,7 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_test")
++
++go_test(
++    name = "protobuf_test",
++    srcs = ["integration_test.go"],
++    deps = ["//internal/version"],
++)
+diff --git a/cmd/protoc-gen-go/BUILD.bazel b/cmd/protoc-gen-go/BUILD.bazel
+new file mode 100644
+index 00000000..39d6f986
+--- /dev/null
++++ b/cmd/protoc-gen-go/BUILD.bazel
+@@ -0,0 +1,38 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
++
++go_library(
++    name = "protoc-gen-go_lib",
++    srcs = ["main.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go",
++    visibility = ["//visibility:private"],
++    deps = [
++        "//cmd/protoc-gen-go/internal_gengo",
++        "//compiler/protogen",
++        "//internal/version",
++    ],
++)
++
++go_binary(
++    name = "protoc-gen-go",
++    embed = [":protoc-gen-go_lib"],
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protoc-gen-go_test",
++    srcs = [
++        "annotation_test.go",
++        "retention_test.go",
++    ],
++    embed = [":protoc-gen-go_lib"],
++    deps = [
++        "//cmd/protoc-gen-go/testdata/retention",
++        "//encoding/prototext",
++        "//internal/genid",
++        "//proto",
++        "//reflect/protoreflect",
++        "//testing/protocmp",
++        "//types/descriptorpb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/cmd/protoc-gen-go/internal_gengo/BUILD.bazel b/cmd/protoc-gen-go/internal_gengo/BUILD.bazel
+new file mode 100644
+index 00000000..2ec064e4
+--- /dev/null
++++ b/cmd/protoc-gen-go/internal_gengo/BUILD.bazel
+@@ -0,0 +1,34 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "internal_gengo",
++    srcs = [
++        "init.go",
++        "main.go",
++        "reflect.go",
++        "well_known_types.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/internal_gengo",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//compiler/protogen",
++        "//encoding/protowire",
++        "//internal/encoding/tag",
++        "//internal/filedesc",
++        "//internal/genid",
++        "//internal/version",
++        "//proto",
++        "//reflect/protopath",
++        "//reflect/protorange",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/descriptorpb",
++        "//types/pluginpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":internal_gengo",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/BUILD.bazel b/cmd/protoc-gen-go/testdata/BUILD.bazel
+new file mode 100644
+index 00000000..566e6197
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/BUILD.bazel
+@@ -0,0 +1,35 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_test")
++
++go_test(
++    name = "testdata_test",
++    srcs = [
++        "gen_test.go",
++        "registry_test.go",
++    ],
++    deps = [
++        "//cmd/protoc-gen-go/testdata/annotations",
++        "//cmd/protoc-gen-go/testdata/comments",
++        "//cmd/protoc-gen-go/testdata/extensions/base",
++        "//cmd/protoc-gen-go/testdata/extensions/ext",
++        "//cmd/protoc-gen-go/testdata/extensions/extra",
++        "//cmd/protoc-gen-go/testdata/extensions/proto3",
++        "//cmd/protoc-gen-go/testdata/fieldnames",
++        "//cmd/protoc-gen-go/testdata/import_public",
++        "//cmd/protoc-gen-go/testdata/import_public/sub",
++        "//cmd/protoc-gen-go/testdata/import_public/sub2",
++        "//cmd/protoc-gen-go/testdata/imports",
++        "//cmd/protoc-gen-go/testdata/imports/fmt",
++        "//cmd/protoc-gen-go/testdata/imports/test_a_1",
++        "//cmd/protoc-gen-go/testdata/imports/test_a_2",
++        "//cmd/protoc-gen-go/testdata/imports/test_b_1",
++        "//cmd/protoc-gen-go/testdata/issue780_oneof_conflict",
++        "//cmd/protoc-gen-go/testdata/nopackage",
++        "//cmd/protoc-gen-go/testdata/proto2",
++        "//cmd/protoc-gen-go/testdata/proto3",
++        "//cmd/protoc-gen-go/testdata/protoeditions",
++        "//cmd/protoc-gen-go/testdata/retention",
++        "//internal/filedesc",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++    ],
++)
+diff --git a/cmd/protoc-gen-go/testdata/annotations/BUILD.bazel b/cmd/protoc-gen-go/testdata/annotations/BUILD.bazel
+new file mode 100644
+index 00000000..14de88de
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/annotations/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "annotations",
++    srcs = ["annotations.pb.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/annotations",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//proto",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":annotations",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/comments/BUILD.bazel b/cmd/protoc-gen-go/testdata/comments/BUILD.bazel
+new file mode 100644
+index 00000000..9648690e
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/comments/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "comments",
++    srcs = [
++        "comments.pb.go",
++        "deprecated.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/comments",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":comments",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/extensions/base/BUILD.bazel b/cmd/protoc-gen-go/testdata/extensions/base/BUILD.bazel
+new file mode 100644
+index 00000000..c54059b7
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/extensions/base/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "base",
++    srcs = ["base.pb.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/extensions/base",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":base",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/extensions/ext/BUILD.bazel b/cmd/protoc-gen-go/testdata/extensions/ext/BUILD.bazel
+new file mode 100644
+index 00000000..6c0560a1
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/extensions/ext/BUILD.bazel
+@@ -0,0 +1,20 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "ext",
++    srcs = ["ext.pb.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/extensions/ext",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//cmd/protoc-gen-go/testdata/extensions/base",
++        "//cmd/protoc-gen-go/testdata/extensions/extra",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":ext",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/extensions/extra/BUILD.bazel b/cmd/protoc-gen-go/testdata/extensions/extra/BUILD.bazel
+new file mode 100644
+index 00000000..66be7701
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/extensions/extra/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "extra",
++    srcs = ["extra.pb.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/extensions/extra",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":extra",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/extensions/proto3/BUILD.bazel b/cmd/protoc-gen-go/testdata/extensions/proto3/BUILD.bazel
+new file mode 100644
+index 00000000..f404dca2
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/extensions/proto3/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto3",
++    srcs = ["ext3.pb.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/extensions/proto3",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/descriptorpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto3",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/fieldnames/BUILD.bazel b/cmd/protoc-gen-go/testdata/fieldnames/BUILD.bazel
+new file mode 100644
+index 00000000..7cc6d31c
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/fieldnames/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "fieldnames",
++    srcs = ["fieldnames.pb.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/fieldnames",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":fieldnames",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/import_public/BUILD.bazel b/cmd/protoc-gen-go/testdata/import_public/BUILD.bazel
+new file mode 100644
+index 00000000..f13deb49
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/import_public/BUILD.bazel
+@@ -0,0 +1,24 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "import_public",
++    srcs = [
++        "a.pb.go",
++        "b.pb.go",
++        "c.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/import_public",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//cmd/protoc-gen-go/testdata/import_public/sub",
++        "//cmd/protoc-gen-go/testdata/import_public/sub2",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":import_public",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/import_public/sub/BUILD.bazel b/cmd/protoc-gen-go/testdata/import_public/sub/BUILD.bazel
+new file mode 100644
+index 00000000..a62afb5a
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/import_public/sub/BUILD.bazel
+@@ -0,0 +1,22 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "sub",
++    srcs = [
++        "a.pb.go",
++        "b.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/import_public/sub",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//cmd/protoc-gen-go/testdata/import_public/sub2",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":sub",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/import_public/sub2/BUILD.bazel b/cmd/protoc-gen-go/testdata/import_public/sub2/BUILD.bazel
+new file mode 100644
+index 00000000..f828b277
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/import_public/sub2/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "sub2",
++    srcs = ["a.pb.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/import_public/sub2",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":sub2",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/imports/BUILD.bazel b/cmd/protoc-gen-go/testdata/imports/BUILD.bazel
+new file mode 100644
+index 00000000..2862a00f
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/imports/BUILD.bazel
+@@ -0,0 +1,26 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "imports",
++    srcs = [
++        "test_import_a1m1.pb.go",
++        "test_import_a1m2.pb.go",
++        "test_import_all.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/imports",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//cmd/protoc-gen-go/testdata/imports/fmt",
++        "//cmd/protoc-gen-go/testdata/imports/test_a_1",
++        "//cmd/protoc-gen-go/testdata/imports/test_a_2",
++        "//cmd/protoc-gen-go/testdata/imports/test_b_1",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":imports",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/imports/fmt/BUILD.bazel b/cmd/protoc-gen-go/testdata/imports/fmt/BUILD.bazel
+new file mode 100644
+index 00000000..3934106b
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/imports/fmt/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "fmt",
++    srcs = ["m.pb.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/imports/fmt",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":fmt",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/imports/test_a_1/BUILD.bazel b/cmd/protoc-gen-go/testdata/imports/test_a_1/BUILD.bazel
+new file mode 100644
+index 00000000..aa97ee19
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/imports/test_a_1/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "test_a_1",
++    srcs = [
++        "m1.pb.go",
++        "m2.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/imports/test_a_1",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":test_a_1",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/imports/test_a_2/BUILD.bazel b/cmd/protoc-gen-go/testdata/imports/test_a_2/BUILD.bazel
+new file mode 100644
+index 00000000..1149701b
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/imports/test_a_2/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "test_a_2",
++    srcs = [
++        "m3.pb.go",
++        "m4.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/imports/test_a_2",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":test_a_2",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/imports/test_b_1/BUILD.bazel b/cmd/protoc-gen-go/testdata/imports/test_b_1/BUILD.bazel
+new file mode 100644
+index 00000000..c331ccd9
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/imports/test_b_1/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "test_b_1",
++    srcs = [
++        "m1.pb.go",
++        "m2.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/imports/test_b_1",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":test_b_1",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/issue780_oneof_conflict/BUILD.bazel b/cmd/protoc-gen-go/testdata/issue780_oneof_conflict/BUILD.bazel
+new file mode 100644
+index 00000000..c2af0f37
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/issue780_oneof_conflict/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "issue780_oneof_conflict",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/issue780_oneof_conflict",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":issue780_oneof_conflict",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/nopackage/BUILD.bazel b/cmd/protoc-gen-go/testdata/nopackage/BUILD.bazel
+new file mode 100644
+index 00000000..3e88880c
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/nopackage/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "nopackage",
++    srcs = ["nopackage.pb.go"],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/nopackage",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":nopackage",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/proto2/BUILD.bazel b/cmd/protoc-gen-go/testdata/proto2/BUILD.bazel
+new file mode 100644
+index 00000000..5fe9d714
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/proto2/BUILD.bazel
+@@ -0,0 +1,23 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto2",
++    srcs = [
++        "enum.pb.go",
++        "fields.pb.go",
++        "nested_messages.pb.go",
++        "proto2.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/proto2",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto2",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/proto3/BUILD.bazel b/cmd/protoc-gen-go/testdata/proto3/BUILD.bazel
+new file mode 100644
+index 00000000..66c22550
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/proto3/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto3",
++    srcs = [
++        "enum.pb.go",
++        "fields.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/proto3",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto3",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/protoeditions/BUILD.bazel b/cmd/protoc-gen-go/testdata/protoeditions/BUILD.bazel
+new file mode 100644
+index 00000000..cac2c627
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/protoeditions/BUILD.bazel
+@@ -0,0 +1,23 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "protoeditions",
++    srcs = [
++        "enum.pb.go",
++        "fields.pb.go",
++        "nested_messages.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/protoeditions",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/gofeaturespb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protoeditions",
++    visibility = ["//visibility:public"],
++)
+diff --git a/cmd/protoc-gen-go/testdata/retention/BUILD.bazel b/cmd/protoc-gen-go/testdata/retention/BUILD.bazel
+new file mode 100644
+index 00000000..16c45f72
+--- /dev/null
++++ b/cmd/protoc-gen-go/testdata/retention/BUILD.bazel
+@@ -0,0 +1,22 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "retention",
++    srcs = [
++        "options_message.pb.go",
++        "retention.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/cmd/protoc-gen-go/testdata/retention",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/descriptorpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":retention",
++    visibility = ["//visibility:public"],
++)
+diff --git a/compiler/protogen/BUILD.bazel b/compiler/protogen/BUILD.bazel
+new file mode 100644
+index 00000000..f5ce6dbb
+--- /dev/null
++++ b/compiler/protogen/BUILD.bazel
+@@ -0,0 +1,41 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "protogen",
++    srcs = ["protogen.go"],
++    importpath = "google.golang.org/protobuf/compiler/protogen",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/prototext",
++        "//internal/genid",
++        "//internal/strs",
++        "//proto",
++        "//reflect/protodesc",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//types/descriptorpb",
++        "//types/dynamicpb",
++        "//types/pluginpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protogen",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protogen_test",
++    srcs = ["protogen_test.go"],
++    embed = [":protogen"],
++    deps = [
++        "//internal/genid",
++        "//proto",
++        "//reflect/protoreflect",
++        "//testing/protocmp",
++        "//types/descriptorpb",
++        "//types/pluginpb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/encoding/BUILD.bazel b/encoding/BUILD.bazel
+new file mode 100644
+index 00000000..fa3996d9
+--- /dev/null
++++ b/encoding/BUILD.bazel
+@@ -0,0 +1,12 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_test")
++
++go_test(
++    name = "encoding_test",
++    srcs = ["bench_test.go"],
++    deps = [
++        "//encoding/protojson",
++        "//encoding/prototext",
++        "//internal/testprotos/test",
++        "//reflect/protoreflect",
++    ],
++)
+diff --git a/encoding/protodelim/BUILD.bazel b/encoding/protodelim/BUILD.bazel
+new file mode 100644
+index 00000000..d0cdbea3
+--- /dev/null
++++ b/encoding/protodelim/BUILD.bazel
+@@ -0,0 +1,31 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "protodelim",
++    srcs = ["protodelim.go"],
++    importpath = "google.golang.org/protobuf/encoding/protodelim",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/errors",
++        "//proto",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protodelim",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protodelim_test",
++    srcs = ["protodelim_test.go"],
++    deps = [
++        ":protodelim",
++        "//encoding/protowire",
++        "//internal/testprotos/test3",
++        "//testing/protocmp",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/encoding/protojson/BUILD.bazel b/encoding/protojson/BUILD.bazel
+new file mode 100644
+index 00000000..8aa6ccd2
+--- /dev/null
++++ b/encoding/protojson/BUILD.bazel
+@@ -0,0 +1,70 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "protojson",
++    srcs = [
++        "decode.go",
++        "doc.go",
++        "encode.go",
++        "well_known_types.go",
++    ],
++    importpath = "google.golang.org/protobuf/encoding/protojson",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/encoding/json",
++        "//internal/encoding/messageset",
++        "//internal/errors",
++        "//internal/filedesc",
++        "//internal/flags",
++        "//internal/genid",
++        "//internal/order",
++        "//internal/pragma",
++        "//internal/set",
++        "//internal/strs",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protojson",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protojson_test",
++    srcs = [
++        "bench_test.go",
++        "decode_test.go",
++        "encode_test.go",
++        "fuzz_test.go",
++    ],
++    deps = [
++        ":protojson",
++        "//internal/detrand",
++        "//internal/errors",
++        "//internal/flags",
++        "//internal/testprotos/editionsfuzztest",
++        "//internal/testprotos/test",
++        "//internal/testprotos/test/weak1",
++        "//internal/testprotos/textpb2",
++        "//internal/testprotos/textpb3",
++        "//internal/testprotos/textpbeditions",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//testing/protocmp",
++        "//testing/protopack",
++        "//types/known/anypb",
++        "//types/known/durationpb",
++        "//types/known/emptypb",
++        "//types/known/fieldmaskpb",
++        "//types/known/structpb",
++        "//types/known/timestamppb",
++        "//types/known/wrapperspb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/encoding/prototext/BUILD.bazel b/encoding/prototext/BUILD.bazel
+new file mode 100644
+index 00000000..62e50d88
+--- /dev/null
++++ b/encoding/prototext/BUILD.bazel
+@@ -0,0 +1,66 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "prototext",
++    srcs = [
++        "decode.go",
++        "doc.go",
++        "encode.go",
++    ],
++    importpath = "google.golang.org/protobuf/encoding/prototext",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/encoding/messageset",
++        "//internal/encoding/text",
++        "//internal/errors",
++        "//internal/flags",
++        "//internal/genid",
++        "//internal/order",
++        "//internal/pragma",
++        "//internal/set",
++        "//internal/strs",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":prototext",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "prototext_test",
++    srcs = [
++        "decode_test.go",
++        "encode_test.go",
++        "fuzz_test.go",
++        "other_test.go",
++    ],
++    deps = [
++        ":prototext",
++        "//internal/detrand",
++        "//internal/flags",
++        "//internal/testprotos/editionsfuzztest",
++        "//internal/testprotos/test",
++        "//internal/testprotos/test/weak1",
++        "//internal/testprotos/textpb2",
++        "//internal/testprotos/textpb3",
++        "//internal/testprotos/textpbeditions",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//testing/protocmp",
++        "//testing/protopack",
++        "//types/known/anypb",
++        "//types/known/durationpb",
++        "//types/known/emptypb",
++        "//types/known/structpb",
++        "//types/known/timestamppb",
++        "//types/known/wrapperspb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/encoding/protowire/BUILD.bazel b/encoding/protowire/BUILD.bazel
+new file mode 100644
+index 00000000..31254af2
+--- /dev/null
++++ b/encoding/protowire/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "protowire",
++    srcs = ["wire.go"],
++    importpath = "google.golang.org/protobuf/encoding/protowire",
++    visibility = ["//visibility:public"],
++    deps = ["//internal/errors"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protowire",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protowire_test",
++    srcs = ["wire_test.go"],
++    embed = [":protowire"],
++)
+diff --git a/internal/benchmarks/BUILD.bazel b/internal/benchmarks/BUILD.bazel
+new file mode 100644
+index 00000000..201eb838
+--- /dev/null
++++ b/internal/benchmarks/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_test")
++
++go_test(
++    name = "benchmarks_test",
++    srcs = ["bench_test.go"],
++    deps = [
++        "//encoding/protojson",
++        "//encoding/prototext",
++        "//internal/testprotos/benchmarks",
++        "//internal/testprotos/benchmarks/datasets/google_message1/proto2",
++        "//internal/testprotos/benchmarks/datasets/google_message1/proto3",
++        "//internal/testprotos/benchmarks/datasets/google_message2",
++        "//internal/testprotos/benchmarks/datasets/google_message3",
++        "//internal/testprotos/benchmarks/datasets/google_message4",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++    ],
++)
+diff --git a/internal/benchmarks/micro/BUILD.bazel b/internal/benchmarks/micro/BUILD.bazel
+new file mode 100644
+index 00000000..7bdac23f
+--- /dev/null
++++ b/internal/benchmarks/micro/BUILD.bazel
+@@ -0,0 +1,14 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_test")
++
++go_test(
++    name = "micro_test",
++    srcs = ["micro_test.go"],
++    deps = [
++        "//internal/impl",
++        "//internal/testprotos/benchmarks/micro",
++        "//internal/testprotos/test",
++        "//proto",
++        "//runtime/protoiface",
++        "//types/known/emptypb",
++    ],
++)
+diff --git a/internal/cmd/generate-corpus/BUILD.bazel b/internal/cmd/generate-corpus/BUILD.bazel
+new file mode 100644
+index 00000000..845a9bdc
+--- /dev/null
++++ b/internal/cmd/generate-corpus/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
++
++go_library(
++    name = "generate-corpus_lib",
++    srcs = ["main.go"],
++    importpath = "google.golang.org/protobuf/internal/cmd/generate-corpus",
++    visibility = ["//visibility:private"],
++    deps = [
++        "//encoding/protojson",
++        "//encoding/prototext",
++        "//internal/testprotos/fuzz",
++        "//internal/testprotos/test",
++        "//proto",
++    ],
++)
++
++go_binary(
++    name = "generate-corpus",
++    embed = [":generate-corpus_lib"],
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/cmd/generate-protos/BUILD.bazel b/internal/cmd/generate-protos/BUILD.bazel
+new file mode 100644
+index 00000000..f968d6a2
+--- /dev/null
++++ b/internal/cmd/generate-protos/BUILD.bazel
+@@ -0,0 +1,20 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
++
++go_library(
++    name = "generate-protos_lib",
++    srcs = ["main.go"],
++    importpath = "google.golang.org/protobuf/internal/cmd/generate-protos",
++    visibility = ["//visibility:private"],
++    deps = [
++        "//cmd/protoc-gen-go/internal_gengo",
++        "//compiler/protogen",
++        "//internal/detrand",
++        "//reflect/protodesc",
++    ],
++)
++
++go_binary(
++    name = "generate-protos",
++    embed = [":generate-protos_lib"],
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/cmd/generate-types/BUILD.bazel b/internal/cmd/generate-types/BUILD.bazel
+new file mode 100644
+index 00000000..9ec2b29b
+--- /dev/null
++++ b/internal/cmd/generate-types/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
++
++go_library(
++    name = "generate-types_lib",
++    srcs = [
++        "impl.go",
++        "main.go",
++        "proto.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/cmd/generate-types",
++    visibility = ["//visibility:private"],
++)
++
++go_binary(
++    name = "generate-types",
++    embed = [":generate-types_lib"],
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/cmd/pbdump/BUILD.bazel b/internal/cmd/pbdump/BUILD.bazel
+new file mode 100644
+index 00000000..d6a8b2d0
+--- /dev/null
++++ b/internal/cmd/pbdump/BUILD.bazel
+@@ -0,0 +1,35 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
++
++go_library(
++    name = "pbdump_lib",
++    srcs = ["pbdump.go"],
++    importpath = "google.golang.org/protobuf/internal/cmd/pbdump",
++    visibility = ["//visibility:private"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/errors",
++        "//proto",
++        "//reflect/protodesc",
++        "//reflect/protoreflect",
++        "//testing/protopack",
++        "//types/descriptorpb",
++    ],
++)
++
++go_binary(
++    name = "pbdump",
++    embed = [":pbdump_lib"],
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "pbdump_test",
++    srcs = ["pbdump_test.go"],
++    embed = [":pbdump_lib"],
++    deps = [
++        "//encoding/prototext",
++        "//proto",
++        "//reflect/protoreflect",
++        "//types/descriptorpb",
++    ],
++)
+diff --git a/internal/conformance/BUILD.bazel b/internal/conformance/BUILD.bazel
+new file mode 100644
+index 00000000..ad4bdf77
+--- /dev/null
++++ b/internal/conformance/BUILD.bazel
+@@ -0,0 +1,13 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_test")
++
++go_test(
++    name = "conformance_test",
++    srcs = ["conformance_test.go"],
++    deps = [
++        "//encoding/protojson",
++        "//encoding/prototext",
++        "//internal/testprotos/conformance",
++        "//internal/testprotos/conformance/editions",
++        "//proto",
++    ],
++)
+diff --git a/internal/descfmt/BUILD.bazel b/internal/descfmt/BUILD.bazel
+new file mode 100644
+index 00000000..bde393da
+--- /dev/null
++++ b/internal/descfmt/BUILD.bazel
+@@ -0,0 +1,29 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "descfmt",
++    srcs = ["stringer.go"],
++    importpath = "google.golang.org/protobuf/internal/descfmt",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/detrand",
++        "//internal/pragma",
++        "//reflect/protoreflect",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":descfmt",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "descfmt_test",
++    srcs = ["desc_test.go"],
++    deps = [
++        ":descfmt",
++        "//internal/testprotos/test",
++        "//reflect/protoreflect",
++    ],
++)
+diff --git a/internal/descopts/BUILD.bazel b/internal/descopts/BUILD.bazel
+new file mode 100644
+index 00000000..b654d665
+--- /dev/null
++++ b/internal/descopts/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "descopts",
++    srcs = ["options.go"],
++    importpath = "google.golang.org/protobuf/internal/descopts",
++    visibility = ["//:__subpackages__"],
++    deps = ["//reflect/protoreflect"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":descopts",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/detrand/BUILD.bazel b/internal/detrand/BUILD.bazel
+new file mode 100644
+index 00000000..e95b2f43
+--- /dev/null
++++ b/internal/detrand/BUILD.bazel
+@@ -0,0 +1,20 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "detrand",
++    srcs = ["rand.go"],
++    importpath = "google.golang.org/protobuf/internal/detrand",
++    visibility = ["//:__subpackages__"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":detrand",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "detrand_test",
++    srcs = ["rand_test.go"],
++    embed = [":detrand"],
++)
+diff --git a/internal/editiondefaults/BUILD.bazel b/internal/editiondefaults/BUILD.bazel
+new file mode 100644
+index 00000000..ded081a9
+--- /dev/null
++++ b/internal/editiondefaults/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "editiondefaults",
++    srcs = ["defaults.go"],
++    embedsrcs = ["editions_defaults.binpb"],
++    importpath = "google.golang.org/protobuf/internal/editiondefaults",
++    visibility = ["//:__subpackages__"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":editiondefaults",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/encoding/defval/BUILD.bazel b/internal/encoding/defval/BUILD.bazel
+new file mode 100644
+index 00000000..173a4c3a
+--- /dev/null
++++ b/internal/encoding/defval/BUILD.bazel
+@@ -0,0 +1,29 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "defval",
++    srcs = ["default.go"],
++    importpath = "google.golang.org/protobuf/internal/encoding/defval",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/encoding/text",
++        "//internal/errors",
++        "//reflect/protoreflect",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":defval",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "defval_test",
++    srcs = ["default_test.go"],
++    deps = [
++        ":defval",
++        "//internal/filedesc",
++        "//reflect/protoreflect",
++    ],
++)
+diff --git a/internal/encoding/json/BUILD.bazel b/internal/encoding/json/BUILD.bazel
+new file mode 100644
+index 00000000..e6cbf104
+--- /dev/null
++++ b/internal/encoding/json/BUILD.bazel
+@@ -0,0 +1,40 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "json",
++    srcs = [
++        "decode.go",
++        "decode_number.go",
++        "decode_string.go",
++        "decode_token.go",
++        "encode.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/encoding/json",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/detrand",
++        "//internal/errors",
++        "//internal/strs",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":json",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "json_test",
++    srcs = [
++        "bench_test.go",
++        "decode_test.go",
++        "encode_test.go",
++    ],
++    deps = [
++        ":json",
++        "//internal/detrand",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++        "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
++    ],
++)
+diff --git a/internal/encoding/messageset/BUILD.bazel b/internal/encoding/messageset/BUILD.bazel
+new file mode 100644
+index 00000000..0044943a
+--- /dev/null
++++ b/internal/encoding/messageset/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "messageset",
++    srcs = ["messageset.go"],
++    importpath = "google.golang.org/protobuf/internal/encoding/messageset",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/errors",
++        "//reflect/protoreflect",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":messageset",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/encoding/tag/BUILD.bazel b/internal/encoding/tag/BUILD.bazel
+new file mode 100644
+index 00000000..f4ae9c0e
+--- /dev/null
++++ b/internal/encoding/tag/BUILD.bazel
+@@ -0,0 +1,32 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "tag",
++    srcs = ["tag.go"],
++    importpath = "google.golang.org/protobuf/internal/encoding/tag",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/encoding/defval",
++        "//internal/filedesc",
++        "//internal/strs",
++        "//reflect/protoreflect",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":tag",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "tag_test",
++    srcs = ["tag_test.go"],
++    deps = [
++        ":tag",
++        "//internal/filedesc",
++        "//proto",
++        "//reflect/protodesc",
++        "//reflect/protoreflect",
++    ],
++)
+diff --git a/internal/encoding/text/BUILD.bazel b/internal/encoding/text/BUILD.bazel
+new file mode 100644
+index 00000000..c075ad73
+--- /dev/null
++++ b/internal/encoding/text/BUILD.bazel
+@@ -0,0 +1,41 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "text",
++    srcs = [
++        "decode.go",
++        "decode_number.go",
++        "decode_string.go",
++        "decode_token.go",
++        "doc.go",
++        "encode.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/encoding/text",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/detrand",
++        "//internal/errors",
++        "//internal/flags",
++        "//internal/strs",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":text",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "text_test",
++    srcs = [
++        "decode_test.go",
++        "encode_test.go",
++    ],
++    deps = [
++        ":text",
++        "//internal/detrand",
++        "//internal/flags",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/internal/errors/BUILD.bazel b/internal/errors/BUILD.bazel
+new file mode 100644
+index 00000000..edb7d2ac
+--- /dev/null
++++ b/internal/errors/BUILD.bazel
+@@ -0,0 +1,25 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "errors",
++    srcs = [
++        "errors.go",
++        "is_go112.go",
++        "is_go113.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/errors",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/detrand"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":errors",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "errors_test",
++    srcs = ["errors_test.go"],
++    embed = [":errors"],
++)
+diff --git a/internal/filedesc/BUILD.bazel b/internal/filedesc/BUILD.bazel
+new file mode 100644
+index 00000000..41b2fba7
+--- /dev/null
++++ b/internal/filedesc/BUILD.bazel
+@@ -0,0 +1,57 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "filedesc",
++    srcs = [
++        "build.go",
++        "desc.go",
++        "desc_init.go",
++        "desc_lazy.go",
++        "desc_list.go",
++        "desc_list_gen.go",
++        "editions.go",
++        "placeholder.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/filedesc",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/descfmt",
++        "//internal/descopts",
++        "//internal/editiondefaults",
++        "//internal/encoding/defval",
++        "//internal/encoding/messageset",
++        "//internal/errors",
++        "//internal/genid",
++        "//internal/pragma",
++        "//internal/strs",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":filedesc",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "filedesc_test",
++    srcs = [
++        "build_test.go",
++        "desc_test.go",
++    ],
++    deps = [
++        ":filedesc",
++        "//internal/detrand",
++        "//internal/testprotos/test",
++        "//internal/testprotos/test/weak1",
++        "//proto",
++        "//reflect/protodesc",
++        "//reflect/protoreflect",
++        "//types/descriptorpb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/internal/filetype/BUILD.bazel b/internal/filetype/BUILD.bazel
+new file mode 100644
+index 00000000..05a66aef
+--- /dev/null
++++ b/internal/filetype/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "filetype",
++    srcs = ["build.go"],
++    importpath = "google.golang.org/protobuf/internal/filetype",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/descopts",
++        "//internal/filedesc",
++        "//internal/impl",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":filetype",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/flags/BUILD.bazel b/internal/flags/BUILD.bazel
+new file mode 100644
+index 00000000..8d2c104b
+--- /dev/null
++++ b/internal/flags/BUILD.bazel
+@@ -0,0 +1,17 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "flags",
++    srcs = [
++        "flags.go",
++        "proto_legacy_disable.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/flags",
++    visibility = ["//:__subpackages__"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":flags",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/fuzz/jsonfuzz/BUILD.bazel b/internal/fuzz/jsonfuzz/BUILD.bazel
+new file mode 100644
+index 00000000..7519f0e0
+--- /dev/null
++++ b/internal/fuzz/jsonfuzz/BUILD.bazel
+@@ -0,0 +1,26 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "jsonfuzz",
++    srcs = ["fuzz.go"],
++    importpath = "google.golang.org/protobuf/internal/fuzz/jsonfuzz",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//encoding/protojson",
++        "//internal/testprotos/fuzz",
++        "//proto",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":jsonfuzz",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "jsonfuzz_test",
++    srcs = ["fuzz_test.go"],
++    embed = [":jsonfuzz"],
++    deps = ["//internal/fuzztest"],
++)
+diff --git a/internal/fuzz/textfuzz/BUILD.bazel b/internal/fuzz/textfuzz/BUILD.bazel
+new file mode 100644
+index 00000000..ba7b8a70
+--- /dev/null
++++ b/internal/fuzz/textfuzz/BUILD.bazel
+@@ -0,0 +1,26 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "textfuzz",
++    srcs = ["fuzz.go"],
++    importpath = "google.golang.org/protobuf/internal/fuzz/textfuzz",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//encoding/prototext",
++        "//internal/testprotos/fuzz",
++        "//proto",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":textfuzz",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "textfuzz_test",
++    srcs = ["fuzz_test.go"],
++    embed = [":textfuzz"],
++    deps = ["//internal/fuzztest"],
++)
+diff --git a/internal/fuzz/wirefuzz/BUILD.bazel b/internal/fuzz/wirefuzz/BUILD.bazel
+new file mode 100644
+index 00000000..7f4401c5
+--- /dev/null
++++ b/internal/fuzz/wirefuzz/BUILD.bazel
+@@ -0,0 +1,28 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "wirefuzz",
++    srcs = ["fuzz.go"],
++    importpath = "google.golang.org/protobuf/internal/fuzz/wirefuzz",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/impl",
++        "//internal/testprotos/fuzz",
++        "//proto",
++        "//reflect/protoregistry",
++        "//runtime/protoiface",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":wirefuzz",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "wirefuzz_test",
++    srcs = ["fuzz_test.go"],
++    embed = [":wirefuzz"],
++    deps = ["//internal/fuzztest"],
++)
+diff --git a/internal/fuzztest/BUILD.bazel b/internal/fuzztest/BUILD.bazel
+new file mode 100644
+index 00000000..3e57de4d
+--- /dev/null
++++ b/internal/fuzztest/BUILD.bazel
+@@ -0,0 +1,14 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "fuzztest",
++    srcs = ["fuzztest.go"],
++    importpath = "google.golang.org/protobuf/internal/fuzztest",
++    visibility = ["//:__subpackages__"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":fuzztest",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/genid/BUILD.bazel b/internal/genid/BUILD.bazel
+new file mode 100644
+index 00000000..43d16353
+--- /dev/null
++++ b/internal/genid/BUILD.bazel
+@@ -0,0 +1,32 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "genid",
++    srcs = [
++        "any_gen.go",
++        "api_gen.go",
++        "descriptor_gen.go",
++        "doc.go",
++        "duration_gen.go",
++        "empty_gen.go",
++        "field_mask_gen.go",
++        "go_features_gen.go",
++        "goname.go",
++        "map_entry.go",
++        "source_context_gen.go",
++        "struct_gen.go",
++        "timestamp_gen.go",
++        "type_gen.go",
++        "wrappers.go",
++        "wrappers_gen.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/genid",
++    visibility = ["//:__subpackages__"],
++    deps = ["//reflect/protoreflect"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":genid",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/impl/BUILD.bazel b/internal/impl/BUILD.bazel
+new file mode 100644
+index 00000000..facc4814
+--- /dev/null
++++ b/internal/impl/BUILD.bazel
+@@ -0,0 +1,111 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "impl",
++    srcs = [
++        "api_export.go",
++        "checkinit.go",
++        "codec_extension.go",
++        "codec_field.go",
++        "codec_gen.go",
++        "codec_map.go",
++        "codec_map_go111.go",
++        "codec_map_go112.go",
++        "codec_message.go",
++        "codec_messageset.go",
++        "codec_tables.go",
++        "codec_unsafe.go",
++        "convert.go",
++        "convert_list.go",
++        "convert_map.go",
++        "decode.go",
++        "encode.go",
++        "enum.go",
++        "extension.go",
++        "legacy_enum.go",
++        "legacy_export.go",
++        "legacy_extension.go",
++        "legacy_file.go",
++        "legacy_message.go",
++        "merge.go",
++        "merge_gen.go",
++        "message.go",
++        "message_reflect.go",
++        "message_reflect_field.go",
++        "message_reflect_gen.go",
++        "pointer_unsafe.go",
++        "validate.go",
++        "weak.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/impl",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//encoding/prototext",
++        "//encoding/protowire",
++        "//internal/descopts",
++        "//internal/detrand",
++        "//internal/encoding/messageset",
++        "//internal/encoding/tag",
++        "//internal/errors",
++        "//internal/filedesc",
++        "//internal/flags",
++        "//internal/genid",
++        "//internal/order",
++        "//internal/pragma",
++        "//internal/strs",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//runtime/protoiface",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":impl",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "impl_test",
++    srcs = [
++        "enum_test.go",
++        "extension_test.go",
++        "lazy_test.go",
++        "legacy_aberrant_test.go",
++        "legacy_export_test.go",
++        "legacy_file_test.go",
++        "legacy_test.go",
++        "message_reflect_test.go",
++    ],
++    embed = [":impl"],
++    deps = [
++        "//encoding/prototext",
++        "//internal/flags",
++        "//internal/pragma",
++        "//internal/protobuild",
++        "//internal/testprotos/legacy/proto2_20160225_2fc053c5",
++        "//internal/testprotos/legacy/proto2_20160519_a4ab9ec5",
++        "//internal/testprotos/legacy/proto2_20180125_92554152",
++        "//internal/testprotos/legacy/proto2_20180430_b4deda09",
++        "//internal/testprotos/legacy/proto2_20180814_aa810b61",
++        "//internal/testprotos/legacy/proto2_20190205_c823c79e",
++        "//internal/testprotos/legacy/proto3_20160225_2fc053c5",
++        "//internal/testprotos/legacy/proto3_20160519_a4ab9ec5",
++        "//internal/testprotos/legacy/proto3_20180125_92554152",
++        "//internal/testprotos/legacy/proto3_20180430_b4deda09",
++        "//internal/testprotos/legacy/proto3_20180814_aa810b61",
++        "//internal/testprotos/legacy/proto3_20190205_c823c79e",
++        "//internal/testprotos/test",
++        "//proto",
++        "//reflect/protodesc",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//runtime/protoiface",
++        "//testing/protocmp",
++        "//testing/protopack",
++        "//types/descriptorpb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++        "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
++    ],
++)
+diff --git a/internal/msgfmt/BUILD.bazel b/internal/msgfmt/BUILD.bazel
+new file mode 100644
+index 00000000..6fe6f605
+--- /dev/null
++++ b/internal/msgfmt/BUILD.bazel
+@@ -0,0 +1,43 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "msgfmt",
++    srcs = ["format.go"],
++    importpath = "google.golang.org/protobuf/internal/msgfmt",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/detrand",
++        "//internal/genid",
++        "//internal/order",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":msgfmt",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "msgfmt_test",
++    srcs = ["format_test.go"],
++    deps = [
++        ":msgfmt",
++        "//internal/detrand",
++        "//internal/testprotos/test",
++        "//internal/testprotos/textpb2",
++        "//proto",
++        "//testing/protocmp",
++        "//testing/protopack",
++        "//types/dynamicpb",
++        "//types/known/anypb",
++        "//types/known/durationpb",
++        "//types/known/timestamppb",
++        "//types/known/wrapperspb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/internal/order/BUILD.bazel b/internal/order/BUILD.bazel
+new file mode 100644
+index 00000000..cb699983
+--- /dev/null
++++ b/internal/order/BUILD.bazel
+@@ -0,0 +1,28 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "order",
++    srcs = [
++        "order.go",
++        "range.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/order",
++    visibility = ["//:__subpackages__"],
++    deps = ["//reflect/protoreflect"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":order",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "order_test",
++    srcs = ["order_test.go"],
++    embed = [":order"],
++    deps = [
++        "//reflect/protoreflect",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/internal/pragma/BUILD.bazel b/internal/pragma/BUILD.bazel
+new file mode 100644
+index 00000000..44322251
+--- /dev/null
++++ b/internal/pragma/BUILD.bazel
+@@ -0,0 +1,14 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "pragma",
++    srcs = ["pragma.go"],
++    importpath = "google.golang.org/protobuf/internal/pragma",
++    visibility = ["//:__subpackages__"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":pragma",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/protobuild/BUILD.bazel b/internal/protobuild/BUILD.bazel
+new file mode 100644
+index 00000000..e6c7fcc4
+--- /dev/null
++++ b/internal/protobuild/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "protobuild",
++    srcs = ["build.go"],
++    importpath = "google.golang.org/protobuf/internal/protobuild",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protobuild",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/protolegacy/BUILD.bazel b/internal/protolegacy/BUILD.bazel
+new file mode 100644
+index 00000000..c07d57f4
+--- /dev/null
++++ b/internal/protolegacy/BUILD.bazel
+@@ -0,0 +1,20 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "protolegacy",
++    srcs = ["proto.go"],
++    importpath = "google.golang.org/protobuf/internal/protolegacy",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//runtime/protoiface",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protolegacy",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/set/BUILD.bazel b/internal/set/BUILD.bazel
+new file mode 100644
+index 00000000..1f71c49f
+--- /dev/null
++++ b/internal/set/BUILD.bazel
+@@ -0,0 +1,20 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "set",
++    srcs = ["ints.go"],
++    importpath = "google.golang.org/protobuf/internal/set",
++    visibility = ["//:__subpackages__"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":set",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "set_test",
++    srcs = ["ints_test.go"],
++    embed = [":set"],
++)
+diff --git a/internal/strs/BUILD.bazel b/internal/strs/BUILD.bazel
+new file mode 100644
+index 00000000..c2ced083
+--- /dev/null
++++ b/internal/strs/BUILD.bazel
+@@ -0,0 +1,28 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "strs",
++    srcs = [
++        "strings.go",
++        "strings_unsafe_go120.go",
++        "strings_unsafe_go121.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/strs",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/flags",
++        "//reflect/protoreflect",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":strs",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "strs_test",
++    srcs = ["strings_test.go"],
++    embed = [":strs"],
++)
+diff --git a/internal/testprotos/annotation/BUILD.bazel b/internal/testprotos/annotation/BUILD.bazel
+new file mode 100644
+index 00000000..6af03961
+--- /dev/null
++++ b/internal/testprotos/annotation/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "annotation",
++    srcs = ["annotation.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/annotation",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/descriptorpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":annotation",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/benchmarks/BUILD.bazel b/internal/testprotos/benchmarks/BUILD.bazel
+new file mode 100644
+index 00000000..ff1541c1
+--- /dev/null
++++ b/internal/testprotos/benchmarks/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "benchmarks",
++    srcs = ["benchmarks.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/benchmarks",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":benchmarks",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/benchmarks/datasets/google_message1/proto2/BUILD.bazel b/internal/testprotos/benchmarks/datasets/google_message1/proto2/BUILD.bazel
+new file mode 100644
+index 00000000..dcc47ca9
+--- /dev/null
++++ b/internal/testprotos/benchmarks/datasets/google_message1/proto2/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto2",
++    srcs = ["benchmark_message1_proto2.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/benchmarks/datasets/google_message1/proto2",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto2",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/benchmarks/datasets/google_message1/proto3/BUILD.bazel b/internal/testprotos/benchmarks/datasets/google_message1/proto3/BUILD.bazel
+new file mode 100644
+index 00000000..c4081be6
+--- /dev/null
++++ b/internal/testprotos/benchmarks/datasets/google_message1/proto3/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto3",
++    srcs = ["benchmark_message1_proto3.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/benchmarks/datasets/google_message1/proto3",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto3",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/benchmarks/datasets/google_message2/BUILD.bazel b/internal/testprotos/benchmarks/datasets/google_message2/BUILD.bazel
+new file mode 100644
+index 00000000..7e3176de
+--- /dev/null
++++ b/internal/testprotos/benchmarks/datasets/google_message2/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "google_message2",
++    srcs = ["benchmark_message2.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/benchmarks/datasets/google_message2",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":google_message2",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/benchmarks/datasets/google_message3/BUILD.bazel b/internal/testprotos/benchmarks/datasets/google_message3/BUILD.bazel
+new file mode 100644
+index 00000000..141c0721
+--- /dev/null
++++ b/internal/testprotos/benchmarks/datasets/google_message3/BUILD.bazel
+@@ -0,0 +1,28 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "google_message3",
++    srcs = [
++        "benchmark_message3.pb.go",
++        "benchmark_message3_1.pb.go",
++        "benchmark_message3_2.pb.go",
++        "benchmark_message3_3.pb.go",
++        "benchmark_message3_4.pb.go",
++        "benchmark_message3_5.pb.go",
++        "benchmark_message3_6.pb.go",
++        "benchmark_message3_7.pb.go",
++        "benchmark_message3_8.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/testprotos/benchmarks/datasets/google_message3",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":google_message3",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/benchmarks/datasets/google_message4/BUILD.bazel b/internal/testprotos/benchmarks/datasets/google_message4/BUILD.bazel
+new file mode 100644
+index 00000000..860d343e
+--- /dev/null
++++ b/internal/testprotos/benchmarks/datasets/google_message4/BUILD.bazel
+@@ -0,0 +1,23 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "google_message4",
++    srcs = [
++        "benchmark_message4.pb.go",
++        "benchmark_message4_1.pb.go",
++        "benchmark_message4_2.pb.go",
++        "benchmark_message4_3.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/testprotos/benchmarks/datasets/google_message4",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":google_message4",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/benchmarks/micro/BUILD.bazel b/internal/testprotos/benchmarks/micro/BUILD.bazel
+new file mode 100644
+index 00000000..62f2b416
+--- /dev/null
++++ b/internal/testprotos/benchmarks/micro/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "micro",
++    srcs = ["micro.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/benchmarks/micro",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":micro",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/conformance/BUILD.bazel b/internal/testprotos/conformance/BUILD.bazel
+new file mode 100644
+index 00000000..53e8345b
+--- /dev/null
++++ b/internal/testprotos/conformance/BUILD.bazel
+@@ -0,0 +1,28 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "conformance",
++    srcs = [
++        "conformance.pb.go",
++        "test_messages_proto2.pb.go",
++        "test_messages_proto3.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/testprotos/conformance",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/known/anypb",
++        "//types/known/durationpb",
++        "//types/known/fieldmaskpb",
++        "//types/known/structpb",
++        "//types/known/timestamppb",
++        "//types/known/wrapperspb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":conformance",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/conformance/editions/BUILD.bazel b/internal/testprotos/conformance/editions/BUILD.bazel
+new file mode 100644
+index 00000000..5f702d7d
+--- /dev/null
++++ b/internal/testprotos/conformance/editions/BUILD.bazel
+@@ -0,0 +1,27 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "editions",
++    srcs = [
++        "test_messages_proto2_editions.pb.go",
++        "test_messages_proto3_editions.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/testprotos/conformance/editions",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/known/anypb",
++        "//types/known/durationpb",
++        "//types/known/fieldmaskpb",
++        "//types/known/structpb",
++        "//types/known/timestamppb",
++        "//types/known/wrapperspb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":editions",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/editionsfuzztest/BUILD.bazel b/internal/testprotos/editionsfuzztest/BUILD.bazel
+new file mode 100644
+index 00000000..15652651
+--- /dev/null
++++ b/internal/testprotos/editionsfuzztest/BUILD.bazel
+@@ -0,0 +1,24 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "editionsfuzztest",
++    srcs = [
++        "test2.pb.go",
++        "test2editions.pb.go",
++        "test3.pb.go",
++        "test3editions.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/testprotos/editionsfuzztest",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/gofeaturespb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":editionsfuzztest",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/enums/BUILD.bazel b/internal/testprotos/enums/BUILD.bazel
+new file mode 100644
+index 00000000..a43a50ac
+--- /dev/null
++++ b/internal/testprotos/enums/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "enums",
++    srcs = ["enums.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/enums",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":enums",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/fieldtrack/BUILD.bazel b/internal/testprotos/fieldtrack/BUILD.bazel
+new file mode 100644
+index 00000000..834bd7e4
+--- /dev/null
++++ b/internal/testprotos/fieldtrack/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "fieldtrack",
++    srcs = ["fieldtrack.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/fieldtrack",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/testprotos/annotation",
++        "//internal/testprotos/test",
++        "//proto",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":fieldtrack",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/fuzz/BUILD.bazel b/internal/testprotos/fuzz/BUILD.bazel
+new file mode 100644
+index 00000000..66e871f3
+--- /dev/null
++++ b/internal/testprotos/fuzz/BUILD.bazel
+@@ -0,0 +1,20 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "fuzz",
++    srcs = ["fuzz.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/fuzz",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/testprotos/test",
++        "//internal/testprotos/test3",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":fuzz",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/irregular/BUILD.bazel b/internal/testprotos/irregular/BUILD.bazel
+new file mode 100644
+index 00000000..fdc3b0aa
+--- /dev/null
++++ b/internal/testprotos/irregular/BUILD.bazel
+@@ -0,0 +1,25 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "irregular",
++    srcs = [
++        "irregular.go",
++        "test.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/testprotos/irregular",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//encoding/prototext",
++        "//reflect/protodesc",
++        "//reflect/protoreflect",
++        "//runtime/protoiface",
++        "//runtime/protoimpl",
++        "//types/descriptorpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":irregular",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/BUILD.bazel b/internal/testprotos/legacy/BUILD.bazel
+new file mode 100644
+index 00000000..b2a61687
+--- /dev/null
++++ b/internal/testprotos/legacy/BUILD.bazel
+@@ -0,0 +1,30 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "legacy",
++    srcs = ["legacy.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/testprotos/legacy/proto2_20160225_2fc053c5",
++        "//internal/testprotos/legacy/proto2_20160519_a4ab9ec5",
++        "//internal/testprotos/legacy/proto2_20180125_92554152",
++        "//internal/testprotos/legacy/proto2_20180430_b4deda09",
++        "//internal/testprotos/legacy/proto2_20180814_aa810b61",
++        "//internal/testprotos/legacy/proto2_20190205_c823c79e",
++        "//internal/testprotos/legacy/proto3_20160225_2fc053c5",
++        "//internal/testprotos/legacy/proto3_20160519_a4ab9ec5",
++        "//internal/testprotos/legacy/proto3_20180125_92554152",
++        "//internal/testprotos/legacy/proto3_20180430_b4deda09",
++        "//internal/testprotos/legacy/proto3_20180814_aa810b61",
++        "//internal/testprotos/legacy/proto3_20190205_c823c79e",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":legacy",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/bug1052/BUILD.bazel b/internal/testprotos/legacy/bug1052/BUILD.bazel
+new file mode 100644
+index 00000000..d6de8456
+--- /dev/null
++++ b/internal/testprotos/legacy/bug1052/BUILD.bazel
+@@ -0,0 +1,24 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "bug1052",
++    srcs = ["bug1052.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/bug1052",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/protolegacy",
++        "//types/descriptorpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":bug1052",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "bug1052_test",
++    srcs = ["bug1052_test.go"],
++    deps = [":bug1052"],
++)
+diff --git a/internal/testprotos/legacy/proto2_20160225_2fc053c5/BUILD.bazel b/internal/testprotos/legacy/proto2_20160225_2fc053c5/BUILD.bazel
+new file mode 100644
+index 00000000..c0194330
+--- /dev/null
++++ b/internal/testprotos/legacy/proto2_20160225_2fc053c5/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto2_20160225_2fc053c5",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto2_20160225_2fc053c5",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto2_20160225_2fc053c5",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto2_20160519_a4ab9ec5/BUILD.bazel b/internal/testprotos/legacy/proto2_20160519_a4ab9ec5/BUILD.bazel
+new file mode 100644
+index 00000000..f7f74a02
+--- /dev/null
++++ b/internal/testprotos/legacy/proto2_20160519_a4ab9ec5/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto2_20160519_a4ab9ec5",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto2_20160519_a4ab9ec5",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto2_20160519_a4ab9ec5",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto2_20180125_92554152/BUILD.bazel b/internal/testprotos/legacy/proto2_20180125_92554152/BUILD.bazel
+new file mode 100644
+index 00000000..d727cc4d
+--- /dev/null
++++ b/internal/testprotos/legacy/proto2_20180125_92554152/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto2_20180125_92554152",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto2_20180125_92554152",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto2_20180125_92554152",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto2_20180430_b4deda09/BUILD.bazel b/internal/testprotos/legacy/proto2_20180430_b4deda09/BUILD.bazel
+new file mode 100644
+index 00000000..c79d3ae2
+--- /dev/null
++++ b/internal/testprotos/legacy/proto2_20180430_b4deda09/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto2_20180430_b4deda09",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto2_20180430_b4deda09",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto2_20180430_b4deda09",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto2_20180814_aa810b61/BUILD.bazel b/internal/testprotos/legacy/proto2_20180814_aa810b61/BUILD.bazel
+new file mode 100644
+index 00000000..cf058817
+--- /dev/null
++++ b/internal/testprotos/legacy/proto2_20180814_aa810b61/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto2_20180814_aa810b61",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto2_20180814_aa810b61",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto2_20180814_aa810b61",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto2_20190205_c823c79e/BUILD.bazel b/internal/testprotos/legacy/proto2_20190205_c823c79e/BUILD.bazel
+new file mode 100644
+index 00000000..f0265d09
+--- /dev/null
++++ b/internal/testprotos/legacy/proto2_20190205_c823c79e/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto2_20190205_c823c79e",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto2_20190205_c823c79e",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto2_20190205_c823c79e",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto3_20160225_2fc053c5/BUILD.bazel b/internal/testprotos/legacy/proto3_20160225_2fc053c5/BUILD.bazel
+new file mode 100644
+index 00000000..df514971
+--- /dev/null
++++ b/internal/testprotos/legacy/proto3_20160225_2fc053c5/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto3_20160225_2fc053c5",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto3_20160225_2fc053c5",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto3_20160225_2fc053c5",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto3_20160519_a4ab9ec5/BUILD.bazel b/internal/testprotos/legacy/proto3_20160519_a4ab9ec5/BUILD.bazel
+new file mode 100644
+index 00000000..a678225e
+--- /dev/null
++++ b/internal/testprotos/legacy/proto3_20160519_a4ab9ec5/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto3_20160519_a4ab9ec5",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto3_20160519_a4ab9ec5",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto3_20160519_a4ab9ec5",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto3_20180125_92554152/BUILD.bazel b/internal/testprotos/legacy/proto3_20180125_92554152/BUILD.bazel
+new file mode 100644
+index 00000000..bc257bfa
+--- /dev/null
++++ b/internal/testprotos/legacy/proto3_20180125_92554152/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto3_20180125_92554152",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto3_20180125_92554152",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto3_20180125_92554152",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto3_20180430_b4deda09/BUILD.bazel b/internal/testprotos/legacy/proto3_20180430_b4deda09/BUILD.bazel
+new file mode 100644
+index 00000000..3dad8d46
+--- /dev/null
++++ b/internal/testprotos/legacy/proto3_20180430_b4deda09/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto3_20180430_b4deda09",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto3_20180430_b4deda09",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto3_20180430_b4deda09",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto3_20180814_aa810b61/BUILD.bazel b/internal/testprotos/legacy/proto3_20180814_aa810b61/BUILD.bazel
+new file mode 100644
+index 00000000..8f60f76d
+--- /dev/null
++++ b/internal/testprotos/legacy/proto3_20180814_aa810b61/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto3_20180814_aa810b61",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto3_20180814_aa810b61",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto3_20180814_aa810b61",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/legacy/proto3_20190205_c823c79e/BUILD.bazel b/internal/testprotos/legacy/proto3_20190205_c823c79e/BUILD.bazel
+new file mode 100644
+index 00000000..b745bf10
+--- /dev/null
++++ b/internal/testprotos/legacy/proto3_20190205_c823c79e/BUILD.bazel
+@@ -0,0 +1,15 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "proto3_20190205_c823c79e",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/legacy/proto3_20190205_c823c79e",
++    visibility = ["//:__subpackages__"],
++    deps = ["//internal/protolegacy"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto3_20190205_c823c79e",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/messageset/messagesetpb/BUILD.bazel b/internal/testprotos/messageset/messagesetpb/BUILD.bazel
+new file mode 100644
+index 00000000..5232e236
+--- /dev/null
++++ b/internal/testprotos/messageset/messagesetpb/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "messagesetpb",
++    srcs = ["message_set.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/messageset/messagesetpb",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":messagesetpb",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/messageset/msetextpb/BUILD.bazel b/internal/testprotos/messageset/msetextpb/BUILD.bazel
+new file mode 100644
+index 00000000..b944c2f6
+--- /dev/null
++++ b/internal/testprotos/messageset/msetextpb/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "msetextpb",
++    srcs = ["msetextpb.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/messageset/msetextpb",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/testprotos/messageset/messagesetpb",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":msetextpb",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/news/BUILD.bazel b/internal/testprotos/news/BUILD.bazel
+new file mode 100644
+index 00000000..f0665114
+--- /dev/null
++++ b/internal/testprotos/news/BUILD.bazel
+@@ -0,0 +1,20 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "news",
++    srcs = ["news.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/news",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/known/anypb",
++        "//types/known/timestamppb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":news",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/nullable/BUILD.bazel b/internal/testprotos/nullable/BUILD.bazel
+new file mode 100644
+index 00000000..0020c477
+--- /dev/null
++++ b/internal/testprotos/nullable/BUILD.bazel
+@@ -0,0 +1,33 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "nullable",
++    srcs = ["nullable.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/nullable",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//encoding/prototext",
++        "//encoding/protowire",
++        "//runtime/protoimpl",
++        "//types/descriptorpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":nullable",
++    visibility = ["//:__subpackages__"],
++)
++
++go_test(
++    name = "nullable_test",
++    srcs = ["nullable_test.go"],
++    embed = [":nullable"],
++    deps = [
++        "//proto",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//testing/protocmp",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/internal/testprotos/order/BUILD.bazel b/internal/testprotos/order/BUILD.bazel
+new file mode 100644
+index 00000000..1cccdf19
+--- /dev/null
++++ b/internal/testprotos/order/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "order",
++    srcs = ["order.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/order",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":order",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/race/BUILD.bazel b/internal/testprotos/race/BUILD.bazel
+new file mode 100644
+index 00000000..afdc949c
+--- /dev/null
++++ b/internal/testprotos/race/BUILD.bazel
+@@ -0,0 +1,11 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_test")
++
++go_test(
++    name = "race_test",
++    srcs = ["race_test.go"],
++    deps = [
++        "//internal/testprotos/race/extender",
++        "//internal/testprotos/race/message",
++        "//proto",
++    ],
++)
+diff --git a/internal/testprotos/race/extender/BUILD.bazel b/internal/testprotos/race/extender/BUILD.bazel
+new file mode 100644
+index 00000000..48b54fbf
+--- /dev/null
++++ b/internal/testprotos/race/extender/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "extender",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/race/extender",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/testprotos/race/message",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":extender",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/race/message/BUILD.bazel b/internal/testprotos/race/message/BUILD.bazel
+new file mode 100644
+index 00000000..3daeefa4
+--- /dev/null
++++ b/internal/testprotos/race/message/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "message",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/race/message",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":message",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/registry/BUILD.bazel b/internal/testprotos/registry/BUILD.bazel
+new file mode 100644
+index 00000000..7bf1f042
+--- /dev/null
++++ b/internal/testprotos/registry/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "registry",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/registry",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":registry",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/required/BUILD.bazel b/internal/testprotos/required/BUILD.bazel
+new file mode 100644
+index 00000000..415ac6a6
+--- /dev/null
++++ b/internal/testprotos/required/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "required",
++    srcs = ["required.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/required",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":required",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/test/BUILD.bazel b/internal/testprotos/test/BUILD.bazel
+new file mode 100644
+index 00000000..5022a855
+--- /dev/null
++++ b/internal/testprotos/test/BUILD.bazel
+@@ -0,0 +1,25 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "test",
++    srcs = [
++        "ext.pb.go",
++        "test.pb.go",
++        "test_import.pb.go",
++        "test_public.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/testprotos/test",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//internal/testprotos/enums",
++        "//proto",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":test",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/test/weak1/BUILD.bazel b/internal/testprotos/test/weak1/BUILD.bazel
+new file mode 100644
+index 00000000..1b55bf94
+--- /dev/null
++++ b/internal/testprotos/test/weak1/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "weak1",
++    srcs = ["test_weak.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/test/weak1",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":weak1",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/test/weak2/BUILD.bazel b/internal/testprotos/test/weak2/BUILD.bazel
+new file mode 100644
+index 00000000..6eec9b3c
+--- /dev/null
++++ b/internal/testprotos/test/weak2/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "weak2",
++    srcs = ["test_weak.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/test/weak2",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":weak2",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/test3/BUILD.bazel b/internal/testprotos/test3/BUILD.bazel
+new file mode 100644
+index 00000000..89c4696d
+--- /dev/null
++++ b/internal/testprotos/test3/BUILD.bazel
+@@ -0,0 +1,23 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "test3",
++    srcs = [
++        "test.pb.go",
++        "test_extension.pb.go",
++        "test_import.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/testprotos/test3",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/descriptorpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":test3",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/testeditions/BUILD.bazel b/internal/testprotos/testeditions/BUILD.bazel
+new file mode 100644
+index 00000000..d22ef775
+--- /dev/null
++++ b/internal/testprotos/testeditions/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "testeditions",
++    srcs = [
++        "test.pb.go",
++        "test_extension.pb.go",
++    ],
++    importpath = "google.golang.org/protobuf/internal/testprotos/testeditions",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":testeditions",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/textpb2/BUILD.bazel b/internal/testprotos/textpb2/BUILD.bazel
+new file mode 100644
+index 00000000..f9fa0564
+--- /dev/null
++++ b/internal/testprotos/textpb2/BUILD.bazel
+@@ -0,0 +1,25 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "textpb2",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/textpb2",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/known/anypb",
++        "//types/known/durationpb",
++        "//types/known/emptypb",
++        "//types/known/fieldmaskpb",
++        "//types/known/structpb",
++        "//types/known/timestamppb",
++        "//types/known/wrapperspb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":textpb2",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/textpb3/BUILD.bazel b/internal/testprotos/textpb3/BUILD.bazel
+new file mode 100644
+index 00000000..2c24a23f
+--- /dev/null
++++ b/internal/testprotos/textpb3/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "textpb3",
++    srcs = ["test.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/textpb3",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":textpb3",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/testprotos/textpbeditions/BUILD.bazel b/internal/testprotos/textpbeditions/BUILD.bazel
+new file mode 100644
+index 00000000..7028c0bf
+--- /dev/null
++++ b/internal/testprotos/textpbeditions/BUILD.bazel
+@@ -0,0 +1,25 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "textpbeditions",
++    srcs = ["test2.pb.go"],
++    importpath = "google.golang.org/protobuf/internal/testprotos/textpbeditions",
++    visibility = ["//:__subpackages__"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/known/anypb",
++        "//types/known/durationpb",
++        "//types/known/emptypb",
++        "//types/known/fieldmaskpb",
++        "//types/known/structpb",
++        "//types/known/timestamppb",
++        "//types/known/wrapperspb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":textpbeditions",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/version/BUILD.bazel b/internal/version/BUILD.bazel
+new file mode 100644
+index 00000000..a2e9b0f1
+--- /dev/null
++++ b/internal/version/BUILD.bazel
+@@ -0,0 +1,14 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "version",
++    srcs = ["version.go"],
++    importpath = "google.golang.org/protobuf/internal/version",
++    visibility = ["//:__subpackages__"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":version",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/internal/weakdeps/BUILD.bazel b/internal/weakdeps/BUILD.bazel
+new file mode 100644
+index 00000000..172c4315
+--- /dev/null
++++ b/internal/weakdeps/BUILD.bazel
+@@ -0,0 +1,14 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "weakdeps",
++    srcs = ["doc.go"],
++    importpath = "google.golang.org/protobuf/internal/weakdeps",
++    visibility = ["//:__subpackages__"],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":weakdeps",
++    visibility = ["//:__subpackages__"],
++)
+diff --git a/proto/BUILD.bazel b/proto/BUILD.bazel
+new file mode 100644
+index 00000000..7cb88cb8
+--- /dev/null
++++ b/proto/BUILD.bazel
+@@ -0,0 +1,98 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "proto",
++    srcs = [
++        "checkinit.go",
++        "decode.go",
++        "decode_gen.go",
++        "doc.go",
++        "encode.go",
++        "encode_gen.go",
++        "equal.go",
++        "extension.go",
++        "merge.go",
++        "messageset.go",
++        "proto.go",
++        "proto_methods.go",
++        "reset.go",
++        "size.go",
++        "size_gen.go",
++        "wrappers.go",
++    ],
++    importpath = "google.golang.org/protobuf/proto",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/encoding/messageset",
++        "//internal/errors",
++        "//internal/flags",
++        "//internal/genid",
++        "//internal/order",
++        "//internal/pragma",
++        "//internal/strs",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//runtime/protoiface",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":proto",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "proto_test",
++    srcs = [
++        "bench_test.go",
++        "checkinit_test.go",
++        "decode_test.go",
++        "encode_test.go",
++        "equal_test.go",
++        "extension_test.go",
++        "fuzz_test.go",
++        "merge_test.go",
++        "messageset_test.go",
++        "methods_test.go",
++        "nil_test.go",
++        "noenforceutf8_test.go",
++        "reset_test.go",
++        "testmessages_test.go",
++        "validate_test.go",
++        "weak_test.go",
++    ],
++    deps = [
++        ":proto",
++        "//encoding/prototext",
++        "//encoding/protowire",
++        "//internal/errors",
++        "//internal/filedesc",
++        "//internal/flags",
++        "//internal/impl",
++        "//internal/pragma",
++        "//internal/protobuild",
++        "//internal/testprotos/editionsfuzztest",
++        "//internal/testprotos/legacy",
++        "//internal/testprotos/legacy/proto2_20160225_2fc053c5",
++        "//internal/testprotos/messageset/messagesetpb",
++        "//internal/testprotos/messageset/msetextpb",
++        "//internal/testprotos/order",
++        "//internal/testprotos/required",
++        "//internal/testprotos/test",
++        "//internal/testprotos/test/weak1",
++        "//internal/testprotos/test3",
++        "//internal/testprotos/testeditions",
++        "//reflect/protodesc",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//runtime/protoiface",
++        "//runtime/protoimpl",
++        "//testing/protocmp",
++        "//testing/protopack",
++        "//types/descriptorpb",
++        "//types/dynamicpb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/protoadapt/BUILD.bazel b/protoadapt/BUILD.bazel
+new file mode 100644
+index 00000000..24eb9d92
+--- /dev/null
++++ b/protoadapt/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "protoadapt",
++    srcs = ["convert.go"],
++    importpath = "google.golang.org/protobuf/protoadapt",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//proto",
++        "//runtime/protoiface",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protoadapt",
++    visibility = ["//visibility:public"],
++)
+diff --git a/reflect/protodesc/BUILD.bazel b/reflect/protodesc/BUILD.bazel
+new file mode 100644
+index 00000000..7c2ec886
+--- /dev/null
++++ b/reflect/protodesc/BUILD.bazel
+@@ -0,0 +1,52 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "protodesc",
++    srcs = [
++        "desc.go",
++        "desc_init.go",
++        "desc_resolve.go",
++        "desc_validate.go",
++        "editions.go",
++        "proto.go",
++    ],
++    importpath = "google.golang.org/protobuf/reflect/protodesc",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/editiondefaults",
++        "//internal/encoding/defval",
++        "//internal/errors",
++        "//internal/filedesc",
++        "//internal/flags",
++        "//internal/genid",
++        "//internal/pragma",
++        "//internal/strs",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//types/descriptorpb",
++        "//types/gofeaturespb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protodesc",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protodesc_test",
++    srcs = ["file_test.go"],
++    embed = [":protodesc"],
++    deps = [
++        "//encoding/prototext",
++        "//internal/filedesc",
++        "//internal/flags",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//types/descriptorpb",
++    ],
++)
+diff --git a/reflect/protopath/BUILD.bazel b/reflect/protopath/BUILD.bazel
+new file mode 100644
+index 00000000..4e78f2d6
+--- /dev/null
++++ b/reflect/protopath/BUILD.bazel
+@@ -0,0 +1,22 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "protopath",
++    srcs = [
++        "path.go",
++        "step.go",
++    ],
++    importpath = "google.golang.org/protobuf/reflect/protopath",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//internal/encoding/text",
++        "//internal/msgfmt",
++        "//reflect/protoreflect",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protopath",
++    visibility = ["//visibility:public"],
++)
+diff --git a/reflect/protorange/BUILD.bazel b/reflect/protorange/BUILD.bazel
+new file mode 100644
+index 00000000..18c80e2d
+--- /dev/null
++++ b/reflect/protorange/BUILD.bazel
+@@ -0,0 +1,46 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "protorange",
++    srcs = ["range.go"],
++    importpath = "google.golang.org/protobuf/reflect/protorange",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//internal/genid",
++        "//internal/order",
++        "//proto",
++        "//reflect/protopath",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protorange",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protorange_test",
++    srcs = [
++        "example_test.go",
++        "range_test.go",
++    ],
++    embed = [":protorange"],
++    deps = [
++        "//encoding/protojson",
++        "//internal/detrand",
++        "//internal/testprotos/news",
++        "//proto",
++        "//reflect/protopath",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//testing/protocmp",
++        "//testing/protopack",
++        "//types/known/anypb",
++        "//types/known/timestamppb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++        "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
++    ],
++)
+diff --git a/reflect/protoreflect/BUILD.bazel b/reflect/protoreflect/BUILD.bazel
+new file mode 100644
+index 00000000..c6ae87ed
+--- /dev/null
++++ b/reflect/protoreflect/BUILD.bazel
+@@ -0,0 +1,39 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "protoreflect",
++    srcs = [
++        "methods.go",
++        "proto.go",
++        "source.go",
++        "source_gen.go",
++        "type.go",
++        "value.go",
++        "value_equal.go",
++        "value_union.go",
++        "value_unsafe_go120.go",
++        "value_unsafe_go121.go",
++    ],
++    importpath = "google.golang.org/protobuf/reflect/protoreflect",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/pragma",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protoreflect",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protoreflect_test",
++    srcs = [
++        "proto_test.go",
++        "source_test.go",
++        "value_test.go",
++    ],
++    embed = [":protoreflect"],
++)
+diff --git a/reflect/protoregistry/BUILD.bazel b/reflect/protoregistry/BUILD.bazel
+new file mode 100644
+index 00000000..ae1bdaa4
+--- /dev/null
++++ b/reflect/protoregistry/BUILD.bazel
+@@ -0,0 +1,36 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "protoregistry",
++    srcs = ["registry.go"],
++    importpath = "google.golang.org/protobuf/reflect/protoregistry",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//internal/encoding/messageset",
++        "//internal/errors",
++        "//internal/flags",
++        "//reflect/protoreflect",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protoregistry",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protoregistry_test",
++    srcs = ["registry_test.go"],
++    deps = [
++        ":protoregistry",
++        "//encoding/prototext",
++        "//internal/impl",
++        "//internal/testprotos/registry",
++        "//reflect/protodesc",
++        "//reflect/protoreflect",
++        "//types/descriptorpb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++        "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
++    ],
++)
+diff --git a/runtime/protoiface/BUILD.bazel b/runtime/protoiface/BUILD.bazel
+new file mode 100644
+index 00000000..15a58cc8
+--- /dev/null
++++ b/runtime/protoiface/BUILD.bazel
+@@ -0,0 +1,21 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "protoiface",
++    srcs = [
++        "legacy.go",
++        "methods.go",
++    ],
++    importpath = "google.golang.org/protobuf/runtime/protoiface",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//internal/pragma",
++        "//reflect/protoreflect",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protoiface",
++    visibility = ["//visibility:public"],
++)
+diff --git a/runtime/protoimpl/BUILD.bazel b/runtime/protoimpl/BUILD.bazel
+new file mode 100644
+index 00000000..904b4c1d
+--- /dev/null
++++ b/runtime/protoimpl/BUILD.bazel
+@@ -0,0 +1,23 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "protoimpl",
++    srcs = [
++        "impl.go",
++        "version.go",
++    ],
++    importpath = "google.golang.org/protobuf/runtime/protoimpl",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//internal/filedesc",
++        "//internal/filetype",
++        "//internal/impl",
++        "//internal/version",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protoimpl",
++    visibility = ["//visibility:public"],
++)
+diff --git a/testing/protocmp/BUILD.bazel b/testing/protocmp/BUILD.bazel
+new file mode 100644
+index 00000000..0a9d8fc6
+--- /dev/null
++++ b/testing/protocmp/BUILD.bazel
+@@ -0,0 +1,53 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "protocmp",
++    srcs = [
++        "reflect.go",
++        "util.go",
++        "xform.go",
++    ],
++    importpath = "google.golang.org/protobuf/testing/protocmp",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/protowire",
++        "//internal/genid",
++        "//internal/msgfmt",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//runtime/protoiface",
++        "//runtime/protoimpl",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++        "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protocmp",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protocmp_test",
++    srcs = [
++        "reflect_test.go",
++        "util_test.go",
++        "xform_test.go",
++    ],
++    embed = [":protocmp"],
++    deps = [
++        "//internal/detrand",
++        "//internal/testprotos/test",
++        "//internal/testprotos/textpb2",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//testing/protopack",
++        "//types/dynamicpb",
++        "//types/known/anypb",
++        "//types/known/wrapperspb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/testing/protopack/BUILD.bazel b/testing/protopack/BUILD.bazel
+new file mode 100644
+index 00000000..0b965d9d
+--- /dev/null
++++ b/testing/protopack/BUILD.bazel
+@@ -0,0 +1,31 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "protopack",
++    srcs = ["pack.go"],
++    importpath = "google.golang.org/protobuf/testing/protopack",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/protowire",
++        "//reflect/protoreflect",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":protopack",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "protopack_test",
++    srcs = ["pack_test.go"],
++    embed = [":protopack"],
++    deps = [
++        "//encoding/prototext",
++        "//reflect/protodesc",
++        "//reflect/protoreflect",
++        "//types/descriptorpb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/testing/prototest/BUILD.bazel b/testing/prototest/BUILD.bazel
+new file mode 100644
+index 00000000..974f7fa1
+--- /dev/null
++++ b/testing/prototest/BUILD.bazel
+@@ -0,0 +1,43 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "prototest",
++    srcs = [
++        "enum.go",
++        "message.go",
++    ],
++    importpath = "google.golang.org/protobuf/testing/prototest",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/prototext",
++        "//encoding/protowire",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":prototest",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "prototest_test",
++    srcs = ["prototest_test.go"],
++    deps = [
++        ":prototest",
++        "//internal/flags",
++        "//internal/testprotos/irregular",
++        "//internal/testprotos/legacy",
++        "//internal/testprotos/legacy/proto2_20160225_2fc053c5",
++        "//internal/testprotos/test",
++        "//internal/testprotos/test/weak1",
++        "//internal/testprotos/test/weak2",
++        "//internal/testprotos/test3",
++        "//internal/testprotos/testeditions",
++        "//proto",
++        "//runtime/protoimpl",
++    ],
++)
+diff --git a/types/descriptorpb/BUILD.bazel b/types/descriptorpb/BUILD.bazel
+new file mode 100644
+index 00000000..872e602f
+--- /dev/null
++++ b/types/descriptorpb/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "descriptorpb",
++    srcs = ["descriptor.pb.go"],
++    importpath = "google.golang.org/protobuf/types/descriptorpb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":descriptorpb",
++    visibility = ["//visibility:public"],
++)
+diff --git a/types/dynamicpb/BUILD.bazel b/types/dynamicpb/BUILD.bazel
+new file mode 100644
+index 00000000..6f6628cd
+--- /dev/null
++++ b/types/dynamicpb/BUILD.bazel
+@@ -0,0 +1,43 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "dynamicpb",
++    srcs = [
++        "dynamic.go",
++        "types.go",
++    ],
++    importpath = "google.golang.org/protobuf/types/dynamicpb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//internal/errors",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//runtime/protoiface",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":dynamicpb",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "dynamicpb_test",
++    srcs = [
++        "dynamic_test.go",
++        "types_test.go",
++    ],
++    deps = [
++        ":dynamicpb",
++        "//internal/testprotos/registry",
++        "//internal/testprotos/test",
++        "//internal/testprotos/test3",
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//testing/prototest",
++        "//types/descriptorpb",
++    ],
++)
+diff --git a/types/gofeaturespb/BUILD.bazel b/types/gofeaturespb/BUILD.bazel
+new file mode 100644
+index 00000000..ba7cf2fc
+--- /dev/null
++++ b/types/gofeaturespb/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "gofeaturespb",
++    srcs = ["go_features.pb.go"],
++    importpath = "google.golang.org/protobuf/types/gofeaturespb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/descriptorpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":gofeaturespb",
++    visibility = ["//visibility:public"],
++)
+diff --git a/types/known/anypb/BUILD.bazel b/types/known/anypb/BUILD.bazel
+new file mode 100644
+index 00000000..f13e54e7
+--- /dev/null
++++ b/types/known/anypb/BUILD.bazel
+@@ -0,0 +1,35 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "anypb",
++    srcs = ["any.pb.go"],
++    importpath = "google.golang.org/protobuf/types/known/anypb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//proto",
++        "//reflect/protoreflect",
++        "//reflect/protoregistry",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":anypb",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "anypb_test",
++    srcs = ["any_test.go"],
++    deps = [
++        ":anypb",
++        "//internal/testprotos/test",
++        "//proto",
++        "//reflect/protoreflect",
++        "//testing/protocmp",
++        "//types/known/emptypb",
++        "//types/known/wrapperspb",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++    ],
++)
+diff --git a/types/known/apipb/BUILD.bazel b/types/known/apipb/BUILD.bazel
+new file mode 100644
+index 00000000..61abf836
+--- /dev/null
++++ b/types/known/apipb/BUILD.bazel
+@@ -0,0 +1,20 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "apipb",
++    srcs = ["api.pb.go"],
++    importpath = "google.golang.org/protobuf/types/known/apipb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/known/sourcecontextpb",
++        "//types/known/typepb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":apipb",
++    visibility = ["//visibility:public"],
++)
+diff --git a/types/known/durationpb/BUILD.bazel b/types/known/durationpb/BUILD.bazel
+new file mode 100644
+index 00000000..b2ce92f5
+--- /dev/null
++++ b/types/known/durationpb/BUILD.bazel
+@@ -0,0 +1,30 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "durationpb",
++    srcs = ["duration.pb.go"],
++    importpath = "google.golang.org/protobuf/types/known/durationpb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":durationpb",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "durationpb_test",
++    srcs = ["duration_test.go"],
++    deps = [
++        ":durationpb",
++        "//internal/detrand",
++        "//testing/protocmp",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++        "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
++    ],
++)
+diff --git a/types/known/emptypb/BUILD.bazel b/types/known/emptypb/BUILD.bazel
+new file mode 100644
+index 00000000..fd8dff79
+--- /dev/null
++++ b/types/known/emptypb/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "emptypb",
++    srcs = ["empty.pb.go"],
++    importpath = "google.golang.org/protobuf/types/known/emptypb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":emptypb",
++    visibility = ["//visibility:public"],
++)
+diff --git a/types/known/fieldmaskpb/BUILD.bazel b/types/known/fieldmaskpb/BUILD.bazel
+new file mode 100644
+index 00000000..0b102bb6
+--- /dev/null
++++ b/types/known/fieldmaskpb/BUILD.bazel
+@@ -0,0 +1,31 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "fieldmaskpb",
++    srcs = ["field_mask.pb.go"],
++    importpath = "google.golang.org/protobuf/types/known/fieldmaskpb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//proto",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":fieldmaskpb",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "fieldmaskpb_test",
++    srcs = ["field_mask_test.go"],
++    deps = [
++        ":fieldmaskpb",
++        "//internal/testprotos/test",
++        "//proto",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++        "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
++    ],
++)
+diff --git a/types/known/sourcecontextpb/BUILD.bazel b/types/known/sourcecontextpb/BUILD.bazel
+new file mode 100644
+index 00000000..3ec3ca93
+--- /dev/null
++++ b/types/known/sourcecontextpb/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "sourcecontextpb",
++    srcs = ["source_context.pb.go"],
++    importpath = "google.golang.org/protobuf/types/known/sourcecontextpb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":sourcecontextpb",
++    visibility = ["//visibility:public"],
++)
+diff --git a/types/known/structpb/BUILD.bazel b/types/known/structpb/BUILD.bazel
+new file mode 100644
+index 00000000..82cb9133
+--- /dev/null
++++ b/types/known/structpb/BUILD.bazel
+@@ -0,0 +1,31 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "structpb",
++    srcs = ["struct.pb.go"],
++    importpath = "google.golang.org/protobuf/types/known/structpb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//encoding/protojson",
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":structpb",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "structpb_test",
++    srcs = ["struct_test.go"],
++    deps = [
++        ":structpb",
++        "//reflect/protoreflect",
++        "//testing/protocmp",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++        "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
++    ],
++)
+diff --git a/types/known/timestamppb/BUILD.bazel b/types/known/timestamppb/BUILD.bazel
+new file mode 100644
+index 00000000..c6d56cbb
+--- /dev/null
++++ b/types/known/timestamppb/BUILD.bazel
+@@ -0,0 +1,30 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
++
++go_library(
++    name = "timestamppb",
++    srcs = ["timestamp.pb.go"],
++    importpath = "google.golang.org/protobuf/types/known/timestamppb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":timestamppb",
++    visibility = ["//visibility:public"],
++)
++
++go_test(
++    name = "timestamppb_test",
++    srcs = ["timestamp_test.go"],
++    deps = [
++        ":timestamppb",
++        "//internal/detrand",
++        "//testing/protocmp",
++        "@com_github_google_go_cmp//cmp:go_default_library",
++        "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
++    ],
++)
+diff --git a/types/known/typepb/BUILD.bazel b/types/known/typepb/BUILD.bazel
+new file mode 100644
+index 00000000..cf714406
+--- /dev/null
++++ b/types/known/typepb/BUILD.bazel
+@@ -0,0 +1,20 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "typepb",
++    srcs = ["type.pb.go"],
++    importpath = "google.golang.org/protobuf/types/known/typepb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/known/anypb",
++        "//types/known/sourcecontextpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":typepb",
++    visibility = ["//visibility:public"],
++)
+diff --git a/types/known/wrapperspb/BUILD.bazel b/types/known/wrapperspb/BUILD.bazel
+new file mode 100644
+index 00000000..2501a2dd
+--- /dev/null
++++ b/types/known/wrapperspb/BUILD.bazel
+@@ -0,0 +1,18 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "wrapperspb",
++    srcs = ["wrappers.pb.go"],
++    importpath = "google.golang.org/protobuf/types/known/wrapperspb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":wrapperspb",
++    visibility = ["//visibility:public"],
++)
+diff --git a/types/pluginpb/BUILD.bazel b/types/pluginpb/BUILD.bazel
+new file mode 100644
+index 00000000..9ab6038a
+--- /dev/null
++++ b/types/pluginpb/BUILD.bazel
+@@ -0,0 +1,19 @@
++load("@io_bazel_rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "pluginpb",
++    srcs = ["plugin.pb.go"],
++    importpath = "google.golang.org/protobuf/types/pluginpb",
++    visibility = ["//visibility:public"],
++    deps = [
++        "//reflect/protoreflect",
++        "//runtime/protoimpl",
++        "//types/descriptorpb",
++    ],
++)
++
++alias(
++    name = "go_default_library",
++    actual = ":pluginpb",
++    visibility = ["//visibility:public"],
++)

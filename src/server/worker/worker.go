@@ -3,15 +3,14 @@ package worker
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -43,6 +42,9 @@ type Worker struct {
 //  2. a worker goroutine that gets tasks from the master and processes them
 //  3. an api server that serves requests for status or cross-worker communication
 //  4. a driver that provides common functionality between the above components
+//
+// The caller should ensure that the workerId field is being logged by the logger in the provided
+// context.
 func NewWorker(
 	ctx context.Context,
 	env serviceenv.ServiceEnv,
@@ -55,7 +57,6 @@ func NewWorker(
 	ctx = pctx.Child(ctx, "", pctx.WithFields(
 		pps.ProjectNameField(pipelineInfo.GetPipeline().GetProject().GetName()),
 		pps.PipelineNameField(pipelineInfo.GetPipeline().GetName()),
-		pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv)),
 	))
 
 	driver, err := driver.NewDriver(
@@ -89,22 +90,27 @@ func NewWorker(
 
 	mlog := logs.NewMasterLogger(ctx)
 	go worker.master(mlog, env)
-	go worker.worker()
+	go worker.worker(env)
 	return worker, nil
 }
 
-func (w *Worker) worker() {
+func (w *Worker) worker(env serviceenv.ServiceEnv) {
 	ctx := w.driver.PachClient().Ctx()
 	logger := logs.New(w.driver.PachClient().Ctx())
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
-
-		// Process any tasks that the master creates.
+		if env.Config().PPSWorkerPreprocessing {
+			// Process any preprocessing tasks that the master creates.
+			eg.Go(func() error {
+				etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix)
+				return transform.PreprocessingWorker(ctx, driver.PachClient().PfsAPIClient, env.GetTaskService(etcdPrefix), driver.PipelineInfo())
+			})
+		}
+		// Process any processing tasks that the master creates.
 		eg.Go(func() error {
-			return transform.Worker(ctx, driver, logger, w.status)
+			return transform.ProcessingWorker(ctx, driver, logger, w.status)
 		})
-
 		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewConstantBackOff(200*time.Millisecond), func(err error, d time.Duration) error {
 		if st, ok := err.(errors.StackTracer); ok {
@@ -134,7 +140,7 @@ func (w *Worker) master(logger logs.TaggedLogger, env serviceenv.ServiceEnv) {
 	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error { //nolint:errcheck
 		// We use pachClient.Ctx here because it contains auth information.
-		ctx, cancel := context.WithCancel(w.driver.PachClient().Ctx())
+		ctx, cancel := pctx.WithCancel(w.driver.PachClient().Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {

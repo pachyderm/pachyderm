@@ -62,36 +62,6 @@ builds:
           - arm64
       gcflags:
           - "all=-trimpath={{.Env.PWD}}"
-    - id: mount-server
-      main: ./src/server/cmd/mount-server
-      binary: mount-server
-      env:
-          - CGO_ENABLED=0
-      ldflags:
-          - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X
-            "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
-      goos:
-          - linux
-      goarch:
-          - amd64
-          - arm64
-      gcflags:
-          - "all=-trimpath={{.Env.PWD}}"
-    - id: pachtf
-      main: ./src/server/cmd/pachtf
-      binary: pachtf
-      env:
-          - CGO_ENABLED=0
-      ldflags:
-          - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X
-            "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
-      goos:
-          - linux
-      goarch:
-          - amd64
-          - arm64
-      gcflags:
-          - "all=-trimpath={{.Env.PWD}}"
 
 archives:
     - format: binary
@@ -149,24 +119,6 @@ dockers:
           - LICENSE
           - licenses
     - image_templates:
-          - pachyderm/mount-server-amd64
-          - "pachyderm/mount-server-amd64:{{ .FullCommit }}"
-      ids:
-          - mount-server
-      goos: linux
-      goarch: amd64
-      skip_push: false
-      dockerfile: Dockerfile.mount-server
-      build_flag_templates:
-          - "--network=host"
-          - "--progress=plain"
-          - "--label=version={{.Version}}"
-          - "--label=release={{.Version}}"
-          - "--platform=linux/amd64"
-      extra_files:
-          - LICENSE
-          - licenses
-    - image_templates:
           - pachyderm/worker
           - pachyderm/worker:local
           - pachyderm/worker-amd64
@@ -176,7 +128,6 @@ dockers:
           - pachctl
           - worker_init
           - worker
-          - pachtf
       goos: linux
       goarch: amd64
       skip_push: false
@@ -230,24 +181,6 @@ dockers:
           - LICENSE
           - licenses
     - image_templates:
-          - pachyderm/mount-server-arm64
-          - "pachyderm/mount-server-arm64:{{ .FullCommit }}"
-      ids:
-          - mount-server
-      goos: linux
-      goarch: arm64
-      skip_push: false
-      dockerfile: Dockerfile.mount-server
-      build_flag_templates:
-          - "--network=host"
-          - "--progress=plain"
-          - "--label=version={{.Version}}"
-          - "--label=release={{.Version}}"
-          - "--platform=linux/arm64"
-      extra_files:
-          - LICENSE
-          - licenses
-    - image_templates:
           - pachyderm/worker-arm64
           - pachyderm/worker-arm64:local
           - "pachyderm/worker-arm64:{{ .FullCommit }}"
@@ -255,7 +188,6 @@ dockers:
           - pachctl
           - worker_init
           - worker
-          - pachtf
       goos: linux
       goarch: arm64
       skip_push: false

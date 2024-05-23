@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -23,7 +24,7 @@ var (
 )
 
 func newTestDB(t testing.TB) (*pachsql.DB, string) {
-	options := dockertestenv.NewTestDBOptions(t)
+	options := dockertestenv.NewTestDBConfig(t).Direct.DBOptions()
 	dsn := dbutil.GetDSN(options...)
 	db, err := dbutil.NewDB(options...)
 	require.NoError(t, err)
@@ -40,8 +41,8 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 	db, dsn := newTestDB(t)
 	listener := col.NewPostgresListener(dsn)
 	testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex})
-	ctx := context.Background()
-	if err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
+	ctx := pctx.TestContext(t)
+	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 		if err := col.CreatePostgresSchema(ctx, tx); err != nil {
 			return err
 		}
@@ -52,13 +53,13 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 	}); err != nil {
 		t.Fatal("could create test collection:", err)
 	}
-	if err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
-		return testCol.ReadWrite(tx).Put("foo1", &col.TestItem{ID: "foo", Value: "bar", Data: "baz"})
+	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+		return testCol.ReadWrite(tx).Put(ctx, "foo1", &col.TestItem{Id: "foo", Value: "bar", Data: "baz"})
 	}); err != nil {
 		t.Fatal("could not write test item:", err)
 	}
 	var indices = []*index{{TestSecondaryIndex.Name, TestSecondaryIndex.Extract}}
-	if err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 		var oldItem = new(col.TestItem)
 		return migratePostgreSQLCollection(ctx, tx, "test_items", indices, oldItem, func(oldKey string) (newKey string, newVal proto.Message, err error) {
 			oldItem.Value = oldItem.Value + " quux"
@@ -68,16 +69,16 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 		t.Fatal("could not migrate test item:", err)
 	}
 	var item col.TestItem
-	if err := testCol.ReadOnly(ctx).Get("foo", &item); err != nil {
+	if err := testCol.ReadOnly().Get(ctx, "foo", &item); err != nil {
 		t.Error("could not read migrated item:", err)
 	}
-	if item.ID != "foo" {
-		t.Errorf("%q ≠ %q", item.ID, "foo")
+	if item.Id != "foo" {
+		t.Errorf("%q ≠ %q", item.Id, "foo")
 	}
 	if item.Value != "bar quux" {
 		t.Errorf("%q ≠ %q", item.Value, "bar quux")
 	}
-	if err := testCol.ReadOnly(ctx).Get("foo1", &item); err != nil {
+	if err := testCol.ReadOnly().Get(ctx, "foo1", &item); err != nil {
 		if !col.IsErrNotFound(err) {
 			t.Error("could not try to get migrated item:", err)
 		}

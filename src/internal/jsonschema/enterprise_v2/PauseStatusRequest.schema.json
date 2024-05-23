@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/PauseStatusRequest",
+    "definitions": {
+        "PauseStatusRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pause Status Request"
+        }
+    }
+}

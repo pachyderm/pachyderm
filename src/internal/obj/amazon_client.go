@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"go.uber.org/zap"
@@ -159,7 +160,7 @@ func newAmazonClient(ctx context.Context, region, bucket string, creds *AmazonCr
 
 func (c *amazonClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
 	defer func() { retErr = c.transformError(retErr, name) }()
-	ctx, cf := context.WithCancel(ctx)
+	ctx, cf := pctx.WithCancel(ctx)
 	defer cf()
 	_, err := c.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		ACL:             aws.String(c.advancedConfig.UploadACL),

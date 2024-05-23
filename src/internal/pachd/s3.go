@@ -46,7 +46,7 @@ func (ss s3Server) listenAndServe(ctx context.Context, shutdownTimeout time.Dura
 	}()
 	select {
 	case <-ctx.Done():
-		log.Info(ctx, "terminating S3 server due to cancelled context", zap.Error(ctx.Err()))
+		log.Info(ctx, "terminating S3 server due to cancelled context", zap.Error(context.Cause(ctx)))
 		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 		return errors.EnsureStack(srv.Shutdown(ctx))

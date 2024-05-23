@@ -15,8 +15,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -35,7 +36,7 @@ type Env struct {
 func NewEnv(rctx context.Context, t testing.TB) *Env {
 	// Use an error group with a cancelable context to supervise every component
 	// and cancel everything if one fails
-	ctx, cancel := context.WithCancel(rctx)
+	ctx, cancel := pctx.WithCancel(rctx)
 	eg, ctx := errgroup.WithContext(ctx)
 	t.Cleanup(func() {
 		require.NoError(t, eg.Wait())
@@ -56,6 +57,10 @@ func NewEnv(rctx context.Context, t testing.TB) *Env {
 	// Create test dirs for etcd data
 	etcdConfig.Dir = path.Join(env.Directory, "etcd_data")
 	etcdConfig.WalDir = path.Join(env.Directory, "etcd_wal")
+
+	// Disable fsync, because it makes parallel tests perform poorly, and we don't need the data
+	// to be durable.
+	etcdConfig.UnsafeNoFsync = true
 
 	// Speed up initial election, hopefully this has no other impact since there
 	// is only one etcd instance

@@ -1,0 +1,70 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ReadFilesetRequest",
+    "definitions": {
+        "ReadFilesetRequest": {
+            "properties": {
+                "filesetId": {
+                    "type": "string"
+                },
+                "filters": {
+                    "items": {
+                        "$ref": "#/definitions/storage.FileFilter"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "Filters constrain which files are emitted. A file is only emitted if it makes it through all of the filters sequentially."
+                },
+                "emptyFiles": {
+                    "type": "boolean",
+                    "description": "If true, then the file data will be omitted from the stream."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Read Fileset Request"
+        },
+        "storage.FileFilter": {
+            "properties": {
+                "pathRange": {
+                    "$ref": "#/definitions/storage.PathRange",
+                    "additionalProperties": false,
+                    "description": "Only emit files with paths in the provided path range."
+                },
+                "pathRegex": {
+                    "type": "string",
+                    "description": "Only emit files with paths that match the provided regular expression."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "path_range"
+                    ]
+                },
+                {
+                    "required": [
+                        "path_regex"
+                    ]
+                }
+            ],
+            "title": "File Filter"
+        },
+        "storage.PathRange": {
+            "properties": {
+                "lower": {
+                    "type": "string"
+                },
+                "upper": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Path Range",
+            "description": "PathRange is a range of paths. The range is inclusive, exclusive: [Lower, Upper)."
+        }
+    }
+}

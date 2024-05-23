@@ -1,17 +1,19 @@
 package log
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func BenchmarkFields(b *testing.B) {
@@ -107,6 +109,36 @@ func BenchmarkLogrusWrapper(b *testing.B) {
 	}
 }
 
+func BenchmarkContextInfo_Logged(b *testing.B) {
+	ctx, w := NewBenchLogger(false)
+	dctx, c := context.WithCancelCause(ctx)
+	for i := 0; i < b.N/2; i++ {
+		Debug(dctx, "this is a log message")
+	}
+	c(errors.New("we are done here"))
+	for i := b.N / 2; i < b.N; i++ {
+		Debug(dctx, "this is a log message from an expired context")
+	}
+	if w.Load() == 0 {
+		b.Fatal("no bytes added to logger")
+	}
+}
+
+func BenchmarkContextInfo_NotLogged(b *testing.B) {
+	ctx, w := newBenchInfoLogger(false)
+	dctx, c := context.WithCancelCause(ctx)
+	for i := 0; i < b.N/2; i++ {
+		Debug(dctx, "this is a log message")
+	}
+	c(errors.New("we are done here"))
+	for i := b.N / 2; i < b.N; i++ {
+		Debug(dctx, "this is a log message from an expired context")
+	}
+	if w.Load() != 0 {
+		b.Fatal("bytes unexpectedly added to logger")
+	}
+}
+
 var bigProto = &pps.CreatePipelineRequest{
 	Pipeline: &pps.Pipeline{
 		Project: &pfs.Project{
@@ -130,8 +162,8 @@ var bigProto = &pps.CreatePipelineRequest{
 	ResourceRequests: &pps.ResourceSpec{
 		Cpu: 2,
 	},
-	DatumTimeout: types.DurationProto(time.Hour),
-	JobTimeout:   types.DurationProto(24 * time.Hour),
+	DatumTimeout: durationpb.New(time.Hour),
+	JobTimeout:   durationpb.New(24 * time.Hour),
 	ParallelismSpec: &pps.ParallelismSpec{
 		Constant: 10,
 	},
@@ -142,12 +174,10 @@ var bigProto = &pps.CreatePipelineRequest{
 			Effect:   pps.TaintEffect_NO_SCHEDULE,
 		},
 		{
-			Key:      "NotReady",
-			Operator: pps.TolerationOperator_EXISTS,
-			Effect:   pps.TaintEffect_NO_EXECUTE,
-			TolerationSeconds: &types.Int64Value{
-				Value: 60,
-			},
+			Key:               "NotReady",
+			Operator:          pps.TolerationOperator_EXISTS,
+			Effect:            pps.TaintEffect_NO_EXECUTE,
+			TolerationSeconds: wrapperspb.Int64(60),
 		},
 	},
 	PodPatch: "{}",
@@ -192,15 +222,12 @@ func BenchmarkProtoObject(b *testing.B) {
 
 func BenchmarkProtoJSONEncode(b *testing.B) {
 	ctx, w := NewBenchLogger(false)
-	m := jsonpb.Marshaler{
-		EmitDefaults: true,
-	}
 	for i := 0; i < b.N; i++ {
-		j, err := m.MarshalToString(bigProto)
+		j, err := protojson.Marshal(bigProto)
 		if err != nil {
 			panic(err)
 		}
-		Debug(ctx, "proto", zap.String("json", j))
+		Debug(ctx, "proto", zap.ByteString("json", j))
 	}
 	if w.Load() == 0 {
 		b.Fatal("no bytes added to logger")

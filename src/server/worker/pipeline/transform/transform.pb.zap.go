@@ -17,6 +17,7 @@ func (x *CreateParallelDatumsTask) MarshalLogObject(enc zapcore.ObjectEncoder) e
 	enc.AddString("file_set_id", x.FileSetId)
 	enc.AddString("base_file_set_id", x.BaseFileSetId)
 	enc.AddObject("path_range", x.PathRange)
+	enc.AddString("auth_token", x.AuthToken)
 	return nil
 }
 
@@ -39,6 +40,7 @@ func (x *CreateSerialDatumsTask) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	enc.AddObject("base_meta_commit", x.BaseMetaCommit)
 	enc.AddBool("no_skip", x.NoSkip)
 	enc.AddObject("path_range", x.PathRange)
+	enc.AddString("auth_token", x.AuthToken)
 	return nil
 }
 
@@ -60,6 +62,7 @@ func (x *CreateDatumSetsTask) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	enc.AddString("file_set_id", x.FileSetId)
 	enc.AddObject("path_range", x.PathRange)
 	enc.AddObject("set_spec", x.SetSpec)
+	enc.AddString("auth_token", x.AuthToken)
 	return nil
 }
 

@@ -1,0 +1,8 @@
+{
+  "_base": {
+    "exclude_files": {
+      "external/": "not our code",
+      "[.]pb([.][a-z]+)?[.]go$": "generated"
+    }
+  }
+}

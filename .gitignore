@@ -19,6 +19,10 @@ doc/_build
 /pachctl
 /pachctl-doc
 /worker
+## This is for testing pachctl documentation
+/src/server/cmd/pachctl/pachctl
+/src/server/cmd/pachctl/doc-gen/pachctl/pachctl
+/src/server/cmd/pachctl/doc-gen/pachctl/docs
 
 # Release artifacts
 /VERSION
@@ -60,9 +64,18 @@ bin/**
 # python stuff
 *.pyc
 __pycache__
+.python-version
 
 # local env vars
 /.envrc
 
 # Dev files
 .vscode/
+
+# Test files
+tests_to_run.csv
+
+# Bazel
+bazel-*
+.bazelrc.local
+genhtml/

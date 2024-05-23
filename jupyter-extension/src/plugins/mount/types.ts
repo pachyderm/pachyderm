@@ -1,46 +1,18 @@
 import {Contents} from '@jupyterlab/services';
-import {SplitPanel} from '@lumino/widgets';
-import {JSONObject, ReadonlyJSONObject} from '@lumino/coreutils';
+import {TabPanel} from '@lumino/widgets';
+import {JSONObject} from '@lumino/coreutils';
 
-export type mountState =
-  | 'unmounting'
-  | 'mounted'
-  | 'mounting'
-  | 'error'
-  | 'gone'
-  | 'discovering'
-  | 'unmounted'
-  | '';
-
-export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
+export type HealthCheckStatus =
+  | 'UNHEALTHY'
+  | 'HEALTHY_INVALID_CLUSTER'
+  | 'HEALTHY_NO_AUTH'
+  | 'HEALTHY_LOGGED_IN'
+  | 'HEALTHY_LOGGED_OUT';
 
 export type authorization = 'off' | 'none' | 'read' | 'write';
 
 export type MountSettings = {
   defaultPipelineImage: string;
-};
-
-export type Mount = {
-  name: string;
-  repo: string;
-  project: string;
-  branch: string;
-  commit: string | null;
-  glob: string | null;
-  mode: string | null;
-  state: mountState;
-  status: string;
-  mountpoint: string | null;
-  how_many_commits_behind: number;
-  actual_mounted_commit: string;
-  latest_commit: string;
-};
-
-export type Repo = {
-  repo: string;
-  project: string;
-  authorization: authorization;
-  branches: string[];
 };
 
 export type PfsInput = {
@@ -64,36 +36,67 @@ export type CrossInputSpec = {
 export type CurrentDatumResponse = {
   num_datums: number;
   input: {[key: string]: any};
-  curr_idx: number;
+  idx: number;
+  all_datums_received: boolean;
+};
+
+export type DownloadPath = {
+  path: string;
 };
 
 export type MountDatumResponse = {
   id: string;
   idx: number;
   num_datums: number;
+  all_datums_received: boolean;
 };
 
-export type ListMountsResponse = {
-  mounted: {[key: string]: Mount};
-  unmounted: {[key: string]: Repo};
+export type Repo = {
+  name: string;
+  project: string;
+  uri: string;
+  branches: Branch[];
+};
+
+export type Branch = {
+  name: string;
+  uri: string;
+};
+
+export type Repos = {
+  [uri: string]: Repo;
+};
+
+export type MountedRepo = {
+  mountedBranch: Branch;
+  repo: Repo;
+};
+
+export type Project = {
+  name: string;
+};
+
+export type ProjectAuthInfo = {
+  permissions: number[];
+  roles: string[];
+};
+
+export type HealthCheck = {
+  status: HealthCheckStatus;
+  message?: string;
 };
 
 export type AuthConfig = {
-  cluster_status: clusterStatus;
   pachd_address?: string;
   server_cas?: string;
 };
 
 export interface IMountPlugin {
-  mountedRepos: Mount[];
-  unmountedRepos: Repo[];
-  layout: SplitPanel;
+  repos: Repos;
+  mountedRepo: MountedRepo | null;
+  layout: TabPanel;
   ready: Promise<void>;
 }
-
-export type Project = {
-  name: string;
-};
 
 export type Pipeline = {
   name: string;
@@ -114,6 +117,12 @@ export type PpsMetadata = {
   config: PpsConfig;
 };
 
+export enum GpuMode {
+  None = 'None',
+  Simple = 'Simple',
+  Advanced = 'Advanced',
+}
+
 // If this is updated, make sure to also update the corresponding `useEffect`
 // call in ./components/Pipeline/hooks/usePipeline.tsx that writes this type to
 // the notebook metadata.
@@ -121,7 +130,11 @@ export type PpsConfig = {
   pipeline: Pipeline;
   image: string;
   requirements: string | null;
+  external_files: string | null;
   input_spec: string;
+  port: string;
+  gpu_mode: GpuMode;
+  resource_spec: string | null;
 };
 
 export type PpsContext = {
@@ -132,3 +145,9 @@ export type PpsContext = {
 export type CreatePipelineResponse = {
   message: string | null;
 };
+
+export interface IPachydermModel extends Contents.IModel {
+  // The pachyderm uri for a file. This is not originally defined as a property in Contents.IModel, but
+  // our endpoint for that model adds this.
+  readonly file_uri: string;
+}

@@ -14,4 +14,4 @@ You only have to do it once. Once we receive it, we'll be able to accept your pu
 
 ## More contributor documentation
 
-See also the [doc/docs/master/contributing](doc/docs/master/contributing) folder.
+See also the [Contribute](https://docs.pachyderm.com/latest/contribute/) section in our documentation for more information.

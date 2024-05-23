@@ -5,6 +5,7 @@ deployTarget: CUSTOM
 
 pachd:
   storage:
+    storageURL: s3://foo
     backend: MINIO
     minio:
       bucket: "foo"

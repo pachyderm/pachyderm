@@ -6,11 +6,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestGetTableInfo(suite *testing.T) {
@@ -22,7 +23,7 @@ func TestGetTableInfo(suite *testing.T) {
 	tcs := []testCase{
 		{
 			Name:  "Postgres",
-			NewDB: dockertestenv.NewEphemeralPostgresDB,
+			NewDB: newEphemeralPostgresDB,
 			Expected: &pachsql.TableInfo{
 				"pgx",
 				"test_table",
@@ -76,34 +77,6 @@ func TestGetTableInfo(suite *testing.T) {
 				},
 			},
 		},
-		{
-			Name:  "Snowflake",
-			NewDB: testsnowflake.NewEphemeralSnowflakeDB,
-			Expected: &pachsql.TableInfo{
-				"snowflake",
-				"test_table",
-				"public",
-				[]pachsql.ColumnInfo{
-					{"C_ID", "NUMBER", false},
-					{"C_SMALLINT", "NUMBER", false},
-					{"C_INT", "NUMBER", false},
-					{"C_BIGINT", "NUMBER", false},
-					{"C_FLOAT", "FLOAT", false},
-					{"C_NUMERIC_INT", "NUMBER", false},
-					{"C_NUMERIC_FLOAT", "NUMBER", false},
-					{"C_VARCHAR", "TEXT", false},
-					{"C_TIME", "TIMESTAMP_NTZ", false},
-					{"C_SMALLINT_NULL", "NUMBER", true},
-					{"C_INT_NULL", "NUMBER", true},
-					{"C_BIGINT_NULL", "NUMBER", true},
-					{"C_FLOAT_NULL", "FLOAT", true},
-					{"C_NUMERIC_INT_NULL", "NUMBER", true},
-					{"C_NUMERIC_FLOAT_NULL", "NUMBER", true},
-					{"C_VARCHAR_NULL", "TEXT", true},
-					{"C_TIME_NULL", "TIMESTAMP_NTZ", true},
-				},
-			},
-		},
 	}
 	for _, tc := range tcs {
 		suite.Run(tc.Name, func(t *testing.T) {
@@ -119,4 +92,9 @@ func TestGetTableInfo(suite *testing.T) {
 			require.Equal(t, tc.Expected, info)
 		})
 	}
+}
+
+func newEphemeralPostgresDB(ctx context.Context, t testing.TB) (*sqlx.DB, string) {
+	c := dockertestenv.NewTestDBConfig(t)
+	return testutil.OpenDB(t, c.Direct.DBOptions()...), c.Direct.DBName
 }

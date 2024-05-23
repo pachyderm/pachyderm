@@ -3,10 +3,10 @@ package pachd
 import (
 	"context"
 	"math"
+	"path"
 	"runtime/debug"
 
 	"github.com/dustin/go-humanize"
-	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -27,14 +26,19 @@ import (
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -42,13 +46,17 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/http"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
+	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
+	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pachw "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	transactionserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -66,7 +74,7 @@ type envBootstrapper interface {
 
 // builder provides the base daemon builder structure.
 type builder struct {
-	config *serviceenv.Configuration
+	config *pachconfig.Configuration
 	name   string
 
 	env                serviceenv.ServiceEnv
@@ -95,40 +103,25 @@ func (b *builder) apply(ctx context.Context, ff ...func(ctx context.Context) err
 
 func newBuilder(config any, name string) (b builder) {
 	b.name = name
-	b.config = serviceenv.NewConfiguration(config)
+	b.config = pachconfig.NewConfiguration(config)
 	b.txnEnv = transactionenv.New()
 	return
 }
 
 func (b *builder) printVersion(ctx context.Context) error {
-	log.Info(ctx, "version info", log.Proto("versionInfo", version.Version))
-	return nil
+	return printVersion().Fn(ctx)
 }
 
 func (b *builder) tweakResources(ctx context.Context) error {
-	// set GOMAXPROCS to the container limit & log outcome to stdout
-	maxprocs.Set(maxprocs.Logger(zap.S().Named("maxprocs").Infof)) //nolint:errcheck
-	debug.SetGCPercent(b.config.GCPercent)
-	log.Info(ctx, "gc: set gc percent", zap.Int("value", b.config.GCPercent))
-	setupMemoryLimit(ctx, *b.config.GlobalConfiguration)
-	return nil
+	return tweakResources(*b.config.GlobalConfiguration).Fn(ctx)
 }
 
 func (b *builder) setupProfiling(ctx context.Context) error {
-	profileutil.StartCloudProfiler(ctx, b.name, b.config)
-	return nil
+	return setupProfiling(b.name, b.config).Fn(ctx)
 }
 
 func (b *builder) initJaeger(ctx context.Context) error {
-	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
-	// may create a pach client before tracing is active, not install the Jaeger
-	// gRPC interceptor in the client, and not propagate traces)
-	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Info(ctx, "connecting to Jaeger", zap.String("endpoint", endpoint))
-	} else {
-		log.Info(ctx, "no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
-	}
-	return nil
+	return initJaeger().Fn(ctx)
 }
 
 func (b *builder) initKube(ctx context.Context) error {
@@ -145,7 +138,6 @@ func (b *builder) initKube(ctx context.Context) error {
 }
 
 func (b *builder) setupDB(ctx context.Context) error {
-	// TODO: currently all pachds attempt to apply migrations, we should coordinate this
 	if err := dbutil.WaitUntilReady(ctx, b.env.GetDBClient()); err != nil {
 		return err
 	}
@@ -156,6 +148,10 @@ func (b *builder) setupDB(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (b *builder) waitForDBState(ctx context.Context) error {
+	return awaitMigrations(b.env.GetDBClient(), clusterstate.DesiredClusterState).Fn(ctx)
 }
 
 func (b *builder) initDexDB(ctx context.Context) error {
@@ -176,16 +172,22 @@ func (b *builder) initInternalServer(ctx context.Context) error {
 		ctx,
 		false,
 		grpc.ChainUnaryInterceptor(
+			b.loggingInterceptor.UnarySetup,
 			errorsmw.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			b.authInterceptor.InterceptUnary,
-			b.loggingInterceptor.UnaryServerInterceptor,
+			b.loggingInterceptor.UnaryAnnounce,
+			validation.UnaryServerInterceptor,
+			recovery.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
+			b.loggingInterceptor.StreamSetup,
 			errorsmw.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			b.authInterceptor.InterceptStream,
-			b.loggingInterceptor.StreamServerInterceptor,
+			b.loggingInterceptor.StreamAnnounce,
+			validation.StreamServerInterceptor,
+			recovery.StreamServerInterceptor,
 		),
 	)
 	return err
@@ -197,18 +199,24 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 		ctx,
 		true,
 		grpc.ChainUnaryInterceptor(
+			b.loggingInterceptor.UnarySetup,
 			errorsmw.UnaryServerInterceptor,
 			version_middleware.UnaryServerInterceptor,
 			tracing.UnaryServerInterceptor(),
 			b.authInterceptor.InterceptUnary,
-			b.loggingInterceptor.UnaryServerInterceptor,
+			b.loggingInterceptor.UnaryAnnounce,
+			validation.UnaryServerInterceptor,
+			recovery.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
+			b.loggingInterceptor.StreamSetup,
 			errorsmw.StreamServerInterceptor,
 			version_middleware.StreamServerInterceptor,
 			tracing.StreamServerInterceptor(),
 			b.authInterceptor.InterceptStream,
-			b.loggingInterceptor.StreamServerInterceptor,
+			b.loggingInterceptor.StreamAnnounce,
+			validation.StreamServerInterceptor,
+			recovery.StreamServerInterceptor,
 		),
 	)
 	return err
@@ -219,7 +227,7 @@ func (b builder) forGRPCServer(f func(*grpc.Server)) {
 }
 
 func (b *builder) registerLicenseServer(ctx context.Context) error {
-	b.licenseEnv = licenseserver.EnvFromServiceEnv(b.env)
+	b.licenseEnv = LicenseEnv(b.env)
 	apiServer, err := licenseserver.New(b.licenseEnv)
 	if err != nil {
 		return err
@@ -243,7 +251,7 @@ func (b *builder) registerIdentityServer(ctx context.Context) error {
 
 func (b *builder) registerAuthServer(ctx context.Context) error {
 	apiServer, err := authserver.NewAuthServer(
-		authserver.EnvFromServiceEnv(b.env, b.txnEnv),
+		AuthEnv(b.env, b.txnEnv),
 		true, !b.daemon.criticalServersOnly, true,
 	)
 	if err != nil {
@@ -259,11 +267,11 @@ func (b *builder) registerAuthServer(ctx context.Context) error {
 }
 
 func (b *builder) registerPFSServer(ctx context.Context) error {
-	env, err := pfs_server.EnvFromServiceEnv(b.env, b.txnEnv)
+	env, err := PFSEnv(b.env, b.txnEnv)
 	if err != nil {
 		return err
 	}
-	apiServer, err := pfs_server.NewAPIServer(*env)
+	apiServer, err := pfs_server.NewAPIServer(ctx, *env)
 	if err != nil {
 		return err
 	}
@@ -272,8 +280,21 @@ func (b *builder) registerPFSServer(ctx context.Context) error {
 	return nil
 }
 
+func (b *builder) registerStorageServer(ctx context.Context) error {
+	env, err := StorageEnv(b.env)
+	if err != nil {
+		return err
+	}
+	server, err := storageserver.New(ctx, *env)
+	if err != nil {
+		return err
+	}
+	b.forGRPCServer(func(s *grpc.Server) { storage.RegisterFilesetServer(s, server) })
+	return nil
+}
+
 func (b *builder) registerPPSServer(ctx context.Context) error {
-	apiServer, err := pps_server.NewAPIServer(pps_server.EnvFromServiceEnv(b.env, b.txnEnv, b.reporter))
+	apiServer, err := pps_server.NewAPIServer(PPSEnv(b.env, b.txnEnv, b.reporter))
 	if err != nil {
 		return err
 	}
@@ -284,7 +305,11 @@ func (b *builder) registerPPSServer(ctx context.Context) error {
 
 func (b *builder) registerTransactionServer(ctx context.Context) error {
 	var err error
-	b.txn, err = transactionserver.NewAPIServer(b.env, b.txnEnv)
+	b.txn, err = transactionserver.NewAPIServer(transactionserver.Env{
+		DB:         b.env.GetDBClient(),
+		PGListener: b.env.GetPostgresListener(),
+		TxnEnv:     b.txnEnv,
+	})
 	if err != nil {
 		return err
 	}
@@ -293,7 +318,7 @@ func (b *builder) registerTransactionServer(ctx context.Context) error {
 }
 
 func (b *builder) registerAdminServer(ctx context.Context) error {
-	apiServer := adminserver.NewAPIServer(adminserver.EnvFromServiceEnv(b.env))
+	apiServer := adminserver.NewAPIServer(AdminEnv(b.env, false))
 	b.forGRPCServer(func(s *grpc.Server) { admin.RegisterAPIServer(s, apiServer) })
 	return nil
 }
@@ -313,12 +338,7 @@ func (b *builder) registerVersionServer(ctx context.Context) error {
 }
 
 func (b *builder) registerDebugServer(ctx context.Context) error {
-	apiServer := debugserver.NewDebugServer(
-		b.env,
-		b.env.Config().PachdPodName,
-		nil,
-		b.env.GetDBClient(),
-	)
+	apiServer := b.newDebugServer()
 	b.forGRPCServer(func(s *grpc.Server) { debugclient.RegisterDebugServer(s, apiServer) })
 	return nil
 }
@@ -331,8 +351,35 @@ func (b *builder) registerProxyServer(ctx context.Context) error {
 	return nil
 }
 
+func (b *builder) registerLogsServer(ctx context.Context) error {
+	apiServer, err := logsserver.NewAPIServer(logsserver.Env{
+		GetLokiClient: b.env.GetLokiClient,
+		AuthServer:    b.env.AuthServer(),
+	})
+	if err != nil {
+		return err
+	}
+	b.forGRPCServer(func(s *grpc.Server) { logs.RegisterAPIServer(s, apiServer) })
+	return nil
+}
+
+func (b *builder) registerMetadataServer(_ context.Context) error {
+	apiServer := metadata_server.NewMetadataServer(metadata_server.Env{
+		Auth:   b.env.AuthServer(),
+		TxnEnv: b.txnEnv,
+	})
+	b.forGRPCServer(func(s *grpc.Server) { metadata.RegisterAPIServer(s, apiServer) })
+	return nil
+}
+
 func (b *builder) initTransaction(ctx context.Context) error {
-	b.txnEnv.Initialize(b.env, b.txn)
+	b.txnEnv.Initialize(
+		b.env.GetDBClient(),
+		func() transactionenv.AuthBackend { return b.env.AuthServer() },
+		func() transactionenv.PFSBackend { return b.env.PfsServer() },
+		func() transactionenv.PPSBackend { return b.env.PpsServer() },
+		b.txn,
+	)
 	return nil
 }
 
@@ -372,8 +419,12 @@ func (b *builder) initS3Server(ctx context.Context) error {
 	return nil
 }
 
-func (b *builder) initDownloadServer(ctx context.Context) error {
-	b.daemon.download = archiveserver.NewHTTP(b.env.Config().DownloadPort, b.env.GetPachClient)
+func (b *builder) initPachHTTPServer(ctx context.Context) error {
+	var err error
+	b.daemon.pachhttp, err = http.New(ctx, b.env.Config().DownloadPort, b.env.GetPachClient)
+	if err != nil {
+		return errors.Wrap(err, "new http server")
+	}
 	return nil
 }
 
@@ -390,7 +441,7 @@ func (b *builder) maybeInitDexDB(ctx context.Context) error {
 }
 
 func (b *builder) initPachwController(ctx context.Context) error {
-	env, err := pachw.EnvFromServiceEnv(b.env)
+	env, err := PachwEnv(b.env)
 	if err != nil {
 		return err
 	}
@@ -398,10 +449,77 @@ func (b *builder) initPachwController(ctx context.Context) error {
 	return nil
 }
 
+func (b *builder) startPFSWorker(ctx context.Context) error {
+	env, err := PFSWorkerEnv(b.env)
+	if err != nil {
+		return err
+	}
+	config := pfs_server.WorkerConfig{
+		Storage: b.env.Config().StorageConfiguration,
+	}
+	w, err := pfs_server.NewWorker(ctx, *env, config)
+	if err != nil {
+		return err
+	}
+	go func() {
+		ctx := pctx.Child(ctx, "pfs-worker")
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from pfs-worker", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+func (b *builder) startPFSMaster(ctx context.Context) error {
+	env, err := PFSEnv(b.env, b.txnEnv)
+	if err != nil {
+		return err
+	}
+	m, err := pfs_server.NewMaster(ctx, *env)
+	if err != nil {
+		return err
+	}
+	go func() {
+		ctx := pctx.Child(ctx, "pfs-master")
+		if err := m.Run(ctx); err != nil {
+			log.Error(ctx, "from pfs-master", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+func (b *builder) startPPSWorker(ctx context.Context) error {
+	etcdPrefix := path.Join(b.env.Config().EtcdPrefix, b.env.Config().PPSEtcdPrefix)
+	w := pps_server.NewWorker(pps_server.WorkerEnv{
+		PFS:         b.env.GetPachClient(ctx).PfsAPIClient,
+		TaskService: b.env.GetTaskService(etcdPrefix),
+	})
+	go func() {
+		ctx := pctx.Child(ctx, "pps-worker")
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from pps-worker", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+func (b *builder) startDebugWorker(ctx context.Context) error {
+	w := debugserver.NewWorker(debugserver.WorkerEnv{
+		PFS:         b.env.GetPachClient(ctx).PfsAPIClient,
+		TaskService: b.env.GetTaskService(b.env.Config().EtcdPrefix),
+	})
+	go func() {
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from debug worker", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
 // setupMemoryLimit sets GOMEMLIMIT.  If not already set through the environment, set GOMEMLIMIT to
 // the container memory request, or if not set, the container memory limit minus some accounting for
 // the runtime (100MiB).
-func setupMemoryLimit(ctx context.Context, config serviceenv.GlobalConfiguration) {
+func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration) {
 	if memLimit := debug.SetMemoryLimit(-1); memLimit != math.MaxInt64 {
 		log.Info(ctx, "memlimit: using configured GOMEMLIMIT", zap.String("limit", humanize.IBytes(uint64(memLimit))))
 		return
@@ -417,13 +535,13 @@ func setupMemoryLimit(ctx context.Context, config serviceenv.GlobalConfiguration
 	// > account for memory sources the Go runtime is unaware of.
 	//
 	// We pick 5%, since CGO_ENABLED=0 which reduces "unknown" sources of memory.
-	var target int64
+	var target float64
 	var source string
 	if v := config.K8sMemoryRequest; v > 0 {
-		target = v - int64(0.05*float64(v))
+		target = v - 0.05*v
 		source = "kubernetes request"
 	} else if v := config.K8sMemoryLimit; v > 0 {
-		target = v - int64(0.05*float64(v))
+		target = v - 0.05*v
 		source = "kubernetes limit"
 	}
 	if target <= 0 {
@@ -431,6 +549,11 @@ func setupMemoryLimit(ctx context.Context, config serviceenv.GlobalConfiguration
 		return
 	}
 
-	log.Info(ctx, "memlimit: setting GOMEMLIMIT (95% of the k8s value)", zap.String("limit", humanize.IBytes(uint64(target))), zap.String("setFrom", source))
-	debug.SetMemoryLimit(target)
+	actual := int64(math.Ceil(target))
+	log.Info(ctx, "memlimit: setting GOMEMLIMIT (95% of the k8s value)", zap.String("limit", humanize.IBytes(uint64(actual))), zap.String("setFrom", source))
+	debug.SetMemoryLimit(actual)
+}
+
+func (b *builder) newDebugServer() debugclient.DebugServer {
+	return debugserver.NewDebugServer(DebugEnv(b.env))
 }

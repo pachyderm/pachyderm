@@ -61,7 +61,7 @@ func newPostgresCommitStore(db *pachsql.DB, tr track.Tracker, s *fileset.Storage
 }
 
 func (cs *postgresCommitStore) AddFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
-	return dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		return cs.AddFileSetTx(tx, commit, id)
 	})
 }
@@ -91,7 +91,7 @@ func (cs *postgresCommitStore) AddFileSetTx(tx *pachsql.Tx, commit *pfs.Commit, 
 
 func (cs *postgresCommitStore) GetTotalFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
 	var id *fileset.ID
-	if err := dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
 		id, err = cs.GetTotalFileSetTx(tx, commit)
 		return err
@@ -114,7 +114,7 @@ func (cs *postgresCommitStore) GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Com
 
 func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
 	var ids []fileset.ID
-	if err := dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
 		ids, err = getDiff(tx, commit)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -128,7 +128,7 @@ func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.C
 }
 
 func (cs *postgresCommitStore) SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
-	return dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		return cs.SetTotalFileSetTx(tx, commit, id)
 	})
 }
@@ -141,7 +141,7 @@ func (cs *postgresCommitStore) SetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Com
 }
 
 func (cs *postgresCommitStore) SetDiffFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {
-	return dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		return cs.SetDiffFileSetTx(tx, commit, id)
 	})
 }
@@ -154,7 +154,7 @@ func (cs *postgresCommitStore) SetDiffFileSetTx(tx *pachsql.Tx, commit *pfs.Comm
 }
 
 func (cs *postgresCommitStore) DropFileSets(ctx context.Context, commit *pfs.Commit) error {
-	return dbutil.WithTx(ctx, cs.db, func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, cs.db, func(ctx context.Context, tx *pachsql.Tx) error {
 		return cs.DropFileSetsTx(tx, commit)
 	})
 }
@@ -228,6 +228,9 @@ func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.I
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
 		return errors.EnsureStack(err)
 	}
+	if err := checkCommitDB(tx, commit); err != nil {
+		return errors.EnsureStack(err)
+	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
 	VALUES ($1, $2)
 	ON CONFLICT (commit_id) DO UPDATE
@@ -243,9 +246,21 @@ func setDiff(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
 		return errors.EnsureStack(err)
 	}
+	if err := checkCommitDB(tx, commit); err != nil {
+		return errors.EnsureStack(err)
+	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
 	VALUES ($1, $2)
 	`, pfsdb.CommitKey(commit), id)
+	return errors.EnsureStack(err)
+}
+
+func checkCommitDB(tx *pachsql.Tx, commit *pfs.Commit) error {
+	var id *int = new(int)
+	err := tx.QueryRow(`SELECT int_id FROM pfs.commits AS c
+		WHERE c.commit_id = $1`,
+		pfsdb.CommitKey(commit),
+	).Scan(id)
 	return errors.EnsureStack(err)
 }
 
@@ -255,25 +270,4 @@ func commitDiffTrackerID(commit *pfs.Commit, fs fileset.ID) string {
 
 func commitTotalTrackerID(commit *pfs.Commit, fs fileset.ID) string {
 	return commitTrackerPrefix + pfsdb.CommitKey(commit) + "/total/" + fs.HexString()
-}
-
-// SetupPostgresCommitStoreV0 runs SQL to setup the commit store.
-// DO NOT MODIFY THIS FUNCTION
-// IT HAS BEEN USED IN A RELEASED MIGRATION
-func SetupPostgresCommitStoreV0(ctx context.Context, tx *pachsql.Tx) error {
-	_, err := tx.ExecContext(ctx, `
-		CREATE TABLE pfs.commit_diffs (
-			commit_id TEXT NOT NULL,
-			num BIGSERIAL NOT NULL,
-			fileset_id UUID NOT NULL,
-			PRIMARY KEY(commit_id, num)
-		);
-
-		CREATE TABLE pfs.commit_totals (
-			commit_id TEXT NOT NULL,
-			fileset_id UUID NOT NULL,
-			PRIMARY KEY(commit_id)
-		);
-	`)
-	return errors.EnsureStack(err)
 }

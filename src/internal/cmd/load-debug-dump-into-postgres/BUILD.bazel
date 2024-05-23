@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "load-debug-dump-into-postgres_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/cmd/load-debug-dump-into-postgres",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "@com_github_jackc_pgx_v4//pgxpool",
+        "@com_github_zeebo_blake3//:blake3",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "load-debug-dump-into-postgres",
+    embed = [":load-debug-dump-into-postgres_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "load-debug-dump-into-postgres_test",
+    srcs = ["main_test.go"],
+    embed = [":load-debug-dump-into-postgres_lib"],
+    deps = ["//src/internal/require"],
+)

@@ -27,7 +27,7 @@ func TestCommitPatternFormat(t *testing.T) {
 }
 
 func TestPathnameToRepo(t *testing.T) {
-	var cases = map[string]pfs.Repo{
+	var cases = map[string]*pfs.Repo{
 		"source-repos/foo/commits":         {Name: "foo"},
 		"source-repos/foo/bar/commits":     {Project: &pfs.Project{Name: "foo"}, Name: "bar"},
 		"source-repos/foo/bar/baz/commits": {Project: &pfs.Project{Name: "foo/bar"}, Name: "baz"},

@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DeleteExpiredAuthTokensResponse",
+    "definitions": {
+        "DeleteExpiredAuthTokensResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete Expired Auth Tokens Response"
+        }
+    }
+}

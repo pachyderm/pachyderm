@@ -1,0 +1,36 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ClusterStatus",
+    "definitions": {
+        "ClusterStatus": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "address": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "authEnabled": {
+                    "type": "boolean"
+                },
+                "clientId": {
+                    "type": "string"
+                },
+                "lastHeartbeat": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cluster Status"
+        }
+    }
+}

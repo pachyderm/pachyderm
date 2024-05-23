@@ -10,7 +10,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -36,7 +35,6 @@ func TestPortForwardError(t *testing.T) {
 // 'CreateAlias' was not used properly (or the command just needs to specify
 // its name).
 func TestCommandAliases(t *testing.T) {
-	log.Test(t) // Just to capture global log messages; prefer pctx.TestContext in newer code.
 	pachctlCmd, err := PachctlCmd()
 	if err != nil {
 		t.Fatal(err)
@@ -100,7 +98,7 @@ func testConfig(t *testing.T, pachdAddressStr string) *os.File {
 	require.NoError(t, err)
 
 	cfg := &config.Config{
-		UserID: uuid.NewWithoutDashes(),
+		UserId: uuid.NewWithoutDashes(),
 		V2: &config.ConfigV2{
 			ActiveContext: "test",
 			Contexts: map[string]*config.Context{

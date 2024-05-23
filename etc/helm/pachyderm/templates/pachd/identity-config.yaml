@@ -17,15 +17,25 @@ data:
       name: {{ .Values.pachd.oauthClientID }}
       redirect_uris:
       - {{ include "pachyderm.pachdRedirectURI" . }}
-      {{- if .Values.console.enabled}}
       trusted_peers:
+      {{- if .Values.console.enabled}}
       - {{ .Values.console.config.oauthClientID | quote }}
+      {{- end }}
+      {{- if and .Values.determined.oidc .Values.determined.oidc.enabled}}
+      - {{ default "determined" .Values.determined.oidc.clientId }}
       {{- end }}
     {{- if .Values.console.enabled }}
     - id: {{ .Values.console.config.oauthClientID }}
       name: {{ .Values.console.config.oauthClientID  }}
       redirect_uris:
       - {{ include "pachyderm.consoleRedirectURI" . | quote }}
+    {{- end }}
+    {{- if and .Values.determined.enabled .Values.determined.oidc .Values.determined.oidc.enabled}}
+    - id: {{ default "determined" .Values.determined.oidc.clientId }}
+      name: {{ default "determined" .Values.determined.oidc.clientId }}
+      redirect_uris:
+      - {{ required "A valid recipient url is required!" (printf "%s/oidc/callback" .Values.determined.oidc.idpRecipientUrl) }}
+      - {{ required "A valid recipient url is required!" (printf "%s/oidc/callback?relayState=cli" .Values.determined.oidc.idpRecipientUrl) | quote }}
     {{- end }}
   trusted-peers: |
 {{ toYaml .Values.pachd.additionalTrustedPeers | indent 4 }}

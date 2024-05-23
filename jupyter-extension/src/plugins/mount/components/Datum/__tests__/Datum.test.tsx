@@ -10,13 +10,9 @@ import Datum from '../Datum';
 jest.mock('../../../../../handler');
 
 describe('datum screen', () => {
-  let setShowDatum = jest.fn();
-  let setKeepMounted = jest.fn();
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
 
   beforeEach(() => {
-    setShowDatum = jest.fn();
-    setKeepMounted = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
 
     // IntersectionObserver isn't available in test environment
@@ -29,22 +25,20 @@ describe('datum screen', () => {
     window.IntersectionObserver = mockIntersectionObserver;
   });
 
-  describe('mounting datums', () => {
-    it('successful mount datums call shows cycler', async () => {
+  describe('loading datums', () => {
+    it('successful load datums call shows cycler and download', async () => {
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
           id: 'asdfaew34ri92jafiolwe',
           idx: 0,
           num_datums: 6,
+          all_datums_received: true,
         }),
       );
 
       const {getByTestId, queryByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -53,9 +47,10 @@ describe('datum screen', () => {
 
       expect(queryByTestId('Datum__cyclerLeft')).not.toBeInTheDocument();
       expect(queryByTestId('Datum__cyclerRight')).not.toBeInTheDocument();
+      expect(queryByTestId('Datum__downloadDatum')).not.toBeInTheDocument();
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, '{"pfs": "a"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "a"}');
@@ -63,8 +58,8 @@ describe('datum screen', () => {
 
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenNthCalledWith(
-          2,
-          '_mount_datums',
+          1,
+          'datums/_mount',
           'PUT',
           {input: {pfs: 'a'}},
         );
@@ -72,26 +67,25 @@ describe('datum screen', () => {
 
       getByTestId('Datum__cyclerLeft');
       getByTestId('Datum__cyclerRight');
+      getByTestId('Datum__downloadDatum');
       expect(getByTestId('Datum__cycler')).toHaveTextContent('(1/6)');
     });
   });
 
   describe('cycle through datums', () => {
-    it('hitting datum cycler makes show datum call', async () => {
+    it('hitting datum cycler makes next datum call', async () => {
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
           id: 'asdfaew34ri92jafiolwe',
           idx: 0,
           num_datums: 6,
+          all_datums_received: false,
         }),
       );
 
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -99,7 +93,7 @@ describe('datum screen', () => {
       );
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, '{"pfs": "a"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "a"}');
@@ -110,6 +104,7 @@ describe('datum screen', () => {
           id: 'ilwe9nme9902ja039jf20snv',
           idx: 1,
           num_datums: 6,
+          all_datums_received: false,
         }),
       );
 
@@ -118,15 +113,15 @@ describe('datum screen', () => {
 
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenNthCalledWith(
-          4,
-          '_show_datum?idx=1',
+          2,
+          'datums/_next',
           'PUT',
         );
       });
 
       getByTestId('Datum__cyclerLeft');
       getByTestId('Datum__cyclerRight');
-      expect(getByTestId('Datum__cycler')).toHaveTextContent('(2/6)');
+      expect(getByTestId('Datum__cycler')).toHaveTextContent('(2/6+)');
     });
   });
 
@@ -134,10 +129,7 @@ describe('datum screen', () => {
     it('error if bad syntax in input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -147,7 +139,7 @@ describe('datum screen', () => {
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, '{"pfs": "a"'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "a"');
@@ -165,10 +157,7 @@ describe('datum screen', () => {
 
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -178,7 +167,7 @@ describe('datum screen', () => {
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, '{"pfs": "fake_repo"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "fake_repo"}');
@@ -194,10 +183,7 @@ describe('datum screen', () => {
     it('valid json input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -207,22 +193,21 @@ describe('datum screen', () => {
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, '{"pfs": "repo"}'.replace(/[{[]/g, '$&$&'));
       expect(input).toHaveValue('{"pfs": "repo"}');
       submit.click();
 
-      expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
+      expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
+        'This could take a few minutes...',
+      );
     });
 
     it('valid yaml input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
+          executeCommand={jest.fn()}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -232,13 +217,62 @@ describe('datum screen', () => {
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
 
       const input = await findByTestId('Datum__inputSpecInput');
-      const submit = await findByTestId('Datum__mountDatums');
+      const submit = await findByTestId('Datum__loadDatums');
 
       userEvent.type(input, YAML.stringify({pfs: 'repo'}));
       expect(input).toHaveValue(YAML.stringify({pfs: 'repo'}));
       submit.click();
 
-      expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
+      expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
+        'This could take a few minutes...',
+      );
+    });
+
+    it('executes command for datum order warning if not pfs mount.', async () => {
+      const executeCommand = jest.fn();
+      const {findByTestId} = render(
+        <Datum
+          executeCommand={executeCommand}
+          open={jest.fn()}
+          pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
+        />,
+      );
+
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__loadDatums');
+      userEvent.type(
+        input,
+        YAML.stringify({cross: [{pfs: 'repo'}, {pfs: 'repo'}]}),
+      );
+      submit.click();
+
+      expect(executeCommand).toHaveBeenCalledWith('apputils:notify', {
+        message: 'Datum order not guaranteed when loading datums.',
+        type: 'info',
+        options: {
+          autoClose: 10000, // 10 seconds
+        },
+      });
+    });
+
+    it('does not execute command for datum order warning if pfs mount.', async () => {
+      const executeCommand = jest.fn();
+      const {findByTestId} = render(
+        <Datum
+          executeCommand={executeCommand}
+          open={jest.fn()}
+          pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
+        />,
+      );
+
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__loadDatums');
+      userEvent.type(input, YAML.stringify({pfs: 'repo'}));
+      submit.click();
+
+      expect(executeCommand).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "cmds",
+    srcs = ["cmds.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/debug/cmds",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/debug",
+        "//src/internal/cmdutil",
+        "//src/internal/errors",
+        "//src/internal/pachctl",
+        "//src/internal/progress",
+        "//src/internal/serde",
+        "//src/pps",
+        "//src/server/debug/server/debugstar",
+        "//src/server/debug/shell",
+        "@com_github_spf13_cobra//:cobra",
+        "@org_golang_google_protobuf//types/known/durationpb",
+    ],
+)

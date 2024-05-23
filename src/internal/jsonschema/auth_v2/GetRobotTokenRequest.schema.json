@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetRobotTokenRequest",
+    "definitions": {
+        "GetRobotTokenRequest": {
+            "properties": {
+                "robot": {
+                    "type": "string",
+                    "description": "The returned token will allow the caller to access resources as this robot user"
+                },
+                "ttl": {
+                    "type": "integer",
+                    "description": "ttl indicates the requested (approximate) remaining lifetime of this token, in seconds"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Robot token API (TODO: add access controls)",
+            "description": "Robot token API (TODO: add access controls)"
+        }
+    }
+}

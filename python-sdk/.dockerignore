@@ -1,0 +1,9 @@
+# Ignore everything
+*
+
+# Allow specified files and directories.
+!dist
+!docs/templates/*
+!docs/entrypoint.sh
+!docs/generate.py
+!pyproject.toml

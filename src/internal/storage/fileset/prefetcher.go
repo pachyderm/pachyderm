@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
@@ -20,27 +21,31 @@ import (
 // concurrent tasks to prefetch the chunks and emit the files associated with
 // the chunks. The prefetching of files with more chunks than the prefetch
 // limit will not be handled by this abstraction. In this case, the prefetching
-// will be handled when the content of the file is needed.
+// will be handled when the content of the file is needed. Files after the
+// configured upper bound will not be prefetched.
 type prefetcher struct {
 	FileSet
 	storage *Storage
+	upper   string
 }
 
-func NewPrefetcher(storage *Storage, fileSet FileSet) FileSet {
+func NewPrefetcher(storage *Storage, fileSet FileSet, upper string) FileSet {
 	return &prefetcher{
 		FileSet: fileSet,
 		storage: storage,
+		upper:   upper,
 	}
 }
 
 func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx = pctx.Child(ctx, "prefetcher")
+	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(p.storage.prefetchLimit)))
 	fetchChunk := func(ref *chunk.DataRef, files []File) error {
 		return taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
 			if ref != nil {
-				if err := p.storage.ChunkStorage().PrefetchData(ctx, ref); err != nil {
+				if err := p.storage.chunks.PrefetchData(ctx, ref); err != nil {
 					return nil, err
 				}
 			}
@@ -68,13 +73,32 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 		case <-done:
 			return nil
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		}
 	}
 	var ref *chunk.DataRef
 	var files []File
+	var finished bool
+	finish := func() error {
+		if finished {
+			return nil
+		}
+		finished = true
+		// Emit the last buffered files.
+		if err := fetchChunk(ref, files); err != nil {
+			return err
+		}
+		return taskChain.Wait()
+	}
 	maxFilesBuf := p.storage.shardConfig.NumFiles / int64(p.storage.prefetchLimit)
-	if err := p.FileSet.Iterate(ctx, func(f File) error {
+	if err := p.FileSet.Iterate(pctx.Child(ctx, "iterate"), func(f File) error {
+		// Emit the files without prefetching if we are past the upper bound.
+		if p.upper != "" && f.Index().Path >= p.upper {
+			if err := finish(); err != nil {
+				return err
+			}
+			return cb(f)
+		}
 		// Emit the files if a large number are buffered.
 		if int64(len(files)) >= maxFilesBuf {
 			if err := fetchChunk(ref, files); err != nil {
@@ -130,9 +154,5 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 	}, opts...); err != nil {
 		return err
 	}
-	// Emit the last buffered files.
-	if err := fetchChunk(ref, files); err != nil {
-		return err
-	}
-	return taskChain.Wait()
+	return finish()
 }

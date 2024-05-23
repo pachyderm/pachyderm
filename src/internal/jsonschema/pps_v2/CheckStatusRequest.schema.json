@@ -1,0 +1,45 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CheckStatusRequest",
+    "definitions": {
+        "CheckStatusRequest": {
+            "properties": {
+                "all": {
+                    "type": "boolean",
+                    "description": "boolean field indicating status of all project pipelines."
+                },
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false,
+                    "description": "project field"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "all"
+                    ]
+                },
+                {
+                    "required": [
+                        "project"
+                    ]
+                }
+            ],
+            "title": "Check Status Request",
+            "description": "Request to check the status of pipelines within a project."
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        }
+    }
+}

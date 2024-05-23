@@ -62,7 +62,7 @@ func Check(t *testing.T, permString string) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	_, chunks := chunk.NewTestStorage(ctx, t, db, tr)
+	_, chunks := chunk.NewTestStorage(t, db, tr)
 	cache := NewCache(chunks, 5)
 	fileNames := Generate(permString)
 	topIdx := write(ctx, t, chunks, fileNames)
@@ -133,7 +133,7 @@ func TestConcatFuzz(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	_, chunks := chunk.NewTestStorage(ctx, t, db, tr)
+	_, chunks := chunk.NewTestStorage(t, db, tr)
 	cache := NewCache(chunks, 5)
 	// Create ten file sets and concatenate them into one file set.
 	var topIdxs []*Index
@@ -180,7 +180,7 @@ func TestShard(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	_, chunks := chunk.NewTestStorage(ctx, t, db, tr)
+	_, chunks := chunk.NewTestStorage(t, db, tr)
 	cache := NewCache(chunks, 5)
 	numFiles := 100000
 	iw := NewWriter(context.Background(), chunks, uuid.NewWithoutDashes())
@@ -218,7 +218,7 @@ func TestShardFuzz(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	tr := track.NewTestTracker(t, db)
-	_, chunks := chunk.NewTestStorage(ctx, t, db, tr)
+	_, chunks := chunk.NewTestStorage(t, db, tr)
 	cache := NewCache(chunks, 5)
 	numFiles := 100000
 	iw := NewWriter(ctx, chunks, uuid.NewWithoutDashes())
@@ -262,7 +262,7 @@ func BenchmarkMultiLevel(b *testing.B) {
 	ctx := pctx.TestContext(b)
 	db := dockertestenv.NewTestDB(b)
 	tr := track.NewTestTracker(b, db)
-	_, chunks := chunk.NewTestStorage(ctx, b, db, tr)
+	_, chunks := chunk.NewTestStorage(b, db, tr)
 	cache := NewCache(chunks, 5)
 	fileNames := Generate("abcdefgh")
 	topIdx := write(ctx, b, chunks, fileNames)

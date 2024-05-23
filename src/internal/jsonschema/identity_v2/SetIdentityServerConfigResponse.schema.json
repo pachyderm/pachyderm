@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SetIdentityServerConfigResponse",
+    "definitions": {
+        "SetIdentityServerConfigResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Set Identity Server Config Response"
+        }
+    }
+}

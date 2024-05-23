@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "pachgen_lib",
+    srcs = [
+        "main.go",
+        "transaction_client.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/proto/pachgen",
+    visibility = ["//visibility:private"],
+    deps = [
+        "@com_github_golang_protobuf//protoc-gen-go/descriptor",
+        "@com_github_golang_protobuf//protoc-gen-go/plugin",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/descriptorpb",
+        "@org_golang_google_protobuf//types/pluginpb",
+    ],
+)
+
+go_binary(
+    name = "pachgen",
+    embed = [":pachgen_lib"],
+    visibility = ["//visibility:public"],
+)

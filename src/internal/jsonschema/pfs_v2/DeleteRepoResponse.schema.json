@@ -1,0 +1,18 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DeleteRepoResponse",
+    "definitions": {
+        "DeleteRepoResponse": {
+            "properties": {
+                "deleted": {
+                    "type": "boolean",
+                    "description": "The repos that were deleted, perhaps none."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete Repo Response",
+            "description": "DeleteRepoResponse returns the repos that were deleted by a DeleteRepo call."
+        }
+    }
+}

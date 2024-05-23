@@ -12,8 +12,8 @@ func (x *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("cluster_id", x.ClusterID)
-	enc.AddString("pod_id", x.PodID)
+	enc.AddString("cluster_id", x.ClusterId)
+	enc.AddString("pod_id", x.PodId)
 	enc.AddInt64("nodes", x.Nodes)
 	enc.AddString("version", x.Version)
 	enc.AddInt64("repos", x.Repos)
@@ -64,5 +64,6 @@ func (x *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddUint64("min_parallelism", x.MinParallelism)
 	enc.AddUint64("num_parallelism", x.NumParallelism)
 	enc.AddInt64("enterprise_failures", x.EnterpriseFailures)
+	enc.AddBool("pipeline_with_alerts", x.PipelineWithAlerts)
 	return nil
 }

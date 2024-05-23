@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CancelRequest",
+    "definitions": {
+        "CancelRequest": {
+            "properties": {
+                "jobId": {
+                    "type": "string"
+                },
+                "dataFilters": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cancel Request"
+        }
+    }
+}

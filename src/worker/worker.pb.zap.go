@@ -12,7 +12,7 @@ func (x *CancelRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("job_id", x.JobID)
+	enc.AddString("job_id", x.JobId)
 	data_filtersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.DataFilters {
 			enc.AppendString(v)

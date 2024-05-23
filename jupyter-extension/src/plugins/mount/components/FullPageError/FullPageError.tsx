@@ -1,12 +1,12 @@
 import React from 'react';
 import {GenericError, StatusWarning} from '../../../../utils/components/Svgs';
-import {ServerStatus} from 'plugins/mount/pollMounts';
+import {HealthCheck} from 'plugins/mount/types';
 
 type FullPageErrorProps = {
-  status: ServerStatus;
+  healthCheck: HealthCheck;
 };
 
-const FullPageError: React.FC<FullPageErrorProps> = ({status}) => {
+const FullPageError: React.FC<FullPageErrorProps> = ({healthCheck}) => {
   return (
     <div
       className={'pachyderm-mount-base'}
@@ -34,7 +34,7 @@ const FullPageError: React.FC<FullPageErrorProps> = ({status}) => {
           Looks like there was an error
         </span>
       </div>
-      <div data-testid="FullPageError__message">{status.message}</div>
+      <div data-testid="FullPageError__message">{healthCheck.message}</div>
     </div>
   );
 };

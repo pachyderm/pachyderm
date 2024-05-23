@@ -3,12 +3,15 @@ package server
 import (
 	"context"
 
-	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
@@ -16,10 +19,10 @@ import (
 
 type validatedAPIServer struct {
 	*apiServer
-	auth authserver.APIServer
+	auth PFSAuth
 }
 
-func newValidatedAPIServer(embeddedServer *apiServer, auth authserver.APIServer) *validatedAPIServer {
+func newValidatedAPIServer(embeddedServer *apiServer, auth PFSAuth) *validatedAPIServer {
 	return &validatedAPIServer{
 		apiServer: embeddedServer,
 		auth:      auth,
@@ -28,25 +31,25 @@ func newValidatedAPIServer(embeddedServer *apiServer, auth authserver.APIServer)
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *validatedAPIServer) DeleteRepoInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) error {
+func (a *validatedAPIServer) DeleteRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.DeleteRepoRequest) (bool, error) {
 	if request.Repo == nil {
-		return errors.New("must specify repo")
+		return false, errors.New("must specify repo")
 	}
-	return a.apiServer.DeleteRepoInTransaction(txnCtx, request)
+	return a.apiServer.DeleteRepoInTransaction(ctx, txnCtx, request)
 }
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
-func (a *validatedAPIServer) FinishCommitInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
+func (a *validatedAPIServer) FinishCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	userCommit := request.Commit
 	// Validate arguments
 	if err := checkCommit(userCommit); err != nil {
 		return errors.Wrap(err, "check new file commit")
 	}
-	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return errors.EnsureStack(err)
 	}
-	return a.apiServer.FinishCommitInTransaction(txnCtx, request)
+	return a.apiServer.FinishCommitInTransaction(ctx, txnCtx, request)
 }
 
 // InspectFile implements the protobuf pfs.InspectFile RPC
@@ -105,7 +108,7 @@ func (a *validatedAPIServer) GlobFile(request *pfs.GlobFileRequest, server pfs.A
 	return a.apiServer.GlobFile(request, server)
 }
 
-func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest) (*types.Empty, error) {
+func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearCommitRequest) (*emptypb.Empty, error) {
 	if err := checkCommit(req.Commit); err != nil {
 		return nil, err
 	}
@@ -144,7 +147,7 @@ func (a *validatedAPIServer) ListCommit(req *pfs.ListCommitRequest, respServer p
 	return a.apiServer.ListCommit(req, respServer)
 }
 
-func (a *validatedAPIServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (*types.Empty, error) {
+func (a *validatedAPIServer) SquashCommitSet(ctx context.Context, request *pfs.SquashCommitSetRequest) (*emptypb.Empty, error) {
 	if request.CommitSet == nil {
 		return nil, errors.New("commitset cannot be nil")
 	}
@@ -165,7 +168,7 @@ func (a *validatedAPIServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.
 	return a.apiServer.GetFileTAR(request, server)
 }
 
-func (a *validatedAPIServer) CreateBranchInTransaction(txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
+func (a *validatedAPIServer) CreateBranchInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
 	if request.Head != nil {
 		if err := checkCommit(request.Head); err != nil {
 			return err
@@ -174,7 +177,7 @@ func (a *validatedAPIServer) CreateBranchInTransaction(txnCtx *txncontext.Transa
 			return errors.New("branch and head commit must belong to the same repo")
 		}
 	}
-	return a.apiServer.CreateBranchInTransaction(txnCtx, request)
+	return a.apiServer.CreateBranchInTransaction(ctx, txnCtx, request)
 }
 
 func (a *validatedAPIServer) Egress(ctx context.Context, request *pfs.EgressRequest) (*pfs.EgressResponse, error) {
@@ -202,7 +205,7 @@ func (a *validatedAPIServer) DiffFile(request *pfs.DiffFileRequest, server pfs.A
 	return a.apiServer.DiffFile(request, server)
 }
 
-func (a *validatedAPIServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *types.Empty, retErr error) {
+func (a *validatedAPIServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *emptypb.Empty, retErr error) {
 	if err := checkCommit(req.Commit); err != nil {
 		return nil, err
 	}
@@ -234,6 +237,94 @@ func (a *validatedAPIServer) FindCommits(request *pfs.FindCommitsRequest, srv pf
 		}
 	}
 	return a.apiServer.FindCommits(request, srv)
+}
+
+// WalkCommitProvenance implements the protobuf pfs.WalkCommitProvenance RPC
+func (a *validatedAPIServer) WalkCommitProvenance(request *pfs.WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
+	ctx := srv.Context()
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		commits, err := a.pickCommits(ctx, txnCtx.SqlTx, request.Start)
+		if err != nil {
+			return errors.Wrap(err, "walk commit provenance")
+		}
+		return a.apiServer.WalkCommitProvenanceTx(ctx, txnCtx,
+			&WalkCommitProvenanceRequest{
+				StartWithID:                 commits,
+				WalkCommitProvenanceRequest: request,
+			}, srv)
+	}), "walk commit provenance")
+}
+
+// WalkCommitSubvenance implements the protobuf pfs.WalkCommitSubvenance RPC
+func (a *validatedAPIServer) WalkCommitSubvenance(request *pfs.WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
+	ctx := srv.Context()
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		commits, err := a.pickCommits(ctx, txnCtx.SqlTx, request.Start)
+		if err != nil {
+			return errors.Wrap(err, "walk commit subvenance")
+		}
+		return a.apiServer.WalkCommitSubvenanceTx(ctx, txnCtx,
+			&WalkCommitSubvenanceRequest{
+				StartWithID:                 commits,
+				WalkCommitSubvenanceRequest: request,
+			}, srv)
+	}), "walk commit subvenance")
+}
+
+// WalkBranchProvenance implements the protobuf pfs.WalkBranchProvenance RPC
+func (a *validatedAPIServer) WalkBranchProvenance(request *pfs.WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) error {
+	ctx := srv.Context()
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		branches, err := a.pickBranches(ctx, txnCtx.SqlTx, request.Start)
+		if err != nil {
+			return err
+		}
+		return a.apiServer.WalkBranchProvenanceTx(ctx, txnCtx,
+			&WalkBranchProvenanceRequest{
+				StartWithID:                 branches,
+				WalkBranchProvenanceRequest: request,
+			}, srv)
+	}), "walk branch provenance")
+}
+
+// WalkBranchSubvenance implements the protobuf pfs.WalkBranchSubvenance RPC
+func (a *validatedAPIServer) WalkBranchSubvenance(request *pfs.WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) error {
+	ctx := srv.Context()
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		branches, err := a.pickBranches(ctx, txnCtx.SqlTx, request.Start)
+		if err != nil {
+			return err
+		}
+		return a.apiServer.WalkBranchSubvenanceTx(ctx, txnCtx,
+			&WalkBranchSubvenanceRequest{
+				StartWithID:                 branches,
+				WalkBranchSubvenanceRequest: request,
+			}, srv)
+	}), "walk branch subvenance")
+}
+
+func (a *validatedAPIServer) pickCommits(ctx context.Context, tx *pachsql.Tx, pickers []*pfs.CommitPicker) ([]*pfsdb.CommitWithID, error) {
+	commits := make([]*pfsdb.CommitWithID, 0)
+	for _, picker := range pickers {
+		commit, err := pfsdb.PickCommit(ctx, picker, tx)
+		if err != nil {
+			return nil, errors.Wrap(err, "pick commits")
+		}
+		commits = append(commits, commit)
+	}
+	return commits, nil
+}
+
+func (a *validatedAPIServer) pickBranches(ctx context.Context, tx *pachsql.Tx, pickers []*pfs.BranchPicker) ([]*pfsdb.BranchInfoWithID, error) {
+	branches := make([]*pfsdb.BranchInfoWithID, 0)
+	for _, picker := range pickers {
+		branch, err := pfsdb.PickBranch(ctx, picker, tx)
+		if err != nil {
+			return nil, errors.Wrap(err, "pick branches")
+		}
+		branches = append(branches, branch)
+	}
+	return branches, nil
 }
 
 func validateFile(file *pfs.File) error {

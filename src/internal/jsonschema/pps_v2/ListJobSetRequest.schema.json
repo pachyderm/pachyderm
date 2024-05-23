@@ -1,0 +1,51 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ListJobSetRequest",
+    "definitions": {
+        "ListJobSetRequest": {
+            "properties": {
+                "details": {
+                    "type": "boolean"
+                },
+                "projects": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Project"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "A list of projects to filter jobs on, nil means don't filter."
+                },
+                "paginationMarker": {
+                    "type": "string",
+                    "description": "we return job sets created before or after this time based on the reverse flag",
+                    "format": "date-time"
+                },
+                "number": {
+                    "type": "integer",
+                    "description": "number of results to return"
+                },
+                "reverse": {
+                    "type": "boolean",
+                    "description": "if true, return results in reverse order"
+                },
+                "jqFilter": {
+                    "type": "string",
+                    "description": "A jq program string for additional result filtering"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "List Job Set Request"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        }
+    }
+}

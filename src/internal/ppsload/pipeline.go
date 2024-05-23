@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/proto"
 )
 
 func Pipeline(pachClient *client.APIClient, req *pps.RunLoadTestRequest) (*pps.RunLoadTestResponse, error) {
@@ -30,7 +31,7 @@ func Pipeline(pachClient *client.APIClient, req *pps.RunLoadTestRequest) (*pps.R
 		branch = state.Branch
 		stateID = state.PfsStateId
 	}
-	resp, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), &pfs.RunLoadTestRequest{
+	resp, err := pachClient.DebugClient.RunPFSLoadTest(pachClient.Ctx(), &debug.RunPFSLoadTestRequest{
 		Spec:    req.LoadSpec,
 		Branch:  branch,
 		Seed:    req.Seed,
@@ -63,12 +64,12 @@ func createPipelines(pachClient *client.APIClient, spec string, parallelism int6
 		repoName := strings.TrimSpace(split[0]) + namespace
 		// Create source repos.
 		if strings.TrimSpace(split[1]) == "" {
-			if err := pachClient.CreateProjectRepo(pfs.DefaultProjectName, repoName); err != nil {
+			if err := pachClient.CreateRepo(pfs.DefaultProjectName, repoName); err != nil {
 				return nil, err
 			}
 			// First source repo will be the target of the PFS load test.
 			if retBranch == nil {
-				retBranch = client.NewProjectBranch(pfs.DefaultProjectName, repoName, "master")
+				retBranch = client.NewBranch(pfs.DefaultProjectName, repoName, "master")
 			}
 			continue
 		}
@@ -134,7 +135,7 @@ func serializeState(pachClient *client.APIClient, state *State) (string, error) 
 }
 
 func deserializeState(pachClient *client.APIClient, stateID string) (*State, error) {
-	commit := client.NewProjectRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", stateID)
+	commit := client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", stateID)
 	buf := &bytes.Buffer{}
 	if err := pachClient.GetFile(commit, stateFileName, buf); err != nil {
 		return nil, err

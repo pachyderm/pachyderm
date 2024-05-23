@@ -37,7 +37,7 @@ func NotifyCtx(ctx context.Context, name string) Notify {
 	return func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		default:
 			log.Info(ctx, "NotifyCtx: error; retrying", zap.String("name", name), zap.Error(err), zap.Duration("retryAfter", d))
 		}
@@ -132,8 +132,8 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 		if err == nil {
 			return nil
 		}
-		if ctx.Err() != nil {
-			return errors.EnsureStack(ctx.Err()) // return if cancel() was called inside operation()
+		if context.Cause(ctx) != nil {
+			return errors.EnsureStack(context.Cause(ctx)) // return if cancel() was called inside operation()
 		}
 		if errors.Is(err, ErrContinue) {
 			b.Reset()
@@ -147,15 +147,15 @@ func RetryUntilCancel(ctx context.Context, operation Operation, b BackOff, notif
 				return err
 			}
 		}
-		if ctx.Err() != nil {
+		if context.Cause(ctx) != nil {
 			// return if cancel() was called inside notify() (select may not catch it
 			// if 'next' is 0)
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		}
 
 		select {
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err()) // break early if ctx is cancelled in another goro
+			return errors.EnsureStack(context.Cause(ctx)) // break early if ctx is cancelled in another goro
 		case <-time.After(next):
 		}
 	}

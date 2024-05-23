@@ -1,11 +1,11 @@
-package transform
+package transform_test
 
 import (
 	"context"
 	"path/filepath"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -23,7 +23,7 @@ import (
 func defaultPipelineInfo() *pps.PipelineInfo {
 	name := "testPipeline"
 	return &pps.PipelineInfo{
-		Pipeline: client.NewProjectPipeline(pfs.DefaultProjectName, name),
+		Pipeline: client.NewPipeline(pfs.DefaultProjectName, name),
 		Details: &pps.PipelineInfo_Details{
 			OutputBranch: "master",
 			Transform: &pps.Transform{
@@ -72,8 +72,11 @@ func (td *testDriver) Pipelines() col.PostgresCollection {
 func (td *testDriver) NewTaskSource() task.Source {
 	return td.inner.NewTaskSource()
 }
-func (td *testDriver) NewTaskDoer(groupID string, cache task.Cache) task.Doer {
-	return td.inner.NewTaskDoer(groupID, cache)
+func (td *testDriver) NewPreprocessingTaskDoer(groupID string, cache task.Cache) task.Doer {
+	return td.inner.NewPreprocessingTaskDoer(groupID, cache)
+}
+func (td *testDriver) NewProcessingTaskDoer(groupID string, cache task.Cache) task.Doer {
+	return td.inner.NewProcessingTaskDoer(groupID, cache)
 }
 func (td *testDriver) PipelineInfo() *pps.PipelineInfo {
 	return td.inner.PipelineInfo()
@@ -97,8 +100,8 @@ func (td *testDriver) WithContext(ctx context.Context) driver.Driver {
 func (td *testDriver) WithActiveData(inputs []*common.Input, dir string, cb func() error) error {
 	return errors.EnsureStack(td.inner.WithActiveData(inputs, dir, cb))
 }
-func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input, authToken string) []string {
-	return td.inner.UserCodeEnv(jobID, commit, inputs, authToken)
+func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input, pachToken string) []string {
+	return td.inner.UserCodeEnv(jobID, commit, inputs, pachToken)
 }
 func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return errors.EnsureStack(td.inner.RunUserCode(ctx, logger, env))
@@ -106,13 +109,17 @@ func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger,
 func (td *testDriver) RunUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return errors.EnsureStack(td.inner.RunUserErrorHandlingCode(ctx, logger, env))
 }
-func (td *testDriver) DeleteJob(sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
-	return errors.EnsureStack(td.inner.DeleteJob(sqlTx, ji))
+func (td *testDriver) DeleteJob(ctx context.Context, sqlTx *pachsql.Tx, ji *pps.JobInfo) error {
+	return errors.EnsureStack(td.inner.DeleteJob(ctx, sqlTx, ji))
 }
 func (td *testDriver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return errors.EnsureStack(td.inner.UpdateJobState(job, state, reason))
 }
-func (td *testDriver) NewSQLTx(cb func(*pachsql.Tx) error) error {
+func (td *testDriver) GetJobInfo(job *pps.Job) (*pps.JobInfo, error) {
+	res := &pps.JobInfo{}
+	return res, nil
+}
+func (td *testDriver) NewSQLTx(cb func(context.Context, *pachsql.Tx) error) error {
 	return errors.EnsureStack(td.inner.NewSQLTx(cb))
 }
 func (td *testDriver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
@@ -133,7 +140,7 @@ func newTestEnv(ctx context.Context, t *testing.T, pipelineInfo *pps.PipelineInf
 	)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(realEnv.PachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(realEnv.PachClient.Ctx())
 	t.Cleanup(cancel)
 	driver = driver.WithContext(ctx)
 

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
 
 func createTestFileSet(tb testing.TB, ctx context.Context, s *Storage, numFiles int, fileSize int, random *rand.Rand) FileSet {
@@ -47,7 +49,7 @@ func TestPrefetcher(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			fs := createTestFileSet(t, ctx, s, test.numFiles, test.fileSize, random)
-			fs = NewPrefetcher(s, fs)
+			fs = NewPrefetcher(s, fs, "")
 			var i int
 			require.NoError(t, fs.Iterate(ctx, func(f File) error {
 				p, err := strconv.Atoi(f.Index().Path)
@@ -59,6 +61,25 @@ func TestPrefetcher(t *testing.T) {
 			require.Equal(t, test.numFiles, i)
 		})
 	}
+}
+
+func TestPrefetcherUpper(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	s := newTestStorage(ctx, t)
+	seed := int64(1648577872380609229)
+	random := rand.New(rand.NewSource(seed))
+	fs := createTestFileSet(t, ctx, s, 10, 10*units.MB, random)
+	shards, err := shard(ctx, fs, 5, math.MaxInt64, &index.PathRange{})
+	require.NoError(t, err)
+	fs = NewPrefetcher(s, fs, shards[0].Upper)
+	var i int
+	require.NoError(t, fs.Iterate(ctx, func(f File) error {
+		p, err := strconv.Atoi(f.Index().Path)
+		require.NoError(t, err)
+		require.Equal(t, i, p)
+		i++
+		return nil
+	}))
 }
 
 func BenchmarkNoPrefetcher(b *testing.B) {
@@ -88,7 +109,7 @@ func benchmarkPrefetcher(b *testing.B, prefetch bool) {
 		b.Run(benchmark.name, func(b *testing.B) {
 			fs := createTestFileSet(b, ctx, s, benchmark.numFiles, benchmark.fileSize, random)
 			if prefetch {
-				fs = NewPrefetcher(s, fs)
+				fs = NewPrefetcher(s, fs, "")
 			}
 			b.SetBytes(int64(benchmark.numFiles * benchmark.fileSize))
 			b.ResetTimer()

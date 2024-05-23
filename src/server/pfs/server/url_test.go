@@ -1,5 +1,3 @@
-//go:build unit_test
-
 package server
 
 import (
@@ -29,8 +27,9 @@ func TestSharding(t *testing.T) {
 	files := make(map[string]string)
 	testDir := "./testing/testdata/urlCoordination"
 	dir, err := os.ReadDir(testDir)
-	objStoreDir := randutil.UniqueString("url-coord-")
 	require.NoError(t, err, "should be able to read dir")
+	require.NotEqual(t, 0, len(dir), "dir should have files")
+	objStoreDir := randutil.UniqueString("url-coord-")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300000)
 	defer cancel()
 	bucket, err := openBucket(ctx, url)
@@ -49,11 +48,11 @@ func TestSharding(t *testing.T) {
 			require.NoError(t, bucket.Delete(ctx, path.Join(objStoreDir, file)), "should be able to delete file")
 		}
 	}()
-	var tasks []PutFileURLTask
+	var tasks []*PutFileURLTask
 	defaultSizeThreshold, defaultNumObjectsThreshold = 3, 3
 	require.NoError(t, shardObjects(ctx, url.BucketString()+"/"+objStoreDir,
 		func(paths []string, startOffset, endOffset int64) error {
-			task := PutFileURLTask{
+			task := &PutFileURLTask{
 				Paths:       paths,
 				StartOffset: startOffset,
 				EndOffset:   endOffset,
@@ -72,7 +71,7 @@ func TestSharding(t *testing.T) {
 	}
 }
 
-func processTasks(ctx context.Context, t *testing.T, tasks []PutFileURLTask, bucket *blob.Bucket) map[string]string {
+func processTasks(ctx context.Context, t *testing.T, tasks []*PutFileURLTask, bucket *blob.Bucket) map[string]string {
 	verifiedFiles := make(map[string]string)
 	for _, task := range tasks {
 		startOffset := task.StartOffset

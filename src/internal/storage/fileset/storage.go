@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"math"
 	"strings"
 	"time"
@@ -92,11 +93,6 @@ func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts
 	return s
 }
 
-// ChunkStorage returns the underlying chunk storage instance for this storage instance.
-func (s *Storage) ChunkStorage() *chunk.Storage {
-	return s.chunks
-}
-
 func (s *Storage) ShardConfig() *index.ShardConfig {
 	return s.shardConfig
 }
@@ -112,6 +108,7 @@ func (s *Storage) NewWriter(ctx context.Context, opts ...WriterOption) *Writer {
 }
 
 func (s *Storage) newWriter(ctx context.Context, opts ...WriterOption) *Writer {
+	ctx = pctx.Child(ctx, "fileSetWriter")
 	return newWriter(ctx, s, opts...)
 }
 
@@ -144,7 +141,7 @@ func (s *Storage) Open(ctx context.Context, ids []ID) (FileSet, error) {
 // other than ensuring that they exist.
 func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	var result *ID
-	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
 		result, err = s.ComposeTx(tx, ids, ttl)
 		return err
@@ -254,8 +251,8 @@ func (s *Storage) getPrimitives(ctx context.Context, ids []ID) ([]*Primitive, er
 // Concat always returns the ID of a primitive fileset.
 func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	var size int64
-	additive := index.NewWriter(ctx, s.ChunkStorage(), "additive-index-writer")
-	deletive := index.NewWriter(ctx, s.ChunkStorage(), "deletive-index-writer")
+	additive := index.NewWriter(ctx, s.chunks, "additive-index-writer")
+	deletive := index.NewWriter(ctx, s.chunks, "deletive-index-writer")
 	for _, id := range ids {
 		md, err := s.store.Get(ctx, id)
 		if err != nil {
@@ -374,7 +371,7 @@ func (s *Storage) exists(ctx context.Context, id ID) (bool, error) {
 
 func (s *Storage) newPrimitive(ctx context.Context, prim *Primitive, ttl time.Duration) (*ID, error) {
 	var result *ID
-	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
 		result, err = s.newPrimitiveTx(tx, prim, ttl)
 		return err
@@ -406,7 +403,7 @@ func (s *Storage) newPrimitiveTx(tx *pachsql.Tx, prim *Primitive, ttl time.Durat
 
 func (s *Storage) newComposite(ctx context.Context, comp *Composite, ttl time.Duration) (*ID, error) {
 	var result *ID
-	if err := dbutil.WithTx(ctx, s.store.DB(), func(tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
 		result, err = s.newCompositeTx(tx, comp, ttl)
 		return err

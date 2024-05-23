@@ -5,7 +5,6 @@ import (
 	"path"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	autoscaling_v1 "k8s.io/api/autoscaling/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,8 +15,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 )
 
 const (
@@ -45,17 +44,13 @@ func (p *pachW) run(ctx context.Context) {
 		if err != nil {
 			return errors.Wrap(err, "locking pachw-controller lock")
 		}
-		defer func() {
-			if err := lock.Unlock(ctx); err != nil {
-				retErr = multierror.Append(retErr, errors.Wrap(err, "error unlocking"))
-			}
-		}()
+		defer errors.Invoke1(&retErr, lock.Unlock, ctx, "error unlocking")
 		var replicas int
 		var scaleDownCount int
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
 		for {
-			numTasks, err := p.countTasks(ctx, []string{server.URLTaskNamespace, server.StorageTaskNamespace})
+			numTasks, err := p.countTasks(ctx)
 			if err != nil {
 				return errors.Wrap(err, "error counting tasks")
 			}
@@ -78,7 +73,7 @@ func (p *pachW) run(ctx context.Context) {
 			select {
 			case <-ticker.C:
 			case <-ctx.Done():
-				return errors.EnsureStack(ctx.Err())
+				return errors.EnsureStack(context.Cause(ctx))
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -87,10 +82,17 @@ func (p *pachW) run(ctx context.Context) {
 	})
 }
 
-func (p *pachW) countTasks(ctx context.Context, namespaces []string) (int, error) {
-	totalTasks := 0
-	for _, ns := range namespaces {
-		tasks, _, err := task.Count(ctx, p.env.TaskService, ns, "")
+func (p *pachW) countTasks(ctx context.Context) (int, error) {
+	var totalTasks int
+	for _, ns := range []string{server.URLTaskNamespace, server.StorageTaskNamespace} {
+		tasks, err := p.env.PFSTaskService.Count(ctx, ns)
+		if err != nil {
+			return 0, errors.EnsureStack(err)
+		}
+		totalTasks += int(tasks)
+	}
+	for _, ns := range []string{driver.PreprocessingTaskNamespace(nil)} {
+		tasks, err := p.env.PPSTaskService.Count(ctx, ns)
 		if err != nil {
 			return 0, errors.EnsureStack(err)
 		}

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -21,6 +21,7 @@ import (
 
 // Environment variables for determining storage backend and pathing
 const (
+	StorageURLVar        = "STORAGE_URL"
 	StorageBackendEnvVar = "STORAGE_BACKEND"
 )
 
@@ -422,7 +423,11 @@ type ObjectStoreURL struct {
 }
 
 func (s ObjectStoreURL) String() string {
-	return fmt.Sprintf("%s://%s/%s", s.Scheme, s.Bucket, s.Object)
+	bucket := fmt.Sprintf("%s://%s/%s", s.Scheme, s.Bucket, s.Object)
+	if s.Params != "" {
+		bucket += "?" + s.Params
+	}
+	return bucket
 }
 
 func (s ObjectStoreURL) BucketString() string {
@@ -445,7 +450,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	}
 	var objStoreUrl *ObjectStoreURL
 	switch u.Scheme {
-	case "azblob", "gs", "local", "s3":
+	case "azblob", "gs", "file", "s3":
 		objStoreUrl = &ObjectStoreURL{
 			Scheme: u.Scheme,
 			Bucket: u.Host,
@@ -475,7 +480,6 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			Params: u.RawQuery,
 		}
 	default:
-		// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 		return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 	}
 	return objStoreUrl, nil

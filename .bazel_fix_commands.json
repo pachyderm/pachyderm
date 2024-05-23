@@ -1,0 +1,12 @@
+[
+  {
+    "regex": "^Check that imports in Go sources match importpath attributes in deps.$",
+    "command": "bazel",
+    "args": ["run", "//:gazelle"]
+  },
+  {
+    "regex": "^buildozer '(.*)'\\s+(.*)$",
+    "command": "bazel",
+    "args": ["run", "//:buildozer", "$1", "$2"]
+  }
+]

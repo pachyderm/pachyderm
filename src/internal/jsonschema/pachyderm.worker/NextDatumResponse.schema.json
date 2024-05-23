@@ -1,0 +1,20 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/NextDatumResponse",
+    "definitions": {
+        "NextDatumResponse": {
+            "properties": {
+                "env": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Next Datum Response",
+            "description": "Env is a list of environment variables that should be set for the processing of the next datum."
+        }
+    }
+}

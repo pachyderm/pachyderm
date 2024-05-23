@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/QueueElement",
+    "definitions": {
+        "QueueElement": {
+            "properties": {
+                "data": {
+                    "type": "string",
+                    "description": "data is opaque data used as the input and output of Jobs",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "filesets": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array",
+                    "description": "filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs. Any of the filesets referenced here will be persisted for as long as this element is in a Queue. New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Queue Element",
+            "description": "QueueElement is a single element in a Queue."
+        }
+    }
+}

@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/UnpauseRequest",
+    "definitions": {
+        "UnpauseRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Unpause Request"
+        }
+    }
+}

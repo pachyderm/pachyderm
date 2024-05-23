@@ -5,6 +5,7 @@
 package admin
 
 import (
+	fmt "fmt"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -12,16 +13,26 @@ func (x *ClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.ID)
-	enc.AddString("deployment_id", x.DeploymentID)
-	enc.AddBool("version_warnings_ok", x.VersionWarningsOk)
-	version_warningsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.VersionWarnings {
+	enc.AddString("id", x.Id)
+	enc.AddString("deployment_id", x.DeploymentId)
+	enc.AddBool("warnings_ok", x.WarningsOk)
+	warningsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Warnings {
 			enc.AppendString(v)
 		}
 		return nil
 	}
-	enc.AddArray("version_warnings", zapcore.ArrayMarshalerFunc(version_warningsArrMarshaller))
+	enc.AddArray("warnings", zapcore.ArrayMarshalerFunc(warningsArrMarshaller))
+	enc.AddString("proxy_host", x.ProxyHost)
+	enc.AddBool("proxy_tls", x.ProxyTls)
+	enc.AddBool("paused", x.Paused)
+	enc.AddObject("web_resources", x.WebResources)
+	enc.AddObject("metadata", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for k, v := range x.Metadata {
+			enc.AddString(fmt.Sprintf("%v", k), v)
+		}
+		return nil
+	}))
 	return nil
 }
 
@@ -30,5 +41,15 @@ func (x *InspectClusterRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		return nil
 	}
 	enc.AddObject("client_version", x.ClientVersion)
+	enc.AddObject("current_project", x.CurrentProject)
+	return nil
+}
+
+func (x *WebResource) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("archive_download_base_url", x.ArchiveDownloadBaseUrl)
+	enc.AddString("create_pipeline_request_json_schema_url", x.CreatePipelineRequestJsonSchemaUrl)
 	return nil
 }

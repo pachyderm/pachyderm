@@ -147,7 +147,7 @@ func makeTupleElement(dbType string, nullable bool) (interface{}, error) {
 		}
 		return new(string), nil
 	// TIMESTAMP means different things in different databases
-	//     - postgres and snowflake doesn't store time zone related info
+	//     - postgres doesn't store time zone related info
 	//     - mysql stores time zone
 	case "DATE", "TIME", "TIMESTAMP", "TIMESTAMP_LTZ", "TIMESTAMP_NTZ", "TIMESTAMP_TZ", "TIMESTAMPTZ", "TIMESTAMP WITH TIME ZONE", "TIMESTAMP WITHOUT TIME ZONE":
 		if nullable {

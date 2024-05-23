@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "spout",
+    srcs = ["spout.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/spout",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/errors",
+        "//src/server/worker/driver",
+        "//src/server/worker/logs",
+    ],
+)

@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "recovery",
+    srcs = ["recovery.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)

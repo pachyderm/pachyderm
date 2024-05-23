@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ParallelismSpec",
+    "definitions": {
+        "ParallelismSpec": {
+            "properties": {
+                "constant": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "Starts the pipeline/job with a 'constant' workers, unless 'constant' is zero. If 'constant' is zero (which is the zero value of ParallelismSpec), then Pachyderm will choose the number of workers that is started, (currently it chooses the number of workers in the cluster)"
+                }
+            },
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "type": "object"
+                }
+            ],
+            "title": "Parallelism Spec"
+        }
+    }
+}

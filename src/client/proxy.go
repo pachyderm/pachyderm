@@ -6,6 +6,7 @@ import (
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 )
 
@@ -66,7 +67,7 @@ func (ppl *proxyPostgresListener) Register(notifier col.Notifier) error {
 
 func (ppl *proxyPostgresListener) listen(notifier col.Notifier) {
 	channel := notifier.Channel()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := pctx.WithCancel(context.Background())
 	ppl.channelInfos[channel] = newChannelInfo(cancel, notifier)
 
 	var listenClient proxy.API_ListenClient

@@ -19,9 +19,22 @@ import (
 // The Tx field will be overwritten with the transaction that the migration should be performed in.
 type Env struct {
 	// TODO: etcd
-	ObjectClient obj.Client
-	Tx           *pachsql.Tx
-	EtcdClient   *clientv3.Client
+	ObjectClient   obj.Client
+	Tx             *pachsql.Tx
+	EtcdClient     *clientv3.Client
+	WithTableLocks bool
+}
+
+func (env Env) LockTables(ctx context.Context, tables ...string) error {
+	if !env.WithTableLocks {
+		return nil
+	}
+	for _, table := range tables {
+		if _, err := env.Tx.ExecContext(ctx, fmt.Sprintf("LOCK TABLE %s IN EXCLUSIVE MODE", table)); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+	return nil
 }
 
 // MakeEnv returns a new Env
@@ -29,8 +42,9 @@ type Env struct {
 // You can also create an Env using a struct literal.
 func MakeEnv(objC obj.Client, etcdC *clientv3.Client) Env {
 	return Env{
-		ObjectClient: objC,
-		EtcdClient:   etcdC,
+		ObjectClient:   objC,
+		EtcdClient:     etcdC,
+		WithTableLocks: true,
 	}
 }
 
@@ -43,16 +57,27 @@ type State struct {
 	prev   *State
 	change Func
 	name   string
+	squash bool
+}
+
+type ApplyOpt func(*State)
+
+func Squash(s *State) {
+	s.squash = true
 }
 
 // Apply applies a Func to the state and returns a new state.
-func (s State) Apply(name string, fn Func) State {
-	return State{
+func (s State) Apply(name string, fn Func, opts ...ApplyOpt) State {
+	s2 := State{
 		prev:   &s,
 		change: fn,
 		n:      s.n + 1,
 		name:   strings.ToLower(name),
 	}
+	for _, opt := range opts {
+		opt(&s2)
+	}
+	return s2
 }
 
 // Number returns the number of changes to be applied before the state can be actualized.
@@ -87,15 +112,45 @@ func ApplyMigrations(ctx context.Context, db *pachsql.DB, baseEnv Env, state Sta
 	ctx, end := log.SpanContextL(ctx, "ApplyMigrations", log.InfoLevel)
 	defer end(log.Errorp(&retErr))
 
-	for _, state := range collectStates(make([]State, 0, state.n+1), state) {
-		if err := applyMigration(ctx, db, baseEnv, state); err != nil {
-			return err
+	env := baseEnv
+	states := CollectStates(state)
+	for i, state := range states {
+		// if this state is not squashed into the previous, open a new transaction.
+		// otherwise do nothing, and reuse the previous transaction.
+		if !state.squash {
+			tx, err := db.BeginTxx(ctx, &sql.TxOptions{
+				Isolation: sql.LevelSnapshot,
+			})
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			env.Tx = tx
+		}
+		// Apply the migration
+		if err := ApplyMigrationTx(ctx, env, state); err != nil {
+			if err := env.Tx.Rollback(); err != nil {
+				log.Error(ctx, "problem rolling back migrations", zap.Error(err))
+			}
+			return errors.EnsureStack(err)
+		}
+		// If this is the last migation, or the next migration is not squashed, commit.
+		if i == len(states)-1 || !states[i+1].squash {
+			if err := env.Tx.Commit(); err != nil {
+				log.Error(ctx, "failed to commit migration", zap.Error(err))
+				return errors.EnsureStack(err)
+			}
+			env.Tx = nil
 		}
 	}
 	return nil
 }
 
-// collectStates does a reverse order traversal of a linked list and adds each item to a slice
+// CollectStates does a reverse order traversal of a linked list and adds each item to a slice
+func CollectStates(s State) []State {
+	out := make([]State, 0, s.n+1)
+	return collectStates(out, s)
+}
+
 func collectStates(slice []State, s State) []State {
 	if s.prev != nil {
 		slice = collectStates(slice, *s.prev)
@@ -103,52 +158,51 @@ func collectStates(slice []State, s State) []State {
 	return append(slice, s)
 }
 
-func applyMigration(ctx context.Context, db *pachsql.DB, baseEnv Env, state State) error {
-	tx, err := db.BeginTxx(ctx, &sql.TxOptions{})
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	env := baseEnv
-	env.Tx = tx
-	if err := func() error {
-		if state.n == 0 {
-			if err := state.change(ctx, env); err != nil {
-				panic(err)
-			}
-		}
-		_, err := tx.ExecContext(ctx, `LOCK TABLE migrations IN EXCLUSIVE MODE`)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if finished, err := isFinished(ctx, tx, state); err != nil {
-			return err
-		} else if finished {
-			// skip migration
-			msg := fmt.Sprintf("migration %d already applied", state.n)
-			log.Info(ctx, msg) // avoid log rate limit
-			return nil
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
-			return errors.EnsureStack(err)
-		}
-		msg := fmt.Sprintf("applying migration %d: %s", state.n, state.name)
-		log.Info(ctx, msg) // avoid log rate limit
+func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
+	tx := env.Tx
+	if state.n == 0 {
 		if err := state.change(ctx, env); err != nil {
-			return err
+			panic(err)
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
-			return errors.EnsureStack(err)
+	}
+	rows, err := tx.QueryxContext(ctx, `SELECT CONCAT(table_schema, '.', table_name) AS schema_table_name 
+		FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog', 'information_schema');`)
+	if err != nil {
+		return errors.Wrap(err, "getting tables to lock")
+	}
+	tables := make([]string, 0)
+	for rows.Next() {
+		table := ""
+		if err := rows.Scan(&table); err != nil {
+			return errors.Wrap(err, "scanning row into response")
 		}
-		msg = fmt.Sprintf("successfully applied migration %d", state.n)
+		tables = append(tables, table)
+	}
+	if err := env.LockTables(ctx, tables...); err != nil {
+		return errors.Wrap(err, "locking all tables before migration")
+	}
+	if finished, err := isFinished(ctx, tx, state); err != nil {
+		return err
+	} else if finished {
+		// skip migration
+		msg := fmt.Sprintf("migration %d already applied", state.n)
 		log.Info(ctx, msg) // avoid log rate limit
 		return nil
-	}(); err != nil {
-		if err := tx.Rollback(); err != nil {
-			log.Error(ctx, "problem rolling back migrations", zap.Error(err))
-		}
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
 		return errors.EnsureStack(err)
 	}
-	return errors.EnsureStack(tx.Commit())
+	msg := fmt.Sprintf("applying migration %d: %s", state.n, state.name)
+	log.Info(ctx, msg) // avoid log rate limit
+	if err := state.change(ctx, env); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
+		return errors.EnsureStack(err)
+	}
+	msg = fmt.Sprintf("successfully applied migration %d", state.n)
+	log.Info(ctx, msg) // avoid log rate limit
+	return nil
 }
 
 // BlockUntil blocks until state is actualized.
@@ -185,7 +239,7 @@ func BlockUntil(ctx context.Context, db *pachsql.DB, state State) error {
 		}
 		select {
 		case <-ctx.Done():
-			return errors.EnsureStack(ctx.Err())
+			return errors.EnsureStack(context.Cause(ctx))
 		case <-ticker.C:
 		}
 	}

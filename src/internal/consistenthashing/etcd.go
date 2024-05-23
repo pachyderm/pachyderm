@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -81,7 +81,7 @@ func WithRing(ctx context.Context, client *etcd.Client, prefix string, cb func(c
 func withRing(rctx context.Context, client *etcd.Client, prefix, id string, cb func(ctx context.Context, ring *Ring) error) error {
 	ring := ring(client, prefix, id)
 
-	cancelCtx, cancel := context.WithCancel(pctx.Child(rctx, "ring", pctx.WithFields(zap.Inline(ring))))
+	cancelCtx, cancel := pctx.WithCancel(pctx.Child(rctx, "ring", pctx.WithFields(zap.Inline(ring))))
 	defer cancel()
 
 	eg, ctx := errgroup.WithContext(cancelCtx)
@@ -99,7 +99,7 @@ func withRing(rctx context.Context, client *etcd.Client, prefix, id string, cb f
 		return nil
 	})
 	err := eg.Wait()
-	if errors.Is(cancelCtx.Err(), context.Canceled) {
+	if errors.Is(context.Cause(cancelCtx), context.Canceled) {
 		err = nil
 	}
 	return errors.EnsureStack(err)
@@ -123,7 +123,7 @@ func ring(client *etcd.Client, prefix string, id string) *Ring {
 
 // createNode creates a lease, inserts itself as a key to etcd, keeps the lease alive in the background.
 func (ring *Ring) createNode(ctx context.Context, col collection.EtcdCollection, id string) error {
-	if err := col.Claim(ctx, id, &types.BoolValue{Value: true},
+	if err := col.Claim(ctx, id, wrapperspb.Bool(true),
 		func(ctx context.Context) error {
 			// keep the lease alive until the context is canceled.
 			<-ctx.Done()
@@ -140,7 +140,7 @@ func (ring *Ring) createNode(ctx context.Context, col collection.EtcdCollection,
 // on delete happens by default since each member attempts to retrieve all locks. When a member is deleted,
 // the pending calls to Lock by each member will go through on the nodes that associates to given lock.
 func (ring *Ring) watch(ctx context.Context, col collection.EtcdCollection) error {
-	if err := col.ReadOnly(ctx).WatchF(func(event *watch.Event) error {
+	if err := col.ReadOnly().WatchF(ctx, func(event *watch.Event) error {
 		ring.stateLock.Lock()
 		defer ring.stateLock.Unlock()
 		nodeKey := string(event.Key)
@@ -216,7 +216,7 @@ func (ring *Ring) releaseLock(key string) error {
 	// - The unlock call completes successfully.
 	ctx := lockInfo.ctx
 	return backoff.RetryNotify(func() error {
-		if errors.Is(ctx.Err(), context.Canceled) {
+		if errors.Is(context.Cause(ctx), context.Canceled) {
 			return nil
 		}
 		return lockInfo.lock.Unlock(ctx)
@@ -305,7 +305,7 @@ func (ring *Ring) Lock(ctx context.Context, key string) (context.Context, error)
 		select {
 		case <-ctx.Done():
 			ring.stateLock.Lock()
-			return nil, errors.EnsureStack(ctx.Err())
+			return nil, errors.EnsureStack(context.Cause(ctx))
 		case <-ticker.C:
 			ring.stateLock.Lock()
 		}

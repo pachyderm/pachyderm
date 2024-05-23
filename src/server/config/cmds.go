@@ -1,9 +1,7 @@
 package cmds
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -17,9 +15,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	prompt "github.com/c-bata/go-prompt"
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 )
 
@@ -53,21 +51,35 @@ func deduceActiveEnterpriseContext(ctx context.Context, cfg *config.Config, pach
 	return activeEnterpriseContext, nil
 }
 
-func ConnectCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func ConnectCmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
+	var alias string
 
 	connect := &cobra.Command{
 		Use:   "{{alias}} <address>",
 		Short: "Connect to a Pachyderm Cluster",
-		Long:  "Creates a Pachyderm context at the given address and sets it as active",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Long: "This command creates a Pachyderm context at the given address and sets it as active. It stores the pachd address, cluster deployment ID, and actively set project name. \n\n" +
+			"If the actively set project no longer exists due to deletion or hard restart / reinstall, you may get an error that can be resolved by setting an existing project (e.g., `default`) to the context. \n" +
+			"\t- To list all contexts, use `pachctl config list contexts`. \n" +
+			"\t- To view details, use `pachctl config get context <context>`. \n" +
+			"\t- To clean up your contexts, use `pachctl config delete context <context>`. \n" +
+			"\t- To set a different context as active, use `pachctl config set active-context <context>`. \n" +
+			"\t- To set a different project as active, use `pachctl config update context --project foo`.",
+		Example: "\t- {{alias}} localhost:80" +
+			"\t- {{alias}} localhost:80 --alias my-private-cluster",
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			address := args[0]
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
 			}
 
-			context, contextExists := cfg.V2.Contexts[address]
+			contextName := address
+			if alias != "" {
+				contextName = alias
+			}
+
+			context, contextExists := cfg.V2.Contexts[contextName]
 
 			if !contextExists {
 				context = new(config.Context)
@@ -76,28 +88,33 @@ func ConnectCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.C
 					return err
 				}
 				context.PachdAddress = pachdAddress.Qualified()
-				fmt.Printf("New context '%s' created, will connect to Pachyderm at %s\n", address, pachdAddress.Qualified())
+				fmt.Printf("New context '%s' created, will connect to Pachyderm at %s\n", contextName, pachdAddress.Qualified())
 			}
 
-			cfg.V2.Contexts[address] = context
-			cfg.V2.ActiveContext = address
-			fmt.Printf("Context '%s' set as active\n", address)
+			cfg.V2.Contexts[contextName] = context
+			cfg.V2.ActiveContext = contextName
+			fmt.Printf("Context '%s' set as active\n", contextName)
+
 			return cfg.Write()
 
 		}),
 	}
+
+	connect.Flags().StringVar(&alias, "alias", "", "Set an alias for the context that is created.")
+
 	commands = append(commands, cmdutil.CreateAlias(connect, "connect"))
 	return commands
 }
 
 // Cmds returns a slice containing admin commands.
-func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	getMetrics := &cobra.Command{
-		Short: "Gets whether metrics are enabled.",
-		Long:  "Gets whether metrics are enabled.",
-		Run: cmdutil.Run(func(args []string) (retErr error) {
+		Short:   "Gets whether metrics are enabled.",
+		Long:    "This command returns the status of metric enablement (`pachd.metrics.enabled`).",
+		Example: "{{alias}}}",
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -109,10 +126,11 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	commands = append(commands, cmdutil.CreateAlias(getMetrics, "config get metrics"))
 
 	setMetrics := &cobra.Command{
-		Use:   "{{alias}} (true | false)",
-		Short: "Sets whether metrics are enabled.",
-		Long:  "Sets whether metrics are enabled.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Use:     "{{alias}} (true | false)",
+		Short:   "Controls whether metrics are enabled or not.",
+		Long:    "This command controls whether metrics are enabled or not.",
+		Example: "{{alias}} true",
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			metrics := true
 			if args[0] == "false" {
 				metrics = false
@@ -133,8 +151,13 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 
 	getActiveContext := &cobra.Command{
 		Short: "Gets the currently active context.",
-		Long:  "Gets the currently active context.",
-		Run: cmdutil.Run(func(args []string) (retErr error) {
+		Long: "This command returns the currently active context. \n" +
+			"\t- To list all contexts, use `pachctl config list contexts`. \n" +
+			"\t- To view details, use `pachctl config get context <context>`. \n" +
+			"\t- To clean up your contexts, use `pachctl config delete context <context>`. \n" +
+			"\t- To set a different context as active, use `pachctl config set active-context <context>`. \n",
+		Example: "{{alias}}}",
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -156,8 +179,12 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	setActiveContext := &cobra.Command{
 		Use:   "{{alias}} <context>",
 		Short: "Sets the currently active context.",
-		Long:  "Sets the currently active context.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Long: "This command sets the currently active context. This should be a combination of your `proxy.host` value and `proxy.server.http(s)Port number`. \n" +
+			"\t- To list all contexts, use `pachctl config list contexts`. \n" +
+			"\t- To view details, use `pachctl config get context <context>`. \n" +
+			"\t- To clean up your contexts, use `pachctl config delete context <context>`.",
+		Example: "{{alias}} grpc://localhost:80",
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -174,8 +201,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 
 	getActiveEnterpriseContext := &cobra.Command{
 		Short: "Gets the currently active enterprise context.",
-		Long:  "Gets the currently active enterprise context.",
-		Run: cmdutil.Run(func(args []string) (retErr error) {
+		Long:  "This command returns the currently active enterprise context for deployments using Enterprise Server.",
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -195,10 +222,11 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	commands = append(commands, cmdutil.CreateAlias(getActiveEnterpriseContext, "config get active-enterprise-context"))
 
 	setActiveEnterpriseContext := &cobra.Command{
-		Use:   "{{alias}} <context>",
-		Short: "Sets the currently active enterprise context.",
-		Long:  "Sets the currently active enterprise context.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Use:     "{{alias}} <context>",
+		Short:   "Sets the currently active enterprise context.",
+		Long:    "This command sets the currently active enterprise context for deployments using Enterprise Server.",
+		Example: "{{alias}} foo",
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -214,10 +242,11 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	commands = append(commands, cmdutil.CreateAlias(setActiveEnterpriseContext, "config set active-enterprise-context"))
 
 	getContext := &cobra.Command{
-		Use:   "{{alias}} <context>",
-		Short: "Gets a context.",
-		Long:  "Gets the config of a context by its name.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Use:     "{{alias}} <context>",
+		Short:   "Gets a context.",
+		Long:    "This command returns the config of a context by its name. This includes the pachd address, cluster deployment ID, and actively set project name.",
+		Example: "{{alias}} foo",
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -243,8 +272,10 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	setContext := &cobra.Command{
 		Use:   "{{alias}} <context>",
 		Short: "Set a context.",
-		Long:  "Set a context config from a given name and a JSON configuration file on stdin",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Long:  "This command sets a context config from a given name and a JSON configuration file on stdin",
+		Example: "\t- {{alias}} foo" +
+			"\t- {{alias}} foo --overwrite",
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			name := args[0]
 
 			cfg, err := config.Read(false, false)
@@ -258,19 +289,14 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				}
 			}
 
-			var context config.Context
 			cmdutil.PrintStdinReminder()
 
-			var buf bytes.Buffer
-			var decoder *json.Decoder
-
-			contextReader := io.TeeReader(os.Stdin, &buf)
-			decoder = json.NewDecoder(contextReader)
-
-			if err := jsonpb.UnmarshalNext(decoder, &context); err != nil {
-				if errors.Is(err, io.EOF) {
-					return errors.New("unexpected EOF")
-				}
+			var context config.Context
+			in, err := io.ReadAll(os.Stdin)
+			if err != nil {
+				return errors.Wrap(err, "read stdin")
+			}
+			if err := protojson.Unmarshal(in, &context); err != nil {
 				return errors.Wrapf(err, "malformed context")
 			}
 
@@ -295,9 +321,11 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	var enterprise bool
 	contextFromKube := &cobra.Command{
 		Use:   "{{alias}} <context>",
-		Short: "Import a kubernetes context as a Pachyderm context, and set the active Pachyderm context.",
-		Long:  "Import a kubernetes context as a Pachyderm context. By default the current kubernetes context is used.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Short: "Import a Kubernetes context as a Pachyderm context, and set the active Pachyderm context.",
+		Long:  "This command imports a Kubernetes context as a Pachyderm context. By default the current kubernetes context is used.",
+		Example: "\t- {{alias}} foo" +
+			"\t- {{alias}} foo --overwrite",
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			name := args[0]
 
 			cfg, err := config.Read(false, false)
@@ -363,9 +391,16 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	updateContext = &cobra.Command{
 		Use:   "{{alias}} [<context>]",
 		Short: "Updates a context.",
-		Long: "Updates an existing context config from a given name (or the " +
-			"currently-active context, if no name is given).",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
+		Long:  "This command updates an existing context config from a given name (or the currently-active context, if no name is given).",
+		Example: "\t- {{alias}} foo" +
+			"\t- {{alias}} foo --pachd-address localhost:30650" +
+			"\t- {{alias}} foo --cluster-name my-cluster" +
+			"\t- {{alias}} foo --auth-info my-auth-info" +
+			"\t- {{alias}} foo --server-cas /path/to/ca.crt" +
+			"\t- {{alias}} foo --namespace my-namespace" +
+			"\t- {{alias}} foo --project my-project" +
+			"\t- {{alias}} foo --remove-cluster-deployment-id",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -411,7 +446,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				context.AuthInfo = authInfo
 			}
 			if updateContext.Flags().Changed("server-cas") {
-				context.ServerCAs = serverCAs
+				context.ServerCas = serverCAs
 			}
 			if updateContext.Flags().Changed("namespace") {
 				context.Namespace = namespace
@@ -420,7 +455,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				context.Project = project
 			}
 			if removeClusterDeploymentID {
-				context.ClusterDeploymentID = ""
+				context.ClusterDeploymentId = ""
 			}
 
 			return cfg.Write()
@@ -439,8 +474,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	deleteContext := &cobra.Command{
 		Use:   "{{alias}} <context>",
 		Short: "Deletes a context.",
-		Long:  "Deletes a context.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Long:  "This command deletes a context. It is recommended to clean up your contexts periodically if you have many.",
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -460,8 +495,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 
 	listContext := &cobra.Command{
 		Short: "Lists contexts.",
-		Long:  "Lists contexts.",
-		Run: cmdutil.Run(func(args []string) (retErr error) {
+		Long:  "This command lists contexts.",
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(false, false)
 			if err != nil {
 				return err
@@ -480,7 +515,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return err
 			}
 
-			activeEnterpriseContext, err := deduceActiveEnterpriseContext(mainCtx, cfg, pachctlCfg)
+			activeEnterpriseContext, err := deduceActiveEnterpriseContext(cmd.Context(), cfg, pachctlCfg)
 			if err != nil {
 				fmt.Printf("Unable to connect with server to deduce enterprise context: %v\n", err.Error())
 			}

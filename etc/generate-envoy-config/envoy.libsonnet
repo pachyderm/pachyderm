@@ -187,6 +187,11 @@
           },
         },
       ],
+      access_log_options: {
+        access_log_flush_interval: '10s',  // This prints information about ongoing connections every 10s.
+        flush_access_log_on_new_request: true,
+        flush_log_on_tunnel_successfully_established: true,
+      },
       codec_type: 'auto',
       common_http_protocol_options: {
         headers_with_underscores_action: 'REJECT_REQUEST',
@@ -368,15 +373,20 @@
   defaultCluster:: {
     connect_timeout: '10s',
     dns_lookup_family: 'V4_ONLY',
-    dns_refresh_rate: '5s',
+    dns_refresh_rate: '1s',
     dns_failure_refresh_rate: {
-      base_interval: '0.05s',
-      max_interval: '0.1s',
+      base_interval: '0.1s',
+      max_interval: '1s',
     },
     lb_policy: 'random',
     type: 'strict_dns',
     upstream_connection_options: {
       tcp_keepalive: {},
+    },
+    common_lb_config: {
+      healthy_panic_threshold: {
+        value: 0.0,
+      },
     },
   },
 

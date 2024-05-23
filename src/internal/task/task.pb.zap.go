@@ -20,7 +20,7 @@ func (x *Task) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	enc.AddString("state", x.State.String())
 	protoextensions.AddAny(enc, "input", x.Input)
 	protoextensions.AddAny(enc, "output", x.Output)
@@ -40,6 +40,6 @@ func (x *TestTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	return nil
 }

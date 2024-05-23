@@ -5,6 +5,7 @@ deployTarget: MICROSOFT
 
 pachd:
   storage:
+    storageURL: azblob://foo
     microsoft:
       container: "foo"
       id: "bar"

@@ -9,13 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/types"
-
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
@@ -31,7 +30,7 @@ func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
 		DBClient:      dockertestenv.NewTestDB(t),
 		DexDB:         dex_memory.New(log.NewLogrus(ctx)),
 		EtcdClient:    testetcd.NewEnv(ctx, t).EtcdClient,
-		Configuration: serviceenv.NewConfiguration(&serviceenv.PachdFullConfiguration{}),
+		Configuration: pachconfig.NewConfiguration(&pachconfig.PachdFullConfiguration{}),
 		Ctx:           ctx,
 	}
 	require.NoError(t, migrations.ApplyMigrations(ctx, env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState))
@@ -152,12 +151,12 @@ func TestUpdateIDP(t *testing.T) {
 		Connector: &identity.IDPConnector{
 			Id:   "conn",
 			Type: "github",
-			Config: &types.Struct{
-				Fields: map[string]*types.Value{
-					"clientID":    {Kind: &types.Value_StringValue{StringValue: "test2"}},
-					"redirectURI": {Kind: &types.Value_StringValue{StringValue: "/callback"}},
+			Config: mustStruct(
+				map[string]any{
+					"clientID":    "test2",
+					"redirectURI": "/callback",
 				},
-			},
+			),
 			ConfigVersion: 1,
 		},
 	})

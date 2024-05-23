@@ -21,7 +21,7 @@ func (x *TaskInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.ID)
+	enc.AddString("id", x.Id)
 	enc.AddObject("group", x.Group)
 	enc.AddString("state", x.State.String())
 	enc.AddString("reason", x.Reason)

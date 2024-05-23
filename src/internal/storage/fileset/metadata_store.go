@@ -55,13 +55,13 @@ func StoreTestSuite(t *testing.T, newStore func(t testing.TB) MetadataStore) {
 }
 
 func setMetadata(ctx context.Context, mds MetadataStore, id ID, md *Metadata) error {
-	return dbutil.WithTx(ctx, mds.DB(), func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, mds.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		return mds.SetTx(tx, id, md)
 	})
 }
 
 func deleteMetadata(ctx context.Context, mds MetadataStore, id ID) error {
-	return dbutil.WithTx(ctx, mds.DB(), func(tx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, mds.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
 		return mds.DeleteTx(tx, id)
 	})
 }

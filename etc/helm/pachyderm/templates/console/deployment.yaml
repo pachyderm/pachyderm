@@ -38,13 +38,13 @@ spec:
       {{- end }}
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
-      - image: "{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
+      - image: "{{ .Values.global.image.registry }}{{ .Values.console.image.repository }}:{{ default .Chart.AppVersion .Values.console.image.tag }}"
         imagePullPolicy: {{ .Values.console.image.pullPolicy }}
         name: console
         livenessProbe:
           failureThreshold: 3
           httpGet:
-            path: /
+            path: /health
             port: console-http
             scheme: HTTP
           periodSeconds: 10
@@ -53,7 +53,7 @@ spec:
         readinessProbe:
           failureThreshold: 3
           httpGet:
-            path: /
+            path: /health
             port: console-http
             scheme: HTTP
           periodSeconds: 10
@@ -71,6 +71,10 @@ spec:
           value: {{ include "pachyderm.issuerURI" . | quote}}
         - name: REACT_APP_RUNTIME_ISSUER_URI
           value: {{ include "pachyderm.reactAppRuntimeIssuerURI" . | quote}}
+        {{- if ne 0 (int .Values.console.config.reactAppRuntimeRefetchInterval) }}
+        - name: REACT_APP_RUNTIME_REFETCH_INTERVAL
+          value: {{ .Values.console.config.reactAppRuntimeRefetchInterval | quote}}
+        {{- end }}
         - name: REACT_APP_RUNTIME_DISABLE_TELEMETRY
           value: {{ .Values.console.config.disableTelemetry | quote}}
         - name: OAUTH_REDIRECT_URI
@@ -112,6 +116,10 @@ spec:
         - name: NO_PROXY
           value:  {{.Values.global.noProxy}}
         {{ end }}
+        - name: REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST
+          value: {{ include "pachyderm.host" . }}
+        - name: REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS
+          value: "{{ .Values.proxy.tls.enabled | ternary "true" "false" }}"
         {{- if .Values.console.resources }}
         resources: {{ toYaml .Values.console.resources | nindent 10 }}
         {{- end }}

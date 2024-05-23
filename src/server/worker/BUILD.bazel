@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "worker",
+    srcs = ["worker.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/worker",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/auth",
+        "//src/internal/backoff",
+        "//src/internal/client",
+        "//src/internal/dlock",
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "//src/internal/ppsutil",
+        "//src/internal/serviceenv",
+        "//src/pps",
+        "//src/server/worker/driver",
+        "//src/server/worker/logs",
+        "//src/server/worker/pipeline/service",
+        "//src/server/worker/pipeline/spout",
+        "//src/server/worker/pipeline/transform",
+        "//src/server/worker/server",
+        "//src/server/worker/stats",
+        "@org_golang_x_sync//errgroup",
+    ],
+)

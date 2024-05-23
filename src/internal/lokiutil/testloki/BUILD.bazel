@@ -1,0 +1,77 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+# gazelle:go_test file
+
+go_library(
+    name = "testloki",
+    srcs = [
+        "load.go",
+        "logger.go",
+        "testloki.go",
+    ],
+    data = [
+        "config.yaml",
+        "//tools/loki",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/testloki",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/lokiutil/client",
+        "//src/internal/pachconfig",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "//src/internal/promutil",
+        "//src/internal/randutil",
+        "@in_gopkg_yaml_v3//:yaml_v3",
+        "@org_golang_x_exp//maps",
+        "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
+        "@rules_go//go/runfiles:go_default_library",
+        "@rules_go//go/tools/bazel:go_default_library",
+    ],
+)
+
+go_test(
+    name = "testloki_test",
+    size = "small",
+    srcs = ["testloki_test.go"],
+    embed = [":testloki"],
+    deps = [
+        "//src/internal/lokiutil/client",
+        "//src/internal/pctx",
+        "@com_github_google_go_cmp//cmp",
+    ],
+)
+
+go_test(
+    name = "logger_test",
+    size = "small",
+    srcs = ["logger_test.go"],
+    deps = [
+        ":testloki",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "//src/logs",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)
+
+go_test(
+    name = "load_test",
+    srcs = ["load_test.go"],
+    deps = [
+        ":testloki",
+        "//src/internal/lokiutil/client",
+        "//src/internal/pctx",
+        "//src/internal/require",
+    ],
+)
+
+go_test(
+    name = "parse_test",
+    srcs = ["parse_test.go"],
+    embed = [":testloki"],
+    deps = ["//src/internal/require"],
+)

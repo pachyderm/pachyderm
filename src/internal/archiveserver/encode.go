@@ -151,7 +151,7 @@ func DecodeV1Path(path string) (*pfs.File, error) {
 		case refState:
 			if b == ':' {
 				if x := buf.String(); uuid.IsUUIDWithoutDashes(x) {
-					result.Commit.ID = x
+					result.Commit.Id = x
 					result.Commit.Branch = nil
 				} else {
 					result.Commit.Branch.Name = x

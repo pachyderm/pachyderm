@@ -2,11 +2,12 @@ package transform
 
 import (
 	"context"
+	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/v2/src/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -16,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type pendingJob struct {
@@ -40,9 +42,7 @@ func (pj *pendingJob) saveJobStats(stats *datum.Stats) {
 	if pj.ji.Stats == nil {
 		pj.ji.Stats = &pps.ProcessStats{}
 	}
-	if err := datum.MergeProcessStats(pj.ji.Stats, stats.ProcessStats); err != nil {
-		pj.logger.Logf("errored merging process stats: %v", err)
-	}
+	datum.MergeProcessStats(pj.ji.Stats, stats.ProcessStats)
 	pj.ji.DataProcessed += stats.Processed
 	pj.ji.DataSkipped += stats.Skipped
 	pj.ji.DataTotal += stats.Total
@@ -102,24 +102,34 @@ func (pj *pendingJob) load() error {
 			return errors.EnsureStack(err)
 		}
 		if metaCI.Origin.Kind == pfs.OriginKind_AUTO {
-			outputCI, err := pachClient.InspectProjectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
+			outputCI, err := pachClient.InspectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, "", pj.baseMetaCommit.Id)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
 			// both commits must have succeeded - a validation error will only show up in the output
 			if metaCI.Error == "" && outputCI.Error == "" {
-				break
+				// Load the job info.
+				if _, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, metaCI.Commit.Id, false); err != nil {
+					if !errutil.IsNotFoundError(err) {
+						return err
+					}
+					// Jobs are always expected to exist. In case a pachyderm instance contains a meta commit without a job,
+					// we gracefully handle it by skipping it for base meta commit selection.
+					pj.logger.Logf("base meta commit %q could not be selected for job %q because it was missing a job was missing an associated job",
+						metaCI.Commit.String(), pj.ji.Job.String())
+				} else {
+					break
+				}
 			}
 		}
 		pj.baseMetaCommit = metaCI.ParentCommit
 	}
 	if pj.baseMetaCommit != nil {
-		pj.logger.Logf("base meta commit for job %q is %q", pj.ji.Job.String(), pj.baseMetaCommit.ID)
+		pj.logger.Logf("base meta commit for job %q is %q", pj.ji.Job.String(), pj.baseMetaCommit.Id)
 	} else {
 		pj.logger.Logf("base meta commit for job %q not selected", pj.ji.Job.String())
 	}
-	// Load the job info.
-	pj.ji, err = pachClient.InspectProjectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.ji.Job.ID, true)
+	pj.ji, err = pachClient.InspectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.ji.Job.Id, true)
 	if err != nil {
 		return err
 	}
@@ -165,7 +175,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 		if pj.baseMetaCommit != nil {
 			// Upload the datums from the base job into the datum file set format.
 			if err := pj.logger.LogStep("creating full base job datum file set", func() error {
-				baseFileSetID, err = createDatums(pachClient, taskDoer, client.NewProjectJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.ID))
+				baseFileSetID, err = createDatums(pachClient, taskDoer, client.NewJob(pj.ji.Job.Pipeline.Project.GetName(), pj.ji.Job.Pipeline.Name, pj.baseMetaCommit.Id))
 				if err != nil {
 					return err
 				}
@@ -184,7 +194,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 }
 
 func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job) (string, error) {
-	jobInfo, err := pachClient.InspectProjectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.ID, true)
+	jobInfo, err := pachClient.InspectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, true)
 	if err != nil {
 		return "", err
 	}
@@ -208,7 +218,7 @@ func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job
 		}
 		return resp.FileSetId, nil
 	}
-	return datum.Create(pachClient, taskDoer, jobInfo.Details.Input)
+	return datum.Create(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, jobInfo.Details.Input)
 }
 
 func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID, baseFileSetID string) (string, error) {
@@ -222,7 +232,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 			if err != nil {
 				return err
 			}
-			var inputs []*types.Any
+			var inputs []*anypb.Any
 			for _, shard := range shards {
 				input, err := serializeCreateParallelDatumsTask(&CreateParallelDatumsTask{
 					Job:           pj.ji.Job,
@@ -230,6 +240,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 					FileSetId:     fileSetID,
 					BaseFileSetId: baseFileSetID,
 					PathRange:     shard,
+					AuthToken:     pachClient.AuthToken(),
 				})
 				if err != nil {
 					return err
@@ -237,7 +248,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 				inputs = append(inputs, input)
 			}
 			resultFileSetIDs := make([]string, len(inputs))
-			if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+			if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 				if err != nil {
 					return err
 				}
@@ -254,7 +265,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 			}); err != nil {
 				return err
 			}
-			outputFileSetID, err = datum.ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
+			outputFileSetID, err = datum.ComposeFileSets(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, resultFileSetIDs)
 			return err
 		})
 	}); err != nil {
@@ -270,12 +281,22 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	// There are no serial datums if no base exists.
 	if pj.baseMetaCommit == nil {
-		return datum.CreateEmptyFileSet(pachClient)
+		return datum.CreateEmptyFileSet(pachClient.Ctx(), pachClient.PfsAPIClient)
 	}
+	var ci *pfs.CommitInfo
+	var err error
 	// Wait for the base job to finish.
-	ci, err := pachClient.WaitProjectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.ID)
-	if err != nil {
-		return "", err
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		ci, err = pachClient.WaitCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, "", pj.baseMetaCommit.Id)
+		if errutil.IsDatabaseDisconnect(err) {
+			return backoff.ErrContinue
+		}
+		if err != nil {
+			return err
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second), nil); err != nil {
+		return "", errors.Wrapf(err, "wait for meta commit %q", pj.baseMetaCommit.String())
 	}
 	if ci.Error != "" {
 		return "", pfsserver.ErrCommitError{Commit: ci.Commit}
@@ -313,7 +334,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 			if err != nil {
 				return err
 			}
-			var inputs []*types.Any
+			var inputs []*anypb.Any
 			for _, shard := range shards {
 				input, err := serializeCreateSerialDatumsTask(&CreateSerialDatumsTask{
 					Job:            pj.ji.Job,
@@ -322,6 +343,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 					BaseMetaCommit: baseMetaCommit,
 					NoSkip:         pj.noSkip,
 					PathRange:      shard,
+					AuthToken:      pachClient.AuthToken(),
 				})
 				if err != nil {
 					return err
@@ -329,7 +351,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 				inputs = append(inputs, input)
 			}
 			resultFileSetIDs := make([]string, len(inputs))
-			if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *types.Any, err error) error {
+			if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 				if err != nil {
 					return err
 				}
@@ -364,7 +386,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 			}); err != nil {
 				return err
 			}
-			outputFileSetID, err = datum.ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
+			outputFileSetID, err = datum.ComposeFileSets(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, resultFileSetIDs)
 			return err
 		})
 	}); err != nil {
@@ -374,40 +396,28 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 }
 
 // TODO: We might be better off removing the serialize boilerplate and switching to types.MarshalAny.
-func serializeCreateParallelDatumsTask(task *CreateParallelDatumsTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeCreateParallelDatumsTask(task *CreateParallelDatumsTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeCreateParallelDatumsTaskResult(taskAny *types.Any) (*CreateParallelDatumsTaskResult, error) {
+func deserializeCreateParallelDatumsTaskResult(taskAny *anypb.Any) (*CreateParallelDatumsTaskResult, error) {
 	task := &CreateParallelDatumsTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }
 
-func serializeCreateSerialDatumsTask(task *CreateSerialDatumsTask) (*types.Any, error) {
-	data, err := proto.Marshal(task)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	return &types.Any{
-		TypeUrl: "/" + proto.MessageName(task),
-		Value:   data,
-	}, nil
+func serializeCreateSerialDatumsTask(task *CreateSerialDatumsTask) (*anypb.Any, error) {
+	return anypb.New(task)
 }
 
-func deserializeCreateSerialDatumsTaskResult(taskAny *types.Any) (*CreateSerialDatumsTaskResult, error) {
+func deserializeCreateSerialDatumsTaskResult(taskAny *anypb.Any) (*CreateSerialDatumsTaskResult, error) {
 	task := &CreateSerialDatumsTaskResult{}
-	if err := types.UnmarshalAny(taskAny, task); err != nil {
+	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	return task, nil
 }

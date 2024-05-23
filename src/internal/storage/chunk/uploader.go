@@ -2,13 +2,16 @@ package chunk
 
 import (
 	"context"
+	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"io"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
+	"google.golang.org/protobuf/proto"
 
 	"golang.org/x/sync/semaphore"
 )
@@ -34,7 +37,8 @@ type Uploader struct {
 }
 
 func (s *Storage) NewUploader(ctx context.Context, name string, noUpload bool, cb UploadFunc) *Uploader {
-	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL))
+	ctx = pctx.Child(ctx, fmt.Sprintf("uploader(%s)", name))
+	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL), s.pool)
 	return &Uploader{
 		ctx:       ctx,
 		storage:   s,
@@ -140,7 +144,7 @@ func isStableDataRef(dataRef *DataRef) bool {
 // The returned list of data references is the slice that begins at the first
 // data reference found that begins at a chunk boundary.
 func (u *Uploader) align(ctx context.Context, dataRefs []*DataRef, cb func([]byte) error) ([]*DataRef, error) {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	r := u.storage.NewReader(ctx, dataRefs, WithPrefetchLimit(3))
 	if err := miscutil.WithPipe(func(w2 io.Writer) error {
@@ -178,6 +182,7 @@ func (u *Uploader) CopyByReference(meta interface{}, dataRefs []*DataRef) error 
 }
 
 func upload(ctx context.Context, client Client, chunkBytes []byte, pointsTo []ID, noUpload bool) (*DataRef, error) {
+	ctx = pctx.Child(ctx, "upload", pctx.WithCounter("tx_bytes", 0))
 	md := Metadata{
 		Size:     len(chunkBytes),
 		PointsTo: pointsTo,
@@ -196,6 +201,7 @@ func upload(ctx context.Context, client Client, chunkBytes []byte, pointsTo []ID
 		return nil, err
 	}
 	contentHash := Hash(chunkBytes)
+	meters.Inc(ctx, "tx_bytes", len(chunkBytes))
 	return &DataRef{
 		Hash:      contentHash,
 		Ref:       ref,
