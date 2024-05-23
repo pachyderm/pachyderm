@@ -6264,6 +6264,7 @@ func TestUnionInput(t *testing.T) {
 		))
 
 		commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		fmt.Println("union crosses error in wait commit:", commitInfo.Error)
 		require.NoError(t, err)
 		for _, repo := range repos {
 			fileInfos, err := c.ListFileAll(commitInfo.Commit, repo)
@@ -6299,6 +6300,7 @@ func TestUnionInput(t *testing.T) {
 		))
 
 		commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		fmt.Println("cross unions error in wait commit:", commitInfo.Error)
 		require.NoError(t, err)
 		for _, repo := range repos {
 			fileInfos, err := c.ListFileAll(commitInfo.Commit, repo)
