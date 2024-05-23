@@ -61,6 +61,9 @@ func CheckIndex(prev, curr *index.Index) error {
 }
 
 func checkCollisions(prev, curr *index.Index) error {
+	if prev == nil || curr == nil {
+		return nil
+	}
 	if strings.HasPrefix(curr.Path, prev.Path+"/") {
 		return errors.New(fmt.Sprintf("file / directory path collision (%v)", curr.Path))
 	}
