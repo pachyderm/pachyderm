@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 
 	"math"
 	"net"
@@ -6264,7 +6265,7 @@ func TestUnionInput(t *testing.T) {
 		))
 
 		commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
-		fmt.Println("union crosses error in wait commit:", commitInfo.Error)
+		log.Fatal("union crosses error in wait commit:", commitInfo.Error)
 		require.NoError(t, err)
 		for _, repo := range repos {
 			fileInfos, err := c.ListFileAll(commitInfo.Commit, repo)
