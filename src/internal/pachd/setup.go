@@ -13,6 +13,7 @@ import (
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	log_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
@@ -98,21 +99,25 @@ func awaitDB(db *pachsql.DB) setupStep {
 	}
 }
 
-func awaitMigrations(db *pachsql.DB) setupStep {
+func awaitMigrations(db *pachsql.DB, state migrations.State) setupStep {
 	return setupStep{
 		Name: "awaitMigrations",
 		Fn: func(ctx context.Context) error {
-			return migrations.BlockUntil(ctx, db, clusterstate.DesiredClusterState)
+			return migrations.BlockUntil(ctx, db, state)
 		},
 	}
 }
 
-func runMigrations(db *pachsql.DB, etcdClient *etcd.Client) setupStep {
+func runMigrations(db *pachsql.DB, etcdClient *etcd.Client, state *migrations.State) setupStep {
+	s := clusterstate.DesiredClusterState
+	if state != nil {
+		s = *state
+	}
 	return setupStep{
 		Name: "runMigrations",
 		Fn: func(ctx context.Context) error {
 			env := migrations.MakeEnv(nil, etcdClient)
-			return migrations.ApplyMigrations(ctx, db, env, clusterstate.DesiredClusterState)
+			return migrations.ApplyMigrations(ctx, db, env, s)
 		},
 	}
 }
@@ -246,6 +251,7 @@ func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener,
 				authInterceptor.InterceptUnary,
 				loggingInterceptor.UnaryAnnounce,
 				validation.UnaryServerInterceptor,
+				recovery.UnaryServerInterceptor,
 			),
 			grpc.ChainStreamInterceptor(
 				baseContextInterceptor.StreamServerInterceptor,
@@ -256,6 +262,7 @@ func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener,
 				authInterceptor.InterceptStream,
 				loggingInterceptor.StreamAnnounce,
 				validation.StreamServerInterceptor,
+				recovery.StreamServerInterceptor,
 			),
 		)
 		reg(gs)

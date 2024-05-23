@@ -124,6 +124,27 @@ class TestUnitDatums:
         with pytest.raises(grpc.RpcError, match=error_match):
             client.pps.restart_datum(job=job)
 
+    @staticmethod
+    def test_generate_datums(client: TestClient):
+        repo_name = client.new_repo().name
+
+        with client.pfs.commit(branch=pfs.Branch.from_uri(f"{repo_name}@master")) as commit:
+            for i in range(50):
+                commit.put_file_from_bytes(path=f"/file{i}.dat", data=b"DATA")
+
+        datum_stream = client.pps.generate_datums(
+            input_spec=pps.Input(pfs=pps.PfsInput(repo=repo_name, glob="/*")),
+            batch_size=10,
+        )
+
+        assert len(next(datum_stream)) == 10
+        assert len(datum_stream.send(5)) == 5
+        assert len(datum_stream.send(20)) == 20
+        assert len(next(datum_stream)) == 10
+        assert len(next(datum_stream)) == 5
+        with pytest.raises(StopIteration):
+            next(datum_stream)
+
 
 class TestUnitLogs:
     """Unit tests for the log retrieval API."""

@@ -325,7 +325,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 				))
 
 			require.NoError(t, c.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, imagesRepo, "master", "" /* commitID */), func(mf client.ModifyFile) error {
-				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "https://docs.pachyderm.com/images/opencv/liberty.jpg", false))
+				return errors.EnsureStack(mf.PutFileURL("/liberty.png", "https://docs.pachyderm.com/images/mldm/opencv/liberty.jpg", false))
 			}))
 
 			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage(from), "master", "")
@@ -362,7 +362,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 			}
 			// check DAG still works with new commits
 			require.NoError(t, c.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, imagesRepo, "master", ""), func(mf client.ModifyFile) error {
-				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://docs.pachyderm.com/images/opencv/kitten.jpg", false))
+				return errors.EnsureStack(mf.PutFileURL("/kitten.png", "https://docs.pachyderm.com/images/mldm/opencv/kitten.jpg", false))
 			}))
 			commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, montage(from), "master", "")
 			require.NoError(t, err)
