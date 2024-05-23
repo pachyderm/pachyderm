@@ -835,7 +835,7 @@ jobs:
             . venv/bin/activate
             python -m pip install --upgrade pip
 
-            pip install jupyterlab==3.2.2
+            pip install jupyterlab==3.6.7
             pip install `find dist/ -name \*.whl`
 
             # Install just what need to run cypress tests
