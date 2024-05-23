@@ -32,6 +32,6 @@ py_venv(
         # Important! ref: https://github.com/cedarai/rules_pyvenv/issues/15
         "install --ignore-installed setuptools",
     ],
-    venv_location = "jupyter-extension/venv-test",
+    venv_location = "jupyter-extension/venv",
     deps = all_requirements + all_requirements_dev,
 )
