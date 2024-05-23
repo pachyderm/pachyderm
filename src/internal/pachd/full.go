@@ -22,12 +22,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	lokiclient "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	clientlog_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -178,6 +180,9 @@ type Env struct {
 	K8sObjects       []runtime.Object
 	GetLokiClient    func() (*lokiclient.Client, error)
 }
+type FullOption struct {
+	DesiredState *migrations.State
+}
 
 type Full struct {
 	base
@@ -213,7 +218,7 @@ type Full struct {
 }
 
 // NewFull sets up a new Full pachd and returns it.
-func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
+func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption) *Full {
 	pd := &Full{env: env, config: config, authReady: make(chan struct{})}
 
 	pd.selfGRPC = newSelfGRPC(env.Listener, nil)
@@ -234,13 +239,18 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 
 	kubeClient := fake.NewSimpleClientset(env.K8sObjects...)
 
+	desiredStateOverride := &clusterstate.DesiredClusterState
+	if opt != nil && opt.DesiredState != nil {
+		desiredStateOverride = opt.DesiredState
+	}
+
 	pd.addSetup(
 		printVersion(),
 		tweakResources(config.GlobalConfiguration),
 		initJaeger(),
 		awaitDB(env.DB),
-		runMigrations(env.DirectDB, env.EtcdClient),
-		awaitMigrations(env.DB),
+		runMigrations(env.DirectDB, env.EtcdClient, desiredStateOverride),
+		awaitMigrations(env.DB, *desiredStateOverride),
 		setupStep{
 			Name: "setup listener",
 			Fn: func(ctx context.Context) error {

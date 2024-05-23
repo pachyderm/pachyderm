@@ -248,7 +248,7 @@ func writeFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []taruti
 		return nil
 	}))
 	require.NoError(t, env.PachClient.PutFileTAR(commit, buf, client.WithAppendPutFile()))
-	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, "", commit.Id))
 	return commit
 }
 
@@ -258,7 +258,11 @@ func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []strin
 	for _, file := range files {
 		require.NoError(t, env.PachClient.DeleteFile(commit, file))
 	}
-	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, commit.Branch.Name, commit.Id))
+	branch := ""
+	if commit.Branch != nil {
+		branch = commit.Branch.Name
+	}
+	require.NoError(t, env.PachClient.FinishCommit(pi.Details.Input.Pfs.Project, pi.Details.Input.Pfs.Repo, branch, commit.Id))
 	return commit
 }
 
@@ -436,7 +440,7 @@ func TestTransformPipeline(suite *testing.T) {
 
 		// Ensure the output commit is successful
 		outputCommitID := jobInfo.OutputCommit.Id
-		outputCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, jobInfo.OutputCommit.Branch.Name, outputCommitID)
+		outputCommitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, pi.Pipeline.Name, "", outputCommitID)
 		require.NoError(t, err)
 		require.NotNil(t, outputCommitInfo.Finished)
 

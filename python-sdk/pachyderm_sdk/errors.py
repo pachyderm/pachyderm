@@ -1,4 +1,5 @@
 """ Errors that can be raised by this library. """
+
 from typing import Union
 
 from grpc import RpcError

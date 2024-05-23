@@ -1,15 +1,42 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "v2_10_0",
     srcs = [
         "clusterstate.go",
         "metadata.go",
+        "pipelines.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.10.0",
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/internal/errors",
+        "//src/internal/log",
         "//src/internal/migrations",
+        "//src/internal/pachsql",
+        "//src/internal/uuid",
+        "//src/pps",
+        "@org_golang_google_protobuf//proto",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "v2_10_0_test",
+    srcs = ["pipelines_test.go"],
+    deps = [
+        ":v2_10_0",
+        "//src/internal/clusterstate",
+        "//src/internal/log",
+        "//src/internal/migrations",
+        "//src/internal/pachd",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/pfs",
+        "//src/pps",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/emptypb",
+        "@org_uber_go_zap//:zap",
     ],
 )

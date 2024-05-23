@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
@@ -21,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,13 +36,15 @@ type TestLoki struct {
 	lokiErrCh <-chan error
 }
 
+type Option func(config *map[string]any)
+
 // New starts a new Loki instance on the local machine.
-func New(ctx context.Context, tmp string) (*TestLoki, error) {
+func New(ctx context.Context, tmp string, opts ...Option) (*TestLoki, error) {
 	var errs error
 	attempts := 5
 	for i := 0; i < attempts; i++ {
 		log.Debug(ctx, "attempting to start loki", log.RetryAttempt(i, attempts))
-		l, err := buildAndStart(ctx, tmp)
+		l, err := buildAndStart(ctx, tmp, opts...)
 		if err != nil {
 			errors.JoinInto(&errs, errors.Wrapf(err, "startup attempt %d", i))
 			continue
@@ -50,7 +56,7 @@ func New(ctx context.Context, tmp string) (*TestLoki, error) {
 	return nil, errors.Wrapf(errs, "loki failed to start after %d attempts", attempts)
 }
 
-func buildAndStart(ctx context.Context, tmp string) (*TestLoki, error) {
+func buildAndStart(ctx context.Context, tmp string, opts ...Option) (*TestLoki, error) {
 	bin, ok := bazel.FindBinary("//tools/loki", "loki")
 	if !ok {
 		log.Debug(ctx, "can't find //tools/loki via bazel, using loki in $PATH")
@@ -106,6 +112,9 @@ func buildAndStart(ctx context.Context, tmp string) (*TestLoki, error) {
 	config["server"].(map[string]any)["http_listen_port"] = port
 	config["server"].(map[string]any)["grpc_listen_port"] = port + 1
 	config["schema_config"].(map[string]any)["configs"].([]any)[0].(map[string]any)["from"] = "2020-10-24"
+	for _, opt := range opts {
+		opt(&config)
+	}
 
 	configBytes, err := yaml.Marshal(config)
 	if err != nil {
@@ -217,20 +226,33 @@ type stream struct {
 }
 
 // AddLog adds a log line to Loki.
-func (l *TestLoki) AddLog(ctx context.Context, lg *Log) (retErr error) {
-	pr := &pushRequest{
-		Streams: []stream{
-			{
-				Stream: lg.Labels,
-				Values: [][]string{
-					{
-						strconv.FormatInt(lg.Time.UnixNano(), 10),
-						lg.Message,
-					},
-				},
-			},
-		},
+func (l *TestLoki) AddLog(ctx context.Context, logs ...*Log) (retErr error) {
+	streams := map[string]*stream{}
+	for _, lg := range logs {
+		keybuilder := new(strings.Builder)
+		keys := maps.Keys(lg.Labels)
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Fprintf(keybuilder, "%v=%v\n", k, lg.Labels[k])
+		}
+		key := keybuilder.String()
+		s, ok := streams[key]
+		if !ok {
+			s = new(stream)
+			s.Stream = lg.Labels
+			streams[key] = s
+		}
+		s.Values = append(s.Values, []string{
+			strconv.FormatInt(lg.Time.UnixNano(), 10),
+			lg.Message,
+		})
+
 	}
+	pr := new(pushRequest)
+	for _, s := range streams {
+		pr.Streams = append(pr.Streams, *s)
+	}
+
 	js, err := json.Marshal(pr)
 	if err != nil {
 		return errors.Wrapf(err, "marshal request %#v", pr)

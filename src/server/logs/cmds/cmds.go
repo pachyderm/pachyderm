@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/alessio/shellescape"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc/codes"
@@ -14,11 +15,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
-	"github.com/pachyderm/pachyderm/v2/src/logs"
 )
 
 func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
@@ -161,9 +163,11 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		datum     string
 		from      = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
 		to        = cmdutil.TimeFlag(time.Now())
+		offset    uint
 		pod       string
 		container string
 		app       string
+		limit     uint
 	)
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): Remove references to “new” and unhide.
@@ -185,10 +189,13 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 
 			var req = new(logs.GetLogsRequest)
-			req.Filter = new(logs.LogFilter)
+			req.Filter = &logs.LogFilter{
+				Limit: uint64(limit),
+			}
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
-				From:  timestamppb.New(time.Time(from)),
-				Until: timestamppb.New(time.Time(to)),
+				From:   timestamppb.New(time.Time(from)),
+				Until:  timestamppb.New(time.Time(to)),
+				Offset: uint64(offset),
 			}
 			switch {
 			case cmd.Flag("logql").Changed:
@@ -294,7 +301,9 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().StringVar(&datum, "datum", datum, "Datum for datum query.")
 	logsCmd.Flags().Var(&from, "from", "Return logs at or after this time.")
 	logsCmd.Flags().Var(&to, "to", "Return logs before  this time.")
+	logsCmd.Flags().UintVar(&offset, "offset", offset, "Number of logs to skip at beginning of time range.")
 	logsCmd.Flags().StringVar(&pod, "pod", pod, "Pod in the cluster.")
+	logsCmd.Flags().UintVar(&limit, "limit", limit, "Maximum number of logs to return (0 for unlimited).")
 	logsCmd.Flags().StringVar(&container, "container", container, "Container name belonging to the pod specified in the --pod argument.")
 	logsCmd.Flags().StringVar(&app, "app", app, "Return logs for all pods with a certain value for the label 'app'.")
 	commands = append(commands, logsCmd)
@@ -305,13 +314,19 @@ func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
 	var result string
 
 	if from := hint.GetFilter().GetTimeRange().GetFrom(); !from.AsTime().IsZero() {
-		flags["from"] = from.AsTime().Format(time.RFC3339Nano)
+		result += " --from " + shellescape.Quote(from.AsTime().Format(time.RFC3339Nano))
 	}
 	if until := hint.GetFilter().GetTimeRange().GetUntil(); !until.AsTime().IsZero() {
-		flags["to"] = until.AsTime().Format(time.RFC3339Nano)
+		result += " --to " + shellescape.Quote(until.AsTime().Format(time.RFC3339Nano))
+	}
+	if offset := hint.GetFilter().GetTimeRange().GetOffset(); offset != 0 {
+		result += fmt.Sprintf(" --offset %d", offset)
 	}
 	for flag, arg := range flags {
-		result += " --" + flag + " " + arg
+		if flag == "from" || flag == "to" || flag == "offset" {
+			continue
+		}
+		result += " --" + flag + " " + shellescape.Quote(arg)
 	}
 	return result
 }

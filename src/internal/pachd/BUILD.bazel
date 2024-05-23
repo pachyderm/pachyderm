@@ -41,6 +41,7 @@ go_library(
         "//src/internal/middleware/errors",
         "//src/internal/middleware/logging",
         "//src/internal/middleware/logging/client",
+        "//src/internal/middleware/recovery",
         "//src/internal/middleware/validation",
         "//src/internal/middleware/version",
         "//src/internal/migrations",

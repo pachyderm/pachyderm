@@ -1,6 +1,7 @@
 package pachd
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
@@ -123,13 +124,13 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 	if cfg.GoCDKEnabled {
 		pfsEnv.Bucket, err = obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "pfs env")
 		}
 	} else {
 		var err error
 		pfsEnv.ObjectClient, err = obj.NewClient(env.Context(), cfg.StorageBackend, cfg.StorageRoot)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "pfs env")
 		}
 	}
 	return pfsEnv, nil
@@ -142,9 +143,17 @@ func StorageEnv(env serviceenv.ServiceEnv) (*storage.Env, error) {
 	}
 	cfg := env.Config()
 	var err error
-	storageEnv.Bucket, err = obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
-	if err != nil {
-		return nil, err
+	if cfg.GoCDKEnabled {
+		storageEnv.Bucket, err = obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
+		if err != nil {
+			return nil, errors.Wrap(err, "storage env")
+		}
+	} else {
+		var err error
+		storageEnv.ObjectStore, err = obj.NewClient(env.Context(), cfg.StorageBackend, cfg.StorageRoot)
+		if err != nil {
+			return nil, errors.Wrap(err, "storage env")
+		}
 	}
 	return storageEnv, nil
 }
@@ -159,14 +168,14 @@ func PFSWorkerEnv(env serviceenv.ServiceEnv) (*pfs_server.WorkerEnv, error) {
 	if env.Config().GoCDKEnabled {
 		bucket, err := obj.NewBucket(ctx, env.Config().StorageBackend, env.Config().StorageRoot, env.Config().StorageURL)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "pfs worker")
 		}
 		workerEnv.Bucket = bucket
 		return workerEnv, nil
 	}
 	objClient, err := obj.NewClient(ctx, env.Config().StorageBackend, env.Config().StorageRoot)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "pfs worker")
 	}
 	workerEnv.ObjClient = objClient
 	return workerEnv, nil

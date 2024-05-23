@@ -6,5 +6,9 @@ import (
 )
 
 func MetaCommit(commit *pfs.Commit) *pfs.Commit {
-	return client.NewSystemRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(commit.Branch.Name, commit.Id)
+	branch := ""
+	if commit.Branch != nil {
+		branch = commit.Branch.Name
+	}
+	return client.NewSystemRepo(commit.Repo.Project.GetName(), commit.Repo.Name, pfs.MetaRepoType).NewCommit(branch, commit.Id)
 }

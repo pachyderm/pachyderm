@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
@@ -76,6 +77,9 @@ func NewMux(ctx context.Context, grpcConn *grpc.ClientConn) (http.Handler, error
 	}
 	if err := versionpb.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
 		errors.JoinInto(&errs, errors.Wrap(err, "register version"))
+	}
+	if err := metadata.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register metadata"))
 	}
 	return mux, errs
 }
