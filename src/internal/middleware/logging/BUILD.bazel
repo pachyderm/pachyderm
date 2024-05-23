@@ -12,7 +12,6 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/internal/log",
-        "//src/internal/middleware/auth",
         "//src/internal/middleware/recovery",
         "//src/internal/pctx",
         "@com_github_fatih_camelcase//:camelcase",

@@ -72,10 +72,14 @@ class BaseHandler(APIHandler):
 
     @client.setter
     def client(self, new_client: Client) -> None:
+        # server_root_dir is the root path from which all data and notebook files
+        #   are relative. This may be different from the CWD.
+        root_dir = Path(self.settings.get("server_root_dir", os.getcwd())).resolve()
+
         self.settings["pachyderm_client"] = new_client
         self.settings["pfs_contents_manager"] = PFSManager(client=new_client)
         self.settings["datum_contents_manager"] = DatumManager(client=new_client)
-        self.settings["pachyderm_pps_client"] = PPSClient(client=new_client)
+        self.settings["pachyderm_pps_client"] = PPSClient(client=new_client, root_dir=root_dir)
 
     @property
     def config_file(self) -> Path:
@@ -624,9 +628,12 @@ def setup_handlers(
                 "Could not find config file -- no pachyderm client instantiated"
             )
 
+    # server_root_dir is the root path from which all data and notebook files
+    #   are relative. This may be different from the CWD.
+    root_dir = Path(web_app.settings.get("server_root_dir", os.getcwd())).resolve()
     if client:
         web_app.settings["pachyderm_client"] = client
-        web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
+        web_app.settings["pachyderm_pps_client"] = PPSClient(client=client, root_dir=root_dir)
         web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
         web_app.settings["datum_contents_manager"] = DatumManager(client=client)
 
