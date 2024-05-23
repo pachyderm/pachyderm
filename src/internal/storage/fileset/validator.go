@@ -28,7 +28,7 @@ func (pv *pathValidator) Iterate(ctx context.Context, cb func(File) error, opts 
 	var prev *index.Index
 	if err := pv.fs.Iterate(ctx, func(f File) error {
 		idx := f.Index()
-		if retErr := CheckIndex(prev, idx); retErr != nil {
+		if retErr := checkCollisions(prev, idx); retErr != nil {
 			return retErr
 		}
 		prev = idx
@@ -54,6 +54,13 @@ func CheckIndex(prev, curr *index.Index) error {
 	if curr.Path == prev.Path {
 		return errors.New(fmt.Sprintf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, curr.Path, curr.File.Datum))
 	}
+	if err := checkCollisions(prev, curr); err != nil {
+		return err
+	}
+	return nil
+}
+
+func checkCollisions(prev, curr *index.Index) error {
 	if strings.HasPrefix(curr.Path, prev.Path+"/") {
 		return errors.New(fmt.Sprintf("file / directory path collision (%v)", curr.Path))
 	}
