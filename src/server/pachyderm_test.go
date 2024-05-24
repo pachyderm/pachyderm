@@ -6258,7 +6258,7 @@ func TestUnionInput(t *testing.T) {
 			false,
 		))
 
-		_, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		require.NoError(t, err)
 		for _, repo := range repos {
 			fmt.Println(repo)
