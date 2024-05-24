@@ -6261,7 +6261,6 @@ func TestUnionInput(t *testing.T) {
 		commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 		require.NoError(t, err)
 		for _, repo := range repos {
-			fmt.Println(repo)
 			fileInfos, err := c.ListFileAll(commitInfo.Commit, repo)
 			require.NoError(t, err)
 			require.Equal(t, 8, len(fileInfos))
@@ -10965,7 +10964,6 @@ func TestPutFileNoErrorOnErroredParentCommit(t *testing.T) {
 	))
 	require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "inA", "master", ""), "file", strings.NewReader("foo")))
 	commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, "A", "master", "")
-	fmt.Println(commitInfo.Error)
 	require.NoError(t, err)
 	require.True(t, strings.Contains(commitInfo.Error, "failed"))
 	require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "inB", "master", ""), "file", strings.NewReader("foo")))
