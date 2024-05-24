@@ -11,7 +11,7 @@ echo "GIT_BRANCH $git_branch"
 git_tree_status=$(git diff-index --quiet HEAD -- && echo 'Clean' || echo 'Modified')
 echo "GIT_TREE_STATUS $git_tree_status"
 
-exact=$(git describe --exact-match 2>/dev/null | sed -e s/^v// | cut -d - -f 1 || echo 2.10.0)
+exact=$(git describe --exact-match 2>/dev/null | sed -e s/^v// | cut -d - -f 1 || echo 2.11.0)
 echo "STABLE_APP_VERSION $exact"
 
 additional_version=$(git describe --exact-match 2>/dev/null | cut -d - -f 2- || echo "pre.$(git describe --long --dirty=".$(git diff HEAD | sha256sum | cut -c 1-10)" | rev | cut -d - -f 1 | rev)")
