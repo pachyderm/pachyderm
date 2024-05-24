@@ -6139,7 +6139,6 @@ func TestUnionInput(t *testing.T) {
 	}
 
 	numFiles := 2
-	counter := 0
 	for _, repo := range repos {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
