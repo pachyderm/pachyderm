@@ -6143,7 +6143,7 @@ func TestUnionInput(t *testing.T) {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		for i := 0; i < numFiles; i++ {
-			require.NoError(t, c.PutFile(commit, fmt.Sprintf("%s-file-%d", repo, i), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
+			require.NoError(t, c.PutFile(commit, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
 		}
 		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
 	}
@@ -6184,13 +6184,16 @@ func TestUnionInput(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"SRC_DIR=$(find /pfs -mindepth 1 -maxdepth 1 -type d)",
-				"index=0",
-				"for file in $SRC_DIR/*",
+				"cp -r -L /pfs/TestUnionInput* /pfs/out",
+				"for dir in /pfs/out/*",
 				"do",
-				"new_name=$PACH_DATUM_ID$index",
-				"cp $file /pfs/out/$new_name",
-				"index=$((index+1))",
+				"count=0",
+				"for file in ${dir}/*",
+				"do",
+				"new_name=${dir}/${count}",
+				"mv ${file} ${new_name}",
+				"count=$((count + 1))",
+				"done",
 				"done",
 			},
 			&pps.ParallelismSpec{
@@ -6226,7 +6229,17 @@ func TestUnionInput(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"cp -r -L /pfs/TestUnionInput* /pfs/out/$PACH_DATUM_ID",
+				"cp -r -L /pfs/TestUnionInput* /pfs/out",
+				"for dir in /pfs/out/*",
+				"do",
+				"count=0",
+				"for file in ${dir}/*",
+				"do",
+				"new_name=${dir}/${count}",
+				"mv ${file} ${new_name}",
+				"count=$((count + 1))",
+				"done",
+				"done",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -6249,9 +6262,9 @@ func TestUnionInput(t *testing.T) {
 		require.NoError(t, err)
 		for _, repo := range repos {
 			fmt.Println(repo)
-			//fileInfos, err := c.ListFileAll(commitInfo.Commit, repo)
-			//require.NoError(t, err)
-			//require.Equal(t, 8, len(fileInfos))
+			fileInfos, err := c.ListFileAll(commitInfo.Commit, repo)
+			require.NoError(t, err)
+			require.Equal(t, 8, len(fileInfos))
 		}
 	})
 
