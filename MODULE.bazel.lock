@@ -4967,8 +4967,8 @@
       "os:osx,arch:aarch64": {
         "bzlTransitiveDigest": "DuaQj5QkmWphuYHt4Cg3VUKL4lFjh64NKgX3NBE8sLk=",
         "recordedFileInputs": {
-          "@@//jupyter-extension/requirements-dev-lock-darwin.txt": "823f6bad64b5f422e4e9f873215a732196b6a8fc12d96c598091065d719c071f",
-          "@@//jupyter-extension/requirements-lock.txt": "ab41f169e4ece1934f836b71dea28f1126dfb44ca5777558337a558887774810"
+          "@@//jupyter-extension/requirements-dev-lock-darwin.txt": "c75c9089bfaa0218e43621a93305f6985fc2293e6f426d86158e7a9d0c7b5cf2",
+          "@@//jupyter-extension/requirements-lock.txt": "b156250b34e7aa13af0ade5c054571a52fe93859db878a669d5dbbce5c8dc91b"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -5177,7 +5177,7 @@
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
             "attributes": {
-              "requirement": "idna==3.6     --hash=sha256:9ecdbbd083b06798ae1e86adcbfe8ab1479cf864e4ee30fe4e46a003d12491ca     --hash=sha256:c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
+              "requirement": "idna==3.7     --hash=sha256:028ff3aadf0609c1fd278d8ea3089299412a7a8b9bd005dd08b9f8285bcb5cfc     --hash=sha256:82fee1fc78add43492d3a1898bfa6d8a904cc97d8427f683ed8e798d07761aa0",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
               "whl_patches": {},
@@ -5873,7 +5873,7 @@
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
             "attributes": {
-              "requirement": "jinja2==3.1.3     --hash=sha256:7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa     --hash=sha256:ac8bd6544d4bb2c9792bf3a159e80bba8fda7f07e81bc3aed565432d5925ba90",
+              "requirement": "jinja2==3.1.4     --hash=sha256:4a3aee7acbbe7303aede8e9648d13b8bf88a429282aa6122a993f0ac800cb369     --hash=sha256:bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d",
               "repo": "jupyter-pip-requirements_39",
               "repo_prefix": "jupyter-pip-requirements_39_",
               "whl_patches": {},
@@ -6697,7 +6697,7 @@
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
             "attributes": {
-              "requirement": "jupyter-server==2.7.3     --hash=sha256:8e4b90380b59d7a1e31086c4692231f2a2ea4cb269f5516e60aba72ce8317fc9     --hash=sha256:d4916c8581c4ebbc534cebdaa8eca2478d9f3bfdd88eae29fcab0120eac57649",
+              "requirement": "jupyter-server==2.11.2     --hash=sha256:0c548151b54bcb516ca466ec628f7f021545be137d01b5467877e87f6fff4374     --hash=sha256:0c99f9367b0f24141e527544522430176613f9249849be80504c6d2b955004bb",
               "repo": "jupyter-pip-requirements_39",
               "repo_prefix": "jupyter-pip-requirements_39_",
               "whl_patches": {},
@@ -7297,7 +7297,7 @@
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
             "attributes": {
-              "requirement": "tqdm==4.66.2     --hash=sha256:1ee4f8a893eb9bef51c6e35730cebf234d5d0b6bd112b0271e10ed7c24a02bd9     --hash=sha256:6cd52cdf0fef0e0f543299cfc96fec90d7b8a7e88745f411ec33eb44d5ed3531",
+              "requirement": "tqdm==4.66.3     --hash=sha256:23097a41eba115ba99ecae40d06444c15d1c0c698d527a01c6c8bd1c5d0647e5     --hash=sha256:4f41d54107ff9a223dca80b53efe4fb654c67efaba7f47bada3ee9d50e05bd53",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
               "whl_patches": {},
@@ -8339,7 +8339,7 @@
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
             "attributes": {
-              "requirement": "jupyter-server==2.13.0     --hash=sha256:77b2b49c3831fbbfbdb5048cef4350d12946191f833a24e5f83e5f8f4803e97b     --hash=sha256:c80bfb049ea20053c3d9641c2add4848b38073bf79f1729cea1faed32fc1c78e",
+              "requirement": "jupyter-server==2.11.2     --hash=sha256:0c548151b54bcb516ca466ec628f7f021545be137d01b5467877e87f6fff4374     --hash=sha256:0c99f9367b0f24141e527544522430176613f9249849be80504c6d2b955004bb",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
               "whl_patches": {},
@@ -8411,7 +8411,7 @@
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
             "attributes": {
-              "requirement": "jinja2==3.1.3     --hash=sha256:7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa     --hash=sha256:ac8bd6544d4bb2c9792bf3a159e80bba8fda7f07e81bc3aed565432d5925ba90",
+              "requirement": "jinja2==3.1.4     --hash=sha256:4a3aee7acbbe7303aede8e9648d13b8bf88a429282aa6122a993f0ac800cb369     --hash=sha256:bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
               "whl_patches": {},
@@ -9297,7 +9297,7 @@
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
             "attributes": {
-              "requirement": "idna==3.6     --hash=sha256:9ecdbbd083b06798ae1e86adcbfe8ab1479cf864e4ee30fe4e46a003d12491ca     --hash=sha256:c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
+              "requirement": "idna==3.7     --hash=sha256:028ff3aadf0609c1fd278d8ea3089299412a7a8b9bd005dd08b9f8285bcb5cfc     --hash=sha256:82fee1fc78add43492d3a1898bfa6d8a904cc97d8427f683ed8e798d07761aa0",
               "repo": "jupyter-pip-requirements_39",
               "repo_prefix": "jupyter-pip-requirements_39_",
               "whl_patches": {},
