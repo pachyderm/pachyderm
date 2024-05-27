@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {useCombobox} from 'downshift';
 import {matchSorter} from 'match-sorter';
 
@@ -31,6 +31,7 @@ export const DropdownCombobox: React.FC<DropdownComboboxProps> = ({
     getItemProps,
     selectedItem,
     selectItem,
+    inputValue,
   } = useCombobox({
     items: inputItems,
     initialIsOpen: initialSelectedItem ? false : true,
@@ -48,6 +49,10 @@ export const DropdownCombobox: React.FC<DropdownComboboxProps> = ({
       onSelectedItemChange(selectedItem || null, selectItem);
     },
   });
+
+  useEffect(() => {
+    setInputItems(inputValue ? matchSorter(items, inputValue) : items);
+  }, [items]);
 
   return (
     <div className="pachyderm-DropdownCombobox">
