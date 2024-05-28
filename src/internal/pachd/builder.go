@@ -26,6 +26,7 @@ import (
 	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
@@ -177,6 +178,7 @@ func (b *builder) initInternalServer(ctx context.Context) error {
 			b.authInterceptor.InterceptUnary,
 			b.loggingInterceptor.UnaryAnnounce,
 			validation.UnaryServerInterceptor,
+			recovery.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			b.loggingInterceptor.StreamSetup,
@@ -185,6 +187,7 @@ func (b *builder) initInternalServer(ctx context.Context) error {
 			b.authInterceptor.InterceptStream,
 			b.loggingInterceptor.StreamAnnounce,
 			validation.StreamServerInterceptor,
+			recovery.StreamServerInterceptor,
 		),
 	)
 	return err
@@ -203,6 +206,7 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 			b.authInterceptor.InterceptUnary,
 			b.loggingInterceptor.UnaryAnnounce,
 			validation.UnaryServerInterceptor,
+			recovery.UnaryServerInterceptor,
 		),
 		grpc.ChainStreamInterceptor(
 			b.loggingInterceptor.StreamSetup,
@@ -212,6 +216,7 @@ func (b *builder) initExternalServer(ctx context.Context) error {
 			b.authInterceptor.InterceptStream,
 			b.loggingInterceptor.StreamAnnounce,
 			validation.StreamServerInterceptor,
+			recovery.StreamServerInterceptor,
 		),
 	)
 	return err

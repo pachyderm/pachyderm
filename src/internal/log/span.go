@@ -130,8 +130,7 @@ func SpanContextL(rctx context.Context, event string, level Level, fields ...Fie
 func spanContextL(rctx context.Context, event string, level Level, startSkip, endSkip int, fields ...Field) (context.Context, EndSpanFunc) {
 	l := extractLogger(rctx).Named(event).With(fields...)
 	if e := l.WithOptions(zap.AddCallerSkip(startSkip)).Check(level.coreLevel(), event+": "+string(spanStarting)); e != nil {
-		fields = append(fields, ContextInfo(rctx))
-		e.Write(fields...)
+		e.Write(ContextInfo(rctx))
 	}
 	ctx := withLogger(rctx, l)
 	return ctx, makeSpanEndFunc(ctx, l.WithOptions(zap.AddCallerSkip(endSkip)), event, level, time.Now())

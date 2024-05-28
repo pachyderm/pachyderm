@@ -3,11 +3,8 @@ package testpachd
 import (
 	"context"
 	"net"
-	"runtime"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
@@ -31,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -2296,31 +2294,10 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(ctx)
 	unaryOpts := []grpc.UnaryServerInterceptor{
-		func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, retErr error) {
-			defer func() {
-				if err := recover(); err != nil {
-					stack := make([]byte, 16384)
-					n := runtime.Stack(stack, false)
-					stack = stack[:n]
-					retErr = status.Errorf(codes.Aborted, "panic: %v\n%s", err, stack)
-				}
-			}()
-			return handler(ctx, req)
-		},
 		errorsmw.UnaryServerInterceptor,
 		loggingInterceptor.UnarySetup,
 	}
 	streamOpts := []grpc.StreamServerInterceptor{
-		func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) (retErr error) {
-			defer func() {
-				if err := recover(); err != nil {
-					stack := make([]byte, 16384)
-					runtime.Stack(stack, false)
-					retErr = status.Errorf(codes.Aborted, "panic: %v\n%s", err, stack)
-				}
-			}()
-			return handler(srv, ss)
-		},
 		errorsmw.StreamServerInterceptor,
 		loggingInterceptor.StreamSetup,
 	}
@@ -2336,10 +2313,12 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	unaryOpts = append(unaryOpts,
 		loggingInterceptor.UnaryAnnounce,
 		validation.UnaryServerInterceptor,
+		recovery.UnaryServerInterceptor,
 	)
 	streamOpts = append(streamOpts,
 		loggingInterceptor.StreamAnnounce,
 		validation.StreamServerInterceptor,
+		recovery.StreamServerInterceptor,
 	)
 	server, err := grpcutil.NewServer(ctx, false,
 		grpc.ChainUnaryInterceptor(
