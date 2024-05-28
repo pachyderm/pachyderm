@@ -2728,12 +2728,12 @@ func TestInspectFile3(t *testing.T) {
 
 	_, err = env.PachClient.InspectFile(commit2, "foo")
 	// there is a collision between dir foo and file foo
-	require.NotNil(t, err)
+	require.YesError(t, err)
 
 	require.NoError(t, finishCommit(env.PachClient, repo, "", commit2.Id))
 
 	_, err = env.PachClient.InspectFile(commit2, "foo")
-	require.NotNil(t, err)
+	require.YesError(t, err)
 
 	fileContent3 := "bar\n"
 	commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
@@ -7631,7 +7631,7 @@ func TestWalkFileInvalid(t *testing.T) {
 	require.NoError(t, env.PachClient.PutFile(commit2, "/a/a", &bytes.Buffer{}))
 
 	_, err = env.PachClient.InspectFile(commit2, "/")
-	require.NotNil(t, err)
+	require.YesError(t, err)
 
 	require.NotNil(t, env.PachClient.WalkFile(commit2, "/", func(fi *pfs.FileInfo) error {
 		fmt.Println(fi.File, fi.FileType)
