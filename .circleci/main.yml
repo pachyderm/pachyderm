@@ -1589,6 +1589,7 @@ jobs:
       # Build the thing to start the database containers.
       - run: |
           docker run \
+          -e DOCKER_API_VERSION=1.41 \
           -v /home/circleci/out:/home/circleci/out \
           -v /home/circleci/project:/home/circleci/project \
           << pipeline.parameters.ci_runner_image >> \
@@ -1606,6 +1607,7 @@ jobs:
           -e ENT_ACT_CODE \
           -e SKIP_DOCKER_POSTGRES_CREATE=1 \
           -e DOCKER_MACHINE_NAME=172.17.0.1 \
+          -e DOCKER_API_VERSION=1.41 \
           -v /home/circleci/out:/home/circleci/out \
           -v /home/circleci/project:/home/circleci/project \
           --privileged \
