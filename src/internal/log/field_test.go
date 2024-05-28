@@ -72,3 +72,58 @@ func TestProto(t *testing.T) {
 	Info(ctx, "dynamic message", Proto("dynamic", dynamic))
 	Info(ctx, "nil dynamic message", Proto("dynamic", &dynamicpb.Message{}))
 }
+
+func TestRedactedString(t *testing.T) {
+	testData := []struct {
+		name     string
+		original string
+		redact   string
+		want     string
+	}{
+		{
+			name:     "all empty",
+			original: "",
+			redact:   "",
+			want:     "",
+		},
+		{
+			name:     "empty original",
+			original: "",
+			redact:   "secret",
+			want:     "",
+		},
+		{
+			name:     "empty redact",
+			original: "foo bar",
+			redact:   "",
+			want:     "foo bar",
+		},
+		{
+			name:     "redact postgres dsn",
+			original: "sslmode=disable host=pg-bouncer port=5432 dbname=pachyderm user=pachyderm password=supersecret connect_timeout=30 statement_cache_mode=describe",
+			redact:   "supersecret",
+			want:     "sslmode=disable host=pg-bouncer port=5432 dbname=pachyderm user=pachyderm password=[11 masked bytes] connect_timeout=30 statement_cache_mode=describe",
+		},
+		{
+			name:     "redact postgres dsn twice",
+			original: "sslmode=disable host=pg-bouncer port=5432 dbname=pachyderm user=pachyderm password=supersecret connect_timeout=30 statement_cache_mode=describe sslmode=disable host=pg-bouncer port=5432 dbname=pachyderm user=pachyderm password=supersecret connect_timeout=30 statement_cache_mode=describe",
+			redact:   "supersecret",
+			want:     "sslmode=disable host=pg-bouncer port=5432 dbname=pachyderm user=pachyderm password=[11 masked bytes] connect_timeout=30 statement_cache_mode=describe sslmode=disable host=pg-bouncer port=5432 dbname=pachyderm user=pachyderm password=[11 masked bytes] connect_timeout=30 statement_cache_mode=describe",
+		},
+		{
+			name:     "nothing to redact",
+			original: "foobar",
+			redact:   "barbaz",
+			want:     "foobar",
+		},
+	}
+
+	for _, test := range testData {
+		t.Run(test.name, func(t *testing.T) {
+			field := RedactedString("x", test.original, test.redact)
+			if got, want := field.String, test.want; got != want {
+				t.Errorf("redact %q in %q:\n  got: %v\n want: %v", test.redact, test.original, got, want)
+			}
+		})
+	}
+}
