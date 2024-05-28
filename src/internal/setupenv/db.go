@@ -1,6 +1,7 @@
 package setupenv
 
 import (
+	"context"
 	"time"
 
 	"github.com/dlmiddlecote/sqlstats"
@@ -11,8 +12,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-func openDirectDB(config pachconfig.PostgresConfiguration) (*pachsql.DB, error) {
+func openDirectDB(ctx context.Context, config pachconfig.PostgresConfiguration) (*pachsql.DB, error) {
 	db, err := dbutil.NewDB(
+		ctx,
 		dbutil.WithHostPort(config.PostgresHost, config.PostgresPort),
 		dbutil.WithDBName(config.PostgresDBName),
 		dbutil.WithUserPassword(config.PostgresUser, config.PostgresPassword),

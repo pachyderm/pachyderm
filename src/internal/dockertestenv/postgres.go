@@ -137,6 +137,7 @@ func NewTestDBConfigCtx(ctx context.Context) (config DBConfig, cleaner *cleanup.
 	}
 
 	db, err := dbutil.NewDB(
+		ctx,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
@@ -264,6 +265,7 @@ func EnsureDBEnv(ctx context.Context) error {
 
 	return backoff.RetryUntilCancel(ctx, func() error {
 		db, err := dbutil.NewDB(
+			ctx,
 			dbutil.WithDBName(DefaultPostgresDatabase),
 			dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
 			dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
