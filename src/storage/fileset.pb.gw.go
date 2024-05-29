@@ -100,6 +100,31 @@ func request_Fileset_ReadFileset_0(ctx context.Context, marshaler runtime.Marsha
 
 }
 
+func request_Fileset_ReadFilesetCDR_0(ctx context.Context, marshaler runtime.Marshaler, client FilesetClient, req *http.Request, pathParams map[string]string) (Fileset_ReadFilesetCDRClient, runtime.ServerMetadata, error) {
+	var protoReq ReadFilesetRequest
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	}
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	stream, err := client.ReadFilesetCDR(ctx, &protoReq)
+	if err != nil {
+		return nil, metadata, err
+	}
+	header, err := stream.Header()
+	if err != nil {
+		return nil, metadata, err
+	}
+	metadata.HeaderMD = header
+	return stream, metadata, nil
+
+}
+
 func request_Fileset_RenewFileset_0(ctx context.Context, marshaler runtime.Marshaler, client FilesetClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq RenewFilesetRequest
 	var metadata runtime.ServerMetadata
@@ -216,6 +241,13 @@ func RegisterFilesetHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 	})
 
 	mux.Handle("POST", pattern_Fileset_ReadFileset_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
+		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+		return
+	})
+
+	mux.Handle("POST", pattern_Fileset_ReadFilesetCDR_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -382,6 +414,28 @@ func RegisterFilesetHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 
 	})
 
+	mux.Handle("POST", pattern_Fileset_ReadFilesetCDR_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/storage.Fileset/ReadFilesetCDR", runtime.WithHTTPPathPattern("/storage.Fileset/ReadFilesetCDR"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_Fileset_ReadFilesetCDR_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Fileset_ReadFilesetCDR_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("POST", pattern_Fileset_RenewFileset_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -456,6 +510,8 @@ var (
 
 	pattern_Fileset_ReadFileset_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"storage.Fileset", "ReadFileset"}, ""))
 
+	pattern_Fileset_ReadFilesetCDR_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"storage.Fileset", "ReadFilesetCDR"}, ""))
+
 	pattern_Fileset_RenewFileset_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"storage.Fileset", "RenewFileset"}, ""))
 
 	pattern_Fileset_ComposeFileset_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"storage.Fileset", "ComposeFileset"}, ""))
@@ -467,6 +523,8 @@ var (
 	forward_Fileset_CreateFileset_0 = runtime.ForwardResponseMessage
 
 	forward_Fileset_ReadFileset_0 = runtime.ForwardResponseStream
+
+	forward_Fileset_ReadFilesetCDR_0 = runtime.ForwardResponseStream
 
 	forward_Fileset_RenewFileset_0 = runtime.ForwardResponseMessage
 

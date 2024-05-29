@@ -93,6 +93,19 @@ func (x *ReadFilesetResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	return nil
 }
 
+func (x *ReadFilesetCDRResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("path", x.Path)
+	if obj, ok := interface{}(x.Ref).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("ref", obj)
+	} else {
+		enc.AddReflected("ref", x.Ref)
+	}
+	return nil
+}
+
 func (x *RenewFilesetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil

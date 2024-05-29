@@ -5651,6 +5651,44 @@
         ]
       }
     },
+    "/storage.Fileset/ReadFilesetCDR": {
+      "post": {
+        "operationId": "Fileset_ReadFilesetCDR",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/storageReadFilesetCDRResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of storageReadFilesetCDRResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageReadFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
     "/storage.Fileset/RenewFileset": {
       "post": {
         "summary": "RenewFileset renews a fileset.",
@@ -6992,6 +7030,167 @@
           "format": "date-time"
         }
       }
+    },
+    "cdrCipher": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "$ref": "#/definitions/cdrRef"
+        },
+        "algo": {
+          "$ref": "#/definitions/cdrCipherAlgo"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "nonce": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "title": "1:1 Transforms"
+    },
+    "cdrCipherAlgo": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN_CIPHER",
+        "CHACHA20"
+      ],
+      "default": "UNKNOWN_CIPHER"
+    },
+    "cdrCompress": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "$ref": "#/definitions/cdrRef"
+        },
+        "algo": {
+          "$ref": "#/definitions/cdrCompressAlgo"
+        }
+      }
+    },
+    "cdrCompressAlgo": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN_COMPRESS",
+        "GZIP"
+      ],
+      "default": "UNKNOWN_COMPRESS"
+    },
+    "cdrConcat": {
+      "type": "object",
+      "properties": {
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/cdrRef"
+          }
+        }
+      },
+      "title": "Many:1 Transforms"
+    },
+    "cdrContentHash": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "$ref": "#/definitions/cdrRef"
+        },
+        "algo": {
+          "$ref": "#/definitions/cdrHashAlgo"
+        },
+        "hash": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "title": "Contraints"
+    },
+    "cdrHTTP": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "cdrHashAlgo": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN_HASH",
+        "BLAKE2b_256"
+      ],
+      "default": "UNKNOWN_HASH"
+    },
+    "cdrRef": {
+      "type": "object",
+      "properties": {
+        "http": {
+          "$ref": "#/definitions/cdrHTTP",
+          "title": "Sources"
+        },
+        "contentHash": {
+          "$ref": "#/definitions/cdrContentHash",
+          "title": "Constraints"
+        },
+        "sizeLimits": {
+          "$ref": "#/definitions/cdrSizeLimits"
+        },
+        "cipher": {
+          "$ref": "#/definitions/cdrCipher",
+          "title": "1:1 Transforms"
+        },
+        "compress": {
+          "$ref": "#/definitions/cdrCompress"
+        },
+        "slice": {
+          "$ref": "#/definitions/cdrSlice"
+        },
+        "concat": {
+          "$ref": "#/definitions/cdrConcat",
+          "title": "Many:1 Transforms"
+        }
+      }
+    },
+    "cdrSizeLimits": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "$ref": "#/definitions/cdrRef"
+        },
+        "min": {
+          "type": "string",
+          "format": "int64"
+        },
+        "max": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "cdrSlice": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "$ref": "#/definitions/cdrRef"
+        },
+        "start": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "end": {
+          "type": "string",
+          "format": "uint64"
+        }
+      },
+      "title": "1:1 Transforms"
     },
     "debug_v2App": {
       "type": "object",
@@ -12223,6 +12422,17 @@
         }
       },
       "description": "PathRange is a range of paths.\nThe range is inclusive, exclusive: [Lower, Upper)."
+    },
+    "storageReadFilesetCDRResponse": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/definitions/cdrRef"
+        }
+      }
     },
     "storageReadFilesetRequest": {
       "type": "object",

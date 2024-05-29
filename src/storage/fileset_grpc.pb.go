@@ -22,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	Fileset_CreateFileset_FullMethodName  = "/storage.Fileset/CreateFileset"
 	Fileset_ReadFileset_FullMethodName    = "/storage.Fileset/ReadFileset"
+	Fileset_ReadFilesetCDR_FullMethodName = "/storage.Fileset/ReadFilesetCDR"
 	Fileset_RenewFileset_FullMethodName   = "/storage.Fileset/RenewFileset"
 	Fileset_ComposeFileset_FullMethodName = "/storage.Fileset/ComposeFileset"
 	Fileset_ShardFileset_FullMethodName   = "/storage.Fileset/ShardFileset"
@@ -38,6 +39,7 @@ type FilesetClient interface {
 	CreateFileset(ctx context.Context, opts ...grpc.CallOption) (Fileset_CreateFilesetClient, error)
 	// ReadFileset reads a fileset.
 	ReadFileset(ctx context.Context, in *ReadFilesetRequest, opts ...grpc.CallOption) (Fileset_ReadFilesetClient, error)
+	ReadFilesetCDR(ctx context.Context, in *ReadFilesetRequest, opts ...grpc.CallOption) (Fileset_ReadFilesetCDRClient, error)
 	// RenewFileset renews a fileset.
 	RenewFileset(ctx context.Context, in *RenewFilesetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// ComposeFileset composes a fileset.
@@ -124,6 +126,38 @@ func (x *filesetReadFilesetClient) Recv() (*ReadFilesetResponse, error) {
 	return m, nil
 }
 
+func (c *filesetClient) ReadFilesetCDR(ctx context.Context, in *ReadFilesetRequest, opts ...grpc.CallOption) (Fileset_ReadFilesetCDRClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Fileset_ServiceDesc.Streams[2], Fileset_ReadFilesetCDR_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &filesetReadFilesetCDRClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Fileset_ReadFilesetCDRClient interface {
+	Recv() (*ReadFilesetCDRResponse, error)
+	grpc.ClientStream
+}
+
+type filesetReadFilesetCDRClient struct {
+	grpc.ClientStream
+}
+
+func (x *filesetReadFilesetCDRClient) Recv() (*ReadFilesetCDRResponse, error) {
+	m := new(ReadFilesetCDRResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *filesetClient) RenewFileset(ctx context.Context, in *RenewFilesetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, Fileset_RenewFileset_FullMethodName, in, out, opts...)
@@ -162,6 +196,7 @@ type FilesetServer interface {
 	CreateFileset(Fileset_CreateFilesetServer) error
 	// ReadFileset reads a fileset.
 	ReadFileset(*ReadFilesetRequest, Fileset_ReadFilesetServer) error
+	ReadFilesetCDR(*ReadFilesetRequest, Fileset_ReadFilesetCDRServer) error
 	// RenewFileset renews a fileset.
 	RenewFileset(context.Context, *RenewFilesetRequest) (*emptypb.Empty, error)
 	// ComposeFileset composes a fileset.
@@ -184,6 +219,9 @@ func (UnimplementedFilesetServer) CreateFileset(Fileset_CreateFilesetServer) err
 }
 func (UnimplementedFilesetServer) ReadFileset(*ReadFilesetRequest, Fileset_ReadFilesetServer) error {
 	return status.Errorf(codes.Unimplemented, "method ReadFileset not implemented")
+}
+func (UnimplementedFilesetServer) ReadFilesetCDR(*ReadFilesetRequest, Fileset_ReadFilesetCDRServer) error {
+	return status.Errorf(codes.Unimplemented, "method ReadFilesetCDR not implemented")
 }
 func (UnimplementedFilesetServer) RenewFileset(context.Context, *RenewFilesetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenewFileset not implemented")
@@ -251,6 +289,27 @@ type filesetReadFilesetServer struct {
 }
 
 func (x *filesetReadFilesetServer) Send(m *ReadFilesetResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Fileset_ReadFilesetCDR_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ReadFilesetRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(FilesetServer).ReadFilesetCDR(m, &filesetReadFilesetCDRServer{stream})
+}
+
+type Fileset_ReadFilesetCDRServer interface {
+	Send(*ReadFilesetCDRResponse) error
+	grpc.ServerStream
+}
+
+type filesetReadFilesetCDRServer struct {
+	grpc.ServerStream
+}
+
+func (x *filesetReadFilesetCDRServer) Send(m *ReadFilesetCDRResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -337,6 +396,11 @@ var Fileset_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ReadFileset",
 			Handler:       _Fileset_ReadFileset_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "ReadFilesetCDR",
+			Handler:       _Fileset_ReadFilesetCDR_Handler,
 			ServerStreams: true,
 		},
 	},

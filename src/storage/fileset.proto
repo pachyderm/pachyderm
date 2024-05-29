@@ -6,6 +6,8 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/storage";
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
 
+import "cdr/cdr.proto";
+
 // AppendFile will append the provided data to the file with the specified path. If
 // a file with the specified path doesn't exist, it will be created.
 message AppendFile {
@@ -63,6 +65,11 @@ message ReadFilesetResponse {
   google.protobuf.BytesValue data = 2;
 }
 
+message ReadFilesetCDRResponse {
+  string path = 1;
+  cdr.Ref ref = 2;
+}
+
 message RenewFilesetRequest {
   string fileset_id = 1;
   // The TTL, in seconds, for the fileset after renewal.
@@ -110,6 +117,7 @@ service Fileset {
   rpc CreateFileset(stream CreateFilesetRequest) returns (CreateFilesetResponse) {}
   // ReadFileset reads a fileset.
   rpc ReadFileset(ReadFilesetRequest) returns (stream ReadFilesetResponse) {}
+  rpc ReadFilesetCDR(ReadFilesetRequest) returns (stream ReadFilesetCDRResponse) {}
   // RenewFileset renews a fileset.
   rpc RenewFileset(RenewFilesetRequest) returns (google.protobuf.Empty) {}
   // ComposeFileset composes a fileset.
