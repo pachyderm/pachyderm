@@ -66,7 +66,7 @@ func main() {
 	case mode == "preflight":
 		logMode("preflight")
 		cmdutil.Main(ctx, func(ctx context.Context, config *pachconfig.PachdPreflightConfiguration) error {
-			env, err := setupenv.NewPreflightEnv(*config)
+			env, err := setupenv.NewPreflightEnv(ctx, *config)
 			if err != nil {
 				return err
 			}

@@ -7,6 +7,7 @@ import (
 	"io"
 	"reflect"
 	"runtime/trace"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -18,6 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -82,6 +84,14 @@ func getConfig(fullMethod string) logConfig {
 func isNilInterface(x interface{}) bool {
 	val := reflect.ValueOf(x)
 	return x == nil || (val.Kind() == reflect.Ptr && val.IsNil())
+}
+
+// checkPanic upgrades panics to Error level.
+func checkPanic(orig log.Level, err error) log.Level {
+	if s, ok := status.FromError(err); ok && s.Code() == recovery.PanicCode && strings.HasPrefix(s.Message(), "panic: ") {
+		return log.ErrorLevel
+	}
+	return orig
 }
 
 func getCommonLogger(ctx context.Context, service, method string) context.Context {
@@ -203,6 +213,7 @@ func (li *LoggingInterceptor) UnaryAnnounce(ctx context.Context, req interface{}
 		if config.leveler != nil && !isNilInterface(resp) {
 			lvl = config.leveler(lvl, resp, retErr)
 		}
+		lvl = checkPanic(lvl, retErr)
 		li.logUnaryAfter(getResponseLogger(ctx, logResp, 1, 1, retErr), lvl, service, method, start, retErr)
 	}()
 
@@ -282,6 +293,7 @@ func (li *LoggingInterceptor) StreamAnnounce(srv interface{}, stream grpc.Server
 		if config.leveler != nil && !isNilInterface(resp) {
 			lvl = config.leveler(lvl, resp, retErr)
 		}
+		lvl = checkPanic(lvl, retErr)
 		li.logUnaryAfter(resCtx, lvl, service, method, start, retErr)
 	}()
 	return handler(srv, wrapper)

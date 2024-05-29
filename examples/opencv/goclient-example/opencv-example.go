@@ -35,15 +35,15 @@ func main() {
 		panic(err)
 	}
 
-	if err := c.PutFileURL(imageCommit, "liberty.png", "https://docs.pachyderm.com/images/opencv/liberty.jpg", false); err != nil {
+	if err := c.PutFileURL(imageCommit, "liberty.png", "https://docs.pachyderm.com/images/mldm/opencv/liberty.jpg", false); err != nil {
 		panic(err)
 	}
 
-	if err := c.PutFileURL(imageCommit, "robot.png", "https://docs.pachyderm.com/images/opencv/robot.jpg", false); err != nil {
+	if err := c.PutFileURL(imageCommit, "robot.png", "https://docs.pachyderm.com/images/mldm/opencv/robot.jpg", false); err != nil {
 		panic(err)
 	}
 
-	if err := c.PutFileURL(imageCommit, "kitten.png", "https://docs.pachyderm.com/images/opencv/kitten.jpg", false); err != nil {
+	if err := c.PutFileURL(imageCommit, "kitten.png", "https://docs.pachyderm.com/images/mldm/opencv/kitten.jpg", false); err != nil {
 		panic(err)
 	}
 

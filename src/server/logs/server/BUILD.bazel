@@ -19,6 +19,7 @@ go_library(
 go_test(
     name = "server_test",
     srcs = ["api_server_test.go"],
+    pure = "on",
     deps = [
         "//src/internal/dockertestenv",
         "//src/internal/lokiutil",
