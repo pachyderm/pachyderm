@@ -29,7 +29,7 @@ import {
   PpsContext,
   MountSettings,
   Repo,
-  Branch
+  Branch,
 } from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
@@ -142,8 +142,8 @@ export class MountPlugin implements IMountPlugin {
       'explore',
       'pfs',
       () => {
-        this.updateMountedRepo(null, null)
-      }
+        this.updateMountedRepo(null, null);
+      },
     );
 
     this._exploreScreen = new SplitPanel({orientation: 'vertical'});
@@ -176,7 +176,7 @@ export class MountPlugin implements IMountPlugin {
       'test',
       'datum',
       () => {
-        this.updateMountedRepo(null, null)
+        this.updateMountedRepo(null, null);
       },
     );
 
@@ -265,14 +265,17 @@ export class MountPlugin implements IMountPlugin {
     app.shell.add(this._panel, 'left', {rank: 100});
   }
 
-  updateMountedRepo = async (repo: Repo | null, mountedBranch: Branch | null): Promise<void> => {
+  updateMountedRepo = async (
+    repo: Repo | null,
+    mountedBranch: Branch | null,
+  ): Promise<void> => {
     await this._poller.updateMountedRepo(repo, mountedBranch);
 
     this._pfsBrowser.model.cd('/');
     this._datumBrowser.model.cd('/');
 
     return Promise.resolve();
-  }
+  };
 
   /**
    * Checks if the widget currently in focus is a NotebookPanel.

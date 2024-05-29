@@ -142,7 +142,7 @@ export class MountDrive implements Contents.IDrive {
         content: '0',
       });
     } catch (e) {
-      console.debug('Get Error', url + ' not found. Unmounting repo.')
+      console.debug('Get Error', url + ' not found. Unmounting repo.');
       this._unmountRepo();
       return DEFAULT_CONTENT_MODEL;
     }
@@ -286,7 +286,7 @@ export class MountDrive implements Contents.IDrive {
       }
 
       // This should never happen and means some critical backend error has occured.
-      console.debug(`Failed Fetching Next Results ${e}. Umounting repo`)
+      console.debug(`Failed Fetching Next Results ${e}. Umounting repo`);
       this._unmountRepo();
     });
   }
