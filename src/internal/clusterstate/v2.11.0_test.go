@@ -29,7 +29,7 @@ func Test_v2_11_0_ClusterState(t *testing.T) {
 	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_11_0))
 }
 
-func Test_v2_11_0_ClusterState_ShouldFail(t *testing.T) {
+func Test_v2_11_0_ClusterStateWithDanglingCommits(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDirectDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
@@ -38,12 +38,11 @@ func Test_v2_11_0_ClusterState_ShouldFail(t *testing.T) {
 	// Note that we are applying 2.6 migration here because we need to create collections.repos table
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_6_0))
 	setupTestData(t, ctx, db)
-	addTotalFilesetsThatFailedToMigrate(t, ctx, db)
+	addDanglingTotals(t, ctx, db)
 
 	// Apply migrations up to and including 2.11.0
-	err := migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_11_0)
-	require.YesError(t, err, "migration should fail")
-	require.ErrorContains(t, err, "following 5 commits do not exist in the pfs.commits table", "error should fuzzy match")
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state_2_11_0))
+	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_11_0))
 }
 
 func newFilesetId() fileset.ID {
@@ -54,7 +53,7 @@ func newFilesetId() fileset.ID {
 	return id
 }
 
-func addTotalFilesetsThatFailedToMigrate(t *testing.T, ctx context.Context, db *sqlx.DB) {
+func addDanglingTotals(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	for i := 1; i <= 5; i++ {
 		_, err := db.ExecContext(ctx, `INSERT INTO pfs.commit_totals (commit_id, fileset_id) VALUES ($1, $2)`, "fake_commit_"+strconv.Itoa(i), newFilesetId())
 		require.NoError(t, err)
