@@ -21,8 +21,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	lokiclient "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/testloki"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -61,6 +63,34 @@ func ActivateAuthOption(rootToken string) TestPachdOption {
 			config.AuthRootToken = rootToken
 			config.LicenseKey = os.Getenv("ENT_ACT_CODE")
 			config.EnterpriseSecret = "enterprisey"
+		},
+	}
+}
+
+// WithTestLoki sets up a testpachd that sends its logs to Loki.
+func WithTestLoki(l *testloki.TestLoki) TestPachdOption {
+	return TestPachdOption{
+		MutateEnv: func(env *Env) {
+			env.GetLokiClient = func() (*lokiclient.Client, error) {
+				return l.Client, nil
+			}
+		},
+		MutateConfig: func(config *pachconfig.PachdFullConfiguration) {
+			config.LokiLogging = true
+		},
+		MutateContext: func(ctx context.Context) context.Context {
+			templateHash := randutil.UniqueString("")[0:10]
+			procHash := randutil.UniqueString("")[0:5]
+			return pctx.Child(ctx, "", l.WithLoki(ctx, map[string]string{
+				"host":              "localhost",
+				"app":               "pachd",
+				"container":         "pachd",
+				"node_name":         "localhost",
+				"pod":               fmt.Sprintf("pachd-%v-%v", templateHash, procHash),
+				"pod_template_hash": templateHash,
+				"stream":            "stderr",
+				"suite":             "pachyderm",
+			}))
 		},
 	}
 }

@@ -79,7 +79,7 @@ func parseLabels(line string) map[string]string {
 }
 
 var (
-	findRFC3339 = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[.]\d+Z)`)
+	findRFC3339 = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[.]\d+)?Z)`)
 	findDate    = regexp.MustCompile(`(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{3})`)
 	findUnix    = regexp.MustCompile(`"ts":([^,]+),`)
 )

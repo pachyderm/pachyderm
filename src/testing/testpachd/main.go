@@ -74,7 +74,7 @@ func main() {
 			return
 		}
 		clean.AddCleanup("loki", l.Close)
-		opt := testloki.WithTestLoki(l)
+		opt := pachd.WithTestLoki(l)
 		opts = append(opts, opt)
 		runCtx = opt.MutateContext(runCtx)
 	}

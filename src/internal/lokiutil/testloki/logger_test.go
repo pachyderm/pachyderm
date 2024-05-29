@@ -23,7 +23,7 @@ func TestTestPachd(t *testing.T) {
 			t.Fatalf("close loki: %v", err)
 		}
 	})
-	pd := pachd.NewTestPachd(t, testloki.WithTestLoki(l))
+	pd := pachd.NewTestPachd(t, pachd.WithTestLoki(l))
 
 	tctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
