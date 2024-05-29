@@ -153,7 +153,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	return nil
 }
 
-func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRequest) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRequest) (string, passFunc, error) {
 	if request == nil {
 		return "", nil, errors.New("nil request")
 	}
@@ -448,9 +448,7 @@ func (ls LogService) authLogMessage(ctx context.Context, labels map[string]strin
 			project, ok := ff["projectName"]
 			if ok {
 				authed = true
-				if !objectDenied { // once denied, don’t recheck
-					objectDenied = !ls.authPipelineLogs(ctx, pipeline.GetStringValue(), project.GetStringValue(), cache)
-				}
+				objectDenied = !ls.authPipelineLogs(ctx, pipeline.GetStringValue(), project.GetStringValue(), cache)
 			}
 		}
 	}
@@ -493,13 +491,18 @@ type ResponsePublisher interface {
 	Publish(context.Context, *logs.GetLogsResponse) error
 }
 
+// A passFunc receives a map of log labels to values and the log message, and
+// return false if the log message does not pass — i.e., if it should be
+// skipped.
+type passFunc func(labels map[string]string, msg *logs.LogMessage) bool
+
 // An adapter publishes log entries to a ResponsePublisher in a specified format.
 type adapter struct {
 	responsePublisher ResponsePublisher
 	first, last       time.Time
 	gotFirst          bool
 	// If pass returns false, the message will not be published.
-	pass   func(map[string]string, *logs.LogMessage) bool
+	pass   passFunc
 	offset uint
 	count  uint
 }
