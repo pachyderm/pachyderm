@@ -35,6 +35,7 @@ go_test(
     name = "storage_test",
     size = "small",
     srcs = ["server_test.go"],
+    pure = "on",
     deps = [
         ":storage",
         "//src/internal/dockertestenv",
