@@ -19,7 +19,8 @@ var cleanup = true
 // OpenDB connects to a database using opts and returns it.
 // The database will be closed at the end of the test.
 func OpenDB(t testing.TB, opts ...dbutil.Option) *pachsql.DB {
-	db, err := dbutil.NewDB(opts...)
+	ctx := pctx.TestContext(t)
+	db, err := dbutil.NewDB(ctx, opts...)
 	require.NoError(t, err)
 	require.NoError(t, db.Ping())
 	t.Cleanup(func() { require.NoError(t, db.Close()) })

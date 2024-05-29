@@ -212,8 +212,9 @@ func PostgresCollectionWatchTests(suite *testing.T, newCollection func(context.C
 
 func newTestDB(t testing.TB) (*pachsql.DB, string) {
 	options := dockertestenv.NewTestDBConfig(t).PGBouncer.DBOptions()
-	dsn := dbutil.GetDSN(options...)
-	db, err := dbutil.NewDB(options...)
+	ctx := pctx.TestContext(t)
+	dsn := dbutil.GetDSN(ctx, options...)
+	db, err := dbutil.NewDB(ctx, options...)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
@@ -223,8 +224,9 @@ func newTestDB(t testing.TB) (*pachsql.DB, string) {
 
 func newTestDirectDB(t testing.TB) (*pachsql.DB, string) {
 	options := dockertestenv.NewTestDBConfig(t).Direct.DBOptions()
-	dsn := dbutil.GetDSN(options...)
-	db, err := dbutil.NewDB(options...)
+	ctx := pctx.TestContext(t)
+	dsn := dbutil.GetDSN(ctx, options...)
+	db, err := dbutil.NewDB(ctx, options...)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())

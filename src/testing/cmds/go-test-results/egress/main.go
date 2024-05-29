@@ -77,6 +77,7 @@ func run(ctx context.Context) error {
 	log.Info(ctx, "Migrate successful, beginning egress transform of data to sql DB")
 	inputFolder := os.Args[1]
 	db, err := dbutil.NewDB(
+		ctx,
 		dbutil.WithHostPort(gotestresults.PostgresqlHost, 5432),
 		dbutil.WithDBName("ci_metrics"),
 		dbutil.WithUserPassword(gotestresults.PostgresqlUser, gotestresults.PostgresqlPassword),
