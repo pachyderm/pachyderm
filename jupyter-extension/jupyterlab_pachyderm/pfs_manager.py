@@ -239,7 +239,7 @@ class PFSManager(FileContentsManager):
         return str(Path(*Path(path).parts[1:]))
 
     # returns None for empty path, i.e. the top-level directory or if no branch is mounted
-    def _get_file_from_path(self, path: str) -> pfs.File:
+    def _get_file_from_path(self, path: str) -> typing.Optional[pfs.File]:
         if not self.mounted_branch:
             return None
 
@@ -253,6 +253,8 @@ class PFSManager(FileContentsManager):
 
     def download_file(self, path: str):
         file = self._get_file_from_path(path=path)
+        if file is None:
+            raise ValueError("Cannot find file to download")
         _download_file(client=self._client, file=file, destination=Path(self.root_dir))
 
     def is_hidden(self, path):
@@ -283,7 +285,7 @@ class PFSManager(FileContentsManager):
         return response.file_type == pfs.FileType.DIR
 
     def exists(self, path) -> bool:
-        file = self._get_file_from_path(path, self.mounted_branch)
+        file = self._get_file_from_path(path)
         if file is None:
             return True
         return self._client.pfs.path_exists(file=file)

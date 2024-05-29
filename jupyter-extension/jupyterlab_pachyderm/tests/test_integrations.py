@@ -36,8 +36,6 @@ async def pachyderm_resources(http_client: AsyncClient):
     for repo in repos:
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
 
-    await http_client.put("/explore/unmount")
-
 async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
     repos, branches, _ = pachyderm_resources
 
