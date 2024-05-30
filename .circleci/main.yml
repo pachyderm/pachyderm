@@ -34,7 +34,7 @@ orbs:
 parameters:
   machine_image:
     type: string
-    default: ubuntu-2204:2023.04.2
+    default: ubuntu-2204:2023.07.2
   ci_runner_image:
     type: string
     default: docker.io/pachyderm/ci-runner:20240327-e244f4987bb95479ace93f62388b267c5afc12ef@sha256:6eca53ba260096076ae7decbfb66a779b3d78984ae5f249c8d28514f34c02ef4
@@ -1589,6 +1589,7 @@ jobs:
       # Build the thing to start the database containers.
       - run: |
           docker run \
+          -e DOCKER_API_VERSION=1.41 \
           -v /home/circleci/out:/home/circleci/out \
           -v /home/circleci/project:/home/circleci/project \
           << pipeline.parameters.ci_runner_image >> \
@@ -1606,6 +1607,7 @@ jobs:
           -e ENT_ACT_CODE \
           -e SKIP_DOCKER_POSTGRES_CREATE=1 \
           -e DOCKER_MACHINE_NAME=172.17.0.1 \
+          -e DOCKER_API_VERSION=1.41 \
           -v /home/circleci/out:/home/circleci/out \
           -v /home/circleci/project:/home/circleci/project \
           --privileged \
