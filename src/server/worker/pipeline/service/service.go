@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -92,6 +93,21 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 	return pachClient.SubscribeJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, true, func(ji *pps.JobInfo) error {
 		if ji.State == pps.JobState_JOB_FINISHING {
 			return nil // don't pick up a "finishing" job
+		}
+		// Only restart the job once all source commits are closed.
+		// Otherwise a job will start for the service pipeline while without its complete set of data.
+		ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{
+			Commit: &pfs.Commit{Repo: &pfs.Repo{Name: ji.Job.Pipeline.Name, Project: ji.Job.Pipeline.Project}},
+		})
+		if err != nil {
+			return err
+		}
+		for _, input := range ci.DirectProvenance {
+			if _, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{
+				Commit: input, Wait: pfs.CommitState_FINISHED,
+			}); err != nil {
+				return err
+			}
 		}
 		if cancel != nil {
 			logger.Logf("canceling previous service, new job ready")
