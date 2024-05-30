@@ -1,4 +1,4 @@
-FROM jupyter/scipy-notebook:lab-4.0.7
+FROM quay.io/jupyter/scipy-notebook:lab-4.0.11
 
 ENV PFS_MOUNT_DIR=/pfs
 
@@ -20,9 +20,9 @@ RUN chmod 777 /pfs
 
 USER $NB_UID
 COPY dist dist
-RUN pip install --upgrade pip
+RUN pip install pip==24.0
 RUN pip install `find /app/dist/ -name \*.whl` nbgitpuller==1.2.1
 RUN pip install determined==0.31.0
-RUN /opt/conda/bin/jupyter lab extension disable nbclassic
+# RUN /opt/conda/bin/jupyter lab extension disable nbclassic
 
 WORKDIR /home/jovyan

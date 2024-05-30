@@ -158,7 +158,7 @@ export class PollMounts {
         commit_uri: this.mountedRepoUri,
       });
     } catch (e) {
-      showErrorMessage('Error mounting repo', e);
+      showErrorMessage('Error mounting repo', String(e));
     }
   };
 
