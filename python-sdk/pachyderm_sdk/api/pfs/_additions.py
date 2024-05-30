@@ -234,13 +234,17 @@ def _Commit_as_uri(self: "Commit") -> str:
 
     If no project is specified it defaults to "default"
     """
-    project_repo = self.branch.repo.as_uri()
-    if self.branch.name and self.id:
-        return f"{project_repo}@{self.branch.name}={self.id}"
-    elif self.branch.name:
-        return f"{project_repo}@{self.branch.name}"
-    else:
-        return f"{project_repo}@{self.id}"
+    if self.branch:
+        project_repo = self.branch.repo.as_uri()
+        if self.branch.name and self.id:
+            return f"{project_repo}@{self.branch.name}={self.id}"
+        elif self.branch.name:
+            return f"{project_repo}@{self.branch.name}"
+        else:
+            return f"{project_repo}@{self.id}"
+
+    project_repo = self.repo.as_uri()
+    return f"{project_repo}@{self.id}"
 
 
 def _Commit_as_picker(self: "Commit") -> CommitPicker:
