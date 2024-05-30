@@ -514,6 +514,7 @@ class DatumManager(FileContentsManager):
             self._datum_batch_generator = self._client.pps.generate_datums(
                 input_spec=input, batch_size=DatumManager.DATUM_BATCH_SIZE
             )
+            self._datum_list = list()
             self._get_datum_batch()
             self._datum_index = 0
             self._mount_time = datetime.datetime.now()
