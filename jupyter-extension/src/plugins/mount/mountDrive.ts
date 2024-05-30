@@ -2,12 +2,10 @@ import {ModelDB} from '@jupyterlab/observables';
 import {Contents, ServerConnection} from '@jupyterlab/services';
 import {PartialJSONObject} from '@lumino/coreutils';
 import {Signal, ISignal} from '@lumino/signaling';
-import {showErrorMessage} from '@jupyterlab/apputils';
 import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {URLExt} from '@jupyterlab/coreutils';
 import {requestAPI} from '../../handler';
 import {MOUNT_BROWSER_PREFIX} from './mount';
-import {MountedRepo} from './types';
 
 // How many Content li are visible at a given time for the user to scroll.
 const VISIBLE_CONTENT_LI_COUNT = 500;
@@ -53,8 +51,6 @@ export class MountDrive implements Contents.IDrive {
   private _id: string;
   // Forces a re-render of the FileBrowser using this Drive.
   private _rerenderFileBrowser: () => Promise<void>;
-  // Retrieves the latest mounted repo to specify the branch which pfs should query.
-  private _getMountedRepo: () => MountedRepo | null;
   // Previous search filter value as of the previous _get call.
   private _previousFilter: string | null;
   // The index determining which set of cached Contents is visible to the user. Changed by scrolling the Contents DOM node.
@@ -62,6 +58,8 @@ export class MountDrive implements Contents.IDrive {
   // True if the FileBrowser contents scrolling event listener has been setup, false if not. Avoids setting up multiple
   // scroll event listeners.
   private _hasScrollEventListener: boolean;
+  // Function to call when the repo needs to be unmounted likely due to some error state.
+  private _unmountRepo: () => void;
 
   constructor(
     registry: DocumentRegistry,
@@ -69,7 +67,7 @@ export class MountDrive implements Contents.IDrive {
     nameSuffix: string,
     id: string,
     rerenderFileBrowser: () => Promise<void>,
-    getMountedRepo: () => MountedRepo | null,
+    unmountRepo: () => void,
   ) {
     this._registry = registry;
     this._cache = {
@@ -83,10 +81,10 @@ export class MountDrive implements Contents.IDrive {
     this._nameSuffix = nameSuffix;
     this._id = id;
     this._rerenderFileBrowser = rerenderFileBrowser;
-    this._getMountedRepo = getMountedRepo;
     this._previousFilter = null;
     this._index = 0;
     this._hasScrollEventListener = false;
+    this._unmountRepo = unmountRepo;
   }
 
   get name(): string {
@@ -117,7 +115,6 @@ export class MountDrive implements Contents.IDrive {
     this.setupScrollingHandler();
 
     const url = URLExt.join(this._path, localPath);
-    const branchUri = this._getMountedRepo()?.mountedBranch.uri;
 
     // If we have cached content return that
     if (localPath === this._cache.key && localPath) {
@@ -141,15 +138,12 @@ export class MountDrive implements Contents.IDrive {
     //   and not paginate the results.
     let shallowResponse;
     try {
-      const shallowOptions: {content: string; branch_uri?: string} = {
+      shallowResponse = await this._get(url, {
         content: '0',
-      };
-      if (branchUri) {
-        shallowOptions.branch_uri = branchUri;
-      }
-      shallowResponse = await this._get(url, shallowOptions);
+      });
     } catch (e) {
-      showErrorMessage('Get Error', url + ' not found');
+      console.debug('Get Error', url + ' not found. Unmounting repo.');
+      this._unmountRepo();
       return DEFAULT_CONTENT_MODEL;
     }
 
@@ -173,7 +167,6 @@ export class MountDrive implements Contents.IDrive {
       ...options,
       number: PAGINATION_NUMBER,
       content,
-      branch_uri: branchUri,
     };
     this._loading.emit(true);
     await this._fetchNextPage(null, now, url, getOptions);
@@ -293,7 +286,8 @@ export class MountDrive implements Contents.IDrive {
       }
 
       // This should never happen and means some critical backend error has occured.
-      showErrorMessage('Failed Fetching Next Results', e);
+      console.debug(`Failed Fetching Next Results ${e}. Umounting repo`);
+      this._unmountRepo();
     });
   }
 

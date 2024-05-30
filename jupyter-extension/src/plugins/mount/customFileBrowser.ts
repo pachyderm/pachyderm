@@ -14,7 +14,7 @@ import {each} from '@lumino/algorithm';
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 import {requestAPI} from '../../handler';
-import {IPachydermModel, MountedRepo} from './types';
+import {IPachydermModel} from './types';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
@@ -23,7 +23,7 @@ const createCustomFileBrowser = (
   path: string,
   downloadPath: string,
   nameSuffix: string,
-  getMountedRepo: () => MountedRepo | null,
+  unmountRepo: () => void,
 ): FileBrowser => {
   const id = `jupyterlab-pachyderm-browser-${nameSuffix}`;
   const drive = new MountDrive(
@@ -34,7 +34,7 @@ const createCustomFileBrowser = (
     async () => {
       await browser.model.cd();
     },
-    getMountedRepo,
+    unmountRepo,
   );
   manager.services.contents.addDrive(drive);
 
@@ -122,14 +122,11 @@ const createCustomFileBrowser = (
               MOUNT_BROWSER_PREFIX + nameSuffix + ':',
               '',
             );
-            requestAPI(
-              `download/${downloadPath}/${itemPath}?branch_uri=${
-                getMountedRepo()?.mountedBranch.uri
-              }`,
-              'PUT',
-            ).catch((e) => {
-              showErrorMessage('Download Error', e.response.statusText);
-            });
+            requestAPI(`download/${downloadPath}/${itemPath}`, 'PUT').catch(
+              (e) => {
+                showErrorMessage('Download Error', e.response.statusText);
+              },
+            );
           });
         },
       });
@@ -237,6 +234,7 @@ const createCustomFileBrowser = (
       });
     }
   } catch (e) {
+    // This should not log!
     console.log('Failed to edit default browser.');
   }
 
