@@ -341,6 +341,71 @@ func onlyHex(p []byte) bool {
 	return true
 }
 
+func isDigit(b byte) bool {
+	return '0' <= b && b <= '9'
+}
+
+// counts the overall offset of branch root and ancestor of
+// also removes everything of the ancestry reference
+// this function also check following circumstances for ancestry reference:
+// 1. ancestry reference should only contain "^" "." and digits
+// 2. If there is branch root ".", it should be the first operator; It also should be the only "."
+// 3. There should be a number right after "."
+// 4. If branch root and ancestor of are used together, the offset of branch root should >= offset of ancestor of
+func countOffsetAndClean(b *[]byte, offset *uint32) error {
+	var valStack uint32 = 0
+	var signStack uint32 = 0
+	var nth uint32 = 0
+	firstOpIndex := -1
+	for i := 0; i < len(*b); i++ {
+		v := (*b)[i]
+		if firstOpIndex == -1 && (v == '^' || v == '.') {
+			firstOpIndex = i
+			// calculate the number after branch root.
+			if v == '.' {
+				j := i + 1
+				if !isDigit((*b)[j]) {
+					return errors.New("invalid ancestry reference: there should be a number after '.'")
+				}
+				for j < len(*b) && isDigit((*b)[j]) {
+					nth = nth*10 + (uint32((*b)[j]) - uint32('0'))
+					j++
+				}
+				i = j - 1
+				continue
+			}
+		}
+		if firstOpIndex == -1 {
+			continue
+		}
+		if v == '.' {
+			return errors.New("invalid ancestry reference: '.' should be right after branch name or commit id")
+		}
+		if !('0' <= v && v <= '9') && v != '^' {
+			return errors.New("invalid ancestry reference: it can only contain digits, '^' and '.'")
+		}
+		if v == '^' {
+			*offset += signStack + valStack
+			signStack = 1
+			valStack = 0
+		} else {
+			signStack = 0
+			// convert byte '1' to 1
+			valStack = valStack*10 + (uint32(v) - uint32('0'))
+		}
+	}
+	*offset += valStack + signStack
+	// offset variable was calculated for "^". it needs to be subtracted if this is a branch of operation
+	if (*b)[firstOpIndex] == '.' {
+		if *offset > nth {
+			return errors.New("invalid ancestry reference: the offset of branch root should >= offset of ancestor of")
+		}
+		*offset = nth - *offset
+	}
+	*b = (*b)[:firstOpIndex]
+	return nil
+}
+
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (p *CommitPicker) UnmarshalText(b []byte) error {
 	parts := bytes.SplitN(b, []byte{'@'}, 2)
@@ -355,16 +420,40 @@ func (p *CommitPicker) UnmarshalText(b []byte) error {
 	default:
 		return errors.New("invalid commit picker: too many @s")
 	}
-	// TODO(PFS-229): Implement the other parsers.
-	if bytes.HasSuffix(id, []byte{'^'}) {
-		// CommitPicker_AncestorOf
-		return errors.New("ancestor of commit syntax is currently unimplemented (id^); specify the exact id instead")
-	}
 	if bytes.Contains(id, []byte{'.'}) {
-		// CommitPicker_BranchRoot
-		return errors.New("branch root commit syntax is currently unimplemented (id.N); specify the exact id instead")
+		var offset uint32
+		if err := countOffsetAndClean(&b, &offset); err != nil {
+			return errors.Wrapf(err, "calculate offset %s", b)
+		}
+		var bp BranchPicker
+		if err := bp.UnmarshalText(b); err != nil {
+			return errors.Wrapf(err, "unmarshal branch picker %s", b)
+		}
+		p.Picker = &CommitPicker_BranchRoot_{
+			BranchRoot: &CommitPicker_BranchRoot{
+				Branch: &bp,
+				Offset: offset,
+			},
+		}
+		return nil
 	}
-
+	if bytes.Contains(id, []byte{'^'}) {
+		var offset uint32
+		if err := countOffsetAndClean(&b, &offset); err != nil {
+			return errors.Wrapf(err, "calculate offset %s", b)
+		}
+		var cp CommitPicker
+		if err := cp.UnmarshalText(b); err != nil {
+			return errors.Wrapf(err, "unmarshal commit picker %s", b)
+		}
+		p.Picker = &CommitPicker_Ancestor{
+			Ancestor: &CommitPicker_AncestorOf{
+				Start:  &cp,
+				Offset: offset,
+			},
+		}
+		return nil
+	}
 	// To distinguish global IDs and branch names, we look for a valid global ID first.  An ID
 	// is a hex-encoded UUIDv4 without dashes.  UUIDv4s always have the 13th (1 indexed) byte
 	// set to '4'.
