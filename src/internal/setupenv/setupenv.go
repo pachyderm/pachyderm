@@ -2,12 +2,14 @@
 package setupenv
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 )
 
-func NewPreflightEnv(config pachconfig.PachdPreflightConfiguration) (*pachd.PreFlightEnv, error) {
-	db, err := openDirectDB(config.PostgresConfiguration)
+func NewPreflightEnv(ctx context.Context, config pachconfig.PachdPreflightConfiguration) (*pachd.PreFlightEnv, error) {
+	db, err := openDirectDB(ctx, config.PostgresConfiguration)
 	if err != nil {
 		return nil, err
 	}

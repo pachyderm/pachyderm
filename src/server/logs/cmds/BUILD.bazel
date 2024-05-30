@@ -31,6 +31,7 @@ go_test(
         "//src/internal/dockertestenv",
         "//src/internal/lokiutil",
         "//src/internal/lokiutil/client",
+        "//src/internal/lokiutil/testloki",
         "//src/internal/pachconfig",
         "//src/internal/pctx",
         "//src/internal/require",
