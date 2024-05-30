@@ -330,7 +330,7 @@ export class MountPlugin implements IMountPlugin {
    */
   handleNotebookReload = async (
     _docContext: DocumentRegistry.IContext<INotebookModel>,
-    model: Contents.IModel,
+    model: Omit<Contents.IModel, 'content'>,
   ): Promise<void> => {
     const context: PpsContext = {
       metadata: this.getNotebookMetadata(),
@@ -342,14 +342,14 @@ export class MountPlugin implements IMountPlugin {
 
   getNotebookMetadata = (notebook?: NotebookPanel | null): any | null => {
     notebook = notebook ?? this.getActiveNotebook();
-    return notebook?.model?.metadata.get(METADATA_KEY);
+    return notebook?.model?.getMetadata(METADATA_KEY);
   };
 
   saveNotebookMetadata = (metadata: PpsMetadata): void => {
     const currentNotebook = this.getActiveNotebook();
 
     if (currentNotebook !== null) {
-      currentNotebook?.model?.metadata.set(METADATA_KEY, metadata);
+      currentNotebook?.model?.setMetadata(METADATA_KEY, metadata);
       console.log('notebook metadata saved');
     } else {
       console.log('No active notebook');

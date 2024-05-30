@@ -8,6 +8,7 @@ import {
   FileBrowser,
 } from '@jupyterlab/filebrowser';
 import {Clipboard, showErrorMessage} from '@jupyterlab/apputils';
+import {LabIcon} from '@jupyterlab/ui-components';
 import {CommandRegistry} from '@lumino/commands';
 import {each} from '@lumino/algorithm';
 
@@ -65,7 +66,7 @@ const createCustomFileBrowser = (
   }
 
   try {
-    const widgets = browser.layout.widgets || [];
+    const widgets = browser.layout ? Array.from(browser.layout) : [];
     const breadCrumbs = widgets.find(
       (element) => element instanceof BreadCrumbs,
     );
@@ -85,7 +86,7 @@ const createCustomFileBrowser = (
       const commands = new CommandRegistry();
       commands.addCommand('file-open', {
         label: 'Open',
-        icon: 'fa fa-folder',
+        icon: new LabIcon({name: 'folder-icon', svgstr: 'fa fa-folder'}),
         mnemonic: 0,
         execute: () => {
           each(browser.selectedItems(), (item) => {
@@ -96,7 +97,7 @@ const createCustomFileBrowser = (
 
       commands.addCommand('copy-path', {
         label: 'Copy Path',
-        icon: 'fa fa-file',
+        icon: new LabIcon({name: 'file-icon', svgstr: 'fa fa-file'}),
         mnemonic: 0,
         execute: () => {
           each(browser.selectedItems(), (item) => {
@@ -109,7 +110,7 @@ const createCustomFileBrowser = (
 
       commands.addCommand('file-download', {
         label: 'Download',
-        icon: 'fa fa-download',
+        icon: new LabIcon({name: 'file-download', svgstr: 'fa fa-download'}),
         mnemonic: 0,
         execute: () => {
           each(browser.selectedItems(), (item) => {
@@ -145,7 +146,7 @@ const createCustomFileBrowser = (
 
       commands.addCommand('open-determined', {
         label: 'Copy Pachyderm File URI',
-        icon: 'fa fa-link',
+        icon: new LabIcon({name: 'file-link', svgstr: 'fa fa-link'}),
         mnemonic: 0,
         execute: () => {
           if (navigator.clipboard && window.isSecureContext) {
