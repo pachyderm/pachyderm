@@ -4,10 +4,12 @@ import (
 	"context"
 	"path/filepath"
 
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -97,14 +99,23 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		// Only restart the job once all source commits are closed.
 		// Otherwise a job will start for the service pipeline while without its complete set of data.
 		ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{
-			Commit: &pfs.Commit{Repo: &pfs.Repo{Name: ji.Job.Pipeline.Name, Project: ji.Job.Pipeline.Project}},
+			Commit: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: ji.Job.Pipeline.Name, Type: "user", Project: ji.Job.Pipeline.Project,
+				},
+				Id: ji.Job.Id,
+			},
 		})
 		if err != nil {
 			return err
 		}
-		for _, input := range ci.DirectProvenance {
+		log.Info(pachClient.Ctx(), "retrieved job commit")
+		for _, src := range ci.DirectProvenance {
+			log.Info(pachClient.Ctx(), "waiting on job's source commit to finish",
+				zap.String("job", ji.Job.String()),
+				zap.String("source_commit", src.String()))
 			if _, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{
-				Commit: input, Wait: pfs.CommitState_FINISHED,
+				Commit: src, Wait: pfs.CommitState_FINISHED,
 			}); err != nil {
 				return err
 			}
