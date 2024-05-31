@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-
 	"math"
 	"net"
 	"net/http"
@@ -4996,63 +4995,6 @@ func TestLokiLogs(t *testing.T) {
 	require.Equal(t, numFiles, foundFoos, "didn't receive enough log lines containing foo")
 }
 
-func TestAllDatumsAreProcessed(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-
-	dataRepo1 := tu.UniqueString("TestAllDatumsAreProcessed_data1")
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo1))
-	dataRepo2 := tu.UniqueString("TestAllDatumsAreProcessed_data2")
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo2))
-
-	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo1, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit1, "file1", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.PutFile(commit1, "file2", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo1, "master", ""))
-
-	commit2, err := c.StartCommit(pfs.DefaultProjectName, dataRepo2, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(commit2, "file1", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.PutFile(commit2, "file2", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo2, "master", ""))
-
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cat /pfs/%s/* /pfs/%s/* > /pfs/out/file", dataRepo1, dataRepo2),
-		},
-		nil,
-		client.NewCrossInput(
-			client.NewPFSInput(pfs.DefaultProjectName, dataRepo1, "/*"),
-			client.NewPFSInput(pfs.DefaultProjectName, dataRepo2, "/*"),
-		),
-		"",
-		false,
-	))
-
-	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
-	require.NoError(t, err)
-	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.Id)
-	require.NoError(t, err)
-	require.Equal(t, 5, len(commitInfos))
-
-	var buf bytes.Buffer
-	rc, err := c.GetFileTAR(commitInfo.Commit, "file")
-	require.NoError(t, err)
-	defer rc.Close()
-	require.NoError(t, tarutil.ConcatFileContent(&buf, rc))
-	// should be 8 because each file gets copied twice due to cross product
-	require.Equal(t, strings.Repeat("foo\n", 8), buf.String())
-}
-
 func TestDatumStatusRestart(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -6213,7 +6155,7 @@ func TestUnionInput(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"cp /pfs/*/* /pfs/out",
+				"cp /pfs/*/* /pfs/out/$PACH_DATUM_ID",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -6243,6 +6185,14 @@ func TestUnionInput(t *testing.T) {
 			[]string{"bash"},
 			[]string{
 				"cp -r -L /pfs/TestUnionInput* /pfs/out",
+				"for dir in /pfs/out/*",
+				"do",
+				"for file in ${dir}/*",
+				"do",
+				"new_name=${dir}/${PACH_DATUM_ID}",
+				"mv ${file} ${new_name}",
+				"done",
+				"done",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -6278,6 +6228,14 @@ func TestUnionInput(t *testing.T) {
 			[]string{"bash"},
 			[]string{
 				"cp -r -L /pfs/TestUnionInput* /pfs/out",
+				"for dir in /pfs/out/*",
+				"do",
+				"for file in ${dir}/*",
+				"do",
+				"new_name=${dir}/${PACH_DATUM_ID}",
+				"mv ${file} ${new_name}",
+				"done",
+				"done",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -6312,7 +6270,7 @@ func TestUnionInput(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"cp /pfs/in/* '/pfs/out/$RANDOM'",
+				"cp /pfs/in/* /pfs/out/$PACH_DATUM_ID",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
