@@ -486,8 +486,7 @@ class DatumManager(FileContentsManager):
                     raise ValueError(f"Input contains non-existent branch {branch}")
                 raise err
 
-            commit = pfs.Commit(id=commit_id)
-            commit_uri = commit.as_uri()
+            commit_uri = f"{repo.as_uri()}@{commit_id}"
             if commit_uri in self._repo_names:
                 raise ValueError(
                     "Loading multiple instances of the same commit is currently not supported in the extension"
@@ -634,7 +633,8 @@ class DatumManager(FileContentsManager):
             raise e
 
     def _get_relative_path(self, fileinfo: pfs.FileInfo) -> Path:
-        commit_uri = fileinfo.file.commit.as_uri()
+        commit = fileinfo.file.commit
+        commit_uri = f"{commit.repo.as_uri()}@{commit.id}"
         name = self._repo_names[commit_uri]
         return Path(name, fileinfo.file.path.strip("/"))
 
