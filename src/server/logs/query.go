@@ -36,7 +36,7 @@ func (err ErrInvalidBatchSize) RecommendedBatchSize() int {
 // Adapted from <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/pkg/logcli/query/query.go>.
 //
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
-func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, offset uint, direction logDirection, publish func(context.Context, loki.Entry) (bool, error)) (err error) {
+func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, offset uint, direction logDirection, publish func(context.Context, loki.LabelSet, loki.Entry) (bool, error)) (err error) {
 	var (
 		batchSize    int
 		resultLength int
@@ -125,33 +125,40 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 	return nil
 }
 
+type streamEntry struct {
+	labels loki.LabelSet
+	entry  loki.Entry
+}
+
 // Adapted from <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/pkg/logcli/query/query.go#L259>.
 //
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
-func publishEntries(ctx context.Context, streams loki.Streams, direction logDirection, lastEntry []loki.Entry, publish func(context.Context, loki.Entry) (bool, error), initial time.Time, offset uint) (int, []loki.Entry, uint, error) {
+func publishEntries(ctx context.Context, streams loki.Streams, direction logDirection, lastEntry []loki.Entry, publish func(context.Context, loki.LabelSet, loki.Entry) (bool, error), initial time.Time, offset uint) (int, []loki.Entry, uint, error) {
 	var (
-		entries   []loki.Entry
+		entries   []streamEntry
 		published int
 	)
 	for _, s := range streams {
-		entries = append(entries, s.Entries...)
+		for _, e := range s.Entries {
+			entries = append(entries, streamEntry{s.Labels, e})
+		}
 	}
 	if len(entries) == 0 {
 		return 0, nil, offset, nil
 	}
 	switch direction {
 	case forwardLogDirection:
-		sort.Slice(entries, func(i, j int) bool { return entries[i].Timestamp.Before(entries[j].Timestamp) })
+		sort.Slice(entries, func(i, j int) bool { return entries[i].entry.Timestamp.Before(entries[j].entry.Timestamp) })
 	case backwardLogDirection:
-		sort.Slice(entries, func(i, j int) bool { return entries[i].Timestamp.After(entries[j].Timestamp) })
+		sort.Slice(entries, func(i, j int) bool { return entries[i].entry.Timestamp.After(entries[j].entry.Timestamp) })
 	default:
 		return 0, nil, offset, errors.Errorf("invalid direction %q", direction)
 	}
 	for _, e := range entries {
-		if len(lastEntry) > 0 && e.Timestamp == lastEntry[0].Timestamp {
+		if len(lastEntry) > 0 && e.entry.Timestamp == lastEntry[0].Timestamp {
 			skip := false
 			for _, le := range lastEntry {
-				if e.Line == le.Line {
+				if e.entry.Line == le.Line {
 					skip = true
 				}
 			}
@@ -159,11 +166,11 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 				continue
 			}
 		}
-		if e.Timestamp.Equal(initial) && offset > 0 {
+		if e.entry.Timestamp.Equal(initial) && offset > 0 {
 			offset--
 			continue
 		}
-		if skipped, err := publish(ctx, e); err != nil {
+		if skipped, err := publish(ctx, e.labels, e.entry); err != nil {
 			return 0, nil, offset, errors.Wrap(err, "could not publish")
 		} else if skipped {
 			continue
@@ -171,10 +178,10 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 		published++
 	}
 	var lel []loki.Entry
-	le := entries[len(entries)-1]
+	le := entries[len(entries)-1].entry
 	for _, e := range entries {
-		if e.Timestamp.Equal(le.Timestamp) {
-			lel = append(lel, e)
+		if e.entry.Timestamp.Equal(le.Timestamp) {
+			lel = append(lel, e.entry)
 		}
 	}
 	return published, lel, offset, nil

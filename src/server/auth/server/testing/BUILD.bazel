@@ -6,6 +6,7 @@ go_test(
     name = "admin_test",
     size = "small",
     srcs = ["admin_test.go"],
+    pure = "on",
     shard_count = 4,
     deps = [
         ":testing",

@@ -4,6 +4,7 @@ go_test(
     name = "testing_test",
     size = "small",
     srcs = ["metadata_test.go"],
+    pure = "on",
     deps = [
         "//src/admin",
         "//src/auth",

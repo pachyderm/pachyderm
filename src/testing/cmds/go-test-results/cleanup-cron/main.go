@@ -26,6 +26,7 @@ func run(ctx context.Context) error {
 	log.Info(ctx, "Running DB Cleanup")
 	cutoff := time.Now().UTC().Add(-time.Hour * 24 * 365 * 3)
 	db, err := dbutil.NewDB(
+		ctx,
 		dbutil.WithHostPort(gotestresults.PostgresqlHost, 5432),
 		dbutil.WithDBName("ci_metrics"),
 		dbutil.WithUserPassword(gotestresults.PostgresqlUser, gotestresults.PostgresqlPassword),
