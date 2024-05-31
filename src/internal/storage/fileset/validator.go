@@ -27,7 +27,7 @@ func (pv *pathValidator) Iterate(ctx context.Context, cb func(File) error, opts 
 	var prev *index.Index
 	if err := pv.fs.Iterate(ctx, func(f File) error {
 		idx := f.Index()
-		if retErr := CheckIndex(prev, idx); retErr != nil {
+		if err := CheckIndex(prev, idx); err != nil {
 			return retErr
 		}
 		prev = idx
