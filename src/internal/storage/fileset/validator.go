@@ -2,7 +2,6 @@ package fileset
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -52,10 +51,10 @@ func CheckIndex(prev, curr *index.Index) error {
 		return nil
 	}
 	if curr.Path == prev.Path {
-		return errors.New(fmt.Sprintf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, curr.Path, curr.File.Datum))
+		return errors.Errorf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, curr.Path, curr.File.Datum)
 	}
 	if strings.HasPrefix(curr.Path, prev.Path+"/") {
-		return errors.New(fmt.Sprintf("file / directory path collision (%v)", curr.Path))
+		return errors.Errorf("file / directory path collision (%v)", curr.Path)
 	}
 	return nil
 }
