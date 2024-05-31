@@ -7633,8 +7633,7 @@ func TestWalkFileInvalid(t *testing.T) {
 	_, err = env.PachClient.InspectFile(commit2, "/")
 	require.YesError(t, err)
 
-	require.NotNil(t, env.PachClient.WalkFile(commit2, "/", func(fi *pfs.FileInfo) error {
-		fmt.Println(fi.File, fi.FileType)
+	require.YesError(t, env.PachClient.WalkFile(commit2, "/", func(fi *pfs.FileInfo) error {
 		return nil
 	}))
 }
