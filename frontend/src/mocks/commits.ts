@@ -22,6 +22,7 @@ export const buildCommit = (commit: CommitInfo) => {
   const defaultCommit: CommitInfo = {
     __typename: 'CommitInfo',
     origin: {kind: OriginKind.USER},
+    metadata: {metadataCommitKey: 'metadataCommitValue'},
   };
 
   return merge(defaultCommit, commit);
@@ -81,6 +82,7 @@ export const COMMIT_INFO_C4: CommitInfo = buildCommit({
     sizeBytes: '58644',
   },
   parentCommit: {id: 'c43fffd650a24b40b7d9f1bf90fcfdbe'},
+  metadata: {metadataC43Key: 'metadataC43Value'},
 });
 
 export const IMAGE_COMMITS: CommitInfo[] = [

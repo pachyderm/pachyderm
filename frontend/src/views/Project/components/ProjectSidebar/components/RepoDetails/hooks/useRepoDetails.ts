@@ -19,6 +19,8 @@ const useRepoDetails = () => {
   const {loading: repoLoading, repo, error: repoError} = useCurrentRepo();
   const {getPathToFileBrowser} = useFileBrowserNavigation();
 
+  const givenCommitId = searchParams.globalIdFilter || commitId;
+
   const {
     commits,
     loading: commitLoading,
@@ -27,7 +29,7 @@ const useRepoDetails = () => {
     projectName: projectId,
     repoName: repoId,
     args: {
-      commitIdCursor: searchParams.globalIdFilter || commitId || '',
+      commitIdCursor: givenCommitId || '',
       number: 1,
     },
   });
@@ -83,6 +85,7 @@ const useRepoDetails = () => {
     repoId,
     repo,
     commit,
+    givenCommitId,
     currentRepoLoading,
     commitError,
     commitDiff: formattedDiff,

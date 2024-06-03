@@ -1,5 +1,4 @@
-import objectHash from 'object-hash';
-import React, {useMemo} from 'react';
+import React from 'react';
 import {Route, Switch} from 'react-router-dom';
 
 import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
@@ -9,7 +8,6 @@ import EmptyState from '@dash-frontend/components/EmptyState/EmptyState';
 import ExpandableText from '@dash-frontend/components/ExpandableText';
 import GlobalIdCopy from '@dash-frontend/components/GlobalIdCopy';
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
-import {PipelineLink} from '@dash-frontend/components/ResourceLink';
 import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 import {LINEAGE_REPO_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
@@ -24,14 +22,23 @@ import {
   Link,
   Icon,
   UploadSVG,
+  Tabs,
 } from '@pachyderm/components';
 
 import Title from '../Title';
 
 import CommitDetails from './components/CommitDetails';
 import CommitList from './components/CommitList';
+import RepoInfo from './components/RepoInfo';
+import UserMetadata from './components/UserMetadata';
 import useRepoDetails from './hooks/useRepoDetails';
 import styles from './RepoDetails.module.css';
+
+export enum TAB_ID {
+  OVERVIEW = 'overview',
+  INFO = 'info',
+  METADATA = 'metadata',
+}
 
 type RepoDetailsProps = {
   pipelineOutputsMap?: InputOutputNodesMap;
@@ -41,6 +48,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
   const {
     repo,
     commit,
+    givenCommitId,
     repoError,
     currentRepoLoading,
     commitDiff,
@@ -58,15 +66,6 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
     closeModal: closeRolesModal,
     isOpen: rolesModalOpen,
   } = useModal(false);
-
-  const pipelineOutputs = useMemo(() => {
-    const repoNodeName = objectHash({
-      project: repo?.repo?.project?.name,
-      name: repo?.repo?.name,
-    });
-
-    return pipelineOutputsMap[repoNodeName] || [];
-  }, [pipelineOutputsMap, repo?.repo?.name, repo?.repo?.project?.name]);
 
   if (!currentRepoLoading && repoError) {
     return (
@@ -91,9 +90,6 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
         ) : (
           <Title>{repo?.repo?.name}</Title>
         )}
-        {repo?.description && (
-          <div className={styles.description}>{repo?.description}</div>
-        )}
         <Switch>
           <Route path={LINEAGE_REPO_PATH} exact>
             {repo?.authInfo?.roles && (
@@ -106,57 +102,6 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                 </Group>
               </Description>
             )}
-          </Route>
-        </Switch>
-        {pipelineOutputs.length > 0 && (
-          <Description loading={currentRepoLoading} term="Inputs To">
-            {pipelineOutputs.map(({name}) => (
-              <PipelineLink name={name} key={name} />
-            ))}
-          </Description>
-        )}
-        <Description
-          loading={currentRepoLoading}
-          term="Repo Created"
-          error={repoError}
-        >
-          {repo ? getStandardDateFromISOString(repo.created) : 'N/A'}
-        </Description>
-        <Switch>
-          <Route path={LINEAGE_REPO_PATH} exact>
-            {(currentRepoLoading || commit) && (
-              <Description
-                loading={currentRepoLoading}
-                term={`${
-                  !globalId
-                    ? 'Most Recent Commit Start'
-                    : 'Global ID Commit Start'
-                }`}
-              >
-                {commit ? getStandardDateFromISOString(commit.started) : 'N/A'}
-              </Description>
-            )}
-            {(currentRepoLoading || commit) && commit?.description && (
-              <Description
-                loading={currentRepoLoading}
-                term={
-                  !globalId
-                    ? 'Most Recent Commit Message'
-                    : 'Global ID Commit Message'
-                }
-              >
-                <ExpandableText text={commit.description} />
-              </Description>
-            )}
-            {(currentRepoLoading || commit) && (
-              <Description
-                loading={currentRepoLoading}
-                term={!globalId ? 'Most Recent Commit ID' : 'Global ID'}
-              >
-                {commit ? <GlobalIdCopy id={commit.commit?.id || ''} /> : 'N/A'}
-              </Description>
-            )}
-
             {repo?.authInfo?.roles && rolesModalOpen && (
               <RepoRolesModal
                 show={rolesModalOpen}
@@ -166,98 +111,186 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                 readOnly={!hasRepoEditRoles}
               />
             )}
-          </Route>
-
-          <Route>
-            {commit?.description && (
-              <Description term="Selected Commit Description">
-                {commit.description}
+            {(currentRepoLoading || commit) && (
+              <Description
+                loading={currentRepoLoading}
+                term={!globalId ? 'Most Recent Commit ID' : 'Global ID'}
+              >
+                {commit ? <GlobalIdCopy id={commit.commit?.id || ''} /> : 'N/A'}
               </Description>
             )}
           </Route>
         </Switch>
       </div>
 
-      {!currentRepoLoading && hasRepoRead && !commit && (
-        <>
-          <EmptyState
-            title={<>This repo doesn&apos;t have any data</>}
-            message={
-              <>
-                This is normal for new repositories. If you are interested in
-                learning more:
-              </>
-            }
-            linkToDocs={{
-              text: 'View our documentation about managing data',
-              pathWithoutDomain: '/prepare-data/ingest-data/',
-            }}
-          />
-          {hasRepoWrite && (
-            <Link
-              className={styles.link}
-              to={fileUploadRoute({projectId, repoId})}
-            >
-              Upload files
-              <Icon small color="inherit">
-                <UploadSVG className={styles.linkIcon} />
-              </Icon>
-            </Link>
-          )}
-        </>
-      )}
-      {!currentRepoLoading && !hasRepoRead && (
-        <EmptyState
-          title={<>{`You don't have permission to view this repo`}</>}
-          noAccess
-          message={
-            <>
-              {`You'll need a role of repoReader or higher to view commit data
-              about this repo.`}
-            </>
-          }
-          linkToDocs={{
-            text: 'Read more about authorization',
-            pathWithoutDomain: '/set-up/authorization/',
-          }}
-        />
-      )}
-
-      {commit?.commit?.id && (
-        <>
-          <CaptionTextSmall className={styles.commitDetailsLabel}>
+      <Tabs initialActiveTabId={TAB_ID.OVERVIEW}>
+        <Tabs.TabsHeader className={styles.tabsHeader}>
+          <div className={styles.tabs}>
+            <Tabs.Tab id={TAB_ID.OVERVIEW}>Overview</Tabs.Tab>
+            <Tabs.Tab id={TAB_ID.INFO}>Repo Info</Tabs.Tab>
+            {hasRepoRead && (
+              <Tabs.Tab id={TAB_ID.METADATA}>User Metadata</Tabs.Tab>
+            )}
+          </div>
+        </Tabs.TabsHeader>
+        <Tabs.TabPanel id={TAB_ID.OVERVIEW}>
+          <section className={styles.section}>
             <Switch>
               <Route path={LINEAGE_REPO_PATH} exact>
-                {!globalId ? 'Current Commit Stats' : 'Global ID Commit Stats'}
-                {commit && (
-                  <Button
-                    buttonType="ghost"
-                    to={getPathToFileBrowser({
-                      projectId,
-                      repoId,
-                      commitId: commit.commit.id,
-                    })}
-                    disabled={!commit}
-                    aria-label="Inspect Commit"
+                {(currentRepoLoading || commit) && (
+                  <Description
+                    loading={currentRepoLoading}
+                    term={`${
+                      !globalId
+                        ? 'Most Recent Commit Start'
+                        : 'Global ID Commit Start'
+                    }`}
                   >
-                    Inspect Commit
-                  </Button>
+                    {commit
+                      ? getStandardDateFromISOString(commit.started)
+                      : 'N/A'}
+                  </Description>
+                )}
+                {(currentRepoLoading || commit) && commit?.description && (
+                  <Description
+                    loading={currentRepoLoading}
+                    term={
+                      !globalId
+                        ? 'Most Recent Commit Message'
+                        : 'Global ID Commit Message'
+                    }
+                  >
+                    <ExpandableText text={commit.description} />
+                  </Description>
                 )}
               </Route>
-              <Route>Selected Commit Stats</Route>
-            </Switch>
-          </CaptionTextSmall>
-          <CommitDetails
-            commit={commit}
-            diffLoading={diffLoading}
-            commitDiff={commitDiff?.diff}
-          />
-        </>
-      )}
 
-      <Route path={LINEAGE_REPO_PATH} exact>
-        {repo && commit && !globalId && <CommitList repo={repo} />}
-      </Route>
+              <Route>
+                {commit?.description && (
+                  <Description term="Selected Commit Description">
+                    {commit.description}
+                  </Description>
+                )}
+              </Route>
+            </Switch>
+
+            {!currentRepoLoading && hasRepoRead && !commit && (
+              <>
+                <EmptyState
+                  title={<>This repo doesn&apos;t have any data</>}
+                  message={
+                    <>
+                      This is normal for new repositories. If you are interested
+                      in learning more:
+                    </>
+                  }
+                  linkToDocs={{
+                    text: 'View our documentation about managing data',
+                    pathWithoutDomain: '/prepare-data/ingest-data/',
+                  }}
+                />
+                {hasRepoWrite && (
+                  <Link
+                    className={styles.link}
+                    to={fileUploadRoute({projectId, repoId})}
+                  >
+                    Upload files
+                    <Icon small color="inherit">
+                      <UploadSVG className={styles.linkIcon} />
+                    </Icon>
+                  </Link>
+                )}
+              </>
+            )}
+            {!currentRepoLoading && !hasRepoRead && (
+              <EmptyState
+                title={<>{`You don't have permission to view this repo`}</>}
+                noAccess
+                message={
+                  <>
+                    {`You'll need a role of repoReader or higher to view commit data
+        about this repo.`}
+                  </>
+                }
+                linkToDocs={{
+                  text: 'Read more about authorization',
+                  pathWithoutDomain: '/set-up/authorization/',
+                }}
+              />
+            )}
+          </section>
+
+          {commit?.commit?.id && (
+            <>
+              <CaptionTextSmall className={styles.commitDetailsLabel}>
+                <Switch>
+                  <Route path={LINEAGE_REPO_PATH} exact>
+                    {!globalId
+                      ? 'Current Commit Stats'
+                      : 'Global ID Commit Stats'}
+                    {commit && (
+                      <Button
+                        buttonType="ghost"
+                        to={getPathToFileBrowser({
+                          projectId,
+                          repoId,
+                          commitId: commit.commit.id,
+                        })}
+                        disabled={!commit}
+                        aria-label="Inspect Commit"
+                      >
+                        Inspect Commit
+                      </Button>
+                    )}
+                  </Route>
+                  <Route>Selected Commit Stats</Route>
+                </Switch>
+              </CaptionTextSmall>
+              <CommitDetails
+                commit={commit}
+                diffLoading={diffLoading}
+                commitDiff={commitDiff?.diff}
+              />
+            </>
+          )}
+
+          <Route path={LINEAGE_REPO_PATH} exact>
+            {repo && commit && !globalId && <CommitList repo={repo} />}
+          </Route>
+        </Tabs.TabPanel>
+        <Tabs.TabPanel id={TAB_ID.INFO}>
+          <section className={styles.section}>
+            <RepoInfo
+              pipelineOutputsMap={pipelineOutputsMap}
+              repo={repo}
+              repoError={repoError}
+              currentRepoLoading={currentRepoLoading}
+            />
+          </section>
+        </Tabs.TabPanel>
+        <Tabs.TabPanel id={TAB_ID.METADATA}>
+          <section className={styles.section}>
+            <UserMetadata
+              metadataType="repo"
+              metadata={repo?.metadata}
+              editable={hasRepoWrite}
+            />
+            {commit?.commit?.id && (
+              <UserMetadata
+                metadataType="commit"
+                metadata={commit?.metadata}
+                id={commit?.commit?.id}
+                editable={hasRepoWrite}
+                captionText={
+                  givenCommitId
+                    ? `Commit ${givenCommitId?.slice(0, 6)}...`
+                    : 'For the most recent commit'
+                }
+              />
+            )}
+          </section>
+        </Tabs.TabPanel>
+      </Tabs>
     </div>
   );
 };

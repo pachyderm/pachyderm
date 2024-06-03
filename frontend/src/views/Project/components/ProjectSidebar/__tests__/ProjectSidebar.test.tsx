@@ -9,7 +9,11 @@ import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {Permission} from '@dash-frontend/api/auth';
+import {
+  AuthorizeRequest,
+  AuthorizeResponse,
+  Permission,
+} from '@dash-frontend/api/auth';
 import {Empty} from '@dash-frontend/api/googleTypes';
 import {CommitInfo, ListCommitRequest} from '@dash-frontend/api/pfs';
 import {
@@ -725,12 +729,6 @@ description: >-
 
       expect(
         screen.getByRole('definition', {
-          name: /repo created/i,
-        }),
-      ).toHaveTextContent('Jul 24, 2023; 17:58');
-
-      expect(
-        screen.getByRole('definition', {
           name: /most recent commit start/i,
         }),
       ).toHaveTextContent('Jul 24, 2023; 17:58');
@@ -774,6 +772,145 @@ description: >-
         'href',
         '/lineage/default/repos/images/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
       );
+
+      await click(screen.getByRole('tab', {name: /repo info/i}));
+
+      expect(
+        screen.getByRole('definition', {
+          name: /repo created/i,
+        }),
+      ).toHaveTextContent('Jul 24, 2023; 17:58');
+
+      expect(screen.getByText('repo of images')).toBeInTheDocument();
+    });
+
+    describe('user metadata tab', () => {
+      it('should display repo and commit metadata', async () => {
+        window.history.replaceState('', '', '/lineage/default/repos/images');
+
+        render(<Project />);
+
+        await screen.findByRole('heading', {name: 'images'});
+
+        await click(screen.getByRole('tab', {name: /user metadata/i}));
+
+        expect(
+          screen.getByText('For the most recent commit'),
+        ).toBeInTheDocument();
+        expect(
+          await screen.findByRole('cell', {name: 'metadataRepoValue'}),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByRole('cell', {name: 'metadataRepoKey'}),
+        ).toBeInTheDocument();
+
+        expect(
+          await screen.findByRole('cell', {name: 'metadataCommitValue'}),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByRole('cell', {name: 'metadataCommitKey'}),
+        ).toBeInTheDocument();
+      });
+
+      it('should display commit metadata specific to global id', async () => {
+        window.history.replaceState(
+          '',
+          '',
+          '/lineage/default/repos/images?globalIdFilter=c43fffd650a24b40b7d9f1bf90fcfdbe',
+        );
+
+        render(<Project />);
+
+        await screen.findByRole('heading', {name: 'images'});
+
+        await click(screen.getByRole('tab', {name: /user metadata/i}));
+
+        expect(screen.getByText('Commit c43fff...')).toBeInTheDocument();
+        expect(
+          await screen.findByRole('cell', {name: 'metadataC43Value'}),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByRole('cell', {name: 'metadataC43Key'}),
+        ).toBeInTheDocument();
+      });
+
+      it('should allow users to open the edit metadata modal to add and remove values', async () => {
+        window.history.replaceState('', '', '/lineage/default/repos/images');
+
+        render(<Project />);
+
+        await screen.findByRole('heading', {name: 'images'});
+
+        await click(screen.getByRole('tab', {name: /user metadata/i}));
+        await click(screen.getAllByRole('button', {name: /edit/i})[0]);
+        const modal = await screen.findByRole('dialog');
+
+        expect(
+          await within(modal).findByRole('heading', {
+            name: 'Edit Repo Metadata',
+          }),
+        ).toBeInTheDocument();
+        expect(within(modal).getAllByRole('row')).toHaveLength(3);
+
+        await click(screen.getByRole('button', {name: /add new/i}));
+        await click(screen.getByRole('button', {name: /add new/i}));
+
+        expect(within(modal).getAllByRole('row')).toHaveLength(5);
+
+        await click(
+          screen.getByRole('button', {name: /delete metadata row 2/i}),
+        );
+
+        expect(within(modal).getAllByRole('row')).toHaveLength(4);
+      });
+
+      it('should not allow users to edit metadata if readOnly access', async () => {
+        // server.use(mockFalseGetAuthorize());
+        server.use(
+          rest.post<AuthorizeRequest, Empty, AuthorizeResponse>(
+            '/api/auth_v2.API/Authorize',
+            async (_req, res, ctx) => {
+              return res(
+                ctx.json({
+                  authorized: false,
+                  satisfied: [Permission.REPO_READ],
+                  missing: [],
+                  principal: '',
+                }),
+              );
+            },
+          ),
+        );
+
+        window.history.replaceState('', '', '/lineage/default/repos/images');
+
+        render(<Project />);
+
+        await screen.findByRole('heading', {name: 'images'});
+
+        await click(screen.getByRole('tab', {name: /user metadata/i}));
+        expect(
+          screen.queryByRole('button', {
+            name: /edit/i,
+          }),
+        ).not.toBeInTheDocument();
+      });
+
+      it('should not show the metadata tab to users without at least readOnly', async () => {
+        server.use(mockFalseGetAuthorize());
+
+        window.history.replaceState('', '', '/lineage/default/repos/images');
+
+        render(<Project />);
+
+        await screen.findByRole('heading', {name: 'images'});
+
+        expect(
+          screen.queryByRole('tab', {
+            name: /user metadata/i,
+          }),
+        ).not.toBeInTheDocument();
+      });
     });
 
     it('should display repo details for commit without branch', async () => {
@@ -790,12 +927,6 @@ description: >-
           name: /commit message/i,
         }),
       ).toHaveTextContent('I deleted this branch');
-
-      expect(
-        screen.getByRole('definition', {
-          name: /repo created/i,
-        }),
-      ).toHaveTextContent('Jul 24, 2023; 17:58');
 
       expect(
         screen.getByRole('definition', {

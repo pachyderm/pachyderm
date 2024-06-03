@@ -25,6 +25,7 @@ export const buildRepo = (repo: Partial<RepoInfo> = {}): RepoInfo => {
         name: 'default',
       },
     },
+    metadata: {metadataRepoKey: 'metadataRepoValue'},
     sizeBytesUpperBound: '14783',
     authInfo: {
       roles: ['clusterAdmin'],

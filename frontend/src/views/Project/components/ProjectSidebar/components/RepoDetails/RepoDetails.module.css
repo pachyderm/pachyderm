@@ -1,5 +1,4 @@
 .base {
-  padding-top: 1rem;
   overflow-y: scroll;
   height: 100%;
 }
@@ -7,6 +6,24 @@
 .titleSection {
   padding: 0 1rem;
   margin-bottom: 1rem;
+}
+
+.tabs {
+  padding: 0 1rem 0 1rem;
+}
+
+.tabsHeader {
+  display: flex;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0rem;
+  background-color: var(--white);
+  padding-top: 1rem;
+  z-index: var(--z-index-sticky-header);
+}
+
+.section {
+  margin: 0 1rem;
 }
 
 .emptyRepoMessage {
@@ -17,11 +34,6 @@
 .emptyIcon {
   margin-left: 50%;
   transform: translateX(-50%);
-  margin-bottom: 1rem;
-}
-
-.description {
-  margin-top: -1rem;
   margin-bottom: 1rem;
 }
 
