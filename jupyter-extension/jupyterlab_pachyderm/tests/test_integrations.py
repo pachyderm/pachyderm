@@ -119,7 +119,7 @@ async def test_view_datum_pagination(pachyderm_resources, http_client: AsyncClie
     assert r.status_code == 200, r.text
     r = r.json()
     assert r["idx"] == 0
-    assert r["num_datums"] == 1
+    assert r["num_datums_received"] == 1
     assert r["all_datums_received"] == 1
 
     # Assert default parameters return all
@@ -228,7 +228,7 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_mount", json=input_spec)
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["all_datums_received"] is True
     datum0_id = r.json()["id"]
 
@@ -251,7 +251,7 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_next")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 1
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["id"] != datum0_id
     assert r.json()["all_datums_received"] is True
 
@@ -270,7 +270,7 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_prev")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["id"] == datum0_id
     assert r.json()["all_datums_received"] is True
 
@@ -289,7 +289,7 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.get("/datums")
     assert r.status_code == 200, r.text
     assert json.loads(r.json()["input"]) == input_spec["input"]
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["idx"] == 0
     assert r.json()["all_datums_received"] is True
 
@@ -308,7 +308,7 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_mount", json=input_spec)
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
-    assert r.json()["num_datums"] == 1
+    assert r.json()["num_datums_received"] == 1
     assert r.json()["all_datums_received"] is True
     datum0_id = r.json()["id"]
 
@@ -346,7 +346,7 @@ async def test_mount_datums_multiple_batches(http_client: AsyncClient):
     r = await http_client.put("/datums/_mount", json=input_spec)
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
-    assert r.json()["num_datums"] == batch_size
+    assert r.json()["num_datums_received"] == batch_size
     assert r.json()["all_datums_received"] is False
 
     # Cycle to the last datum in the current batch
@@ -354,7 +354,7 @@ async def test_mount_datums_multiple_batches(http_client: AsyncClient):
         r = await http_client.put("/datums/_next")
         assert r.status_code == 200, r.text
         assert r.json()["idx"] == i
-        assert r.json()["num_datums"] == batch_size
+        assert r.json()["num_datums_received"] == batch_size
         assert r.json()["all_datums_received"] is False
 
     # Grab the next (final) batch of datums
@@ -362,7 +362,7 @@ async def test_mount_datums_multiple_batches(http_client: AsyncClient):
         r = await http_client.put("/datums/_next")
         assert r.status_code == 200, r.text
         assert r.json()["idx"] == i
-        assert r.json()["num_datums"] == total_datums
+        assert r.json()["num_datums_received"] == total_datums
         assert r.json()["all_datums_received"] is True
 
     # Verify no more datums and cycler wraps to beginning
@@ -404,7 +404,7 @@ async def test_download_datum(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_mount", json=input_spec)
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["all_datums_received"] is True
 
     r = await http_client.put("/datums/_download")
@@ -419,7 +419,7 @@ async def test_download_datum(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_next")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 1
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["all_datums_received"] is True
 
     r = await http_client.put("/datums/_download")

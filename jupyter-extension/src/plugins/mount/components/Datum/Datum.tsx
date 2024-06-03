@@ -144,14 +144,14 @@ const Datum: React.FC<DatumProps> = ({
               {'(' +
                 (currDatum.idx + 1) +
                 '/' +
-                currDatum.num_datums +
+                currDatum.num_datums_received +
                 (currDatum.all_datums_received ? '' : '+') +
                 ')'}
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__cyclerRight"
                 disabled={
-                  currDatum.idx >= currDatum.num_datums - 1 &&
+                  currDatum.idx >= currDatum.num_datums_received - 1 &&
                   currDatum.all_datums_received
                 }
                 onClick={callNextDatum}

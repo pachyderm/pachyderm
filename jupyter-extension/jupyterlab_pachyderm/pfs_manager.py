@@ -427,11 +427,11 @@ class DatumManager(FileContentsManager):
     class DatumState(typing.TypedDict):
         id: str
         idx: int
-        num_datums: int
+        num_datums_received: int
         all_datums_received: bool
 
     class CurrentDatum(typing.TypedDict):
-        num_datums: int
+        num_datums_received: int
         input: str
         idx: int
         all_datums_received: bool
@@ -564,13 +564,13 @@ class DatumManager(FileContentsManager):
         return self.DatumState(
             id=self._datum_list[self._datum_index].datum.id,
             idx=self._datum_index,
-            num_datums=len(self._datum_list),
+            num_datums_received=len(self._datum_list),
             all_datums_received=self._all_datums_received,
         )
 
     def current_datum(self) -> dict:
         return self.CurrentDatum(
-            num_datums=len(self._datum_list),
+            num_datums_received=len(self._datum_list),
             input=self._input.to_json() if self._input else None,
             idx=self._datum_index,
             all_datums_received=self._all_datums_received,
