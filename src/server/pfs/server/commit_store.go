@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -76,8 +75,8 @@ func (cs *postgresCommitStore) AddFileSetTx(tx *pachsql.Tx, commit *pfsdb.Commit
 	oid := commitDiffTrackerID(commit, id)
 	pointsTo := []string{id.TrackerID()}
 	if _, err := tx.Exec(
-		`INSERT INTO pfs.commit_diffs (commit_id, fileset_id) VALUES ($1, $2)
-`, commit.Commit.Key(), id); err != nil {
+		`INSERT INTO pfs.commit_diffs (commit_int_id, fileset_id) VALUES ($1, $2)
+`, commit.ID, id); err != nil {
 		return errors.Wrap(err, "add file set tx")
 	}
 	if _, err := tx.Exec(
@@ -176,7 +175,7 @@ func (cs *postgresCommitStore) dropDiff(tx *pachsql.Tx, commit *pfsdb.CommitWith
 			return errors.Wrap(err, "drop diff")
 		}
 	}
-	if _, err := tx.Exec(`DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, commit.Commit.Key()); err != nil {
+	if _, err := tx.Exec(`DELETE FROM pfs.commit_diffs WHERE commit_int_id = $1`, commit.ID); err != nil {
 		return errors.Wrap(err, "drop diff")
 	}
 	return nil
@@ -186,9 +185,9 @@ func getDiff(tx *pachsql.Tx, commit *pfsdb.CommitWithID) ([]fileset.ID, error) {
 	var ids []fileset.ID
 	if err := tx.Select(&ids,
 		`SELECT fileset_id FROM pfs.commit_diffs
-		WHERE commit_id = $1
+		WHERE commit_int_id = $1
 		ORDER BY num
-		`, commit.Commit.Key()); err != nil {
+		`, commit.ID); err != nil {
 		return nil, errors.Wrap(err, "get diff")
 	}
 	return ids, nil
@@ -238,16 +237,16 @@ func setDiff(tx *pachsql.Tx, tr track.Tracker, commit *pfsdb.CommitWithID, id fi
 	if commit.ID == 0 {
 		return errors.New(fmt.Sprintf("cannot set diff for commit %v when ID is 0", commit.CommitInfo.Commit.Key()))
 	}
-	_, err := tx.Exec(`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
+	_, err := tx.Exec(`INSERT INTO pfs.commit_diffs (commit_int_id, fileset_id)
 	VALUES ($1, $2)
-	`, commit.Commit.Key(), id)
+	`, commit.ID, id)
 	return errors.Wrap(err, "set diff")
 }
 
 func commitDiffTrackerID(commit *pfsdb.CommitWithID, fs fileset.ID) string {
-	return commitTrackerPrefix + commit.Commit.Key() + "/diff/" + fs.HexString()
+	return commitTrackerPrefix + fmt.Sprintf("%d", commit.ID) + "/diff/" + fs.HexString()
 }
 
 func commitTotalTrackerID(commit *pfsdb.CommitWithID, fs fileset.ID) string {
-	return commitTrackerPrefix + commit.Commit.Key() + "/total/" + fs.HexString()
+	return commitTrackerPrefix + fmt.Sprintf("%d", commit.ID) + "/total/" + fs.HexString()
 }
