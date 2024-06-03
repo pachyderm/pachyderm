@@ -1,6 +1,6 @@
 pyyaml>=6.0,<7.0
 jupyter_server>=2.7.0,<2.12
-pachyderm_sdk>=2.9.0,<2.10.0
+pachyderm_sdk>=2.10.1,<2.11.0
 
 
 # security patches
