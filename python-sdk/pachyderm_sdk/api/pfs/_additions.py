@@ -59,6 +59,8 @@ def _Repo_as_uri(self: "Repo") -> str:
 
     If no project is specified it defaults to "default"
     """
+    if not self.name:
+        raise ValueError("Empty repo name")
     project = "default"
     if self.project and self.project.name:
         project = self.project.name
