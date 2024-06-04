@@ -345,7 +345,7 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 		},
 		{
 			name:  "ancestor of. complex case 1",
-			input: "images@master^10^^^3",
+			input: "images@master^^^^10",
 			want: &CommitPicker{
 				Picker: &CommitPicker_Ancestor{
 					Ancestor: &CommitPicker_AncestorOf{
@@ -369,7 +369,7 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 								},
 							},
 						},
-						Offset: 15,
+						Offset: 13,
 					},
 				},
 			},
@@ -433,7 +433,7 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 		},
 		{
 			name:  "branch root and ancestor of. complex valid case",
-			input: "images@master.70^^^12^2^^1",
+			input: "images@master.70^^^^12",
 			want: &CommitPicker{
 				Picker: &CommitPicker_BranchRoot_{
 					BranchRoot: &CommitPicker_BranchRoot{
@@ -453,7 +453,7 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 								},
 							},
 						},
-						Offset: 52,
+						Offset: 55,
 					},
 				},
 			},
