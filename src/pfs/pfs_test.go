@@ -475,7 +475,7 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 			if test.wantErr {
 				require.YesError(t, err)
 			} else {
-				require.Nil(t, err)
+				require.NoError(t, err)
 				require.NoDiff(t, &p, test.want, []cmp.Option{protocmp.Transform()})
 			}
 		})
