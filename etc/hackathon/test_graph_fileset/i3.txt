@@ -1,0 +1,51 @@
+digraph  {
+	subgraph cluster_s11 {
+		label="";
+		n12[color="black",label="additive"];
+		n13[color="green",label="{\"id\":\"/b\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"2f2a213f7d4ef704b05dbd01ecf7530372ee78c1ee760fe344b2d738241a1f89\"}",shape="Mrecord"];
+		n12->n13[label=""];
+		
+	}
+	subgraph cluster_s14 {
+		label="";
+		n15[color="black",label="deletive"];
+		n16[color="green",label="{\"id\":\"/b\" | \"type\":\"file\" | \"size\":\"0\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"0\"}",shape="Mrecord"];
+		n15->n16[label=""];
+		
+	}
+	subgraph cluster_s5 {
+		label="";
+		n6[color="black",label="additive"];
+		n7[color="green",label="{\"id\":\"/c\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"2f2a213f7d4ef704b05dbd01ecf7530372ee78c1ee760fe344b2d738241a1f89\"}",shape="Mrecord"];
+		n6->n7[label=""];
+		
+	}
+	subgraph cluster_s17 {
+		label="";
+		n18[color="black",label="deletive"];
+		n19[color="green",label="{\"id\":\"/c\" | \"type\":\"file\" | \"size\":\"0\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"0\"}",shape="Mrecord"];
+		n18->n19[label=""];
+		
+	}
+	subgraph cluster_s8 {
+		label="";
+		n9[color="black",label="additive"];
+		n10[color="green",label="{\"id\":\"/a\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"2f2a213f7d4ef704b05dbd01ecf7530372ee78c1ee760fe344b2d738241a1f89\"}",shape="Mrecord"];
+		n9->n10[label=""];
+		
+	}
+	
+	n3[color="blue",label="07a3ba6c27da4e6459f135393f5ffa8b",shape="Mrecord"];
+	n4[color="blue",label="0a3c19ca41201f73b75e40d33500e9c0",shape="Mrecord"];
+	n2[color="blue",label="1a928f9d4d98a610cbb1a11a7defdff6",shape="Mrecord"];
+	n1[color="purple",label="{\"id\":\"fcaa3065845db1ea863a0c08a1398b37\" | \"totalsFor\":\"default/test.user@3ad44b8a09d24b4a85ab8106e56fb232\"| \"type\":\"composite\" }",shape="Mrecord"];
+	n3->n12;
+	n3->n15;
+	n4->n6;
+	n4->n18;
+	n2->n9;
+	n1->n2[label="flattened"];
+	n1->n3[label="flattened"];
+	n1->n4[label="flattened"];
+	
+}

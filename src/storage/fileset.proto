@@ -102,6 +102,22 @@ message ShardFilesetResponse {
   repeated PathRange shards = 1;
 }
 
+message GraphFilesetRequest {
+  string fileset_id = 1;
+}
+
+message GraphFilesetResponse {
+  string graph = 1;
+}
+
+message GraphIndicesRequest {
+  string fileset_id = 1;
+}
+
+message GraphIndicesResponse {
+  string graph = 1;
+}
+
 service Fileset {
   // CreateFileset creates a fileset based on a stream of file modifications.
   // A string identifier for the created fileset will be returned that can be used for subsequent fileset operations.
@@ -120,4 +136,9 @@ service Fileset {
   // The shards of a fileset are returned as a list of path ranges that are disjoint
   // and account for the full set of paths in the fileset.
   rpc ShardFileset(ShardFilesetRequest) returns (ShardFilesetResponse) {}
+  // GraphFileset generates a graph of a fileset in the form of a dot graph.
+  // Pass the output to jq and then to dot to get an image like so:
+  // pachctl misc grpc storage.Fileset.GraphFileset '{"fileset_id": "<ID>"}' | jq -r .graph | dot -Tpng > graph.png
+  rpc GraphFileset(GraphFilesetRequest) returns (GraphFilesetResponse) {}
+  rpc GraphIndices(GraphIndicesRequest) returns (GraphIndicesResponse) {}
 }

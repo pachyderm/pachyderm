@@ -77,6 +77,7 @@ const (
 	API_ListProject_FullMethodName          = "/pfs_v2.API/ListProject"
 	API_DeleteProject_FullMethodName        = "/pfs_v2.API/DeleteProject"
 	API_ReposSummary_FullMethodName         = "/pfs_v2.API/ReposSummary"
+	API_CompactCommitFileset_FullMethodName = "/pfs_v2.API/CompactCommitFileset"
 )
 
 // APIClient is the client API for API service.
@@ -199,6 +200,8 @@ type APIClient interface {
 	// Summary API
 	// ReposSummary returns a list of summaries about the repos for each of the requested projects.
 	ReposSummary(ctx context.Context, in *ReposSummaryRequest, opts ...grpc.CallOption) (*ReposSummaryResponse, error)
+	// CompactCommitFileset runs the filesets of an input commit through compaction and returns the id of the new fileset.
+	CompactCommitFileset(ctx context.Context, in *CompactCommitFilesetRequest, opts ...grpc.CallOption) (*CompactCommitFilesetResponse, error)
 }
 
 type aPIClient struct {
@@ -1214,6 +1217,15 @@ func (c *aPIClient) ReposSummary(ctx context.Context, in *ReposSummaryRequest, o
 	return out, nil
 }
 
+func (c *aPIClient) CompactCommitFileset(ctx context.Context, in *CompactCommitFilesetRequest, opts ...grpc.CallOption) (*CompactCommitFilesetResponse, error) {
+	out := new(CompactCommitFilesetResponse)
+	err := c.cc.Invoke(ctx, API_CompactCommitFileset_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 // All implementations must embed UnimplementedAPIServer
 // for forward compatibility
@@ -1334,6 +1346,8 @@ type APIServer interface {
 	// Summary API
 	// ReposSummary returns a list of summaries about the repos for each of the requested projects.
 	ReposSummary(context.Context, *ReposSummaryRequest) (*ReposSummaryResponse, error)
+	// CompactCommitFileset runs the filesets of an input commit through compaction and returns the id of the new fileset.
+	CompactCommitFileset(context.Context, *CompactCommitFilesetRequest) (*CompactCommitFilesetResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -1505,6 +1519,9 @@ func (UnimplementedAPIServer) DeleteProject(context.Context, *DeleteProjectReque
 }
 func (UnimplementedAPIServer) ReposSummary(context.Context, *ReposSummaryRequest) (*ReposSummaryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReposSummary not implemented")
+}
+func (UnimplementedAPIServer) CompactCommitFileset(context.Context, *CompactCommitFilesetRequest) (*CompactCommitFilesetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompactCommitFileset not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
@@ -2585,6 +2602,24 @@ func _API_ReposSummary_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_CompactCommitFileset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompactCommitFilesetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).CompactCommitFileset(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_CompactCommitFileset_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).CompactCommitFileset(ctx, req.(*CompactCommitFilesetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // API_ServiceDesc is the grpc.ServiceDesc for API service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2723,6 +2758,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReposSummary",
 			Handler:    _API_ReposSummary_Handler,
+		},
+		{
+			MethodName: "CompactCommitFileset",
+			Handler:    _API_CompactCommitFileset_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -133,6 +133,7 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 			return nil, errors.Wrap(err, "pfs env")
 		}
 	}
+	pfsEnv.CompactCommits = cfg.CompactCommits
 	return pfsEnv, nil
 }
 

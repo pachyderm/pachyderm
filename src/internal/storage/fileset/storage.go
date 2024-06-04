@@ -2,6 +2,9 @@ package fileset
 
 import (
 	"context"
+	"fmt"
+	"github.com/emicklei/dot"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"math"
 	"strings"
@@ -93,6 +96,17 @@ func NewStorage(mds MetadataStore, tr track.Tracker, chunks *chunk.Storage, opts
 	return s
 }
 
+func (s *Storage) InsertCompactionStep(ctx context.Context, id, compactedId *ID, step uint64) error {
+	return errors.Wrap(dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
+		_, err := tx.ExecContext(ctx, "INSERT INTO storage.compaction_steps (id, compacted_id, step) VALUES ($1, $2, $3)",
+			id, compactedId, step)
+		if err != nil {
+			return errors.Wrap(err, "insert compaction step")
+		}
+		return nil
+	}), "with tx")
+}
+
 func (s *Storage) ShardConfig() *index.ShardConfig {
 	return s.shardConfig
 }
@@ -116,6 +130,54 @@ func (s *Storage) newReader(id ID) *Reader {
 	return newReader(s.store, s.chunks, s.idxCache, id)
 }
 
+func (s *Storage) graphNode(ctx context.Context, id ID, graph *dot.Graph) (*dot.Node, error) {
+	rd, err := s.getFilesetRelationalData(ctx, id)
+	if err != nil {
+		return nil, errors.Wrap(err, "graph root")
+	}
+	var nodePtr *dot.Node
+	switch rd.Metadata.Value.(type) {
+	case *Metadata_Primitive:
+		node := graph.Node(rd.nodeName(id, "primitive"))
+		node.Attrs("color", "blue", "shape", "Mrecord")
+		nodePtr = &node
+	case *Metadata_Composite:
+		node := graph.Node(rd.nodeName(id, "composite"))
+		node.Attrs("color", "purple", "shape", "Mrecord")
+		nodePtr = &node
+	}
+	return nodePtr, nil
+}
+
+// Open opens a file set for reading.
+func (s *Storage) OpenAndGraph(ctx context.Context, id ID, graph *dot.Graph) (FileSet, error) {
+	rootNode, err := s.graphNode(ctx, id, graph)
+	if err != nil {
+		return nil, errors.Wrap(err, "open and graph")
+	}
+	ids, err := s.FlattenAll(ctx, []ID{id})
+	if err != nil {
+		return nil, err
+	}
+	var fss []FileSet
+	for _, primId := range ids {
+		primNode, err := s.graphNode(ctx, primId, graph)
+		if err != nil {
+			return nil, errors.Wrap(err, "open and graph")
+		}
+		primNode.Label(primId.HexString())
+		rootNode.Edge(*primNode, "flattened")
+		fss = append(fss, s.newReader(primId))
+	}
+	if len(fss) == 0 {
+		return emptyFileSet{}, nil
+	}
+	if len(fss) == 1 {
+		return fss[0], nil
+	}
+	return newMergeReader(s.chunks, fss, ids), nil
+}
+
 // Open opens a file set for reading.
 func (s *Storage) Open(ctx context.Context, ids []ID) (FileSet, error) {
 	var err error
@@ -133,7 +195,7 @@ func (s *Storage) Open(ctx context.Context, ids []ID) (FileSet, error) {
 	if len(fss) == 1 {
 		return fss[0], nil
 	}
-	return newMergeReader(s.chunks, fss), nil
+	return newMergeReader(s.chunks, fss, ids), nil
 }
 
 // Compose produces a composite fileset from the filesets under ids.
@@ -155,6 +217,10 @@ func (s *Storage) Compose(ctx context.Context, ids []ID, ttl time.Duration) (*ID
 // It does not perform a merge or check that the filesets at ids in any way
 // other than ensuring that they exist.
 func (s *Storage) ComposeTx(tx *pachsql.Tx, ids []ID, ttl time.Duration) (*ID, error) {
+	if len(ids) == 1 {
+		id := ids[0]
+		return &id, nil
+	}
 	c := &Composite{
 		Layers: idsToHex(ids),
 	}
@@ -164,18 +230,117 @@ func (s *Storage) ComposeTx(tx *pachsql.Tx, ids []ID, ttl time.Duration) (*ID, e
 // CloneTx creates a new fileset, identical to the fileset at id, but with the specified ttl.
 // The ttl can be ignored by using track.NoTTL
 func (s *Storage) CloneTx(tx *pachsql.Tx, id ID, ttl time.Duration) (*ID, error) {
-	md, err := s.store.GetTx(tx, id)
+	return &id, nil
+	//md, err := s.store.GetTx(tx, id)
+	//if err != nil {
+	//	return nil, errors.EnsureStack(err)
+	//}
+	//switch x := md.Value.(type) {
+	//case *Metadata_Primitive:
+	//	return s.newPrimitiveTx(tx, x.Primitive, ttl)
+	//case *Metadata_Composite:
+	//	return s.newCompositeTx(tx, x.Composite, ttl)
+	//default:
+	//	return nil, errors.Errorf("cannot clone type %T", md.Value)
+	//}
+}
+
+type relationalData struct {
+	Diffs    []string `db:"diffs"`
+	Totals   []string `db:"totals"`
+	Metadata *Metadata
+}
+
+func (r *relationalData) nodeName(id ID, filesetType string) string {
+	nodeName := fmt.Sprintf(`{"id":"%s"`, id.HexString())
+	if len(r.Totals) > 0 {
+		nodeName += fmt.Sprintf(` | "totalsFor":"%s"`, strings.Join(r.Totals, ","))
+	}
+	if len(r.Diffs) > 0 {
+		nodeName += fmt.Sprintf(` | "diffsFor":"%s"`, strings.Join(r.Diffs, ","))
+	}
+	nodeName += fmt.Sprintf(`| "type":"%s" }`, filesetType)
+	return nodeName
+}
+
+func (s *Storage) getFilesetRelationalData(ctx context.Context, filesetId ID) (*relationalData, error) {
+	rd := &relationalData{}
+	var err error
+	if err = dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
+		rd.Metadata, err = s.store.GetTx(tx, filesetId)
+		if err != nil {
+			return errors.Wrap(err, "get fileset metadata in tx")
+		}
+		err = sqlx.SelectContext(ctx, tx, &rd.Diffs, `SELECT commit_id as "diffs" FROM pfs.commit_diffs WHERE fileset_id = $1`, filesetId)
+		if err != nil {
+			return errors.Wrap(err, "getting commit diffs")
+		}
+		err = sqlx.SelectContext(ctx, tx, &rd.Totals, `SELECT commit_id as "totals" FROM pfs.commit_totals WHERE fileset_id = $1`, filesetId)
+		if err != nil {
+			return errors.Wrap(err, "getting commit totals")
+		}
+		return nil
+	}, dbutil.WithReadOnly()); err != nil {
+		return nil, errors.Wrap(err, "getFilesetRelationalData")
+	}
+	return rd, nil
+}
+
+func (s *Storage) graph(ctx context.Context, childId ID, parentId *dot.Node, g *dot.Graph) error {
+	rd, err := s.getFilesetRelationalData(ctx, childId)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return errors.Wrap(err, fmt.Sprintf("graph file set: %s", childId.HexString()))
 	}
-	switch x := md.Value.(type) {
+	switch x := rd.Metadata.Value.(type) {
 	case *Metadata_Primitive:
-		return s.newPrimitiveTx(tx, x.Primitive, ttl)
+		node := g.Node(rd.nodeName(childId, "primitive"))
+		node.Attrs("color", "blue", "shape", "Mrecord")
+		if parentId != nil {
+			g.Edge(*parentId, node)
+		}
 	case *Metadata_Composite:
-		return s.newCompositeTx(tx, x.Composite, ttl)
+		node := g.Node(rd.nodeName(childId, "composite"))
+		node.Attrs("color", "purple", "shape", "Mrecord")
+		if parentId != nil {
+			g.Edge(*parentId, node)
+		}
+		layers, err := HexStringsToIDs(x.Composite.Layers)
+		if err != nil {
+			return errors.Wrap(err, "graph")
+		}
+		for _, cId := range layers {
+			err = s.graph(ctx, cId, &node, g)
+			if err != nil {
+				return errors.Wrap(err, "graph")
+			}
+		}
 	default:
-		return nil, errors.Errorf("cannot clone type %T", md.Value)
+		return errors.Errorf("graph is not defined for empty filesets")
 	}
+	return nil
+}
+
+func (s *Storage) Graph(ctx context.Context, id ID) (string, error) {
+	g := dot.NewGraph(dot.Directed)
+	err := s.graph(ctx, id, nil, g)
+	if err != nil {
+		return "", errors.Wrap(err, "graph")
+	}
+	return g.String(), nil
+}
+
+func (s *Storage) GraphIndices(ctx context.Context, id ID) (string, error) {
+	graph := dot.NewGraph(dot.Directed)
+	reader, err := s.OpenAndGraph(ctx, id, graph)
+	if err != nil {
+		return "", errors.Wrap(err, "graph indices")
+	}
+	if err := reader.Iterate(ctx, func(f File) error {
+		return nil
+	}, index.WithGraph(graph)); err != nil {
+		return "", errors.Wrap(err, "graph indices: iterating through file set reader")
+	}
+	return graph.String(), nil
 }
 
 // Flatten iterates through IDs and replaces references to composite file sets

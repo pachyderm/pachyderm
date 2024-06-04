@@ -396,6 +396,37 @@ type WalkCommitSubvenanceRequest struct {
 	*pfs.WalkCommitSubvenanceRequest
 }
 
+func (a *apiServer) CompactCommitFileset(ctx context.Context, request *pfs.CompactCommitFilesetRequest) (*pfs.CompactCommitFilesetResponse, error) {
+	resp := &pfs.CompactCommitFilesetResponse{}
+	var commit *pfsdb.CommitWithID
+	var err error
+	if err = a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		commit, err = pfsdb.PickCommit(ctx, request.CommitPicker, txnCtx.SqlTx)
+		if err != nil {
+			return errors.Wrap(err, "with read context")
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "compact commit fileset")
+	}
+	if commit == nil {
+		return nil, errors.New("compact commit fileset: picked a nil commit")
+	}
+	if err = a.driver.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		compactor := newCompactor(a.driver.storage.Filesets, a.driver.env.StorageConfig.StorageCompactionMaxFanIn)
+		taskDoer := a.driver.env.TaskService.NewDoer(StorageTaskNamespace, commit.Commit.Id, nil)
+		id, err := a.driver.compact(ctx, compactor, taskDoer, renewer, commit.Commit)
+		if err != nil {
+			return errors.Wrap(err, "with renewer")
+		}
+		resp.FilesetId = id.HexString()
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "compact commit fileset")
+	}
+	return resp, nil
+}
+
 func (a *apiServer) WalkCommitProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
 	for _, start := range request.StartWithID {
 		if err := a.driver.walkCommitProvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {

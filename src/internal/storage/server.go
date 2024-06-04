@@ -105,6 +105,34 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 	return res, errors.EnsureStack(err)
 }
 
+func (s *Server) GraphFileset(ctx context.Context, request *storage.GraphFilesetRequest) (*storage.GraphFilesetResponse, error) {
+	id, err := fileset.ParseID(request.FilesetId)
+	if err != nil {
+		return nil, err
+	}
+	graph, err := s.Filesets.Graph(ctx, *id)
+	if err != nil {
+		return nil, err
+	}
+	return &storage.GraphFilesetResponse{
+		Graph: graph,
+	}, nil
+}
+
+func (s *Server) GraphIndices(ctx context.Context, request *storage.GraphIndicesRequest) (*storage.GraphIndicesResponse, error) {
+	id, err := fileset.ParseID(request.FilesetId)
+	if err != nil {
+		return nil, err
+	}
+	graph, err := s.Filesets.GraphIndices(ctx, *id)
+	if err != nil {
+		return nil, err
+	}
+	return &storage.GraphIndicesResponse{
+		Graph: graph,
+	}, nil
+}
+
 // TODO: Copy file.
 func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error {
 	ctx := server.Context()

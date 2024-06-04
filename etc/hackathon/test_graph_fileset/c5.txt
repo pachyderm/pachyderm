@@ -1,0 +1,5 @@
+digraph  {
+	
+	n1[color="blue",label="{\"id\":\"55e49cb16fd7fa1011244c8a17b2e57a\" | \"totalsFor\":\"default/test.user@8eee650ec1ce433e90ddb3d8a7119781\"| \"type\":\"primitive\" }",shape="Mrecord"];
+	
+}

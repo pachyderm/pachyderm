@@ -83,6 +83,22 @@ export type ShardFilesetResponse = {
   shards?: PathRange[]
 }
 
+export type GraphFilesetRequest = {
+  filesetId?: string
+}
+
+export type GraphFilesetResponse = {
+  graph?: string
+}
+
+export type GraphIndicesRequest = {
+  filesetId?: string
+}
+
+export type GraphIndicesResponse = {
+  graph?: string
+}
+
 export class Fileset {
   static ReadFileset(req: ReadFilesetRequest, entityNotifier?: fm.NotifyStreamEntityArrival<ReadFilesetResponse>, initReq?: fm.InitReq): Promise<void> {
     return fm.fetchStreamingRequest<ReadFilesetRequest, ReadFilesetResponse>(`/storage.Fileset/ReadFileset`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
@@ -95,5 +111,11 @@ export class Fileset {
   }
   static ShardFileset(req: ShardFilesetRequest, initReq?: fm.InitReq): Promise<ShardFilesetResponse> {
     return fm.fetchReq<ShardFilesetRequest, ShardFilesetResponse>(`/storage.Fileset/ShardFileset`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static GraphFileset(req: GraphFilesetRequest, initReq?: fm.InitReq): Promise<GraphFilesetResponse> {
+    return fm.fetchReq<GraphFilesetRequest, GraphFilesetResponse>(`/storage.Fileset/GraphFileset`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static GraphIndices(req: GraphIndicesRequest, initReq?: fm.InitReq): Promise<GraphIndicesResponse> {
+    return fm.fetchReq<GraphIndicesRequest, GraphIndicesResponse>(`/storage.Fileset/GraphIndices`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
 }

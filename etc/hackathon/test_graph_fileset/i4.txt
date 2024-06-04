@@ -1,0 +1,69 @@
+digraph  {
+	subgraph cluster_s9 {
+		label="";
+		n10[color="black",label="additive"];
+		n13[color="green",label="{\"id\":\"/b\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"2f2a213f7d4ef704b05dbd01ecf7530372ee78c1ee760fe344b2d738241a1f89\"}",shape="Mrecord"];
+		n10->n13[label=""];
+		
+	}
+	subgraph cluster_s20 {
+		label="";
+		n21[color="black",label="deletive"];
+		n22[color="green",label="{\"id\":\"/b\" | \"type\":\"file\" | \"size\":\"0\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"0\"}",shape="Mrecord"];
+		n21->n22[label=""];
+		
+	}
+	subgraph cluster_s17 {
+		label="";
+		n18[color="black",label="additive"];
+		n19[color="green",label="{\"id\":\"/c\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"2f2a213f7d4ef704b05dbd01ecf7530372ee78c1ee760fe344b2d738241a1f89\"}",shape="Mrecord"];
+		n18->n19[label=""];
+		
+	}
+	subgraph cluster_s14 {
+		label="";
+		n15[color="black",label="deletive"];
+		n16[color="green",label="{\"id\":\"/c\" | \"type\":\"file\" | \"size\":\"0\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"0\"}",shape="Mrecord"];
+		n15->n16[label=""];
+		
+	}
+	subgraph cluster_s23 {
+		label="";
+		n24[color="black",label="additive"];
+		n25[color="green",label="{\"id\":\"/a\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"2f2a213f7d4ef704b05dbd01ecf7530372ee78c1ee760fe344b2d738241a1f89\"}",shape="Mrecord"];
+		n24->n25[label=""];
+		
+	}
+	subgraph cluster_s6 {
+		label="";
+		n7[color="black",label="additive"];
+		n8[color="green",label="{\"id\":\"/d\" | \"type\":\"file\" | \"size\":\"5\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"1\" | \"chunk.0\":\"2f2a213f7d4ef704b05dbd01ecf7530372ee78c1ee760fe344b2d738241a1f89\"}",shape="Mrecord"];
+		n7->n8[label=""];
+		
+	}
+	subgraph cluster_s11 {
+		label="";
+		n12[color="black",label="deletive"];
+		n26[color="green",label="{\"id\":\"/d\" | \"type\":\"file\" | \"size\":\"0\" | \"numFiles\":\"1\" | \"datum\":\"default\" | \"numChunks\":\"0\"}",shape="Mrecord"];
+		n12->n26[label=""];
+		
+	}
+	
+	n3[color="blue",label="07a3ba6c27da4e6459f135393f5ffa8b",shape="Mrecord"];
+	n4[color="blue",label="0a3c19ca41201f73b75e40d33500e9c0",shape="Mrecord"];
+	n2[color="blue",label="1a928f9d4d98a610cbb1a11a7defdff6",shape="Mrecord"];
+	n5[color="blue",label="a8e14f9f5b0b7c93e629be51209cf57b",shape="Mrecord"];
+	n1[color="purple",label="{\"id\":\"abfd67958f9f1c817c3c69e0c09d1b5f\" | \"totalsFor\":\"default/test.user@8eee650ec1ce433e90ddb3d8a7119781\"| \"type\":\"composite\" }",shape="Mrecord"];
+	n3->n10;
+	n3->n21;
+	n4->n15;
+	n4->n18;
+	n2->n24;
+	n5->n7;
+	n5->n12;
+	n1->n2[label="flattened"];
+	n1->n3[label="flattened"];
+	n1->n4[label="flattened"];
+	n1->n5[label="flattened"];
+	
+}

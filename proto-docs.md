@@ -331,6 +331,8 @@
     - [CommitPicker.CommitByGlobalId](#pfs_v2-CommitPicker-CommitByGlobalId)
     - [CommitSet](#pfs_v2-CommitSet)
     - [CommitSetInfo](#pfs_v2-CommitSetInfo)
+    - [CompactCommitFilesetRequest](#pfs_v2-CompactCommitFilesetRequest)
+    - [CompactCommitFilesetResponse](#pfs_v2-CompactCommitFilesetResponse)
     - [ComposeFileSetRequest](#pfs_v2-ComposeFileSetRequest)
     - [CopyFile](#pfs_v2-CopyFile)
     - [CreateBranchRequest](#pfs_v2-CreateBranchRequest)
@@ -680,6 +682,10 @@
     - [CreateFilesetResponse](#storage-CreateFilesetResponse)
     - [DeleteFile](#storage-DeleteFile)
     - [FileFilter](#storage-FileFilter)
+    - [GraphFilesetRequest](#storage-GraphFilesetRequest)
+    - [GraphFilesetResponse](#storage-GraphFilesetResponse)
+    - [GraphIndicesRequest](#storage-GraphIndicesRequest)
+    - [GraphIndicesResponse](#storage-GraphIndicesResponse)
     - [PathRange](#storage-PathRange)
     - [ReadFilesetRequest](#storage-ReadFilesetRequest)
     - [ReadFilesetResponse](#storage-ReadFilesetResponse)
@@ -5341,6 +5347,36 @@ This models .N syntax.
 
 
 
+<a name="pfs_v2-CompactCommitFilesetRequest"></a>
+
+### CompactCommitFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| commit_picker | [CommitPicker](#pfs_v2-CommitPicker) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CompactCommitFilesetResponse"></a>
+
+### CompactCommitFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="pfs_v2-ComposeFileSetRequest"></a>
 
 ### ComposeFileSetRequest
@@ -6882,6 +6918,7 @@ These are the different places where a commit may be originated from
 | ListProject | [ListProjectRequest](#pfs_v2-ListProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) stream | ListProject returns info about all projects. |
 | DeleteProject | [DeleteProjectRequest](#pfs_v2-DeleteProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteProject deletes a project. |
 | ReposSummary | [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest) | [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse) | Summary API ReposSummary returns a list of summaries about the repos for each of the requested projects. |
+| CompactCommitFileset | [CompactCommitFilesetRequest](#pfs_v2-CompactCommitFilesetRequest) | [CompactCommitFilesetResponse](#pfs_v2-CompactCommitFilesetResponse) | CompactCommitFileset runs the filesets of an input commit through compaction and returns the id of the new fileset. |
 
  
 
@@ -10913,6 +10950,66 @@ specified path doesn&#39;t exist, the delete will be a no-op.
 
 
 
+<a name="storage-GraphFilesetRequest"></a>
+
+### GraphFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-GraphFilesetResponse"></a>
+
+### GraphFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| graph | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-GraphIndicesRequest"></a>
+
+### GraphIndicesRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-GraphIndicesResponse"></a>
+
+### GraphIndicesResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| graph | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="storage-PathRange"></a>
 
 ### PathRange
@@ -11036,6 +11133,8 @@ storage&#39;s default value is used.
 | RenewFileset | [RenewFilesetRequest](#storage-RenewFilesetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | RenewFileset renews a fileset. |
 | ComposeFileset | [ComposeFilesetRequest](#storage-ComposeFilesetRequest) | [ComposeFilesetResponse](#storage-ComposeFilesetResponse) | ComposeFileset composes a fileset. Composing a fileset involves combining one or more filesets into a single fileset. TODO: Explain how the filesets are layered and what that means for the order of file modifications. |
 | ShardFileset | [ShardFilesetRequest](#storage-ShardFilesetRequest) | [ShardFilesetResponse](#storage-ShardFilesetResponse) | ShardFileset shards a fileset. The shards of a fileset are returned as a list of path ranges that are disjoint and account for the full set of paths in the fileset. |
+| GraphFileset | [GraphFilesetRequest](#storage-GraphFilesetRequest) | [GraphFilesetResponse](#storage-GraphFilesetResponse) | GraphFileset generates a graph of a fileset in the form of a dot graph. Pass the output to jq and then to dot to get an image like so: pachctl misc grpc storage.Fileset.GraphFileset &#39;{&#34;fileset_id&#34;: &#34;&lt;ID&gt;&#34;}&#39; | jq -r .graph | dot -Tpng &gt; graph.png |
+| GraphIndices | [GraphIndicesRequest](#storage-GraphIndicesRequest) | [GraphIndicesResponse](#storage-GraphIndicesResponse) |  |
 
  
 

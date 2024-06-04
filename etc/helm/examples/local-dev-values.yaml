@@ -2,7 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 deployTarget: custom
 
+console:
+  enabled: false
+
+kubeEventTail:
+  enabled: false
+
 pachd:
+  lokiDeploy: false
+  compactCommits: true
   image:
     tag: local
   resources:

@@ -1175,3 +1175,19 @@ func (x *ReposSummaryResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	enc.AddArray("summaries", zapcore.ArrayMarshalerFunc(summariesArrMarshaller))
 	return nil
 }
+
+func (x *CompactCommitFilesetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("commit_picker", x.CommitPicker)
+	return nil
+}
+
+func (x *CompactCommitFilesetResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("fileset_id", x.FilesetId)
+	return nil
+}

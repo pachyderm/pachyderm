@@ -30,9 +30,24 @@ func newCompactor(storage *fileset.Storage, maxFanIn int) *compactor {
 }
 
 func (c *compactor) Compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
-	return c.storage.CompactLevelBased(ctx, ids, c.maxFanIn, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
-		return c.compact(ctx, taskDoer, ids, ttl)
+	intermediaryFilesets := make([]*fileset.ID, 0)
+	compactedId, err := c.storage.CompactLevelBased(ctx, ids, c.maxFanIn, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+		id, err := c.compact(ctx, taskDoer, ids, ttl)
+		if err != nil {
+			return id, err
+		}
+		intermediaryFilesets = append(intermediaryFilesets, id)
+		return id, nil
 	})
+	if err != nil {
+		return nil, errors.Wrap(err, "compact commit fileset")
+	}
+	for step, id := range intermediaryFilesets {
+		if err := c.storage.InsertCompactionStep(ctx, id, compactedId, uint64(step)); err != nil {
+			return nil, errors.Wrap(err, "compact commit fileset")
+		}
+	}
+	return compactedId, nil
 }
 
 func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {

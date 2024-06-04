@@ -17,12 +17,14 @@ import (
 type MergeReader struct {
 	chunks   *chunk.Storage
 	fileSets []FileSet
+	ids      []ID
 }
 
-func newMergeReader(chunks *chunk.Storage, fileSets []FileSet) *MergeReader {
+func newMergeReader(chunks *chunk.Storage, fileSets []FileSet, ids []ID) *MergeReader {
 	return &MergeReader{
 		chunks:   chunks,
 		fileSets: fileSets,
+		ids:      ids,
 	}
 }
 
@@ -31,15 +33,22 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ..
 	ctx = pctx.Child(ctx, "mergeReader")
 	var ss []stream.Stream
 	for i, fs := range mr.fileSets {
+		id := mr.ids[i]
 		// Ignore the base file set's deletive set since it does not affect the state.
 		if i > 0 {
+			var subOpts []index.Option
+			subOpts = append(subOpts, index.WithName(id.HexString()+"-deletive"))
+			subOpts = append(subOpts, opts...)
 			ss = append(ss, &fileStream{
-				iterator: NewIterator(ctx, fs.IterateDeletes, opts...),
+				iterator: NewIterator(ctx, fs.IterateDeletes, subOpts...),
 				deletive: true,
 			})
 		}
+		var subOpts []index.Option
+		subOpts = append(subOpts, index.WithName(id.HexString()+"-additive"))
+		subOpts = append(subOpts, opts...)
 		ss = append(ss, &fileStream{
-			iterator: NewIterator(ctx, fs.Iterate, opts...),
+			iterator: NewIterator(ctx, fs.Iterate, subOpts...),
 		})
 	}
 	pq := stream.NewPriorityQueue(ss, compare)
