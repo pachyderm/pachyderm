@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"regexp"
 	"unicode"
 
 	"google.golang.org/protobuf/proto"
@@ -352,55 +353,56 @@ func isDigit(b byte) bool {
 // 2. If there is branch root ".", it should be the first operator; It also should be the only "."
 // 3. There should be a number right after "."
 // 4. If branch root and ancestor of are used together, the offset of branch root should >= offset of ancestor of
+// 5. There can be multiple "^"; but the it should end when there is a number following a "^"; so "^^1^" is not valid
 func countOffsetAndClean(b *[]byte, offset *uint32) error {
-	var valStack uint32 = 0
-	var signStack uint32 = 0
-	var nth uint32 = 0
-	firstOpIndex := -1
-	for i := 0; i < len(*b); i++ {
-		v := (*b)[i]
-		if firstOpIndex == -1 && (v == '^' || v == '.') {
-			firstOpIndex = i
-			// calculate the number after branch root.
-			if v == '.' {
-				j := i + 1
-				if !isDigit((*b)[j]) {
-					return errors.New("invalid ancestry reference: there should be a number after '.'")
-				}
-				for j < len(*b) && isDigit((*b)[j]) {
-					nth = nth*10 + (uint32((*b)[j]) - uint32('0'))
-					j++
-				}
-				i = j - 1
-				continue
-			}
-		}
-		if firstOpIndex == -1 {
-			continue
-		}
-		if v == '.' {
-			return errors.New("invalid ancestry reference: '.' should be right after branch name or commit id")
-		}
-		if !('0' <= v && v <= '9') && v != '^' {
-			return errors.New("invalid ancestry reference: it can only contain digits, '^' and '.'")
-		}
-		if v == '^' {
-			*offset += signStack + valStack
-			signStack = 1
-			valStack = 0
-		} else {
-			signStack = 0
-			// convert byte '1' to 1
-			valStack = valStack*10 + (uint32(v) - uint32('0'))
-		}
+	atIndex := bytes.IndexAny(*b, "@")
+	// first . ^ after @
+	firstIndex := bytes.IndexAny((*b)[atIndex+1:], "^.") + atIndex + 1
+	re := regexp.MustCompile(`^\.(\d+[^.]*)?$|^\^*?(\d+|\^*)?$`)
+	if !re.Match((*b)[firstIndex:]){
+		return errors.New("invalid Ancestry format")
 	}
-	*offset += valStack + signStack
-	// offset variable was calculated for "^". it needs to be subtracted if this is a branch of operation
-	if (*b)[firstOpIndex] == '.' {
-		if *offset > nth {
-			return errors.New("invalid ancestry reference: the offset of branch root should >= offset of ancestor of")
+	branchRootOffset := -1
+	ancestorOfOffset := -1
+	firstCaretIndex := bytes.IndexAny(*b, "^")
+	if (*b)[firstIndex] == '.' {
+		// Find the number after '.'
+		numberEndIndex := bytes.IndexAny((*b)[firstIndex+1:], "^")
+		var numberStr string
+		if numberEndIndex != -1 {
+			numberStr = string((*b)[firstIndex+1 : firstIndex+1+numberEndIndex])
+		} else {
+			numberStr = string((*b)[firstIndex+1:])
 		}
-		*offset = nth - *offset
+
+		num, err := strconv.Atoi(numberStr)
+		if err != nil {
+			return errors.New("invalid number after '.'")
+		} 
+		branchRootOffset = num
+	}
+	// Find the last occurrence of '^'
+	lastCaretIndex := bytes.LastIndex((*b), []byte("^"))
+	ancestorOfOffset = lastCaretIndex - firstCaretIndex + 1
+	// there is a number after the last '^'
+	if lastCaretIndex != len(*b)-1 {
+		num, err := strconv.Atoi(string((*b)[lastCaretIndex+1:]))
+		if err != nil {
+			return errors.New("invalid number format after '^'")
+		} 
+		ancestorOfOffset += num - 1
+	}
+	if ancestorOfOffset == -1 {
+		*offset = uint32(branchRootOffset)
+	}
+	if branchRootOffset == -1 {
+		*offset = uint32(ancestorOfOffset)
+	}
+	if branchRootOffset != -1 && ancestorOfOffset != -1 {
+		if ancestorOfOffset >= branchRootOffset {
+			return errors.New("there should be less ancestors than descendants")
+		}
+		*offset = uint32(branchRootOffset - ancestorOfOffset)
 	}
 	*b = (*b)[:firstOpIndex]
 	return nil
