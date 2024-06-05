@@ -51,7 +51,7 @@ func (r *Resolver) deref(ctx context.Context, ref *Ref, cache bool) (io.ReadClos
 	cacheRC := func(rc io.ReadCloser) (io.ReadCloser, error) {
 		data, err := io.ReadAll(rc)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		r.cache.put(ref, data)
 		return io.NopCloser(bytes.NewReader(data)), nil
@@ -101,7 +101,7 @@ func (r *Resolver) deref(ctx context.Context, ref *Ref, cache bool) (io.ReadClos
 func (r *Resolver) derefHTTP(ctx context.Context, ref *HTTP) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ref.Url, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	for k, v := range ref.Headers {
 		req.Header.Add(k, v)
@@ -109,7 +109,7 @@ func (r *Resolver) derefHTTP(ctx context.Context, ref *HTTP) (io.ReadCloser, err
 	// TODO: Check response code.
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return resp.Body, nil
 }
@@ -122,14 +122,14 @@ func (r *Resolver) derefContentHash(ctx context.Context, ref *ContentHash, cache
 	// TODO: add a maximum limit here
 	data, err := io.ReadAll(innerRc)
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	var h hash.Hash
 	switch ref.Algo {
 	case HashAlgo_BLAKE2b_256:
 		h, err = blake2b.New256(nil)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 	default:
 		return nil, errors.Errorf("unrecognized hash algo %v", ref.Algo)
@@ -152,7 +152,7 @@ func (r *Resolver) derefCipher(ctx context.Context, ref *Cipher, cache bool) (io
 	case CipherAlgo_CHACHA20:
 		ciph, err := chacha20.NewUnauthenticatedCipher(ref.Key, ref.Nonce)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		rd = &cipher.StreamReader{R: innerRc, S: ciph}
 	default:
@@ -173,7 +173,7 @@ func (r *Resolver) derefCompress(ctx context.Context, ref *Compress, cache bool)
 	case CompressAlgo_GZIP:
 		gr, err := gzip.NewReader(innerRc)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		return readCloser{r: gr, closes: []func() error{
 			innerRc.Close,
@@ -190,7 +190,7 @@ func (r *Resolver) derefSlice(ctx context.Context, ref *Slice, cache bool) (io.R
 		return nil, err
 	}
 	if _, err := io.CopyN(io.Discard, innerRc, int64(ref.Start)); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return readCloser{
 		r: io.LimitReader(innerRc, int64(ref.End-ref.Start)),
@@ -220,7 +220,8 @@ type readCloser struct {
 }
 
 func (c readCloser) Read(buf []byte) (int, error) {
-	return c.r.Read(buf)
+	n, err := c.r.Read(buf)
+	return n, errors.EnsureStack(err)
 }
 
 func (c readCloser) Close() error {

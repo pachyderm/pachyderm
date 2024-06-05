@@ -22,7 +22,7 @@ func (s *Storage) CDRFromDataRef(ctx context.Context, dataRef *DataRef) (*cdr.Re
 	}
 	url, err := s.bucket.SignedURL(ctx, path, &blob.SignedURLOptions{Expiry: 24 * time.Hour})
 	if err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	ref := createHTTPRef(url, nil)
 	ref = createCipherRef(ref, dataRef.Ref.EncryptionAlgo, dataRef.Ref.Dek)

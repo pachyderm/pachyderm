@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"regexp"
 	"strconv"
@@ -360,7 +359,7 @@ func checkFilesetCDR(ctx context.Context, t *testing.T, c storage.FilesetClient,
 		require.Equal(t, next.path, msg.Path)
 		rc, err := r.Deref(ctx, msg.Ref)
 		require.NoError(t, err)
-		data, err := ioutil.ReadAll(rc)
+		data, err := io.ReadAll(rc)
 		require.NoError(t, err)
 		require.True(t, bytes.Equal(next.data, data))
 		expected = expected[1:]
