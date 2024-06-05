@@ -318,40 +318,10 @@ func fsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) err
 	return nil
 }
 
-func (d *driver) listReferencedCommits(tx *pachsql.Tx) (map[string]*pfs.Commit, error) {
-	cs := make(map[string]*pfs.Commit)
-	var ids []string
-	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_totals`); err != nil {
-		return nil, errors.Wrap(err, "select commit ids from pfs.commit_totals")
-	}
-	for _, id := range ids {
-		cs[id] = pfsdb.ParseCommit(id)
-	}
-	ids = make([]string, 0)
-	if err := tx.Select(&ids, `SELECT commit_id from  pfs.commit_diffs`); err != nil {
-		return nil, errors.Wrap(err, "select commit ids from pfs.commit_diffs")
-	}
-	for _, id := range ids {
-		cs[id] = pfsdb.ParseCommit(id)
-	}
-	return cs, nil
-}
-
-func fsckDanglingCommits(ris map[string]*pfs.RepoInfo, cs map[string]*pfs.Commit) []*pfs.Commit {
-	var danglingCommits []*pfs.Commit
-	for _, c := range cs {
-		if _, ok := ris[pfsdb.RepoKey(c.Repo)]; !ok {
-			danglingCommits = append(danglingCommits, c)
-		}
-	}
-	return danglingCommits
-}
-
 // fsck verifies that pfs satisfies the following invariants:
 // 1. Branch provenance is transitive
 // 2. Head commit provenance has heads of branch's branch provenance
-// If fix is true it will attempt to fix as many of these issues as it can.
-func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) error) error {
+func (d *driver) fsck(ctx context.Context, cb func(*pfs.FsckResponse) error) error {
 	onError := func(err error) error { return cb(&pfs.FsckResponse{Error: err.Error()}) }
 
 	// TODO(global ids): no fixable fsck issues?
@@ -361,7 +331,6 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfos := make(map[string]*pfs.RepoInfo)
-	referencedCommits := make(map[string]*pfs.Commit)
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			repoInfos[repoWithID.RepoInfo.Repo.Key()] = repoWithID.RepoInfo
@@ -393,34 +362,6 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	}
 	if err := fsckCommits(commitInfos, onError); err != nil {
 		return errors.Wrap(err, "commits")
-	}
-	var err error
-	if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		referencedCommits, err = d.listReferencedCommits(tx)
-		return errors.Wrap(err, "list referenced commits")
-	}, dbutil.WithReadOnly()); err != nil {
-		return err
-	}
-	dangCs := fsckDanglingCommits(repoInfos, referencedCommits)
-	if !fix && len(dangCs) > 0 {
-		var keys []string
-		for _, dc := range dangCs {
-			keys = append(keys, pfsdb.CommitKey(dc))
-		}
-		return errors.Errorf("commits with dangling references: %v", keys)
-	}
-	if fix {
-		return dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-			for _, dc := range dangCs {
-				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_totals WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
-					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_totals", pfsdb.CommitKey(dc))
-				}
-				if _, err := sqlTx.ExecContext(ctx, `DELETE FROM pfs.commit_diffs WHERE commit_id = $1`, pfsdb.CommitKey(dc)); err != nil {
-					return errors.Wrapf(err, "delete dangling commit reference %q from pfs.commit_diffs", pfsdb.CommitKey(dc))
-				}
-			}
-			return nil
-		})
 	}
 	return nil
 }

@@ -6269,7 +6269,7 @@ func TestPutFileAtomic(t *testing.T) {
 
 func TestTestTopologicalSortCommits(t *testing.T) {
 	t.Run("Empty", func(t *testing.T) {
-		require.True(t, len(server.TopologicalSort([]*pfs.CommitInfo{})) == 0)
+		require.True(t, len(server.TopologicalSort([]*pfsdb.CommitWithID{})) == 0)
 	})
 	t.Run("Fuzz", func(t *testing.T) {
 		// TODO: update gopls for generics
@@ -6289,7 +6289,7 @@ func TestTestTopologicalSortCommits(t *testing.T) {
 		}
 		// commit.String() -> number of total transitive provenant commits
 		totalProvenance := make(map[string]map[string]struct{})
-		var cis []*pfs.CommitInfo
+		var cis []*pfsdb.CommitWithID
 		total := 500
 		for i := 0; i < total; i++ {
 			totalProv := make(map[string]struct{})
@@ -6303,9 +6303,11 @@ func TestTestTopologicalSortCommits(t *testing.T) {
 					directProv = append(directProv, makeCommit(k))
 				}
 			}
-			ci := &pfs.CommitInfo{
-				Commit:           makeCommit(i),
-				DirectProvenance: directProv,
+			ci := &pfsdb.CommitWithID{
+				CommitInfo: &pfs.CommitInfo{
+					Commit:           makeCommit(i),
+					DirectProvenance: directProv,
+				},
 			}
 			totalProvenance[makeCommit(i).String()] = totalProv
 			cis = append(cis, ci)
