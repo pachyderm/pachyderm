@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-errors/errors"
 	"github.com/pachyderm/pachyderm/v2/src/cdr"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"gocloud.dev/blob"
 	"golang.org/x/crypto/chacha20"
 )
