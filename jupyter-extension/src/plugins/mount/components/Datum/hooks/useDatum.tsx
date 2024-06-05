@@ -40,7 +40,7 @@ export const useDatum = (
   const [currDatum, setCurrDatum] = useState<MountDatumResponse>({
     id: '',
     idx: -1,
-    num_datums: 0,
+    num_datums_received: 0,
     all_datums_received: false,
   });
   const [inputSpec, setInputSpec] = useState('');
@@ -58,7 +58,7 @@ export const useDatum = (
       setCurrDatum({
         id: '',
         idx: currentDatumInfo.idx,
-        num_datums: currentDatumInfo.num_datums,
+        num_datums_received: currentDatumInfo.num_datums_received,
         all_datums_received: currentDatumInfo.all_datums_received,
       });
       setInputSpec(inputSpecObjToText(currentDatumInfo.input));
@@ -170,7 +170,7 @@ export const useDatum = (
         setCurrDatum({
           id: currDatum.id,
           idx: currDatum.idx,
-          num_datums: currDatum.num_datums,
+          num_datums_received: currDatum.num_datums_received,
           all_datums_received: true,
         });
         setErrorMessage('Reached final datum');

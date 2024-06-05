@@ -31,6 +31,7 @@ type source struct {
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
 func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
+	fs = fileset.NewPathValidator(fs)
 	sc := &sourceConfig{}
 	for _, opt := range opts {
 		opt(sc)

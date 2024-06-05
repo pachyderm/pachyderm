@@ -28,6 +28,8 @@ import {
   PpsMetadata,
   PpsContext,
   MountSettings,
+  Repo,
+  Branch,
 } from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
@@ -139,7 +141,9 @@ export class MountPlugin implements IMountPlugin {
       'pfs',
       'explore',
       'pfs',
-      () => this.mountedRepo,
+      () => {
+        this.updateMountedRepo(null, null);
+      },
     );
 
     this._exploreScreen = new SplitPanel({orientation: 'vertical'});
@@ -152,7 +156,7 @@ export class MountPlugin implements IMountPlugin {
                 <Explore
                   repos={repos || this._poller.repos}
                   mountedRepo={mountedRepo || this._poller.mountedRepo}
-                  updateMountedRepo={this._poller.updateMountedRepo.bind(this)}
+                  updateMountedRepo={this.updateMountedRepo.bind(this)}
                 />
               )}
             </UseSignal>
@@ -171,7 +175,9 @@ export class MountPlugin implements IMountPlugin {
       'view_datum',
       'test',
       'datum',
-      () => this.mountedRepo,
+      () => {
+        this.updateMountedRepo(null, null);
+      },
     );
 
     this._datumScreen = new SplitPanel({orientation: 'vertical'});
@@ -258,6 +264,18 @@ export class MountPlugin implements IMountPlugin {
     restorer.add(this._panel, 'jupyterlab-pachyderm');
     app.shell.add(this._panel, 'left', {rank: 100});
   }
+
+  updateMountedRepo = async (
+    repo: Repo | null,
+    mountedBranch: Branch | null,
+  ): Promise<void> => {
+    await this._poller.updateMountedRepo(repo, mountedBranch);
+
+    this._pfsBrowser.model.cd('/');
+    this._datumBrowser.model.cd('/');
+
+    return Promise.resolve();
+  };
 
   /**
    * Checks if the widget currently in focus is a NotebookPanel.

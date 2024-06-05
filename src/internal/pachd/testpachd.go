@@ -93,6 +93,7 @@ func NewTestPachd(t testing.TB, opts ...TestPachdOption) *client.APIClient {
 	db := testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...)
 	directDB := testutil.OpenDB(t, dbcfg.Direct.DBOptions()...)
 	dbListenerConfig := dbutil.GetDSN(
+		ctx,
 		dbutil.WithHostPort(dbcfg.Direct.Host, int(dbcfg.Direct.Port)),
 		dbutil.WithDBName(dbcfg.Direct.DBName),
 		dbutil.WithUserPassword(dbcfg.Direct.User, dbcfg.Direct.Password),
@@ -197,17 +198,18 @@ func BuildTestPachd(ctx context.Context, opts ...TestPachdOption) (*Full, *clean
 	if err != nil {
 		return nil, cleaner, errors.Wrap(err, "test db config")
 	}
-	db, err := dbutil.NewDB(dbcfg.PGBouncer.DBOptions()...)
+	db, err := dbutil.NewDB(ctx, dbcfg.PGBouncer.DBOptions()...)
 	if err != nil {
 		return nil, cleaner, errors.Wrap(err, "open pgbouncer connection")
 	}
 	cleaner.AddCleanup("pgbouncer connection", db.Close)
-	directDB, err := dbutil.NewDB(dbcfg.Direct.DBOptions()...)
+	directDB, err := dbutil.NewDB(ctx, dbcfg.Direct.DBOptions()...)
 	if err != nil {
 		return nil, cleaner, errors.Wrap(err, "open direct db connection")
 	}
 	cleaner.AddCleanup("direct db connection", directDB.Close)
 	dbListenerConfig := dbutil.GetDSN(
+		ctx,
 		dbutil.WithHostPort(dbcfg.Direct.Host, int(dbcfg.Direct.Port)),
 		dbutil.WithDBName(dbcfg.Direct.DBName),
 		dbutil.WithUserPassword(dbcfg.Direct.User, dbcfg.Direct.Password),

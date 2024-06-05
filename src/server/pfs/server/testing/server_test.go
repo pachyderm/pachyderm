@@ -2724,24 +2724,24 @@ func TestInspectFile3(t *testing.T) {
 	fileContent2 := "barbar\n"
 	commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, env.PachClient.PutFile(commit2, "foo", strings.NewReader(fileContent2)))
+	require.NoError(t, env.PachClient.PutFile(commit2, "fizz", strings.NewReader(fileContent2)))
 
-	fileInfo, err = env.PachClient.InspectFile(commit2, "foo")
+	fileInfo, err = env.PachClient.InspectFile(commit2, "fizz")
 	require.NoError(t, err)
 	require.NotNil(t, fileInfo)
 
 	require.NoError(t, finishCommit(env.PachClient, repo, "", commit2.Id))
 
-	fi, err = env.PachClient.InspectFile(commit2, "foo")
+	fileInfo, err = env.PachClient.InspectFile(commit2, "fizz")
 	require.NoError(t, err)
-	require.NotNil(t, fi)
+	require.NotNil(t, fileInfo)
 
 	fileContent3 := "bar\n"
 	commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, env.PachClient.PutFile(commit3, "bar", strings.NewReader(fileContent3)))
+	require.NoError(t, env.PachClient.PutFile(commit3, "buzz", strings.NewReader(fileContent3)))
 	require.NoError(t, finishCommit(env.PachClient, repo, "", commit3.Id))
-	fi, err = env.PachClient.InspectFile(commit3, "bar")
+	fi, err = env.PachClient.InspectFile(commit3, "buzz")
 	require.NoError(t, err)
 	require.NotNil(t, fi)
 }
@@ -7611,6 +7611,30 @@ func TestNilBranchNameStream(t *testing.T) {
 
 	require.NoError(t, env.PachClient.ListFile(commit1, "/", func(fi *pfs.FileInfo) error {
 		require.Nil(t, fi.File.Commit.Branch)
+		return nil
+	}))
+}
+
+func TestWalkFileInvalid(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+
+	repo := "test"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+
+	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, env.PachClient.PutFile(commit1, "/a", &bytes.Buffer{}))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit1.Id))
+
+	commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, env.PachClient.PutFile(commit2, "/a/a", &bytes.Buffer{}))
+
+	_, err = env.PachClient.InspectFile(commit2, "/")
+	require.YesError(t, err)
+
+	require.YesError(t, env.PachClient.WalkFile(commit2, "/", func(fi *pfs.FileInfo) error {
 		return nil
 	}))
 }
