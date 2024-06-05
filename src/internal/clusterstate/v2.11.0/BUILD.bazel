@@ -13,7 +13,5 @@ go_library(
         "//src/internal/log",
         "//src/internal/migrations",
         "//src/internal/pctx",
-        "@com_github_jmoiron_sqlx//:sqlx",
-        "@org_uber_go_zap//:zap",
     ],
 )

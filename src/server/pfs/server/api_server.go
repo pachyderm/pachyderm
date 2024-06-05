@@ -781,9 +781,11 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *emptypb.Empty) (resp
 }
 
 // Fsck implements the protobuf pfs.Fsck RPC
+// As of 2.11, the fix parameter is ignored. The backend data model migrations in 2.8 prevents dangling commits
+// with foreign key constraints.
 func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
 	ctx := fsckServer.Context()
-	if err := a.driver.fsck(ctx, request.Fix, func(resp *pfs.FsckResponse) error {
+	if err := a.driver.fsck(ctx, func(resp *pfs.FsckResponse) error {
 		return errors.EnsureStack(fsckServer.Send(resp))
 	}); err != nil {
 		return err

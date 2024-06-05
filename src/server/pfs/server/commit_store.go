@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -194,12 +195,12 @@ func getDiff(tx *pachsql.Tx, commit *pfsdb.CommitWithID) ([]fileset.ID, error) {
 }
 
 func getTotal(tx *pachsql.Tx, commit *pfsdb.CommitWithID) (*fileset.ID, error) {
-	var id *fileset.ID
+	var id fileset.ID
 	if err := tx.Get(&id, `SELECT total_fileset_id FROM pfs.commits WHERE int_id = $1 AND total_fileset_id IS NOT NULL`,
 		commit.ID); err != nil {
 		return nil, errors.Wrap(err, "get total")
 	}
-	return id, nil
+	return &id, nil
 }
 
 func dropTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfsdb.CommitWithID) error {
@@ -234,24 +235,13 @@ func setDiff(tx *pachsql.Tx, tr track.Tracker, commit *pfsdb.CommitWithID, id fi
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
 		return errors.Wrap(err, "set diff")
 	}
-	if err := checkCommitDB(tx, commit); err != nil {
-		return errors.Wrap(err, "set diff")
+	if commit.ID == 0 {
+		return errors.New(fmt.Sprintf("cannot set diff for commit %v when ID is 0", commit.CommitInfo.Commit.Key()))
 	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
 	VALUES ($1, $2)
 	`, commit.Commit.Key(), id)
 	return errors.Wrap(err, "set diff")
-}
-
-func checkCommitDB(tx *pachsql.Tx, commit *pfsdb.CommitWithID) error {
-	var id = new(int)
-	if commit.ID > 0 {
-		if err := tx.QueryRow(`SELECT int_id FROM pfs.commits WHERE int_id = $1`, commit.ID).Scan(id); err != nil {
-			return errors.Wrap(err, "check commit by id")
-		}
-	}
-	err := tx.QueryRow(`SELECT int_id FROM pfs.commits WHERE commit_id = $1`, commit.Commit.Key()).Scan(id)
-	return errors.Wrap(err, "check commit by key")
 }
 
 func commitDiffTrackerID(commit *pfsdb.CommitWithID, fs fileset.ID) string {

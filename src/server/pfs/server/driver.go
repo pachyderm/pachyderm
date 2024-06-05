@@ -1091,7 +1091,7 @@ func (d *driver) inspectCommitWithID(ctx context.Context, commit *pfs.Commit, wa
 		case pfs.CommitState_STARTED:
 		case pfs.CommitState_READY:
 			for _, c := range commitWithID.DirectProvenance {
-				if _, err := d.inspectCommit(ctx, c, pfs.CommitState_FINISHED); err != nil {
+				if _, err := d.inspectCommitWithID(ctx, c, pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}
 			}
@@ -1108,28 +1108,11 @@ func (d *driver) inspectCommitWithID(ctx context.Context, commit *pfs.Commit, wa
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
 func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs.CommitState) (*pfs.CommitInfo, error) {
-	commitWithId, err := d.resolveCommitWithIdAndAuth(ctx, commit)
+	commitWithID, err := d.inspectCommitWithID(ctx, commit, wait)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "inspect commit")
 	}
-	if commitWithId.Finished == nil {
-		switch wait {
-		case pfs.CommitState_STARTED:
-		case pfs.CommitState_READY:
-			for _, c := range commitWithId.DirectProvenance {
-				if _, err := d.inspectCommit(ctx, c, pfs.CommitState_FINISHED); err != nil {
-					return nil, err
-				}
-			}
-		case pfs.CommitState_FINISHING, pfs.CommitState_FINISHED:
-			inspectedCommit, err := d.inspectProcessingCommits(ctx, commitWithId, wait)
-			if err != nil {
-				return nil, err
-			}
-			return inspectedCommit.CommitInfo, nil
-		}
-	}
-	return commitWithId.CommitInfo, nil
+	return commitWithID.CommitInfo, nil
 }
 
 // inspectProcessingCommits waits for the commit to be FINISHING or FINISHED.
