@@ -405,7 +405,7 @@ func countOffsetAndClean(b *[]byte, offset *uint32) error {
 		}
 		*offset = uint32(branchRootOffset - ancestorOfOffset)
 	}
-	*b = (*b)[:firstOpIndex]
+	*b = (*b)[:firstIndex]
 	return nil
 }
 
