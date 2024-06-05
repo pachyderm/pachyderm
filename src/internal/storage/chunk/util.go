@@ -19,7 +19,7 @@ func NewTestStorage(t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...Stor
 	store := kv.NewFSStore(p, 512, DefaultMaxChunkSize)
 	db.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
 	require.NoError(t, dbutil.WithTx(context.Background(), db, SetupPostgresStoreV0))
-	return store, NewStorage(store, db, tr, opts...)
+	return store, NewStorage(store, nil, db, tr, opts...)
 }
 
 // FullRef creates a data reference for the full chunk referenced by a data reference.

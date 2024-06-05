@@ -6,9 +6,10 @@ import (
 	"database/sql"
 	"encoding/hex"
 	fmt "fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"strconv"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -161,6 +162,22 @@ func (c *trackedClient) afterUpload(ctx context.Context, chunkID ID, gen uint64)
 		panic("(chunk_id, gen) is not unique")
 	}
 	return nil
+}
+
+func (c *trackedClient) GetPath(ctx context.Context, id ID) (string, error) {
+	var ents []Entry
+	if err := c.db.SelectContext(ctx, &ents, `
+		SELECT chunk_id, gen
+		FROM storage.chunk_objects
+		WHERE uploaded = TRUE AND tombstone = FALSE AND chunk_id = $1
+		`, id); err != nil {
+		return "", errors.EnsureStack(err)
+	}
+	if len(ents) == 0 {
+		return "", errors.Errorf("no objects for chunk %v", id)
+	}
+	// TODO: Refactor chunk prefix.
+	return string(append([]byte("chunk/"), chunkKey(ents[0].ChunkID, ents[0].Gen)...)), nil
 }
 
 // Get writes data for a chunk with ID chunkID to w.

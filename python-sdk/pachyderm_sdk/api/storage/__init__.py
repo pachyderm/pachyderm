@@ -19,6 +19,8 @@ import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
 
+from .. import cdr as _cdr__
+
 
 if TYPE_CHECKING:
     import grpc
@@ -102,6 +104,12 @@ class ReadFilesetResponse(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class ReadFilesetCdrResponse(betterproto.Message):
+    path: str = betterproto.string_field(1)
+    ref: "_cdr__.Ref" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class RenewFilesetRequest(betterproto.Message):
     fileset_id: str = betterproto.string_field(1)
     ttl_seconds: int = betterproto.int64_field(2)
@@ -165,6 +173,11 @@ class FilesetStub:
             request_serializer=ReadFilesetRequest.SerializeToString,
             response_deserializer=ReadFilesetResponse.FromString,
         )
+        self.__rpc_read_fileset_cdr = channel.unary_stream(
+            "/storage.Fileset/ReadFilesetCDR",
+            request_serializer=ReadFilesetRequest.SerializeToString,
+            response_deserializer=ReadFilesetCdrResponse.FromString,
+        )
         self.__rpc_renew_fileset = channel.unary_unary(
             "/storage.Fileset/RenewFileset",
             request_serializer=RenewFilesetRequest.SerializeToString,
@@ -206,6 +219,24 @@ class FilesetStub:
         request.empty_files = empty_files
 
         for response in self.__rpc_read_fileset(request):
+            yield response
+
+    def read_fileset_cdr(
+        self,
+        *,
+        fileset_id: str = "",
+        filters: Optional[List["FileFilter"]] = None,
+        empty_files: bool = False
+    ) -> Iterator["ReadFilesetCdrResponse"]:
+        filters = filters or []
+
+        request = ReadFilesetRequest()
+        request.fileset_id = fileset_id
+        if filters is not None:
+            request.filters = filters
+        request.empty_files = empty_files
+
+        for response in self.__rpc_read_fileset_cdr(request):
             yield response
 
     def renew_fileset(

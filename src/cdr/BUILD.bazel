@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "cdr",
+    srcs = [
+        "cdr.go",
+        "cdr.pb.go",
+        "cdr.pb.validate.go",
+        "cdr.pb.zap.go",
+        "resolver.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/cdr",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/errors",
+        "//src/protoextensions",
+        "@com_github_hashicorp_golang_lru//:golang-lru",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/anypb",
+        "@org_golang_x_crypto//blake2b",
+        "@org_golang_x_crypto//chacha20",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

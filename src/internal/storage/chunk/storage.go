@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"gocloud.dev/blob"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
@@ -33,6 +35,7 @@ type Storage struct {
 	db            *pachsql.DB
 	tracker       track.Tracker
 	store         kv.Store
+	bucket        *blob.Bucket
 	memCache      *memoryCache
 	deduper       *miscutil.WorkDeduper[pachhash.Output]
 	pool          *kv.Pool
@@ -42,10 +45,11 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(store kv.Store, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
+func NewStorage(store kv.Store, bucket *blob.Bucket, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		db:            db,
 		store:         store,
+		bucket:        bucket,
 		tracker:       tracker,
 		memCache:      newMemoryCache(50),
 		deduper:       &miscutil.WorkDeduper[pachhash.Output]{},

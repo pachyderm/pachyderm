@@ -196,6 +196,7 @@ var authHandlers = map[string]authHandler{
 
 	"/storage.Fileset/CreateFileset":  authDisabledOr(authenticated),
 	"/storage.Fileset/ReadFileset":    authDisabledOr(authenticated),
+	"/storage.Fileset/ReadFilesetCDR": authDisabledOr(authenticated),
 	"/storage.Fileset/RenewFileset":   authDisabledOr(authenticated),
 	"/storage.Fileset/ComposeFileset": authDisabledOr(authenticated),
 	"/storage.Fileset/ShardFileset":   authDisabledOr(authenticated),
