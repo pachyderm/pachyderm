@@ -10,7 +10,7 @@ import (
 	"net/http"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/pkg/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20"
 	"google.golang.org/protobuf/proto"
@@ -129,7 +129,7 @@ func (r *Resolver) derefContentHash(ctx context.Context, ref *ContentHash, cache
 	case HashAlgo_BLAKE2b_256:
 		h, err = blake2b.New256(nil)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	default:
 		return nil, errors.Errorf("unrecognized hash algo %v", ref.Algo)
@@ -226,8 +226,8 @@ func (c readCloser) Read(buf []byte) (int, error) {
 func (c readCloser) Close() error {
 	var retErr error
 	for i := range c.closes {
-		if err := c.closes[i](); retErr == nil {
-			retErr = err
+		if err := c.closes[i](); err != nil {
+			errors.JoinInto(&retErr, err)
 		}
 	}
 	return retErr

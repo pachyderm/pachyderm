@@ -8,14 +8,14 @@ message Ref {
         // Sources
         HTTP http = 1;
         // Constraints 
-        ContentHash content_hash = 32;
-        SizeLimits size_limits = 33;
+        ContentHash content_hash = 2;
+        SizeLimits size_limits = 3;
         // 1:1 Transforms
-        Cipher cipher = 64;
-        Compress compress = 65;
-        Slice slice = 66;
+        Cipher cipher = 4;
+        Compress compress = 5;
+        Slice slice = 6;
         // Many:1 Transforms
-        Concat concat = 96;
+        Concat concat = 7;
     }
 }
 

@@ -3,6 +3,7 @@ filegroup(
     srcs = glob(["**/*.proto"]) + [
         "//src/admin:protos",
         "//src/auth:protos",
+        "//src/cdr:protos",
         "//src/debug:protos",
         "//src/enterprise:protos",
         "//src/identity:protos",

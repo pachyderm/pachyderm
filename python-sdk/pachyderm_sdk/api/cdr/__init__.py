@@ -37,16 +37,16 @@ class Ref(betterproto.Message):
     http: "Http" = betterproto.message_field(1, group="body")
     """Sources"""
 
-    content_hash: "ContentHash" = betterproto.message_field(32, group="body")
+    content_hash: "ContentHash" = betterproto.message_field(2, group="body")
     """Constraints"""
 
-    size_limits: "SizeLimits" = betterproto.message_field(33, group="body")
-    cipher: "Cipher" = betterproto.message_field(64, group="body")
+    size_limits: "SizeLimits" = betterproto.message_field(3, group="body")
+    cipher: "Cipher" = betterproto.message_field(4, group="body")
     """1:1 Transforms"""
 
-    compress: "Compress" = betterproto.message_field(65, group="body")
-    slice: "Slice" = betterproto.message_field(66, group="body")
-    concat: "Concat" = betterproto.message_field(96, group="body")
+    compress: "Compress" = betterproto.message_field(5, group="body")
+    slice: "Slice" = betterproto.message_field(6, group="body")
+    concat: "Concat" = betterproto.message_field(7, group="body")
     """Many:1 Transforms"""
 
 

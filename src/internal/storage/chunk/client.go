@@ -166,7 +166,7 @@ func (c *trackedClient) afterUpload(ctx context.Context, chunkID ID, gen uint64)
 
 func (c *trackedClient) GetPath(ctx context.Context, id ID) (string, error) {
 	var ents []Entry
-	if err := c.db.Select(&ents, `
+	if err := c.db.SelectContext(ctx, &ents, `
 		SELECT chunk_id, gen
 		FROM storage.chunk_objects
 		WHERE uploaded = TRUE AND tombstone = FALSE AND chunk_id = $1

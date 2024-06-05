@@ -12,9 +12,9 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/cdr",
     visibility = ["//visibility:public"],
     deps = [
+        "//src/internal/errors",
         "//src/protoextensions",
         "@com_github_hashicorp_golang_lru//:golang-lru",
-        "@com_github_pkg_errors//:errors",
         "@org_golang_google_protobuf//proto",
         "@org_golang_google_protobuf//reflect/protoreflect",
         "@org_golang_google_protobuf//runtime/protoimpl",
@@ -23,4 +23,10 @@ go_library(
         "@org_golang_x_crypto//chacha20",
         "@org_uber_go_zap//zapcore",
     ],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
 )
