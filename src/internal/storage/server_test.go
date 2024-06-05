@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -61,64 +62,17 @@ func TestServer(t *testing.T) {
 	}))
 }
 
-func createFileset(ctx context.Context, c storage.FilesetClient) (string, error) {
-	cfc, err := c.CreateFileset(ctx)
-	if err != nil {
-		return "", err
-	}
-	for i := 0; i < 100; i++ {
-		path := fmt.Sprintf("%02v", i)
-		if err := cfc.Send(&storage.CreateFilesetRequest{
-			Modification: &storage.CreateFilesetRequest_AppendFile{
-				AppendFile: &storage.AppendFile{
-					Path: fmt.Sprintf("/%02v", i),
-					Data: wrapperspb.Bytes([]byte(path)),
-				},
-			},
-		}); err != nil {
-			return "", err
-		}
-	}
-	response, err := cfc.CloseAndRecv()
-	if err != nil {
-		return "", err
-	}
-	return response.FilesetId, nil
-}
-
-func readFileset(ctx context.Context, c storage.FilesetClient, request *storage.ReadFilesetRequest) ([]string, error) {
-	rfc, err := c.ReadFileset(ctx, request)
-	if err != nil {
-		return nil, err
-	}
-	var files []string
-	for {
-		msg, err := rfc.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return nil, err
-		}
-		files = append(files, msg.Path)
-	}
-	return files, nil
-}
-
 func TestCreateAndRead(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient.FilesetClient
-	id, err := createFileset(ctx, c)
+	id, testFiles, err := createFileset(ctx, c, 99, units.KB)
 	require.NoError(t, err)
 	t.Run("Full", func(t *testing.T) {
 		request := &storage.ReadFilesetRequest{FilesetId: id}
-		files, err := readFileset(ctx, c, request)
-		require.NoError(t, err)
-		require.Equal(t, 100, len(files))
+		checkFileset(ctx, t, c, request, testFiles)
 	})
 	t.Run("PathRange", func(t *testing.T) {
-		var files []string
 		for _, pr := range []*storage.PathRange{
 			{
 				Lower: "",
@@ -144,14 +98,10 @@ func TestCreateAndRead(t *testing.T) {
 				FilesetId: id,
 				Filters:   filters,
 			}
-			nextFiles, err := readFileset(ctx, c, request)
-			require.NoError(t, err)
-			for _, f := range nextFiles {
-				validateFilters(t, f, filters)
-			}
-			files = append(files, nextFiles...)
+			checkFiles := applyFilters(t, testFiles, filters)
+			require.Equal(t, 33, len(checkFiles))
+			checkFileset(ctx, t, c, request, checkFiles)
 		}
-		require.Equal(t, 100, len(files))
 	})
 	t.Run("PathRangeIntersection", func(t *testing.T) {
 		for _, prs := range [][]*storage.PathRange{
@@ -188,12 +138,9 @@ func TestCreateAndRead(t *testing.T) {
 				FilesetId: id,
 				Filters:   filters,
 			}
-			files, err := readFileset(ctx, c, request)
-			require.NoError(t, err)
-			for _, f := range files {
-				validateFilters(t, f, filters)
-			}
-			require.Equal(t, 33, len(files))
+			checkFiles := applyFilters(t, testFiles, filters)
+			require.Equal(t, 33, len(checkFiles))
+			checkFileset(ctx, t, c, request, checkFiles)
 		}
 	})
 	t.Run("PathRangeDisjoint", func(t *testing.T) {
@@ -231,12 +178,9 @@ func TestCreateAndRead(t *testing.T) {
 				FilesetId: id,
 				Filters:   filters,
 			}
-			files, err := readFileset(ctx, c, request)
-			require.NoError(t, err)
-			for _, f := range files {
-				validateFilters(t, f, filters)
-			}
-			require.Equal(t, 0, len(files))
+			checkFiles := applyFilters(t, testFiles, filters)
+			require.Equal(t, 0, len(checkFiles))
+			checkFileset(ctx, t, c, request, checkFiles)
 		}
 	})
 	t.Run("PathRegex", func(t *testing.T) {
@@ -251,12 +195,9 @@ func TestCreateAndRead(t *testing.T) {
 			FilesetId: id,
 			Filters:   filters,
 		}
-		files, err := readFileset(ctx, c, request)
-		require.NoError(t, err)
-		for _, f := range files {
-			validateFilters(t, f, filters)
-		}
-		require.Equal(t, 10, len(files))
+		checkFiles := applyFilters(t, testFiles, filters)
+		require.Equal(t, 10, len(checkFiles))
+		checkFileset(ctx, t, c, request, checkFiles)
 	})
 	t.Run("PathRangeAndPathRegex", func(t *testing.T) {
 		filters := []*storage.FileFilter{
@@ -278,26 +219,10 @@ func TestCreateAndRead(t *testing.T) {
 			FilesetId: id,
 			Filters:   filters,
 		}
-		files, err := readFileset(ctx, c, request)
-		require.NoError(t, err)
-		for _, f := range files {
-			validateFilters(t, f, filters)
-		}
-		require.Equal(t, 3, len(files))
+		checkFiles := applyFilters(t, testFiles, filters)
+		require.Equal(t, 3, len(checkFiles))
+		checkFileset(ctx, t, c, request, checkFiles)
 	})
-}
-
-func validateFilters(t *testing.T, path string, filters []*storage.FileFilter) {
-	for _, f := range filters {
-		switch f := f.Filter.(type) {
-		case *storage.FileFilter_PathRange:
-			require.True(t, path >= f.PathRange.Lower && f.PathRange.Upper == "" || path < f.PathRange.Upper)
-		case *storage.FileFilter_PathRegex:
-			r, err := regexp.Compile(f.PathRegex)
-			require.NoError(t, err)
-			require.True(t, r.MatchString(path))
-		}
-	}
 }
 
 type testFile struct {
@@ -305,8 +230,7 @@ type testFile struct {
 	data []byte
 }
 
-// TODO: Update ReadFileset test to use this functionality.
-func createFilesetCDR(ctx context.Context, c storage.FilesetClient, num, size int) (string, []*testFile, error) {
+func createFileset(ctx context.Context, c storage.FilesetClient, num, size int) (string, []*testFile, error) {
 	seed := int64(1648577872380609229)
 	random := rand.New(rand.NewSource(seed))
 	cfc, err := c.CreateFileset(ctx)
@@ -314,9 +238,10 @@ func createFilesetCDR(ctx context.Context, c storage.FilesetClient, num, size in
 		return "", nil, err
 	}
 	var testFiles []*testFile
+	padding := len(strconv.Itoa(num))
 	for i := 0; i < num; i++ {
 		tf := &testFile{
-			path: fmt.Sprintf("/%09v", i),
+			path: fmt.Sprintf("/%0"+strconv.Itoa(padding)+"v", i),
 			data: randutil.Bytes(random, size),
 		}
 		for _, c := range chunk(tf.data) {
@@ -354,23 +279,42 @@ func chunk(data []byte) [][]byte {
 	return result
 }
 
-func checkFilesetCDR(ctx context.Context, t *testing.T, c storage.FilesetClient, request *storage.ReadFilesetRequest, expected []*testFile) {
-	rfc, err := c.ReadFilesetCDR(ctx, request)
+func applyFilters(t *testing.T, testFiles []*testFile, filters []*storage.FileFilter) []*testFile {
+	var result []*testFile
+Loop:
+	for _, tf := range testFiles {
+		for _, f := range filters {
+			switch f := f.Filter.(type) {
+			case *storage.FileFilter_PathRange:
+				if tf.path < f.PathRange.Lower || f.PathRange.Upper != "" && tf.path >= f.PathRange.Upper {
+					continue Loop
+				}
+			case *storage.FileFilter_PathRegex:
+				r, err := regexp.Compile(f.PathRegex)
+				require.NoError(t, err)
+				if !r.MatchString(tf.path) {
+					continue Loop
+				}
+			}
+		}
+		result = append(result, tf)
+	}
+	return result
+}
+
+func checkFileset(ctx context.Context, t *testing.T, c storage.FilesetClient, request *storage.ReadFilesetRequest, expected []*testFile) {
+	rfc, err := c.ReadFileset(ctx, request)
 	require.NoError(t, err)
-	r := cdr.NewResolver()
 	for {
 		msg, err := rfc.Recv()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		require.NoError(t, err)
+		require.True(t, len(expected) > 0)
 		next := expected[0]
 		require.Equal(t, next.path, msg.Path)
-		rc, err := r.Deref(ctx, msg.Ref)
-		require.NoError(t, err)
-		data, err := ioutil.ReadAll(rc)
-		require.NoError(t, err)
-		require.True(t, bytes.Equal(next.data, data))
+		require.True(t, bytes.Equal(next.data, msg.Data.Value))
 		expected = expected[1:]
 	}
 	require.Equal(t, 0, len(expected))
@@ -394,10 +338,32 @@ func TestReadFilesetCDR(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			id, testFiles, err := createFilesetCDR(ctx, c, test.num, test.size)
+			id, testFiles, err := createFileset(ctx, c, test.num, test.size)
 			require.NoError(t, err)
 			request := &storage.ReadFilesetRequest{FilesetId: id}
 			checkFilesetCDR(ctx, t, c, request, testFiles)
 		})
 	}
+}
+
+func checkFilesetCDR(ctx context.Context, t *testing.T, c storage.FilesetClient, request *storage.ReadFilesetRequest, expected []*testFile) {
+	rfc, err := c.ReadFilesetCDR(ctx, request)
+	require.NoError(t, err)
+	r := cdr.NewResolver()
+	for {
+		msg, err := rfc.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		next := expected[0]
+		require.Equal(t, next.path, msg.Path)
+		rc, err := r.Deref(ctx, msg.Ref)
+		require.NoError(t, err)
+		data, err := ioutil.ReadAll(rc)
+		require.NoError(t, err)
+		require.True(t, bytes.Equal(next.data, data))
+		expected = expected[1:]
+	}
+	require.Equal(t, 0, len(expected))
 }
