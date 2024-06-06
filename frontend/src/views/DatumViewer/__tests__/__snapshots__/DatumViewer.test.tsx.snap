@@ -17,7 +17,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
       >
         <div
           aria-live="polite"
-          style="position: fixed; top: -10000px;"
+          class="cm-announced"
         />
         <div
           class="cm-scroller"
@@ -956,6 +956,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
               ,
             </div>
             <div
+              class="cm-gap"
               style="height: 210px;"
             />
           </div>
