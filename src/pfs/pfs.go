@@ -360,7 +360,6 @@ func countOffsetAndClean(b *[]byte, offset *uint32) error {
 		return errors.New("invalid Ancestry format")
 	}
 	branchRootOffset := -1
-	firstCaretIndex := bytes.IndexAny(*b, "^")
 	if (*b)[firstIndex] == '.' {
 		// Find the number after '.'
 		numberEndIndex := bytes.IndexAny((*b)[firstIndex+1:], "^")
@@ -377,9 +376,11 @@ func countOffsetAndClean(b *[]byte, offset *uint32) error {
 		}
 		branchRootOffset = num
 	}
-	// Find the last occurrence of '^'
-	lastCaretIndex := bytes.LastIndex((*b), []byte("^"))
-	ancestorOfOffset := lastCaretIndex - firstCaretIndex + 1
+	firstCaretIndex := bytes.IndexAny(*b, "^")
+	lastCaretIndex := bytes.LastIndex(*b, []byte("^"))
+	if firstCaretIndex != -1 {
+		ancestorOfOffset := lastCaretIndex - firstCaretIndex + 1
+	}
 	// there is a number after the last '^'
 	if lastCaretIndex != -1 && lastCaretIndex != len(*b)-1 {
 		num, err := strconv.Atoi(string((*b)[lastCaretIndex+1:]))
