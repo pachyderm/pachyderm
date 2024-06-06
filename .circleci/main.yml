@@ -615,7 +615,7 @@ jobs:
       - persist_to_workspace:
           root: ../
           paths:
-            - dist-pach/docker/pachd_linux_*
+            - dist-pach/docker/*
       - run:
           name: Push docker
           command: |-
