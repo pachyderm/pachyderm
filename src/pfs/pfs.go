@@ -343,10 +343,6 @@ func onlyHex(p []byte) bool {
 	return true
 }
 
-func isDigit(b byte) bool {
-	return '0' <= b && b <= '9'
-}
-
 // counts the overall offset of branch root and ancestor of
 // also removes everything of the ancestry reference
 // this function also check following circumstances for ancestry reference:
@@ -364,7 +360,6 @@ func countOffsetAndClean(b *[]byte, offset *uint32) error {
 		return errors.New("invalid Ancestry format")
 	}
 	branchRootOffset := -1
-	ancestorOfOffset := -1
 	firstCaretIndex := bytes.IndexAny(*b, "^")
 	if (*b)[firstIndex] == '.' {
 		// Find the number after '.'
@@ -384,7 +379,7 @@ func countOffsetAndClean(b *[]byte, offset *uint32) error {
 	}
 	// Find the last occurrence of '^'
 	lastCaretIndex := bytes.LastIndex((*b), []byte("^"))
-	ancestorOfOffset = lastCaretIndex - firstCaretIndex + 1
+	ancestorOfOffset := lastCaretIndex - firstCaretIndex + 1
 	// there is a number after the last '^'
 	if lastCaretIndex != len(*b)-1 {
 		num, err := strconv.Atoi(string((*b)[lastCaretIndex+1:]))
