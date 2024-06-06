@@ -381,7 +381,7 @@ func countOffsetAndClean(b *[]byte, offset *uint32) error {
 	lastCaretIndex := bytes.LastIndex((*b), []byte("^"))
 	ancestorOfOffset := lastCaretIndex - firstCaretIndex + 1
 	// there is a number after the last '^'
-	if lastCaretIndex != len(*b)-1 {
+	if lastCaretIndex != -1 && lastCaretIndex != len(*b)-1 {
 		num, err := strconv.Atoi(string((*b)[lastCaretIndex+1:]))
 		if err != nil {
 			return errors.New("invalid number format after '^'")
