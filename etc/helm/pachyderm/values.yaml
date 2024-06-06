@@ -352,6 +352,7 @@ determined:
                   exit 1
                   ;;
           esac
+          export PATH=/run/determined:$PATH
       fi
 
   ## Configure whether we collect anonymous information about the usage of Determined.
