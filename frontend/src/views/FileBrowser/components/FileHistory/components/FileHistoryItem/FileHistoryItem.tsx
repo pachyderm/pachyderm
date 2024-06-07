@@ -52,7 +52,7 @@ const FileHistoryItem: React.FC<FileHistoryItemProps> = ({commit}) => {
                 [styles.deleted]: commitAction === FileCommitState.DELETED,
               })}
             >
-              {capitalize(commitAction || '-')}
+              {capitalize(commitAction || 'Unchanged')}
             </CaptionTextSmall>
           )}
         </div>
