@@ -100,8 +100,8 @@ You may want to be more precise in either frontend or backend tests. To run jest
 
 ```bash
 cd frontend
-npm run frontend:test TestName.test.ts
-npm run components:test Button
+npm run test:frontend TestName.test.ts
+npm run test:components Button
 ```
 
 If you want to only run one of the tests outlined above refer to the `package.json` found in the subdirectory `frontend` or `backend`.
