@@ -1,4 +1,4 @@
-import {ComponentStory, ComponentMeta} from '@storybook/react';
+import {StoryFn, Meta} from '@storybook/react';
 import React, {useEffect, useState} from 'react';
 
 import {PureCheckbox} from './Checkbox';
@@ -6,9 +6,9 @@ import {PureCheckbox} from './Checkbox';
 export default {
   title: 'Checkbox/Pure',
   component: PureCheckbox,
-} as ComponentMeta<typeof PureCheckbox>;
+} as Meta<typeof PureCheckbox>;
 
-const Template: ComponentStory<typeof PureCheckbox> = ({selected, ...args}) => {
+const Template: StoryFn<typeof PureCheckbox> = ({selected, ...args}) => {
   const [value, setValue] = useState(false);
   useEffect(() => setValue(selected), [selected]);
   const handleChange = () => setValue((value) => !value);
