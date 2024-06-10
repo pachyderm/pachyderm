@@ -15,14 +15,12 @@ from jupyterlab_pachyderm.tests import DEFAULT_PROJECT
 
 
 @pytest.fixture
-def pachyderm_resources():
+async def pachyderm_resources(http_client: AsyncClient):
     repos = ["images", "edges", "montage"]
     branches = ["master", "dev"]
     files = ["file1", "file2"]
 
     client = Client.from_config()
-    client.pfs.delete_all()
-
     for repo in repos:
         client.pfs.create_repo(repo=pfs.Repo(name=repo))
         for branch in branches:
@@ -38,7 +36,6 @@ def pachyderm_resources():
     for repo in repos:
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
 
-
 async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
     repos, branches, _ = pachyderm_resources
 
@@ -53,11 +50,22 @@ async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
         for branch in repo['branches']:
             assert branch['name'] in branches
 
-async def test_pfs_invalid_branch_uri(pachyderm_resources, http_client: AsyncClient):
-    repos, _, _ = pachyderm_resources
+async def test_mount_missing_body(pachyderm_resources, http_client: AsyncClient):
+    _, _, _ = pachyderm_resources
 
-    url_params = {'branch_uri': f'fake@repo/fakebranch'}
-    r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put("/explore/mount")
+    assert r.status_code == 400, r.text
+
+async def test_mount_missing_branch_uri(pachyderm_resources, http_client: AsyncClient):
+    _, _, _ = pachyderm_resources
+
+    r = await http_client.put("/explore/mount", json={})
+    assert r.status_code == 400, r.text
+
+async def test_mount_invalid_branch_uri(pachyderm_resources, http_client: AsyncClient):
+    _, _, _ = pachyderm_resources
+
+    r = await http_client.put("/explore/mount", json={'branch_uri': 'fake@repo/fakebranch'})
     assert r.status_code == 400, r.text
 
 async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
@@ -75,16 +83,16 @@ async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
 
 
     # Assert default parameters return all
-    url_params = {'branch_uri': f"{repos[0]}@master"}
-
-    r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put("/explore/mount", json={"branch_uri": f'{repos[0]}@master'})
+    assert r.status_code == 200, r.text
+    r = await http_client.get("/pfs/images")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
     assert sorted([c["name"] for c in r["content"]]) == sorted(files)
 
     # Assert pagination_marker=None and number=1 returns file1
-    url_params['number'] = 1
+    url_params = {'number': 1}
     r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
@@ -161,38 +169,27 @@ async def test_download_file(
     assert pfs_manager is not None
     pfs_manager.root_dir = str(tmp_path)
 
-    url_params = {'branch_uri': f'{repos[0]}@master'}
-    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put("/explore/mount", json={"branch_uri": f'{repos[0]}@master'})
+    assert r.status_code == 200, r.text
+    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}")
     assert r.status_code == 200, r.text
     local_file = tmp_path / files[0]
     assert local_file.exists()
     assert local_file.read_text() == "some data"
 
-    url_params = {'branch_uri': f'{repos[0]}@master'}
-    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?")
     assert r.status_code == 400, r.text
 
-    url_params = {'branch_uri': f'{repos[1]}@master'}
-    r = await http_client.put(f"/download/explore/{repos[1]}?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put("/explore/mount", json={"branch_uri": f'{repos[1]}@master'})
+    assert r.status_code == 200, r.text
+    r = await http_client.put(f"/download/explore/{repos[1]}")
     assert r.status_code == 200, r.text
     local_path = tmp_path / repos[1]
     assert local_path.exists()
     assert local_path.is_dir()
     assert len(list(local_path.iterdir())) == 2
 
-    url_params = {'branch_uri': f'{repos[1]}@master'}
-    r = await http_client.put(f"/download/explore/{repos[1]}?{urllib.parse.urlencode(url_params)}")
-    assert r.status_code == 400, r.text
-
-
-async def test_download_file_invalid_branch_uri(
-    pachyderm_resources,
-    http_client: AsyncClient,
-):
-    repos, _, _ = pachyderm_resources
-
-    url_params = {'branch_uri': f'fake@repo/fakebranch'}
-    r = await http_client.put(f"/download/explore/{repos[0]}?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put(f"/download/explore/{repos[1]}")
     assert r.status_code == 400, r.text
 
 async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
