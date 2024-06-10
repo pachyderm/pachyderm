@@ -377,7 +377,7 @@ func countOffsetAndClean(b *[]byte, offset *uint32) error {
 		}
 		ancestorOfOffset = num
 	} else {
-		// part 4 is ancestry; it's zero when it's empty
+		// part 2 is ancestorOf; it's zero if it's empty
 		ancestorOfOffset = len(parts[2])
 	}
 	if ancestorOfOffset == 0 {
