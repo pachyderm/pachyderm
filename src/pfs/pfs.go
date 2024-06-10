@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"regexp"
+	"strconv"
 	"unicode"
 
 	"google.golang.org/protobuf/proto"
@@ -341,6 +343,59 @@ func onlyHex(p []byte) bool {
 	return true
 }
 
+// counts the overall offset of branch root and ancestor of
+// also removes everything of the ancestry reference
+// this function also check following circumstances for ancestry reference:
+// 1. ancestry reference should only contain "^" "." and digits
+// 2. If there is branch root ".", it should be the first operator; It also should be the only "."
+// 3. There should be a number right after "."
+// 4. If branch root and ancestor of are used together, the offset of branch root should >= offset of ancestor of
+// 5. There can be multiple "^"; but it should end when there is a number following a "^"; so "^^1^" is not valid
+func countOffsetAndClean(b *[]byte, offset *uint32) error {
+	atIndex := bytes.IndexAny(*b, "@")
+	// first . ^ after @
+	firstIndex := bytes.IndexAny((*b)[atIndex+1:], "^.") + atIndex + 1
+	ancestryPart := (*b)[firstIndex:]
+	re := regexp.MustCompile(`^(\.\d+)?((\^+)|(\^\d+))?$`)
+	if !re.Match(ancestryPart) {
+		return errors.New("invalid Ancestry format")
+	}
+	parts := re.FindSubmatch(ancestryPart)
+	var branchRootOffset, ancestorOfOffset int
+	if len(parts[1]) > 0 {
+		num, err := strconv.Atoi(string(parts[1][1:]))
+		if err != nil {
+			return errors.New("invalid descendants format")
+		}
+		branchRootOffset = num
+	}
+	// part 4 is ancestorOf with number
+	if len(parts[4]) > 0 {
+		num, err := strconv.Atoi(string(parts[4][1:]))
+		if err != nil {
+			return errors.New("invalid ancestor format")
+		}
+		ancestorOfOffset = num
+	} else {
+		// part 2 is ancestorOf; it's zero if it's empty
+		ancestorOfOffset = len(parts[2])
+	}
+	if ancestorOfOffset == 0 {
+		*offset = uint32(branchRootOffset)
+	}
+	if branchRootOffset == 0 {
+		*offset = uint32(ancestorOfOffset)
+	}
+	if branchRootOffset != 0 && ancestorOfOffset != 0 {
+		if ancestorOfOffset >= branchRootOffset {
+			return errors.New("there should be less ancestors than descendants")
+		}
+		*offset = uint32(branchRootOffset - ancestorOfOffset)
+	}
+	*b = (*b)[:firstIndex]
+	return nil
+}
+
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (p *CommitPicker) UnmarshalText(b []byte) error {
 	parts := bytes.SplitN(b, []byte{'@'}, 2)
@@ -355,16 +410,40 @@ func (p *CommitPicker) UnmarshalText(b []byte) error {
 	default:
 		return errors.New("invalid commit picker: too many @s")
 	}
-	// TODO(PFS-229): Implement the other parsers.
-	if bytes.HasSuffix(id, []byte{'^'}) {
-		// CommitPicker_AncestorOf
-		return errors.New("ancestor of commit syntax is currently unimplemented (id^); specify the exact id instead")
-	}
 	if bytes.Contains(id, []byte{'.'}) {
-		// CommitPicker_BranchRoot
-		return errors.New("branch root commit syntax is currently unimplemented (id.N); specify the exact id instead")
+		var offset uint32
+		if err := countOffsetAndClean(&b, &offset); err != nil {
+			return errors.Wrapf(err, "calculate offset %s", b)
+		}
+		var bp BranchPicker
+		if err := bp.UnmarshalText(b); err != nil {
+			return errors.Wrapf(err, "unmarshal branch picker %s", b)
+		}
+		p.Picker = &CommitPicker_BranchRoot_{
+			BranchRoot: &CommitPicker_BranchRoot{
+				Branch: &bp,
+				Offset: offset,
+			},
+		}
+		return nil
 	}
-
+	if bytes.Contains(id, []byte{'^'}) {
+		var offset uint32
+		if err := countOffsetAndClean(&b, &offset); err != nil {
+			return errors.Wrapf(err, "calculate offset %s", b)
+		}
+		var cp CommitPicker
+		if err := cp.UnmarshalText(b); err != nil {
+			return errors.Wrapf(err, "unmarshal commit picker %s", b)
+		}
+		p.Picker = &CommitPicker_Ancestor{
+			Ancestor: &CommitPicker_AncestorOf{
+				Start:  &cp,
+				Offset: offset,
+			},
+		}
+		return nil
+	}
 	// To distinguish global IDs and branch names, we look for a valid global ID first.  An ID
 	// is a hex-encoded UUIDv4 without dashes.  UUIDv4s always have the 13th (1 indexed) byte
 	// set to '4'.
