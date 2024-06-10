@@ -3,6 +3,7 @@ package log
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -155,4 +156,15 @@ func ContextInfo(ctx context.Context) Field {
 		return zap.Skip()
 	}
 	return zap.Inline(&contextInfoWrapper{Context: ctx})
+}
+
+// RedactedString returns a field that logs val, redacting all occurrences of redact in val with
+// "[<length> masked bytes]".
+func RedactedString(name, val, redact string) Field {
+	if redact == "" {
+		// This is intended to do nothing, but ReplaceAll will replace each byte instead.
+		return zap.String(name, val)
+	}
+	return zap.String(name, strings.ReplaceAll(val, redact,
+		fmt.Sprintf("[%d masked bytes]", len(redact))))
 }

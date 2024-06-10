@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/cdr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -76,7 +77,7 @@ func New(ctx context.Context, env Env) (*Server, error) {
 	store = kv.NewPrefixed(store, []byte(ChunkPrefix))
 	chunkStorageOpts := makeChunkOptions(&env.Config)
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
-	chunkStorage := chunk.NewStorage(store, env.DB, tracker, chunkStorageOpts...)
+	chunkStorage := chunk.NewStorage(store, env.Bucket, env.DB, tracker, chunkStorageOpts...)
 
 	// fileset
 	filesetStorage := fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunkStorage, makeFilesetOptions(&env.Config)...)
@@ -147,6 +148,21 @@ func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error
 // TODO: Add file filter error types.
 func (s *Server) ReadFileset(request *storage.ReadFilesetRequest, server storage.Fileset_ReadFilesetServer) error {
 	ctx := server.Context()
+	return s.readFileset(ctx, request, func(f fileset.File) error {
+		w := &writer{
+			server: server,
+			path:   f.Index().Path,
+		}
+		bufW := bufio.NewWriterSize(w, grpcutil.MaxMsgPayloadSize)
+		if err := f.Content(ctx, bufW); err != nil {
+			return err
+		}
+		return errors.EnsureStack(bufW.Flush())
+	})
+}
+
+// TODO: Add file filter error types.
+func (s *Server) readFileset(ctx context.Context, request *storage.ReadFilesetRequest, cb func(fileset.File) error) error {
 	id, err := fileset.ParseID(request.FilesetId)
 	if err != nil {
 		return err
@@ -192,15 +208,7 @@ func (s *Server) ReadFileset(request *storage.ReadFilesetRequest, server storage
 				return nil
 			}
 		}
-		w := &writer{
-			server: server,
-			path:   path,
-		}
-		bufW := bufio.NewWriterSize(w, grpcutil.MaxMsgPayloadSize)
-		if err := f.Content(ctx, bufW); err != nil {
-			return err
-		}
-		return errors.EnsureStack(bufW.Flush())
+		return cb(f)
 	}, index.WithRange(pathRange))
 }
 
@@ -218,6 +226,27 @@ func (w *writer) Write(data []byte) (int, error) {
 		return 0, err
 	}
 	return len(data), nil
+}
+
+func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server storage.Fileset_ReadFilesetCDRServer) error {
+	ctx := server.Context()
+	// TODO: Use task chain here.
+	return s.readFileset(ctx, request, func(f fileset.File) error {
+		var refs []*cdr.Ref
+		for _, dr := range f.Index().File.DataRefs {
+			ref, err := s.Chunks.CDRFromDataRef(ctx, dr)
+			if err != nil {
+				return err
+			}
+			refs = append(refs, ref)
+		}
+		// TODO: Move to cdr package?
+		ref := chunk.CreateConcatRef(refs)
+		return server.Send(&storage.ReadFilesetCDRResponse{
+			Path: f.Index().Path,
+			Ref:  ref,
+		})
+	})
 }
 
 // TODO: We should be able to use this and potentially others directly in PFS.

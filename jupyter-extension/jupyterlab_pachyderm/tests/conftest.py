@@ -106,4 +106,5 @@ async def http_client(
     assert http_server  # Ensure server is created for tests.
     base_url = f"http://127.0.0.1:{http_server_port[1]}/{NAMESPACE}/{VERSION}"
     async with httpx.AsyncClient(base_url=base_url) as client:
+        await client.put("/explore/unmount")
         yield client

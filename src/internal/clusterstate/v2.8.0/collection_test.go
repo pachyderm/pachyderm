@@ -24,9 +24,10 @@ var (
 )
 
 func newTestDB(t testing.TB) (*pachsql.DB, string) {
+	ctx := pctx.TestContext(t)
 	options := dockertestenv.NewTestDBConfig(t).Direct.DBOptions()
-	dsn := dbutil.GetDSN(options...)
-	db, err := dbutil.NewDB(options...)
+	dsn := dbutil.GetDSN(ctx, options...)
+	db, err := dbutil.NewDB(ctx, options...)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())

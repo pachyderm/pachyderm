@@ -13,6 +13,7 @@ go_test(
     srcs = ["fuzz_provenance_test.go"],
     data = glob(["testdata/**"]),
     embed = [":testing"],
+    pure = "on",
     deps = [
         "//src/internal/client",
         "//src/internal/dockertestenv",
@@ -31,6 +32,7 @@ go_test(
     srcs = ["load_test.go"],
     data = glob(["testdata/**"]),
     embed = [":testing"],
+    pure = "on",
     deps = [
         "//src/internal/cmdutil",
         "//src/internal/dockertestenv",
@@ -46,6 +48,7 @@ go_test(
     srcs = ["server_test.go"],
     data = glob(["testdata/**"]),
     embed = [":testing"],
+    pure = "on",
     shard_count = 8,
     tags = ["cpu:4"],
     deps = [
@@ -96,6 +99,7 @@ go_test(
     srcs = ["storage_test.go"],
     data = glob(["testdata/**"]),
     embed = [":testing"],
+    pure = "on",
     deps = [
         "//src/internal/dockertestenv",
         "//src/internal/pctx",

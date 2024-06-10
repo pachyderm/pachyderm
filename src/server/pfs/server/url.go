@@ -178,6 +178,10 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 	if basePathRange == nil {
 		basePathRange = &pfs.PathRange{}
 	}
+	commitWithID, err := d.getCommit(ctx, file.Commit)
+	if err != nil {
+		return 0, errors.Wrap(err, "get file url")
+	}
 	inputChan := make(chan *anypb.Any)
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
@@ -189,7 +193,7 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 	var bytesWritten int64
 	eg.Go(func() error {
 		return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-			fsID, err := d.getFileSet(ctx, file.Commit)
+			fsID, err := d.getFileSet(ctx, commitWithID)
 			if err != nil {
 				return err
 			}

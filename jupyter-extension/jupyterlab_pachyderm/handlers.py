@@ -72,10 +72,14 @@ class BaseHandler(APIHandler):
 
     @client.setter
     def client(self, new_client: Client) -> None:
+        # server_root_dir is the root path from which all data and notebook files
+        #   are relative. This may be different from the CWD.
+        root_dir = Path(self.settings.get("server_root_dir", os.getcwd())).resolve()
+
         self.settings["pachyderm_client"] = new_client
         self.settings["pfs_contents_manager"] = PFSManager(client=new_client)
         self.settings["datum_contents_manager"] = DatumManager(client=new_client)
-        self.settings["pachyderm_pps_client"] = PPSClient(client=new_client)
+        self.settings["pachyderm_pps_client"] = PPSClient(client=new_client, root_dir=root_dir)
 
     @property
     def config_file(self) -> Path:
@@ -242,18 +246,8 @@ class PFSHandler(ContentsHandler):
             if pagination_marker_uri:
                 pagination_marker = pfs.File.from_uri(pagination_marker_uri)
             number = int(self.get_query_argument("number", default="100"))
-            branch_uri = self.get_query_argument(
-                "branch_uri", default=None
-            )
-            branch: pfs.Branch = None
-            if branch_uri:
-                branch = pfs.Branch.from_uri(branch_uri)
-                if not self.pfs_manager.branch_exists(branch=branch):
-                    raise ValueError("branch_uri does not exist")
-
             model = self.pfs_manager.get(
                 path=path,
-                branch=branch,
                 type=type,
                 format=format,
                 content=content,
@@ -502,17 +496,7 @@ class ExploreDownloadHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self, path):
         try:
-            branch_uri = self.get_query_argument(
-                "branch_uri", default=None
-            )
-            branch: pfs.Branch = None
-            if not branch_uri:
-                raise ValueError("branch_uri must be defined to download")
-            if branch_uri:
-                branch = pfs.Branch.from_uri(branch_uri)
-                if not self.pfs_manager.branch_exists(branch=branch):
-                    raise ValueError("branch_uri does not exist")
-            self.pfs_manager.download_file(path=path, branch=branch)
+            self.pfs_manager.download_file(path=path)
         except FileExistsError:
             raise tornado.web.HTTPError(
                 status_code=400,
@@ -535,6 +519,35 @@ class TestDownloadHandler(BaseHandler):
                 status_code=400,
                 reason=f"Downloading {Path(path).name} which already exists in the current working directory",
             )
+        except ValueError as e:
+            raise tornado.web.HTTPError(status_code=400, reason=repr(e))
+        except Exception as e:
+            raise tornado.web.HTTPError(status_code=500, reason=repr(e))
+        await self.finish()
+
+class ExploreMountHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self):
+        try:
+            body = self.get_json_body()
+            if not body:
+                raise ValueError("branch_uri does not exist in body of request")
+            branch_uri = body.get("branch_uri")
+            if branch_uri is None:
+                raise ValueError("branch_uri does not exist in body of request")
+            branch = pfs.Branch.from_uri(branch_uri)
+            self.pfs_manager.mount_branch(branch=branch)
+        except ValueError as e:
+            raise tornado.web.HTTPError(status_code=400, reason=repr(e))
+        except Exception as e:
+            raise tornado.web.HTTPError(status_code=500, reason=repr(e))
+        await self.finish()
+
+class ExploreUnmountHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self):
+        try:
+            self.pfs_manager.unmount_branch()
         except ValueError as e:
             raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:
@@ -624,9 +637,12 @@ def setup_handlers(
                 "Could not find config file -- no pachyderm client instantiated"
             )
 
+    # server_root_dir is the root path from which all data and notebook files
+    #   are relative. This may be different from the CWD.
+    root_dir = Path(web_app.settings.get("server_root_dir", os.getcwd())).resolve()
     if client:
         web_app.settings["pachyderm_client"] = client
-        web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
+        web_app.settings["pachyderm_pps_client"] = PPSClient(client=client, root_dir=root_dir)
         web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
         web_app.settings["datum_contents_manager"] = DatumManager(client=client)
 
@@ -635,6 +651,8 @@ def setup_handlers(
 
     _handlers = [
         ("/repos", ReposHandler),
+        ("/explore/mount", ExploreMountHandler),
+        ("/explore/unmount", ExploreUnmountHandler),
         ("/datums/_mount", MountDatumsHandler),
         ("/datums/_next", DatumNextHandler),
         ("/datums/_prev", DatumPrevHandler),

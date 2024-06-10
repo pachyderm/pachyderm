@@ -8,6 +8,7 @@ from httpx import AsyncClient
 from tornado.web import Application
 
 from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
+from jupyterlab_pachyderm.pfs_manager import DatumManager
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs
 
@@ -15,14 +16,12 @@ from jupyterlab_pachyderm.tests import DEFAULT_PROJECT
 
 
 @pytest.fixture
-def pachyderm_resources():
+async def pachyderm_resources(http_client: AsyncClient):
     repos = ["images", "edges", "montage"]
     branches = ["master", "dev"]
     files = ["file1", "file2"]
 
     client = Client.from_config()
-    client.pfs.delete_all()
-
     for repo in repos:
         client.pfs.create_repo(repo=pfs.Repo(name=repo))
         for branch in branches:
@@ -38,7 +37,6 @@ def pachyderm_resources():
     for repo in repos:
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
 
-
 async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
     repos, branches, _ = pachyderm_resources
 
@@ -53,11 +51,22 @@ async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
         for branch in repo['branches']:
             assert branch['name'] in branches
 
-async def test_pfs_invalid_branch_uri(pachyderm_resources, http_client: AsyncClient):
-    repos, _, _ = pachyderm_resources
+async def test_mount_missing_body(pachyderm_resources, http_client: AsyncClient):
+    _, _, _ = pachyderm_resources
 
-    url_params = {'branch_uri': f'fake@repo/fakebranch'}
-    r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put("/explore/mount")
+    assert r.status_code == 400, r.text
+
+async def test_mount_missing_branch_uri(pachyderm_resources, http_client: AsyncClient):
+    _, _, _ = pachyderm_resources
+
+    r = await http_client.put("/explore/mount", json={})
+    assert r.status_code == 400, r.text
+
+async def test_mount_invalid_branch_uri(pachyderm_resources, http_client: AsyncClient):
+    _, _, _ = pachyderm_resources
+
+    r = await http_client.put("/explore/mount", json={'branch_uri': 'fake@repo/fakebranch'})
     assert r.status_code == 400, r.text
 
 async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
@@ -75,16 +84,16 @@ async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
 
 
     # Assert default parameters return all
-    url_params = {'branch_uri': f"{repos[0]}@master"}
-
-    r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put("/explore/mount", json={"branch_uri": f'{repos[0]}@master'})
+    assert r.status_code == 200, r.text
+    r = await http_client.get("/pfs/images")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
     assert sorted([c["name"] for c in r["content"]]) == sorted(files)
 
     # Assert pagination_marker=None and number=1 returns file1
-    url_params['number'] = 1
+    url_params = {'number': 1}
     r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
@@ -118,7 +127,7 @@ async def test_view_datum_pagination(pachyderm_resources, http_client: AsyncClie
     assert r.status_code == 200, r.text
     r = r.json()
     assert r["idx"] == 0
-    assert r["num_datums"] == 1
+    assert r["num_datums_received"] == 1
     assert r["all_datums_received"] == 1
 
     # Assert default parameters return all
@@ -161,38 +170,27 @@ async def test_download_file(
     assert pfs_manager is not None
     pfs_manager.root_dir = str(tmp_path)
 
-    url_params = {'branch_uri': f'{repos[0]}@master'}
-    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put("/explore/mount", json={"branch_uri": f'{repos[0]}@master'})
+    assert r.status_code == 200, r.text
+    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}")
     assert r.status_code == 200, r.text
     local_file = tmp_path / files[0]
     assert local_file.exists()
     assert local_file.read_text() == "some data"
 
-    url_params = {'branch_uri': f'{repos[0]}@master'}
-    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?")
     assert r.status_code == 400, r.text
 
-    url_params = {'branch_uri': f'{repos[1]}@master'}
-    r = await http_client.put(f"/download/explore/{repos[1]}?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put("/explore/mount", json={"branch_uri": f'{repos[1]}@master'})
+    assert r.status_code == 200, r.text
+    r = await http_client.put(f"/download/explore/{repos[1]}")
     assert r.status_code == 200, r.text
     local_path = tmp_path / repos[1]
     assert local_path.exists()
     assert local_path.is_dir()
     assert len(list(local_path.iterdir())) == 2
 
-    url_params = {'branch_uri': f'{repos[1]}@master'}
-    r = await http_client.put(f"/download/explore/{repos[1]}?{urllib.parse.urlencode(url_params)}")
-    assert r.status_code == 400, r.text
-
-
-async def test_download_file_invalid_branch_uri(
-    pachyderm_resources,
-    http_client: AsyncClient,
-):
-    repos, _, _ = pachyderm_resources
-
-    url_params = {'branch_uri': f'fake@repo/fakebranch'}
-    r = await http_client.put(f"/download/explore/{repos[0]}?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.put(f"/download/explore/{repos[1]}")
     assert r.status_code == 400, r.text
 
 async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
@@ -227,7 +225,7 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_mount", json=input_spec)
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["all_datums_received"] is True
     datum0_id = r.json()["id"]
 
@@ -250,7 +248,7 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_next")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 1
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["id"] != datum0_id
     assert r.json()["all_datums_received"] is True
 
@@ -269,7 +267,7 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_prev")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["id"] == datum0_id
     assert r.json()["all_datums_received"] is True
 
@@ -288,7 +286,7 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.get("/datums")
     assert r.status_code == 200, r.text
     assert json.loads(r.json()["input"]) == input_spec["input"]
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["idx"] == 0
     assert r.json()["all_datums_received"] is True
 
@@ -307,7 +305,7 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_mount", json=input_spec)
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
-    assert r.json()["num_datums"] == 1
+    assert r.json()["num_datums_received"] == 1
     assert r.json()["all_datums_received"] is True
     datum0_id = r.json()["id"]
 
@@ -318,6 +316,58 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.get("/view_datum/test_name_2")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
+
+
+async def test_mount_datums_multiple_batches(http_client: AsyncClient):
+    client = Client.from_config()
+    repo = pfs.Repo(name="multiple_batches")
+    client.pfs.delete_repo(repo=repo, force=True)
+    client.pfs.create_repo(repo=repo)
+
+    batch_size = DatumManager.DATUM_BATCH_SIZE
+    total_datums = int(batch_size * 1.5)
+    with client.pfs.commit(branch=pfs.Branch.from_uri(f"{repo.name}@master")) as c:
+        for i in range(total_datums):
+            # Number of files will require a request for a second batch of datums
+            c.put_file_from_bytes(path=f"/{i}", data=b"some data")
+    c.wait()
+
+    input_spec = {
+        "input": {
+            "pfs": {
+                "repo": repo.name,
+                "glob": "/*",
+            }
+        }
+    }
+    r = await http_client.put("/datums/_mount", json=input_spec)
+    assert r.status_code == 200, r.text
+    assert r.json()["idx"] == 0
+    assert r.json()["num_datums_received"] == batch_size
+    assert r.json()["all_datums_received"] is False
+
+    # Cycle to the last datum in the current batch
+    for i in range(1, batch_size):
+        r = await http_client.put("/datums/_next")
+        assert r.status_code == 200, r.text
+        assert r.json()["idx"] == i
+        assert r.json()["num_datums_received"] == batch_size
+        assert r.json()["all_datums_received"] is False
+
+    # Grab the next (final) batch of datums
+    for i in range(batch_size, total_datums):
+        r = await http_client.put("/datums/_next")
+        assert r.status_code == 200, r.text
+        assert r.json()["idx"] == i
+        assert r.json()["num_datums_received"] == total_datums
+        assert r.json()["all_datums_received"] is True
+
+    # Verify no more datums and cycler wraps to beginning
+    r = await http_client.put("/datums/_next")
+    assert r.status_code == 200, r.text
+    assert r.json()["idx"] == 0
+
+    client.pfs.delete_repo(repo=repo)
 
 
 async def test_download_datum(pachyderm_resources, http_client: AsyncClient):
@@ -351,7 +401,7 @@ async def test_download_datum(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_mount", json=input_spec)
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["all_datums_received"] is True
 
     r = await http_client.put("/datums/_download")
@@ -366,7 +416,7 @@ async def test_download_datum(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.put("/datums/_next")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 1
-    assert r.json()["num_datums"] == 4
+    assert r.json()["num_datums_received"] == 4
     assert r.json()["all_datums_received"] is True
 
     r = await http_client.put("/datums/_download")

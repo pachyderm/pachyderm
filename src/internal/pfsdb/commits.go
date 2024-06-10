@@ -963,6 +963,18 @@ func ForEachCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Co
 	return nil
 }
 
+func ListCommitWithIdTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, orderBys ...OrderByCommitColumn) ([]*CommitWithID, error) {
+	var commits []*CommitWithID
+	if err := ForEachCommitTxByFilter(ctx, tx, filter, func(commitWithID CommitWithID) error {
+		commitPtr := commitWithID // The address of commitWithID is static and the reference is overwritten each iteration, so a copy has to be allocated instead.
+		commits = append(commits, &commitPtr)
+		return nil
+	}, orderBys...); err != nil {
+		return nil, errors.Wrap(err, "list commits tx by filter")
+	}
+	return commits, nil
+}
+
 func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, orderBys ...OrderByCommitColumn) ([]*pfs.CommitInfo, error) {
 	var commits []*pfs.CommitInfo
 	if err := ForEachCommitTxByFilter(ctx, tx, filter, func(commitWithID CommitWithID) error {

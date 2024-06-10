@@ -18,7 +18,7 @@ require (
 	github.com/chrusty/protoc-gen-jsonschema v0.0.0-20230418203306-956cc32e45d6
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/determined-ai/determined/proto v0.0.0-20230615001349-d3aff5bab560
-	github.com/dexidp/dex v0.0.0-20230320125501-2bb4896d120e
+	github.com/dexidp/dex v2.36.0+incompatible
 	github.com/dexidp/dex/api/v2 v2.1.0
 	github.com/dlmiddlecote/sqlstats v1.0.2
 	github.com/docker/docker v20.10.27+incompatible
@@ -298,7 +298,7 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.2
-	github.com/opencontainers/runc v1.1.3 // indirect
+	github.com/opencontainers/runc v1.1.12 // indirect
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
