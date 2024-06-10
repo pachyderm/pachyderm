@@ -161,9 +161,13 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 		_, err = tx.ExecContext(ctx, `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES($1, $2)`, commitInfo.Commit.Key(), commitInfo.Commit.Id)
 		require.NoError(t, err)
 
+		// add multiple diff file sets randomly.
 		diffFileset := newFilesetId()
-		_, err = tx.ExecContext(ctx, `INSERT INTO pfs.commit_diffs (commit_id, fileset_id) VALUES ($1, $2)`, commitInfo.Commit.Key(), diffFileset)
-		require.NoError(t, err)
+		d3 := random.Random(0, 3)
+		for i := 0; i < d3; i++ {
+			_, err = tx.ExecContext(ctx, `INSERT INTO pfs.commit_diffs (commit_id, num, fileset_id) VALUES ($1, $2, $3)`, commitInfo.Commit.Key(), i, diffFileset)
+			require.NoError(t, err)
+		}
 
 		d4 := random.Random(1, 4)
 		if d4 != 4 {
