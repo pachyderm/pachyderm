@@ -350,53 +350,43 @@ func onlyHex(p []byte) bool {
 // 2. If there is branch root ".", it should be the first operator; It also should be the only "."
 // 3. There should be a number right after "."
 // 4. If branch root and ancestor of are used together, the offset of branch root should >= offset of ancestor of
-// 5. There can be multiple "^"; but the it should end when there is a number following a "^"; so "^^1^" is not valid
+// 5. There can be multiple "^"; but it should end when there is a number following a "^"; so "^^1^" is not valid
 func countOffsetAndClean(b *[]byte, offset *uint32) error {
 	atIndex := bytes.IndexAny(*b, "@")
 	// first . ^ after @
 	firstIndex := bytes.IndexAny((*b)[atIndex+1:], "^.") + atIndex + 1
-	re := regexp.MustCompile(`^\.(\d+[^.]*)?$|^\^*?(\d+|\^*)?$`)
-	if !re.Match((*b)[firstIndex:]) {
+	ancestryPart := (*b)[firstIndex:]
+	re := regexp.MustCompile(`^(\.\d+)?((\^+)|(\^\d+))?$`)
+	if !re.Match(ancestryPart) {
 		return errors.New("invalid Ancestry format")
 	}
-	ancestorOfOffset := -1
-	branchRootOffset := -1
-	if (*b)[firstIndex] == '.' {
-		// Find the number after '.'
-		numberEndIndex := bytes.IndexAny((*b)[firstIndex+1:], "^")
-		var numberStr string
-		if numberEndIndex != -1 {
-			numberStr = string((*b)[firstIndex+1 : firstIndex+1+numberEndIndex])
-		} else {
-			numberStr = string((*b)[firstIndex+1:])
-		}
-
-		num, err := strconv.Atoi(numberStr)
+	parts := re.FindSubmatch(ancestryPart)
+	var branchRootOffset, ancestorOfOffset int
+	if len(parts[1]) > 0 {
+		num, err := strconv.Atoi(string(parts[1][1:]))
 		if err != nil {
-			return errors.New("invalid number after '.'")
+			return errors.New("invalid descendants format")
 		}
 		branchRootOffset = num
 	}
-	firstCaretIndex := bytes.IndexAny(*b, "^")
-	lastCaretIndex := bytes.LastIndex(*b, []byte("^"))
-	if firstCaretIndex != -1 {
-		ancestorOfOffset = lastCaretIndex - firstCaretIndex + 1
-	}
-	// there is a number after the last '^'
-	if lastCaretIndex != -1 && lastCaretIndex != len(*b)-1 {
-		num, err := strconv.Atoi(string((*b)[lastCaretIndex+1:]))
+	// part 4 is ancestorOf with number
+	if len(parts[4]) > 0 {
+		num, err := strconv.Atoi(string(parts[4][1:]))
 		if err != nil {
-			return errors.New("invalid number format after '^'")
+			return errors.New("invalid ancestor format")
 		}
-		ancestorOfOffset += num - 1
+		ancestorOfOffset = num
+	} else {
+		// part 4 is ancestry; it's zero when it's empty
+		ancestorOfOffset = len(parts[2])
 	}
-	if ancestorOfOffset == -1 {
+	if ancestorOfOffset == 0 {
 		*offset = uint32(branchRootOffset)
 	}
-	if branchRootOffset == -1 {
+	if branchRootOffset == 0 {
 		*offset = uint32(ancestorOfOffset)
 	}
-	if branchRootOffset != -1 && ancestorOfOffset != -1 {
+	if branchRootOffset != 0 && ancestorOfOffset != 0 {
 		if ancestorOfOffset >= branchRootOffset {
 			return errors.New("there should be less ancestors than descendants")
 		}
