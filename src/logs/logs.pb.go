@@ -676,15 +676,20 @@ func (x *JobDatumLogQuery) GetDatum() string {
 	return ""
 }
 
+// A LogFilter selects which log lines are returned.
 type LogFilter struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// If set, only return logs in the provided time range.
 	TimeRange *TimeRangeLogFilter `protobuf:"bytes,1,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
-	Limit     uint64              `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	Regex     *RegexLogFilter     `protobuf:"bytes,3,opt,name=regex,proto3" json:"regex,omitempty"`
-	// Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior
+	// If set, return at maximum this number of logs.
+	Limit uint64 `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	// If set, only return logs that match this regular expression.
+	Regex *RegexLogFilter `protobuf:"bytes,3,opt,name=regex,proto3" json:"regex,omitempty"`
+	// If set, only return logs that are greater than or equal to this log level.  (DEBUG returns
+	// DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.).
 	Level LogLevel `protobuf:"varint,4,opt,name=level,proto3,enum=logs.LogLevel" json:"level,omitempty"`
 }
 
@@ -748,16 +753,21 @@ func (x *LogFilter) GetLevel() LogLevel {
 	return LogLevel_LOG_LEVEL_DEBUG
 }
 
+// A TimeRangeLogFilter selects logs within a time range.  Either or both timestamps can be null.
+// If from is after until, logs will be returns in reverse order.  (The first log you see will
+// always be from the "from" time.)
 type TimeRangeLogFilter struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Can be null
+	// Where in time to start returning logs from; includes logs with this exact timestamp.  If null,
+	// starts at the beginning of time.
 	From *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
-	// Can be null
+	// Where in time to stop returning logs from; includes logs with this exact timestamp.  If null,
+	// ends at the end of time.
 	Until *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=until,proto3" json:"until,omitempty"`
-	// Offset from which to return results
+	// Offset from which to return results, in the case of multiple entries from the same nanosecond.
 	Offset uint64 `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
 }
 

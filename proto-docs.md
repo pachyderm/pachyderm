@@ -4745,15 +4745,15 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 <a name="logs-LogFilter"></a>
 
 ### LogFilter
-
+A LogFilter selects which log lines are returned.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| time_range | [TimeRangeLogFilter](#logs-TimeRangeLogFilter) |  |  |
-| limit | [uint64](#uint64) |  |  |
-| regex | [RegexLogFilter](#logs-RegexLogFilter) |  |  |
-| level | [LogLevel](#logs-LogLevel) |  | Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior |
+| time_range | [TimeRangeLogFilter](#logs-TimeRangeLogFilter) |  | If set, only return logs in the provided time range. |
+| limit | [uint64](#uint64) |  | If set, return at maximum this number of logs. |
+| regex | [RegexLogFilter](#logs-RegexLogFilter) |  | If set, only return logs that match this regular expression. |
+| level | [LogLevel](#logs-LogLevel) |  | If set, only return logs that are greater than or equal to this log level. (DEBUG returns DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.). |
 
 
 
@@ -4877,14 +4877,16 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 <a name="logs-TimeRangeLogFilter"></a>
 
 ### TimeRangeLogFilter
-
+A TimeRangeLogFilter selects logs within a time range.  Either or both timestamps can be null.
+If from is after until, logs will be returns in reverse order.  (The first log you see will
+always be from the &#34;from&#34; time.)
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| from | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null |
-| until | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null |
-| offset | [uint64](#uint64) |  | Offset from which to return results |
+| from | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Where in time to start returning logs from; includes logs with this exact timestamp. If null, starts at the beginning of time. |
+| until | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Where in time to stop returning logs from; includes logs with this exact timestamp. If null, ends at the end of time. |
+| offset | [uint64](#uint64) |  | Offset from which to return results, in the case of multiple entries from the same nanosecond. |
 
 
 

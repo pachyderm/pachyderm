@@ -8269,20 +8269,24 @@
       "type": "object",
       "properties": {
         "timeRange": {
-          "$ref": "#/definitions/logsTimeRangeLogFilter"
+          "$ref": "#/definitions/logsTimeRangeLogFilter",
+          "description": "If set, only return logs in the provided time range."
         },
         "limit": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "description": "If set, return at maximum this number of logs."
         },
         "regex": {
-          "$ref": "#/definitions/logsRegexLogFilter"
+          "$ref": "#/definitions/logsRegexLogFilter",
+          "description": "If set, only return logs that match this regular expression."
         },
         "level": {
           "$ref": "#/definitions/logsLogLevel",
-          "title": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior"
+          "description": "If set, only return logs that are greater than or equal to this log level.  (DEBUG returns\nDEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.)."
         }
-      }
+      },
+      "description": "A LogFilter selects which log lines are returned."
     },
     "logsLogLevel": {
       "type": "string",
@@ -8387,19 +8391,20 @@
         "from": {
           "type": "string",
           "format": "date-time",
-          "title": "Can be null"
+          "description": "Where in time to start returning logs from; includes logs with this exact timestamp.  If null,\nstarts at the beginning of time."
         },
         "until": {
           "type": "string",
           "format": "date-time",
-          "title": "Can be null"
+          "description": "Where in time to stop returning logs from; includes logs with this exact timestamp.  If null,\nends at the end of time."
         },
         "offset": {
           "type": "string",
           "format": "uint64",
-          "title": "Offset from which to return results"
+          "description": "Offset from which to return results, in the case of multiple entries from the same nanosecond."
         }
-      }
+      },
+      "title": "A TimeRangeLogFilter selects logs within a time range.  Either or both timestamps can be null.\nIf from is after until, logs will be returns in reverse order.  (The first log you see will\nalways be from the \"from\" time.)"
     },
     "logsUserLogQuery": {
       "type": "object",
