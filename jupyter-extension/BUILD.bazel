@@ -1,11 +1,15 @@
 load("@gazelle//:def.bzl", "gazelle")
 load("@jupyter-pip-requirements//:requirements.bzl", "all_data_requirements", "all_requirements", "all_whl_requirements")
 load("@jupyter-pip-requirements-dev//:requirements.bzl", all_data_requirements_dev = "all_data_requirements", all_requirements_dev = "all_requirements", all_whl_requirements_dev = "all_whl_requirements", requirement_dev = "requirement")
-load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@rules_python//python:defs.bzl", "py_library")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_python_gazelle_plugin//manifest:defs.bzl", "gazelle_python_manifest")
 load("@rules_python_gazelle_plugin//modules_mapping:def.bzl", "modules_mapping")
 load("@rules_pyvenv//:venv.bzl", "py_venv")
+
+# gazelle:python_extension enabled
+# gazelle:python_test_naming_convention test_$package_name$
+# gazelle:resolve py jupyterlab_pachyderm //jupyter-extension/jupyterlab_pachyderm
 
 exports_files([
     "requirements.txt",
@@ -69,43 +73,8 @@ py_venv(
     deps = all_requirements + all_requirements_dev,
 )
 
-# Our gazelle target points to the python gazelle binary.
-# This is the simple case where we only need one language supported.
-# If you also had proto, go, or other gazelle-supported languages,
-# you would also need a gazelle_binary rule.
-# See https://github.com/bazelbuild/bazel-gazelle/blob/master/extend.rst#example
-gazelle(
-    name = "gazelle",
-    gazelle = "@rules_python_gazelle_plugin//python:gazelle_binary",
-)
-
 py_library(
-    name = "jupyterlab_pachdyerm",
-    srcs = glob(["jupyterlab_pachyderm/*.py"]),
+    name = "jupyter-extension",
+    srcs = ["scripts/jupyter_server_test_config.py"],
     visibility = ["//:__subpackages__"],
-    deps = all_requirements,
 )
-
-# TODO: Adding py_test support will require some more finagling.
-# With the below configuration, this package is exposed to the tests as
-# "jupyter-extension.jupyterlab_pachyderm" when it must be exposed as
-# "jupyterlab_pachyderm".
-#py_test(
-#    name = "test",
-#    main = "test_config.py",
-#    srcs = [
-#        "jupyterlab_pachyderm/tests/test_config.py",
-#    ],
-#    args = [
-#        "--capture=no",
-#    ],
-#    python_version = "PY3",
-#    srcs_version = "PY3",
-#    deps = [
-#        ":jupyterlab_pachdyerm",
-#        requirement_dev("black"),
-#        requirement_dev("httpx"),
-#        requirement_dev("pytest"),
-#        requirement_dev("tornado"),
-#    ],
-#)

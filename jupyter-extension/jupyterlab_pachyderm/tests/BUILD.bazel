@@ -1,0 +1,85 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+py_binary(
+    name = "setup_large_repo",
+    srcs = ["setup_large_repo.py"],
+    imports = [".."],
+    visibility = [
+        "//jupyter-extension/jupyterlab_pachyderm:__subpackages__",
+        "//tests:__subpackages__",
+    ],
+    deps = ["@jupyter-pip-requirements//pachyderm_sdk"],
+)
+
+py_library(
+    name = "tests",
+    srcs = [
+        "__init__.py",
+        "setup_large_repo.py",
+    ],
+    imports = [".."],
+    visibility = [
+        "//jupyter-extension/jupyterlab_pachyderm:__subpackages__",
+        "//tests:__subpackages__",
+    ],
+    deps = ["@jupyter-pip-requirements//pachyderm_sdk"],
+)
+
+py_library(
+    name = "conftest",
+    testonly = True,
+    srcs = ["conftest.py"],
+    imports = [".."],
+    visibility = [
+        "//jupyter-extension/jupyterlab_pachyderm:__subpackages__",
+        "//tests:__subpackages__",
+    ],
+    deps = [
+        "//jupyter-extension/jupyterlab_pachyderm",
+        "@jupyter-pip-requirements//httpx",
+        "@jupyter-pip-requirements//jupyter_server",
+        "@jupyter-pip-requirements//pytest",
+        "@jupyter-pip-requirements//tornado",
+    ],
+)
+
+py_test(
+    name = "test_config",
+    srcs = ["test_config.py"],
+    imports = [".."],
+    deps = [
+        ":conftest",
+        "//jupyter-extension/jupyterlab_pachyderm",
+        "@jupyter-pip-requirements//httpx",
+        "@jupyter-pip-requirements//pachyderm_sdk",
+        "@jupyter-pip-requirements//pytest",
+        "@jupyter-pip-requirements//tornado",
+    ],
+)
+
+py_test(
+    name = "test_integrations",
+    srcs = ["test_integrations.py"],
+    imports = [".."],
+    deps = [
+        ":conftest",
+        "//jupyter-extension/jupyterlab_pachyderm",
+        "@jupyter-pip-requirements//httpx",
+        "@jupyter-pip-requirements//pachyderm_sdk",
+        "@jupyter-pip-requirements//pytest",
+        "@jupyter-pip-requirements//tornado",
+    ],
+)
+
+py_test(
+    name = "test_pps",
+    srcs = ["test_pps.py"],
+    imports = [".."],
+    deps = [
+        ":conftest",
+        "//jupyter-extension/jupyterlab_pachyderm",
+        "@jupyter-pip-requirements//httpx",
+        "@jupyter-pip-requirements//pachyderm_sdk",
+        "@jupyter-pip-requirements//pytest",
+    ],
+)
