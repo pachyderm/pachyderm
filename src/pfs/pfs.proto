@@ -772,6 +772,13 @@ message ReposSummaryResponse {
   repeated ReposSummary summaries = 1; // repo summaries for the requested projects
 }
 
+message ForgetCommitRequest {
+	 CommitPicker commit = 1;
+   bool dry_run = 2; // if true, this will report the metrics, but won't actually do the delete.
+}
+
+message ForgetCommitResponse {}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -900,4 +907,7 @@ service API {
   // Summary API
   // ReposSummary returns a list of summaries about the repos for each of the requested projects.
   rpc ReposSummary(ReposSummaryRequest) returns (ReposSummaryResponse) {}
+
+  // Forget API
+  rpc ForgetCommit(ForgetCommitRequest) returns (ForgetCommitResponse) {}
 }
