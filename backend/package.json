@@ -15,7 +15,7 @@
     "test": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none npx dotenv-flow -p ../ -- npx jest --config jest.config.js --max-workers=6 --selectProjects test"
   },
   "dependencies": {
-    "@grpc/grpc-js": "1.8.18",
+    "@grpc/grpc-js": "1.8.22",
     "@sentry/node": "7.64.0",
     "@sentry/tracing": "7.83.0",
     "@types/google-protobuf": "^3.15.6",
