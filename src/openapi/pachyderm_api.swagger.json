@@ -8283,7 +8283,7 @@
         },
         "level": {
           "$ref": "#/definitions/logsLogLevel",
-          "description": "If set, only return logs that are greater than or equal to this log level.  (DEBUG returns\nDEBUG, INFO, ERROR, INFO return s INFO and ERROR, etc.)."
+          "description": "If set, only return logs that are greater than or equal to this log level.  (DEBUG returns\nDEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.)."
         }
       },
       "description": "A LogFilter selects which log lines are returned."

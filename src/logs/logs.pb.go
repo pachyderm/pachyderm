@@ -689,7 +689,7 @@ type LogFilter struct {
 	// If set, only return logs that match this regular expression.
 	Regex *RegexLogFilter `protobuf:"bytes,3,opt,name=regex,proto3" json:"regex,omitempty"`
 	// If set, only return logs that are greater than or equal to this log level.  (DEBUG returns
-	// DEBUG, INFO, ERROR, INFO return s INFO and ERROR, etc.).
+	// DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.).
 	Level LogLevel `protobuf:"varint,4,opt,name=level,proto3,enum=logs.LogLevel" json:"level,omitempty"`
 }
 

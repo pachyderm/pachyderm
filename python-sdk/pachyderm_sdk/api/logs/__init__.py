@@ -124,7 +124,7 @@ class LogFilter(betterproto.Message):
     level: "LogLevel" = betterproto.enum_field(4)
     """
     If set, only return logs that are greater than or equal to this log level.
-    (DEBUG returns DEBUG, INFO, ERROR, INFO return s INFO and ERROR, etc.).
+    (DEBUG returns DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.).
     """
 
 

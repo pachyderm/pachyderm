@@ -4753,7 +4753,7 @@ A LogFilter selects which log lines are returned.
 | time_range | [TimeRangeLogFilter](#logs-TimeRangeLogFilter) |  | If set, only return logs in the provided time range. |
 | limit | [uint64](#uint64) |  | If set, return at maximum this number of logs. |
 | regex | [RegexLogFilter](#logs-RegexLogFilter) |  | If set, only return logs that match this regular expression. |
-| level | [LogLevel](#logs-LogLevel) |  | If set, only return logs that are greater than or equal to this log level. (DEBUG returns DEBUG, INFO, ERROR, INFO return s INFO and ERROR, etc.). |
+| level | [LogLevel](#logs-LogLevel) |  | If set, only return logs that are greater than or equal to this log level. (DEBUG returns DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.). |
 
 
 

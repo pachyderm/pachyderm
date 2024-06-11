@@ -88,7 +88,7 @@ message LogFilter {
   // If set, only return logs that match this regular expression.
   RegexLogFilter regex = 3;
   // If set, only return logs that are greater than or equal to this log level.  (DEBUG returns
-  // DEBUG, INFO, ERROR, INFO return s INFO and ERROR, etc.).
+  // DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.).
   LogLevel level = 4;
 }
 
