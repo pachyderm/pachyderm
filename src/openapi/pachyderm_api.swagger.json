@@ -3870,6 +3870,36 @@
         ]
       }
     },
+    "/pfs_v2.API/ForgetCommit": {
+      "post": {
+        "summary": "Forget API",
+        "operationId": "API_ForgetCommit",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2ForgetCommitResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2ForgetCommitRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pjs.API/CreateJob": {
       "post": {
         "summary": "CreateJob creates a new job.\nChild jobs can be created by setting the context field to the appropriate parent job context.",
@@ -9178,6 +9208,21 @@
           "type": "boolean"
         }
       }
+    },
+    "pfs_v2ForgetCommitRequest": {
+      "type": "object",
+      "properties": {
+        "commit": {
+          "$ref": "#/definitions/pfs_v2CommitPicker"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "description": "if true, this will report the metrics, but won't actually do the delete."
+        }
+      }
+    },
+    "pfs_v2ForgetCommitResponse": {
+      "type": "object"
     },
     "pfs_v2FsckRequest": {
       "type": "object",

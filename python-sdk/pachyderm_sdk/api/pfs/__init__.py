@@ -1017,6 +1017,17 @@ class ReposSummaryResponse(betterproto.Message):
     summaries: List["ReposSummary"] = betterproto.message_field(1)
 
 
+@dataclass(eq=False, repr=False)
+class ForgetCommitRequest(betterproto.Message):
+    commit: "CommitPicker" = betterproto.message_field(1)
+    dry_run: bool = betterproto.bool_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class ForgetCommitResponse(betterproto.Message):
+    pass
+
+
 class ApiStub:
 
     def __init__(self, channel: "grpc.Channel"):
@@ -1294,6 +1305,11 @@ class ApiStub:
             "/pfs_v2.API/ReposSummary",
             request_serializer=ReposSummaryRequest.SerializeToString,
             response_deserializer=ReposSummaryResponse.FromString,
+        )
+        self.__rpc_forget_commit = channel.unary_unary(
+            "/pfs_v2.API/ForgetCommit",
+            request_serializer=ForgetCommitRequest.SerializeToString,
+            response_deserializer=ForgetCommitResponse.FromString,
         )
 
     def create_repo(
@@ -2035,3 +2051,14 @@ class ApiStub:
             request.projects = projects
 
         return self.__rpc_repos_summary(request)
+
+    def forget_commit(
+        self, *, commit: "CommitPicker" = None, dry_run: bool = False
+    ) -> "ForgetCommitResponse":
+
+        request = ForgetCommitRequest()
+        if commit is not None:
+            request.commit = commit
+        request.dry_run = dry_run
+
+        return self.__rpc_forget_commit(request)

@@ -1175,3 +1175,19 @@ func (x *ReposSummaryResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	enc.AddArray("summaries", zapcore.ArrayMarshalerFunc(summariesArrMarshaller))
 	return nil
 }
+
+func (x *ForgetCommitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("commit", x.Commit)
+	enc.AddBool("dry_run", x.DryRun)
+	return nil
+}
+
+func (x *ForgetCommitResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	return nil
+}
