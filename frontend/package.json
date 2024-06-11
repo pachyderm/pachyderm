@@ -107,7 +107,7 @@
     "@types/js-cookie": "3.0.5",
     "@types/js-yaml": "^4.0.5",
     "@types/lodash": "4.14.185",
-    "@types/node": "18.7.21",
+    "@types/node": "20.14.2",
     "@types/object-hash": "2.2.1",
     "@types/postcss-flexbugs-fixes": "^5.0.1",
     "@types/postcss-preset-env": "^7.7.0",
