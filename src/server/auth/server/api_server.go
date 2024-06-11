@@ -198,6 +198,18 @@ func (a *apiServer) ActivateAuthEverywhere(ctx context.Context, scopes []Activat
 
 func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 	if !a.env.Config.ActivateAuth {
+		log.Info(ctx, "Started to configure auth server via environment")
+		if err := a.isActive(ctx); err != nil {
+			if !errors.Is(err, auth.ErrNotActivated) {
+				log.Error(ctx, "failed to check whether auth is active during bootstrap", zap.Error(err))
+			}
+			return nil
+		}
+		log.Info(ctx, "Deactivate auth via environment")
+		ctx = internalauth.AsInternalUser(ctx, authdb.InternalUser)
+		if _, err := a.Deactivate(ctx, &auth.DeactivateRequest{}); err != nil {
+			return err
+		}
 		return nil
 	}
 	log.Info(ctx, "Started to configure auth server via environment")
@@ -214,7 +226,6 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 			return errors.Wrapf(err, "activate auth via environment")
 		}
 	}
-
 	if err := func() error {
 		// handle oidc clients & this cluster's auth config
 		if a.env.Config.AuthConfig != "" && a.env.Config.IdentityClients != "" {
