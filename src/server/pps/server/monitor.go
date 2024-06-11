@@ -242,19 +242,6 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 
 func (pc *pipelineController) blockStandby(pachClient *client.APIClient, commit *pfs.Commit) error {
 	ctx := pachClient.Ctx()
-	if pc.env.PachwInSidecar {
-		if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: commit,
-			Wait:   pfs.CommitState_FINISHED,
-		}); err != nil {
-			return err
-		}
-		_, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: ppsutil.MetaCommit(commit),
-			Wait:   pfs.CommitState_FINISHED,
-		})
-		return err
-	}
 	if _, err := pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 		Commit: commit,
 		Wait:   pfs.CommitState_FINISHING,

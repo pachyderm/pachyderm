@@ -43,7 +43,6 @@ type Env struct {
 	Reporter          *metrics.Reporter
 	BackgroundContext context.Context
 	Config            pachconfig.Configuration
-	PachwInSidecar    bool
 }
 
 type APIServer = *apiServer

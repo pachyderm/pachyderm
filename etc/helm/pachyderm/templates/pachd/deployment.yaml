@@ -59,8 +59,6 @@ spec:
         - name: STORAGE_URL
           value: {{ required "storage URL required" .Values.pachd.storage.storageURL | quote }}
         {{- end }}
-        - name: PACHW_IN_SIDECARS
-          value: {{ .Values.pachw.inSidecars | quote }}
         - name: PACHW_MIN_REPLICAS
           value: {{ .Values.pachw.minReplicas | default 0 | quote }}
         - name: PACHW_MAX_REPLICAS
