@@ -31,7 +31,7 @@
     "@testing-library/cypress": "^10.0.1",
     "cypress": "13.7.1",
     "cypress-wait-until": "3.0.1",
-    "dotenv-flow": "3.2.0",
+    "dotenv-flow": "4.1.0",
     "dotenv-flow-cli": "1.1.1",
     "envfile": "7.1.0",
     "graphql": "16.8.1",
