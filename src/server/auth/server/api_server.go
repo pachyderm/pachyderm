@@ -202,6 +202,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 		if err := a.isActive(ctx); err != nil {
 			if !errors.Is(err, auth.ErrNotActivated) {
 				log.Error(ctx, "failed to check whether auth is active during bootstrap", zap.Error(err))
+				return err
 			}
 			return nil
 		}
