@@ -46,7 +46,7 @@ const (
 	reposPageSize = 100
 )
 
-// RepoNotFoundError is returned by GetRepo() when a repo is not found in postgres.
+// RepoNotFoundError is returned by GetRepoInfo() when a repo is not found in postgres.
 type RepoNotFoundError struct {
 	Project string
 	Name    string
@@ -76,15 +76,16 @@ func IsDuplicateKeyErr(err error) bool {
 	return targetErr.Code == "23505" // duplicate key SQLSTATE
 }
 
-// RepoInfoWithID is an (id, repoInfo) tuple returned by the repo iterator.
-type RepoInfoWithID struct {
+// Repo wraps a *pfs.RepoInfo with a RepoID and an optional Revision.
+// The Revision is set by a RepoIterator.
+type Repo struct {
 	ID RepoID
 	*pfs.RepoInfo
 	Revision int64
 }
 
 // this dropped global variable instantiation forces the compiler to check whether RepoIterator implements stream.Iterator.
-var _ stream.Iterator[RepoInfoWithID] = &RepoIterator{}
+var _ stream.Iterator[Repo] = &RepoIterator{}
 
 // DeleteRepo deletes an entry in the pfs.repos table.
 func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) error {
@@ -98,7 +99,7 @@ func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repo
 		return errors.Wrap(err, "could not get affected rows")
 	}
 	if rowsAffected == 0 {
-		if _, err := GetProjectByName(ctx, tx, repoProject); err != nil {
+		if _, err := GetProjectInfoByName(ctx, tx, repoProject); err != nil {
 			if errors.As(err, new(*ProjectNotFoundError)) {
 				return errors.Join(err, &RepoNotFoundError{Project: repoProject, Name: repoName, Type: repoType})
 			}
@@ -117,7 +118,7 @@ func GetRepoID(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoT
 	return row.ID, nil
 }
 
-func GetRepoInfoWithID(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*RepoInfoWithID, error) {
+func GetRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*Repo, error) {
 	repo, err := getRepoByName(ctx, tx, repoProject, repoName, repoType)
 	if err != nil {
 		return nil, errors.Wrap(err, "get repo info with id")
@@ -126,18 +127,18 @@ func GetRepoInfoWithID(ctx context.Context, tx *pachsql.Tx, repoProject, repoNam
 	if err != nil {
 		return nil, errors.Wrap(err, "get repo info with id")
 	}
-	return &RepoInfoWithID{
+	return &Repo{
 		ID:       repo.ID,
 		RepoInfo: repoInfo,
 	}, nil
 }
 
-// GetRepo retrieves an entry from the pfs.repos table by using the row id.
-func GetRepo(ctx context.Context, tx *pachsql.Tx, id RepoID) (*pfs.RepoInfo, error) {
+// GetRepoInfo retrieves an entry from the pfs.repos table by using the row id.
+func GetRepoInfo(ctx context.Context, tx *pachsql.Tx, id RepoID) (*pfs.RepoInfo, error) {
 	if id == 0 {
 		return nil, errors.New("invalid id: 0")
 	}
-	repo := &Repo{}
+	repo := &RepoRow{}
 	err := tx.GetContext(ctx, repo, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id, project.name, project.id;", getRepoAndBranches), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -157,18 +158,18 @@ func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, r
 	return repo.PbInfo()
 }
 
-func getRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*Repo, error) {
+func getRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*RepoRow, error) {
 	if repoProject == "" {
 		repoProject = pfs.DefaultProjectName
 	}
-	repo := &Repo{}
+	repo := &RepoRow{}
 	if err := tx.GetContext(ctx, repo,
 		fmt.Sprintf("%s WHERE repo.project_id=(SELECT id from core.projects where name=$1) "+
 			"AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id, project.name, project.id;", getRepoAndBranches),
 		repoProject, repoName, repoType,
 	); err != nil {
 		if err == sql.ErrNoRows {
-			if _, err := GetProjectByName(ctx, tx, repoProject); err != nil {
+			if _, err := GetProjectInfoByName(ctx, tx, repoProject); err != nil {
 				if errors.As(err, new(*ProjectNotFoundError)) {
 					return nil, errors.Join(err, &RepoNotFoundError{Project: repoProject, Name: repoName, Type: repoType})
 				}
@@ -265,12 +266,12 @@ func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSi
 	query += "\n" + OrderByQuery[repoColumn](orderByGeneric...)
 	query = ext.Rebind(query)
 	return &RepoIterator{
-		paginator: newPageIterator[Repo](ctx, query, values, startPage, pageSize, maxPages),
+		paginator: newPageIterator[RepoRow](ctx, query, values, startPage, pageSize, maxPages),
 		ext:       ext,
 	}, nil
 }
 
-func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *RepoFilter, page *pfs.RepoPage, cb func(repoWithID RepoInfoWithID) error, orderBys ...OrderByRepoColumn) error {
+func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *RepoFilter, page *pfs.RepoPage, cb func(repo Repo) error, orderBys ...OrderByRepoColumn) error {
 	var maxPages uint64
 	if page == nil {
 		page = &pfs.RepoPage{
@@ -291,7 +292,7 @@ func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *RepoFilter, page *
 	if err != nil {
 		return errors.Wrap(err, "for each repo")
 	}
-	if err := stream.ForEach[RepoInfoWithID](ctx, iter, cb); err != nil {
+	if err := stream.ForEach[Repo](ctx, iter, cb); err != nil {
 		return errors.Wrap(err, "for each repo")
 	}
 	return nil
@@ -307,10 +308,10 @@ func makePageOrderBys(ordering pfs.RepoPage_Ordering) ([]OrderByRepoColumn, erro
 	return nil, errors.Errorf("cannot make page order bys for ordering %v", ordering)
 }
 
-func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *RepoFilter, page *pfs.RepoPage, orderBys ...OrderByRepoColumn) ([]RepoInfoWithID, error) {
-	var repos []RepoInfoWithID
-	if err := ForEachRepo(ctx, tx, filter, page, func(repoWithID RepoInfoWithID) error {
-		repos = append(repos, repoWithID)
+func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *RepoFilter, page *pfs.RepoPage, orderBys ...OrderByRepoColumn) ([]Repo, error) {
+	var repos []Repo
+	if err := ForEachRepo(ctx, tx, filter, page, func(repo Repo) error {
+		repos = append(repos, repo)
 		return nil
 	}, orderBys...); err != nil {
 		return nil, errors.Wrap(err, "list repo")
@@ -319,11 +320,11 @@ func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *RepoFilter, page *pfs
 }
 
 type RepoIterator struct {
-	paginator pageIterator[Repo]
+	paginator pageIterator[RepoRow]
 	ext       sqlx.ExtContext
 }
 
-func (i *RepoIterator) Next(ctx context.Context, dst *RepoInfoWithID) error {
+func (i *RepoIterator) Next(ctx context.Context, dst *Repo) error {
 	if dst == nil {
 		return errors.Errorf("dst RepoInfo cannot be nil")
 	}
@@ -358,9 +359,9 @@ func WatchRepos(ctx context.Context, db *pachsql.DB, listener collection.Postgre
 	return watchRepos(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
 }
 
-func watchRepos(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[RepoInfoWithID], events <-chan *postgres.Event, onUpsert repoUpsertHandler, onDelete repoDeleteHandler) error {
+func watchRepos(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[Repo], events <-chan *postgres.Event, onUpsert repoUpsertHandler, onDelete repoDeleteHandler) error {
 	// Handle snapshot.
-	if err := stream.ForEach[RepoInfoWithID](ctx, snapshot, func(r RepoInfoWithID) error {
+	if err := stream.ForEach[Repo](ctx, snapshot, func(r Repo) error {
 		return onUpsert(r.ID, r.RepoInfo)
 	}); err != nil {
 		return err
@@ -385,7 +386,7 @@ func watchRepos(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[Re
 				var repoInfo *pfs.RepoInfo
 				if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 					var err error
-					repoInfo, err = GetRepo(ctx, tx, id)
+					repoInfo, err = GetRepoInfo(ctx, tx, id)
 					if err != nil {
 						return err
 					}
@@ -405,7 +406,7 @@ func watchRepos(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[Re
 	}
 }
 
-func PickRepo(ctx context.Context, repoPicker *pfs.RepoPicker, tx *pachsql.Tx) (*RepoInfoWithID, error) {
+func PickRepo(ctx context.Context, repoPicker *pfs.RepoPicker, tx *pachsql.Tx) (*Repo, error) {
 	if repoPicker == nil || repoPicker.Picker == nil {
 		return nil, errors.New("repo picker cannot be nil")
 	}
@@ -416,19 +417,19 @@ func PickRepo(ctx context.Context, repoPicker *pfs.RepoPicker, tx *pachsql.Tx) (
 		if err != nil {
 			return nil, errors.Wrap(err, "picking repo")
 		}
-		repo := &pfs.Repo{
+		repoHandle := &pfs.Repo{
 			Project: proj.ProjectInfo.Project,
 			Type:    pfs.UserRepoType,
 			Name:    picker.Name,
 		}
 		if picker.Type != "" {
-			repo.Type = picker.Type
+			repoHandle.Type = picker.Type
 		}
-		repoInfoWithID, err := GetRepoInfoWithID(ctx, tx, repo.Project.Name, repo.Name, repo.Type)
+		repo, err := GetRepo(ctx, tx, repoHandle.Project.Name, repoHandle.Name, repoHandle.Type)
 		if err != nil {
 			return nil, errors.Wrap(err, "picking repo")
 		}
-		return repoInfoWithID, nil
+		return repo, nil
 	default:
 		return nil, errors.Errorf("repo picker is of an unknown type: %T", repoPicker.Picker)
 	}

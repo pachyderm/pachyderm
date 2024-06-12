@@ -332,8 +332,8 @@ func (d *driver) fsck(ctx context.Context, cb func(*pfs.FsckResponse) error) err
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfos := make(map[string]*pfs.RepoInfo)
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		err := pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
-			repoInfos[repoWithID.RepoInfo.Repo.Key()] = repoWithID.RepoInfo
+		err := pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repo pfsdb.Repo) error {
+			repoInfos[repo.RepoInfo.Repo.Key()] = repo.RepoInfo
 			return nil
 		})
 		return errors.Wrap(err, "list repo iterator")
@@ -342,15 +342,15 @@ func (d *driver) fsck(ctx context.Context, cb func(*pfs.FsckResponse) error) err
 	}
 	for _, repo := range repoInfos {
 		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-			commits, err := pfsdb.ListCommitTxByFilter(ctx, tx, &pfs.Commit{Repo: repo.Repo})
+			commits, err := pfsdb.ListCommitInfoTxByFilter(ctx, tx, &pfs.Commit{Repo: repo.Repo})
 			if err != nil {
 				return errors.Wrap(err, "get commits by commits repo index")
 			}
 			for _, commitInfo := range commits {
 				commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = commitInfo
 			}
-			return errors.Wrap(pfsdb.ForEachBranch(ctx, tx, &pfs.Branch{Repo: repo.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
-				branchInfos[pfsdb.BranchKey(branchInfoWithID.Branch)] = branchInfoWithID.BranchInfo
+			return errors.Wrap(pfsdb.ForEachBranch(ctx, tx, &pfs.Branch{Repo: repo.Repo}, func(branch pfsdb.Branch) error {
+				branchInfos[pfsdb.BranchKey(branch.Branch)] = branch.BranchInfo
 				return nil
 			}), "delete repo info")
 		}, dbutil.WithReadOnly()); err != nil {
