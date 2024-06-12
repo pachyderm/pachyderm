@@ -1,6 +1,5 @@
-load("@gazelle//:def.bzl", "gazelle")
 load("@jupyter-pip-requirements//:requirements.bzl", "all_data_requirements", "all_requirements", "all_whl_requirements")
-load("@jupyter-pip-requirements-dev//:requirements.bzl", all_data_requirements_dev = "all_data_requirements", all_requirements_dev = "all_requirements", all_whl_requirements_dev = "all_whl_requirements", requirement_dev = "requirement")
+load("@jupyter-pip-requirements-dev//:requirements.bzl", all_data_requirements_dev = "all_data_requirements", all_requirements_dev = "all_requirements", all_whl_requirements_dev = "all_whl_requirements")
 load("@rules_python//python:defs.bzl", "py_library")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_python_gazelle_plugin//manifest:defs.bzl", "gazelle_python_manifest")
