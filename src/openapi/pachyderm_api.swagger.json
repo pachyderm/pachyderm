@@ -5651,6 +5651,44 @@
         ]
       }
     },
+    "/storage.Fileset/ReadFilesetCDR": {
+      "post": {
+        "operationId": "Fileset_ReadFilesetCDR",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/storageReadFilesetCDRResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of storageReadFilesetCDRResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageReadFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
     "/storage.Fileset/RenewFileset": {
       "post": {
         "summary": "RenewFileset renews a fileset.",
@@ -6993,6 +7031,167 @@
         }
       }
     },
+    "cdrCipher": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "$ref": "#/definitions/cdrRef"
+        },
+        "algo": {
+          "$ref": "#/definitions/cdrCipherAlgo"
+        },
+        "key": {
+          "type": "string",
+          "format": "byte"
+        },
+        "nonce": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "title": "1:1 Transforms"
+    },
+    "cdrCipherAlgo": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN_CIPHER",
+        "CHACHA20"
+      ],
+      "default": "UNKNOWN_CIPHER"
+    },
+    "cdrCompress": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "$ref": "#/definitions/cdrRef"
+        },
+        "algo": {
+          "$ref": "#/definitions/cdrCompressAlgo"
+        }
+      }
+    },
+    "cdrCompressAlgo": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN_COMPRESS",
+        "GZIP"
+      ],
+      "default": "UNKNOWN_COMPRESS"
+    },
+    "cdrConcat": {
+      "type": "object",
+      "properties": {
+        "refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/cdrRef"
+          }
+        }
+      },
+      "title": "Many:1 Transforms"
+    },
+    "cdrContentHash": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "$ref": "#/definitions/cdrRef"
+        },
+        "algo": {
+          "$ref": "#/definitions/cdrHashAlgo"
+        },
+        "hash": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "title": "Contraints"
+    },
+    "cdrHTTP": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "cdrHashAlgo": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN_HASH",
+        "BLAKE2b_256"
+      ],
+      "default": "UNKNOWN_HASH"
+    },
+    "cdrRef": {
+      "type": "object",
+      "properties": {
+        "http": {
+          "$ref": "#/definitions/cdrHTTP",
+          "title": "Sources"
+        },
+        "contentHash": {
+          "$ref": "#/definitions/cdrContentHash",
+          "title": "Constraints"
+        },
+        "sizeLimits": {
+          "$ref": "#/definitions/cdrSizeLimits"
+        },
+        "cipher": {
+          "$ref": "#/definitions/cdrCipher",
+          "title": "1:1 Transforms"
+        },
+        "compress": {
+          "$ref": "#/definitions/cdrCompress"
+        },
+        "slice": {
+          "$ref": "#/definitions/cdrSlice"
+        },
+        "concat": {
+          "$ref": "#/definitions/cdrConcat",
+          "title": "Many:1 Transforms"
+        }
+      }
+    },
+    "cdrSizeLimits": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "$ref": "#/definitions/cdrRef"
+        },
+        "min": {
+          "type": "string",
+          "format": "int64"
+        },
+        "max": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "cdrSlice": {
+      "type": "object",
+      "properties": {
+        "inner": {
+          "$ref": "#/definitions/cdrRef"
+        },
+        "start": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "end": {
+          "type": "string",
+          "format": "uint64"
+        }
+      },
+      "title": "1:1 Transforms"
+    },
     "debug_v2App": {
       "type": "object",
       "properties": {
@@ -8070,20 +8269,24 @@
       "type": "object",
       "properties": {
         "timeRange": {
-          "$ref": "#/definitions/logsTimeRangeLogFilter"
+          "$ref": "#/definitions/logsTimeRangeLogFilter",
+          "description": "If set, only return logs in the provided time range."
         },
         "limit": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "description": "If set, return at maximum this number of logs."
         },
         "regex": {
-          "$ref": "#/definitions/logsRegexLogFilter"
+          "$ref": "#/definitions/logsRegexLogFilter",
+          "description": "If set, only return logs that match this regular expression."
         },
         "level": {
           "$ref": "#/definitions/logsLogLevel",
-          "title": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior"
+          "description": "If set, only return logs that are greater than or equal to this log level.  (DEBUG returns\nDEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.)."
         }
-      }
+      },
+      "description": "A LogFilter selects which log lines are returned."
     },
     "logsLogLevel": {
       "type": "string",
@@ -8188,19 +8391,20 @@
         "from": {
           "type": "string",
           "format": "date-time",
-          "title": "Can be null"
+          "description": "Where in time to start returning logs from; includes logs with this exact timestamp.  If null,\nstarts at the beginning of time."
         },
         "until": {
           "type": "string",
           "format": "date-time",
-          "title": "Can be null"
+          "description": "Where in time to stop returning logs from; includes logs with this exact timestamp.  If null,\nends at the end of time."
         },
         "offset": {
           "type": "string",
           "format": "uint64",
-          "title": "Offset from which to return results"
+          "description": "Offset from which to return results, in the case of multiple entries from the same nanosecond."
         }
-      }
+      },
+      "title": "A TimeRangeLogFilter selects logs within a time range.  Either or both timestamps can be null.\nIf from is after until, logs will be returns in reverse order.  (The first log you see will\nalways be from the \"from\" time.)"
     },
     "logsUserLogQuery": {
       "type": "object",
@@ -12223,6 +12427,17 @@
         }
       },
       "description": "PathRange is a range of paths.\nThe range is inclusive, exclusive: [Lower, Upper)."
+    },
+    "storageReadFilesetCDRResponse": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "ref": {
+          "$ref": "#/definitions/cdrRef"
+        }
+      }
     },
     "storageReadFilesetRequest": {
       "type": "object",

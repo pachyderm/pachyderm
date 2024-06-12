@@ -5,9 +5,11 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "client",
     srcs = [
+        "batched.go",
         "client.go",
         "json.go",
         "stringbuilder.go",
+        "timeiterator.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client",
     visibility = ["//src:__subpackages__"],
@@ -15,12 +17,16 @@ go_library(
         "//src/internal/backoff",
         "//src/internal/errors",
         "//src/internal/log",
+        "//src/internal/pctx",
         "//src/internal/promutil",
         "@com_github_json_iterator_go//:go",
         "@com_github_modern_go_reflect2//:reflect2",
+        "@com_github_prometheus_common//model",
         "@in_gopkg_yaml_v2//:yaml_v2",
+        "@org_golang_x_exp//maps",
         "@org_golang_x_net//websocket",
         "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
     ],
 )
 
@@ -28,6 +34,7 @@ go_test(
     name = "client_test",
     size = "small",
     srcs = ["client_test.go"],
+    data = glob(["testdata/**"]),
     deps = [
         ":client",
         "//src/internal/errors",
@@ -41,6 +48,31 @@ go_test(
     name = "protocol_test",
     size = "small",
     srcs = ["protocol_test.go"],
+    data = glob(["testdata/**"]),
     embed = [":client"],
     deps = ["//src/internal/require"],
+)
+
+go_test(
+    name = "timeiterator_test",
+    size = "small",
+    srcs = ["timeiterator_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":client"],
+    deps = ["@com_github_google_go_cmp//cmp"],
+)
+
+go_test(
+    name = "batched_test",
+    size = "small",
+    srcs = ["batched_test.go"],
+    data = glob(["testdata/**"]),
+    deps = [
+        ":client",
+        "//src/internal/cmputil",
+        "//src/internal/lokiutil/testloki",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "@com_github_google_go_cmp//cmp",
+    ],
 )

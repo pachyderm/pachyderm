@@ -1478,9 +1478,6 @@
         "pachw": {
             "type": "object",
             "properties": {
-                "inSidecars": {
-                    "type": "boolean"
-                },
                 "inheritFromPachd": {
                     "type": "boolean"
                 },

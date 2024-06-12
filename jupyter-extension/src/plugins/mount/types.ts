@@ -34,7 +34,7 @@ export type CrossInputSpec = {
 };
 
 export type CurrentDatumResponse = {
-  num_datums: number;
+  num_datums_received: number;
   input: {[key: string]: any};
   idx: number;
   all_datums_received: boolean;
@@ -47,7 +47,7 @@ export type DownloadPath = {
 export type MountDatumResponse = {
   id: string;
   idx: number;
-  num_datums: number;
+  num_datums_received: number;
   all_datums_received: boolean;
 };
 

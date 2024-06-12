@@ -20,6 +20,7 @@ import (
 )
 
 func TestPipelineVersionsDeduplication(t *testing.T) {
+	t.Skip("skip until the team can create a new test pachd with server code pinned against a specific version of pachyderm")
 	if testing.Short() {
 		t.Skip("Skipping benchmark in short mode")
 	}

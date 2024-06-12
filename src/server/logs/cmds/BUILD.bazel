@@ -26,6 +26,7 @@ go_test(
     srcs = ["cmds_test.go"],
     embed = [":cmds"],
     pure = "on",
+    shard_count = 3,
     deps = [
         "//src/auth",
         "//src/internal/dockertestenv",

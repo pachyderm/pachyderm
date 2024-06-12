@@ -79,6 +79,21 @@
   
     - [API](#auth_v2-API)
   
+- [cdr/cdr.proto](#cdr_cdr-proto)
+    - [Cipher](#cdr-Cipher)
+    - [Compress](#cdr-Compress)
+    - [Concat](#cdr-Concat)
+    - [ContentHash](#cdr-ContentHash)
+    - [HTTP](#cdr-HTTP)
+    - [HTTP.HeadersEntry](#cdr-HTTP-HeadersEntry)
+    - [Ref](#cdr-Ref)
+    - [SizeLimits](#cdr-SizeLimits)
+    - [Slice](#cdr-Slice)
+  
+    - [CipherAlgo](#cdr-CipherAlgo)
+    - [CompressAlgo](#cdr-CompressAlgo)
+    - [HashAlgo](#cdr-HashAlgo)
+  
 - [debug/debug.proto](#debug_debug-proto)
     - [App](#debug_v2-App)
     - [BinaryRequest](#debug_v2-BinaryRequest)
@@ -681,6 +696,7 @@
     - [DeleteFile](#storage-DeleteFile)
     - [FileFilter](#storage-FileFilter)
     - [PathRange](#storage-PathRange)
+    - [ReadFilesetCDRResponse](#storage-ReadFilesetCDRResponse)
     - [ReadFilesetRequest](#storage-ReadFilesetRequest)
     - [ReadFilesetResponse](#storage-ReadFilesetResponse)
     - [RenewFilesetRequest](#storage-RenewFilesetRequest)
@@ -1857,6 +1873,211 @@ ResourceType represents the type of a Resource
 | RestoreAuthToken | [RestoreAuthTokenRequest](#auth_v2-RestoreAuthTokenRequest) | [RestoreAuthTokenResponse](#auth_v2-RestoreAuthTokenResponse) |  |
 | DeleteExpiredAuthTokens | [DeleteExpiredAuthTokensRequest](#auth_v2-DeleteExpiredAuthTokensRequest) | [DeleteExpiredAuthTokensResponse](#auth_v2-DeleteExpiredAuthTokensResponse) |  |
 | RotateRootToken | [RotateRootTokenRequest](#auth_v2-RotateRootTokenRequest) | [RotateRootTokenResponse](#auth_v2-RotateRootTokenResponse) |  |
+
+ 
+
+
+
+<a name="cdr_cdr-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## cdr/cdr.proto
+
+
+
+<a name="cdr-Cipher"></a>
+
+### Cipher
+1:1 Transforms
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| inner | [Ref](#cdr-Ref) |  |  |
+| algo | [CipherAlgo](#cdr-CipherAlgo) |  |  |
+| key | [bytes](#bytes) |  |  |
+| nonce | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="cdr-Compress"></a>
+
+### Compress
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| inner | [Ref](#cdr-Ref) |  |  |
+| algo | [CompressAlgo](#cdr-CompressAlgo) |  |  |
+
+
+
+
+
+
+<a name="cdr-Concat"></a>
+
+### Concat
+Many:1 Transforms
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| refs | [Ref](#cdr-Ref) | repeated |  |
+
+
+
+
+
+
+<a name="cdr-ContentHash"></a>
+
+### ContentHash
+Contraints
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| inner | [Ref](#cdr-Ref) |  |  |
+| algo | [HashAlgo](#cdr-HashAlgo) |  |  |
+| hash | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="cdr-HTTP"></a>
+
+### HTTP
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| url | [string](#string) |  |  |
+| headers | [HTTP.HeadersEntry](#cdr-HTTP-HeadersEntry) | repeated |  |
+
+
+
+
+
+
+<a name="cdr-HTTP-HeadersEntry"></a>
+
+### HTTP.HeadersEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="cdr-Ref"></a>
+
+### Ref
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| http | [HTTP](#cdr-HTTP) |  | Sources |
+| content_hash | [ContentHash](#cdr-ContentHash) |  | Constraints |
+| size_limits | [SizeLimits](#cdr-SizeLimits) |  |  |
+| cipher | [Cipher](#cdr-Cipher) |  | 1:1 Transforms |
+| compress | [Compress](#cdr-Compress) |  |  |
+| slice | [Slice](#cdr-Slice) |  |  |
+| concat | [Concat](#cdr-Concat) |  | Many:1 Transforms |
+
+
+
+
+
+
+<a name="cdr-SizeLimits"></a>
+
+### SizeLimits
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| inner | [Ref](#cdr-Ref) |  |  |
+| min | [int64](#int64) |  |  |
+| max | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="cdr-Slice"></a>
+
+### Slice
+1:1 Transforms
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| inner | [Ref](#cdr-Ref) |  |  |
+| start | [uint64](#uint64) |  |  |
+| end | [uint64](#uint64) |  |  |
+
+
+
+
+
+ 
+
+
+<a name="cdr-CipherAlgo"></a>
+
+### CipherAlgo
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| UNKNOWN_CIPHER | 0 |  |
+| CHACHA20 | 1 |  |
+
+
+
+<a name="cdr-CompressAlgo"></a>
+
+### CompressAlgo
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| UNKNOWN_COMPRESS | 0 |  |
+| GZIP | 1 |  |
+
+
+
+<a name="cdr-HashAlgo"></a>
+
+### HashAlgo
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| UNKNOWN_HASH | 0 |  |
+| BLAKE2b_256 | 1 |  |
+
+
+ 
+
+ 
 
  
 
@@ -4524,15 +4745,15 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 <a name="logs-LogFilter"></a>
 
 ### LogFilter
-
+A LogFilter selects which log lines are returned.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| time_range | [TimeRangeLogFilter](#logs-TimeRangeLogFilter) |  |  |
-| limit | [uint64](#uint64) |  |  |
-| regex | [RegexLogFilter](#logs-RegexLogFilter) |  |  |
-| level | [LogLevel](#logs-LogLevel) |  | Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior |
+| time_range | [TimeRangeLogFilter](#logs-TimeRangeLogFilter) |  | If set, only return logs in the provided time range. |
+| limit | [uint64](#uint64) |  | If set, return at maximum this number of logs. |
+| regex | [RegexLogFilter](#logs-RegexLogFilter) |  | If set, only return logs that match this regular expression. |
+| level | [LogLevel](#logs-LogLevel) |  | If set, only return logs that are greater than or equal to this log level. (DEBUG returns DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.). |
 
 
 
@@ -4656,14 +4877,16 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 <a name="logs-TimeRangeLogFilter"></a>
 
 ### TimeRangeLogFilter
-
+A TimeRangeLogFilter selects logs within a time range.  Either or both timestamps can be null.
+If from is after until, logs will be returns in reverse order.  (The first log you see will
+always be from the &#34;from&#34; time.)
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| from | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null |
-| until | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null |
-| offset | [uint64](#uint64) |  | Offset from which to return results |
+| from | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Where in time to start returning logs from; includes logs with this exact timestamp. If null, starts at the beginning of time. |
+| until | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Where in time to stop returning logs from; includes logs with this exact timestamp. If null, ends at the end of time. |
+| offset | [uint64](#uint64) |  | Offset from which to return results, in the case of multiple entries from the same nanosecond. |
 
 
 
@@ -10930,6 +11153,22 @@ The range is inclusive, exclusive: [Lower, Upper).
 
 
 
+<a name="storage-ReadFilesetCDRResponse"></a>
+
+### ReadFilesetCDRResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+| ref | [cdr.Ref](#cdr-Ref) |  |  |
+
+
+
+
+
+
 <a name="storage-ReadFilesetRequest"></a>
 
 ### ReadFilesetRequest
@@ -11033,6 +11272,7 @@ storage&#39;s default value is used.
 | ----------- | ------------ | ------------- | ------------|
 | CreateFileset | [CreateFilesetRequest](#storage-CreateFilesetRequest) stream | [CreateFilesetResponse](#storage-CreateFilesetResponse) | CreateFileset creates a fileset based on a stream of file modifications. A string identifier for the created fileset will be returned that can be used for subsequent fileset operations. Filesets have a fixed time-to-live (ttl), which is currently 10 minutes. Filesets needed longer than the ttl will need to be renewed. |
 | ReadFileset | [ReadFilesetRequest](#storage-ReadFilesetRequest) | [ReadFilesetResponse](#storage-ReadFilesetResponse) stream | ReadFileset reads a fileset. |
+| ReadFilesetCDR | [ReadFilesetRequest](#storage-ReadFilesetRequest) | [ReadFilesetCDRResponse](#storage-ReadFilesetCDRResponse) stream |  |
 | RenewFileset | [RenewFilesetRequest](#storage-RenewFilesetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | RenewFileset renews a fileset. |
 | ComposeFileset | [ComposeFilesetRequest](#storage-ComposeFilesetRequest) | [ComposeFilesetResponse](#storage-ComposeFilesetResponse) | ComposeFileset composes a fileset. Composing a fileset involves combining one or more filesets into a single fileset. TODO: Explain how the filesets are layered and what that means for the order of file modifications. |
 | ShardFileset | [ShardFilesetRequest](#storage-ShardFilesetRequest) | [ShardFilesetResponse](#storage-ShardFilesetResponse) | ShardFileset shards a fileset. The shards of a fileset are returned as a list of path ranges that are disjoint and account for the full set of paths in the fileset. |

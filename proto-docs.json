@@ -2727,6 +2727,507 @@
       ]
     },
     {
+      "name": "cdr/cdr.proto",
+      "description": "",
+      "package": "cdr",
+      "hasEnums": true,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": false,
+      "enums": [
+        {
+          "name": "CipherAlgo",
+          "longName": "CipherAlgo",
+          "fullName": "cdr.CipherAlgo",
+          "description": "",
+          "values": [
+            {
+              "name": "UNKNOWN_CIPHER",
+              "number": "0",
+              "description": ""
+            },
+            {
+              "name": "CHACHA20",
+              "number": "1",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "CompressAlgo",
+          "longName": "CompressAlgo",
+          "fullName": "cdr.CompressAlgo",
+          "description": "",
+          "values": [
+            {
+              "name": "UNKNOWN_COMPRESS",
+              "number": "0",
+              "description": ""
+            },
+            {
+              "name": "GZIP",
+              "number": "1",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "HashAlgo",
+          "longName": "HashAlgo",
+          "fullName": "cdr.HashAlgo",
+          "description": "",
+          "values": [
+            {
+              "name": "UNKNOWN_HASH",
+              "number": "0",
+              "description": ""
+            },
+            {
+              "name": "BLAKE2b_256",
+              "number": "1",
+              "description": ""
+            }
+          ]
+        }
+      ],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "Cipher",
+          "longName": "Cipher",
+          "fullName": "cdr.Cipher",
+          "description": "1:1 Transforms",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "inner",
+              "description": "",
+              "label": "",
+              "type": "Ref",
+              "longType": "Ref",
+              "fullType": "cdr.Ref",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "algo",
+              "description": "",
+              "label": "",
+              "type": "CipherAlgo",
+              "longType": "CipherAlgo",
+              "fullType": "cdr.CipherAlgo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "nonce",
+              "description": "",
+              "label": "",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Compress",
+          "longName": "Compress",
+          "fullName": "cdr.Compress",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "inner",
+              "description": "",
+              "label": "",
+              "type": "Ref",
+              "longType": "Ref",
+              "fullType": "cdr.Ref",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "algo",
+              "description": "",
+              "label": "",
+              "type": "CompressAlgo",
+              "longType": "CompressAlgo",
+              "fullType": "cdr.CompressAlgo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Concat",
+          "longName": "Concat",
+          "fullName": "cdr.Concat",
+          "description": "Many:1 Transforms",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "refs",
+              "description": "",
+              "label": "repeated",
+              "type": "Ref",
+              "longType": "Ref",
+              "fullType": "cdr.Ref",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ContentHash",
+          "longName": "ContentHash",
+          "fullName": "cdr.ContentHash",
+          "description": "Contraints",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "inner",
+              "description": "",
+              "label": "",
+              "type": "Ref",
+              "longType": "Ref",
+              "fullType": "cdr.Ref",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "algo",
+              "description": "",
+              "label": "",
+              "type": "HashAlgo",
+              "longType": "HashAlgo",
+              "fullType": "cdr.HashAlgo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "hash",
+              "description": "",
+              "label": "",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "HTTP",
+          "longName": "HTTP",
+          "fullName": "cdr.HTTP",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "url",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "headers",
+              "description": "",
+              "label": "repeated",
+              "type": "HeadersEntry",
+              "longType": "HTTP.HeadersEntry",
+              "fullType": "cdr.HTTP.HeadersEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "HeadersEntry",
+          "longName": "HTTP.HeadersEntry",
+          "fullName": "cdr.HTTP.HeadersEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Ref",
+          "longName": "Ref",
+          "fullName": "cdr.Ref",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "http",
+              "description": "Sources",
+              "label": "",
+              "type": "HTTP",
+              "longType": "HTTP",
+              "fullType": "cdr.HTTP",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
+              "defaultValue": ""
+            },
+            {
+              "name": "content_hash",
+              "description": "Constraints",
+              "label": "",
+              "type": "ContentHash",
+              "longType": "ContentHash",
+              "fullType": "cdr.ContentHash",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
+              "defaultValue": ""
+            },
+            {
+              "name": "size_limits",
+              "description": "",
+              "label": "",
+              "type": "SizeLimits",
+              "longType": "SizeLimits",
+              "fullType": "cdr.SizeLimits",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
+              "defaultValue": ""
+            },
+            {
+              "name": "cipher",
+              "description": "1:1 Transforms",
+              "label": "",
+              "type": "Cipher",
+              "longType": "Cipher",
+              "fullType": "cdr.Cipher",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
+              "defaultValue": ""
+            },
+            {
+              "name": "compress",
+              "description": "",
+              "label": "",
+              "type": "Compress",
+              "longType": "Compress",
+              "fullType": "cdr.Compress",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
+              "defaultValue": ""
+            },
+            {
+              "name": "slice",
+              "description": "",
+              "label": "",
+              "type": "Slice",
+              "longType": "Slice",
+              "fullType": "cdr.Slice",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
+              "defaultValue": ""
+            },
+            {
+              "name": "concat",
+              "description": "Many:1 Transforms",
+              "label": "",
+              "type": "Concat",
+              "longType": "Concat",
+              "fullType": "cdr.Concat",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "SizeLimits",
+          "longName": "SizeLimits",
+          "fullName": "cdr.SizeLimits",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "inner",
+              "description": "",
+              "label": "",
+              "type": "Ref",
+              "longType": "Ref",
+              "fullType": "cdr.Ref",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "min",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "max",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Slice",
+          "longName": "Slice",
+          "fullName": "cdr.Slice",
+          "description": "1:1 Transforms",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "inner",
+              "description": "",
+              "label": "",
+              "type": "Ref",
+              "longType": "Ref",
+              "fullType": "cdr.Ref",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "start",
+              "description": "",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "end",
+              "description": "",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": []
+    },
+    {
       "name": "debug/debug.proto",
       "description": "",
       "package": "debug_v2",
@@ -9540,7 +10041,7 @@
           "name": "LogFilter",
           "longName": "LogFilter",
           "fullName": "logs.LogFilter",
-          "description": "",
+          "description": "A LogFilter selects which log lines are returned.",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -9548,7 +10049,7 @@
           "fields": [
             {
               "name": "time_range",
-              "description": "",
+              "description": "If set, only return logs in the provided time range.",
               "label": "",
               "type": "TimeRangeLogFilter",
               "longType": "TimeRangeLogFilter",
@@ -9560,7 +10061,7 @@
             },
             {
               "name": "limit",
-              "description": "",
+              "description": "If set, return at maximum this number of logs.",
               "label": "",
               "type": "uint64",
               "longType": "uint64",
@@ -9572,7 +10073,7 @@
             },
             {
               "name": "regex",
-              "description": "",
+              "description": "If set, only return logs that match this regular expression.",
               "label": "",
               "type": "RegexLogFilter",
               "longType": "RegexLogFilter",
@@ -9584,7 +10085,7 @@
             },
             {
               "name": "level",
-              "description": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior",
+              "description": "If set, only return logs that are greater than or equal to this log level.  (DEBUG returns\nDEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.).",
               "label": "",
               "type": "LogLevel",
               "longType": "LogLevel",
@@ -9876,7 +10377,7 @@
           "name": "TimeRangeLogFilter",
           "longName": "TimeRangeLogFilter",
           "fullName": "logs.TimeRangeLogFilter",
-          "description": "",
+          "description": "A TimeRangeLogFilter selects logs within a time range.  Either or both timestamps can be null.\nIf from is after until, logs will be returns in reverse order.  (The first log you see will\nalways be from the \"from\" time.)",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -9884,7 +10385,7 @@
           "fields": [
             {
               "name": "from",
-              "description": "Can be null",
+              "description": "Where in time to start returning logs from; includes logs with this exact timestamp.  If null,\nstarts at the beginning of time.",
               "label": "",
               "type": "Timestamp",
               "longType": "google.protobuf.Timestamp",
@@ -9896,7 +10397,7 @@
             },
             {
               "name": "until",
-              "description": "Can be null",
+              "description": "Where in time to stop returning logs from; includes logs with this exact timestamp.  If null,\nends at the end of time.",
               "label": "",
               "type": "Timestamp",
               "longType": "google.protobuf.Timestamp",
@@ -9908,7 +10409,7 @@
             },
             {
               "name": "offset",
-              "description": "Offset from which to return results",
+              "description": "Offset from which to return results, in the case of multiple entries from the same nanosecond.",
               "label": "",
               "type": "uint64",
               "longType": "uint64",
@@ -29336,6 +29837,42 @@
           ]
         },
         {
+          "name": "ReadFilesetCDRResponse",
+          "longName": "ReadFilesetCDRResponse",
+          "fullName": "storage.ReadFilesetCDRResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "path",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "ref",
+              "description": "",
+              "label": "",
+              "type": "Ref",
+              "longType": "cdr.Ref",
+              "fullType": "cdr.Ref",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ReadFilesetRequest",
           "longName": "ReadFilesetRequest",
           "fullName": "storage.ReadFilesetRequest",
@@ -29557,6 +30094,18 @@
               "responseType": "ReadFilesetResponse",
               "responseLongType": "ReadFilesetResponse",
               "responseFullType": "storage.ReadFilesetResponse",
+              "responseStreaming": true
+            },
+            {
+              "name": "ReadFilesetCDR",
+              "description": "",
+              "requestType": "ReadFilesetRequest",
+              "requestLongType": "ReadFilesetRequest",
+              "requestFullType": "storage.ReadFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "ReadFilesetCDRResponse",
+              "responseLongType": "ReadFilesetCDRResponse",
+              "responseFullType": "storage.ReadFilesetCDRResponse",
               "responseStreaming": true
             },
             {

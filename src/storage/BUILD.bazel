@@ -12,6 +12,7 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/storage",
     visibility = ["//visibility:public"],
     deps = [
+        "//src/cdr",
         "//src/protoextensions",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//utilities",

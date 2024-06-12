@@ -4,6 +4,7 @@ go_library(
     name = "chunk",
     srcs = [
         "batcher.go",
+        "cdr.go",
         "chunk.go",
         "chunk.pb.go",
         "chunk.pb.validate.go",
@@ -23,6 +24,7 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk",
     visibility = ["//src:__subpackages__"],
     deps = [
+        "//src/cdr",
         "//src/internal/backoff",
         "//src/internal/dbutil",
         "//src/internal/errors",
@@ -45,6 +47,7 @@ go_library(
         "@com_github_chmduquesne_rollinghash//buzhash64",
         "@com_github_docker_go_units//:go-units",
         "@com_github_hashicorp_golang_lru_v2//:golang-lru",
+        "@dev_gocloud//blob",
         "@org_golang_google_protobuf//proto",
         "@org_golang_google_protobuf//reflect/protoreflect",
         "@org_golang_google_protobuf//runtime/protoimpl",

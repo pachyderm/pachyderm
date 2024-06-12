@@ -31,7 +31,7 @@ describe('datum screen', () => {
         mockedRequestAPI({
           id: 'asdfaew34ri92jafiolwe',
           idx: 0,
-          num_datums: 6,
+          num_datums_received: 6,
           all_datums_received: true,
         }),
       );
@@ -78,7 +78,7 @@ describe('datum screen', () => {
         mockedRequestAPI({
           id: 'asdfaew34ri92jafiolwe',
           idx: 0,
-          num_datums: 6,
+          num_datums_received: 6,
           all_datums_received: false,
         }),
       );
@@ -103,7 +103,7 @@ describe('datum screen', () => {
         mockedRequestAPI({
           id: 'ilwe9nme9902ja039jf20snv',
           idx: 1,
-          num_datums: 6,
+          num_datums_received: 6,
           all_datums_received: false,
         }),
       );

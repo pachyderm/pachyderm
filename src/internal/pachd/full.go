@@ -34,7 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
+	storage_server "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -58,6 +58,7 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxy_server "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version_server "github.com/pachyderm/pachyderm/v2/src/version"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -200,7 +201,7 @@ type Full struct {
 	txnSrv        transaction.APIServer
 	authSrv       auth.APIServer
 	pfsSrv        pfs.APIServer
-	storageSrv    *storage.Server
+	storageSrv    *storage_server.Server
 	ppsSrv        pps.APIServer
 	metadataSrv   metadata.APIServer
 	adminSrv      admin.APIServer
@@ -309,8 +310,8 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 				GetPPSServer: func() ppsiface.APIServer { return pd.ppsSrv.(pps_server.APIServer) },
 			}
 		}),
-		initStorageServer(&pd.storageSrv, func() storage.Env {
-			return storage.Env{
+		initStorageServer(&pd.storageSrv, func() storage_server.Env {
+			return storage_server.Env{
 				DB:     env.DB,
 				Bucket: env.Bucket,
 				Config: config.StorageConfiguration,
@@ -508,6 +509,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 		logs.RegisterAPIServer(gs, pd.logsSrv)
 		metadata.RegisterAPIServer(gs, pd.metadataSrv)
 		pfs.RegisterAPIServer(gs, pd.pfsSrv)
+		storage.RegisterFilesetServer(gs, pd.storageSrv)
 		pps.RegisterAPIServer(gs, pd.ppsSrv)
 		proxy.RegisterAPIServer(gs, pd.proxySrv)
 		version.RegisterAPIServer(gs, pd.version)

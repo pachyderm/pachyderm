@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 )
 
@@ -46,18 +47,9 @@ func adminLogQueryValidateErr(requestType, missingArg string) error {
 	return errors.Wrapf(ErrBadRequest, "%s AdminLogQuery request requires a %s argument", requestType, missingArg)
 }
 
-type logDirection string
-
-const (
-	forwardLogDirection  logDirection = "forward"
-	backwardLogDirection logDirection = "backward"
-)
-
 // GetLogs gets logs according its request and publishes them.  The pattern is
 // similar to that used when handling an HTTP request.
 func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, publisher ResponsePublisher) error {
-	var direction = forwardLogDirection
-
 	if request == nil {
 		request = &logs.GetLogsRequest{}
 	}
@@ -70,33 +62,11 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if filter.Limit > math.MaxInt {
 		return errors.Wrapf(ErrBadRequest, "limit %d > maxint", filter.Limit)
 	}
-	switch {
-	case filter.TimeRange == nil || (filter.TimeRange.From == nil && filter.TimeRange.Until == nil):
-		now := time.Now()
-		filter.TimeRange = &logs.TimeRangeLogFilter{
-			From:  timestamppb.New(now.Add(-700 * time.Hour)),
-			Until: timestamppb.New(now),
-		}
-	case filter.TimeRange.From == nil || filter.TimeRange.From.AsTime().IsZero():
-		filter.TimeRange.From = timestamppb.New(filter.TimeRange.Until.AsTime().Add(-700 * time.Hour))
-	case filter.TimeRange.Until == nil || filter.TimeRange.Until.AsTime().IsZero():
-		filter.TimeRange.Until = timestamppb.New(filter.TimeRange.From.AsTime().Add(700 * time.Hour))
-	}
 
 	c, err := ls.GetLokiClient()
 	if err != nil {
 		return errors.Wrap(err, "loki client error")
 	}
-	start := filter.TimeRange.From.AsTime()
-	end := filter.TimeRange.Until.AsTime()
-	if start.Equal(end) {
-		return errors.Errorf("start equals end (%v)", start)
-	}
-	if start.After(end) {
-		direction = backwardLogDirection
-		start, end = end, start
-	}
-
 	var (
 		adapter = adapter{responsePublisher: publisher}
 		logQL   string
@@ -105,51 +75,53 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if err != nil {
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
-	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, uint(filter.TimeRange.Offset), direction, adapter.publish); err != nil {
-		var invalidBatchSizeErr ErrInvalidBatchSize
-		switch {
-		case errors.As(err, &invalidBatchSizeErr):
-			// try to requery
-			err = doQuery(ctx, c, logQL, invalidBatchSizeErr.RecommendedBatchSize(), start, end, 0, direction, adapter.publish)
-			if err != nil {
-				return errors.Wrap(err, "invalid batch size requery failed")
-			}
-		default:
-			return errors.Wrap(err, "doQuery failed")
-		}
+	var from, to time.Time
+	if t := filter.GetTimeRange().GetFrom(); t != nil {
+		from = t.AsTime()
+	}
+	if t := filter.GetTimeRange().GetUntil(); t != nil {
+		to = t.AsTime()
+	}
+	prev, next, prevOffset, nextOffset, err := c.BatchedQueryRange(ctx, logQL, from, to, uint(filter.GetTimeRange().GetOffset()), int(filter.Limit), adapter.publish)
+	if err != nil {
+		return errors.Wrap(err, "BatchedQueryRange")
 	}
 	if request.WantPagingHint {
-		hint := &logs.PagingHint{
-			Older: proto.Clone(request).(*logs.GetLogsRequest),
-			Newer: proto.Clone(request).(*logs.GetLogsRequest),
-		}
-		window := end.Sub(start)
-		// The older hint should run backwards from the request from time.
-		if filter.Limit != 0 && direction == backwardLogDirection {
-			if adapter.count > 0 {
-				start = adapter.last
+		older, newer := protoutil.Clone(request), protoutil.Clone(request)
+		if !prev.IsZero() {
+			if older.Filter == nil {
+				older.Filter = &logs.LogFilter{}
 			}
-			hint.Older.Filter.TimeRange.Offset = uint64(adapter.offset)
-		}
-		hint.Older.Filter.TimeRange.From = timestamppb.New(start)
-		hint.Older.Filter.TimeRange.Until = timestamppb.New(start.Add(-window))
-		if filter.Limit != 0 && direction == forwardLogDirection {
-			if adapter.count > 0 {
-				end = adapter.last
+			older.Filter.TimeRange = &logs.TimeRangeLogFilter{
+				Until:  timestamppb.New(prev),
+				Offset: uint64(prevOffset),
 			}
-			hint.Newer.Filter.TimeRange.Offset = uint64(adapter.offset) + 1
+		} else {
+			older = nil
 		}
-		hint.Newer.Filter.TimeRange.From = timestamppb.New(end)
-		hint.Newer.Filter.TimeRange.Until = timestamppb.New(end.Add(window))
-		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
+		if !next.IsZero() {
+			if newer.Filter == nil {
+				newer.Filter = &logs.LogFilter{}
+			}
+			newer.Filter.TimeRange = &logs.TimeRangeLogFilter{
+				From:   timestamppb.New(next),
+				Offset: uint64(nextOffset),
+			}
+		} else {
+			newer = nil
+		}
+		hint := &logs.GetLogsResponse{
 			ResponseType: &logs.GetLogsResponse_PagingHint{
-				PagingHint: hint,
+				PagingHint: &logs.PagingHint{
+					Older: older,
+					Newer: newer,
+				},
 			},
-		}); err != nil {
-			return errors.Errorf("%w paging hint: %w", ErrPublish, err)
+		}
+		if err := publisher.Publish(ctx, hint); err != nil {
+			return errors.Wrap(err, "send paging hint")
 		}
 	}
-
 	return nil
 }
 
@@ -499,42 +471,50 @@ type passFunc func(labels map[string]string, msg *logs.LogMessage) bool
 // An adapter publishes log entries to a ResponsePublisher in a specified format.
 type adapter struct {
 	responsePublisher ResponsePublisher
-	first, last       time.Time
-	gotFirst          bool
 	// If pass returns false, the message will not be published.
-	pass   passFunc
-	offset uint
-	count  uint
+	pass passFunc
 }
 
-func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry loki.Entry) (bool, error) {
-	var msg = &logs.LogMessage{
+func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki.Entry) (bool, error) {
+	if entry == nil {
+		return false, nil
+	}
+	msg := &logs.LogMessage{
 		Verbatim: &logs.VerbatimLogMessage{
 			Line:      []byte(entry.Line),
 			Timestamp: timestamppb.New(entry.Timestamp),
 		},
+		Object: new(structpb.Struct),
 	}
-	msg.Object = new(structpb.Struct)
-	if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
-		log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
-		msg.Object = nil
-	} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
-		if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
-			msg.NativeTimestamp = timestamppb.New(t)
+	if strings.HasPrefix(entry.Line, "{") && strings.HasSuffix(entry.Line, "}") {
+		if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
+			log.Debug(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
+			msg.Object = nil
+		} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
+			if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
+				msg.NativeTimestamp = timestamppb.New(t)
+			}
+		}
+		msg.PpsLogMessage = new(pps.LogMessage)
+		m := protojson.UnmarshalOptions{
+			AllowPartial:   true,
+			DiscardUnknown: true,
+		}
+		if err := m.Unmarshal([]byte(entry.Line), msg.PpsLogMessage); err != nil {
+			msg.PpsLogMessage = nil
+		} else if msg.PpsLogMessage.Ts != nil {
+			msg.NativeTimestamp = msg.PpsLogMessage.Ts
 		}
 	}
-	msg.PpsLogMessage = new(pps.LogMessage)
-	m := protojson.UnmarshalOptions{
-		AllowPartial:   true,
-		DiscardUnknown: true,
+	if msg.Object == nil || msg.Object.Fields == nil {
+		msg.Object = &structpb.Struct{Fields: make(map[string]*structpb.Value)}
 	}
-	if err := m.Unmarshal([]byte(entry.Line), msg.PpsLogMessage); err != nil {
-		log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
-		msg.PpsLogMessage = nil
-	} else if msg.PpsLogMessage.Ts != nil {
-		msg.NativeTimestamp = msg.PpsLogMessage.Ts
+	for k, v := range labels {
+		msg.Object.Fields["#"+k] = structpb.NewStringValue(v)
 	}
-
+	if len(msg.Object.AsMap()) == 0 {
+		msg.Object = nil
+	}
 	if a.pass != nil && !a.pass(map[string]string(labels), msg) {
 		return true, nil
 	}
@@ -545,16 +525,5 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry loki.
 	}); err != nil {
 		return false, errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
-	a.count++
-	if !a.gotFirst {
-		a.gotFirst = true
-		a.first = msg.Verbatim.Timestamp.AsTime()
-	}
-	if a.last.Equal(msg.Verbatim.Timestamp.AsTime()) {
-		a.offset++
-	} else {
-		a.offset = 0
-	}
-	a.last = msg.Verbatim.Timestamp.AsTime()
-	return false, nil
+	return true, nil
 }

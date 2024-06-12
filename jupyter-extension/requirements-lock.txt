@@ -345,6 +345,10 @@ mistune==3.0.2 \
     --hash=sha256:71481854c30fdbc938963d3605b72501f5c10a9320ecd412c121c163a1c7d205 \
     --hash=sha256:fc7f93ded930c92394ef2cb6f04a8aabab4117a91449e72dcc8dfa646a508be8
     # via nbconvert
+more-itertools==10.2.0 \
+    --hash=sha256:686b06abe565edfab151cb8fd385a05651e1fdf8f0a14191e4439283421f8684 \
+    --hash=sha256:8fccb480c43d3e99a00087634c06dd02b0d50fbf088b380de5a41a015ec239e1
+    # via pachyderm-sdk
 multidict==6.0.5 \
     --hash=sha256:01265f5e40f5a17f8241d52656ed27192be03bfa8764d88e8220141d1e4b3556 \
     --hash=sha256:0275e35209c27a3f7951e1ce7aaf93ce0d163b28948444bec61dd7badc6d3f8c \
@@ -456,9 +460,9 @@ overrides==7.7.0 \
     --hash=sha256:55158fa3d93b98cc75299b1e67078ad9003ca27945c76162c1c0766d6f91820a \
     --hash=sha256:c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49
     # via jupyter-server
-pachyderm-sdk==2.9.2 \
-    --hash=sha256:197d9945b968a041a4e09a23b3fb0a409d45ec598a822968e075743549e1c980 \
-    --hash=sha256:b70a282a016920209100f8235d0cbdc66e9faa7936586fba2bedbe474bf55d7f
+pachyderm-sdk==2.10.1 \
+    --hash=sha256:3df373060ae6580942fd9c5830274bf2cf298a984250ba2a661e9be514ae0704 \
+    --hash=sha256:b21bc59210b57032d2047961a279de003f79e4c76f77f450348e1d4cc7ceb884
     # via -r jupyter-extension/requirements.txt
 packaging==24.0 \
     --hash=sha256:2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5 \

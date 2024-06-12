@@ -322,7 +322,7 @@ func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWi
 				// Compacting the diff before getting the total allows us to compose the
 				// total file set so that it includes the compacted diff.
 				if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
-					_, err := d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+					_, err := d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commitWithID)
 					return err
 				}); err != nil {
 					return err
@@ -330,7 +330,7 @@ func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWi
 				var totalId *fileset.ID
 				var err error
 				if err := log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
-					totalId, err = d.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
+					totalId, err = d.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commitWithID)
 					return err
 				}); err != nil {
 					return err
@@ -359,8 +359,8 @@ func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWi
 	}, zap.Bool("finishing", true), log.Proto("commit", commitInfo.Commit), zap.Uint64("repo id", uint64(repoPair.ID)), zap.String("repo", repoPair.RepoInfo.Repo.Key()))
 }
 
-func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (*fileset.ID, error) {
-	id, err := d.commitStore.GetDiffFileSet(ctx, commit)
+func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commitWithID *pfsdb.CommitWithID) (*fileset.ID, error) {
+	id, err := d.commitStore.GetDiffFileSet(ctx, commitWithID)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -371,11 +371,11 @@ func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, d
 	if err != nil {
 		return nil, err
 	}
-	return diffId, errors.EnsureStack(d.commitStore.SetDiffFileSet(ctx, commit, *diffId))
+	return diffId, errors.EnsureStack(d.commitStore.SetDiffFileSet(ctx, commitWithID, *diffId))
 }
 
-func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfs.Commit) (*fileset.ID, error) {
-	id, err := d.getFileSet(ctx, commit)
+func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commitWithID *pfsdb.CommitWithID) (*fileset.ID, error) {
+	id, err := d.getFileSet(ctx, commitWithID)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -386,7 +386,7 @@ func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, 
 	if err != nil {
 		return nil, err
 	}
-	if err := errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId)); err != nil {
+	if err := errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commitWithID, *totalId)); err != nil {
 		return nil, err
 	}
 	return totalId, nil

@@ -7,6 +7,8 @@ import (
 
 	json "github.com/json-iterator/go"
 	"github.com/modern-go/reflect2"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -38,6 +40,13 @@ func (Streams) Type() ResultType { return ResultTypeStream }
 // From: https://github.com/grafana/loki/blob/a9d85de4aa5290cf2f8b2dca5d08645bbd0dc66c/pkg/loghttp/query.go
 type Streams []Stream
 
+func (ss Streams) MarshalLogArray(enc zapcore.ArrayEncoder) error {
+	for _, s := range ss {
+		enc.AppendObject(s) //nolint:errcheck
+	}
+	return nil
+}
+
 // Stream represents a log stream.  It includes a set of log entries and their labels.
 // From:  https://github.com/grafana/loki/blob/a9d85de4aa5290cf2f8b2dca5d08645bbd0dc66c/pkg/loghttp/query.go
 type Stream struct {
@@ -45,9 +54,37 @@ type Stream struct {
 	Entries []Entry  `json:"values"`
 }
 
+func (s Stream) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddObject("labels", s.Labels) //nolint:errcheck
+	enc.AddInt("entryCount", len(s.Entries))
+	if len(s.Entries) == 0 {
+		return nil
+	}
+	var oldest, newest time.Time
+	for _, e := range s.Entries {
+		if oldest.IsZero() || e.Timestamp.Before(oldest) {
+			oldest = e.Timestamp
+		}
+		if e.Timestamp.After(newest) {
+			newest = e.Timestamp
+		}
+	}
+	enc.AddTime("oldest", oldest)
+	enc.AddTime("newest", newest)
+	return nil
+}
+
 // LabelSet is a key/value pair mapping of labels
 // From: https://github.com/grafana/loki/blob/d9380eaac950c669864c0af60fd99eae281d2438/pkg/loghttp/labels.go
 type LabelSet map[string]string
+
+func (l LabelSet) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	keys := maps.Keys(l)
+	for _, k := range keys {
+		enc.AddString(k, l[k])
+	}
+	return nil
+}
 
 // Entry represents a log entry.  It includes a log message and the time it occurred at.
 // From: https://github.com/grafana/loki/blob/d9380eaac950c669864c0af60fd99eae281d2438/pkg/loghttp/entry.go
@@ -64,11 +101,29 @@ type QueryResponseData struct {
 	//Statistics interface{} `json:"stats"`
 }
 
+func (q QueryResponseData) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("result_type", string(q.ResultType))
+	switch x := q.Result.(type) {
+	case Streams:
+		enc.AddArray("streams", x) //nolint:errcheck
+	}
+	return nil
+}
+
 // QueryResponse represents the http json response to a Loki range and instant query
 // From: https://github.com/grafana/loki/blob/a9d85de4aa5290cf2f8b2dca5d08645bbd0dc66c/pkg/loghttp/query.go
 type QueryResponse struct {
 	Status string            `json:"status"`
 	Data   QueryResponseData `json:"data"`
+}
+
+func (r *QueryResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if r == nil {
+		return nil
+	}
+	enc.AddString("status", r.Status)
+	enc.AddObject("data", r.Data) //nolint:errcheck
+	return nil
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.

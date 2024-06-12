@@ -121,9 +121,10 @@ func TestUnmarshalRepoPicker(t *testing.T) {
 
 func TestUnmarshalCommitPicker(t *testing.T) {
 	testData := []struct {
-		name  string
-		input string
-		want  *CommitPicker
+		name    string
+		input   string
+		want    *CommitPicker
+		wantErr bool
 	}{
 		{
 			name:  "global id in user repo",
@@ -148,6 +149,7 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 					},
 				},
 			},
+			wantErr: false,
 		},
 		{
 			name:  "branch name in user repo",
@@ -176,6 +178,7 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 					},
 				},
 			},
+			wantErr: false,
 		},
 		{
 			name:  "branch name in user repo without project",
@@ -200,6 +203,7 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 					},
 				},
 			},
+			wantErr: false,
 		},
 		{
 			name:  "global id in user repo without project",
@@ -220,6 +224,7 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 					},
 				},
 			},
+			wantErr: false,
 		},
 		{
 			name:  "global id in spec repo",
@@ -244,15 +249,203 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 					},
 				},
 			},
+			wantErr: false,
+		},
+		{
+			name:  "ancestor of a branch head. simple case 1",
+			input: "images@master^",
+			want: &CommitPicker{
+				Picker: &CommitPicker_Ancestor{
+					Ancestor: &CommitPicker_AncestorOf{
+						Start: &CommitPicker{
+							Picker: &CommitPicker_BranchHead{
+								BranchHead: &BranchPicker{
+									Picker: &BranchPicker_Name{
+										Name: &BranchPicker_BranchName{
+											Repo: &RepoPicker{
+												Picker: &RepoPicker_Name{
+													Name: &RepoPicker_RepoName{
+														Name:    "images",
+														Type:    "user",
+														Project: &ProjectPicker{},
+													},
+												},
+											},
+											Name: "master",
+										},
+									},
+								},
+							},
+						},
+						Offset: 1,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "ancestor of a branch head. simple case 2",
+			input: "images@master^12",
+			want: &CommitPicker{
+				Picker: &CommitPicker_Ancestor{
+					Ancestor: &CommitPicker_AncestorOf{
+						Start: &CommitPicker{
+							Picker: &CommitPicker_BranchHead{
+								BranchHead: &BranchPicker{
+									Picker: &BranchPicker_Name{
+										Name: &BranchPicker_BranchName{
+											Repo: &RepoPicker{
+												Picker: &RepoPicker_Name{
+													Name: &RepoPicker_RepoName{
+														Name:    "images",
+														Type:    "user",
+														Project: &ProjectPicker{},
+													},
+												},
+											},
+											Name: "master",
+										},
+									},
+								},
+							},
+						},
+						Offset: 12,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "ancestor of a commit. simple case 3",
+			input: "images@44444444444444444444444444444444^",
+			want: &CommitPicker{
+				Picker: &CommitPicker_Ancestor{
+					Ancestor: &CommitPicker_AncestorOf{
+						Start: &CommitPicker{
+							Picker: &CommitPicker_Id{
+								Id: &CommitPicker_CommitByGlobalId{
+									Repo: &RepoPicker{
+										Picker: &RepoPicker_Name{
+											Name: &RepoPicker_RepoName{
+												Name:    "images",
+												Type:    "user",
+												Project: &ProjectPicker{},
+											},
+										},
+									},
+									Id: "44444444444444444444444444444444",
+								},
+							},
+						},
+						Offset: 1,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "branch root",
+			input: "images@master.13",
+			want: &CommitPicker{
+				Picker: &CommitPicker_BranchRoot_{
+					BranchRoot: &CommitPicker_BranchRoot{
+						Branch: &BranchPicker{
+							Picker: &BranchPicker_Name{
+								Name: &BranchPicker_BranchName{
+									Repo: &RepoPicker{
+										Picker: &RepoPicker_Name{
+											Name: &RepoPicker_RepoName{
+												Project: &ProjectPicker{},
+												Name:    "images",
+												Type:    "user",
+											},
+										},
+									},
+									Name: "master",
+								},
+							},
+						},
+						Offset: 13,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "branch root and ancestor of. simple valid case",
+			input: "images@master.2^1",
+			want: &CommitPicker{
+				Picker: &CommitPicker_BranchRoot_{
+					BranchRoot: &CommitPicker_BranchRoot{
+						Branch: &BranchPicker{
+							Picker: &BranchPicker_Name{
+								Name: &BranchPicker_BranchName{
+									Repo: &RepoPicker{
+										Picker: &RepoPicker_Name{
+											Name: &RepoPicker_RepoName{
+												Project: &ProjectPicker{},
+												Name:    "images",
+												Type:    "user",
+											},
+										},
+									},
+									Name: "master",
+								},
+							},
+						},
+						Offset: 1,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "branch root and ancestor of. complex valid case",
+			input: "images@master.70^12",
+			want: &CommitPicker{
+				Picker: &CommitPicker_BranchRoot_{
+					BranchRoot: &CommitPicker_BranchRoot{
+						Branch: &BranchPicker{
+							Picker: &BranchPicker_Name{
+								Name: &BranchPicker_BranchName{
+									Repo: &RepoPicker{
+										Picker: &RepoPicker_Name{
+											Name: &RepoPicker_RepoName{
+												Project: &ProjectPicker{},
+												Name:    "images",
+												Type:    "user",
+											},
+										},
+									},
+									Name: "master",
+								},
+							},
+						},
+						Offset: 58,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:  "branch root and ancestor of. invalid case",
+			input: "images@master.1^2",
+			want: &CommitPicker{
+				Picker: &CommitPicker_BranchRoot_{},
+			},
+			wantErr: true,
 		},
 	}
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			var p CommitPicker
-			if err := p.UnmarshalText([]byte(test.input)); err != nil {
-				t.Fatal(err)
+			err := p.UnmarshalText([]byte(test.input))
+			if test.wantErr {
+				require.YesError(t, err)
+			} else {
+				require.NoError(t, err)
+				require.NoDiff(t, &p, test.want, []cmp.Option{protocmp.Transform()})
 			}
-			require.NoDiff(t, &p, test.want, []cmp.Option{protocmp.Transform()})
 		})
 	}
 }

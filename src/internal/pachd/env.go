@@ -200,7 +200,6 @@ func PPSEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter 
 		Reporter:          reporter,
 		BackgroundContext: pctx.Child(senv.Context(), "PPS"),
 		Config:            *senv.Config(),
-		PachwInSidecar:    senv.Config().PachwInSidecars,
 	}
 }
 

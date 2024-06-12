@@ -4,6 +4,7 @@
 * This file is a generated Typescript file for GRPC Gateway, DO NOT MODIFY
 */
 
+import * as CdrCdr from "../cdr/cdr.pb"
 import * as fm from "../fetch.pb"
 import * as GoogleProtobufEmpty from "../google/protobuf/empty.pb"
 import * as GoogleProtobufWrappers from "../google/protobuf/wrappers.pb"
@@ -54,6 +55,11 @@ export type ReadFilesetResponse = {
   data?: GoogleProtobufWrappers.BytesValue
 }
 
+export type ReadFilesetCDRResponse = {
+  path?: string
+  ref?: CdrCdr.Ref
+}
+
 export type RenewFilesetRequest = {
   filesetId?: string
   ttlSeconds?: string
@@ -86,6 +92,9 @@ export type ShardFilesetResponse = {
 export class Fileset {
   static ReadFileset(req: ReadFilesetRequest, entityNotifier?: fm.NotifyStreamEntityArrival<ReadFilesetResponse>, initReq?: fm.InitReq): Promise<void> {
     return fm.fetchStreamingRequest<ReadFilesetRequest, ReadFilesetResponse>(`/storage.Fileset/ReadFileset`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static ReadFilesetCDR(req: ReadFilesetRequest, entityNotifier?: fm.NotifyStreamEntityArrival<ReadFilesetCDRResponse>, initReq?: fm.InitReq): Promise<void> {
+    return fm.fetchStreamingRequest<ReadFilesetRequest, ReadFilesetCDRResponse>(`/storage.Fileset/ReadFilesetCDR`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
   static RenewFileset(req: RenewFilesetRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<RenewFilesetRequest, GoogleProtobufEmpty.Empty>(`/storage.Fileset/RenewFileset`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})

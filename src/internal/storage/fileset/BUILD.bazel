@@ -23,6 +23,7 @@ go_library(
         "transforms.go",
         "unordered_writer.go",
         "util.go",
+        "validator.go",
         "writer.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset",

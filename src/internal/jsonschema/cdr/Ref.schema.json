@@ -1,0 +1,222 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Ref",
+    "definitions": {
+        "Ref": {
+            "properties": {
+                "http": {
+                    "$ref": "#/definitions/cdr.HTTP",
+                    "additionalProperties": false,
+                    "description": "Sources"
+                },
+                "contentHash": {
+                    "$ref": "#/definitions/cdr.ContentHash",
+                    "additionalProperties": false,
+                    "description": "Constraints"
+                },
+                "sizeLimits": {
+                    "$ref": "#/definitions/cdr.SizeLimits",
+                    "additionalProperties": false
+                },
+                "cipher": {
+                    "$ref": "#/definitions/cdr.Cipher",
+                    "additionalProperties": false,
+                    "description": "1:1 Transforms"
+                },
+                "compress": {
+                    "$ref": "#/definitions/cdr.Compress",
+                    "additionalProperties": false
+                },
+                "slice": {
+                    "$ref": "#/definitions/cdr.Slice",
+                    "additionalProperties": false
+                },
+                "concat": {
+                    "$ref": "#/definitions/cdr.Concat",
+                    "additionalProperties": false,
+                    "description": "Many:1 Transforms"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "http"
+                    ]
+                },
+                {
+                    "required": [
+                        "content_hash"
+                    ]
+                },
+                {
+                    "required": [
+                        "size_limits"
+                    ]
+                },
+                {
+                    "required": [
+                        "cipher"
+                    ]
+                },
+                {
+                    "required": [
+                        "compress"
+                    ]
+                },
+                {
+                    "required": [
+                        "slice"
+                    ]
+                },
+                {
+                    "required": [
+                        "concat"
+                    ]
+                }
+            ],
+            "title": "Ref"
+        },
+        "cdr.Cipher": {
+            "properties": {
+                "inner": {
+                    "$ref": "#/definitions/Ref",
+                    "additionalProperties": false
+                },
+                "algo": {
+                    "enum": [
+                        "UNKNOWN_CIPHER",
+                        "CHACHA20"
+                    ],
+                    "type": "string",
+                    "title": "Cipher Algo"
+                },
+                "key": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "nonce": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cipher",
+            "description": "1:1 Transforms"
+        },
+        "cdr.Compress": {
+            "properties": {
+                "inner": {
+                    "$ref": "#/definitions/Ref",
+                    "additionalProperties": false
+                },
+                "algo": {
+                    "enum": [
+                        "UNKNOWN_COMPRESS",
+                        "GZIP"
+                    ],
+                    "type": "string",
+                    "title": "Compress Algo"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Compress"
+        },
+        "cdr.Concat": {
+            "properties": {
+                "refs": {
+                    "items": {
+                        "$ref": "#/definitions/Ref"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Concat",
+            "description": "Many:1 Transforms"
+        },
+        "cdr.ContentHash": {
+            "properties": {
+                "inner": {
+                    "$ref": "#/definitions/Ref",
+                    "additionalProperties": false
+                },
+                "algo": {
+                    "enum": [
+                        "UNKNOWN_HASH",
+                        "BLAKE2b_256"
+                    ],
+                    "type": "string",
+                    "title": "Hash Algo"
+                },
+                "hash": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Content Hash",
+            "description": "Contraints"
+        },
+        "cdr.HTTP": {
+            "properties": {
+                "url": {
+                    "type": "string"
+                },
+                "headers": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "HTTP"
+        },
+        "cdr.SizeLimits": {
+            "properties": {
+                "inner": {
+                    "$ref": "#/definitions/Ref",
+                    "additionalProperties": false
+                },
+                "min": {
+                    "type": "integer"
+                },
+                "max": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Size Limits"
+        },
+        "cdr.Slice": {
+            "properties": {
+                "inner": {
+                    "$ref": "#/definitions/Ref",
+                    "additionalProperties": false
+                },
+                "start": {
+                    "type": "integer"
+                },
+                "end": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Slice",
+            "description": "1:1 Transforms"
+        }
+    }
+}
