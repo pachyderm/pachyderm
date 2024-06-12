@@ -17,9 +17,6 @@ func (s *Storage) CDRFromDataRef(ctx context.Context, dataRef *DataRef) (*cdr.Re
 	if err != nil {
 		return nil, err
 	}
-	if s.bucket == nil {
-		return nil, errors.Errorf("GoCDK must be enabled for CDRs")
-	}
 	url, err := s.bucket.SignedURL(ctx, path, &blob.SignedURLOptions{Expiry: 24 * time.Hour})
 	if err != nil {
 		return nil, errors.EnsureStack(err)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
@@ -19,7 +18,6 @@ import (
 // The Tx field will be overwritten with the transaction that the migration should be performed in.
 type Env struct {
 	// TODO: etcd
-	ObjectClient   obj.Client
 	Tx             *pachsql.Tx
 	EtcdClient     *clientv3.Client
 	WithTableLocks bool
@@ -40,9 +38,8 @@ func (env Env) LockTables(ctx context.Context, tables ...string) error {
 // MakeEnv returns a new Env
 // The only advantage to this contructor is you can be sure all the fields are set.
 // You can also create an Env using a struct literal.
-func MakeEnv(objC obj.Client, etcdC *clientv3.Client) Env {
+func MakeEnv(etcdC *clientv3.Client) Env {
 	return Env{
-		ObjectClient:   objC,
 		EtcdClient:     etcdC,
 		WithTableLocks: true,
 	}

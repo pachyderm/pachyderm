@@ -3,7 +3,6 @@ package kv
 import (
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"gocloud.dev/blob/fileblob"
 )
@@ -30,14 +29,6 @@ func TestSemaphoredStore(t *testing.T) {
 func TestPrefixedStore(t *testing.T) {
 	TestStore(t, func(t testing.TB) Store {
 		return NewPrefixed(NewMemStore(), []byte("prefix"))
-	})
-}
-
-func TestObjectClient(t *testing.T) {
-	TestStore(t, func(t testing.TB) Store {
-		c, err := obj.NewLocalClient(t.TempDir())
-		require.NoError(t, err)
-		return NewFromObjectClient(c, 1024, 1<<20)
 	})
 }
 

@@ -35,7 +35,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -43,7 +42,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -6108,80 +6106,6 @@ func TestListAll(t *testing.T) {
 	bis, err := env.PachClient.ListBranch(pfs.DefaultProjectName, "")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(bis))
-}
-
-func TestMonkeyObjectStorage(t *testing.T) {
-	// This test cannot be done in parallel because the monkey object client
-	// modifies global state.
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	seedStr := func(seed int64) string {
-		return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
-	}
-	monkeyRetry := func(t *testing.T, f func() error, errMsg string) {
-		backoff.Retry(func() error { //nolint:errcheck
-			err := f()
-			if err != nil {
-				require.True(t, obj.IsMonkeyError(err), "Expected monkey error (%s), %s", err.Error(), errMsg)
-			}
-			return err
-		}, backoff.NewInfiniteBackOff())
-	}
-	seed := time.Now().UTC().UnixNano()
-	obj.InitMonkeyTest(seed)
-	iterations := 25
-	repo := "input"
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo), seedStr(seed))
-	filePrefix := "file"
-	dataPrefix := "data"
-	var commit *pfs.Commit
-	var err error
-	buf := &bytes.Buffer{}
-	obj.EnableMonkeyTest()
-	defer obj.DisableMonkeyTest()
-	for i := 0; i < iterations; i++ {
-		file := filePrefix + strconv.Itoa(i)
-		data := dataPrefix + strconv.Itoa(i)
-		// Retry start commit until it eventually succeeds.
-		monkeyRetry(t, func() error {
-			commit, err = env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
-			return err
-		}, seedStr(seed))
-		// Retry put file until it eventually succeeds.
-		monkeyRetry(t, func() error {
-			if err := env.PachClient.PutFile(commit, file, strings.NewReader(data)); err != nil {
-				// Verify that the file does not exist if an error occurred.
-				obj.DisableMonkeyTest()
-				defer obj.EnableMonkeyTest()
-				buf.Reset()
-				err := env.PachClient.GetFile(commit, file, buf)
-				require.True(t, errutil.IsNotFoundError(err), seedStr(seed))
-			}
-			return err
-		}, seedStr(seed))
-		// Retry get file until it eventually succeeds (before commit is finished).
-		monkeyRetry(t, func() error {
-			buf.Reset()
-			if err = env.PachClient.GetFile(commit, file, buf); err != nil {
-				return err
-			}
-			require.Equal(t, data, buf.String(), seedStr(seed))
-			return nil
-		}, seedStr(seed))
-		// Retry finish commit until it eventually succeeds.
-		monkeyRetry(t, func() error {
-			return finishCommit(env.PachClient, repo, "", commit.Id)
-		}, seedStr(seed))
-		// Retry get file until it eventually succeeds (after commit is finished).
-		monkeyRetry(t, func() error {
-			buf.Reset()
-			if err = env.PachClient.GetFile(commit, file, buf); err != nil {
-				return err
-			}
-			require.Equal(t, data, buf.String(), seedStr(seed))
-			return nil
-		}, seedStr(seed))
-	}
 }
 
 func TestFsckFix(t *testing.T) {

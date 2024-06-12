@@ -69,7 +69,7 @@ func TestMigrations(ctx context.Context, db *pachsql.DB) (retErr error) {
 		log.Info(ctx, "txn rolled back ok")
 	}()
 	states := migrations.CollectStates(clusterstate.DesiredClusterState)
-	env := migrations.MakeEnv(nil, etcdClient)
+	env := migrations.MakeEnv(etcdClient)
 	env.Tx = txx
 	env.WithTableLocks = false
 	for _, s := range states {
