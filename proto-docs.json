@@ -9787,7 +9787,7 @@
           "name": "LogLevel",
           "longName": "LogLevel",
           "fullName": "logs.LogLevel",
-          "description": "",
+          "description": "LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR.",
           "values": [
             {
               "name": "LOG_LEVEL_DEBUG",
@@ -9821,7 +9821,7 @@
           "fields": [
             {
               "name": "logql",
-              "description": "Arbitrary LogQL query",
+              "description": "Arbitrary LogQL query.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -9833,7 +9833,7 @@
             },
             {
               "name": "pod",
-              "description": "A pod's logs (all containers)",
+              "description": "A pod's logs (all containers).",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -9845,7 +9845,7 @@
             },
             {
               "name": "pod_container",
-              "description": "One container",
+              "description": "One container.",
               "label": "",
               "type": "PodContainer",
               "longType": "PodContainer",
@@ -9857,7 +9857,7 @@
             },
             {
               "name": "app",
-              "description": "One \"app\" (logql -\u003e {app=X})",
+              "description": "One \"app\" (logql -\u003e {app=X}).",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -9869,7 +9869,7 @@
             },
             {
               "name": "master",
-              "description": "All master worker lines from a pipeline",
+              "description": "All master worker lines from a pipeline.",
               "label": "",
               "type": "PipelineLogQuery",
               "longType": "PipelineLogQuery",
@@ -9881,7 +9881,7 @@
             },
             {
               "name": "storage",
-              "description": "All storage container lines from a pipeline",
+              "description": "All storage container lines from a pipeline.",
               "label": "",
               "type": "PipelineLogQuery",
               "longType": "PipelineLogQuery",
@@ -9893,7 +9893,7 @@
             },
             {
               "name": "user",
-              "description": "All worker lines from a pipeline/job",
+              "description": "All worker lines from a pipeline/job.",
               "label": "",
               "type": "UserLogQuery",
               "longType": "UserLogQuery",
@@ -10005,7 +10005,7 @@
           "name": "JobDatumLogQuery",
           "longName": "JobDatumLogQuery",
           "fullName": "logs.JobDatumLogQuery",
-          "description": "",
+          "description": "JobDatumLogQuery returns logs from the processing of one datum that was part of the job.",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -10013,7 +10013,7 @@
           "fields": [
             {
               "name": "job",
-              "description": "",
+              "description": "The hex-encoded ID of the job.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -10025,7 +10025,7 @@
             },
             {
               "name": "datum",
-              "description": "",
+              "description": "The hex-encoded ID of the datum.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -10090,6 +10090,18 @@
               "type": "LogLevel",
               "longType": "LogLevel",
               "fullType": "logs.LogLevel",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "user_logs_only",
+              "description": "If true, only return logs from user code, excluding matched log messages only related to\ninternal Pachyderm operations.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -10161,7 +10173,7 @@
           "name": "LogQuery",
           "longName": "LogQuery",
           "fullName": "logs.LogQuery",
-          "description": "",
+          "description": "LogQuery names a source of logs.",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": true,
@@ -10169,7 +10181,7 @@
           "fields": [
             {
               "name": "user",
-              "description": "",
+              "description": "A user query; covering day-to-day Pachyderm use cases.",
               "label": "",
               "type": "UserLogQuery",
               "longType": "UserLogQuery",
@@ -10181,7 +10193,7 @@
             },
             {
               "name": "admin",
-              "description": "",
+              "description": "A more broad log query that requires special permissions; useful for debugging Pachyderm\nitself.",
               "label": "",
               "type": "AdminLogQuery",
               "longType": "AdminLogQuery",
@@ -10233,7 +10245,7 @@
           "name": "PipelineJobLogQuery",
           "longName": "PipelineJobLogQuery",
           "fullName": "logs.PipelineJobLogQuery",
-          "description": "",
+          "description": "PipelineJobLogQuery selects all logs from a job that a named pipeline performed.",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -10241,7 +10253,7 @@
           "fields": [
             {
               "name": "pipeline",
-              "description": "",
+              "description": "The pipeline.",
               "label": "",
               "type": "PipelineLogQuery",
               "longType": "PipelineLogQuery",
@@ -10253,7 +10265,7 @@
             },
             {
               "name": "job",
-              "description": "",
+              "description": "The hex-encoded ID of the job.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -10269,7 +10281,7 @@
           "name": "PipelineLogQuery",
           "longName": "PipelineLogQuery",
           "fullName": "logs.PipelineLogQuery",
-          "description": "",
+          "description": "PipelineLogQuery selects all logs from all runs of a named pipeline.",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -10277,7 +10289,7 @@
           "fields": [
             {
               "name": "project",
-              "description": "",
+              "description": "The project the pipeline is in.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -10289,7 +10301,7 @@
             },
             {
               "name": "pipeline",
-              "description": "",
+              "description": "The name of the pipeline.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -10305,7 +10317,7 @@
           "name": "PodContainer",
           "longName": "PodContainer",
           "fullName": "logs.PodContainer",
-          "description": "",
+          "description": "PodContainer identifies a container running in a Pod.",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -10313,7 +10325,7 @@
           "fields": [
             {
               "name": "pod",
-              "description": "",
+              "description": "The full name of the pod.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -10325,7 +10337,7 @@
             },
             {
               "name": "container",
-              "description": "",
+              "description": "The name of the container.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -10425,7 +10437,7 @@
           "name": "UserLogQuery",
           "longName": "UserLogQuery",
           "fullName": "logs.UserLogQuery",
-          "description": "Only returns \"user\" logs",
+          "description": "A UserLogQuery selects logs that Pachyderm users need to see during normal Pachyderm operations.",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": true,
@@ -10433,7 +10445,7 @@
           "fields": [
             {
               "name": "project",
-              "description": "All pipelines in the project",
+              "description": "All pipelines in the project.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -10445,7 +10457,7 @@
             },
             {
               "name": "pipeline",
-              "description": "One pipeline in a project",
+              "description": "One pipeline in a project.",
               "label": "",
               "type": "PipelineLogQuery",
               "longType": "PipelineLogQuery",
@@ -10457,7 +10469,7 @@
             },
             {
               "name": "datum",
-              "description": "One datum.",
+              "description": "One datum, by hex-encoded ID.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -10469,7 +10481,7 @@
             },
             {
               "name": "job",
-              "description": "One job, across pipelines and projects",
+              "description": "One job by hex-encoded ID, across pipelines and projects.",
               "label": "",
               "type": "string",
               "longType": "string",
@@ -10481,7 +10493,7 @@
             },
             {
               "name": "pipeline_job",
-              "description": "One job in one pipeline",
+              "description": "One job in one pipeline.",
               "label": "",
               "type": "PipelineJobLogQuery",
               "longType": "PipelineJobLogQuery",

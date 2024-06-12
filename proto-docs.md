@@ -4679,13 +4679,13 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| logql | [string](#string) |  | Arbitrary LogQL query |
-| pod | [string](#string) |  | A pod&#39;s logs (all containers) |
-| pod_container | [PodContainer](#logs-PodContainer) |  | One container |
-| app | [string](#string) |  | One &#34;app&#34; (logql -&gt; {app=X}) |
-| master | [PipelineLogQuery](#logs-PipelineLogQuery) |  | All master worker lines from a pipeline |
-| storage | [PipelineLogQuery](#logs-PipelineLogQuery) |  | All storage container lines from a pipeline |
-| user | [UserLogQuery](#logs-UserLogQuery) |  | All worker lines from a pipeline/job |
+| logql | [string](#string) |  | Arbitrary LogQL query. |
+| pod | [string](#string) |  | A pod&#39;s logs (all containers). |
+| pod_container | [PodContainer](#logs-PodContainer) |  | One container. |
+| app | [string](#string) |  | One &#34;app&#34; (logql -&gt; {app=X}). |
+| master | [PipelineLogQuery](#logs-PipelineLogQuery) |  | All master worker lines from a pipeline. |
+| storage | [PipelineLogQuery](#logs-PipelineLogQuery) |  | All storage container lines from a pipeline. |
+| user | [UserLogQuery](#logs-UserLogQuery) |  | All worker lines from a pipeline/job. |
 
 
 
@@ -4729,13 +4729,13 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 <a name="logs-JobDatumLogQuery"></a>
 
 ### JobDatumLogQuery
-
+JobDatumLogQuery returns logs from the processing of one datum that was part of the job.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| job | [string](#string) |  |  |
-| datum | [string](#string) |  |  |
+| job | [string](#string) |  | The hex-encoded ID of the job. |
+| datum | [string](#string) |  | The hex-encoded ID of the datum. |
 
 
 
@@ -4754,6 +4754,7 @@ A LogFilter selects which log lines are returned.
 | limit | [uint64](#uint64) |  | If set, return at maximum this number of logs. |
 | regex | [RegexLogFilter](#logs-RegexLogFilter) |  | If set, only return logs that match this regular expression. |
 | level | [LogLevel](#logs-LogLevel) |  | If set, only return logs that are greater than or equal to this log level. (DEBUG returns DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.). |
+| user_logs_only | [bool](#bool) |  | If true, only return logs from user code, excluding matched log messages only related to internal Pachyderm operations. |
 
 
 
@@ -4781,13 +4782,13 @@ A LogFilter selects which log lines are returned.
 <a name="logs-LogQuery"></a>
 
 ### LogQuery
-
+LogQuery names a source of logs.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| user | [UserLogQuery](#logs-UserLogQuery) |  |  |
-| admin | [AdminLogQuery](#logs-AdminLogQuery) |  |  |
+| user | [UserLogQuery](#logs-UserLogQuery) |  | A user query; covering day-to-day Pachyderm use cases. |
+| admin | [AdminLogQuery](#logs-AdminLogQuery) |  | A more broad log query that requires special permissions; useful for debugging Pachyderm itself. |
 
 
 
@@ -4813,13 +4814,13 @@ A LogFilter selects which log lines are returned.
 <a name="logs-PipelineJobLogQuery"></a>
 
 ### PipelineJobLogQuery
-
+PipelineJobLogQuery selects all logs from a job that a named pipeline performed.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| pipeline | [PipelineLogQuery](#logs-PipelineLogQuery) |  |  |
-| job | [string](#string) |  |  |
+| pipeline | [PipelineLogQuery](#logs-PipelineLogQuery) |  | The pipeline. |
+| job | [string](#string) |  | The hex-encoded ID of the job. |
 
 
 
@@ -4829,13 +4830,13 @@ A LogFilter selects which log lines are returned.
 <a name="logs-PipelineLogQuery"></a>
 
 ### PipelineLogQuery
-
+PipelineLogQuery selects all logs from all runs of a named pipeline.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| project | [string](#string) |  |  |
-| pipeline | [string](#string) |  |  |
+| project | [string](#string) |  | The project the pipeline is in. |
+| pipeline | [string](#string) |  | The name of the pipeline. |
 
 
 
@@ -4845,13 +4846,13 @@ A LogFilter selects which log lines are returned.
 <a name="logs-PodContainer"></a>
 
 ### PodContainer
-
+PodContainer identifies a container running in a Pod.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| pod | [string](#string) |  |  |
-| container | [string](#string) |  |  |
+| pod | [string](#string) |  | The full name of the pod. |
+| container | [string](#string) |  | The name of the container. |
 
 
 
@@ -4896,16 +4897,16 @@ always be from the &#34;from&#34; time.)
 <a name="logs-UserLogQuery"></a>
 
 ### UserLogQuery
-Only returns &#34;user&#34; logs
+A UserLogQuery selects logs that Pachyderm users need to see during normal Pachyderm operations.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| project | [string](#string) |  | All pipelines in the project |
-| pipeline | [PipelineLogQuery](#logs-PipelineLogQuery) |  | One pipeline in a project |
-| datum | [string](#string) |  | One datum. |
-| job | [string](#string) |  | One job, across pipelines and projects |
-| pipeline_job | [PipelineJobLogQuery](#logs-PipelineJobLogQuery) |  | One job in one pipeline |
+| project | [string](#string) |  | All pipelines in the project. |
+| pipeline | [PipelineLogQuery](#logs-PipelineLogQuery) |  | One pipeline in a project. |
+| datum | [string](#string) |  | One datum, by hex-encoded ID. |
+| job | [string](#string) |  | One job by hex-encoded ID, across pipelines and projects. |
+| pipeline_job | [PipelineJobLogQuery](#logs-PipelineJobLogQuery) |  | One job in one pipeline. |
 | job_datum | [JobDatumLogQuery](#logs-JobDatumLogQuery) |  | One datum in one job |
 
 
@@ -4934,7 +4935,7 @@ Only returns &#34;user&#34; logs
 <a name="logs-LogLevel"></a>
 
 ### LogLevel
-
+LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR.
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |

@@ -5,15 +5,18 @@
         "PipelineLogQuery": {
             "properties": {
                 "project": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The project the pipeline is in."
                 },
                 "pipeline": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The name of the pipeline."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Pipeline Log Query"
+            "title": "Pipeline Log Query",
+            "description": "PipelineLogQuery selects all logs from all runs of a named pipeline."
         }
     }
 }

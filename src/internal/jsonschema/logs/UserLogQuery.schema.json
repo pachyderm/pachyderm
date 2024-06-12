@@ -6,25 +6,25 @@
             "properties": {
                 "project": {
                     "type": "string",
-                    "description": "All pipelines in the project"
+                    "description": "All pipelines in the project."
                 },
                 "pipeline": {
                     "$ref": "#/definitions/logs.PipelineLogQuery",
                     "additionalProperties": false,
-                    "description": "One pipeline in a project"
+                    "description": "One pipeline in a project."
                 },
                 "datum": {
                     "type": "string",
-                    "description": "One datum."
+                    "description": "One datum, by hex-encoded ID."
                 },
                 "job": {
                     "type": "string",
-                    "description": "One job, across pipelines and projects"
+                    "description": "One job by hex-encoded ID, across pipelines and projects."
                 },
                 "pipelineJob": {
                     "$ref": "#/definitions/logs.PipelineJobLogQuery",
                     "additionalProperties": false,
-                    "description": "One job in one pipeline"
+                    "description": "One job in one pipeline."
                 },
                 "jobDatum": {
                     "$ref": "#/definitions/logs.JobDatumLogQuery",
@@ -67,47 +67,56 @@
                 }
             ],
             "title": "User Log Query",
-            "description": "Only returns \"user\" logs"
+            "description": "A UserLogQuery selects logs that Pachyderm users need to see during normal Pachyderm operations."
         },
         "logs.JobDatumLogQuery": {
             "properties": {
                 "job": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The hex-encoded ID of the job."
                 },
                 "datum": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The hex-encoded ID of the datum."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Job Datum Log Query"
+            "title": "Job Datum Log Query",
+            "description": "JobDatumLogQuery returns logs from the processing of one datum that was part of the job."
         },
         "logs.PipelineJobLogQuery": {
             "properties": {
                 "pipeline": {
                     "$ref": "#/definitions/logs.PipelineLogQuery",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "The pipeline."
                 },
                 "job": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The hex-encoded ID of the job."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Pipeline Job Log Query"
+            "title": "Pipeline Job Log Query",
+            "description": "PipelineJobLogQuery selects all logs from a job that a named pipeline performed."
         },
         "logs.PipelineLogQuery": {
             "properties": {
                 "project": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The project the pipeline is in."
                 },
                 "pipeline": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The name of the pipeline."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Pipeline Log Query"
+            "title": "Pipeline Log Query",
+            "description": "PipelineLogQuery selects all logs from all runs of a named pipeline."
         }
     }
 }
