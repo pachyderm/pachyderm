@@ -7,12 +7,6 @@ from tornado.web import Application
 
 from pachyderm_sdk.config import ConfigFile
 
-if __name__ == "__main__":
-    import pkgutil
-
-    __path__ = pkgutil.extend_path(__path__, __name__)
-    sys.path += [str(Path(__file__).parent.parent)]
-
 from jupyterlab_pachyderm.env import PACH_CONFIG
 
 from .conftest import ENV_VAR_TEST_ADDR
