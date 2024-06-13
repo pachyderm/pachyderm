@@ -277,6 +277,23 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return &emptypb.Empty{}, nil
 }
 
+// ForgetCommit implements the protobuf pfs.ForgetCommit RPC
+func (a *apiServer) ForgetCommit(ctx context.Context, req *pfs.ForgetCommitRequest) (*pfs.ForgetCommitResponse, error) {
+	if err := errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		c, err := pfsdb.PickCommit(ctx, req.Commit, txnCtx.SqlTx)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := a.driver.commitStore.DropFileSetsTx(txnCtx.SqlTx, c); err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	}), "Forget Commit"); err != nil {
+		return nil, err
+	}
+	return &pfs.ForgetCommitResponse{}, nil
+}
+
 // InspectCommitInTransaction is identical to InspectCommit (some features
 // excluded) except that it can run inside an existing postgres transaction.
 // This is not an RPC.

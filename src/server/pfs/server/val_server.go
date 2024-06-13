@@ -118,6 +118,31 @@ func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearComm
 	return a.apiServer.ClearCommit(ctx, req)
 }
 
+func (a *validatedAPIServer) ForgetCommit(ctx context.Context, req *pfs.ForgetCommitRequest) (*pfs.ForgetCommitResponse, error) {
+	if err := errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		c, err := pfsdb.PickCommit(ctx, req.Commit, txnCtx.SqlTx)
+		if err != nil {
+			return errors.Wrap(err, "pick commits")
+		}
+		for _, childCommit := range c.ChildCommits {
+			childCommitInfo, err := pfsdb.GetCommitByKey(ctx, txnCtx.SqlTx, childCommit)
+			if err != nil {
+				return errors.Wrap(err, "get commit by key")
+			}
+			if childCommitInfo.Finished == nil {
+				return errors.New("descendants must be closed commits")
+			}
+		}
+		if c.Origin.Kind != pfs.OriginKind_AUTO {
+			return errors.New("the commit to be forgotten must be in output repo")
+		}
+		return nil
+	}), "Forget Commit"); err != nil {
+		return nil, err
+	}
+	return a.apiServer.ForgetCommit(ctx, req)
+}
+
 func (a *validatedAPIServer) InspectCommit(ctx context.Context, req *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	if err := checkCommit(req.Commit); err != nil {
 		return nil, err
