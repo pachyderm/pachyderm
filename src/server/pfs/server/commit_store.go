@@ -16,33 +16,6 @@ var errNoTotalFileSet = errors.Errorf("no total fileset")
 
 const commitTrackerPrefix = "commit/"
 
-type commitStore interface {
-	// AddFileSet appends a fileset to the diff.
-	AddFileSet(ctx context.Context, commit *pfsdb.CommitWithID, filesetID fileset.ID) error
-	// AddFileSetTx is identical to AddFileSet except it runs in the provided transaction.
-	AddFileSetTx(tx *pachsql.Tx, commit *pfsdb.CommitWithID, filesetID fileset.ID) error
-	// SetTotalFileSet sets the total file set for the commit, overwriting whatever is there.
-	SetTotalFileSet(ctx context.Context, commit *pfsdb.CommitWithID, id fileset.ID) error
-	// SetTotalFileSetTx is like SetTotalFileSet, but in a transaction
-	SetTotalFileSetTx(tx *pachsql.Tx, commit *pfsdb.CommitWithID, id fileset.ID) error
-	// SetDiffFileSet sets the diff file set for the commit, overwriting whatever is there.
-	SetDiffFileSet(ctx context.Context, commit *pfsdb.CommitWithID, id fileset.ID) error
-	// SetDiffFileSetTx is like SetDiffFileSet, but in a transaction
-	SetDiffFileSetTx(tx *pachsql.Tx, commit *pfsdb.CommitWithID, id fileset.ID) error
-	// GetTotalFileSet returns the total file set for a commit.
-	GetTotalFileSet(ctx context.Context, commit *pfsdb.CommitWithID) (*fileset.ID, error)
-	// GetTotalFileSetTx is like GetTotalFileSet, but in a transaction
-	GetTotalFileSetTx(tx *pachsql.Tx, commit *pfsdb.CommitWithID) (*fileset.ID, error)
-	// GetDiffFileSet returns the diff file set for a commit
-	GetDiffFileSet(ctx context.Context, commit *pfsdb.CommitWithID) (*fileset.ID, error)
-	// DropFileSets clears the diff and total file sets for the commit.
-	DropFileSets(ctx context.Context, commit *pfsdb.CommitWithID) error
-	// DropFileSetsTx is identical to DropFileSets except it runs in the provided transaction.
-	DropFileSetsTx(tx *pachsql.Tx, commit *pfsdb.CommitWithID) error
-}
-
-var _ commitStore = &postgresCommitStore{}
-
 // TODO: add deleter for the commitStore and stop making permanent filesets, keep the filesets
 // around, by referencing them with commit-fileset objects.
 type postgresCommitStore struct {
