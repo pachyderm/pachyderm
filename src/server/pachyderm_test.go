@@ -7884,6 +7884,7 @@ func TestService(t *testing.T) {
 		false,
 		8000,
 		31800,
+		"LoadBalancer",
 		annotations,
 	))
 	time.Sleep(10 * time.Second)
@@ -8064,6 +8065,116 @@ func TestServiceEnvVars(t *testing.T) {
 		return nil
 	})
 	require.Equal(t, "custom-value", strings.TrimSpace(string(envValue)))
+}
+
+func TestServiceDAGWait(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, ns := minikubetestenv.AcquireCluster(t)
+	aRepo := tu.UniqueString("A")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, aRepo))
+	bPipeline := tu.UniqueString("B")
+	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
+		bPipeline,
+		"",
+		[]string{"sleep 10;", "cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pfs.DefaultProjectName, aRepo, "/"),
+		"",
+		false,
+	))
+	pipeline := tu.UniqueString("pipelineservice")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{
+				Image: "trinitronx/python-simplehttpserver",
+				Cmd:   []string{"sh"},
+				Stdin: []string{
+					"cd /pfs",
+					"exec python -m SimpleHTTPServer 8000",
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:  client.NewPFSInput(pfs.DefaultProjectName, bPipeline, "/"),
+			Update: false,
+			Service: &pps.Service{
+				InternalPort: 8000,
+				ExternalPort: 31801,
+				Type:         "LoadBalancer",
+			},
+		})
+	require.NoError(t, err)
+	aCommit, err := c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "master", ""))
+	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
+	serviceAddr := func() string {
+		// Hack: detect if running inside the cluster by looking for this env var
+		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
+			// Outside cluster: Re-use external IP and external port defined above
+			host := c.GetAddress().Host
+			return net.JoinHostPort(host, "31801")
+		}
+		// Get k8s service corresponding to pachyderm service above--must access
+		// via internal cluster IP, but we don't know what that is
+		var address string
+		kubeClient := tu.GetKubeClient(t)
+		backoff.Retry(func() error { //nolint:errcheck
+			svcs, err := kubeClient.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
+			require.NoError(t, err)
+			for _, svc := range svcs.Items {
+				// Pachyderm actually generates two services for pipelineservice: one
+				// for pachyderm (a ClusterIP service) and one for the user container
+				// (a NodePort service, which is the one we want)
+				rightName := strings.Contains(svc.Name, "pipelineservice")
+				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
+				if !rightName || !rightType {
+					continue
+				}
+				host := svc.Spec.ClusterIP
+				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
+				address = net.JoinHostPort(host, port)
+				return nil
+			}
+			return errors.Errorf("no matching k8s service found")
+		}, backoff.NewTestingBackOff())
+
+		require.NotEqual(t, "", address)
+		return address
+	}()
+
+	var value []byte
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		httpC := http.Client{
+			Timeout: 3 * time.Second, // fail fast
+		}
+		resp, err := httpC.Get(fmt.Sprintf("http://%s/file", serviceAddr))
+		if err != nil {
+			// sleep => don't spam retries. Seems to make test less flaky
+			time.Sleep(time.Second)
+			return errors.EnsureStack(err)
+		}
+		if resp.StatusCode != 200 {
+			return errors.Errorf("GET returned %d", resp.StatusCode)
+		}
+		value, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		return nil
+	})
+	require.Equal(t, "foo\n", strings.TrimSpace(string(value)))
 }
 
 func TestDatumSetSpec(t *testing.T) {

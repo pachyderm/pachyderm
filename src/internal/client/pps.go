@@ -898,7 +898,7 @@ func (c APIClient) ListSecret() ([]*pps.SecretInfo, error) {
 }
 
 // CreatePipelineService creates a new pipeline service.
-func (c APIClient) CreatePipelineService(projectName, pipelineName, image string, cmd, stdin []string, parallelismSpec *pps.ParallelismSpec, input *pps.Input, update bool, internalPort, externalPort int32, annotations map[string]string) error {
+func (c APIClient) CreatePipelineService(projectName, pipelineName, image string, cmd, stdin []string, parallelismSpec *pps.ParallelismSpec, input *pps.Input, update bool, internalPort, externalPort int32, serviceType string, annotations map[string]string) error {
 	if image == "" {
 		image = c.defaultTransformImage
 	}
@@ -920,6 +920,7 @@ func (c APIClient) CreatePipelineService(projectName, pipelineName, image string
 			Service: &pps.Service{
 				InternalPort: internalPort,
 				ExternalPort: externalPort,
+				Type:         serviceType,
 			},
 		},
 	)
