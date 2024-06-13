@@ -313,10 +313,10 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
 	var result string
 
-	if from := hint.GetFilter().GetTimeRange().GetFrom(); !from.AsTime().IsZero() {
+	if from := hint.GetFilter().GetTimeRange().GetFrom(); from != nil && !from.AsTime().IsZero() {
 		result += " --from " + shellescape.Quote(from.AsTime().Format(time.RFC3339Nano))
 	}
-	if until := hint.GetFilter().GetTimeRange().GetUntil(); !until.AsTime().IsZero() {
+	if until := hint.GetFilter().GetTimeRange().GetUntil(); until != nil && !until.AsTime().IsZero() {
 		result += " --to " + shellescape.Quote(until.AsTime().Format(time.RFC3339Nano))
 	}
 	if offset := hint.GetFilter().GetTimeRange().GetOffset(); offset != 0 {
