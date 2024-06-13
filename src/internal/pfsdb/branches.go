@@ -216,7 +216,7 @@ func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.Branc
 	return fetchBranchInfoByBranch(ctx, tx, branch)
 }
 
-// GetBranch returns a *pfs.BranchInfo by name
+// GetBranch returns a *pfsdb.Branch by name.
 func GetBranch(ctx context.Context, tx *pachsql.Tx, b *pfs.Branch) (*Branch, error) {
 	if b == nil {
 		return nil, errors.Errorf("branch cannot be nil")
