@@ -236,7 +236,7 @@ func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.Use
 		return ls.compileProjectLogsReq(ctx, query.Project, checkAuth, authCache, userOnly)
 	case *logs.UserLogQuery_Job:
 		authCache := make(map[string]bool)
-		return ls.compileJobLogsReq(ctx, query.Job, checkAuth, authCache)
+		return ls.compileJobLogsReq(ctx, query.Job, checkAuth, authCache, userOnly)
 	case *logs.UserLogQuery_PipelineJob:
 		project := query.PipelineJob.Pipeline.Project
 		pipeline := query.PipelineJob.Pipeline.Pipeline
@@ -360,11 +360,11 @@ func (ls LogService) compileProjectLogsReq(ctx context.Context, project string, 
 	}), nil
 }
 
-func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAuth bool, authCache map[string]bool, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if job == "" {
 		return "", nil, userLogQueryValidateErr("Job", "Job")
 	}
-	return `{suite="pachyderm",app="pipeline"}`, func(labels map[string]string, msg *logs.LogMessage) bool {
+	return `{suite="pachyderm",app="pipeline"}`, filterUserLogs(userOnly, func(labels map[string]string, msg *logs.LogMessage) bool {
 		if msg.GetPpsLogMessage().GetJobId() != "" && msg.GetPpsLogMessage().GetJobId() != job {
 			return false
 		}
@@ -382,7 +382,7 @@ func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAut
 			return ls.authLogMessage(ctx, labels, msg, authCache)
 		}
 		return true
-	}, nil
+	}), nil
 }
 
 func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (string, func(map[string]string, *logs.LogMessage) bool, error) {
