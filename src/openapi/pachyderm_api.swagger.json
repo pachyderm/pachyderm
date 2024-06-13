@@ -9219,10 +9219,6 @@
       "properties": {
         "commit": {
           "$ref": "#/definitions/pfs_v2CommitPicker"
-        },
-        "dryRun": {
-          "type": "boolean",
-          "description": "if true, this will report the metrics, but won't actually do the delete."
         }
       }
     },

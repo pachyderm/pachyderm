@@ -6030,7 +6030,6 @@ DeleteReposRequest is used to delete more than one repo at once.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | commit | [CommitPicker](#pfs_v2-CommitPicker) |  |  |
-| dry_run | [bool](#bool) |  | if true, this will report the metrics, but won&#39;t actually do the delete. |
 
 
 

@@ -665,7 +665,6 @@ export type ReposSummaryResponse = {
 
 export type ForgetCommitRequest = {
   commit?: CommitPicker
-  dryRun?: boolean
 }
 
 export type ForgetCommitResponse = {

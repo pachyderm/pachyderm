@@ -7,10 +7,6 @@
                 "commit": {
                     "$ref": "#/definitions/pfs_v2.CommitPicker",
                     "additionalProperties": false
-                },
-                "dryRun": {
-                    "type": "boolean",
-                    "description": "if true, this will report the metrics, but won't actually do the delete."
                 }
             },
             "additionalProperties": false,

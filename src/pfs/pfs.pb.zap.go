@@ -1181,7 +1181,6 @@ func (x *ForgetCommitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddObject("commit", x.Commit)
-	enc.AddBool("dry_run", x.DryRun)
 	return nil
 }
 

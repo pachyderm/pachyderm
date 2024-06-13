@@ -13627,8 +13627,6 @@ func (m *ForgetCommitRequest) validate(all bool) error {
 		}
 	}
 
-	// no validation rules for DryRun
-
 	if len(errors) > 0 {
 		return ForgetCommitRequestMultiError(errors)
 	}
