@@ -119,7 +119,8 @@ func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearComm
 }
 
 func (a *validatedAPIServer) ForgetCommit(ctx context.Context, req *pfs.ForgetCommitRequest) (*pfs.ForgetCommitResponse, error) {
-	if err := errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+	var resp *pfs.ForgetCommitResponse
+	return resp, errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		c, err := pfsdb.PickCommit(ctx, req.Commit, txnCtx.SqlTx)
 		if err != nil {
 			return errors.Wrap(err, "pick commits")
@@ -136,11 +137,13 @@ func (a *validatedAPIServer) ForgetCommit(ctx context.Context, req *pfs.ForgetCo
 		if c.Origin.Kind != pfs.OriginKind_AUTO {
 			return errors.New("the commit to be forgotten must be in output repo")
 		}
+		r, err := a.apiServer.forgetCommitTx(txnCtx, c)
+		if err != nil {
+			return errors.Wrap(err, "forget commit with transaction context")
+		}
+		resp = r
 		return nil
-	}), "Forget Commit"); err != nil {
-		return nil, err
-	}
-	return a.apiServer.ForgetCommit(ctx, req)
+	}), "Forget Commit")
 }
 
 func (a *validatedAPIServer) InspectCommit(ctx context.Context, req *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {

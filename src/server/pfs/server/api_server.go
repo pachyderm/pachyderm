@@ -277,19 +277,9 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return &emptypb.Empty{}, nil
 }
 
-// ForgetCommit implements the protobuf pfs.ForgetCommit RPC
-func (a *apiServer) ForgetCommit(ctx context.Context, req *pfs.ForgetCommitRequest) (*pfs.ForgetCommitResponse, error) {
-	if err := errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		c, err := pfsdb.PickCommit(ctx, req.Commit, txnCtx.SqlTx)
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if err := a.driver.commitStore.DropFileSetsTx(txnCtx.SqlTx, c); err != nil {
-			return errors.EnsureStack(err)
-		}
-		return nil
-	}), "Forget Commit"); err != nil {
-		return nil, err
+func (a *apiServer) forgetCommitTx(txnCtx *txncontext.TransactionContext, commit *pfsdb.Commit) (*pfs.ForgetCommitResponse, error) {
+	if err := a.driver.commitStore.DropFileSetsTx(txnCtx.SqlTx, commit); err != nil {
+		return nil, errors.EnsureStack(err)
 	}
 	return &pfs.ForgetCommitResponse{}, nil
 }
