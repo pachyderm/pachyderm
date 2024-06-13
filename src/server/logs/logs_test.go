@@ -1043,6 +1043,41 @@ func TestWithRealLogs(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "user code logs from a pipeline",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Pipeline{
+								Pipeline: &logs.PipelineLogQuery{
+									Project:  "default",
+									Pipeline: "edges",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					UserLogsOnly: true,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
 	}
 	ctx := pctx.TestContext(t)
 	l, err := testloki.New(ctx, t.TempDir())

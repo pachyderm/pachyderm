@@ -168,6 +168,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		container string
 		app       string
 		limit     uint
+		user      bool
 	)
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): Remove references to “new” and unhide.
@@ -190,7 +191,8 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 
 			var req = new(logs.GetLogsRequest)
 			req.Filter = &logs.LogFilter{
-				Limit: uint64(limit),
+				Limit:        uint64(limit),
+				UserLogsOnly: user,
 			}
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
 				From:   timestamppb.New(time.Time(from)),
@@ -306,6 +308,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().UintVar(&limit, "limit", limit, "Maximum number of logs to return (0 for unlimited).")
 	logsCmd.Flags().StringVar(&container, "container", container, "Container name belonging to the pod specified in the --pod argument.")
 	logsCmd.Flags().StringVar(&app, "app", app, "Return logs for all pods with a certain value for the label 'app'.")
+	logsCmd.Flags().BoolVar(&user, "user", false, "Only return logs from user code.")
 	commands = append(commands, logsCmd)
 	return commands
 }
