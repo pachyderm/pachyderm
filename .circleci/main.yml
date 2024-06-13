@@ -737,9 +737,6 @@ jobs:
           command: |
             find -name go.mod -print0 | xargs -0 -I{} sh -c 'cd $(dirname {}); echo; echo '---'; echo $PWD; exec govulncheck ./...'
   jupyter-extension-test:
-    parameters:
-      python-version:
-        type: string
     docker:
       - image: cimg/node:20.11.0
     resource_class: large
@@ -1789,10 +1786,7 @@ workflows:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
-      - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
+      - jupyter-extension-test
       - jupyter-extension-frontend-test
       - jupyter-extension-integration-test
       - jupyter-extension-e2e-test:
@@ -1875,9 +1869,6 @@ workflows:
             - build-docker-images
             - helm-build
       - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
           filters: *only-release-tags
       - jupyter-extension-frontend-test:
           filters: *only-release-tags
