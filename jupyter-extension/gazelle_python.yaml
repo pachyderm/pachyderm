@@ -1704,12 +1704,15 @@ manifest:
     pachyderm_sdk.api.enterprise: pachyderm_sdk
     pachyderm_sdk.api.identity: pachyderm_sdk
     pachyderm_sdk.api.license: pachyderm_sdk
+    pachyderm_sdk.api.logs: pachyderm_sdk
+    pachyderm_sdk.api.metadata: pachyderm_sdk
     pachyderm_sdk.api.pfs: pachyderm_sdk
     pachyderm_sdk.api.pfs.extension: pachyderm_sdk
     pachyderm_sdk.api.pfs.file: pachyderm_sdk
     pachyderm_sdk.api.pjs: pachyderm_sdk
     pachyderm_sdk.api.pps: pachyderm_sdk
     pachyderm_sdk.api.pps.extension: pachyderm_sdk
+    pachyderm_sdk.api.storage: pachyderm_sdk
     pachyderm_sdk.api.taskapi: pachyderm_sdk
     pachyderm_sdk.api.transaction: pachyderm_sdk
     pachyderm_sdk.api.transaction.extension: pachyderm_sdk
@@ -2863,4 +2866,4 @@ manifest:
     zmq.utils.z85: pyzmq
   pip_repository:
     name: jupyter-pip-requirements
-integrity: e7034549e21aa1312282c1d840b4ebbb3d9b0a92ec76f03e5e4d523b3c09a0ed
+integrity: a5cb0ba150a7fca2388c96d284e3183a274e39c87033293482f9f48b01429b43
