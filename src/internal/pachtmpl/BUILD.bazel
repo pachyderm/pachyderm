@@ -8,6 +8,8 @@ go_library(
     deps = [
         "//src/internal/errors",
         "@jsonnet_go//:go_default_library",
+        "@jsonnet_go//ast:go_default_library",
+        "@org_golang_google_protobuf//types/known/structpb",
     ],
 )
 

@@ -5,6 +5,7 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/pps";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
@@ -942,7 +943,7 @@ message RunLoadTestResponse {
 
 message RenderTemplateRequest {
   string template = 1;
-  map<string, string> args = 2;
+  google.protobuf.Struct args = 2;
 }
 
 message RenderTemplateResponse {

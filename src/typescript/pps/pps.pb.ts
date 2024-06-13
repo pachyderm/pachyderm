@@ -7,6 +7,7 @@
 import * as fm from "../fetch.pb"
 import * as GoogleProtobufDuration from "../google/protobuf/duration.pb"
 import * as GoogleProtobufEmpty from "../google/protobuf/empty.pb"
+import * as GoogleProtobufStruct from "../google/protobuf/struct.pb"
 import * as GoogleProtobufTimestamp from "../google/protobuf/timestamp.pb"
 import * as GoogleProtobufWrappers from "../google/protobuf/wrappers.pb"
 import * as Pfs_v2Pfs from "../pfs/pfs.pb"
@@ -694,7 +695,7 @@ export type RunLoadTestResponse = {
 
 export type RenderTemplateRequest = {
   template?: string
-  args?: {[key: string]: string}
+  args?: GoogleProtobufStruct.Struct
 }
 
 export type RenderTemplateResponse = {

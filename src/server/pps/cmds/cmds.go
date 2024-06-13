@@ -1943,7 +1943,7 @@ func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, 
 	if err != nil {
 		return nil, err
 	}
-	return []byte(res.Json), nil
+	return []byte(nil), nil
 }
 
 func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess bool, pushImages bool, registry, username, projectName, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool, dryRun bool, output string, raw bool) error {

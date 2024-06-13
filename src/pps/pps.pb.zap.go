@@ -1144,12 +1144,11 @@ func (x *RenderTemplateRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 		return nil
 	}
 	enc.AddString("template", x.Template)
-	enc.AddObject("args", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
-		for k, v := range x.Args {
-			enc.AddString(fmt.Sprintf("%v", k), v)
-		}
-		return nil
-	}))
+	if obj, ok := interface{}(x.Args).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("args", obj)
+	} else {
+		enc.AddReflected("args", x.Args)
+	}
 	return nil
 }
 

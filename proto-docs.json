@@ -22426,46 +22426,10 @@
             {
               "name": "args",
               "description": "",
-              "label": "repeated",
-              "type": "ArgsEntry",
-              "longType": "RenderTemplateRequest.ArgsEntry",
-              "fullType": "pps_v2.RenderTemplateRequest.ArgsEntry",
-              "ismap": true,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            }
-          ]
-        },
-        {
-          "name": "ArgsEntry",
-          "longName": "RenderTemplateRequest.ArgsEntry",
-          "fullName": "pps_v2.RenderTemplateRequest.ArgsEntry",
-          "description": "",
-          "hasExtensions": false,
-          "hasFields": true,
-          "hasOneofs": false,
-          "extensions": [],
-          "fields": [
-            {
-              "name": "key",
-              "description": "",
               "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "value",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
+              "type": "Struct",
+              "longType": "google.protobuf.Struct",
+              "fullType": "google.protobuf.Struct",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",

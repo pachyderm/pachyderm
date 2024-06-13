@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"github.com/google/go-jsonnet"
+	"github.com/google/go-jsonnet/ast"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ParseArgs parses args of the form key=value
@@ -24,11 +26,18 @@ func ParseArgs(argStrs []string) (map[string]string, error) {
 }
 
 // RenderTemplate renders the template tmpl, using args and returns the result.
-func RenderTemplate(tmpl string, args map[string]string) (string, error) {
+func RenderTemplate(tmpl string, args *structpb.Struct) (string, error) {
 	vm := newVM(nil)
-	for key, value := range args {
-		vm.TLAVar(key, value)
+	for key, value := range args.Fields {
+		switch value.Kind.(type) {
+		case *structpb.Value_BoolValue:
+			boolNode := &ast.LiteralBoolean{Value: value.GetBoolValue()}
+			vm.TLANode(key, boolNode)
+		default:
+			vm.TLAVar(key, value.GetStringValue())
+		}
 	}
+
 	output, err := vm.EvaluateAnonymousSnippet("main", string(tmpl))
 	if err != nil {
 		return "", errors.Wrapf(err, "template err")

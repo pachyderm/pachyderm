@@ -11710,7 +11710,34 @@ func (m *RenderTemplateRequest) validate(all bool) error {
 
 	// no validation rules for Template
 
-	// no validation rules for Args
+	if all {
+		switch v := interface{}(m.GetArgs()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RenderTemplateRequestValidationError{
+					field:  "Args",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RenderTemplateRequestValidationError{
+					field:  "Args",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetArgs()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RenderTemplateRequestValidationError{
+				field:  "Args",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if len(errors) > 0 {
 		return RenderTemplateRequestMultiError(errors)
