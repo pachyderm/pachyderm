@@ -1316,7 +1316,78 @@ func TestWithRealLogs(t *testing.T) {
 			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
 		},
 		{
-			name: "user code logs from a job",
+			name: "user code logs from a pipeline job",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_PipelineJob{
+								PipelineJob: &logs.PipelineJobLogQuery{
+									Pipeline: &logs.PipelineLogQuery{
+										Project:  "default",
+										Pipeline: "edges",
+									},
+									Job: "14a8aecd0b944adb96e9ab1ad06cf29e",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit:        2,
+					UserLogsOnly: true,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "job",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_PipelineJob{
+								PipelineJob: &logs.PipelineJobLogQuery{
+									Pipeline: &logs.PipelineLogQuery{
+										Project:  "default",
+										Pipeline: "edges",
+									},
+									Job: "14a8aecd0b944adb96e9ab1ad06cf29e",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit: 2,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "updating job info, state: JOB_STARTING",
+				}),
+				jsonLog(map[string]any{
+					"message": "started waiting for job inputs",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "user code logs from a pipeline job",
 			query: &logs.GetLogsRequest{
 				Query: &logs.LogQuery{
 					QueryType: &logs.LogQuery_User{

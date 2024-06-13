@@ -246,7 +246,7 @@ func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.Use
 			}
 		}
 		job := query.PipelineJob.Job
-		return ls.compilePipelineJobLogsReq(project, pipeline, job)
+		return ls.compilePipelineJobLogsReq(project, pipeline, job, userOnly)
 	default:
 		return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
 	}
@@ -385,7 +385,7 @@ func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAut
 	}), nil
 }
 
-func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if project == "" {
 		return "", nil, userLogQueryValidateErr("PipelineJob", "Project")
 	}
@@ -395,7 +395,7 @@ func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (s
 	if job == "" {
 		return "", nil, userLogQueryValidateErr("PipelineJob", "Job")
 	}
-	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), func(labels map[string]string, msg *logs.LogMessage) bool {
+	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), filterUserLogs(userOnly, func(labels map[string]string, msg *logs.LogMessage) bool {
 		if msg.GetPpsLogMessage().GetJobId() == job {
 			return true
 		}
@@ -409,7 +409,7 @@ func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (s
 			}
 		}
 		return false
-	}, nil
+	}), nil
 
 }
 
