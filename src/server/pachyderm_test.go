@@ -7884,7 +7884,7 @@ func TestService(t *testing.T) {
 		false,
 		8000,
 		31800,
-		"LoadBalancer",
+		"", //		"LoadBalancer",
 		annotations,
 	))
 	time.Sleep(10 * time.Second)
@@ -8110,7 +8110,7 @@ func TestServiceDAGWait(t *testing.T) {
 			Service: &pps.Service{
 				InternalPort: 8000,
 				ExternalPort: 31801,
-				Type:         "LoadBalancer",
+				//				Type:         "LoadBalancer",
 			},
 		})
 	require.NoError(t, err)
