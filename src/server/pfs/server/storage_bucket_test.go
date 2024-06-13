@@ -18,6 +18,7 @@ import (
 )
 
 func TestMicrosoft(t *testing.T) {
+	t.Fail()
 	integrationtests.LoadMicrosoftParameters(t)
 	require.NoError(t, os.Setenv("AZURE_STORAGE_ACCOUNT", os.Getenv("MICROSOFT_CLIENT_ID")))
 	require.NoError(t, os.Setenv("AZURE_STORAGE_KEY", os.Getenv("MICROSOFT_CLIENT_SECRET")))
@@ -31,6 +32,7 @@ func TestMicrosoft(t *testing.T) {
 }
 
 func TestGoogle(t *testing.T) {
+	t.Fail()
 	integrationtests.LoadGoogleParameters(t)
 	credFile := path.Join(t.TempDir(), "tmp-google-cred")
 	require.NoError(t, os.WriteFile(credFile, []byte(os.Getenv("GOOGLE_CLIENT_CREDS")), 0666))
@@ -42,6 +44,7 @@ func TestGoogle(t *testing.T) {
 }
 
 func TestAmazon(t *testing.T) {
+	t.Fail()
 	integrationtests.LoadAmazonParameters(t)
 	require.NoError(t, os.Setenv("AWS_REGION", os.Getenv("AMAZON_CLIENT_REGION")))
 	require.NoError(t, os.Setenv("AWS_SECRET_ACCESS_KEY", os.Getenv("AMAZON_CLIENT_SECRET")))
@@ -53,6 +56,7 @@ func TestAmazon(t *testing.T) {
 }
 
 func TestGoogleHMAC(t *testing.T) {
+	t.Fail()
 	integrationtests.LoadGoogleHMACParameters(t)
 	require.NoError(t, os.Setenv("AWS_REGION", os.Getenv("GOOGLE_CLIENT_REGION")))
 	require.NoError(t, os.Setenv("AWS_SECRET_ACCESS_KEY", os.Getenv("GOOGLE_CLIENT_HMAC_SECRET")))
@@ -65,6 +69,7 @@ func TestGoogleHMAC(t *testing.T) {
 }
 
 func TestAmazonECS(t *testing.T) {
+	t.Fail()
 	t.Skip("Skip until ECS is available and stable.")
 	integrationtests.LoadECSParameters(t)
 	require.NoError(t, os.Setenv("AWS_REGION", "dummy-region"))

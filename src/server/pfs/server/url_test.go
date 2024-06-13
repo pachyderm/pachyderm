@@ -17,6 +17,7 @@ import (
 )
 
 func TestSharding(t *testing.T) {
+	t.Fail()
 	integrationtests.LoadGoogleParameters(t)
 	credFile := path.Join(t.TempDir(), "tmp-google-cred")
 	require.NoError(t, os.WriteFile(credFile, []byte(os.Getenv("GOOGLE_CLIENT_CREDS")), 0666))
