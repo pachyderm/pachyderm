@@ -167,6 +167,7 @@ test_suite(
     ],
     tests = [
         ":buildifier_test",
+        "//jupyter-extension:gazelle_python_manifest.test",
         "//src/proto:run_test",
     ],
 )
