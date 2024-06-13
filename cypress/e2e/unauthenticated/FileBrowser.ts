@@ -233,4 +233,53 @@ describe('FileBrowser', () => {
       // );
     });
   });
+
+  describe('Download', () => {
+    beforeEach(() => {
+      cy.task('deleteDownloadedFile', 'downloadFileTest.txt');
+      cy.exec('pachctl create repo images').exec(
+        'echo "hi" | pachctl put file images@master:downloadFileTest.txt -f -',
+      );
+    });
+
+    afterEach(() => {
+      cy.deleteReposAndPipelines();
+    });
+
+    it('Downloads file in browser-native way', () => {
+      cy.visit('/lineage/default/repos/images/latest');
+
+      cy.findByRole('button', {
+        name: /viewing all commits/i,
+      }).click();
+      cy.findByRole('menuitem', {
+        name: /master/i,
+      }).click();
+
+      cy.findAllByTestId('FileTableRow__row', {timeout: 60000}).should(
+        ($rows) => {
+          expect($rows).to.have.length(1);
+          expect($rows[0]).to.contain('downloadFileTest.txt');
+        },
+      );
+
+      cy.findByRole('button', {
+        name: /downloadFileTest\.txt/i,
+      })
+        .findByRole('button')
+        .click();
+
+      cy.findByRole('menuitem', {
+        name: /download/i,
+      }).click();
+
+      cy.waitUntil(
+        () => cy.task('readDownloadedFileMaybe', `downloadFileTest.txt_download`),
+        {
+          errorMsg: 'Could not find file in downloads',
+          timeout: 10000,
+        },
+      );
+    });
+  });
 });

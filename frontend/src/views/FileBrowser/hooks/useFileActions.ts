@@ -32,7 +32,7 @@ const useFileActions = (
   });
   const deleteDisabled = Boolean(pipeline) || pipelineLoading || !branchId;
 
-  const downloadLink = getDownloadLink(file);
+  const downloadLink = getDownloadLink(file, true);
 
   const handleBackNav = () => {
     const filePaths = file.file?.path ? file.file.path.split('/') : [];

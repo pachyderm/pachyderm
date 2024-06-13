@@ -34,9 +34,17 @@ export default async (req: Request, res: Response) => {
       throw new Error('fetch response body is null.');
     }
 
+    const filename = requestUrl.split('/').at(-1) || '';
+
     body.pipeTo(
       new WritableStream({
         start() {
+          if ('download' in req.query) {
+            res.setHeader(
+              'Content-Disposition',
+              `attachment; filename*=utf-8''${encodeURIComponent(filename)}`,
+            );
+          }
           headers.forEach((v, n) => res.setHeader(n, v));
         },
         write(chunk) {

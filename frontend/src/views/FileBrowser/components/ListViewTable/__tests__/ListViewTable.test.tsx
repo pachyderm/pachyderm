@@ -390,7 +390,7 @@ describe('List View Table', () => {
       await click(downloadButton);
 
       expect(spy).toHaveBeenLastCalledWith(
-        '/proxyForward/pfs/default/images/4a83c74809664f899261baccdb47cd90/AT-AT.png',
+        '/proxyForward/pfs/default/images/4a83c74809664f899261baccdb47cd90/AT-AT.png?download',
       );
     });
 
