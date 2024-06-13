@@ -227,7 +227,7 @@ func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.Use
 		return ls.compilePipelineLogsReq(project, pipeline, userOnly)
 	case *logs.UserLogQuery_JobDatum:
 		authCache := make(map[string]bool)
-		return ls.compileJobDatumsLogsReq(ctx, query.JobDatum.Job, query.JobDatum.Datum, checkAuth, authCache)
+		return ls.compileJobDatumsLogsReq(ctx, query.JobDatum.Job, query.JobDatum.Datum, checkAuth, authCache, userOnly)
 	case *logs.UserLogQuery_Datum:
 		authCache := make(map[string]bool)
 		return ls.compileDatumsLogsReq(ctx, query.Datum, checkAuth, authCache)
@@ -289,14 +289,14 @@ func (ls LogService) compilePipelineLogsReq(project, pipeline string, userOnly b
 	return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline), filter, nil
 }
 
-func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum string, checkAuth bool, authCache map[string]bool, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if job == "" {
 		return "", nil, userLogQueryValidateErr("JobDatum", "Job")
 	}
 	if datum == "" {
 		return "", nil, userLogQueryValidateErr("JobDatum", "Datum")
 	}
-	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), func(labels map[string]string, msg *logs.LogMessage) bool {
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), filterUserLogs(userOnly, func(labels map[string]string, msg *logs.LogMessage) bool {
 		logDatumId := msg.GetPpsLogMessage().GetDatumId()
 		logJobId := msg.GetPpsLogMessage().GetJobId()
 		if logJobId != "" && logDatumId != "" {
@@ -320,7 +320,7 @@ func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum str
 			return ls.authLogMessage(ctx, labels, msg, authCache)
 		}
 		return true
-	}, nil
+	}), nil
 }
 
 func (ls LogService) compileDatumsLogsReq(ctx context.Context, datum string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
