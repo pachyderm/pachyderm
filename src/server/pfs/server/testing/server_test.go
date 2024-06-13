@@ -448,9 +448,9 @@ func TestUpdateProject_PreservesMetadata(t *testing.T) {
 	var got *pfs.ProjectInfo
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
-		got, err = pfsdb.GetProjectByName(cbCtx, tx, "update")
+		got, err = pfsdb.GetProjectInfoByName(cbCtx, tx, "update")
 		if err != nil {
-			return errors.Wrap(err, "GetProjectByName")
+			return errors.Wrap(err, "GetProjectInfoByName")
 		}
 		return nil
 	}); err != nil {
@@ -6269,7 +6269,7 @@ func TestPutFileAtomic(t *testing.T) {
 
 func TestTestTopologicalSortCommits(t *testing.T) {
 	t.Run("Empty", func(t *testing.T) {
-		require.True(t, len(server.TopologicalSort([]*pfsdb.CommitWithID{})) == 0)
+		require.True(t, len(server.TopologicalSort([]*pfsdb.Commit{})) == 0)
 	})
 	t.Run("Fuzz", func(t *testing.T) {
 		// TODO: update gopls for generics
@@ -6289,7 +6289,7 @@ func TestTestTopologicalSortCommits(t *testing.T) {
 		}
 		// commit.String() -> number of total transitive provenant commits
 		totalProvenance := make(map[string]map[string]struct{})
-		var cis []*pfsdb.CommitWithID
+		var cis []*pfsdb.Commit
 		total := 500
 		for i := 0; i < total; i++ {
 			totalProv := make(map[string]struct{})
@@ -6303,7 +6303,7 @@ func TestTestTopologicalSortCommits(t *testing.T) {
 					directProv = append(directProv, makeCommit(k))
 				}
 			}
-			ci := &pfsdb.CommitWithID{
+			ci := &pfsdb.Commit{
 				CommitInfo: &pfs.CommitInfo{
 					Commit:           makeCommit(i),
 					DirectProvenance: directProv,

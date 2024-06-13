@@ -135,8 +135,8 @@ func TestCommitSetProvenance(suite *testing.T) {
 	})
 }
 
-func TestGetCommitWithIDProvenance(t *testing.T) {
-	commits := make(map[int]*pfsdb.CommitWithID)
+func TestGetProvenantCommits(t *testing.T) {
+	commits := make(map[int]*pfsdb.Commit)
 	size := 10
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
@@ -148,19 +148,19 @@ func TestGetCommitWithIDProvenance(t *testing.T) {
 					commit.DirectProvenance = []*pfs.Commit{commits[i-1].Commit}
 					createCommitProvenance(ctx, t, tx, id, commit.DirectProvenance)
 				}
-				commits[i] = &pfsdb.CommitWithID{
+				commits[i] = &pfsdb.Commit{
 					ID:         id,
 					CommitInfo: commit,
 				}
 			}
-			provenantCommits, err := pfsdb.GetCommitWithIDProvenance(ctx, tx, commits[size].ID)
+			provenantCommits, err := pfsdb.GetProvenantCommits(ctx, tx, commits[size].ID)
 			require.NoError(t, err, "should be able to get provenant commits")
 			require.Equal(t, size-1, len(commits)-1) // ignore commit whose id is size.
 			for _, commit := range provenantCommits {
 				_, ok := commits[int(commit.ID)]
 				require.True(t, ok, "found provenant commit should exist in map of created commits")
 			}
-			subvenantCommits, err := pfsdb.GetCommitWithIDSubvenance(ctx, tx, commits[1].ID)
+			subvenantCommits, err := pfsdb.GetSubvenantCommits(ctx, tx, commits[1].ID)
 			require.NoError(t, err, "should be able to get subvenant commits")
 			require.Equal(t, size-1, len(commits)-1) // ignore commit whose id is size.
 			for _, commit := range subvenantCommits {
@@ -169,11 +169,11 @@ func TestGetCommitWithIDProvenance(t *testing.T) {
 			}
 			// test options
 			limit := uint64(3)
-			provenantCommits, err = pfsdb.GetCommitWithIDProvenance(ctx, tx, commits[size].ID, pfsdb.WithLimit(limit))
+			provenantCommits, err = pfsdb.GetProvenantCommits(ctx, tx, commits[size].ID, pfsdb.WithLimit(limit))
 			require.NoError(t, err, "should be able to get provenant commits")
 			require.Equal(t, uint64(len(provenantCommits)), limit) // ignore commit whose id is size.
 			maxDepth := uint64(2)
-			subvenantCommits, err = pfsdb.GetCommitWithIDSubvenance(ctx, tx, commits[1].ID, pfsdb.WithMaxDepth(maxDepth))
+			subvenantCommits, err = pfsdb.GetSubvenantCommits(ctx, tx, commits[1].ID, pfsdb.WithMaxDepth(maxDepth))
 			require.NoError(t, err, "should be able to get subvenant commits")
 			require.Equal(t, uint64(len(subvenantCommits)), maxDepth) // ignore commit whose id is 1.
 		})
@@ -181,7 +181,7 @@ func TestGetCommitWithIDProvenance(t *testing.T) {
 }
 
 func TestCommitDirectSubvenance(t *testing.T) {
-	commits := make(map[int]*pfsdb.CommitWithID)
+	commits := make(map[int]*pfsdb.Commit)
 	size := 7
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
@@ -189,7 +189,7 @@ func TestCommitDirectSubvenance(t *testing.T) {
 				commit := testCommitWithCommitKey(ctx, t, tx, fmt.Sprintf("r%d", i), fmt.Sprintf("c%d", i))
 				id, err := pfsdb.CreateCommit(ctx, tx, commit)
 				require.NoError(t, err, "should be able to create commit")
-				commits[i] = &pfsdb.CommitWithID{
+				commits[i] = &pfsdb.Commit{
 					ID:         id,
 					CommitInfo: commit,
 				}
@@ -201,7 +201,7 @@ func TestCommitDirectSubvenance(t *testing.T) {
 				createCommitProvenance(ctx, t, tx, commits[i].ID, commits[i].DirectProvenance)
 			}
 			for i := 1; i <= size; i++ {
-				c, err := pfsdb.GetCommit(ctx, tx, commits[i].ID)
+				c, err := pfsdb.GetCommitInfo(ctx, tx, commits[i].ID)
 				require.NoError(t, err)
 				if i == 1 {
 					require.Equal(t, len(c.DirectSubvenance), 0)
@@ -218,7 +218,7 @@ func createCommitProvenance(ctx context.Context, t *testing.T, tx *pachsql.Tx, f
 	createCommitProvenanceFromRows(ctx, t, tx, fromId, getProvenantCommitRows(ctx, t, tx, provenantCommits))
 }
 
-func getProvenantCommitRows(ctx context.Context, t *testing.T, tx *pachsql.Tx, provenantCommits []*pfs.Commit) []pfsdb.Commit {
+func getProvenantCommitRows(ctx context.Context, t *testing.T, tx *pachsql.Tx, provenantCommits []*pfs.Commit) []pfsdb.CommitRow {
 	provCommits := ""
 	for _, provCommit := range provenantCommits {
 		provCommits = provCommits + fmt.Sprintf("'%s', ", pfsdb.CommitKey(provCommit))
@@ -226,14 +226,14 @@ func getProvenantCommitRows(ctx context.Context, t *testing.T, tx *pachsql.Tx, p
 	if len(provCommits) > 0 {
 		provCommits = provCommits[:len(provCommits)-2] // remove ", " from last element.
 	}
-	rows := make([]pfsdb.Commit, 0)
+	rows := make([]pfsdb.CommitRow, 0)
 	require.NoError(t, tx.SelectContext(ctx, &rows,
 		fmt.Sprintf("SELECT DISTINCT commit.commit_id, commit.int_id FROM pfs.commits commit WHERE commit_id IN (%s)", provCommits)),
 		"should be able to get commit ids")
 	return rows
 }
 
-func createCommitProvenanceFromRows(ctx context.Context, t *testing.T, tx *pachsql.Tx, fromId pfsdb.CommitID, provCommitRows []pfsdb.Commit) {
+func createCommitProvenanceFromRows(ctx context.Context, t *testing.T, tx *pachsql.Tx, fromId pfsdb.CommitID, provCommitRows []pfsdb.CommitRow) {
 	provInsertQuery := `
 		INSERT INTO pfs.commit_provenance
 		(from_id, to_id)

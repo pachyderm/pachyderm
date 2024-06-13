@@ -73,7 +73,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 
 func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	// Create role bindings for projects created before auth activation
-	if err := pfsdb.ForEachProject(ctx, txnCtx.SqlTx, func(proj pfsdb.ProjectWithID) error {
+	if err := pfsdb.ForEachProject(ctx, txnCtx.SqlTx, func(proj pfsdb.Project) error {
 		var principal string
 		var roleSlice []string
 		if proj.ProjectInfo.Project.Name == pfs.DefaultProjectName {
@@ -91,8 +91,8 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		return nil, errors.Wrap(err, "activate auth in transaction")
 	}
 	// Create role bindings for repos created before auth activation
-	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, nil, nil, func(repoInfoWithID pfsdb.RepoInfoWithID) error {
-		err := a.env.Auth.CreateRoleBindingInTransaction(ctx, txnCtx, "", nil, repoInfoWithID.RepoInfo.Repo.AuthResource())
+	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, nil, nil, func(repo pfsdb.Repo) error {
+		err := a.env.Auth.CreateRoleBindingInTransaction(ctx, txnCtx, "", nil, repo.RepoInfo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
 		}
@@ -234,11 +234,11 @@ func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposReq
 // StartCommitInTransaction is identical to StartCommit except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) StartCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
-	commitWithID, err := a.driver.startCommit(ctx, txnCtx, request.Parent, request.Branch, request.Description)
+	commit, err := a.driver.startCommit(ctx, txnCtx, request.Parent, request.Branch, request.Description)
 	if err != nil {
 		return nil, errors.Wrap(err, "start commit in transaction")
 	}
-	return commitWithID.Commit, nil
+	return commit.Commit, nil
 }
 
 // StartCommit implements the protobuf pfs.StartCommit RPC
@@ -259,11 +259,11 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) FinishCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
-		commitWithID, err := a.driver.resolveCommitWithID(ctx, txnCtx.SqlTx, request.Commit)
+		commit, err := a.driver.resolveCommit(ctx, txnCtx.SqlTx, request.Commit)
 		if err != nil {
 			return errors.Wrap(err, "finish commit in transaction")
 		}
-		return a.driver.finishCommit(ctx, txnCtx, commitWithID, request.Description, request.Error, request.Force)
+		return a.driver.finishCommit(ctx, txnCtx, commit, request.Description, request.Error, request.Force)
 	})
 }
 
@@ -281,12 +281,12 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 // excluded) except that it can run inside an existing postgres transaction.
 // This is not an RPC.
 func (a *apiServer) InspectCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	return a.driver.resolveCommit(ctx, txnCtx.SqlTx, request.Commit)
+	return a.driver.resolveCommitInfo(ctx, txnCtx.SqlTx, request.Commit)
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
-	return a.driver.inspectCommit(ctx, request.Commit, request.Wait)
+	return a.driver.inspectCommitInfo(ctx, request.Commit, request.Wait)
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
@@ -403,17 +403,17 @@ func (a *apiServer) FindCommits(request *pfs.FindCommitsRequest, srv pfs.API_Fin
 }
 
 type WalkCommitProvenanceRequest struct {
-	StartWithID []*pfsdb.CommitWithID
+	Start []*pfsdb.Commit
 	*pfs.WalkCommitProvenanceRequest
 }
 
 type WalkCommitSubvenanceRequest struct {
-	StartWithID []*pfsdb.CommitWithID
+	Start []*pfsdb.Commit
 	*pfs.WalkCommitSubvenanceRequest
 }
 
 func (a *apiServer) WalkCommitProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
-	for _, start := range request.StartWithID {
+	for _, start := range request.Start {
 		if err := a.driver.walkCommitProvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {
 			return errors.Wrap(err, "walk commit provenance tx")
 		}
@@ -422,7 +422,7 @@ func (a *apiServer) WalkCommitProvenanceTx(ctx context.Context, txnCtx *txnconte
 }
 
 func (a *apiServer) WalkCommitSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
-	for _, start := range request.StartWithID {
+	for _, start := range request.Start {
 		if err := a.driver.walkCommitSubvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {
 			return errors.Wrap(err, "walk commit subvenance tx")
 		}
@@ -490,17 +490,17 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 }
 
 type WalkBranchProvenanceRequest struct {
-	StartWithID []*pfsdb.BranchInfoWithID
+	Start []*pfsdb.Branch
 	*pfs.WalkBranchProvenanceRequest
 }
 
 type WalkBranchSubvenanceRequest struct {
-	StartWithID []*pfsdb.BranchInfoWithID
+	Start []*pfsdb.Branch
 	*pfs.WalkBranchSubvenanceRequest
 }
 
 func (a *apiServer) WalkBranchProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) error {
-	for _, start := range request.StartWithID {
+	for _, start := range request.Start {
 		if err := a.driver.walkBranchProvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {
 			return errors.Wrap(err, "walk branch provenance tx")
 		}
@@ -509,7 +509,7 @@ func (a *apiServer) WalkBranchProvenanceTx(ctx context.Context, txnCtx *txnconte
 }
 
 func (a *apiServer) WalkBranchSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) error {
-	for _, start := range request.StartWithID {
+	for _, start := range request.Start {
 		if err := a.driver.walkBranchSubvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {
 			return errors.Wrap(err, "walk branch subvenance tx")
 		}
@@ -810,7 +810,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
 			output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
-				info, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
+				info, err := a.driver.inspectCommitInfo(ctx, output, pfs.CommitState_STARTED)
 				if err != nil {
 					return err
 				}

@@ -62,7 +62,7 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 }
 
 func CommitDirectProvenance(ctx context.Context, extCtx sqlx.ExtContext, id CommitID) ([]*pfs.Commit, error) {
-	var commits []Commit
+	var commits []CommitRow
 	query := `
 	SELECT DISTINCT
 		commit.commit_id,
@@ -167,32 +167,32 @@ func addCommitProvenance(tx *pachsql.Tx, from, to int) error {
 	return errors.Wrapf(err, "add commit provenance")
 }
 
-// GetCommitWithIDProvenance returns the full provenance of a commit, i.e. all commits that it either directly or transitively depends on.
-func GetCommitWithIDProvenance(ctx context.Context, ext sqlx.ExtContext, startId CommitID, opts ...GraphOption) ([]*CommitWithID, error) {
-	commits, err := getCommitProvenance(ctx, ext, startId, opts...)
+// GetProvenantCommits returns the full provenance of a commit, i.e. all commits that it either directly or transitively depends on.
+func GetProvenantCommits(ctx context.Context, ext sqlx.ExtContext, startId CommitID, opts ...GraphOption) ([]*Commit, error) {
+	provenantCommits, err := getProvenantCommitRows(ctx, ext, startId, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit with id provenance")
 	}
-	var commitWithIDs []*CommitWithID
-	for _, commit := range commits {
+	var commits []*Commit
+	for _, commit := range provenantCommits {
 		commitInfo, err := getCommitInfoFromCommitRow(ctx, ext, commit)
 		if err != nil {
 			return nil, errors.Wrap(err, "get commit with id provenance")
 		}
-		commitWithIDs = append(commitWithIDs, &CommitWithID{
+		commits = append(commits, &Commit{
 			ID:         commit.ID,
 			CommitInfo: commitInfo,
 		})
 	}
-	return commitWithIDs, nil
+	return commits, nil
 }
 
-func getCommitProvenance(ctx context.Context, ext sqlx.ExtContext, commitId CommitID, opts ...GraphOption) ([]*Commit, error) {
+func getProvenantCommitRows(ctx context.Context, ext sqlx.ExtContext, commitId CommitID, opts ...GraphOption) ([]*CommitRow, error) {
 	graphOpts := defaultGraphOptions()
 	for _, opt := range opts {
 		opt(graphOpts)
 	}
-	var commits []*Commit
+	var commits []*CommitRow
 	if err := sqlx.SelectContext(ctx, ext, &commits, `
 		WITH RECURSIVE prov(from_id, to_id) AS (
 		    SELECT from_id, to_id, 1 as depth
@@ -218,12 +218,12 @@ func getCommitProvenance(ctx context.Context, ext sqlx.ExtContext, commitId Comm
 	return commits, nil
 }
 
-func GetCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) ([]*pfs.Commit, error) {
+func GetFullCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) ([]*pfs.Commit, error) {
 	id, err := GetCommitID(ctx, tx, commit)
 	if err != nil {
 		return nil, err
 	}
-	subvenantCommits, err := getCommitSubvenance(ctx, tx, id)
+	subvenantCommits, err := getSubvenantCommitRows(ctx, tx, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit subvenance")
 	}
@@ -234,32 +234,32 @@ func GetCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit
 	return commits, nil
 }
 
-// GetCommitWithIDSubvenance returns the full provenance of a commits, i.e. all commits that it either directly or transitively depends on.
-func GetCommitWithIDSubvenance(ctx context.Context, ext sqlx.ExtContext, startId CommitID, opts ...GraphOption) ([]*CommitWithID, error) {
-	commits, err := getCommitSubvenance(ctx, ext, startId, opts...)
+// GetSubvenantCommits returns the full provenance of a commits, i.e. all commits that it either directly or transitively depends on.
+func GetSubvenantCommits(ctx context.Context, ext sqlx.ExtContext, startId CommitID, opts ...GraphOption) ([]*Commit, error) {
+	subvenantCommits, err := getSubvenantCommitRows(ctx, ext, startId, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit with id subvenance")
 	}
-	var commitWithIDs []*CommitWithID
-	for _, commit := range commits {
+	var commits []*Commit
+	for _, commit := range subvenantCommits {
 		commitInfo, err := getCommitInfoFromCommitRow(ctx, ext, commit)
 		if err != nil {
 			return nil, errors.Wrap(err, "get commit with id subvenance")
 		}
-		commitWithIDs = append(commitWithIDs, &CommitWithID{
+		commits = append(commits, &Commit{
 			ID:         commit.ID,
 			CommitInfo: commitInfo,
 		})
 	}
-	return commitWithIDs, nil
+	return commits, nil
 }
 
-func getCommitSubvenance(ctx context.Context, ext sqlx.ExtContext, commitId CommitID, opts ...GraphOption) ([]*Commit, error) {
+func getSubvenantCommitRows(ctx context.Context, ext sqlx.ExtContext, commitId CommitID, opts ...GraphOption) ([]*CommitRow, error) {
 	graphOpts := defaultGraphOptions()
 	for _, opt := range opts {
 		opt(graphOpts)
 	}
-	var commits []*Commit
+	var commits []*CommitRow
 	if err := sqlx.SelectContext(ctx, ext, &commits, `
 		WITH RECURSIVE subv(from_id, to_id) AS (
 		    SELECT from_id, to_id, 1 as depth

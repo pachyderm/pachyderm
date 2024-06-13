@@ -42,7 +42,7 @@ func TestCreateProject(t *testing.T) {
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		require.NoError(t, pfsdb.CreateProject(cbCtx, tx, createInfo), "should be able to create project")
-		getInfo, err := pfsdb.GetProjectByName(cbCtx, tx, testProj)
+		getInfo, err := pfsdb.GetProjectInfoByName(cbCtx, tx, testProj)
 		require.NoError(t, err, "should be able to get a project")
 		require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
 		require.Equal(t, createInfo.Description, getInfo.Description)
@@ -66,7 +66,7 @@ func TestDeleteProject(t *testing.T) {
 		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, Metadata: testMetadata}
 		require.NoError(t, pfsdb.CreateProject(cbCtx, tx, createInfo), "should be able to create project")
 		require.NoError(t, pfsdb.DeleteProject(cbCtx, tx, createInfo.Project.Name), "should be able to delete project")
-		_, err := pfsdb.GetProjectByName(cbCtx, tx, testProj)
+		_, err := pfsdb.GetProjectInfoByName(cbCtx, tx, testProj)
 		require.YesError(t, err, "get project should not find row")
 		targetErr := &pfsdb.ProjectNotFoundError{Name: testProj}
 		require.True(t, targetErr.Is(err))
@@ -87,19 +87,19 @@ func TestGetProject(t *testing.T) {
 		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, Metadata: testMetadata, CreatedAt: timestamppb.Now()}
 		require.NoError(t, pfsdb.CreateProject(cbCtx, tx, createInfo), "should be able to create project")
 		// the 'default' project already exists with an ID 1.
-		getInfo, err := pfsdb.GetProject(cbCtx, tx, 2)
+		getInfo, err := pfsdb.GetProjectInfo(cbCtx, tx, 2)
 		require.NoError(t, err, "should be able to get a project")
 		require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
 		require.Equal(t, createInfo.Description, getInfo.Description)
 		require.Equal(t, createInfo.Metadata, getInfo.Metadata)
-		// validate GetProjectWithID.
-		getInfoWithID, err := pfsdb.GetProjectWithID(cbCtx, tx, testProj)
+		// validate GetProject.
+		project, err := pfsdb.GetProject(cbCtx, tx, testProj)
 		require.NoError(t, err, "should be able to get a project")
-		require.Equal(t, createInfo.Project.Name, getInfoWithID.ProjectInfo.Project.Name)
-		require.Equal(t, createInfo.Description, getInfoWithID.ProjectInfo.Description)
-		require.Equal(t, createInfo.Metadata, getInfoWithID.ProjectInfo.Metadata)
+		require.Equal(t, createInfo.Project.Name, project.ProjectInfo.Project.Name)
+		require.Equal(t, createInfo.Description, project.ProjectInfo.Description)
+		require.Equal(t, createInfo.Metadata, project.ProjectInfo.Metadata)
 		// validate error for attempting to get non-existent project.
-		_, err = pfsdb.GetProject(cbCtx, tx, 3)
+		_, err = pfsdb.GetProjectInfo(cbCtx, tx, 3)
 		require.YesError(t, err, "should not be able to get non-existent project")
 		fmt.Println(err)
 		require.True(t, (&pfsdb.ProjectNotFoundError{ID: 3}).Is(err))
@@ -130,7 +130,7 @@ func TestForEachProject(t *testing.T) {
 			require.NoError(t, pfsdb.CreateProject(ctx, tx, createInfo), "should be able to create project")
 		}
 		i := 0
-		require.NoError(t, pfsdb.ForEachProject(cbCtx, tx, func(proj pfsdb.ProjectWithID) error {
+		require.NoError(t, pfsdb.ForEachProject(cbCtx, tx, func(proj pfsdb.Project) error {
 			require.Equal(t, expectedInfos[i].Project.Name, proj.ProjectInfo.Project.Name)
 			require.Equal(t, expectedInfos[i].Description, proj.ProjectInfo.Description)
 			require.Equal(t, expectedInfos[i].Metadata, proj.ProjectInfo.Metadata)
@@ -160,11 +160,11 @@ func TestUpdateProject(t *testing.T) {
 	}))
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		// test that after upserting the value actually changed in the database
-		got, err := pfsdb.GetProjectByName(cbCtx, tx, testProj)
+		got, err := pfsdb.GetProjectInfoByName(cbCtx, tx, testProj)
 		require.NoError(t, err, "should be able to get project %s", testProj)
 		got.CreatedAt = nil
 		if diff := cmp.Diff(projInfo, got, protocmp.Transform()); diff != "" {
-			return errors.Errorf("GetProjectByName(%s) (-want +got):\n%s", testProj, diff)
+			return errors.Errorf("GetProjectInfoByName(%s) (-want +got):\n%s", testProj, diff)
 		}
 		return nil
 	}))
@@ -186,11 +186,11 @@ func TestUpdateProjectByID(t *testing.T) {
 	}))
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		// test that after upserting the value actually changed in the database
-		got, err := pfsdb.GetProject(cbCtx, tx, 2)
+		got, err := pfsdb.GetProjectInfo(cbCtx, tx, 2)
 		require.NoError(t, err, "should be able to get project 2")
 		got.CreatedAt = nil
 		if diff := cmp.Diff(projInfo, got, protocmp.Transform()); diff != "" {
-			return errors.Errorf("GetProject(2) (-want +got):\n%s", diff)
+			return errors.Errorf("GetProjectInfo(2) (-want +got):\n%s", diff)
 		}
 		return nil
 	}))
@@ -209,7 +209,7 @@ func TestPickProject(t *testing.T) {
 	namePicker := testProjectPicker()
 	badProjectPicker := proto.Clone(namePicker).(*pfs.ProjectPicker)
 	badProjectPicker.Picker.(*pfs.ProjectPicker_Name).Name = "does not exist"
-	expected := &pfsdb.ProjectWithID{ID: 1}
+	expected := &pfsdb.Project{ID: 1}
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
