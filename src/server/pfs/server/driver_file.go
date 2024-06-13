@@ -27,30 +27,30 @@ import (
 )
 
 // TODO(acohen4): signature should accept a branch seperate from the commit
-func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
+func (d *driver) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-		// Store the originally-requested parameters because they will be overwritten by inspectCommit
-		branch := proto.Clone(commit.Branch).(*pfs.Branch)
-		commitID := commit.Id
+		// Store the originally-requested parameters because they will be overwritten by inspectCommitInfo
+		branch := proto.Clone(commitHandle.Branch).(*pfs.Branch)
+		commitID := commitHandle.Id
 		if branch != nil && branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {
 			branch.Name = commitID
 			commitID = ""
 		}
-		commitWithID, err := d.inspectCommitWithID(ctx, commit, pfs.CommitState_STARTED)
+		commit, err := d.inspectCommit(ctx, commitHandle, pfs.CommitState_STARTED)
 		if err != nil {
 			if !errutil.IsNotFoundError(err) || branch == nil || branch.Name == "" {
 				return err
 			}
 			return d.oneOffModifyFile(ctx, renewer, branch, cb)
 		}
-		if commitWithID.Finishing != nil {
+		if commit.Finishing != nil {
 			// The commit is already finished - if the commit was explicitly specified,
 			// error out, otherwise we can make a child commit since this is the branch head.
 			if commitID != "" {
-				return pfsserver.ErrCommitFinished{Commit: commitWithID.Commit}
+				return pfsserver.ErrCommitFinished{Commit: commit.Commit}
 			}
 			return d.oneOffModifyFile(ctx, renewer, branch, cb, fileset.WithParentID(func() (*fileset.ID, error) {
-				parentID, err := d.getFileSet(ctx, commitWithID)
+				parentID, err := d.getFileSet(ctx, commit)
 				if err != nil {
 					return nil, err
 				}
@@ -60,7 +60,7 @@ func (d *driver) modifyFile(ctx context.Context, commit *pfs.Commit, cb func(*fi
 				return parentID, nil
 			}))
 		}
-		return d.withCommitUnorderedWriter(ctx, renewer, commitWithID, cb)
+		return d.withCommitUnorderedWriter(ctx, renewer, commit, cb)
 	})
 }
 
@@ -70,21 +70,21 @@ func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer,
 		return err
 	}
 	return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		commitWithID, err := d.startCommit(ctx, txnCtx, nil, branch, "")
+		commit, err := d.startCommit(ctx, txnCtx, nil, branch, "")
 		if err != nil {
 			return err
 		}
-		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commitWithID, *id); err != nil {
+		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return d.finishCommit(ctx, txnCtx, commitWithID, "", "", false)
+		return d.finishCommit(ctx, txnCtx, commit, "", "", false)
 	})
 }
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
-func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, commitWithID *pfsdb.CommitWithID, cb func(*fileset.UnorderedWriter) error) error {
+func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, commit *pfsdb.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	id, err := withUnorderedWriter(ctx, d.storage, renewer, cb, fileset.WithParentID(func() (*fileset.ID, error) {
-		parentID, err := d.getFileSet(ctx, commitWithID)
+		parentID, err := d.getFileSet(ctx, commit)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +96,7 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset
 	if err != nil {
 		return err
 	}
-	return errors.Wrap(d.commitStore.AddFileSet(ctx, commitWithID, *id), "with commit unordered writer")
+	return errors.Wrap(d.commitStore.AddFileSet(ctx, commit, *id), "with commit unordered writer")
 }
 
 func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
@@ -118,12 +118,12 @@ func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *
 	return id, nil
 }
 
-func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, fileset.FileSet, error) {
-	if commit.AccessRepo() == nil {
+func (d *driver) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfs.CommitInfo, fileset.FileSet, error) {
+	if commitHandle.AccessRepo() == nil {
 		return nil, nil, errors.New("nil repo or branch.repo in commit")
 	}
-	if commit.AccessRepo().Name == fileSetsRepo {
-		fsid, err := fileset.ParseID(commit.Id)
+	if commitHandle.AccessRepo().Name == fileSetsRepo {
+		fsid, err := fileset.ParseID(commitHandle.Id)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -131,22 +131,22 @@ func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commi
 		if err != nil {
 			return nil, nil, err
 		}
-		return &pfs.CommitInfo{Commit: commit}, fs, nil
+		return &pfs.CommitInfo{Commit: commitHandle}, fs, nil
 	}
-	if err := d.env.Auth.CheckRepoIsAuthorized(ctx, commit.Repo, auth.Permission_REPO_READ); err != nil {
+	if err := d.env.Auth.CheckRepoIsAuthorized(ctx, commitHandle.Repo, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
-	commitWithID, err := d.inspectCommitWithID(ctx, commit, pfs.CommitState_STARTED)
+	commit, err := d.inspectCommit(ctx, commitHandle, pfs.CommitState_STARTED)
 	if err != nil {
 		return nil, nil, err
 	}
-	if commitWithID.Finishing != nil && commitWithID.Finished == nil {
-		_, err := d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED)
+	if commit.Finishing != nil && commit.Finished == nil {
+		_, err := d.inspectCommitInfo(ctx, commitHandle, pfs.CommitState_FINISHED)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
-	id, err := d.getFileSet(ctx, commitWithID)
+	id, err := d.getFileSet(ctx, commit)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -154,11 +154,11 @@ func (d *driver) openCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commi
 	if err != nil {
 		return nil, nil, err
 	}
-	return commitWithID.CommitInfo, fs, nil
+	return commit.CommitInfo, fs, nil
 }
 
 func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
-	srcCommitInfo, err := d.inspectCommit(ctx, src.Commit, pfs.CommitState_STARTED)
+	srcCommitInfo, err := d.inspectCommitInfo(ctx, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -488,7 +488,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 			return errors.EnsureStack(err)
 		}
 	}
-	newCommitInfo, err := d.inspectCommit(ctx, newFile.Commit, pfs.CommitState_STARTED)
+	newCommitInfo, err := d.inspectCommitInfo(ctx, newFile.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -556,7 +556,7 @@ func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWr
 	return id, nil
 }
 
-func (d *driver) getFileSet(ctx context.Context, commit *pfsdb.CommitWithID) (*fileset.ID, error) {
+func (d *driver) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
 	// Get the total file set if the commit has been finished.
 	if commit.Finished != nil && commit.Error == "" {
 		id, err := d.commitStore.GetTotalFileSet(ctx, commit)
@@ -572,28 +572,28 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfsdb.CommitWithID) (*f
 	}
 	// Compose the base file set with the diffs.
 	var ids []fileset.ID
-	baseCommit := commit.ParentCommit
-	for baseCommit != nil {
-		baseCommitWithID, err := d.getCommit(ctx, baseCommit)
+	baseCommitHandle := commit.ParentCommit
+	for baseCommitHandle != nil {
+		baseCommit, err := d.getCommit(ctx, baseCommitHandle)
 		if err != nil {
 			return nil, err
 		}
-		if baseCommitWithID.Error == "" {
-			if baseCommitWithID.Finished == nil {
+		if baseCommit.Error == "" {
+			if baseCommit.Finished == nil {
 				return nil, pfsserver.ErrBaseCommitNotFinished{
-					BaseCommit: baseCommit,
+					BaseCommit: baseCommitHandle,
 					Commit:     commit.Commit,
 				}
 			}
 			// ¯\_(ツ)_/¯
-			baseId, err := d.getFileSet(ctx, baseCommitWithID)
+			baseId, err := d.getFileSet(ctx, baseCommit)
 			if err != nil {
 				return nil, err
 			}
 			ids = append(ids, *baseId)
 			break
 		}
-		baseCommit = baseCommitWithID.ParentCommit
+		baseCommitHandle = baseCommit.ParentCommit
 	}
 	id, err := d.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
@@ -629,16 +629,16 @@ func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles, si
 	return pathRanges, nil
 }
 
-func (d *driver) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commit *pfs.Commit, filesetID fileset.ID) error {
-	commitWithID, err := d.resolveCommitWithID(ctx, txnCtx.SqlTx, commit)
+func (d *driver) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, filesetID fileset.ID) error {
+	commit, err := d.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
 	}
 	// TODO: This check needs to be in the add transaction.
-	if commitWithID.Finishing != nil {
-		return pfsserver.ErrCommitFinished{Commit: commitWithID.Commit}
+	if commit.Finishing != nil {
+		return pfsserver.ErrCommitFinished{Commit: commit.Commit}
 	}
-	return errors.Wrap(d.commitStore.AddFileSetTx(txnCtx.SqlTx, commitWithID, filesetID), "add file set")
+	return errors.Wrap(d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, filesetID), "add file set")
 }
 
 func (d *driver) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Duration) error {
@@ -661,8 +661,8 @@ func (d *driver) composeFileSet(ctx context.Context, ids []fileset.ID, ttl time.
 	return d.storage.Filesets.Compose(ctx, ids, ttl)
 }
 
-func (d *driver) commitSizeUpperBound(ctx context.Context, commitWithID *pfsdb.CommitWithID) (int64, error) {
-	fsid, err := d.getFileSet(ctx, commitWithID)
+func (d *driver) commitSizeUpperBound(ctx context.Context, commit *pfsdb.Commit) (int64, error) {
+	fsid, err := d.getFileSet(ctx, commit)
 	if err != nil {
 		return 0, err
 	}

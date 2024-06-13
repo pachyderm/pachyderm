@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestTestPachd(t *testing.T) {
@@ -23,6 +24,7 @@ func TestTestPachd(t *testing.T) {
 			t.Fatalf("close loki: %v", err)
 		}
 	})
+	start := time.Now()
 	pd := pachd.NewTestPachd(t, testloki.WithTestLoki(l))
 
 	tctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -38,6 +40,10 @@ func TestTestPachd(t *testing.T) {
 			},
 		},
 		Filter: &logs.LogFilter{
+			TimeRange: &logs.TimeRangeLogFilter{
+				From:  timestamppb.New(start),
+				Until: timestamppb.Now(),
+			},
 			Limit: 1,
 		},
 	})

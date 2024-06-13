@@ -122,7 +122,7 @@ func (m *Master) watchRepos(ctx context.Context) error {
 					lockPrefix := fmt.Sprintf("repos/%d", id)
 					ctx, cancel := pctx.WithCancel(ctx)
 					repos[id] = cancel
-					go m.driver.manageRepo(ctx, ring, pfsdb.RepoInfoWithID{ID: id, RepoInfo: repoInfo}, lockPrefix)
+					go m.driver.manageRepo(ctx, ring, pfsdb.Repo{ID: id, RepoInfo: repoInfo}, lockPrefix)
 					return nil
 				},
 				func(id pfsdb.RepoID) error {
@@ -140,8 +140,8 @@ func (m *Master) watchRepos(ctx context.Context) error {
 		})
 }
 
-func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, repoPair pfsdb.RepoInfoWithID, lockPrefix string) {
-	key := pfsdb.RepoKey(repoPair.RepoInfo.Repo)
+func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, repo pfsdb.Repo, lockPrefix string) {
+	key := pfsdb.RepoKey(repo.RepoInfo.Repo)
 	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 		ctx, cancel := pctx.WithCancel(ctx)
 		defer cancel()
@@ -154,7 +154,7 @@ func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, r
 		var eg errgroup.Group
 		eg.Go(func() error {
 			return backoff.RetryUntilCancel(ctx, func() error {
-				return d.manageBranches(ctx, repoPair)
+				return d.manageBranches(ctx, repo)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				log.Error(ctx, "managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 				return nil
@@ -162,9 +162,9 @@ func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, r
 		})
 		eg.Go(func() error {
 			return backoff.RetryUntilCancel(ctx, func() error {
-				return d.finishRepoCommits(ctx, repoPair)
+				return d.finishRepoCommits(ctx, repo)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				log.Error(ctx, "finishing repo commits", zap.Uint64("repo id", uint64(repoPair.ID)), zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
+				log.Error(ctx, "finishing repo commits", zap.Uint64("repo id", uint64(repo.ID)), zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 				return nil
 			})
 		})
@@ -180,7 +180,7 @@ type cronTrigger struct {
 	spec   string
 }
 
-func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoInfoWithID) error {
+func (d *driver) manageBranches(ctx context.Context, repo pfsdb.Repo) error {
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	cronTriggers := make(map[pfsdb.BranchID]*cronTrigger)
@@ -189,9 +189,9 @@ func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoInfoWith
 			ct.cancel()
 		}
 	}()
-	return pfsdb.WatchBranchesInRepo(ctx, d.env.DB, d.env.Listener, repoPair.ID,
+	return pfsdb.WatchBranchesInRepo(ctx, d.env.DB, d.env.Listener, repo.ID,
 		func(id pfsdb.BranchID, branchInfo *pfs.BranchInfo) error {
-			return d.manageBranch(ctx, pfsdb.BranchInfoWithID{ID: id, BranchInfo: branchInfo}, cronTriggers)
+			return d.manageBranch(ctx, pfsdb.Branch{ID: id, BranchInfo: branchInfo}, cronTriggers)
 		},
 		func(id pfsdb.BranchID) error {
 			if ct, ok := cronTriggers[id]; ok {
@@ -202,9 +202,9 @@ func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoInfoWith
 		})
 }
 
-func (d *driver) manageBranch(ctx context.Context, branchInfoWithID pfsdb.BranchInfoWithID, cronTriggers map[pfsdb.BranchID]*cronTrigger) error {
-	branchInfo := branchInfoWithID.BranchInfo
-	key := branchInfoWithID.ID
+func (d *driver) manageBranch(ctx context.Context, branch pfsdb.Branch, cronTriggers map[pfsdb.BranchID]*cronTrigger) error {
+	branchInfo := branch.BranchInfo
+	key := branch.ID
 	// Only create a new goroutine if one doesn't already exist or the spec changed.
 	if ct, ok := cronTriggers[key]; ok {
 		if branchInfo.Trigger != nil && ct.spec == branchInfo.Trigger.CronSpec {
@@ -225,7 +225,7 @@ func (d *driver) manageBranch(ctx context.Context, branchInfoWithID pfsdb.Branch
 		backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 			return d.runCronTrigger(ctx, branchInfo.Branch)
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			log.Error(ctx, "error running cron trigger", zap.Uint64("branch id", uint64(branchInfoWithID.ID)), zap.String("branch", branchInfo.Branch.Key()), zap.Error(err), zap.Duration("retryAfter", d))
+			log.Error(ctx, "error running cron trigger", zap.Uint64("branch id", uint64(branch.ID)), zap.String("branch", branchInfo.Branch.Key()), zap.Error(err), zap.Duration("retryAfter", d))
 			return nil
 		})
 	}()
@@ -243,7 +243,7 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 	}
 	// Use the current head commit start time as the previous tick.
 	// This prevents the timer from restarting if the master restarts.
-	ci, err := d.inspectCommit(ctx, branchInfo.Head, pfs.CommitState_STARTED)
+	ci, err := d.inspectCommitInfo(ctx, branchInfo.Head, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -278,10 +278,10 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 	}
 }
 
-func (d *driver) finishRepoCommits(ctx context.Context, repo pfsdb.RepoInfoWithID) error {
+func (d *driver) finishRepoCommits(ctx context.Context, repo pfsdb.Repo) error {
 	return pfsdb.WatchCommitsInRepo(ctx, d.env.DB, d.env.Listener, repo.ID,
 		func(id pfsdb.CommitID, ci *pfs.CommitInfo) error {
-			return d.finishRepoCommit(ctx, repo, &pfsdb.CommitWithID{ID: id, CommitInfo: ci})
+			return d.finishRepoCommit(ctx, repo, &pfsdb.Commit{ID: id, CommitInfo: ci})
 		},
 		func(_ pfsdb.CommitID) error {
 			// Don't finish commits that are deleted.
@@ -290,13 +290,13 @@ func (d *driver) finishRepoCommits(ctx context.Context, repo pfsdb.RepoInfoWithI
 	)
 }
 
-func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWithID, commitWithID *pfsdb.CommitWithID) error {
-	commitInfo := commitWithID.CommitInfo
+func (d *driver) finishRepoCommit(ctx context.Context, repo pfsdb.Repo, commit *pfsdb.Commit) error {
+	commitInfo := commit.CommitInfo
 	if commitInfo.Finishing == nil || commitInfo.Finished != nil {
 		return nil
 	}
-	commit := commitInfo.Commit
-	cache := d.newCache(pfsdb.CommitKey(commit))
+	commitHandle := commitInfo.Commit
+	cache := d.newCache(pfsdb.CommitKey(commitHandle))
 	defer func() {
 		if err := cache.clear(ctx); err != nil {
 			log.Error(ctx, "errored clearing compaction cache", zap.Error(err))
@@ -305,7 +305,7 @@ func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWi
 	return log.LogStep(ctx, "finishCommit", func(ctx context.Context) error {
 		return backoff.RetryUntilCancel(ctx, func() error {
 			// In the case where a commit is squashed between retries (commit not found), the master can return.
-			if _, err := d.getCommit(ctx, commit); err != nil {
+			if _, err := d.getCommit(ctx, commitHandle); err != nil {
 				if pfsserver.IsCommitNotFoundErr(err) {
 					return nil
 				}
@@ -313,16 +313,16 @@ func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWi
 			}
 			// Skip compaction / validation for errored commits.
 			if commitInfo.Error != "" {
-				return d.finalizeCommit(ctx, commitWithID, "", nil, nil)
+				return d.finalizeCommit(ctx, commit, "", nil, nil)
 			}
 			compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
-			taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Id, cache)
+			taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commitHandle.Id, cache)
 			return errors.Wrap(d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 				start := time.Now()
 				// Compacting the diff before getting the total allows us to compose the
 				// total file set so that it includes the compacted diff.
 				if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
-					_, err := d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commitWithID)
+					_, err := d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
 					return err
 				}); err != nil {
 					return err
@@ -330,7 +330,7 @@ func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWi
 				var totalId *fileset.ID
 				var err error
 				if err := log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
-					totalId, err = d.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commitWithID)
+					totalId, err = d.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
 					return err
 				}); err != nil {
 					return err
@@ -350,17 +350,17 @@ func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWi
 				}
 				details.ValidatingTime = durationpb.New(time.Since(start))
 				// Finish the commit.
-				return d.finalizeCommit(ctx, commitWithID, validationError, details, totalId)
+				return d.finalizeCommit(ctx, commit, validationError, details, totalId)
 			}), "finishing commit with renewer")
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			log.Error(ctx, "error finishing commit", zap.Error(err), zap.Duration("retryAfter", d))
 			return nil
 		})
-	}, zap.Bool("finishing", true), log.Proto("commit", commitInfo.Commit), zap.Uint64("repo id", uint64(repoPair.ID)), zap.String("repo", repoPair.RepoInfo.Repo.Key()))
+	}, zap.Bool("finishing", true), log.Proto("commit", commitInfo.Commit), zap.Uint64("repo id", uint64(repo.ID)), zap.String("repo", repo.RepoInfo.Repo.Key()))
 }
 
-func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commitWithID *pfsdb.CommitWithID) (*fileset.ID, error) {
-	id, err := d.commitStore.GetDiffFileSet(ctx, commitWithID)
+func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
+	id, err := d.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -371,11 +371,11 @@ func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, d
 	if err != nil {
 		return nil, err
 	}
-	return diffId, errors.EnsureStack(d.commitStore.SetDiffFileSet(ctx, commitWithID, *diffId))
+	return diffId, errors.EnsureStack(d.commitStore.SetDiffFileSet(ctx, commit, *diffId))
 }
 
-func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commitWithID *pfsdb.CommitWithID) (*fileset.ID, error) {
-	id, err := d.getFileSet(ctx, commitWithID)
+func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
+	id, err := d.getFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -386,16 +386,16 @@ func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, 
 	if err != nil {
 		return nil, err
 	}
-	if err := errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commitWithID, *totalId)); err != nil {
+	if err := errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId)); err != nil {
 		return nil, err
 	}
 	return totalId, nil
 }
 
-func (d *driver) finalizeCommit(ctx context.Context, commitWithID *pfsdb.CommitWithID, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
+func (d *driver) finalizeCommit(ctx context.Context, commit *pfsdb.Commit, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
 	return log.LogStep(ctx, "finalizeCommit", func(ctx context.Context) error {
 		return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-			commitInfo, err := pfsdb.GetCommit(ctx, txnCtx.SqlTx, commitWithID.ID)
+			commitInfo, err := pfsdb.GetCommitInfo(ctx, txnCtx.SqlTx, commit.ID)
 			if err != nil {
 				return errors.Wrap(err, "refresh commitInfo")
 			}
@@ -407,7 +407,7 @@ func (d *driver) finalizeCommit(ctx context.Context, commitWithID *pfsdb.CommitW
 				commitInfo.Error = validationError
 			}
 			commitInfo.Details = details
-			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitWithID.ID, commitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
+			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commit.ID, commitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
 				return errors.Wrap(err, "finalize commit")
 			}
 			if commitInfo.Commit.Repo.Type == pfs.UserRepoType {

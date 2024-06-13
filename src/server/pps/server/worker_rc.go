@@ -213,10 +213,6 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 			},
 		},
 		{
-			Name:  "PACHW_IN_SIDECARS",
-			Value: strconv.FormatBool(kd.config.PachwInSidecars),
-		},
-		{
 			Name:  "GC_PERCENT",
 			Value: strconv.FormatInt(int64(kd.config.GCPercent), 10),
 		},

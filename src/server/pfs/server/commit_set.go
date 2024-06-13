@@ -16,22 +16,22 @@ import (
 // returns CommitInfos in a commit set, topologically sorted.
 // A commit set will include all the commits that were created across repos for a run, along
 // with all of the commits that the run's commit's rely on (present in previous commit sets).
-func (d *driver) inspectCommitSetImmediateTx(ctx context.Context, txnCtx *txncontext.TransactionContext, commitSet *pfs.CommitSet, includeAliases bool) ([]*pfsdb.CommitWithID, error) {
-	var commits []*pfsdb.CommitWithID
+func (d *driver) inspectCommitSetImmediateTx(ctx context.Context, txnCtx *txncontext.TransactionContext, commitSet *pfs.CommitSet, includeAliases bool) ([]*pfsdb.Commit, error) {
+	var commits []*pfsdb.Commit
 	if includeAliases {
 		cs, err := pfsdb.CommitSetProvenance(txnCtx.SqlTx, commitSet.Id)
 		if err != nil {
 			return nil, err
 		}
 		for _, c := range cs {
-			commitWithID, err := pfsdb.GetCommitWithIDByKey(ctx, txnCtx.SqlTx, c)
+			commit, err := pfsdb.GetCommitByKey(ctx, txnCtx.SqlTx, c)
 			if err != nil {
 				return nil, errors.Wrap(err, "inspect commit set immediate")
 			}
-			commits = append(commits, commitWithID)
+			commits = append(commits, commit)
 		}
 	}
-	commitsInSet, err := pfsdb.ListCommitWithIdTxByFilter(ctx, txnCtx.SqlTx, &pfs.Commit{Id: commitSet.Id})
+	commitsInSet, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, &pfs.Commit{Id: commitSet.Id})
 	if err != nil {
 		return nil, errors.Wrap(err, "inspect commit set immediate")
 	}
@@ -39,11 +39,11 @@ func (d *driver) inspectCommitSetImmediateTx(ctx context.Context, txnCtx *txncon
 	return TopologicalSort(commits), nil
 }
 
-func topSortHelper(ci *pfsdb.CommitWithID, visited map[string]struct{}, commits map[string]*pfsdb.CommitWithID) []*pfsdb.CommitWithID {
+func topSortHelper(ci *pfsdb.Commit, visited map[string]struct{}, commits map[string]*pfsdb.Commit) []*pfsdb.Commit {
 	if _, ok := visited[pfsdb.CommitKey(ci.Commit)]; ok {
 		return nil
 	}
-	var result []*pfsdb.CommitWithID
+	var result []*pfsdb.Commit
 	for _, p := range ci.DirectProvenance {
 		provCI, commitExists := commits[pfsdb.CommitKey(p)]
 		_, commitVisited := visited[pfsdb.CommitKey(p)]
@@ -57,13 +57,13 @@ func topSortHelper(ci *pfsdb.CommitWithID, visited map[string]struct{}, commits 
 }
 
 // TopologicalSort sorts a slice of commit with ids topologically based on their provenance
-func TopologicalSort(cis []*pfsdb.CommitWithID) []*pfsdb.CommitWithID {
-	commits := make(map[string]*pfsdb.CommitWithID)
+func TopologicalSort(cis []*pfsdb.Commit) []*pfsdb.Commit {
+	commits := make(map[string]*pfsdb.Commit)
 	visited := make(map[string]struct{})
 	for _, ci := range cis {
 		commits[pfsdb.CommitKey(ci.Commit)] = ci
 	}
-	var result []*pfsdb.CommitWithID
+	var result []*pfsdb.Commit
 	for _, ci := range cis {
 		result = append(result, topSortHelper(ci, visited, commits)...)
 	}
@@ -71,7 +71,7 @@ func TopologicalSort(cis []*pfsdb.CommitWithID) []*pfsdb.CommitWithID {
 }
 
 func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.CommitSet, cb func(*pfs.CommitInfo) error) error {
-	var commits []*pfsdb.CommitWithID
+	var commits []*pfsdb.Commit
 	if err := d.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		commits, err = d.inspectCommitSetImmediateTx(ctx, txnCtx, commitset, true)
@@ -110,8 +110,8 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 		return err
 	}
 	for _, uc := range unfinishedCommits {
-		// TODO: make a dedicated call just for the blocking part, inspectCommit is a little heavyweight?
-		ci, err := d.inspectCommit(ctx, uc, pfs.CommitState_FINISHED)
+		// TODO: make a dedicated call just for the blocking part, inspectCommitInfo is a little heavyweight?
+		ci, err := d.inspectCommitInfo(ctx, uc, pfs.CommitState_FINISHED)
 		if err != nil {
 			return err
 		}
@@ -129,8 +129,8 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 	seen := map[string]struct{}{}
 	// Return commitsets by the newest commit in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
-	err := pfsdb.ForEachCommit(ctx, d.env.DB, nil, func(commitWithID pfsdb.CommitWithID) error {
-		commitInfo := commitWithID.CommitInfo
+	err := pfsdb.ForEachCommit(ctx, d.env.DB, nil, func(commit pfsdb.Commit) error {
+		commitInfo := commit.CommitInfo
 		if project != nil && commitInfo.Commit.AccessRepo().Project.Name != project.Name {
 			return nil
 		}
@@ -233,9 +233,9 @@ func (d *driver) squashCommitSet(ctx context.Context, txnCtx *txncontext.Transac
 // 2. check whether the commit was at the head of a branch, and update the branch head if necessary
 // 3. updating the ChildCommits pointers of deletedCommit.ParentCommit
 // 4. updating the ParentCommit pointer of deletedCommit.ChildCommits
-func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, ci *pfsdb.CommitWithID) error {
+func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, ci *pfsdb.Commit) error {
 	for _, child := range ci.ChildCommits {
-		childInfo, err := pfsdb.GetCommitByCommitKey(ctx, txnCtx.SqlTx, child)
+		childInfo, err := pfsdb.GetCommitInfoByKey(ctx, txnCtx.SqlTx, child)
 		if err != nil {
 			return errors.Wrapf(err, "error checking child commit state")
 		}
@@ -261,11 +261,11 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	branchInfo := &pfs.BranchInfo{}
 	for _, b := range repoInfo.Branches {
-		branchInfoWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, b)
+		branch, err := pfsdb.GetBranch(ctx, txnCtx.SqlTx, b)
 		if err != nil {
 			return errors.Wrapf(err, "delete commit: getting branch %s", b)
 		}
-		branchInfo = branchInfoWithID.BranchInfo
+		branchInfo = branch.BranchInfo
 		if pfsdb.CommitKey(branchInfo.Head) == pfsdb.CommitKey(ci.Commit) {
 			if ci.ParentCommit == nil {
 				headlessBranches = append(headlessBranches, proto.Clone(branchInfo).(*pfs.BranchInfo))

@@ -19,8 +19,8 @@ import (
 // the repo if they trigger on the change
 func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
 	branchInfos := make(map[string]*pfs.BranchInfo)
-	err := pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: commitInfo.Commit.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
-		branchInfos[branchInfoWithID.Branch.Key()] = branchInfoWithID.BranchInfo
+	err := pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: commitInfo.Commit.Repo}, func(branch pfsdb.Branch) error {
+		branchInfos[branch.Branch.Key()] = branch.BranchInfo
 		return nil
 	})
 	if err != nil {
@@ -57,7 +57,7 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 			return nil, nil
 		}
 		// Check if the trigger should fire based on the new head commit.
-		oldHead, err := pfsdb.GetCommitByCommitKey(ctx, txnCtx.SqlTx, bi.Head)
+		oldHead, err := pfsdb.GetCommitInfoByKey(ctx, txnCtx.SqlTx, bi.Head)
 		if err != nil {
 			return nil, errors.Wrap(err, "trigger commit")
 		}
@@ -69,11 +69,11 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 			return nil, nil
 		}
 		// Fire the trigger.
-		trigBIWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, bi.Branch)
+		branchToTrigger, err := pfsdb.GetBranch(ctx, txnCtx.SqlTx, bi.Branch)
 		if err != nil {
 			return nil, errors.Wrap(err, "trigger commit")
 		}
-		trigBI := trigBIWithID.BranchInfo
+		trigBI := branchToTrigger.BranchInfo
 		trigBI.Head = newHead.Commit
 		_, err = pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, trigBI)
 		if err != nil {
@@ -147,7 +147,7 @@ func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 				break
 			}
 			var err error
-			ci, err = d.resolveCommit(ctx, txnCtx.SqlTx, ci.ParentCommit)
+			ci, err = d.resolveCommitInfo(ctx, txnCtx.SqlTx, ci.ParentCommit)
 			if err != nil {
 				return false, err
 			}

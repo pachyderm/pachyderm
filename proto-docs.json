@@ -10041,7 +10041,7 @@
           "name": "LogFilter",
           "longName": "LogFilter",
           "fullName": "logs.LogFilter",
-          "description": "",
+          "description": "A LogFilter selects which log lines are returned.",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -10049,7 +10049,7 @@
           "fields": [
             {
               "name": "time_range",
-              "description": "",
+              "description": "If set, only return logs in the provided time range.",
               "label": "",
               "type": "TimeRangeLogFilter",
               "longType": "TimeRangeLogFilter",
@@ -10061,7 +10061,7 @@
             },
             {
               "name": "limit",
-              "description": "",
+              "description": "If set, return at maximum this number of logs.",
               "label": "",
               "type": "uint64",
               "longType": "uint64",
@@ -10073,7 +10073,7 @@
             },
             {
               "name": "regex",
-              "description": "",
+              "description": "If set, only return logs that match this regular expression.",
               "label": "",
               "type": "RegexLogFilter",
               "longType": "RegexLogFilter",
@@ -10085,7 +10085,7 @@
             },
             {
               "name": "level",
-              "description": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior",
+              "description": "If set, only return logs that are greater than or equal to this log level.  (DEBUG returns\nDEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.).",
               "label": "",
               "type": "LogLevel",
               "longType": "LogLevel",
@@ -10377,7 +10377,7 @@
           "name": "TimeRangeLogFilter",
           "longName": "TimeRangeLogFilter",
           "fullName": "logs.TimeRangeLogFilter",
-          "description": "",
+          "description": "A TimeRangeLogFilter selects logs within a time range.  Either or both timestamps can be null.\nIf from is after until, logs will be returns in reverse order.  (The first log you see will\nalways be from the \"from\" time.)",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -10385,7 +10385,7 @@
           "fields": [
             {
               "name": "from",
-              "description": "Can be null",
+              "description": "Where in time to start returning logs from; includes logs with this exact timestamp.  If null,\nstarts at the beginning of time.",
               "label": "",
               "type": "Timestamp",
               "longType": "google.protobuf.Timestamp",
@@ -10397,7 +10397,7 @@
             },
             {
               "name": "until",
-              "description": "Can be null",
+              "description": "Where in time to stop returning logs from; includes logs with this exact timestamp.  If null,\nends at the end of time.",
               "label": "",
               "type": "Timestamp",
               "longType": "google.protobuf.Timestamp",
@@ -10409,7 +10409,7 @@
             },
             {
               "name": "offset",
-              "description": "Offset from which to return results",
+              "description": "Offset from which to return results, in the case of multiple entries from the same nanosecond.",
               "label": "",
               "type": "uint64",
               "longType": "uint64",

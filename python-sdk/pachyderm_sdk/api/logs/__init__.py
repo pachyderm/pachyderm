@@ -110,26 +110,50 @@ class JobDatumLogQuery(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class LogFilter(betterproto.Message):
+    """A LogFilter selects which log lines are returned."""
+
     time_range: "TimeRangeLogFilter" = betterproto.message_field(1)
+    """If set, only return logs in the provided time range."""
+
     limit: int = betterproto.uint64_field(2)
+    """If set, return at maximum this number of logs."""
+
     regex: "RegexLogFilter" = betterproto.message_field(3)
+    """If set, only return logs that match this regular expression."""
+
     level: "LogLevel" = betterproto.enum_field(4)
     """
-    Minimum log level to return; worker will always run at level debug, but
-    setting INFO here restores original behavior
+    If set, only return logs that are greater than or equal to this log level.
+    (DEBUG returns DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.).
     """
 
 
 @dataclass(eq=False, repr=False)
 class TimeRangeLogFilter(betterproto.Message):
+    """
+    A TimeRangeLogFilter selects logs within a time range.  Either or both
+    timestamps can be null. If from is after until, logs will be returns in
+    reverse order.  (The first log you see will always be from the "from"
+    time.)
+    """
+
     from_: datetime = betterproto.message_field(1)
-    """Can be null"""
+    """
+    Where in time to start returning logs from; includes logs with this exact
+    timestamp.  If null, starts at the beginning of time.
+    """
 
     until: datetime = betterproto.message_field(2)
-    """Can be null"""
+    """
+    Where in time to stop returning logs from; includes logs with this exact
+    timestamp.  If null, ends at the end of time.
+    """
 
     offset: int = betterproto.uint64_field(3)
-    """Offset from which to return results"""
+    """
+    Offset from which to return results, in the case of multiple entries from
+    the same nanosecond.
+    """
 
 
 @dataclass(eq=False, repr=False)

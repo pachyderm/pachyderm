@@ -131,14 +131,17 @@
             "properties": {
                 "timeRange": {
                     "$ref": "#/definitions/logs.TimeRangeLogFilter",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "If set, only return logs in the provided time range."
                 },
                 "limit": {
-                    "type": "integer"
+                    "type": "integer",
+                    "description": "If set, return at maximum this number of logs."
                 },
                 "regex": {
                     "$ref": "#/definitions/logs.RegexLogFilter",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "If set, only return logs that match this regular expression."
                 },
                 "level": {
                     "enum": [
@@ -152,7 +155,8 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Log Filter"
+            "title": "Log Filter",
+            "description": "A LogFilter selects which log lines are returned."
         },
         "logs.LogQuery": {
             "properties": {
@@ -238,22 +242,23 @@
             "properties": {
                 "from": {
                     "type": "string",
-                    "description": "Can be null",
+                    "description": "Where in time to start returning logs from; includes logs with this exact timestamp.  If null, starts at the beginning of time.",
                     "format": "date-time"
                 },
                 "until": {
                     "type": "string",
-                    "description": "Can be null",
+                    "description": "Where in time to stop returning logs from; includes logs with this exact timestamp.  If null, ends at the end of time.",
                     "format": "date-time"
                 },
                 "offset": {
                     "type": "integer",
-                    "description": "Offset from which to return results"
+                    "description": "Offset from which to return results, in the case of multiple entries from the same nanosecond."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Time Range Log Filter"
+            "title": "Time Range Log Filter",
+            "description": "A TimeRangeLogFilter selects logs within a time range.  Either or both timestamps can be null. If from is after until, logs will be returns in reverse order.  (The first log you see will always be from the \"from\" time.)"
         },
         "logs.UserLogQuery": {
             "properties": {
