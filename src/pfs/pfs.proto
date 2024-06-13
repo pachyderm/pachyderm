@@ -773,8 +773,8 @@ message ReposSummaryResponse {
 }
 
 message ForgetCommitRequest {
-	 CommitPicker commit = 1;
-   bool dry_run = 2; // if true, this will report the metrics, but won't actually do the delete.
+  CommitPicker commit = 1;
+  bool dry_run = 2; // if true, this will report the metrics, but won't actually do the delete.
 }
 
 message ForgetCommitResponse {}
