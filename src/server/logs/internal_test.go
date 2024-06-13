@@ -198,7 +198,7 @@ func TestCompileRequest(t *testing.T) {
 					UserLogsOnly: true,
 				},
 			},
-			want: `{app="pipeline",suite="pachyderm",container="user",pipelineProject="project",pipelineName="pipeline"} |~ user\\?["]:true`,
+			want: `{app="pipeline",suite="pachyderm",container="user",pipelineProject="project",pipelineName="pipeline"}`,
 			wantIncluded: []*logs.LogMessage{
 				{
 					PpsLogMessage: &pps.LogMessage{

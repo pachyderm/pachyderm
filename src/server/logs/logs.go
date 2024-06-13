@@ -252,6 +252,30 @@ func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.Use
 	}
 }
 
+func matchesUserOnlyRequest(userOnly bool, msg *logs.LogMessage) bool {
+	if !userOnly {
+		return true
+	}
+	if msg.GetPpsLogMessage().GetUser() {
+		return true
+	}
+	if ff := msg.GetObject().GetFields(); ff != nil {
+		v, ok := ff["user"]
+		if ok {
+			if v.GetBoolValue() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func filterUserLogs(userOnly bool, next func(map[string]string, *logs.LogMessage) bool) func(map[string]string, *logs.LogMessage) bool {
+	return func(labels map[string]string, msg *logs.LogMessage) bool {
+		return next(labels, msg) && matchesUserOnlyRequest(userOnly, msg)
+	}
+}
+
 func (ls LogService) compilePipelineLogsReq(project, pipeline string, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if pipeline == "" {
 		return "", nil, userLogQueryValidateErr("Pipeline", "Pipeline")
@@ -259,25 +283,10 @@ func (ls LogService) compilePipelineLogsReq(project, pipeline string, userOnly b
 	if project == "" {
 		return "", nil, userLogQueryValidateErr("Pipeline", "Project")
 	}
-	return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline),
-		func(labels map[string]string, msg *logs.LogMessage) bool {
-			if !userOnly {
-				return true
-			}
-			if msg.GetPpsLogMessage().GetUser() {
-				return true
-			}
-			ff := msg.GetObject().GetFields()
-			if ff != nil {
-				v, ok := ff["user"]
-				if ok {
-					if v.GetBoolValue() {
-						return true
-					}
-				}
-			}
-			return false
-		}, nil
+	filter := func(labels map[string]string, msg *logs.LogMessage) bool {
+		return matchesUserOnlyRequest(userOnly, msg)
+	}
+	return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline), filter, nil
 }
 
 func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
@@ -519,7 +528,7 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 		msg.Object = nil
 	}
 	if a.pass != nil && !a.pass(map[string]string(labels), msg) {
-		return true, nil
+		return false, nil
 	}
 	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
 		ResponseType: &logs.GetLogsResponse_Log{
