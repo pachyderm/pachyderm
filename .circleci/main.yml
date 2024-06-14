@@ -2227,11 +2227,11 @@ commands:
           when: always
           command: |
             if [ << parameters.amd >> ]; then
-              curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" --output "./datadog-ci" && chmod +x ./datadog-ci
-              ./datadog-ci junit upload --service "pachyderm/<< parameters.service >>" --env "<< parameters.env >>" << parameters.path >>
-            else
               npm install -g @datadog/datadog-ci 
               datadog-ci junit upload --service "pachyderm/<< parameters.service >>" --env "<< parameters.env >>" << parameters.path >>
+            else
+              curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" --output "./datadog-ci" && chmod +x ./datadog-ci
+              ./datadog-ci junit upload --service "pachyderm/<< parameters.service >>" --env "<< parameters.env >>" << parameters.path >>
             fi
   collect-test-results:
     steps:
