@@ -565,6 +565,9 @@ jobs:
           name: Format code coverage
           when: always
           command: etc/testing/circle/format-coverage.sh
+      - upload-junit-datadog:
+        service: deploy-tests
+        env: ci-minikube
       - store_test_results:
           path: /tmp/test-results
       - store_artifacts:
@@ -2203,6 +2206,24 @@ commands:
       - run:
           name: Wait for pachd
           command: until pachctl inspect cluster; do sleep 5; done
+  upload-junit-datadog:
+    parameters:
+      service:
+        type: string
+        default: ""
+      env:
+        type: string
+        default: "ci-local"
+      path:
+        type: string
+        default: "/tmp/test-results"
+    steps:
+      - run:
+          name: Upload Tests to DataDog
+          when: always
+          command: |
+              curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" --output "./datadog-ci" && chmod +x ./datadog-ci
+              ./datadog-ci junit upload --service "pachyderm/<< parameters.service >>" --env "<< parameters.env >>" << parameters.path >>
   collect-test-results:
     steps:
       - run:
