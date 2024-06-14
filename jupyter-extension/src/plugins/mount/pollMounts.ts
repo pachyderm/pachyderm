@@ -193,7 +193,11 @@ export class PollMounts {
       const healthCheck = await requestAPI<HealthCheck>('health', 'GET');
       this.health = healthCheck;
       if (healthCheck.message && !this._message_displayed) {
-        showErrorMessage("Warning: Incompatible JupyterLab Version", healthCheck.message + "\nPlease check the installed JupyterLab version for the Jupyter Server");
+        showErrorMessage(
+          'Warning: Incompatible JupyterLab Version',
+          healthCheck.message +
+            '\nPlease check the installed JupyterLab version for the Jupyter Server',
+        );
       }
 
       if (
