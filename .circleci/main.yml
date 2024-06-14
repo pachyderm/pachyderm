@@ -568,6 +568,7 @@ jobs:
       - upload-junit-datadog:
           service: deploy-tests
           env: ci-minikube
+          amd: true
       - store_test_results:
           path: /tmp/test-results
       - store_artifacts:
@@ -2217,12 +2218,19 @@ commands:
       path:
         type: string
         default: "/tmp/test-results"
+      amd: 
+        type: boolean
+        default: false
     steps:
       - run:
           name: Upload Tests to DataDog
           when: always
           command: |
-            curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" --output "./datadog-ci" && chmod +x ./datadog-ci
+            if [ amd ]; then
+              curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" --output "./datadog-ci" && chmod +x ./datadog-ci
+            else
+              npm install -g @datadog/datadog-ci 
+            fi
             ./datadog-ci junit upload --service "pachyderm/<< parameters.service >>" --env "<< parameters.env >>" << parameters.path >>
   collect-test-results:
     steps:
