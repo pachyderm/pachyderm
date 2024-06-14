@@ -4965,7 +4965,7 @@
         "bzlTransitiveDigest": "DuaQj5QkmWphuYHt4Cg3VUKL4lFjh64NKgX3NBE8sLk=",
         "recordedFileInputs": {
           "@@//jupyter-extension/requirements-dev-lock-darwin.txt": "c75c9089bfaa0218e43621a93305f6985fc2293e6f426d86158e7a9d0c7b5cf2",
-          "@@//jupyter-extension/requirements-lock.txt": "b156250b34e7aa13af0ade5c054571a52fe93859db878a669d5dbbce5c8dc91b"
+          "@@//jupyter-extension/requirements-lock.txt": "c7d161bdc9b7ec082b39d7c571a064623b22af73bf2d54efeb599aee1dd72471"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -7761,6 +7761,9 @@
                 "mistune": [
                   "3.9"
                 ],
+                "more_itertools": [
+                  "3.9"
+                ],
                 "multidict": [
                   "3.9"
                 ],
@@ -8075,6 +8078,30 @@
               "requirement": "python-dateutil==2.9.0.post0     --hash=sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3     --hash=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
+          "jupyter-pip-requirements_39_more_itertools": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "more-itertools==10.2.0     --hash=sha256:686b06abe565edfab151cb8fd385a05651e1fdf8f0a14191e4439283421f8684     --hash=sha256:8fccb480c43d3e99a00087634c06dd02b0d50fbf088b380de5a41a015ec239e1",
+              "repo": "jupyter-pip-requirements_39",
+              "repo_prefix": "jupyter-pip-requirements_39_",
               "whl_patches": {},
               "experimental_target_platforms": [],
               "python_interpreter": "",
@@ -10278,7 +10305,7 @@
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
             "attributes": {
-              "requirement": "pachyderm-sdk==2.9.2     --hash=sha256:197d9945b968a041a4e09a23b3fb0a409d45ec598a822968e075743549e1c980     --hash=sha256:b70a282a016920209100f8235d0cbdc66e9faa7936586fba2bedbe474bf55d7f",
+              "requirement": "pachyderm-sdk==2.10.1     --hash=sha256:3df373060ae6580942fd9c5830274bf2cf298a984250ba2a661e9be514ae0704     --hash=sha256:b21bc59210b57032d2047961a279de003f79e4c76f77f450348e1d4cc7ceb884",
               "repo": "jupyter-pip-requirements_39",
               "repo_prefix": "jupyter-pip-requirements_39_",
               "whl_patches": {},

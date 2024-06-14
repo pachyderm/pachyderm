@@ -15,6 +15,7 @@ from pachyderm_sdk import Client, errors
 from pachyderm_sdk.api import pfs
 from pachyderm_sdk.api.auth import AuthenticateRequest, AuthenticateResponse
 from pachyderm_sdk.config import ConfigFile, Context
+import subprocess
 import tornado
 import tornado.concurrent
 import tornado.web
@@ -28,6 +29,8 @@ from .pps_client import PPSClient
 NAMESPACE = "pachyderm"
 VERSION = "v2"
 
+JUPYTERLAB_EXPECTED_VERSION = "3.3.4"
+JUPYTERLAB_VERSION_COMMAND = "/opt/conda/bin/jupyter-lab --version"
 
 class BaseHandler(APIHandler):
     _no_client_error = tornado.web.HTTPError(
@@ -349,6 +352,12 @@ class ConfigHandler(BaseHandler):
 
 
 class HealthHandler(BaseHandler):
+    # Check compatibility of jupyterlab version
+    version_mismatch = False
+    jupyterlab_version = subprocess.check_output(JUPYTERLAB_VERSION_COMMAND).stdout.decode('utf-8')
+    if jupyterlab_version != JUPYTERLAB_EXPECTED_VERSION:
+        version_mismatch = True
+
     @tornado.web.authenticated
     async def get(self):
         try:
@@ -369,7 +378,10 @@ class HealthHandler(BaseHandler):
                     )
                 )
                 return
-        await self.finish(json.dumps({"status": status}))
+        response = {"status": status}
+        if self.version_mismatch:
+            response["message"] = f"This version of JupyterLab is not officially supported by the Pachyderm Extension (expected: {JUPYTERLAB_EXPECTED_VERSION}). Unexpected behavior may occur!"
+        await self.finish(json.dumps(response))
 
 
 class AuthLoginHandler(BaseHandler):

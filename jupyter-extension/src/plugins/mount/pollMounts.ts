@@ -1,6 +1,7 @@
 import {ISignal, Signal} from '@lumino/signaling';
 import {Poll} from '@lumino/polling';
 import {requestAPI} from '../../handler';
+import {showErrorMessage} from '@jupyterlab/apputils';
 import {
   AuthConfig,
   HealthCheck,
@@ -63,6 +64,8 @@ export class PollMounts {
       max: 5000,
     },
   });
+
+  private _message_displayed = false;
 
   get repos(): Repos {
     return this._repos;
@@ -189,6 +192,10 @@ export class PollMounts {
     try {
       const healthCheck = await requestAPI<HealthCheck>('health', 'GET');
       this.health = healthCheck;
+      if (healthCheck.message && !this._message_displayed) {
+        showErrorMessage("Warning: Incompatible JupyterLab Version", healthCheck.message + "\nPlease check the installed JupyterLab version for the Jupyter Server");
+      }
+
       if (
         healthCheck.status === 'HEALTHY_LOGGED_IN' ||
         healthCheck.status === 'HEALTHY_NO_AUTH'
