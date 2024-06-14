@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "438c88d83f795d662549e5ad31ac1f97cf9e2a7fbe41c3744637a66cb68305a3",
+  "moduleFileHash": "57f61f501ee7e5147eba0f0dcf7e34c25903fae4a3fdf1aabb832f50827d7adf",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -83,7 +83,6 @@
             "com_github_alessio_shellescape": "com_github_alessio_shellescape",
             "com_github_aws_aws_lambda_go": "com_github_aws_aws_lambda_go",
             "com_github_aws_aws_sdk_go": "com_github_aws_aws_sdk_go",
-            "com_github_azure_azure_sdk_for_go": "com_github_azure_azure_sdk_for_go",
             "com_github_c_bata_go_prompt": "com_github_c_bata_go_prompt",
             "com_github_cevaris_ordered_map": "com_github_cevaris_ordered_map",
             "com_github_chmduquesne_rollinghash": "com_github_chmduquesne_rollinghash",
@@ -168,7 +167,6 @@
             "com_github_zeebo_blake3": "com_github_zeebo_blake3",
             "com_github_zeebo_xxh3": "com_github_zeebo_xxh3",
             "com_google_cloud_go_profiler": "com_google_cloud_go_profiler",
-            "com_google_cloud_go_storage": "com_google_cloud_go_storage",
             "dev_gocloud": "dev_gocloud",
             "in_gopkg_yaml_v2": "in_gopkg_yaml_v2",
             "in_gopkg_yaml_v3": "in_gopkg_yaml_v3",
@@ -184,7 +182,6 @@
             "io_k8s_sigs_yaml": "io_k8s_sigs_yaml",
             "io_k8s_utils": "io_k8s_utils",
             "net_starlark_go": "net_starlark_go",
-            "org_golang_google_api": "org_golang_google_api",
             "org_golang_google_genproto_googleapis_rpc": "org_golang_google_genproto_googleapis_rpc",
             "org_golang_google_grpc": "org_golang_google_grpc",
             "org_golang_google_grpc_cmd_protoc_gen_go_grpc": "org_golang_google_grpc_cmd_protoc_gen_go_grpc",
@@ -525,7 +522,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 290,
+            "line": 287,
             "column": 32
           },
           "imports": {
@@ -608,7 +605,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 364,
+            "line": 361,
             "column": 20
           },
           "imports": {
@@ -633,7 +630,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 367,
+                "line": 364,
                 "column": 9
               }
             },
@@ -651,7 +648,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 378,
+                "line": 375,
                 "column": 9
               }
             },
@@ -665,7 +662,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 389,
+                "line": 386,
                 "column": 9
               }
             },
@@ -679,7 +676,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 394,
+                "line": 391,
                 "column": 9
               }
             }
@@ -693,7 +690,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 402,
+            "line": 399,
             "column": 23
           },
           "imports": {},
@@ -707,7 +704,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 403,
+                "line": 400,
                 "column": 17
               }
             }
@@ -721,7 +718,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 408,
+            "line": 405,
             "column": 20
           },
           "imports": {
@@ -740,7 +737,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 409,
+                "line": 406,
                 "column": 10
               }
             },
@@ -756,7 +753,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 414,
+                "line": 411,
                 "column": 10
               }
             }

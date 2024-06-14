@@ -116,7 +116,7 @@ func runMigrations(db *pachsql.DB, etcdClient *etcd.Client, state *migrations.St
 	return setupStep{
 		Name: "runMigrations",
 		Fn: func(ctx context.Context) error {
-			env := migrations.MakeEnv(nil, etcdClient)
+			env := migrations.MakeEnv(etcdClient)
 			return migrations.ApplyMigrations(ctx, db, env, s)
 		},
 	}

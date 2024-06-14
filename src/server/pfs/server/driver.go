@@ -89,7 +89,7 @@ func newDriver(ctx context.Context, env Env) (*driver, error) {
 	if err := func() error {
 		ctx, cf := context.WithTimeout(pctx.Child(ctx, "newDriver"), 30*time.Second)
 		defer cf()
-		return obj.TestStorage(ctx, env.Bucket, env.ObjectClient)
+		return obj.TestStorage(ctx, env.Bucket)
 	}(); err != nil {
 		return nil, err
 	}
@@ -107,12 +107,8 @@ func newDriver(ctx context.Context, env Env) (*driver, error) {
 	}
 	storageEnv := storage.Env{
 		DB:     env.DB,
+		Bucket: env.Bucket,
 		Config: env.StorageConfig,
-	}
-	if env.Bucket != nil {
-		storageEnv.Bucket = env.Bucket
-	} else {
-		storageEnv.ObjectStore = env.ObjectClient
 	}
 	storageSrv, err := storage.New(ctx, storageEnv)
 	if err != nil {

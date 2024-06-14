@@ -1,8 +1,9 @@
 package pachd
 
 import (
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"path"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -96,89 +97,58 @@ func PachwEnv(env serviceenv.ServiceEnv) (*pachw_server.Env, error) {
 }
 
 func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_server.Env, error) {
-	// Setup etcd, object storage, and database clients.
-	objClient, err := obj.NewClient(env.Context(), env.Config().StorageBackend, env.Config().StorageRoot)
-	if err != nil {
-		return nil, err
-	}
-	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix)
 	if env.AuthServer() == nil {
 		panic("auth server cannot be nil")
 	}
-	pfsEnv := &pfs_server.Env{
-		ObjectClient: objClient,
-		DB:           env.GetDBClient(),
-		TxnEnv:       txnEnv,
-		Listener:     env.GetPostgresListener(),
-		EtcdPrefix:   etcdPrefix,
-		EtcdClient:   env.GetEtcdClient(),
-		TaskService:  env.GetTaskService(etcdPrefix),
+	cfg := env.Config()
+	bucket, err := obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "pfs env")
+	}
+	etcdPrefix := path.Join(cfg.EtcdPrefix, cfg.PFSEtcdPrefix)
+	return &pfs_server.Env{
+		Bucket:      bucket,
+		DB:          env.GetDBClient(),
+		TxnEnv:      txnEnv,
+		Listener:    env.GetPostgresListener(),
+		EtcdPrefix:  etcdPrefix,
+		EtcdClient:  env.GetEtcdClient(),
+		TaskService: env.GetTaskService(etcdPrefix),
 
 		Auth:                 env.AuthServer(),
 		GetPipelineInspector: func() pfs_server.PipelineInspector { return env.PpsServer() },
 
-		StorageConfig: env.Config().StorageConfiguration,
+		StorageConfig: cfg.StorageConfiguration,
 		GetPPSServer:  env.PpsServer,
-	}
-	cfg := env.Config()
-	if cfg.GoCDKEnabled {
-		pfsEnv.Bucket, err = obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
-		if err != nil {
-			return nil, errors.Wrap(err, "pfs env")
-		}
-	} else {
-		var err error
-		pfsEnv.ObjectClient, err = obj.NewClient(env.Context(), cfg.StorageBackend, cfg.StorageRoot)
-		if err != nil {
-			return nil, errors.Wrap(err, "pfs env")
-		}
-	}
-	return pfsEnv, nil
+	}, nil
 }
 
 func StorageEnv(env serviceenv.ServiceEnv) (*storage.Env, error) {
-	storageEnv := &storage.Env{
-		DB:     env.GetDBClient(),
-		Config: env.Config().StorageConfiguration,
-	}
 	cfg := env.Config()
-	var err error
-	if cfg.GoCDKEnabled {
-		storageEnv.Bucket, err = obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
-		if err != nil {
-			return nil, errors.Wrap(err, "storage env")
-		}
-	} else {
-		var err error
-		storageEnv.ObjectStore, err = obj.NewClient(env.Context(), cfg.StorageBackend, cfg.StorageRoot)
-		if err != nil {
-			return nil, errors.Wrap(err, "storage env")
-		}
+	bucket, err := obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "storage env")
 	}
-	return storageEnv, nil
+	return &storage.Env{
+		Bucket: bucket,
+		DB:     env.GetDBClient(),
+		Config: cfg.StorageConfiguration,
+	}, nil
+
 }
 
 func PFSWorkerEnv(env serviceenv.ServiceEnv) (*pfs_server.WorkerEnv, error) {
-	ctx := env.Context()
-	etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PFSEtcdPrefix)
-	workerEnv := &pfs_server.WorkerEnv{
-		DB:          env.GetDBClient(),
-		TaskService: env.GetTaskService(etcdPrefix),
-	}
-	if env.Config().GoCDKEnabled {
-		bucket, err := obj.NewBucket(ctx, env.Config().StorageBackend, env.Config().StorageRoot, env.Config().StorageURL)
-		if err != nil {
-			return nil, errors.Wrap(err, "pfs worker")
-		}
-		workerEnv.Bucket = bucket
-		return workerEnv, nil
-	}
-	objClient, err := obj.NewClient(ctx, env.Config().StorageBackend, env.Config().StorageRoot)
+	cfg := env.Config()
+	bucket, err := obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "pfs worker")
 	}
-	workerEnv.ObjClient = objClient
-	return workerEnv, nil
+	etcdPrefix := path.Join(cfg.EtcdPrefix, cfg.PFSEtcdPrefix)
+	return &pfs_server.WorkerEnv{
+		Bucket:      bucket,
+		DB:          env.GetDBClient(),
+		TaskService: env.GetTaskService(etcdPrefix),
+	}, nil
 }
 
 func PPSEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) pps_server.Env {
