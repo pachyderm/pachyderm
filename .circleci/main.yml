@@ -2218,7 +2218,7 @@ commands:
       path:
         type: string
         default: "/tmp/test-results"
-      amd: 
+      amd:
         type: boolean
         default: false
     steps:
@@ -2226,7 +2226,7 @@ commands:
           name: Upload Tests to DataDog
           when: always
           command: |
-            if [ amd ]; then
+            if [ << parameters.amd >> ]; then
               curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" --output "./datadog-ci" && chmod +x ./datadog-ci
               ./datadog-ci junit upload --service "pachyderm/<< parameters.service >>" --env "<< parameters.env >>" << parameters.path >>
             else
