@@ -559,7 +559,7 @@ jobs:
           name: Create JunitXML for DataDog
           command: |
             go install gotest.tools/gotestsum@latest
-            gotestsum --junitxml junit_test_results.xml --raw-command cat "${TEST_RESULTS}/go-test-results.jsonl"
+            gotestsum --junitfile junit_test_results.xml --raw-command cat "${TEST_RESULTS}/go-test-results.jsonl"
           when: always
       - run:
           name: Dump debugging info in case of failure
