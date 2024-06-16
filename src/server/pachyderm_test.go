@@ -8067,7 +8067,7 @@ func TestServiceEnvVars(t *testing.T) {
 	require.Equal(t, "custom-value", strings.TrimSpace(string(envValue)))
 }
 
-func TestServiceDAGWait(t *testing.T) {
+func TestServicePipelineUpdate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -8077,11 +8077,18 @@ func TestServiceDAGWait(t *testing.T) {
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, aRepo))
 	bPipeline := tu.UniqueString("B")
+	aCommit, err := c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "master", ""))
 	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 		bPipeline,
 		"",
-		[]string{"sleep 10;", "cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
-		nil,
+		[]string{"bash"},
+		[]string{
+			"sleep 5s",
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", aRepo),
+		},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
@@ -8090,7 +8097,7 @@ func TestServiceDAGWait(t *testing.T) {
 		false,
 	))
 	pipeline := tu.UniqueString("pipelineservice")
-	_, err := c.PpsAPIClient.CreatePipeline(
+	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
@@ -8098,7 +8105,7 @@ func TestServiceDAGWait(t *testing.T) {
 				Image: "trinitronx/python-simplehttpserver",
 				Cmd:   []string{"sh"},
 				Stdin: []string{
-					"cd /pfs",
+					fmt.Sprintf("cd /pfs/%s", bPipeline),
 					"exec python -m SimpleHTTPServer 8000",
 				},
 			},
@@ -8110,14 +8117,9 @@ func TestServiceDAGWait(t *testing.T) {
 			Service: &pps.Service{
 				InternalPort: 8000,
 				ExternalPort: 31801,
-				//				Type:         "LoadBalancer",
 			},
 		})
 	require.NoError(t, err)
-	aCommit, err := c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "master", ""))
 	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
 	serviceAddr := func() string {
 		// Hack: detect if running inside the cluster by looking for this env var
@@ -8149,32 +8151,45 @@ func TestServiceDAGWait(t *testing.T) {
 			}
 			return errors.Errorf("no matching k8s service found")
 		}, backoff.NewTestingBackOff())
-
 		require.NotEqual(t, "", address)
 		return address
 	}()
+	getContents := func() string {
+		var value []byte
+		require.NoErrorWithinTRetry(t, time.Minute, func() error {
+			httpC := http.Client{
+				Timeout: 3 * time.Second, // fail fast
+			}
+			resp, err := httpC.Get(fmt.Sprintf("http://%s/file", serviceAddr))
+			if err != nil {
+				// sleep => don't spam retries. Seems to make test less flaky
+				time.Sleep(time.Second)
+				return errors.EnsureStack(err)
+			}
+			if resp.StatusCode != 200 {
+				return errors.Errorf("GET returned %d", resp.StatusCode)
+			}
+			value, err = io.ReadAll(resp.Body)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			return nil
+		})
+		return string(value)
+	}
+	require.Equal(t, "foo", strings.TrimSpace(getContents()))
 
-	var value []byte
-	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-		httpC := http.Client{
-			Timeout: 3 * time.Second, // fail fast
-		}
-		resp, err := httpC.Get(fmt.Sprintf("http://%s/file", serviceAddr))
-		if err != nil {
-			// sleep => don't spam retries. Seems to make test less flaky
-			time.Sleep(time.Second)
-			return errors.EnsureStack(err)
-		}
-		if resp.StatusCode != 200 {
-			return errors.Errorf("GET returned %d", resp.StatusCode)
-		}
-		value, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return errors.EnsureStack(err)
+	aCommit, err = c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("bar\n")))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "master", ""))
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		contents := strings.TrimSpace(getContents())
+		if contents != "bar" {
+			return errors.New("values not updated")
 		}
 		return nil
 	})
-	require.Equal(t, "foo\n", strings.TrimSpace(string(value)))
 }
 
 func TestDatumSetSpec(t *testing.T) {
