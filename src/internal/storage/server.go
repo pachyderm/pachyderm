@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -37,12 +36,7 @@ const (
 )
 
 type Env struct {
-	DB *pachsql.DB
-	// ObjectStore is a client from the obj package
-	ObjectStore obj.Client
-
-	// Bucket is an object storage bucket from the Go CDK packages.
-	// If set, it takes priority over ObjectStore
+	DB     *pachsql.DB
 	Bucket *blob.Bucket
 	Config pachconfig.StorageConfiguration
 }
@@ -68,11 +62,7 @@ func New(ctx context.Context, env Env) (*Server, error) {
 	}
 
 	var store kv.Store
-	if env.Bucket != nil {
-		store = kv.NewFromBucket(env.Bucket, maxKeySize, chunk.DefaultMaxChunkSize)
-	} else {
-		store = kv.NewFromObjectClient(env.ObjectStore, maxKeySize, chunk.DefaultMaxChunkSize)
-	}
+	store = kv.NewFromBucket(env.Bucket, maxKeySize, chunk.DefaultMaxChunkSize)
 	store = wrapStore(&env.Config, store)
 	store = kv.NewPrefixed(store, []byte(ChunkPrefix))
 	chunkStorageOpts := makeChunkOptions(&env.Config)

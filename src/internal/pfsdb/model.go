@@ -30,7 +30,7 @@ type CreatedAtUpdatedAt struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
-type Project struct {
+type ProjectRow struct {
 	ID          ProjectID             `db:"id"`
 	Name        string                `db:"name"`
 	Description string                `db:"description"`
@@ -38,13 +38,13 @@ type Project struct {
 	CreatedAtUpdatedAt
 }
 
-func (project *Project) Pb() *pfs.Project {
+func (project *ProjectRow) Pb() *pfs.Project {
 	return &pfs.Project{
 		Name: project.Name,
 	}
 }
 
-func (project *Project) PbInfo() *pfs.ProjectInfo {
+func (project *ProjectRow) PbInfo() *pfs.ProjectInfo {
 	return &pfs.ProjectInfo{
 		Project: &pfs.Project{
 			Name: project.Name,
@@ -55,27 +55,27 @@ func (project *Project) PbInfo() *pfs.ProjectInfo {
 	}
 }
 
-func (project Project) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+func (project ProjectRow) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
 	return project.CreatedAtUpdatedAt
 }
 
-// Repo is a row in the pfs.repos table.
-type Repo struct {
-	ID          RepoID  `db:"id"`
-	Project     Project `db:"project"`
-	Name        string  `db:"name"`
-	Type        string  `db:"type"`
-	Description string  `db:"description"`
+// RepoRow is a row in the pfs.repos table.
+type RepoRow struct {
+	ID          RepoID     `db:"id"`
+	Project     ProjectRow `db:"project"`
+	Name        string     `db:"name"`
+	Type        string     `db:"type"`
+	Description string     `db:"description"`
 	CreatedAtUpdatedAt
 	BranchesNames string                `db:"branches"`
 	Metadata      pgjsontypes.StringMap `db:"metadata"`
 }
 
-func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+func (repo RepoRow) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
 	return repo.CreatedAtUpdatedAt
 }
 
-func (repo *Repo) Pb() *pfs.Repo {
+func (repo *RepoRow) Pb() *pfs.Repo {
 	return &pfs.Repo{
 		Name:    repo.Name,
 		Type:    repo.Type,
@@ -83,7 +83,7 @@ func (repo *Repo) Pb() *pfs.Repo {
 	}
 }
 
-func (repo *Repo) PbInfo() (*pfs.RepoInfo, error) {
+func (repo *RepoRow) PbInfo() (*pfs.RepoInfo, error) {
 	branches, err := parseBranches(repo)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func (repo *Repo) PbInfo() (*pfs.RepoInfo, error) {
 	}, nil
 }
 
-func parseBranches(repo *Repo) ([]*pfs.Branch, error) {
+func parseBranches(repo *RepoRow) ([]*pfs.Branch, error) {
 	var branches []*pfs.Branch
 	if repo.BranchesNames == noBranches {
 		return branches, nil
@@ -113,7 +113,7 @@ func parseBranches(repo *Repo) ([]*pfs.Branch, error) {
 	return branches, nil
 }
 
-type Commit struct {
+type CommitRow struct {
 	ID             CommitID              `db:"int_id"`
 	CommitSetID    string                `db:"commit_set_id"`
 	CommitID       string                `db:"commit_id"`
@@ -130,15 +130,15 @@ type Commit struct {
 	// BranchName is used to derive the BranchID in commit related queries.
 	BranchName sql.NullString `db:"branch_name"`
 	BranchID   sql.NullInt64  `db:"branch_id"`
-	Repo       Repo           `db:"repo"`
+	Repo       RepoRow        `db:"repo"`
 	CreatedAtUpdatedAt
 }
 
-func (commit Commit) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+func (commit CommitRow) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
 	return commit.CreatedAtUpdatedAt
 }
 
-func (commit *Commit) Pb() *pfs.Commit {
+func (commit *CommitRow) Pb() *pfs.Commit {
 	pb := &pfs.Commit{
 		Id:   commit.CommitSetID,
 		Repo: commit.Repo.Pb(),
@@ -152,21 +152,21 @@ func (commit *Commit) Pb() *pfs.Commit {
 	return pb
 }
 
-// Branch is a row in the pfs.branches table.
-type Branch struct {
+// BranchRow is a row in the pfs.branches table.
+type BranchRow struct {
 	ID       BranchID              `db:"id"`
-	Head     Commit                `db:"head"`
-	Repo     Repo                  `db:"repo"`
+	Head     CommitRow             `db:"head"`
+	Repo     RepoRow               `db:"repo"`
 	Name     string                `db:"name"`
 	Metadata pgjsontypes.StringMap `db:"metadata"`
 	CreatedAtUpdatedAt
 }
 
-func (branch Branch) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+func (branch BranchRow) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
 	return branch.CreatedAtUpdatedAt
 }
 
-func (branch *Branch) Pb() *pfs.Branch {
+func (branch *BranchRow) Pb() *pfs.Branch {
 	return &pfs.Branch{
 		Name: branch.Name,
 		Repo: branch.Repo.Pb(),
@@ -174,13 +174,13 @@ func (branch *Branch) Pb() *pfs.Branch {
 }
 
 type BranchTrigger struct {
-	FromBranch    Branch `db:"from_branch"`
-	ToBranch      Branch `db:"to_branch"`
-	CronSpec      string `db:"cron_spec"`
-	RateLimitSpec string `db:"rate_limit_spec"`
-	Size          string `db:"size"`
-	NumCommits    int64  `db:"num_commits"`
-	AllConditions bool   `db:"all_conditions"`
+	FromBranch    BranchRow `db:"from_branch"`
+	ToBranch      BranchRow `db:"to_branch"`
+	CronSpec      string    `db:"cron_spec"`
+	RateLimitSpec string    `db:"rate_limit_spec"`
+	Size          string    `db:"size"`
+	NumCommits    int64     `db:"num_commits"`
+	AllConditions bool      `db:"all_conditions"`
 }
 
 func (trigger *BranchTrigger) Pb() *pfs.Trigger {

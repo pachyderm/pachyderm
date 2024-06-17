@@ -4,8 +4,6 @@ go 1.22.4
 
 require (
 	cloud.google.com/go/profiler v0.3.0
-	cloud.google.com/go/storage v1.30.1
-	github.com/Azure/azure-sdk-for-go v66.0.0+incompatible
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/adrg/xdg v0.4.0
 	github.com/alecthomas/participle/v2 v2.1.1
@@ -125,6 +123,11 @@ require (
 require github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 
 require (
+	cloud.google.com/go/storage v1.30.1 // indirect
+	google.golang.org/api v0.149.0 // indirect
+)
+
+require (
 	cloud.google.com/go v0.110.10 // indirect
 	cloud.google.com/go/compute v1.23.3 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
@@ -137,12 +140,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v0.4.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
-	github.com/Azure/go-autorest/autorest v0.11.28 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.21 // indirect
-	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
-	github.com/Azure/go-autorest/logger v0.2.1 // indirect
-	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2 // indirect
 	github.com/BurntSushi/toml v1.3.0 // indirect

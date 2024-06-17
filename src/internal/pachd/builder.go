@@ -141,7 +141,7 @@ func (b *builder) setupDB(ctx context.Context) error {
 	if err := dbutil.WaitUntilReady(ctx, b.env.GetDBClient()); err != nil {
 		return err
 	}
-	if err := migrations.ApplyMigrations(ctx, b.env.GetDBClient(), migrations.MakeEnv(nil, b.env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
+	if err := migrations.ApplyMigrations(ctx, b.env.GetDBClient(), migrations.MakeEnv(b.env.GetEtcdClient()), clusterstate.DesiredClusterState); err != nil {
 		return err
 	}
 	if err := migrations.BlockUntil(ctx, b.env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {

@@ -190,9 +190,8 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 				"tag": pulumi.String(pachdImageTag),
 			},
 			"storage": pulumi.Map{
-				"backend":      pulumi.String("AMAZON"),
-				"gocdkEnabled": pulumi.Bool(true),
-				"storageURL":   pulumi.Sprintf("s3://%s?region=us-west-2", bucket.Bucket),
+				"backend":    pulumi.String("AMAZON"),
+				"storageURL": pulumi.Sprintf("s3://%s?region=us-west-2", bucket.Bucket),
 				"amazon": pulumi.Map{
 					"id":     pulumi.String(awsSAkey),
 					"secret": pulumi.String(awsSAsecret),

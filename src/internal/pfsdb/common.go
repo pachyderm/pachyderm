@@ -22,7 +22,7 @@ const (
 
 type (
 	ModelType interface {
-		Repo | Commit | Branch | Project
+		RepoRow | CommitRow | BranchRow | ProjectRow
 		GetCreatedAtUpdatedAt() CreatedAtUpdatedAt
 	}
 	ColumnName interface {

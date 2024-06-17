@@ -37,7 +37,7 @@ func TestCreateCommitWithParent(t *testing.T) {
 			require.NoError(t, err, "should be able to create parent commit")
 			commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 			require.NoError(t, err, "should be able to create commit")
-			getInfo, err := pfsdb.GetCommit(ctx, tx, commitID)
+			getInfo, err := pfsdb.GetCommitInfo(ctx, tx, commitID)
 			require.NoError(t, err, "should be able to get commit")
 			require.Equal(t, getInfo.ParentCommit.Id, parentInfo.Commit.Id)
 		})
@@ -101,7 +101,7 @@ func TestCreateCommitWithRelatives(t *testing.T) {
 			require.NoError(t, err, "should be able to create child commit 2")
 			commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 			require.NoError(t, err, "should be able to create commit")
-			getInfo, err := pfsdb.GetCommit(ctx, tx, commitID)
+			getInfo, err := pfsdb.GetCommitInfo(ctx, tx, commitID)
 			require.NoError(t, err, "should be able to get commit")
 			require.Equal(t, getInfo.ParentCommit.Id, parentInfo.Commit.Id)
 			require.Equal(t, getInfo.ChildCommits[0].Id, childInfo.Commit.Id)
@@ -118,7 +118,7 @@ func TestCreateCommit(t *testing.T) {
 			require.NoError(t, err, "should be able to create commit")
 			createBranch(ctx, t, tx, commitInfo.Commit)
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, 1, commitInfo)) // add branch fields once they exist
-			getInfo, err := pfsdb.GetCommit(ctx, tx, 1)
+			getInfo, err := pfsdb.GetCommitInfo(ctx, tx, 1)
 			require.NoError(t, err)
 			commitsMatch(t, commitInfo, getInfo)
 			commitInfo = testCommit(ctx, t, tx, testRepoName)
@@ -161,8 +161,35 @@ func TestGetCommitRepoMissing(t *testing.T) {
 				},
 				Started: timestamppb.New(time.Now()),
 			}
-			_, err := pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			_, err := pfsdb.GetCommitInfoByKey(ctx, tx, commitInfo.Commit)
 			require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
+		})
+	})
+}
+
+func TestGetCommitInfo(t *testing.T) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			commitInfo := testCommit(ctx, t, tx, testRepoName)
+			commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
+			require.NoError(t, err, "should be able to create commit")
+			createBranch(ctx, t, tx, commitInfo.Commit)
+			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, commitID, commitInfo)) // add branch fields once they exist
+			getInfo, err := pfsdb.GetCommitInfo(ctx, tx, commitID)
+			require.NoError(t, err, "should be able to get commit with id=1")
+			commitsMatch(t, commitInfo, getInfo)
+			_, err = pfsdb.GetCommitInfo(ctx, tx, 0)
+			require.YesError(t, err, "should not be able to get commit with id=0")
+			_, err = pfsdb.GetCommitInfo(ctx, tx, 3)
+			require.YesError(t, err, "should not be able to get non-existent commit")
+			require.True(t, errors.As(err, &pfsdb.CommitNotFoundError{}))
+			getInfo, err = pfsdb.GetCommitInfoByKey(ctx, tx, commitInfo.Commit)
+			require.NoError(t, err, "should be able to get a commit by key")
+			commitsMatch(t, commitInfo, getInfo)
+			commitInfo.Commit = nil
+			_, err = pfsdb.GetCommitInfoByKey(ctx, tx, commitInfo.Commit)
+			require.YesError(t, err, "should not be able to get commit when commit is nil.")
+			require.True(t, errors.As(err, &pfsdb.CommitMissingInfoError{}))
 		})
 	})
 }
@@ -175,34 +202,7 @@ func TestGetCommit(t *testing.T) {
 			require.NoError(t, err, "should be able to create commit")
 			createBranch(ctx, t, tx, commitInfo.Commit)
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, commitID, commitInfo)) // add branch fields once they exist
-			getInfo, err := pfsdb.GetCommit(ctx, tx, commitID)
-			require.NoError(t, err, "should be able to get commit with id=1")
-			commitsMatch(t, commitInfo, getInfo)
-			_, err = pfsdb.GetCommit(ctx, tx, 0)
-			require.YesError(t, err, "should not be able to get commit with id=0")
-			_, err = pfsdb.GetCommit(ctx, tx, 3)
-			require.YesError(t, err, "should not be able to get non-existent commit")
-			require.True(t, errors.As(err, &pfsdb.CommitNotFoundError{}))
-			getInfo, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
-			require.NoError(t, err, "should be able to get a commit by key")
-			commitsMatch(t, commitInfo, getInfo)
-			commitInfo.Commit = nil
-			_, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
-			require.YesError(t, err, "should not be able to get commit when commit is nil.")
-			require.True(t, errors.As(err, &pfsdb.CommitMissingInfoError{}))
-		})
-	})
-}
-
-func TestGetCommitWithID(t *testing.T) {
-	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
-		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			commitInfo := testCommit(ctx, t, tx, testRepoName)
-			commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
-			require.NoError(t, err, "should be able to create commit")
-			createBranch(ctx, t, tx, commitInfo.Commit)
-			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, commitID, commitInfo)) // add branch fields once they exist
-			getPair, err := pfsdb.GetCommitWithIDByKey(ctx, tx, commitInfo.Commit)
+			getPair, err := pfsdb.GetCommitByKey(ctx, tx, commitInfo.Commit)
 			require.NoError(t, err, "should be able to get commit with id=1")
 			commitsMatch(t, commitInfo, getPair.CommitInfo)
 			require.Equal(t, commitID, getPair.ID)
@@ -218,7 +218,7 @@ func TestDeleteCommitWithNoRelatives(t *testing.T) {
 			require.NoError(t, err, "should be able to create commit")
 			err = pfsdb.DeleteCommit(ctx, tx, commitInfo.Commit)
 			require.NoError(t, err, "should be able to delete commit")
-			_, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			_, err = pfsdb.GetCommitInfoByKey(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "commit should no longer exist.")
 			require.True(t, errors.As(err, &pfsdb.CommitNotFoundError{}))
 			err = pfsdb.DeleteCommit(ctx, tx, commitInfo.Commit)
@@ -253,7 +253,7 @@ func TestDeleteCommitWithParent(t *testing.T) {
 			// delete commit
 			err = pfsdb.DeleteCommit(ctx, tx, commitInfo.Commit)
 			require.NoError(t, err, "should be able to delete commit")
-			_, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			_, err = pfsdb.GetCommitInfoByKey(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "commit should not exist")
 			require.True(t, errors.As(err, &pfsdb.CommitNotFoundError{}))
 			// confirm parent has no children.
@@ -293,7 +293,7 @@ func TestDeleteCommitWithChildren(t *testing.T) {
 			// delete commit
 			err = pfsdb.DeleteCommit(ctx, tx, commitInfo.Commit)
 			require.NoError(t, err, "should be able to delete commit")
-			_, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			_, err = pfsdb.GetCommitInfoByKey(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "commit should not exist")
 			require.True(t, errors.As(err, &pfsdb.CommitNotFoundError{}))
 			// confirm children has no parent.
@@ -385,7 +385,7 @@ func TestUpdateCommitWithParent(t *testing.T) {
 			commitInfo.Started = timestamppb.New(time.Now())
 			commitInfo.ParentCommit = parentInfo2.Commit
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, id, commitInfo), "should be able to update commit")
-			getInfo, err := pfsdb.GetCommit(ctx, tx, id)
+			getInfo, err := pfsdb.GetCommitInfo(ctx, tx, id)
 			require.NoError(t, err, "should be able to get commit")
 			commitsMatch(t, getInfo, commitInfo)
 		})
@@ -450,7 +450,7 @@ func TestUpdateCommitWithChildren(t *testing.T) {
 			commitInfo.Started = timestamppb.New(time.Now())
 			commitInfo.ChildCommits = append(commitInfo.ChildCommits, childInfo2.Commit)
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, id, commitInfo), "should be able to update commit")
-			getInfo, err := pfsdb.GetCommit(ctx, tx, id)
+			getInfo, err := pfsdb.GetCommitInfo(ctx, tx, id)
 			require.NoError(t, err, "should be able to get commit")
 			commitsMatch(t, getInfo, commitInfo)
 		})
@@ -486,14 +486,14 @@ func TestUpsertCommit(t *testing.T) {
 			require.NoError(t, err, "should be able to create commit via upsert")
 			createBranch(ctx, t, tx, commitInfo.Commit)
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, 1, commitInfo)) // do an update to add the branch fields.
-			getInfo, err := pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			getInfo, err := pfsdb.GetCommitInfoByKey(ctx, tx, commitInfo.Commit)
 			require.NoError(t, err, "should be able to get a commit by key")
 			commitsMatch(t, commitInfo, getInfo)
 			commitInfo.Started = timestamppb.New(time.Now())
 			commitInfo.Description = "new desc"
 			_, err = pfsdb.UpsertCommit(ctx, tx, commitInfo)
 			require.NoError(t, err, "should be able to update commit via upsert")
-			getInfo, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			getInfo, err = pfsdb.GetCommitInfoByKey(ctx, tx, commitInfo.Commit)
 			require.NoError(t, err, "should be able to get a commit by key")
 			commitsMatch(t, commitInfo, getInfo)
 		})
@@ -508,7 +508,7 @@ func TestUpsertCommit_WithMetadata(t *testing.T) {
 			require.NoError(t, err, "should be able to create commit via upsert")
 			createBranch(ctx, t, tx, commitInfo.Commit)
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, 1, commitInfo)) // do an update to add the branch fields.
-			getInfo, err := pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			getInfo, err := pfsdb.GetCommitInfoByKey(ctx, tx, commitInfo.Commit)
 			require.NoError(t, err, "should be able to get a commit by key")
 			commitsMatch(t, commitInfo, getInfo)
 			commitInfo.Started = timestamppb.New(time.Now())
@@ -516,17 +516,17 @@ func TestUpsertCommit_WithMetadata(t *testing.T) {
 			commitInfo.Metadata = map[string]string{"key": "value"}
 			_, err = pfsdb.UpsertCommit(ctx, tx, commitInfo)
 			require.NoError(t, err, "should be able to update commit via upsert")
-			getInfo, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			getInfo, err = pfsdb.GetCommitInfoByKey(ctx, tx, commitInfo.Commit)
 			require.NoError(t, err, "should be able to get a commit by key")
 			commitsMatch(t, commitInfo, getInfo)
 		})
 	})
 }
 
-func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.CommitWithID], expectedInfos []*pfs.CommitInfo) {
+func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.Commit], expectedInfos []*pfs.CommitInfo) {
 	i := 0
-	require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(CommitWithID pfsdb.CommitWithID) error {
-		commitsMatch(t, expectedInfos[i], CommitWithID.CommitInfo)
+	require.NoError(t, stream.ForEach[pfsdb.Commit](ctx, iter, func(commit pfsdb.Commit) error {
+		commitsMatch(t, expectedInfos[i], commit.CommitInfo)
 		i++
 		return nil
 	}))
@@ -611,7 +611,7 @@ func TestListCommitRevision(t *testing.T) {
 			iter, err := pfsdb.NewCommitsIterator(ctx, tx, 0, 100, nil, pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnCreatedAt},
 				pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnID})
 			require.NoError(t, err, "should be able to create new commit iterator")
-			require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commit pfsdb.CommitWithID) error {
+			require.NoError(t, stream.ForEach[pfsdb.Commit](ctx, iter, func(commit pfsdb.Commit) error {
 				revMap[commit.Revision] = true
 				return nil
 			}))
@@ -769,11 +769,11 @@ func testPickCommitByID(t *testing.T) {
 	db := newTestDB(t, ctx)
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, testRepoName, testRepoType)
-		commitWithId := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
-		globalIDPicker.Picker.(*pfs.CommitPicker_Id).Id.Id = commitWithId.Commit.Id
+		commit := createCommit(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+		globalIDPicker.Picker.(*pfs.CommitPicker_Id).Id.Id = commit.Commit.Id
 		got, err := pfsdb.PickCommit(ctx, globalIDPicker, tx)
 		require.NoError(t, err, "should be able to pick commit")
-		require.Equal(t, commitWithId.ID, got.ID)
+		require.Equal(t, commit.ID, got.ID)
 		_, err = pfsdb.PickCommit(ctx, nil, tx)
 		require.YesError(t, err, "pick commit should error with a nil picker")
 		_, err = pfsdb.PickCommit(ctx, badCommitPicker, tx)
@@ -793,7 +793,7 @@ func testPickCommitByBranchHead(t *testing.T) {
 	db := newTestDB(t, ctx)
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, testRepoName, testRepoType)
-		commit := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+		commit := createCommit(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
 		branchInfo := &pfs.BranchInfo{
 			Branch: &pfs.Branch{
 				Repo: repoInfo.Repo,
@@ -823,10 +823,10 @@ func testPickCommitByBranchRoot(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
 	depth := 1200
-	expected := &pfsdb.CommitWithID{ID: pfsdb.CommitID(offset + 1)} // ID starts at 1.
+	expected := &pfsdb.Commit{ID: pfsdb.CommitID(offset + 1)} // ID starts at 1.
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		makeCommitTree(ctx, t, depth, db)
-		commitInfo, err := pfsdb.GetCommit(ctx, tx, pfsdb.CommitID(depth+1))
+		commitInfo, err := pfsdb.GetCommitInfo(ctx, tx, pfsdb.CommitID(depth+1))
 		require.NoError(t, err, "should be able to get commit")
 		branchInfo := &pfs.BranchInfo{
 			Branch: &pfs.Branch{
@@ -873,10 +873,10 @@ func testPickCommitByAncestor(t *testing.T) {
 	db := newTestDB(t, ctx)
 	depth := 20
 	headId := pfsdb.CommitID(depth + 1)
-	expected := &pfsdb.CommitWithID{ID: headId - pfsdb.CommitID(offset)}
+	expected := &pfsdb.Commit{ID: headId - pfsdb.CommitID(offset)}
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		makeCommitTree(ctx, t, depth, db)
-		commitInfo, err := pfsdb.GetCommit(ctx, tx, headId)
+		commitInfo, err := pfsdb.GetCommitInfo(ctx, tx, headId)
 		require.NoError(t, err, "should be able to get commit")
 		branchInfo := &pfs.BranchInfo{
 			Branch: &pfs.Branch{
