@@ -1582,7 +1582,7 @@ jobs:
       - upload-junit-datadog:
           service: bazel-tests
           env: ci-bazel
-          path: /tmp/bazel-testlogs/**
+          path: /tmp/bazel-testlogs/* /tmp/bazel-testlogs/src/**/**/**/* /tmp/bazel-testlogs/src/**/**/**/**/*
       - store_test_results:
           path: /tmp/bazel-testlogs/
       - codecov/upload:
@@ -1627,12 +1627,13 @@ jobs:
           --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
           //:privileged_tests
       - run: |
-          ls -lf
-          ls -lf /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs
+          ls -lf bazel-testlogs
+          echo '---'
+          ls -lf /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/src
       - upload-junit-datadog:
           service: bazel-privileged-tests
           env: ci-bazel
-          path: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/
+          path: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/**
       - store_test_results:
           path: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/
       - codecov/upload:
