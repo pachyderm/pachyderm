@@ -14,7 +14,8 @@ RUN make docker-ci \
     && make clean-deps
 
 WORKDIR /usr/src/app/backend
-# needed to run npm start
+
+# Needed to run npm start
 RUN npm i module-alias
 
 
@@ -26,6 +27,16 @@ ENV REACT_APP_RELEASE_VERSION=${DOCKER_TAG:-local}
 WORKDIR /usr/src/app
 
 COPY --from=0 /usr /usr
+
+# Run the dockerfile as non-root
+# https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html#rule-2-set-a-user
+USER root
+RUN groupadd --system appuser && \
+    useradd --system -g appuser appuser
+RUN mkdir /home/appuser && \
+    chown -R appuser:appuser /usr/src/app && \
+    chown -R appuser:appuser /home/appuser
+USER appuser
 
 CMD ["npm", "start", "--prefix", "./backend"]
 EXPOSE 4000
