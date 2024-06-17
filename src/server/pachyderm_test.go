@@ -7883,7 +7883,7 @@ func TestService(t *testing.T) {
 		false,
 		8000,
 		31800,
-		"", //		"LoadBalancer",
+		"",
 		annotations,
 	))
 	time.Sleep(10 * time.Second)
