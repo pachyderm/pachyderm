@@ -2235,7 +2235,7 @@ commands:
           name: Upload Tests to DataDog
           when: always
           command: |
-            if [ << parameters.amd >> ]; then
+            if [ "<< parameters.amd >>" = "true" ]; then
               npm install -g @datadog/datadog-ci 
               datadog-ci junit upload --service "pachyderm/<< parameters.service >>" --env "<< parameters.env >>" << parameters.path >>
             else
