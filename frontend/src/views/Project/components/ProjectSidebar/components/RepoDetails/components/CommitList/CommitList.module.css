@@ -11,7 +11,7 @@
 .commitListDetails {
   display: flex;
   justify-content: space-between;
-  flex-direction: row-reverse;
+  flex-direction: row;
   margin: 2rem 1rem 0.5rem 1rem;
 }
 

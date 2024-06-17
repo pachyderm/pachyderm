@@ -55,7 +55,7 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
         {!loading &&
           (previousCommits?.length ? (
             <CaptionTextSmall>
-              Last {previousCommits?.length} commit
+              Previous {previousCommits?.length} commit
               {(previousCommits?.length || 0) > 1 ? 's' : ''}
             </CaptionTextSmall>
           ) : (

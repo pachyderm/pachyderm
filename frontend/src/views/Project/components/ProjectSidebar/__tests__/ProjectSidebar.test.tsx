@@ -111,11 +111,9 @@ describe('ProjectSidebar', () => {
         ),
       ).toHaveLength(3);
 
-      expect(
-        screen.getByRole('definition', {
-          name: /most recent job id/i,
-        }),
-      ).toHaveTextContent('5c1aa9bc87dd411ba5a1be0c80a3ebc2');
+      expect(screen.getByTestId('InfoPanel__subjob_id')).toHaveTextContent(
+        'Job ID:5c1aa9bc87dd411ba5a1be0c80a3ebc25c1aa9',
+      );
     });
 
     it('should display the job overview tab', async () => {
@@ -128,11 +126,15 @@ describe('ProjectSidebar', () => {
       });
 
       expect(
+        within(overviewTab).getByText('You are viewing the most recent subjob'),
+      ).toBeInTheDocument();
+
+      expect(
         within(overviewTab).getByRole('heading', {name: /success/i}),
       ).toBeInTheDocument();
 
       expect(
-        within(overviewTab).getByRole('link', {name: /inspect job/i}),
+        within(overviewTab).getByRole('link', {name: /inspect subjob/i}),
       ).toHaveAttribute(
         'href',
         '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs/datum?prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage',
@@ -167,6 +169,14 @@ describe('ProjectSidebar', () => {
           name: /processing/i,
         }),
       ).toHaveTextContent('1 s');
+
+      expect(
+        screen.getByTestId('InfoPanel__restarts_allowed'),
+      ).toHaveTextContent('Max Restarts Allowed:3');
+
+      expect(screen.getByTestId('InfoPanel__job_timeout')).toHaveTextContent(
+        'Job Timeout:N/A',
+      );
 
       expect(
         within(overviewTab).getByRole('definition', {
@@ -210,9 +220,10 @@ describe('ProjectSidebar', () => {
 
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
-      expect(
-        screen.getByRole('definition', {name: 'Global ID'}),
-      ).toBeInTheDocument();
+      const tabPanel = screen.getByRole('tabpanel', {
+        name: /job overview/i,
+      });
+      within(tabPanel).getByText(/Viewing: Aug 1, 2023/i);
 
       expect(
         screen.getByRole('link', {name: /previous subjobs/i}),
@@ -230,7 +241,7 @@ describe('ProjectSidebar', () => {
       ).toBeInTheDocument();
 
       expect(
-        within(overviewTab).getByRole('link', {name: /inspect job/i}),
+        within(overviewTab).getByRole('link', {name: /inspect subjob/i}),
       ).toHaveAttribute(
         'href',
         '/lineage/default/pipelines/montage/jobs/1dc67e479f03498badcc6180be4ee6ce/logs/datum?globalIdFilter=1dc67e479f03498badcc6180be4ee6ce&prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage%3FglobalIdFilter%3D1dc67e479f03498badcc6180be4ee6ce',
@@ -436,7 +447,7 @@ description: >-
       expect(topLogsLink).toBeEnabled();
 
       const inspectLogsLink = await screen.findByRole('link', {
-        name: 'Inspect Job',
+        name: 'Inspect Subjob',
       });
       expect(inspectLogsLink).toHaveAttribute(
         'href',
@@ -722,16 +733,16 @@ description: >-
       await screen.findByRole('heading', {name: 'images'});
 
       expect(
-        screen.getByRole('definition', {
-          name: /commit message/i,
-        }),
-      ).toHaveTextContent('added mako');
+        screen.getByTestId('RepoDetails__commit_message'),
+      ).toHaveTextContent('Commit Message:added mako');
+
+      expect(screen.getByTestId('RepoDetails__commit_start')).toHaveTextContent(
+        'Start:Jul 24, 2023; 17:58',
+      );
 
       expect(
-        screen.getByRole('definition', {
-          name: /most recent commit start/i,
-        }),
-      ).toHaveTextContent('Jul 24, 2023; 17:58');
+        screen.getByText('You are viewing the most recent commit'),
+      ).toBeInTheDocument();
 
       expect(await screen.findByText('139.24 kB')).toBeInTheDocument();
       await screen.findByText('4a83c74809664f899261baccdb47cd90');
@@ -923,16 +934,12 @@ description: >-
       await screen.findByRole('heading', {name: 'images'});
 
       expect(
-        screen.getByRole('definition', {
-          name: /commit message/i,
-        }),
-      ).toHaveTextContent('I deleted this branch');
+        screen.getByTestId('RepoDetails__commit_message'),
+      ).toHaveTextContent('Commit Message:I deleted this branch');
 
-      expect(
-        screen.getByRole('definition', {
-          name: /most recent commit start/i,
-        }),
-      ).toHaveTextContent('Jul 24, 2023; 17:58');
+      expect(screen.getByTestId('RepoDetails__commit_start')).toHaveTextContent(
+        'Start:Jul 24, 2023; 17:58',
+      );
 
       expect(await screen.findByText('139.24 kB')).toBeInTheDocument();
       await screen.findByText('g2bb3e50cd124b76840145a8c18f8892');
@@ -1003,11 +1010,10 @@ description: >-
       expect(
         screen.getByText('c43fffd650a24b40b7d9f1bf90fcfdbe'),
       ).toBeInTheDocument();
+      expect(screen.getByText(/Viewing: Jul 24, 2023/i)).toBeInTheDocument();
+      expect(screen.getByTestId('RepoDetails__commit_id')).toBeInTheDocument();
       expect(
-        screen.getByRole('definition', {name: 'Global ID'}),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole('definition', {name: 'Global ID Commit Start'}),
+        screen.getByTestId('RepoDetails__commit_start'),
       ).toBeInTheDocument();
       expect(await screen.findByText('+ 58.65 kB')).toBeInTheDocument();
 

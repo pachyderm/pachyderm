@@ -19,8 +19,10 @@
 }
 
 .state {
+  padding-top: 1rem;
   display: flex;
   align-items: center;
+  padding-bottom: 1rem;
 }
 
 .stateText {

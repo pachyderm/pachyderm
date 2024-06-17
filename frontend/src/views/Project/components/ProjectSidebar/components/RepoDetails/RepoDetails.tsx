@@ -3,10 +3,11 @@ import {Route, Switch} from 'react-router-dom';
 
 import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
+import ContentBox from '@dash-frontend/components/ContentBox';
 import Description from '@dash-frontend/components/Description';
 import EmptyState from '@dash-frontend/components/EmptyState/EmptyState';
-import ExpandableText from '@dash-frontend/components/ExpandableText';
 import GlobalIdCopy from '@dash-frontend/components/GlobalIdCopy';
+import GlobalIdDisclaimer from '@dash-frontend/components/GlobalIdDisclaimer';
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
 import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
@@ -14,7 +15,6 @@ import {LINEAGE_REPO_PATH} from '@dash-frontend/views/Project/constants/projectP
 import {fileUploadRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   SkeletonDisplayText,
-  CaptionTextSmall,
   ButtonLink,
   useModal,
   Group,
@@ -111,14 +111,6 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                 readOnly={!hasRepoEditRoles}
               />
             )}
-            {(currentRepoLoading || commit) && (
-              <Description
-                loading={currentRepoLoading}
-                term={!globalId ? 'Most Recent Commit ID' : 'Global ID'}
-              >
-                {commit ? <GlobalIdCopy id={commit.commit?.id || ''} /> : 'N/A'}
-              </Description>
-            )}
           </Route>
         </Switch>
       </div>
@@ -135,44 +127,85 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
         </Tabs.TabsHeader>
         <Tabs.TabPanel id={TAB_ID.OVERVIEW}>
           <section className={styles.section}>
+            {commit?.commit?.id && (
+              <div className={styles.commitSummaryLabel}>
+                Commit Summary
+                {commit && (
+                  <Button
+                    buttonType="ghost"
+                    to={getPathToFileBrowser({
+                      projectId,
+                      repoId,
+                      commitId: commit.commit?.id,
+                    })}
+                    disabled={!commit}
+                    aria-label="Inspect Commit"
+                  >
+                    Inspect Commit
+                  </Button>
+                )}
+              </div>
+            )}
             <Switch>
               <Route path={LINEAGE_REPO_PATH} exact>
                 {(currentRepoLoading || commit) && (
-                  <Description
-                    loading={currentRepoLoading}
-                    term={`${
-                      !globalId
-                        ? 'Most Recent Commit Start'
-                        : 'Global ID Commit Start'
-                    }`}
-                  >
-                    {commit
-                      ? getStandardDateFromISOString(commit.started)
-                      : 'N/A'}
-                  </Description>
+                  <GlobalIdDisclaimer
+                    globalId={globalId}
+                    artifact="commit"
+                    startTime={commit?.started}
+                  />
                 )}
-                {(currentRepoLoading || commit) && commit?.description && (
-                  <Description
+                {(currentRepoLoading || commit) && (
+                  <ContentBox
                     loading={currentRepoLoading}
-                    term={
-                      !globalId
-                        ? 'Most Recent Commit Message'
-                        : 'Global ID Commit Message'
-                    }
-                  >
-                    <ExpandableText text={commit.description} />
-                  </Description>
-                )}
-              </Route>
-
-              <Route>
-                {commit?.description && (
-                  <Description term="Selected Commit Description">
-                    {commit.description}
-                  </Description>
+                    content={[
+                      {
+                        label: 'Commit ID',
+                        value: commit ? (
+                          <GlobalIdCopy id={commit.commit?.id || ''} />
+                        ) : (
+                          'N/A'
+                        ),
+                        responsiveValue: commit ? (
+                          <GlobalIdCopy
+                            id={commit.commit?.id || ''}
+                            shortenId
+                          />
+                        ) : (
+                          'N/A'
+                        ),
+                        dataTestId: 'RepoDetails__commit_id',
+                      },
+                      {label: 'Branch', value: commit?.commit?.branch?.name},
+                      {
+                        label: 'Commit Type',
+                        value: commit?.origin?.kind?.toLowerCase(),
+                      },
+                      {
+                        label: 'Start',
+                        value: commit
+                          ? getStandardDateFromISOString(commit.started)
+                          : 'N/A',
+                        dataTestId: 'RepoDetails__commit_start',
+                      },
+                    ]}
+                  />
                 )}
               </Route>
             </Switch>
+
+            {(currentRepoLoading || commit) && commit?.description && (
+              <ContentBox
+                loading={currentRepoLoading}
+                content={[
+                  {
+                    label: 'Commit Message',
+                    value: commit.description,
+                    dataTestId: 'RepoDetails__commit_message',
+                  },
+                ]}
+              />
+            )}
 
             {!currentRepoLoading && hasRepoRead && !commit && (
               <>
@@ -221,37 +254,11 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
           </section>
 
           {commit?.commit?.id && (
-            <>
-              <CaptionTextSmall className={styles.commitDetailsLabel}>
-                <Switch>
-                  <Route path={LINEAGE_REPO_PATH} exact>
-                    {!globalId
-                      ? 'Current Commit Stats'
-                      : 'Global ID Commit Stats'}
-                    {commit && (
-                      <Button
-                        buttonType="ghost"
-                        to={getPathToFileBrowser({
-                          projectId,
-                          repoId,
-                          commitId: commit.commit.id,
-                        })}
-                        disabled={!commit}
-                        aria-label="Inspect Commit"
-                      >
-                        Inspect Commit
-                      </Button>
-                    )}
-                  </Route>
-                  <Route>Selected Commit Stats</Route>
-                </Switch>
-              </CaptionTextSmall>
-              <CommitDetails
-                commit={commit}
-                diffLoading={diffLoading}
-                commitDiff={commitDiff?.diff}
-              />
-            </>
+            <CommitDetails
+              commit={commit}
+              diffLoading={diffLoading}
+              commitDiff={commitDiff?.diff}
+            />
           )}
 
           <Route path={LINEAGE_REPO_PATH} exact>

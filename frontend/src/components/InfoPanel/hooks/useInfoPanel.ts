@@ -196,6 +196,7 @@ const useInfoPanel = () => {
     stopJob,
     stopJobLoading,
     canStopJob,
+    globalId: searchParams.globalIdFilter,
   };
 };
 

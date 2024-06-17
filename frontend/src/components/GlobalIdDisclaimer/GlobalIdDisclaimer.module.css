@@ -1,0 +1,16 @@
+.borderBox {
+  border-radius: 3px;
+  padding: 0.5rem;
+  border: solid 1px var(--border-grey);
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.borderBox.active {
+  background-color: var(--background-grey);
+}
+
+.clockIcon {
+  margin-bottom: 2px;
+}

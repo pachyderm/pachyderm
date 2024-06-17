@@ -1,5 +1,5 @@
 .base {
-  padding-top: 1.25rem;
+  padding-top: 0.75rem;
 }
 
 .base:focus:not([class$='focus-visible']) {

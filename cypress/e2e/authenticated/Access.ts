@@ -40,7 +40,7 @@ describe('Access', () => {
 
     cy.findByText('images').should('exist').click();
     cy.url().should('include', 'images');
-    cy.findByText('Most Recent Commit ID').should('exist');
+    cy.findByText('Commit ID:').should('exist');
   });
 
   it('should not allow users to view repos they do not have access for', () => {

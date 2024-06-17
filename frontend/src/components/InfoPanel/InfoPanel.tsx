@@ -1,5 +1,7 @@
 import classnames from 'classnames';
+import parse from 'parse-duration';
 import React from 'react';
+import {Route, Switch} from 'react-router';
 
 import ConfigFilePreview from '@dash-frontend/components/ConfigFilePreview';
 import Description from '@dash-frontend/components/Description';
@@ -9,12 +11,14 @@ import {
   RepoLink,
 } from '@dash-frontend/components/ResourceLink';
 import RuntimeStats from '@dash-frontend/components/RuntimeStats';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
 import {
   getJobStateIcon,
   getVisualJobState,
   readableJobState,
 } from '@dash-frontend/lib/jobs';
+import {LINEAGE_PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {
   ArrowRightSVG,
   CaptionTextSmall,
@@ -27,10 +31,12 @@ import {
   SkeletonBodyText,
   ButtonGroup,
   StatusStopSVG,
-  JobsSVG,
 } from '@pachyderm/components';
 
 import {Chip} from '../Chip';
+import ContentBox from '../ContentBox';
+import GlobalIdCopy from '../GlobalIdCopy';
+import GlobalIdDisclaimer from '../GlobalIdDisclaimer';
 
 import useInfoPanel from './hooks/useInfoPanel';
 import styles from './InfoPanel.module.css';
@@ -57,7 +63,10 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
     stopJob,
     stopJobLoading,
     canStopJob,
+    globalId,
   } = useInfoPanel();
+
+  const {pipeline} = useCurrentPipeline();
 
   return (
     <div
@@ -68,7 +77,39 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
         {jobLoading ? (
           <SkeletonBodyText />
         ) : (
-          <div className={styles.stateHeader}>
+          <>
+            <div className={styles.stateHeader}>
+              Subjob Summary
+              <ButtonGroup>
+                {!hideReadLogs && (
+                  <Button
+                    buttonType="ghost"
+                    to={logsDatumRoute}
+                    disabled={!logsDatumRoute}
+                  >
+                    Inspect Subjob
+                  </Button>
+                )}
+                {canStopJob && (
+                  <Button
+                    buttonType="ghost"
+                    onClick={() =>
+                      stopJob({
+                        job: {
+                          id: job?.job?.id,
+                          pipeline: job?.job?.pipeline,
+                        },
+                        reason: 'job manually stopped from console',
+                      })
+                    }
+                    disabled={stopJobLoading}
+                    IconSVG={!stopJobLoading ? StatusStopSVG : SpinnerSVG}
+                  >
+                    Stop Job
+                  </Button>
+                )}
+              </ButtonGroup>
+            </div>
             <div className={styles.state}>
               {job && (
                 <Icon>{getJobStateIcon(getVisualJobState(job.state))}</Icon>
@@ -82,38 +123,55 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
                 </span>
               )}
             </div>
-            <ButtonGroup>
-              {!hideReadLogs && (
-                <Button
-                  buttonType="ghost"
-                  to={logsDatumRoute}
-                  disabled={!logsDatumRoute}
-                  IconSVG={JobsSVG}
-                >
-                  Inspect Job
-                </Button>
-              )}
-              {canStopJob && (
-                <Button
-                  buttonType="ghost"
-                  onClick={() =>
-                    stopJob({
-                      job: {
-                        id: job?.job?.id,
-                        pipeline: job?.job?.pipeline,
-                      },
-                      reason: 'job manually stopped from console',
-                    })
-                  }
-                  disabled={stopJobLoading}
-                  IconSVG={!stopJobLoading ? StatusStopSVG : SpinnerSVG}
-                >
-                  Stop Job
-                </Button>
-              )}
-            </ButtonGroup>
-          </div>
+            <Switch>
+              <Route path={LINEAGE_PIPELINE_PATH} exact>
+                <GlobalIdDisclaimer
+                  globalId={globalId}
+                  artifact="subjob"
+                  startTime={job?.created}
+                />
+              </Route>
+            </Switch>
+          </>
         )}
+        {job?.reason && (
+          <ContentBox
+            loading={jobLoading}
+            content={[
+              {
+                label: 'Failure Reason',
+                value: extractAndShortenIds(job.reason),
+              },
+            ]}
+          />
+        )}
+        <ContentBox
+          loading={jobLoading}
+          content={[
+            {
+              label: 'Job ID',
+              value: job ? <GlobalIdCopy id={job.job?.id || ''} /> : 'N/A',
+              responsiveValue: job ? (
+                <GlobalIdCopy id={job.job?.id || ''} shortenId />
+              ) : (
+                'N/A'
+              ),
+              dataTestId: 'InfoPanel__subjob_id',
+            },
+            {
+              label: 'Max Restarts Allowed',
+              value: pipeline?.details?.datumTries,
+              dataTestId: 'InfoPanel__restarts_allowed',
+            },
+            {
+              label: 'Job Timeout',
+              value: pipeline?.details?.jobTimeout
+                ? `${parse(pipeline.details?.jobTimeout, 's')} seconds`
+                : 'N/A',
+              dataTestId: 'InfoPanel__job_timeout',
+            },
+          ]}
+        />
         {jobLoading ? (
           <aside data-testid="InfoPanel__loading" className={styles.datumCard}>
             <LoadingDots />
@@ -169,16 +227,6 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
               ))}
             </div>
           </aside>
-        )}
-        {job?.reason && (
-          <Description
-            term="Failure Reason"
-            loading={jobLoading}
-            className={styles.inputs}
-            data-testid="InfoPanel__reason"
-          >
-            {extractAndShortenIds(job.reason)}
-          </Description>
         )}
       </section>
       <section className={styles.section} aria-label="Job Runtime Statistics">
