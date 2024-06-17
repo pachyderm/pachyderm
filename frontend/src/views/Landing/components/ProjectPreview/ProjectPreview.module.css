@@ -19,7 +19,7 @@
 
 .subTitle {
   color: var(--pachyderm-black);
-  padding: 1rem;
+  padding: 0 1rem;
   background-color: var(--white);
   position: sticky;
   z-index: 1;
@@ -51,4 +51,12 @@
 
 .link:active {
   color: var(--pachyderm-plum);
+}
+
+.tabs {
+  padding: 1rem 1rem 0 1rem;
+}
+
+.section {
+  margin: 0 1rem;
 }

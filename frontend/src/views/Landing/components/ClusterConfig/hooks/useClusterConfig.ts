@@ -1,9 +1,17 @@
-import {useState, useEffect, useCallback} from 'react';
+import isEmpty from 'lodash/isEmpty';
+import {useState, useEffect, useCallback, useMemo} from 'react';
 import {useHistory} from 'react-router';
 
+import {
+  Permission,
+  ResourceType,
+  useAuthorize,
+} from '@dash-frontend/hooks/useAuthorize';
 import {useGetClusterDefaults} from '@dash-frontend/hooks/useGetClusterDefaults';
+import {useInspectCluster} from '@dash-frontend/hooks/useInspectCluster';
 import {useSetClusterDefaults} from '@dash-frontend/hooks/useSetClusterDefaults';
 import formatJSON from '@dash-frontend/lib/formatJSON';
+import {useModal} from '@pachyderm/components';
 
 const useClusterConfig = () => {
   const browserHistory = useHistory();
@@ -13,6 +21,27 @@ const useClusterConfig = () => {
   const [fullError, setFullError] = useState<Error | null>();
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [isValidJSON, setIsValidJSON] = useState(true);
+  const {
+    isOpen: isMetadataOpen,
+    openModal: openMetadataModal,
+    closeModal: closeMetadataModal,
+  } = useModal();
+
+  const {hasClusterEditMetadata} = useAuthorize({
+    permissions: [Permission.CLUSTER_EDIT_CLUSTER_METADATA],
+    resource: {type: ResourceType.CLUSTER, name: ''},
+  });
+
+  const {cluster} = useInspectCluster();
+  const metadata = useMemo(() => cluster?.metadata, [cluster?.metadata]);
+  const clusterMetadataArray = useMemo(() => {
+    return !isEmpty(metadata)
+      ? Object.keys(metadata).map((key) => ({
+          key,
+          value: metadata[key],
+        }))
+      : [];
+  }, [metadata]);
 
   const {
     clusterDefaults,
@@ -123,6 +152,11 @@ const useClusterConfig = () => {
     goToLanding,
     prettifyJSON,
     fullError,
+    isMetadataOpen,
+    openMetadataModal,
+    closeMetadataModal,
+    clusterMetadataArray,
+    hasClusterEditMetadata,
   };
 };
 

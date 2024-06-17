@@ -18,7 +18,14 @@ import {
 import EditMetadataModal from './components/EditMetadataModal';
 import styles from './UserMetadata.module.css';
 
-type MetadataKeys = 'repo' | 'pipeline' | 'commit' | 'job';
+export type MetadataKeys =
+  | 'repo'
+  | 'pipeline'
+  | 'commit'
+  | 'job'
+  | 'project'
+  | 'cluster'
+  | 'branch';
 
 type UserMetadataProps = {
   metadataType: MetadataKeys;

@@ -73,7 +73,7 @@ export const Landing: React.FC = () => {
     searchValue,
     setSearchValue,
     sortButtonText,
-    selectedProject,
+    selectedProjectInfo,
     setSelectedProject,
     sortDropdown,
   } = useLandingView();
@@ -177,7 +177,7 @@ export const Landing: React.FC = () => {
               <ProjectTab
                 noProjects={noProjects}
                 filteredProjects={filteredProjects}
-                selectedProject={selectedProject}
+                selectedProject={selectedProjectInfo}
                 showOnlyAccessible={true}
                 setSelectedProject={setSelectedProject}
                 setMyProjectsCount={setMyProjectsCount}
@@ -189,7 +189,7 @@ export const Landing: React.FC = () => {
                 <ProjectTab
                   noProjects={noProjects}
                   filteredProjects={filteredProjects}
-                  selectedProject={selectedProject}
+                  selectedProject={selectedProjectInfo}
                   showOnlyAccessible={false}
                   setSelectedProject={setSelectedProject}
                   setMyProjectsCount={setMyProjectsCount}
@@ -201,7 +201,9 @@ export const Landing: React.FC = () => {
         </TabView>
       </View>
       <Sidebar>
-        {selectedProject && <ProjectPreview project={selectedProject} />}
+        {selectedProjectInfo && (
+          <ProjectPreview project={selectedProjectInfo} />
+        )}
       </Sidebar>
       {createIsOpen && (
         <CreateProjectModal show={createIsOpen} onHide={closeCreateModal} />

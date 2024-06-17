@@ -21,9 +21,10 @@ import {
   TrashSVG,
 } from '@pachyderm/components';
 
+import {MetadataKeys} from '../../UserMetadata';
+
 import styles from './EditMetadataModal.module.css';
 
-type MetadataKeys = 'repo' | 'pipeline' | 'commit' | 'job';
 type EditPicker =
   | ProjectPicker
   | CommitPicker
@@ -39,6 +40,7 @@ type EditMetadataModalProps = {
   }[];
   id?: string;
   closeModal: () => void;
+  closeOnSuccess?: boolean;
 };
 
 const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
@@ -46,10 +48,11 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   metadataType,
   id,
   closeModal,
+  closeOnSuccess = true,
 }) => {
   const {projectId, repoId} = useUrlState();
-  const {updateMetadata, loading, error} = useEditMetadata({
-    onSuccess: closeModal,
+  const {updateMetadata, error} = useEditMetadata({
+    onSuccess: closeOnSuccess ? closeModal : undefined,
   });
 
   const formCtx = useForm<{
@@ -67,6 +70,12 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const getMetadataResource = useCallback(
     (metadataType: MetadataKeys): EditPicker | null => {
       switch (metadataType) {
+        case 'cluster':
+          return {};
+        case 'project':
+          return {
+            name: id,
+          };
         case 'repo':
           return {
             name: {project: {name: projectId}, name: repoId, type: 'user'},
@@ -121,7 +130,6 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       onSubmit={handleSubmit}
       formContext={formCtx}
       loading={false}
-      updating={loading}
       error={error}
       confirmText="Apply Metadata"
       mode="Long"

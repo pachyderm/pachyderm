@@ -4,6 +4,7 @@ import CodeEditor from '@dash-frontend/components/CodeEditor';
 import CodeEditorInfoBar from '@dash-frontend/components/CodeEditorInfoBar';
 import ConfirmConfigModal from '@dash-frontend/components/ConfirmConfigModal';
 import View from '@dash-frontend/components/View';
+import EditMetadataModal from '@dash-frontend/views/Project/components/ProjectSidebar/components/RepoDetails/components/UserMetadata/components/EditMetadataModal';
 import {
   Group,
   Button,
@@ -52,6 +53,11 @@ const ClusterConfig: React.FC<ClusterConfigProps> = ({triggerNotification}) => {
     setClusterLoading,
     goToLanding,
     fullError,
+    isMetadataOpen,
+    openMetadataModal,
+    closeMetadataModal,
+    clusterMetadataArray,
+    hasClusterEditMetadata,
   } = useClusterConfig();
 
   return (
@@ -68,6 +74,24 @@ const ClusterConfig: React.FC<ClusterConfigProps> = ({triggerNotification}) => {
           >
             Back
           </Button>
+          {hasClusterEditMetadata && (
+            <Button
+              buttonType="secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                openMetadataModal();
+              }}
+            >
+              Cluster Metadata
+            </Button>
+          )}
+          {hasClusterEditMetadata && isMetadataOpen && (
+            <EditMetadataModal
+              metadata={clusterMetadataArray}
+              metadataType="cluster"
+              closeModal={closeMetadataModal}
+            />
+          )}
           <Button
             IconSVG={setClusterLoading ? SpinnerSVG : ArrowRightSVG}
             disabled={!isValidJSON || Boolean(error) || setClusterLoading}

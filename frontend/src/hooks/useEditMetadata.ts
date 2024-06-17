@@ -30,6 +30,12 @@ export const useEditMetadata = ({onSuccess}: useEditMetadataArgs) => {
           repoId,
         }),
       });
+      client.invalidateQueries({
+        queryKey: queryKeys.projects,
+      });
+      client.invalidateQueries({
+        queryKey: queryKeys.inspectCluster,
+      });
       onSuccess && onSuccess();
     },
   });

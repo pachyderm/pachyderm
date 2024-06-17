@@ -49,6 +49,9 @@ const useAuthorizeCommon = (
     ),
     hasRepoDelete: hasPermission(Permission.REPO_DELETE),
     hasRepoModifyBindings: hasPermission(Permission.REPO_MODIFY_BINDINGS),
+    hasClusterEditMetadata: hasPermission(
+      Permission.CLUSTER_EDIT_CLUSTER_METADATA,
+    ),
     // hasRepoCreateBranch: hasPermission(Permission.REPO_CREATE_BRANCH),
     // hasRepoDeleteBranch: hasPermission(Permission.REPO_DELETE_BRANCH),
     // hasRepoDeleteCommit: hasPermission(Permission.REPO_DELETE_COMMIT),

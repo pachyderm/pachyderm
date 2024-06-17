@@ -16,8 +16,9 @@ import {
   buildJob,
   buildPipeline,
   buildRepo,
+  mockGetVersionInfo,
 } from '@dash-frontend/mocks';
-import {withContextProviders} from '@dash-frontend/testHelpers';
+import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import ProjectPreviewComponent from '../ProjectPreview';
 
@@ -29,6 +30,7 @@ describe('ProjectPreview', () => {
       project={{
         description: 'Project preview description',
         project: {name: 'ProjectA'},
+        metadata: {metadataProjectKey: 'metadataProjectValue'},
       }}
     />
   ));
@@ -36,6 +38,7 @@ describe('ProjectPreview', () => {
   beforeAll(() => server.listen());
 
   beforeEach(() => {
+    server.use(mockGetVersionInfo());
     server.use(mockGetEnterpriseInfoInactive());
     server.use(
       rest.post<ListRepoRequest, Empty, RepoInfo[]>(
@@ -182,5 +185,46 @@ describe('ProjectPreview', () => {
 
     expect(await screen.findByText('3/2')).toBeInTheDocument();
     expect(screen.getByText('Last 10 Jobs')).toBeInTheDocument();
+  });
+
+  describe('user metadata tab', () => {
+    it('should display project metadata', async () => {
+      render(<ProjectPreview />);
+      expect(await screen.findByText('3/2')).toBeInTheDocument();
+
+      await click(screen.getByRole('tab', {name: /user metadata/i}));
+
+      expect(
+        await screen.findByRole('cell', {name: 'metadataProjectValue'}),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('cell', {name: 'metadataProjectKey'}),
+      ).toBeInTheDocument();
+    });
+
+    it('should allow users to open the edit metadata modal to add and remove values', async () => {
+      render(<ProjectPreview />);
+      expect(await screen.findByText('3/2')).toBeInTheDocument();
+
+      await click(screen.getByRole('tab', {name: /user metadata/i}));
+      await click(screen.getAllByRole('button', {name: /edit/i})[0]);
+      const modal = await screen.findByRole('dialog');
+
+      expect(
+        await within(modal).findByRole('heading', {
+          name: 'Edit Project Metadata',
+        }),
+      ).toBeInTheDocument();
+      expect(within(modal).getAllByRole('row')).toHaveLength(3);
+
+      await click(screen.getByRole('button', {name: /add new/i}));
+      await click(screen.getByRole('button', {name: /add new/i}));
+
+      expect(within(modal).getAllByRole('row')).toHaveLength(5);
+
+      await click(screen.getByRole('button', {name: /delete metadata row 2/i}));
+
+      expect(within(modal).getAllByRole('row')).toHaveLength(4);
+    });
   });
 });

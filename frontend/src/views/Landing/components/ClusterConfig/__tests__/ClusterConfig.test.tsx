@@ -8,6 +8,7 @@ import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Permission} from '@dash-frontend/api/auth';
 import {Empty} from '@dash-frontend/api/googleTypes';
 import {
   GetClusterDefaultsRequest,
@@ -17,8 +18,11 @@ import {
 } from '@dash-frontend/api/pps';
 import {RequestError} from '@dash-frontend/api/utils/error';
 import {
+  mockFalseGetAuthorize,
   mockGetEnterpriseInfoInactive,
   mockGetVersionInfo,
+  mockInspectCluster,
+  mockTrueGetAuthorize,
 } from '@dash-frontend/mocks';
 import {
   mockClusterDefaultsSchema,
@@ -74,6 +78,10 @@ describe('ClusterConfig', () => {
         },
       ),
     );
+    server.use(
+      mockTrueGetAuthorize([Permission.CLUSTER_EDIT_CLUSTER_METADATA]),
+    );
+    server.use(mockInspectCluster());
   });
 
   afterAll(() => server.close());
@@ -248,6 +256,47 @@ describe('ClusterConfig', () => {
     );
   });
 
+  it('should allow users to open the edit metadata modal to add and remove values', async () => {
+    render(<ClusterConfig />);
+
+    await click(screen.getByRole('button', {name: /cluster metadata/i}));
+    const modal = await screen.findByRole('dialog');
+
+    expect(
+      await within(modal).findByRole('heading', {
+        name: 'Edit Cluster Metadata',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('cell', {name: 'clusterMetadataValue'}),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('cell', {name: 'clusterMetadataKey'}),
+    ).toBeInTheDocument();
+    expect(within(modal).getAllByRole('row')).toHaveLength(3);
+
+    await click(screen.getByRole('button', {name: /add new/i}));
+    await click(screen.getByRole('button', {name: /add new/i}));
+
+    expect(within(modal).getAllByRole('row')).toHaveLength(5);
+
+    await click(screen.getByRole('button', {name: /delete metadata row 2/i}));
+
+    expect(within(modal).getAllByRole('row')).toHaveLength(4);
+  });
+
+  it('should not allow users to edit metadata if no access', async () => {
+    server.use(mockFalseGetAuthorize());
+    render(<ClusterConfig />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+    expect(
+      screen.queryByRole('button', {
+        name: /cluster metadata/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it.each([
     [
       'should have autocomplete when the network call fails',
@@ -281,6 +330,8 @@ describe('ClusterConfig', () => {
         },
       ),
     );
+    server.use(mockFalseGetAuthorize());
+    server.use(mockInspectCluster());
     server.use(mock);
     render(<ClusterConfig />);
     await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));

@@ -18,14 +18,20 @@ import {useJobSets} from '@dash-frontend/hooks/useJobSets';
 import {usePipelines} from '@dash-frontend/hooks/usePipelines';
 import {useProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
 import {useRepos} from '@dash-frontend/hooks/useRepos';
+import UserMetadata from '@dash-frontend/views/Project/components/ProjectSidebar/components/RepoDetails/components/UserMetadata';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
-import {Group} from '@pachyderm/components';
+import {Group, Tabs} from '@pachyderm/components';
 import getListTitle from 'lib/getListTitle';
 
 import ProjectStatus from '../ProjectStatus';
 
 import ProjectJobSetList from './components/ProjectJobSetList';
 import styles from './ProjectPreview.module.css';
+
+export enum TAB_ID {
+  OVERVIEW = 'overview',
+  METADATA = 'metadata',
+}
 
 const emptyProjectMessage = 'Create your first repo/pipeline!';
 
@@ -57,6 +63,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
     loading: projectStatusLoading,
     error: projectStatusError,
   } = useProjectStatus(projectName);
+
   const sidebarRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLHeadingElement>(null);
   const isStuck = useIntersection(subtitleRef.current, sidebarRef.current);
@@ -119,32 +126,49 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
                   )}
                 </div>
               </Description>
-              <Group.Divider />
             </>
           )}
         </Group>
       </div>
       {!shouldShowEmptyState && (
-        <>
-          {!jobsLoading && (
-            <h6
-              ref={subtitleRef}
-              className={classNames(styles.subTitle, {
-                [styles.stuck]: isStuck,
-              })}
-            >
-              {getListTitle('Job', jobs?.length || 0)}
-            </h6>
-          )}
-          <ProjectJobSetList
-            projectId={project?.project?.name || ''}
-            jobs={jobs}
-            loading={jobsLoading}
-            error={jobsError}
-            emptyStateTitle={LETS_START_TITLE}
-            emptyStateMessage={CREATE_FIRST_JOB_MESSAGE}
-          />
-        </>
+        <Tabs initialActiveTabId={TAB_ID.OVERVIEW}>
+          <Tabs.TabsHeader>
+            <div className={styles.tabs}>
+              <Tabs.Tab id={TAB_ID.OVERVIEW}>Overview</Tabs.Tab>
+              <Tabs.Tab id={TAB_ID.METADATA}>User Metadata</Tabs.Tab>
+            </div>
+          </Tabs.TabsHeader>
+          <Tabs.TabPanel id={TAB_ID.OVERVIEW}>
+            {!jobsLoading && (
+              <h6
+                ref={subtitleRef}
+                className={classNames(styles.subTitle, {
+                  [styles.stuck]: isStuck,
+                })}
+              >
+                {getListTitle('Job', jobs?.length || 0)}
+              </h6>
+            )}
+            <ProjectJobSetList
+              projectId={project?.project?.name || ''}
+              jobs={jobs}
+              loading={jobsLoading}
+              error={jobsError}
+              emptyStateTitle={LETS_START_TITLE}
+              emptyStateMessage={CREATE_FIRST_JOB_MESSAGE}
+            />
+          </Tabs.TabPanel>
+          <Tabs.TabPanel id={TAB_ID.METADATA}>
+            <section className={styles.section}>
+              <UserMetadata
+                metadataType="project"
+                id={projectName}
+                metadata={project?.metadata}
+                editable={true}
+              />
+            </section>
+          </Tabs.TabPanel>
+        </Tabs>
       )}
     </div>
   );

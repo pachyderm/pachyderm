@@ -66,7 +66,7 @@ export const useLandingView = () => {
 
   const [searchValue, setSearchValue] = useState('');
   const [sortButtonText, setSortButtonText] = useState('Name A-Z');
-  const [selectedProject, setSelectedProject] = useState<ProjectInfo>();
+  const [selectedProject, setSelectedProject] = useState<string>();
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [myProjectsCount, setMyProjectsCount] = useState(0);
   const [allProjectsCount, setAllProjectsCount] = useState(0);
@@ -148,10 +148,16 @@ export const useLandingView = () => {
 
   useEffect(() => {
     if (!loading && !projectsLoaded) {
-      setSelectedProject(filteredProjects[0]);
+      setSelectedProject(filteredProjects[0].project?.name);
       setProjectsLoaded(true);
     }
   }, [loading, filteredProjects, projectsLoaded]);
+
+  const selectedProjectInfo = useMemo(() => {
+    return projects.find(
+      (project) => project.project?.name === selectedProject,
+    );
+  }, [projects, selectedProject]);
 
   return {
     filterFormCtx,
@@ -167,6 +173,7 @@ export const useLandingView = () => {
     setSearchValue,
     sortButtonText,
     selectedProject,
+    selectedProjectInfo,
     setSelectedProject,
     sortDropdown,
   };

@@ -12,9 +12,7 @@ type ProjectTabProps = {
   noProjects: boolean;
   filteredProjects: ProjectInfo[];
   selectedProject?: ProjectInfo;
-  setSelectedProject: React.Dispatch<
-    React.SetStateAction<ProjectInfo | undefined>
-  >;
+  setSelectedProject: React.Dispatch<React.SetStateAction<string | undefined>>;
   setMyProjectsCount: React.Dispatch<React.SetStateAction<number>>;
   setAllProjectsCount: React.Dispatch<React.SetStateAction<number>>;
   showOnlyAccessible?: boolean;
@@ -48,7 +46,7 @@ const ProjectTab: React.FC<ProjectTabProps> = ({
             multiProject={true}
             project={project}
             key={project?.project?.name}
-            setSelectedProject={() => setSelectedProject(project)}
+            setSelectedProject={() => setSelectedProject(project.project?.name)}
             setMyProjectsCount={setMyProjectsCount}
             setAllProjectsCount={setAllProjectsCount}
             isSelected={
