@@ -89,6 +89,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 // wait for the previous callback to return before calling the callback again
 // with the latest job.
 func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, cb func(context.Context, *pps.JobInfo) error) error {
+	var preCheckCancel func()
 	// These are used to cancel the existing service and wait for it to finish
 	var cancel func()
 	var eg *errgroup.Group
@@ -110,16 +111,26 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 			return err
 		}
 		log.Info(pachClient.Ctx(), "retrieved job commit")
+		if preCheckCancel != nil {
+			logger.Logf("canceling previous service's pre-check, new job ready")
+			preCheckCancel()
+		}
+		var preCheckCtx context.Context
+		preCheckCtx, preCheckCancel = context.WithCancel(pachClient.Ctx())
 		for _, src := range ci.DirectProvenance {
 			log.Info(pachClient.Ctx(), "waiting on job's source commit to finish",
 				zap.String("job", ji.Job.String()),
 				zap.String("source_commit", src.String()))
-			if _, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{
+			if _, err := pachClient.PfsAPIClient.InspectCommit(preCheckCtx, &pfs.InspectCommitRequest{
 				Commit: src, Wait: pfs.CommitState_FINISHED,
 			}); err != nil {
-				return err
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
+				return errors.Wrapf(err, "wait for provenant commit %q to finish", src.String())
 			}
 		}
+		preCheckCancel = nil
 		if cancel != nil {
 			logger.Logf("canceling previous service, new job ready")
 			cancel()
