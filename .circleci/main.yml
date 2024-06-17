@@ -1582,7 +1582,7 @@ jobs:
       - upload-junit-datadog:
           service: bazel-tests
           env: ci-bazel
-          path: /tmp/bazel-testlogs
+          path: /tmp/bazel-testlogs/*
       - store_test_results:
           path: /tmp/bazel-testlogs/
       - codecov/upload:
@@ -1626,6 +1626,9 @@ jobs:
           --config=remotecache \
           --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
           //:privileged_tests
+      - run: |
+          ls -lf
+          ls -lf /home/circleci/out
       - upload-junit-datadog:
           service: bazel-privileged-tests
           env: ci-bazel
