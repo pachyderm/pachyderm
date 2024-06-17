@@ -3,6 +3,7 @@ package pachtmpl
 import (
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/google/go-jsonnet"
@@ -12,17 +13,24 @@ import (
 )
 
 // ParseArgs parses args of the form key=value
-func ParseArgs(argStrs []string) (map[string]string, error) {
-	ret := make(map[string]string)
+func ParseArgs(argStrs []string) (*structpb.Struct, error) {
+	ret := make(map[string]any)
 	for _, argStr := range argStrs {
 		kv := strings.SplitN(argStr, "=", 2)
 		if len(kv) != 2 {
 			return nil, errors.Errorf("invalid template argument %q: must have form \"key=value\"", argStr)
 		}
-		key, value := kv[0], kv[1]
-		ret[key] = value
+		b, err := strconv.ParseBool(kv[1])
+		if err != nil {
+			key, value := kv[0], kv[1]
+			ret[key] = value
+		} else {
+			key, value := kv[0], b
+			ret[key] = value
+		}
+
 	}
-	return ret, nil
+	return structpb.NewStruct(ret)
 }
 
 // RenderTemplate renders the template tmpl, using args and returns the result.
@@ -30,6 +38,9 @@ func RenderTemplate(tmpl string, args *structpb.Struct) (string, error) {
 	vm := newVM(nil)
 	for key, value := range args.Fields {
 		switch value.Kind.(type) {
+		case *structpb.Value_NumberValue:
+			numberNode := &ast.LiteralNumber{OriginalString: strconv.FormatFloat(value.GetNumberValue(), 'f', -1, 64)}
+			vm.TLANode(key, numberNode)
 		case *structpb.Value_BoolValue:
 			boolNode := &ast.LiteralBoolean{Value: value.GetBoolValue()}
 			vm.TLANode(key, boolNode)

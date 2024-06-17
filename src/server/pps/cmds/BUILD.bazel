@@ -15,6 +15,7 @@ go_library(
         "//src/internal/grpcutil",
         "//src/internal/log",
         "//src/internal/pachctl",
+        "//src/internal/pachtmpl",
         "//src/internal/pager",
         "//src/internal/pctx",
         "//src/internal/ppsutil",
