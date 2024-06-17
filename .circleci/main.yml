@@ -268,7 +268,6 @@ jobs:
           service: integration-tests
           env: ci-minikube
           path: /tmp/test-results/circle
-          amd: true
       - store_test_results:
           path: "/tmp/test-results/circle"
       - store_artifacts:
