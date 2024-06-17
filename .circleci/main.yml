@@ -1582,7 +1582,7 @@ jobs:
       - upload-junit-datadog:
           service: bazel-tests
           env: ci-bazel
-          path: /tmp/bazel-testlogs/*.xml /tmp/bazel-testlogs/src/**/**/**/*.xml /tmp/bazel-testlogs/src/**/**/**/**/*.xml
+          path: /tmp/bazel-testlogs/**/*.xml /tmp/bazel-testlogs/src/**/**/**/*.xml /tmp/bazel-testlogs/src/**/**/**/**/*.xml
       - store_test_results:
           path: /tmp/bazel-testlogs/
       - codecov/upload:
