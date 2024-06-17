@@ -1582,7 +1582,7 @@ jobs:
       - upload-junit-datadog:
           service: bazel-tests
           env: ci-bazel
-          path: /tmp/bazel-testlogs/*
+          path: /tmp/bazel-testlogs/**
       - store_test_results:
           path: /tmp/bazel-testlogs/
       - codecov/upload:
@@ -1628,7 +1628,7 @@ jobs:
           //:privileged_tests
       - run: |
           ls -lf
-          ls -lf /home/circleci/out
+          ls -lf /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs
       - upload-junit-datadog:
           service: bazel-privileged-tests
           env: ci-bazel
