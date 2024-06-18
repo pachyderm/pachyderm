@@ -10,6 +10,8 @@
   justify-content: space-between;
   width: 100%;
   padding: 1rem;
+  container-type: inline-size;
+  container-name: dag-view;
 }
 
 .canvasControls {
@@ -39,4 +41,18 @@
   box-sizing: border-box;
   height: 1.5rem;
   border-right: 1px solid var(--line-grey);
+}
+
+.responsiveControls {
+  display: none;
+}
+
+@container dag-view (max-width: 780px) {
+  .responsiveControls {
+    display: inline;
+  }
+
+  .fullControls {
+    display: none;
+  }
 }
