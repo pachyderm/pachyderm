@@ -26,7 +26,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@cypress/code-coverage": "3.12.26",
+    "@cypress/code-coverage": "3.12.39",
     "@size-limit/file": "^11.1.2",
     "@testing-library/cypress": "^10.0.1",
     "cypress": "13.7.1",
