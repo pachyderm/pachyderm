@@ -137,7 +137,7 @@ type apiServer struct {
 	projectDefaults col.PostgresCollection
 }
 
-func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) error {
+func validateInput(pipeline *pps.Pipeline, input *pps.Input) error {
 	if err := ppsutil.ValidateNames(input); err != nil {
 		return err
 	}
@@ -1843,7 +1843,7 @@ func (s podSlice) Less(i, j int) bool {
 	return s[i].ObjectMeta.Name < s[j].ObjectMeta.Name
 }
 
-func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) error {
+func validatePipelineRequest(request *pps.CreatePipelineRequest) error {
 	if request.Pipeline == nil {
 		return errors.New("invalid pipeline spec: request.Pipeline cannot be nil")
 	}
@@ -1956,14 +1956,14 @@ func (a *apiServer) validateSecret(ctx context.Context, req *pps.CreatePipelineR
 }
 
 // validateEgress validates the egress field.
-func (a *apiServer) validateEgress(pipelineName string, egress *pps.Egress) error {
+func validateEgress(pipelineName string, egress *pps.Egress) error {
 	if egress == nil {
 		return nil
 	}
 	return pfsServer.ValidateSQLDatabaseEgress(egress.GetSqlDatabase())
 }
 
-func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
+func validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if pipelineInfo.Pipeline == nil {
 		return errors.New("invalid pipeline spec: Pipeline field cannot be nil")
 	}
@@ -1984,10 +1984,10 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	if err := validateTransform(pipelineInfo.Details.Transform); err != nil {
 		return errors.Wrapf(err, "invalid transform")
 	}
-	if err := a.validateInput(pipelineInfo.Pipeline, pipelineInfo.Details.Input); err != nil {
+	if err := validateInput(pipelineInfo.Pipeline, pipelineInfo.Details.Input); err != nil {
 		return err
 	}
-	if err := a.validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
+	if err := validateEgress(pipelineInfo.Pipeline.Name, pipelineInfo.Details.Egress); err != nil {
 		return err
 	}
 	if pipelineInfo.Details.ParallelismSpec != nil {
@@ -2428,9 +2428,9 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *
 	return nil
 }
 
-func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
+func initializePipelineInfo(txn *pps.CreatePipelineTransaction, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
 	request := txn.CreatePipelineRequest
-	if err := a.validatePipelineRequest(request); err != nil {
+	if err := validatePipelineRequest(request); err != nil {
 		return nil, err
 	}
 	// Reprocess overrides the salt in the request
@@ -2478,7 +2478,7 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 		return nil, err
 	}
 	// Validate final PipelineInfo (now that defaults have been populated)
-	if err := a.validatePipeline(pipelineInfo); err != nil {
+	if err := validatePipeline(pipelineInfo); err != nil {
 		return nil, err
 	}
 	if oldPipelineInfo != nil {
@@ -2515,7 +2515,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			Pipeline: request.Pipeline,
 		}
 	}
-	newPipelineInfo, err := a.initializePipelineInfo(txn, oldPipelineInfo)
+	newPipelineInfo, err := initializePipelineInfo(txn, oldPipelineInfo)
 	if err != nil {
 		return err
 	}
@@ -2596,6 +2596,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		}
 	}
 
+	// TODO: document when SpecCommit != nil
 	if request.SpecCommit != nil {
 		if update {
 			// request.SpecCommit indicates we're restoring from an extracted cluster
