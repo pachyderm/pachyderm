@@ -6450,6 +6450,7 @@ DeleteReposRequest is used to delete more than one repo at once.
 | auth_info | [AuthInfo](#pfs_v2-AuthInfo) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | metadata | [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry) | repeated |  |
+| created_by | [string](#string) |  |  |
 
 
 

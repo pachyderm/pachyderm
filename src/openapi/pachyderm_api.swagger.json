@@ -9560,6 +9560,9 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "createdBy": {
+          "type": "string"
         }
       }
     },
