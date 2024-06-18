@@ -1,7 +1,11 @@
 package pfsdb
 
 import (
+	"context"
 	"database/sql"
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"strings"
 	"time"
 
@@ -116,9 +120,12 @@ func parseBranches(repo *RepoRow) ([]*pfs.Branch, error) {
 }
 
 type CommitRow struct {
-	ID             CommitID              `db:"int_id"`
-	CommitSetID    string                `db:"commit_set_id"`
-	CommitID       string                `db:"commit_id"`
+	ID    CommitID `db:"int_id"`
+	SetID string   `db:"commit_set_id"`
+
+	// todo(fahad): write a migration that changes the 'commit_id' column to key to avoid confusion.
+	// Key is the human readable string identifier for a commit.
+	Key            string                `db:"commit_id"`
 	Origin         string                `db:"origin"`
 	Description    string                `db:"description"`
 	StartTime      sql.NullTime          `db:"start_time"`
@@ -136,22 +143,101 @@ type CommitRow struct {
 	CreatedAtUpdatedAt
 }
 
-func (commit CommitRow) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
-	return commit.CreatedAtUpdatedAt
+func (c *CommitRow) ToCommit(ctx context.Context, extCtx sqlx.ExtContext) (*Commit, error) {
+	if c == nil {
+		return nil, nil
+	}
+	commit := &Commit{
+		CommitRow: c,
+	}
+	if c.ID == 0 {
+		return nil, errors.New("cannot convert row to commit if row has no id.")
+	}
+	if c.Repo.ID != 0 && c.Repo.BranchesNames == "" {
+		repo, err := getRepo(ctx, extCtx, c.Repo.ID)
+		if err != nil {
+			return nil, errors.Wrap(err, "get commit from database row: get repo")
+		}
+		c.Repo = *repo
+	}
+	parent, children, err := getCommitRelativeRows(ctx, extCtx, c.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get commit from database row")
+	}
+	subvenance, err := getSubvenantCommitRows(ctx, extCtx, c.ID, WithMaxDepth(1))
+	if err != nil {
+		return nil, errors.Wrap(err, "get commit from database row")
+	}
+	provenance, err := getProvenantCommitRows(ctx, extCtx, c.ID, WithMaxDepth(1))
+	if err != nil {
+		return nil, errors.Wrap(err, "get commit from database row")
+	}
+	commit.Children = children
+	commit.Parent = parent
+	commit.DirectProvenance = provenance
+	commit.DirectSubvenance = subvenance
+	return commit, nil
 }
 
-func (commit *CommitRow) Pb() *pfs.Commit {
-	pb := &pfs.Commit{
-		Id:   commit.CommitSetID,
-		Repo: commit.Repo.Pb(),
+func (c *CommitRow) FromPb(commit *pfs.Commit) {
+	c.BranchName = sql.NullString{Valid: false}
+	if commit != nil && commit.Repo != nil {
+		c.Repo = RepoRow{
+			Name: commit.Repo.Name,
+			Type: commit.Repo.Type,
+			Project: ProjectRow{
+				Name: commit.Repo.Project.Name,
+			},
+		}
 	}
-	if commit.BranchName.Valid {
+	c.Key = CommitKey(commit)
+	c.SetID = commit.Id
+	if commit.Branch != nil {
+		c.BranchName = sql.NullString{String: commit.Branch.Name, Valid: true}
+	}
+}
+
+func (c *CommitRow) FromPbInfo(commitInfo *pfs.CommitInfo) {
+	c.FromPb(commitInfo.Commit)
+	if commitInfo.Origin != nil {
+		c.Origin = commitInfo.Origin.Kind.String()
+	}
+	c.StartTime = pbutil.SanitizeTimestampPb(commitInfo.Started)
+	c.FinishingTime = pbutil.SanitizeTimestampPb(commitInfo.Finishing)
+	c.FinishedTime = pbutil.SanitizeTimestampPb(commitInfo.Finished)
+	c.Description = commitInfo.Description
+	c.Error = commitInfo.Error
+	c.Metadata = pgjsontypes.StringMap{Data: commitInfo.Metadata}
+	if commitInfo.Details != nil {
+		c.CompactingTime = pbutil.DurationPbToBigInt(commitInfo.Details.CompactingTime)
+		c.ValidatingTime = pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime)
+		c.Size = commitInfo.Details.SizeBytes
+	}
+}
+
+func (c CommitRow) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return c.CreatedAtUpdatedAt
+}
+
+func (c *CommitRow) Pb() *pfs.Commit {
+	if c == nil {
+		return nil
+	}
+	pb := &pfs.Commit{
+		Id:   c.SetID,
+		Repo: c.Repo.Pb(),
+	}
+	if c.BranchName.Valid {
 		pb.Branch = &pfs.Branch{
 			Repo: pb.Repo,
-			Name: commit.BranchName.String,
+			Name: c.BranchName.String,
 		}
 	}
 	return pb
+}
+
+func (c *CommitRow) CommitOrigin() pfs.CommitOrigin {
+	return pfs.CommitOrigin{Kind: pfs.OriginKind(pfs.OriginKind_value[strings.ToUpper(c.Origin)])}
 }
 
 // BranchRow is a row in the pfs.branches table.

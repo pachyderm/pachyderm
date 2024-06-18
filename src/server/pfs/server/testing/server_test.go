@@ -3,8 +3,10 @@ package testing
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"io"
 	"math/rand"
 	"os"
@@ -6213,7 +6215,7 @@ func TestTestTopologicalSortCommits(t *testing.T) {
 		}
 		// commit.String() -> number of total transitive provenant commits
 		totalProvenance := make(map[string]map[string]struct{})
-		var cis []*pfsdb.Commit
+		var commits []*pfsdb.Commit
 		total := 500
 		for i := 0; i < total; i++ {
 			totalProv := make(map[string]struct{})
@@ -6227,25 +6229,23 @@ func TestTestTopologicalSortCommits(t *testing.T) {
 					directProv = append(directProv, makeCommit(k))
 				}
 			}
-			ci := &pfsdb.Commit{
-				CommitInfo: &pfs.CommitInfo{
-					Commit:           makeCommit(i),
-					DirectProvenance: directProv,
-				},
+			ci := &pfs.CommitInfo{
+				Commit:           makeCommit(i),
+				DirectProvenance: directProv,
 			}
 			totalProvenance[makeCommit(i).String()] = totalProv
-			cis = append(cis, ci)
+			commits = append(commits, (&pfsdb.Commit{}).FromInfo(ci))
 		}
-		// shuffle cis
+		// shuffle commits
 		swaps := total / 2
 		for i := 0; i < swaps; i++ {
 			j, k := rand.Intn(total), rand.Intn(total)
-			cis[j], cis[k] = cis[k], cis[j]
+			commits[j], commits[k] = commits[k], commits[j]
 		}
 		// assert sort works
-		cis = server.TopologicalSort(cis)
-		for i, ci := range cis {
-			require.True(t, len(totalProvenance[ci.Commit.String()]) <= i)
+		commits = server.TopologicalSort(commits)
+		for i, ci := range commits {
+			require.True(t, len(totalProvenance[ci.Pb().String()]) <= i)
 		}
 	})
 }
@@ -7565,6 +7565,7 @@ func TestWalkFileInvalid(t *testing.T) {
 	}))
 }
 
+<<<<<<< HEAD
 func gcOption(c *pachconfig.Configuration) {
 	c.PachdSpecificConfiguration.StorageGCPeriod = 5
 	c.PachdSpecificConfiguration.StorageChunkGCPeriod = 5
@@ -7689,4 +7690,32 @@ func TestForgetRPCInputCommit(t *testing.T) {
 
 	_, err = env.PFSServer.ForgetCommit(ctx, &pfs.ForgetCommitRequest{Commit: &picker})
 	require.Equal(t, "Forget Commit: the commit to be forgotten must be in an output repo", err.Error())
+}
+
+// This can be handy to call when troubleshooting a failed test.
+//
+//nolint:unused
+func dump(t *testing.T, c *client.APIClient) {
+	filter := &debug.Filter{
+		Filter: &debug.Filter_Database{Database: true},
+	}
+	buf := &bytes.Buffer{}
+	time.Sleep(5 * time.Second) // give some time for the stats collector to run.
+	require.NoError(t, c.Dump(filter, 100, buf), "dumping database files should succeed")
+	gr, err := gzip.NewReader(buf)
+	require.NoError(t, err)
+
+	require.NoError(t, tarutil.Iterate(gr, func(f tarutil.File) error {
+		fileContents := &bytes.Buffer{}
+		if err := f.Content(fileContents); err != nil {
+			return errors.EnsureStack(err)
+		}
+		hdr, err := f.Header()
+		require.NoError(t, err, "getting database tar file header should succeed")
+		if strings.HasPrefix(hdr.Name, "database/tables/pfs/") {
+			fmt.Println(hdr.Name)
+			fmt.Println(fileContents.String())
+		}
+		return nil
+	}))
 }

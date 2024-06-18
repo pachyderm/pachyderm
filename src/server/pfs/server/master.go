@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"path"
 	"time"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -243,11 +243,11 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 	}
 	// Use the current head commit start time as the previous tick.
 	// This prevents the timer from restarting if the master restarts.
-	ci, err := d.inspectCommitInfo(ctx, branchInfo.Head, pfs.CommitState_STARTED)
+	commit, err := d.inspectCommit(ctx, branchInfo.Head, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
-	prev := protoutil.MustTime(ci.Started)
+	prev := commit.StartTime.Time
 	for {
 		next := schedule.Next(prev)
 		if next.IsZero() {
@@ -279,9 +279,10 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 }
 
 func (d *driver) finishRepoCommits(ctx context.Context, repo pfsdb.Repo) error {
+	ctx = pctx.Child(ctx, "finishRepo."+repo.Repo.Name)
 	return pfsdb.WatchCommitsInRepo(ctx, d.env.DB, d.env.Listener, repo.ID,
-		func(id pfsdb.CommitID, ci *pfs.CommitInfo) error {
-			return d.finishRepoCommit(ctx, repo, &pfsdb.Commit{ID: id, CommitInfo: ci})
+		func(commit *pfsdb.Commit) error {
+			return d.finishRepoCommit(ctx, repo, commit)
 		},
 		func(_ pfsdb.CommitID) error {
 			// Don't finish commits that are deleted.
@@ -291,11 +292,10 @@ func (d *driver) finishRepoCommits(ctx context.Context, repo pfsdb.Repo) error {
 }
 
 func (d *driver) finishRepoCommit(ctx context.Context, repo pfsdb.Repo, commit *pfsdb.Commit) error {
-	commitInfo := commit.CommitInfo
-	if commitInfo.Finishing == nil || commitInfo.Finished != nil {
+	if commit.Finishing() == nil || commit.Finished() != nil {
 		return nil
 	}
-	commitHandle := commitInfo.Commit
+	commitHandle := commit.Pb()
 	cache := d.newCache(pfsdb.CommitKey(commitHandle))
 	defer func() {
 		if err := cache.clear(ctx); err != nil {
@@ -312,7 +312,7 @@ func (d *driver) finishRepoCommit(ctx context.Context, repo pfsdb.Repo, commit *
 				return err
 			}
 			// Skip compaction / validation for errored commits.
-			if commitInfo.Error != "" {
+			if commit.Error != "" {
 				return d.finalizeCommit(ctx, commit, "", nil, nil)
 			}
 			compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
@@ -356,7 +356,7 @@ func (d *driver) finishRepoCommit(ctx context.Context, repo pfsdb.Repo, commit *
 			log.Error(ctx, "error finishing commit", zap.Error(err), zap.Duration("retryAfter", d))
 			return nil
 		})
-	}, zap.Bool("finishing", true), log.Proto("commit", commitInfo.Commit), zap.Uint64("repo id", uint64(repo.ID)), zap.String("repo", repo.RepoInfo.Repo.Key()))
+	}, zap.Bool("finishing", true), log.Proto("commit", commit.Pb()), zap.Uint64("repo id", uint64(repo.ID)), zap.String("repo", repo.RepoInfo.Repo.Key()))
 }
 
 func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
@@ -395,26 +395,27 @@ func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, 
 func (d *driver) finalizeCommit(ctx context.Context, commit *pfsdb.Commit, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
 	return log.LogStep(ctx, "finalizeCommit", func(ctx context.Context) error {
 		return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-			commitInfo, err := pfsdb.GetCommitInfo(ctx, txnCtx.SqlTx, commit.ID)
+			c, err := pfsdb.GetCommit(ctx, txnCtx.SqlTx, commit.ID)
 			if err != nil {
-				return errors.Wrap(err, "refresh commitInfo")
+				return errors.Wrap(err, "refresh commit")
 			}
-			commitInfo.Finished = txnCtx.Timestamp
+			c.FinishedTime = pbutil.SanitizeTimestampPb(txnCtx.Timestamp)
 			if details != nil {
-				commitInfo.SizeBytesUpperBound = details.SizeBytes
+				c.Size = details.SizeBytes
+				c.CompactingTime = pbutil.DurationPbToBigInt(details.CompactingTime)
+				c.ValidatingTime = pbutil.DurationPbToBigInt(details.ValidatingTime)
 			}
-			if commitInfo.Error == "" {
-				commitInfo.Error = validationError
+			if c.Error == "" {
+				c.Error = validationError
 			}
-			commitInfo.Details = details
-			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commit.ID, commitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
+			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, c); err != nil {
 				return errors.Wrap(err, "finalize commit")
 			}
-			if commitInfo.Commit.Repo.Type == pfs.UserRepoType {
-				txnCtx.FinishJob(commitInfo)
+			if c.Repo.Type == pfs.UserRepoType {
+				txnCtx.FinishJob(c.PbInfo())
 			}
-			if commitInfo.Error == "" {
-				return d.triggerCommit(ctx, txnCtx, commitInfo)
+			if c.Error == "" {
+				return d.triggerCommit(ctx, txnCtx, c)
 			}
 			return nil
 		})

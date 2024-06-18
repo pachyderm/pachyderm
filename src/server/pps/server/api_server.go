@@ -3450,7 +3450,7 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 			continue
 		}
 		// Don't create jobs for commits not on the output branch.
-		if commitInfo.Commit.Branch.Name != pipelineInfo.Details.OutputBranch {
+		if commitInfo.GetCommit().GetBranch().GetName() != pipelineInfo.Details.OutputBranch {
 			continue
 		}
 		// Check if there is an existing job for the output commit

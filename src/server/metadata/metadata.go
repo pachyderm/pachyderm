@@ -78,14 +78,11 @@ func editInTx(ctx context.Context, tc *txncontext.TransactionContext, authServer
 		}
 		// Auth rules: any authenticated user can edit commit metadata; this is the same as
 		// the rules for starting commits, finish commits, etc.
-		if err := editMetadata(edit, &c.CommitInfo.Metadata); err != nil {
-			return errors.Wrapf(err, "edit commit %q", c.GetCommit().Key())
+		if err := editMetadata(edit, &c.Metadata.Data); err != nil {
+			return errors.Wrapf(err, "edit commit %q", c.Pb().Key())
 		}
-		if err := pfsdb.UpdateCommit(ctx, tc.SqlTx, c.ID, c.CommitInfo, pfsdb.AncestryOpt{
-			SkipChildren: true,
-			SkipParent:   true,
-		}); err != nil {
-			return errors.Wrapf(err, "update commit %q", c.GetCommit().Key())
+		if err := pfsdb.UpdateCommit(ctx, tc.SqlTx, c); err != nil {
+			return errors.Wrapf(err, "update commit %q", c.Pb().Key())
 		}
 	case *metadata.Edit_Branch:
 		b, err := pfsdb.PickBranch(ctx, x.Branch, tc.SqlTx)

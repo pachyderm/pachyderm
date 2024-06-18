@@ -61,33 +61,6 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 	return cs, nil
 }
 
-func CommitDirectProvenance(ctx context.Context, extCtx sqlx.ExtContext, id CommitID) ([]*pfs.Commit, error) {
-	var commits []CommitRow
-	query := `
-	SELECT DISTINCT
-		commit.commit_id,
-		commit.commit_set_id,
-		repo.name as "repo.name",
-		repo.type as "repo.type",
-		project.name as "repo.project.name",
-		branch.name as branch_name
-	FROM pfs.commit_provenance prov
-		JOIN pfs.commits commit ON prov.to_id = commit.int_id
-		JOIN pfs.repos repo ON commit.repo_id = repo.id
-		JOIN core.projects project ON repo.project_id = project.id
-		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id
-	WHERE prov.from_id = $1	
-	`
-	if err := sqlx.SelectContext(ctx, extCtx, &commits, query, id); err != nil {
-		return nil, errors.Wrapf(err, "getting direct commit provenance for commitID=%d", id)
-	}
-	var commitPbs []*pfs.Commit
-	for _, commit := range commits {
-		commitPbs = append(commitPbs, commit.Pb())
-	}
-	return commitPbs, nil
-}
-
 // CommitSetSubvenance returns all the commit IDs that contain commits in this commit set in their
 // full (transitive) provenance
 func CommitSetSubvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr error) {
@@ -121,12 +94,6 @@ func CommitSetSubvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 		return nil, errors.EnsureStack(err)
 	}
 	return cs, nil
-}
-
-func AddCommit(tx *pachsql.Tx, commit *pfs.Commit) error {
-	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`
-	_, err := tx.Exec(stmt, CommitKey(commit), commit.Id)
-	return errors.Wrapf(err, "insert commit %q into pfs.commits", CommitKey(commit))
 }
 
 func getCommitTableID(tx *pachsql.Tx, commit *pfs.Commit) (_ int, retErr error) {
@@ -173,18 +140,7 @@ func GetProvenantCommits(ctx context.Context, ext sqlx.ExtContext, startId Commi
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit with id provenance")
 	}
-	var commits []*Commit
-	for _, commit := range provenantCommits {
-		commitInfo, err := getCommitInfoFromCommitRow(ctx, ext, commit)
-		if err != nil {
-			return nil, errors.Wrap(err, "get commit with id provenance")
-		}
-		commits = append(commits, &Commit{
-			ID:         commit.ID,
-			CommitInfo: commitInfo,
-		})
-	}
-	return commits, nil
+	return rowToCommits(ctx, ext, provenantCommits)
 }
 
 func getProvenantCommitRows(ctx context.Context, ext sqlx.ExtContext, commitId CommitID, opts ...GraphOption) ([]*CommitRow, error) {
@@ -218,11 +174,7 @@ func getProvenantCommitRows(ctx context.Context, ext sqlx.ExtContext, commitId C
 	return commits, nil
 }
 
-func GetFullCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) ([]*pfs.Commit, error) {
-	id, err := GetCommitID(ctx, tx, commit)
-	if err != nil {
-		return nil, err
-	}
+func GetFullCommitSubvenance(ctx context.Context, tx *pachsql.Tx, id CommitID) ([]*pfs.Commit, error) {
 	subvenantCommits, err := getSubvenantCommitRows(ctx, tx, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit subvenance")
@@ -240,16 +192,17 @@ func GetSubvenantCommits(ctx context.Context, ext sqlx.ExtContext, startId Commi
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit with id subvenance")
 	}
+	return rowToCommits(ctx, ext, subvenantCommits)
+}
+
+func rowToCommits(ctx context.Context, ext sqlx.ExtContext, rows []*CommitRow) ([]*Commit, error) {
 	var commits []*Commit
-	for _, commit := range subvenantCommits {
-		commitInfo, err := getCommitInfoFromCommitRow(ctx, ext, commit)
+	for _, row := range rows {
+		commit, err := row.ToCommit(ctx, ext)
 		if err != nil {
-			return nil, errors.Wrap(err, "get commit with id subvenance")
+			return nil, errors.Wrap(err, "get commit with id provenance")
 		}
-		commits = append(commits, &Commit{
-			ID:         commit.ID,
-			CommitInfo: commitInfo,
-		})
+		commits = append(commits, commit)
 	}
 	return commits, nil
 }

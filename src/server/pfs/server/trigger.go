@@ -17,9 +17,9 @@ import (
 
 // triggerCommit is called when a commit is finished, it updates branches in
 // the repo if they trigger on the change
-func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
+func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commit *pfsdb.Commit) error {
 	branchInfos := make(map[string]*pfs.BranchInfo)
-	err := pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: commitInfo.Commit.Repo}, func(branch pfsdb.Branch) error {
+	err := pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: commit.Repo.Pb()}, func(branch pfsdb.Branch) error {
 		branchInfos[branch.Branch.Key()] = branch.BranchInfo
 		return nil
 	})
@@ -27,13 +27,13 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 		return errors.Wrap(err, "trigger commit")
 	}
 	// Recursively check / fire trigger chains.
-	newHeads := make(map[string]*pfs.CommitInfo)
+	newHeads := make(map[string]*pfsdb.Commit)
 	// the branch can be nil in the case where the commit's branch was deleted before the commit was finished in the backend.
-	if commitInfo.Commit.Branch != nil {
-		newHeads[pfsdb.BranchKey(commitInfo.Commit.Branch)] = commitInfo
+	if commit.BranchID.Valid {
+		newHeads[pfsdb.RepoKey(commit.Repo.Pb())+"@"+commit.BranchName.String] = commit
 	}
-	var triggerBranch func(*pfs.BranchInfo) (*pfs.CommitInfo, error)
-	triggerBranch = func(bi *pfs.BranchInfo) (*pfs.CommitInfo, error) {
+	var triggerBranch func(*pfs.BranchInfo) (*pfsdb.Commit, error)
+	triggerBranch = func(bi *pfs.BranchInfo) (*pfsdb.Commit, error) {
 		branchKey := pfsdb.BranchKey(bi.Branch)
 		head, ok := newHeads[branchKey]
 		if ok {
@@ -53,11 +53,11 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 		if err != nil {
 			return nil, err
 		}
-		if newHead == nil || proto.Equal(bi.Head, newHead.Commit) {
+		if newHead == nil || proto.Equal(bi.Head, newHead.Pb()) {
 			return nil, nil
 		}
 		// Check if the trigger should fire based on the new head commit.
-		oldHead, err := pfsdb.GetCommitInfoByKey(ctx, txnCtx.SqlTx, bi.Head)
+		oldHead, err := pfsdb.GetCommitByKey(ctx, txnCtx.SqlTx, bi.Head)
 		if err != nil {
 			return nil, errors.Wrap(err, "trigger commit")
 		}
@@ -74,7 +74,7 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 			return nil, errors.Wrap(err, "trigger commit")
 		}
 		trigBI := branchToTrigger.BranchInfo
-		trigBI.Head = newHead.Commit
+		trigBI.Head = newHead.Pb()
 		_, err = pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, trigBI)
 		if err != nil {
 			return nil, err
@@ -95,7 +95,7 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
-func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
+func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfsdb.Commit) (bool, error) {
 	result := t.All
 	merge := func(cond bool) {
 		if t.All {
@@ -112,9 +112,9 @@ func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 		}
 		var oldSize int64
 		if oldHead != nil {
-			oldSize = oldHead.Details.SizeBytes
+			oldSize = oldHead.Size
 		}
-		merge(newHead.Details.SizeBytes-oldSize >= size)
+		merge(newHead.Size-oldSize >= size)
 	}
 	if t.RateLimitSpec != "" {
 		// Shouldn't be possible to error here since we validate on ingress
@@ -124,30 +124,30 @@ func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 			return false, errors.EnsureStack(err)
 		}
 		var oldTime, newTime time.Time
-		if oldHead != nil && oldHead.Finishing != nil {
-			oldTime = oldHead.Finishing.AsTime()
+		if oldHead != nil && oldHead.Finishing() != nil {
+			oldTime = oldHead.Finishing().AsTime()
 		}
-		if newHead.Finishing != nil {
-			newTime = newHead.Finishing.AsTime()
+		if newHead.Finishing() != nil {
+			newTime = newHead.Finishing().AsTime()
 		}
 		merge(schedule.Next(oldTime).Before(newTime))
 	}
 	if t.Commits != 0 {
-		ci := newHead
+		commit := newHead
 		var commits int64
 		for commits < t.Commits {
-			if ci.ParentCommit == nil {
+			if commit.Parent == nil {
 				// TODO: We need a better mechanism for identifying the empty commits we create.
-				if ci.Origin.Kind != pfs.OriginKind_AUTO {
+				if commit.CommitOrigin().Kind != pfs.OriginKind_AUTO {
 					commits++
 				}
 				break
 			}
-			if oldHead.Commit.Id == ci.Commit.Id {
+			if oldHead.ID == commit.ID {
 				break
 			}
 			var err error
-			ci, err = d.resolveCommitInfo(ctx, txnCtx.SqlTx, ci.ParentCommit)
+			commit, err = commit.Parent.ToCommit(ctx, txnCtx.SqlTx)
 			if err != nil {
 				return false, err
 			}

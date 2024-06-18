@@ -118,19 +118,31 @@ func GetRepoID(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoT
 	return row.ID, nil
 }
 
-func GetRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*Repo, error) {
+func GetRepo(ctx context.Context, tx *pachsql.Tx, id RepoID) (*RepoRow, error) {
+	return getRepo(ctx, tx, id)
+}
+
+func getRepo(ctx context.Context, extCtx sqlx.ExtContext, id RepoID) (*RepoRow, error) {
+	if id == 0 {
+		return nil, errors.New("invalid id: 0")
+	}
+	repo := &RepoRow{}
+	err := sqlx.GetContext(ctx, extCtx, repo, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id, project.name, project.id;", getRepoAndBranches), id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &RepoNotFoundError{ID: id}
+		}
+		return nil, errors.Wrap(err, "scanning repo row")
+	}
+	return repo, nil
+}
+
+func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*RepoRow, error) {
 	repo, err := getRepoByName(ctx, tx, repoProject, repoName, repoType)
 	if err != nil {
 		return nil, errors.Wrap(err, "get repo info with id")
 	}
-	repoInfo, err := repo.PbInfo()
-	if err != nil {
-		return nil, errors.Wrap(err, "get repo info with id")
-	}
-	return &Repo{
-		ID:       repo.ID,
-		RepoInfo: repoInfo,
-	}, nil
+	return repo, nil
 }
 
 // GetRepoInfo retrieves an entry from the pfs.repos table by using the row id.
@@ -149,8 +161,8 @@ func GetRepoInfo(ctx context.Context, tx *pachsql.Tx, id RepoID) (*pfs.RepoInfo,
 	return repo.PbInfo()
 }
 
-// GetRepoByName retrieves an entry from the pfs.repos table by project, repo name, and type.
-func GetRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*pfs.RepoInfo, error) {
+// GetRepoInfoByName retrieves an entry from the pfs.repos table by project, repo name, and type.
+func GetRepoInfoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) (*pfs.RepoInfo, error) {
 	repo, err := getRepoByName(ctx, tx, repoProject, repoName, repoType)
 	if err != nil {
 		return nil, err
@@ -425,11 +437,18 @@ func PickRepo(ctx context.Context, repoPicker *pfs.RepoPicker, tx *pachsql.Tx) (
 		if picker.Type != "" {
 			repoHandle.Type = picker.Type
 		}
-		repo, err := GetRepo(ctx, tx, repoHandle.Project.Name, repoHandle.Name, repoHandle.Type)
+		repo, err := GetRepoByName(ctx, tx, repoHandle.Project.Name, repoHandle.Name, repoHandle.Type)
 		if err != nil {
 			return nil, errors.Wrap(err, "picking repo")
 		}
-		return repo, nil
+		repoInfo, err := repo.PbInfo()
+		if err != nil {
+			return nil, errors.Wrap(err, "picking repo")
+		}
+		return &Repo{
+			ID:       repo.ID,
+			RepoInfo: repoInfo,
+		}, nil
 	default:
 		return nil, errors.Errorf("repo picker is of an unknown type: %T", repoPicker.Picker)
 	}

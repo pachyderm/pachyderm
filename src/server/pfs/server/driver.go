@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
+	"golang.org/x/exp/slices"
 	"math"
 	"os"
 	"sort"
@@ -70,14 +72,9 @@ type driver struct {
 	env Env
 
 	// etcdClient and prefix write repo and other metadata to etcd
-	etcdClient *etcd.Client
-	txnEnv     *txnenv.TransactionEnv
-	prefix     string
-
-	// collections
-	commits  col.PostgresCollection
-	branches col.PostgresCollection
-
+	etcdClient  *etcd.Client
+	txnEnv      *txnenv.TransactionEnv
+	prefix      string
 	storage     *storage.Server
 	commitStore commitStore
 
@@ -93,17 +90,12 @@ func newDriver(ctx context.Context, env Env) (*driver, error) {
 	}(); err != nil {
 		return nil, err
 	}
-	commits := pfsdb.Commits(env.DB, env.Listener)
-	branches := pfsdb.Branches(env.DB, env.Listener)
-
 	// Setup driver struct.
 	d := &driver{
 		env:        env,
 		etcdClient: env.EtcdClient,
 		txnEnv:     env.TxnEnv,
 		prefix:     env.EtcdPrefix,
-		commits:    commits,
-		branches:   branches,
 	}
 	storageEnv := storage.Env{
 		DB:     env.DB,
@@ -148,7 +140,7 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 	// Check if 'repo' already exists. If so, return that error.  Otherwise,
 	// proceed with ACL creation (avoids awkward "access denied" error when
 	// calling "createRepo" on a repo that already exists).
-	existingRepoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
+	existingRepoInfo, err := pfsdb.GetRepoInfoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
 	if err != nil {
 		if !pfsdb.IsErrRepoNotFound(err) {
 			return errors.Wrapf(err, "error checking whether repo %q exists", repo)
@@ -156,7 +148,7 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 		// if this is a system repo, make sure the corresponding user repo already exists
 		if repo.Type != pfs.UserRepoType {
 			baseRepo := &pfs.Repo{Project: &pfs.Project{Name: repo.Project.GetName()}, Name: repo.GetName(), Type: pfs.UserRepoType}
-			_, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, baseRepo.Project.Name, baseRepo.Name, baseRepo.Type)
+			_, err := pfsdb.GetRepoInfoByName(ctx, txnCtx.SqlTx, baseRepo.Project.Name, baseRepo.Name, baseRepo.Type)
 			if err != nil {
 				if !pfsdb.IsErrRepoNotFound(err) {
 					return errors.Wrapf(err, "error checking whether user repo for %q exists", baseRepo)
@@ -216,7 +208,7 @@ func (d *driver) inspectRepo(ctx context.Context, txnCtx *txncontext.Transaction
 	if repo == nil {
 		return nil, errors.New("repo cannot be nil")
 	}
-	repoInfo, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
+	repoInfo, err := pfsdb.GetRepoInfoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
 	if err != nil {
 		if pfsdb.IsErrRepoNotFound(err) {
 			return nil, pfsserver.ErrRepoNotFound{Repo: repo}
@@ -374,7 +366,7 @@ func (d *driver) deleteReposHelper(ctx context.Context, txnCtx *txncontext.Trans
 }
 
 func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionContext, repoHandle *pfs.Repo, force bool) (bool, error) {
-	if _, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repoHandle.Project.Name, repoHandle.Name, repoHandle.Type); err != nil {
+	if _, err := pfsdb.GetRepoInfoByName(ctx, txnCtx.SqlTx, repoHandle.Project.Name, repoHandle.Name, repoHandle.Type); err != nil {
 		if !pfsdb.IsErrRepoNotFound(err) {
 			return false, errors.Wrapf(err, "error checking whether %q exists", repoHandle)
 		}
@@ -437,13 +429,6 @@ func (d *driver) listRepoBranches(ctx context.Context, txnCtx *txncontext.Transa
 // before this method is called, a caller should make sure this repo can be deleted with d.canDeleteRepo() and that
 // all of the repo's branches are deleted using d.deleteBranches()
 func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo, force bool) error {
-	var nonCtxCommitInfos []*pfs.CommitInfo
-	if err := pfsdb.ForEachCommit(ctx, d.env.DB, &pfs.Commit{Repo: ri.Repo}, func(commit pfsdb.Commit) error {
-		nonCtxCommitInfos = append(nonCtxCommitInfos, commit.CommitInfo)
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "delete repo info")
-	}
 	commits, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, &pfs.Commit{Repo: ri.Repo})
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
@@ -465,8 +450,8 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 		return errors.Wrap(err, "delete repo info")
 	}
 	// Similarly with commits
-	for _, commitInfo := range commits {
-		if err := pfsdb.DeleteCommit(ctx, txnCtx.SqlTx, commitInfo.Commit); err != nil {
+	for _, commit := range commits {
+		if err := pfsdb.DeleteCommit(ctx, txnCtx.SqlTx, commit.ID); err != nil {
 			return errors.Wrap(err, "delete repo info")
 		}
 	}
@@ -484,7 +469,7 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 
 func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]pfsdb.Repo, error) {
 	if repo.Type != pfs.UserRepoType {
-		ri, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
+		ri, err := pfsdb.GetRepoInfoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
 		if err != nil {
 			return nil, err
 		}
@@ -629,10 +614,10 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 			if err != nil {
 				return err
 			}
-			if inspectCommitResp.Finished == nil {
+			if inspectCommitResp.Finished() == nil {
 				return pfsserver.ErrCommitNotFinished{Commit: commit}
 			}
-			commit = inspectCommitResp.Commit
+			commit = inspectCommitResp.Pb()
 			inCommit, err := d.isPathModifiedInCommit(ctx, inspectCommitResp, request.FilePath)
 			if err != nil {
 				return err
@@ -646,11 +631,15 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 				}
 			}
 			commitsSearched++
-			if (foundCommits == request.Limit && request.Limit != 0) || inspectCommitResp.ParentCommit == nil {
+			if (foundCommits == request.Limit && request.Limit != 0) || inspectCommitResp.Parent == nil {
 				searchDone = true
 				return nil
 			}
-			commit = inspectCommitResp.ParentCommit
+			if inspectCommitResp.Parent != nil {
+				commit = inspectCommitResp.Parent.Pb()
+				return nil
+			}
+			commit = nil
 			return nil
 		}, logFields...); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -715,7 +704,7 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfsdb.Comm
 	}
 	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
-		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Commit.Id, nil)
+		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Pb().Id, nil)
 		diff, err = d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
 		return err
 	}); err != nil {
@@ -791,15 +780,15 @@ func (d *driver) linkParent(ctx context.Context, txnCtx *txncontext.TransactionC
 	// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 	// happen if 'branch' is new and diverges from the existing branch in
 	// 'parent').
-	parentCommitInfo, err := d.resolveCommitInfo(ctx, txnCtx.SqlTx, parent)
+	parentCommit, err := d.resolveCommit(ctx, txnCtx.SqlTx, parent)
 	if err != nil {
 		return errors.Wrapf(err, "parent commit not found")
 	}
 	// fail if the parent commit has not been finished
-	if needsFinishedParent && parentCommitInfo.Finishing == nil {
-		return errors.Errorf("parent commit %s has not been finished", parentCommitInfo.Commit)
+	if needsFinishedParent && parentCommit.Finishing() == nil {
+		return errors.Errorf("parent commit %s has not been finished", parentCommit.Pb())
 	}
-	child.ParentCommit = parentCommitInfo.Commit
+	child.ParentCommit = parentCommit.Pb()
 	return nil
 }
 
@@ -808,7 +797,7 @@ func (d *driver) linkParent(ctx context.Context, txnCtx *txncontext.TransactionC
 // NOTE: Requiring source commits to have finishing / finished parents ensures that the commits are not compacted
 // in a pathological order (finishing later commits before earlier commits will result with us compacting
 // the earlier commits multiple times).
-func (d *driver) addCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) (pfsdb.CommitID, error) {
+func (d *driver) createCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) (pfsdb.CommitID, error) {
 	if err := d.linkParent(ctx, txnCtx, newCommitInfo, parent, needsFinishedParent); err != nil {
 		return 0, err
 	}
@@ -818,7 +807,7 @@ func (d *driver) addCommit(ctx context.Context, txnCtx *txncontext.TransactionCo
 			if pfsdb.IsNotFoundError(err) {
 				return 0, errors.Join(err, pfsserver.ErrBranchNotFound{Branch: prov})
 			}
-			return 0, errors.Wrap(err, "add commit")
+			return 0, errors.Wrap(err, "create commit")
 		}
 		newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, b.BranchInfo.Head)
 	}
@@ -857,14 +846,14 @@ func (d *driver) startCommit(
 	if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branch.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	// New commit and commitInfo
+	// New commit and commit
 	newCommitInfo := newUserCommitInfo(txnCtx, branch)
 	newCommitInfo.Description = description
 	if err := ancestry.ValidateName(branch.Name); err != nil {
 		return nil, err
 	}
 	// Check if repo exists
-	_, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type)
+	_, err := pfsdb.GetRepoInfoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type)
 	if err != nil {
 		if pfsdb.IsErrRepoNotFound(err) {
 			return nil, pfsserver.ErrRepoNotFound{Repo: branch.Repo}
@@ -893,19 +882,20 @@ func (d *driver) startCommit(
 	if parent == nil {
 		parent = branchInfo.Head
 	}
-	commitID, err := d.addCommit(ctx, txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true)
+	commitID, err := d.createCommit(ctx, txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true)
 	if err != nil {
 		return nil, err
 	}
 	// Point 'branch' at the new commit
 	branchInfo.Head = newCommitInfo.Commit
-	if _, err = pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
+	branchID, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo)
+	if err != nil {
 		return nil, errors.Wrap(err, "start commit")
 	}
 	// update branch field after a new branch is created.
 	if updateCommitBranchField {
 		newCommitInfo.Commit.Branch = branchInfo.Branch
-		if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitID, newCommitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
+		if err := pfsdb.UpdateCommitBranch(ctx, txnCtx.SqlTx, commitID, branchID); err != nil {
 			return nil, errors.Wrap(err, "start commit: update branch field after new branch is created")
 		}
 	}
@@ -921,18 +911,17 @@ func (d *driver) startCommit(
 	if err := txnCtx.PropagateBranch(branch); err != nil {
 		return nil, err
 	}
-	return &pfsdb.Commit{ID: commitID, CommitInfo: newCommitInfo}, nil
+	return pfsdb.GetCommit(ctx, txnCtx.SqlTx, commitID)
 }
 
 func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commit *pfsdb.Commit, description, commitError string, force bool) error {
-	commitInfo := commit.CommitInfo
-	if commitInfo.Finishing != nil {
+	if commit.Finishing() != nil {
 		return pfsserver.ErrCommitFinished{
-			Commit: commitInfo.Commit,
+			Commit: commit.Pb(),
 		}
 	}
-	if !force && len(commitInfo.DirectProvenance) > 0 {
-		if info, err := d.env.GetPipelineInspector().InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil && !errutil.IsNotFoundError(err) {
+	if !force && len(commit.DirectProvenance) > 0 {
+		if info, err := d.env.GetPipelineInspector().InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(commit.Repo.Pb())); err != nil && !errutil.IsNotFoundError(err) {
 			return errors.EnsureStack(err)
 		} else if err == nil && info.Type == pps.PipelineInfo_PIPELINE_TYPE_TRANSFORM {
 			return errors.Errorf("cannot finish a pipeline output or meta commit, use 'stop job' instead")
@@ -940,12 +929,13 @@ func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.Transactio
 		// otherwise, this either isn't a pipeline at all, or is a spout or service for which we should allow finishing
 	}
 	if description != "" {
-		commitInfo.Description = description
+		commit.Description = description
 	}
-	commitInfo.Finishing = txnCtx.Timestamp
-	commitInfo.Error = commitError
+	commit.FinishingTime = pbutil.SanitizeTimestampPb(txnCtx.Timestamp)
+	commit.Error = commitError
 
-	return pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commit.ID, commitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true})
+	// Todo(fahad): finish update (error, description, finish timestamp)
+	return pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commit)
 }
 
 // NOTE: repoSize() is only calculated based on the "master" branch
@@ -956,16 +946,18 @@ func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionCon
 			if err != nil {
 				return 0, errors.Wrap(err, "repo size")
 			}
-			commit := branchInfo.Head
+			commit, err := d.resolveCommit(ctx, txnCtx.SqlTx, branchInfo.Head)
+			if err != nil {
+				return 0, err
+			}
 			for commit != nil {
-				commitInfo, err := d.resolveCommitInfo(ctx, txnCtx.SqlTx, commit)
+				if commit.Size != 0 {
+					return commit.Size, nil
+				}
+				commit, err = commit.Parent.ToCommit(ctx, txnCtx.SqlTx)
 				if err != nil {
 					return 0, err
 				}
-				if commitInfo.Details != nil {
-					return commitInfo.Details.SizeBytes, nil
-				}
-				commit = commitInfo.ParentCommit
 			}
 		}
 	}
@@ -1017,7 +1009,7 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 	})
 	// add new commits, set their ancestry + provenance pointers, and advance branch heads
 	for _, bi := range propagatedBranches {
-		// TODO(acohen4): can we just make calls to addCommit() here?
+		// TODO(acohen4): can we just make calls to createCommit() here?
 		// Do not propagate an open commit onto spout output branches (which should
 		// only have a single provenance on a spec commit)
 		if len(bi.Provenance) == 1 && bi.Provenance[0].Repo.Type == pfs.SpecRepoType {
@@ -1085,12 +1077,13 @@ func (d *driver) inspectCommit(ctx context.Context, commitHandle *pfs.Commit, wa
 	if err != nil {
 		return nil, err
 	}
-	if commit.Finished == nil {
+	if commit.Finished() == nil {
 		switch wait {
 		case pfs.CommitState_STARTED:
 		case pfs.CommitState_READY:
 			for _, c := range commit.DirectProvenance {
-				if _, err := d.inspectCommit(ctx, c, pfs.CommitState_FINISHED); err != nil {
+				// todo: rewrite so we don't have to reresolve?
+				if _, err := d.inspectCommit(ctx, c.Pb(), pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}
 			}
@@ -1102,18 +1095,6 @@ func (d *driver) inspectCommit(ctx context.Context, commitHandle *pfs.Commit, wa
 
 }
 
-// inspectCommitInfo takes a Commit and returns the corresponding CommitInfo.
-//
-// As a side effect, this function also replaces the ID in the given commit
-// with a real commit ID.
-func (d *driver) inspectCommitInfo(ctx context.Context, commitHandle *pfs.Commit, wait pfs.CommitState) (*pfs.CommitInfo, error) {
-	commit, err := d.inspectCommit(ctx, commitHandle, wait)
-	if err != nil {
-		return nil, errors.Wrap(err, "inspect commitHandle")
-	}
-	return commit.CommitInfo, nil
-}
-
 // inspectProcessingCommits waits for the commit to be FINISHING or FINISHED.
 func (d *driver) inspectProcessingCommits(ctx context.Context, commit *pfsdb.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
 	// We only cancel the watcher if we detect the commit is the right state.
@@ -1121,17 +1102,17 @@ func (d *driver) inspectProcessingCommits(ctx context.Context, commit *pfsdb.Com
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	if err := pfsdb.WatchCommit(ctx, d.env.DB, d.env.Listener, commit.ID,
-		func(id pfsdb.CommitID, ci *pfs.CommitInfo) error {
+		func(ci *pfsdb.Commit) error {
 			switch wait {
 			case pfs.CommitState_FINISHING:
-				if ci.Finishing != nil {
-					commit.CommitInfo = ci
+				if ci.Finishing() != nil {
+					commit = ci
 					cancel(expectedErr)
 					return nil
 				}
 			case pfs.CommitState_FINISHED:
-				if ci.Finished != nil {
-					commit.CommitInfo = ci
+				if ci.Finished() != nil {
+					commit = ci
 					cancel(expectedErr)
 					return nil
 				}
@@ -1139,7 +1120,7 @@ func (d *driver) inspectProcessingCommits(ctx context.Context, commit *pfsdb.Com
 			return nil
 		},
 		func(id pfsdb.CommitID) error {
-			return pfsserver.ErrCommitDeleted{Commit: commit.Commit}
+			return pfsserver.ErrCommitDeleted{Commit: commit.Pb()}
 		},
 	); err != nil && !errors.Is(context.Cause(ctx), expectedErr) {
 		return nil, errors.Wrap(err, "inspect finishing or finished commit")
@@ -1150,16 +1131,13 @@ func (d *driver) inspectProcessingCommits(ctx context.Context, commit *pfsdb.Com
 // resolveCommitWithAuth is like resolveCommit, but it does some pre-resolution checks like repo authorization.
 func (d *driver) resolveCommitWithAuth(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
 	if commitHandle.Repo.Name == fileSetsRepo {
-		cinfo := &pfs.CommitInfo{
+		commitInfo := &pfs.CommitInfo{
 			Commit:      commitHandle,
 			Description: "FileSet - Virtual Commit",
 			Finished:    &timestamppb.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
 		}
-		return &pfsdb.Commit{
-			ID:         0, // This doesn't seem like the right thing to do, but here we are.
-			CommitInfo: cinfo,
-			Revision:   0,
-		}, nil
+		// todo(fahad): revisit in case of segfault
+		return (&pfsdb.Commit{}).FromInfo(commitInfo), nil
 	}
 	if commitHandle == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
@@ -1240,11 +1218,10 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commitHan
 	// Traverse commits' parents until you've reached the right ancestor
 	if ancestryLength >= 0 {
 		for i := 1; i <= ancestryLength; i++ {
-			if commit.CommitInfo.ParentCommit == nil {
+			if commit.Parent == nil {
 				return nil, pfsserver.ErrCommitNotFound{Commit: commitHandle}
 			}
-			parent := commit.CommitInfo.ParentCommit
-			commit, err = pfsdb.GetCommitByKey(ctx, sqlTx, parent)
+			commit, err = commit.Parent.ToCommit(ctx, sqlTx)
 			if err != nil {
 				if pfsdb.IsNotFoundError(err) {
 					if i == 0 {
@@ -1256,16 +1233,16 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commitHan
 			}
 		}
 	} else {
-		cis := make([]*pfsdb.Commit, ancestryLength*-1)
+		commits := make([]*pfsdb.Commit, ancestryLength*-1)
 		for i := 0; ; i++ {
 			if commitHandleCopy == nil {
-				if i >= len(cis) {
-					commit = cis[i%len(cis)]
+				if i >= len(commits) {
+					commit = commits[i%len(commits)]
 					break
 				}
 				return nil, pfsserver.ErrCommitNotFound{Commit: commitHandle}
 			}
-			cis[i%len(cis)], err = pfsdb.GetCommitByKey(ctx, sqlTx, commitHandleCopy)
+			commits[i%len(commits)], err = pfsdb.GetCommitByKey(ctx, sqlTx, commitHandleCopy)
 			if err != nil {
 				if pfsdb.IsNotFoundError(err) {
 					if i == 0 {
@@ -1275,22 +1252,20 @@ func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commitHan
 				}
 				return nil, err
 			}
-			commitHandleCopy = cis[i%len(cis)].CommitInfo.ParentCommit
+			commitHandleCopy = commits[i%len(commits)].Parent.Pb()
 		}
 	}
 	return commit, nil
 }
 
-// resolveCommitInfo contains the essential implementation of inspectCommitInfo: it converts 'commit' (which may
-// be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
-// ID. It accepts a postgres transaction so that it can be used in a transaction
-// and avoids an inconsistent call to d.inspectCommitInfo()
-func (d *driver) resolveCommitInfo(ctx context.Context, sqlTx *pachsql.Tx, commitHandle *pfs.Commit) (*pfs.CommitInfo, error) {
-	commit, err := d.resolveCommit(ctx, sqlTx, commitHandle)
-	if err != nil {
+func (d *driver) dbCommitToInfo(ctx context.Context, commit *pfsdb.Commit) (*pfs.CommitInfo, error) {
+	commitInfo := commit.PbInfo()
+	var err error
+	commitInfo.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, commit)
+	if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
 		return nil, err
 	}
-	return commit.CommitInfo, nil
+	return commitInfo, nil
 }
 
 // getCommit is like inspectCommitInfo, without the blocking.
@@ -1299,16 +1274,12 @@ func (d *driver) resolveCommitInfo(ctx context.Context, sqlTx *pachsql.Tx, commi
 // TODO(acohen4): consider more an architecture where a commit is resolved at the API boundary
 func (d *driver) getCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
 	if commitHandle.AccessRepo().Name == fileSetsRepo {
-		cinfo := &pfs.CommitInfo{
+		// todo(fahad): revisit in case of segfault
+		return (&pfsdb.Commit{}).FromInfo(&pfs.CommitInfo{
 			Commit:      commitHandle,
 			Description: "FileSet - Virtual Commit",
 			Finished:    &timestamppb.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
-		}
-		return &pfsdb.Commit{
-			ID:         0, // this doesn't seem like the right thing to do, but here we are.
-			CommitInfo: cinfo,
-			Revision:   0,
-		}, nil
+		}), nil
 	}
 	if commitHandle == nil {
 		return nil, errors.Errorf("cannot inspect nil commit")
@@ -1330,12 +1301,12 @@ func (d *driver) getCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfsd
 // subscribeCommit to apply filtering to the returned commits.  By default
 // we allow users to request all the commits with
 // 'all', or a specific type of commit with 'originKind'.
-func passesCommitOriginFilter(commitInfo *pfs.CommitInfo, all bool, originKind pfs.OriginKind) bool {
+func passesCommitOriginFilter(commit *pfsdb.Commit, all bool, originKind pfs.OriginKind) bool {
 	if all {
 		return true
 	}
 	if originKind != pfs.OriginKind_ORIGIN_KIND_UNKNOWN {
-		return commitInfo.Origin.Kind == originKind
+		return commit.CommitOrigin().Kind == originKind
 	}
 	return true
 }
@@ -1350,7 +1321,7 @@ func (d *driver) listCommit(
 	reverse bool,
 	all bool,
 	originKind pfs.OriginKind,
-	cb func(*pfs.CommitInfo) error,
+	cb func(*pfsdb.Commit) error,
 ) error {
 	// Validate arguments
 	if repo == nil {
@@ -1366,7 +1337,7 @@ func (d *driver) listCommit(
 	// Make sure that the repo exists
 	if repo.Name != "" {
 		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-			if _, err := pfsdb.GetRepoByName(ctx, tx, repo.Project.Name, repo.Name, repo.Type); err != nil {
+			if _, err := pfsdb.GetRepoInfoByName(ctx, tx, repo.Project.Name, repo.Name, repo.Type); err != nil {
 				if pfsdb.IsErrRepoNotFound(err) {
 					return pfsserver.ErrRepoNotFound{Repo: repo}
 				}
@@ -1380,16 +1351,16 @@ func (d *driver) listCommit(
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := d.inspectCommitInfo(ctx, from, pfs.CommitState_STARTED); err != nil {
+		if _, err := d.inspectCommit(ctx, from, pfs.CommitState_STARTED); err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		ci, err := d.inspectCommitInfo(ctx, to, pfs.CommitState_STARTED)
+		ci, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
 		if err != nil {
 			return err
 		}
-		to = ci.Commit
+		to = ci.Pb()
 	}
 
 	// if number is 0, we return all commits that match the criteria
@@ -1400,31 +1371,26 @@ func (d *driver) listCommit(
 	if from != nil && to == nil {
 		return errors.Errorf("cannot use `from` commit without `to` commit")
 	} else if from == nil && to == nil {
-		// we hold onto a revisions worth of cis so that we can sort them by provenance
-		var cis []*pfsdb.Commit
-		// sendCis sorts cis and passes them to f
-		sendCis := func() error {
+		// we hold onto a revisions worth of commits so that we can sort them by provenance
+		var commits []*pfsdb.Commit
+		// sendCommits sorts commits and passes them to f
+		sendCommits := func() error {
 			// We don't sort these because there is no provenance between commits
 			// within a repo, so there is no topological sort necessary.
-			for i, ci := range cis {
+			for i, commit := range commits {
 				if number == 0 {
 					return errutil.ErrBreak
 				}
 				number--
 
 				if reverse {
-					ci = cis[len(cis)-1-i]
+					commit = commits[len(commits)-1-i]
 				}
-				var err error
-				ci.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, ci)
-				if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
-					return err
-				}
-				if err := cb(ci.CommitInfo); err != nil {
+				if err := cb(commit); err != nil {
 					return err
 				}
 			}
-			cis = nil
+			commits = nil
 			return nil
 		}
 
@@ -1442,34 +1408,33 @@ func (d *driver) listCommit(
 		}
 		lastRev := int64(-1)
 		if err := pfsdb.ForEachCommit(ctx, d.env.DB, filter, func(commit pfsdb.Commit) error {
-			ci := commit
-			if ci.Revision != lastRev {
-				if err := sendCis(); err != nil {
+			c := commit // intentional shadowing to allocate new addresses.
+			if c.Revision != lastRev {
+				if err := sendCommits(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
 						return nil
 					}
 					return err
 				}
-				lastRev = ci.Revision
+				lastRev = c.Revision
 			}
-			if passesCommitOriginFilter(ci.CommitInfo, all, originKind) {
-				commitInfo := proto.Clone(ci.CommitInfo).(*pfs.CommitInfo)
+			if passesCommitOriginFilter(&c, all, originKind) {
 				if startTime != nil {
-					createdAt := time.Unix(ci.Started.GetSeconds(), int64(ci.Started.GetNanos())).UTC()
+					createdAt := c.StartTime.Time.UTC()
 					fromTime := time.Unix(startTime.GetSeconds(), int64(startTime.GetNanos())).UTC()
 					if !reverse && createdAt.Before(fromTime) || reverse && createdAt.After(fromTime) {
-						cis = append(cis, &pfsdb.Commit{CommitInfo: commitInfo, Revision: ci.Revision, ID: ci.ID})
+						commits = append(commits, &c)
 					}
 					return nil
 				}
-				cis = append(cis, &pfsdb.Commit{CommitInfo: commitInfo, Revision: ci.Revision, ID: ci.ID})
+				commits = append(commits, &c)
 			}
 			return nil
 		}, pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnID, Order: order}); err != nil {
 			return errors.Wrap(err, "list commit")
 		}
-		// Call sendCis one last time to send whatever's pending in 'cis'
-		if err := sendCis(); err != nil && !errors.Is(err, errutil.ErrBreak) {
+		// Call sendCommits one last time to send whatever's pending in 'commits'
+		if err := sendCommits(); err != nil && !errors.Is(err, errutil.ErrBreak) {
 			return err
 		}
 	} else {
@@ -1486,13 +1451,12 @@ func (d *driver) listCommit(
 			}); err != nil {
 				return errors.Wrap(err, "list commit")
 			}
-			if passesCommitOriginFilter(commit.CommitInfo, all, originKind) {
+			if passesCommitOriginFilter(commit, all, originKind) {
 				var err error
-				commit.SizeBytesUpperBound, err = d.commitSizeUpperBound(ctx, commit)
 				if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
 					return err
 				}
-				if err := cb(commit.CommitInfo); err != nil {
+				if err := cb(commit); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
 						return nil
 					}
@@ -1500,7 +1464,12 @@ func (d *driver) listCommit(
 				}
 				number--
 			}
-			cursor = commit.ParentCommit
+			cursorParent := commit.Parent
+			if cursorParent != nil && cursorParent.ID != 0 {
+				cursor = cursorParent.Pb()
+			} else {
+				cursor = nil
+			}
 		}
 	}
 	return nil
@@ -1514,7 +1483,7 @@ func (d *driver) subscribeCommit(
 	state pfs.CommitState,
 	all bool,
 	originKind pfs.OriginKind,
-	cb func(*pfs.CommitInfo) error,
+	cb func(*pfsdb.Commit) error,
 ) error {
 	// Validate arguments
 	if repo == nil {
@@ -1533,27 +1502,29 @@ func (d *driver) subscribeCommit(
 	}); err != nil {
 		return err
 	}
+	ctxName := "subscribeCommit"
+	ctx = pctx.Child(ctx, ctxName)
 	return pfsdb.WatchCommitsInRepo(ctx, d.env.DB, d.env.Listener, repoID,
-		func(id pfsdb.CommitID, commitInfo *pfs.CommitInfo) error { // onUpsert
+		func(commit *pfsdb.Commit) error { // onUpsert
 			// if branch is provided, make sure the commit was created on that branch
-			if branch != "" && commitInfo.Commit.Branch.Name != branch {
+			if branch != "" && commit.BranchName.String != branch {
 				return nil
 			}
 			// If the origin of the commit doesn't match what we're interested in, skip it
-			if !passesCommitOriginFilter(commitInfo, all, originKind) {
+			if !passesCommitOriginFilter(commit, all, originKind) {
 				return nil
 			}
 			// We don't want to include the `from` commit itself
-			if !(seen[commitInfo.Commit.Id] || (from != nil && from.Id == commitInfo.Commit.Id)) {
+			if !(seen[commit.Key] || (from != nil && from.Id == commit.Key)) {
 				// Wait for the commit to enter the right state
-				commitInfo, err := d.inspectCommitInfo(ctx, proto.Clone(commitInfo.Commit).(*pfs.Commit), state)
+				commit, err := d.inspectCommit(ctx, proto.Clone(commit.Pb()).(*pfs.Commit), state)
 				if err != nil {
 					return err
 				}
-				if err := cb(commitInfo); err != nil {
+				if err := cb(commit); err != nil {
 					return err
 				}
-				seen[commitInfo.Commit.Id] = true
+				seen[commit.Key] = true
 			}
 			return nil
 		},
@@ -1568,7 +1539,7 @@ func (d *driver) clearCommit(ctx context.Context, commitHandle *pfs.Commit) erro
 	if err != nil {
 		return err
 	}
-	if commit.Finishing != nil {
+	if commit.Finishing() != nil {
 		return errors.Errorf("cannot clear finished commit")
 	}
 	return errors.EnsureStack(d.commitStore.DropFileSets(ctx, commit))
@@ -1579,35 +1550,28 @@ func (d *driver) squashCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	if err != nil {
 		return err
 	}
-	commitHandle = commit.Commit
-	subvenantCommits, err := pfsdb.GetFullCommitSubvenance(ctx, txnCtx.SqlTx, commitHandle)
+	commitHandle = commit.Pb()
+	commits, err := pfsdb.GetSubvenantCommits(ctx, txnCtx.SqlTx, commit.ID)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "squash commit")
 	}
-	commits := []*pfsdb.Commit{commit}
-	for _, c := range subvenantCommits {
-		ci, err := pfsdb.GetCommitByKey(ctx, txnCtx.SqlTx, c)
-		if err != nil {
-			return err
-		}
-		commits = append(commits, ci)
-	}
+	commits = slices.Insert(commits, 0, commit)
 	if len(commits) > 1 && !recursive {
 		return errors.Errorf("cannot squash commit (%v) with subvenance without recursive", commitHandle)
 	}
 	for _, c := range commits {
-		if c.Commit.Branch.Repo.Type == pfs.SpecRepoType && c.Origin.Kind == pfs.OriginKind_USER {
-			return errors.Errorf("cannot squash commit %s because it updated a pipeline", c.Commit)
+		if c.Repo.Type == pfs.SpecRepoType && c.CommitOrigin().Kind == pfs.OriginKind_USER {
+			return errors.Errorf("cannot squash commit %s because it updated a pipeline", c.Pb())
 		}
-		if len(c.ChildCommits) == 0 {
-			return &pfsserver.ErrSquashWithoutChildren{Commit: c.Commit}
+		if len(c.Children) == 0 {
+			return &pfsserver.ErrSquashWithoutChildren{Commit: c.Pb()}
 		}
 	}
 	for _, c := range commits {
 		if err := d.deleteCommit(ctx, txnCtx, c); err != nil {
 			return err
 		}
-		txnCtx.StopJob(c.Commit)
+		txnCtx.StopJob(c.Pb())
 	}
 	return nil
 }
@@ -1617,48 +1581,40 @@ func (d *driver) dropCommit(ctx context.Context, txnCtx *txncontext.TransactionC
 	if err != nil {
 		return err
 	}
-	commitHandle = commit.Commit
-	subvenantCommits, err := pfsdb.GetFullCommitSubvenance(ctx, txnCtx.SqlTx, commitHandle)
+	commits, err := pfsdb.GetSubvenantCommits(ctx, txnCtx.SqlTx, commit.ID)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "drop commit")
 	}
-	commits := []*pfsdb.Commit{commit}
-	for _, subvenantCommit := range subvenantCommits {
-		c, err := pfsdb.GetCommitByKey(ctx, txnCtx.SqlTx, subvenantCommit)
-		if err != nil {
-			return err
-		}
-		commits = append(commits, c)
-	}
+	commits = slices.Insert(commits, 0, commit)
 	if len(commits) > 1 && !recursive {
 		return errors.Errorf("cannot drop commit (%v) with subvenance without recursive", commitHandle)
 	}
-	for _, ci := range commits {
-		if len(ci.ChildCommits) > 0 {
-			return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
+	for _, c := range commits {
+		if len(c.Children) > 0 {
+			return &pfsserver.ErrDropWithChildren{Commit: c.Pb()}
 		}
 	}
 	for _, ci := range commits {
 		if err := d.deleteCommit(ctx, txnCtx, ci); err != nil {
 			return err
 		}
-		txnCtx.StopJob(ci.Commit)
+		txnCtx.StopJob(ci.Pb())
 	}
 	return nil
 }
 
 func (d *driver) walkCommitProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitProvenanceRequest,
-	startId pfsdb.CommitID, cb func(commitInfo *pfs.CommitInfo) error) error {
+	startId pfsdb.CommitID, cb func(commit *pfsdb.Commit) error) error {
 	commits, err := pfsdb.GetProvenantCommits(ctx, txnCtx.SqlTx, startId,
 		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxCommits))
 	if err != nil {
 		return errors.Wrap(err, "walk commit provenance in transaction")
 	}
 	for _, commit := range commits {
-		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, commit.Commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, commit.Pb().Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := cb(commit.CommitInfo); err != nil {
+		if err := cb(commit); err != nil {
 			return errors.Wrap(err, "walk commit provenance in transaction")
 		}
 	}
@@ -1666,17 +1622,17 @@ func (d *driver) walkCommitProvenanceTx(ctx context.Context, txnCtx *txncontext.
 }
 
 func (d *driver) walkCommitSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitSubvenanceRequest,
-	startId pfsdb.CommitID, cb func(commitInfo *pfs.CommitInfo) error) error {
+	startId pfsdb.CommitID, cb func(commit *pfsdb.Commit) error) error {
 	commits, err := pfsdb.GetSubvenantCommits(ctx, txnCtx.SqlTx, startId,
 		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxCommits))
 	if err != nil {
 		return errors.Wrap(err, "walk commit subvenance in transaction")
 	}
 	for _, commit := range commits {
-		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, commit.Commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, commit.Pb().Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := cb(commit.CommitInfo); err != nil {
+		if err := cb(commit); err != nil {
 			return errors.Wrap(err, "walk commit subvenance in transaction")
 		}
 	}
@@ -1707,13 +1663,14 @@ func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.Transac
 			updateHead = head
 			newRepoCommits[p.Repo.Key()] = head
 		}
-		branchInfo := &pfs.BranchInfo{Branch: p, Head: head.CommitInfo.Commit}
-		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
+		branchInfo := &pfs.BranchInfo{Branch: p, Head: head.Pb()}
+		branchID, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo)
+		if err != nil {
 			return errors.Wrap(err, "upsert branch")
 		}
 		// Now that the branch exists, add the branch_id to the head commit.
 		if updateHead != nil {
-			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, updateHead.ID, updateHead.CommitInfo); err != nil {
+			if err := pfsdb.UpdateCommitBranch(ctx, txnCtx.SqlTx, updateHead.ID, branchID); err != nil {
 				return errors.Wrap(err, "update commit")
 			}
 		}
@@ -1838,11 +1795,11 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	// if the user passed a commit to point this branch at, resolve it
 	if commitHandle != nil {
-		ci, err := d.resolveCommitInfo(ctx, txnCtx.SqlTx, commitHandle)
+		ci, err := d.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
 		if err != nil {
 			return errors.Wrapf(err, "unable to inspect %s", commitHandle)
 		}
-		commitHandle = ci.Commit
+		commitHandle = ci.Pb()
 	}
 	// retrieve the current version of this branch and set its head if specified
 	var oldProvenance []*pfs.Branch
@@ -1878,19 +1835,22 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 		if err != nil {
 			return err
 		}
-		branchInfo.Head = c.CommitInfo.Commit
+		branchInfo.Head = c.Pb()
 		updateHead = c
 		propagate = true
 	}
 	if trigger != nil && trigger.Branch != "" {
 		branchInfo.Trigger = trigger
 	}
-	if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
+	branchID, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo)
+	if err != nil {
 		return errors.Wrap(err, "create branch")
 	}
 	// need to update head commit's branch_id after the branch is created.
 	if updateHead != nil {
-		if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, updateHead.ID, updateHead.CommitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
+		updateHead.BranchName.Valid = true
+		updateHead.BranchName.String = branchInfo.Branch.Name
+		if err := pfsdb.UpdateCommitBranch(ctx, txnCtx.SqlTx, updateHead.ID, branchID); err != nil {
 			return errors.Wrap(err, "create branch")
 		}
 	}
@@ -2006,7 +1966,7 @@ func (d *driver) listBranchInTransaction(ctx context.Context, txnCtx *txncontext
 	}
 	// Make sure that the repo exists
 	if repo.Name != "" {
-		if _, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type); err != nil {
+		if _, err := pfsdb.GetRepoInfoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type); err != nil {
 			if pfsdb.IsErrRepoNotFound(err) {
 				return pfsserver.ErrRepoNotFound{Repo: repo}
 			}
@@ -2107,13 +2067,13 @@ func (d *driver) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Transac
 		commitInfo.Finished = txnCtx.Timestamp
 		commitInfo.Details = &pfs.CommitInfo_Details{}
 	}
-	commitId, err := d.addCommit(ctx, txnCtx, commitInfo, parent, directProvenance, false /* needsFinishedParent */)
+	commitId, err := d.createCommit(ctx, txnCtx, commitInfo, parent, directProvenance, false /* needsFinishedParent */)
 	if err != nil {
 		return nil, err
 	}
-	commit := &pfsdb.Commit{
-		ID:         commitId,
-		CommitInfo: commitInfo,
+	commit, err := pfsdb.GetCommit(ctx, txnCtx.SqlTx, commitId)
+	if err != nil {
+		return nil, errors.Wrap(err, "make empty commit")
 	}
 	if closed {
 		total, err := d.storage.Filesets.ComposeTx(txnCtx.SqlTx, nil, defaultTTL)

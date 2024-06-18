@@ -235,7 +235,7 @@ func setDiff(tx *pachsql.Tx, tr track.Tracker, commit *pfsdb.Commit, id fileset.
 		return errors.Wrap(err, "set diff")
 	}
 	if commit.ID == 0 {
-		return errors.New(fmt.Sprintf("cannot set diff for commit %v when ID is 0", commit.CommitInfo.Commit.Key()))
+		return errors.New(fmt.Sprintf("cannot set diff for commit %v when ID is 0", commit.Pb().Key()))
 	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_diffs (commit_int_id, fileset_id)
 	VALUES ($1, $2)

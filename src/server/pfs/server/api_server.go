@@ -177,7 +177,7 @@ func (a *apiServer) DeleteRepoInTransaction(ctx context.Context, txnCtx *txncont
 	return a.driver.deleteRepo(ctx, txnCtx, request.Repo, request.Force)
 }
 
-// DeleteRepoInTransaction is identical to DeleteRepo except that it can run
+// DeleteReposInTransaction is identical to DeleteRepo except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) DeleteReposInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repos []*pfs.Repo, force bool) error {
 	var ris []*pfs.RepoInfo
@@ -238,7 +238,7 @@ func (a *apiServer) StartCommitInTransaction(ctx context.Context, txnCtx *txncon
 	if err != nil {
 		return nil, errors.Wrap(err, "start commit in transaction")
 	}
-	return commit.Commit, nil
+	return commit.Pb(), err
 }
 
 // StartCommit implements the protobuf pfs.StartCommit RPC
@@ -288,19 +288,36 @@ func (a *apiServer) forgetCommitTx(txnCtx *txncontext.TransactionContext, commit
 // excluded) except that it can run inside an existing postgres transaction.
 // This is not an RPC.
 func (a *apiServer) InspectCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	return a.driver.resolveCommitInfo(ctx, txnCtx.SqlTx, request.Commit)
+	commit, err := a.driver.resolveCommit(ctx, txnCtx.SqlTx, request.Commit)
+	if err != nil {
+		return nil, errors.Wrap(err, "inspect commit in transaction")
+	}
+	// todo(Fahad): figure out how to get the sizeBytesUpperBound.
+	commitInfo := commit.PbInfo()
+	if commit.Size != 0 {
+		commitInfo.SizeBytesUpperBound = commit.Size
+	}
+	return commitInfo, nil
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
-	return a.driver.inspectCommitInfo(ctx, request.Commit, request.Wait)
+	commit, err := a.driver.inspectCommit(ctx, request.Commit, request.Wait)
+	if err != nil {
+		return nil, errors.Wrap(err, "inspect commit")
+	}
+	return a.driver.dbCommitToInfo(ctx, commit)
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
 func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.API_ListCommitServer) (retErr error) {
 	request.GetRepo().EnsureProject()
-	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.StartedTime, request.Number, request.Reverse, request.All, request.OriginKind, func(ci *pfs.CommitInfo) error {
-		return errors.EnsureStack(respServer.Send(ci))
+	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.StartedTime, request.Number, request.Reverse, request.All, request.OriginKind, func(commit *pfsdb.Commit) error {
+		commitInfo, err := a.driver.dbCommitToInfo(respServer.Context(), commit)
+		if err != nil {
+			return errors.Wrap(err, "list commit")
+		}
+		return errors.Wrap(respServer.Send(commitInfo), "list commit")
 	})
 }
 
@@ -332,7 +349,12 @@ func (a *apiServer) InspectCommitSetInTransaction(ctx context.Context, txnCtx *t
 	}
 	var commitInfos []*pfs.CommitInfo
 	for _, commit := range commits {
-		commitInfos = append(commitInfos, commit.CommitInfo)
+		// todo(Fahad): figure out how to get the sizeBytesUpperBound.
+		commitInfo := commit.PbInfo()
+		if commit.Size != 0 {
+			commitInfo.SizeBytesUpperBound = commit.Size
+		}
+		commitInfos = append(commitInfos, commit.PbInfo())
 	}
 	return commitInfos, nil
 }
@@ -340,9 +362,13 @@ func (a *apiServer) InspectCommitSetInTransaction(ctx context.Context, txnCtx *t
 // InspectCommitSet implements the protobuf pfs.InspectCommitSet RPC
 func (a *apiServer) InspectCommitSet(request *pfs.InspectCommitSetRequest, server pfs.API_InspectCommitSetServer) (retErr error) {
 	var count int
-	if err := a.driver.inspectCommitSet(server.Context(), request.CommitSet, request.Wait, func(ci *pfs.CommitInfo) error {
+	if err := a.driver.inspectCommitSet(server.Context(), request.CommitSet, request.Wait, func(commit *pfsdb.Commit) error {
 		count++
-		return server.Send(ci)
+		commitInfo, err := a.driver.dbCommitToInfo(server.Context(), commit)
+		if err != nil {
+			return errors.Wrap(err, "inspect commit set")
+		}
+		return server.Send(commitInfo)
 	}); err != nil {
 		return err
 	}
@@ -354,7 +380,17 @@ func (a *apiServer) InspectCommitSet(request *pfs.InspectCommitSetRequest, serve
 
 // ListCommitSet implements the protobuf pfs.ListCommitSet RPC
 func (a *apiServer) ListCommitSet(request *pfs.ListCommitSetRequest, serv pfs.API_ListCommitSetServer) (retErr error) {
-	return a.driver.listCommitSet(serv.Context(), request.Project, func(commitSetInfo *pfs.CommitSetInfo) error {
+	return a.driver.listCommitSet(serv.Context(), request.Project, func(commitSet *pfs.CommitSet, commits []*pfsdb.Commit) error {
+		commitSetInfo := &pfs.CommitSetInfo{
+			CommitSet: commitSet,
+		}
+		for _, commit := range commits {
+			commitInfo, err := a.driver.dbCommitToInfo(serv.Context(), commit)
+			if err != nil {
+				return errors.Wrap(err, "list commit set")
+			}
+			commitSetInfo.Commits = append(commitSetInfo.Commits, commitInfo)
+		}
 		return errors.EnsureStack(serv.Send(commitSetInfo))
 	})
 }
@@ -388,7 +424,13 @@ func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSe
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	request.GetRepo().EnsureProject()
-	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.From, request.State, request.All, request.OriginKind, stream.Send)
+	return a.driver.subscribeCommit(stream.Context(), request.Repo, request.Branch, request.From, request.State, request.All, request.OriginKind, func(commit *pfsdb.Commit) error {
+		commitInfo, err := a.driver.dbCommitToInfo(stream.Context(), commit)
+		if err != nil {
+			return errors.Wrap(err, "subscribe commit")
+		}
+		return stream.Send(commitInfo)
+	})
 }
 
 // ClearCommit deletes all data in the commit.
@@ -421,7 +463,14 @@ type WalkCommitSubvenanceRequest struct {
 
 func (a *apiServer) WalkCommitProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
 	for _, start := range request.Start {
-		if err := a.driver.walkCommitProvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {
+		if err := a.driver.walkCommitProvenanceTx(ctx, txnCtx, request, start.ID, func(commit *pfsdb.Commit) error {
+			// todo(Fahad): figure out how to get the sizeBytesUpperBound.
+			commitInfo := commit.PbInfo()
+			if commit.Size != 0 {
+				commitInfo.SizeBytesUpperBound = commit.Size
+			}
+			return srv.Send(commitInfo)
+		}); err != nil {
 			return errors.Wrap(err, "walk commit provenance tx")
 		}
 	}
@@ -430,7 +479,15 @@ func (a *apiServer) WalkCommitProvenanceTx(ctx context.Context, txnCtx *txnconte
 
 func (a *apiServer) WalkCommitSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
 	for _, start := range request.Start {
-		if err := a.driver.walkCommitSubvenanceTx(ctx, txnCtx, request, start.ID, srv.Send); err != nil {
+		if err := a.driver.walkCommitSubvenanceTx(ctx, txnCtx, request, start.ID, func(commit *pfsdb.Commit) error {
+			// todo(Fahad): figure out how to get the sizeBytesUpperBound.
+			commitInfo := commit.PbInfo()
+			if commit.Size != 0 {
+				commitInfo.SizeBytesUpperBound = commit.Size
+			}
+			return srv.Send(commitInfo)
+
+		}); err != nil {
 			return errors.Wrap(err, "walk commit subvenance tx")
 		}
 	}
@@ -817,15 +874,15 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
 			output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
-				info, err := a.driver.inspectCommitInfo(ctx, output, pfs.CommitState_STARTED)
+				commit, err := a.driver.inspectCommit(ctx, output, pfs.CommitState_STARTED)
 				if err != nil {
 					return err
 				}
 				// we will be reading the whole file system, so unfinished commits would be very slow
-				if info.Error == "" && info.Finished != nil {
+				if commit.Error == "" && commit.Finished() != nil {
 					break
 				}
-				output = info.ParentCommit
+				output = commit.Parent.Pb()
 			}
 			if output == nil {
 				return nil

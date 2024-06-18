@@ -68,7 +68,7 @@ func TestUpsertRepo(t *testing.T) {
 		getByIDInfo, err := pfsdb.GetRepoInfo(ctx, tx, repoID)
 		require.NoError(t, err)
 		compareRepos(t, expectedInfo, getByIDInfo)
-		getByNameInfo, err := pfsdb.GetRepoByName(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type)
+		getByNameInfo, err := pfsdb.GetRepoInfoByName(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type)
 		require.NoError(t, err)
 		compareRepos(t, expectedInfo, getByNameInfo)
 	})
@@ -99,7 +99,7 @@ func TestGetRepoByNameMissingProject(t *testing.T) {
 	repo := testRepo(testRepoName, testRepoType)
 	repo.Repo.Project.Name = "doesNotExist"
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-		_, err := pfsdb.GetRepoByName(ctx, tx, repo.Repo.Project.Name, repo.Repo.Name, repo.Repo.Type)
+		_, err := pfsdb.GetRepoInfoByName(ctx, tx, repo.Repo.Project.Name, repo.Repo.Name, repo.Repo.Type)
 		require.True(t, errors.As(err, &pfsdb.ProjectNotFoundError{}))
 	})
 }
@@ -168,10 +168,10 @@ func TestGetRepo(t *testing.T) {
 		getInfo, err := pfsdb.GetRepoInfo(ctx, tx, repoID)
 		require.NoError(t, err, "should be able to get a repo")
 		compareRepos(t, createInfo, getInfo)
-		// validate GetRepo.
-		repo, err := pfsdb.GetRepo(ctx, tx, pfs.DefaultProjectName, testRepoName, testRepoType)
+		// validate GetRepoByName.
+		repo, err := pfsdb.GetRepoInfoByName(ctx, tx, pfs.DefaultProjectName, testRepoName, testRepoType)
 		require.NoError(t, err, "should be able to get a repo")
-		compareRepos(t, createInfo, repo.RepoInfo)
+		compareRepos(t, createInfo, repo)
 		// validate error for attempting to get non-existent repo.
 		_, err = pfsdb.GetRepoInfo(ctx, tx, 3)
 		require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
@@ -390,7 +390,7 @@ func TestPickRepo(t *testing.T) {
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		_, err := pfsdb.UpsertRepo(ctx, tx, repo)
 		require.NoError(t, err, "should be able to create repo")
-		expected, err := pfsdb.GetRepo(ctx, tx, pfs.DefaultProjectName, testRepoName, testRepoType)
+		expected, err := pfsdb.GetRepoByName(ctx, tx, pfs.DefaultProjectName, testRepoName, testRepoType)
 		require.NoError(t, err, "should be able to get a repo")
 		got, err := pfsdb.PickRepo(ctx, namePicker, tx)
 		require.NoError(t, err, "should be able to pick repo")

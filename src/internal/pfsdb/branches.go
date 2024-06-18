@@ -228,7 +228,7 @@ func GetBranch(ctx context.Context, tx *pachsql.Tx, b *pfs.Branch) (*Branch, err
 	branch := b.GetName()
 	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
 		if err == sql.ErrNoRows {
-			if _, err := GetRepoByName(ctx, tx, project, repo, repoType); err != nil {
+			if _, err := GetRepoInfoByName(ctx, tx, project, repo, repoType); err != nil {
 				if errors.As(err, new(*RepoNotFoundError)) {
 					return nil, errors.Join(err, &BranchNotFoundError{BranchKey: b.Key()})
 				}

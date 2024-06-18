@@ -53,6 +53,7 @@ go_test(
     tags = ["cpu:4"],
     deps = [
         "//src/auth",
+        "//src/debug",
         "//src/enterprise",
         "//src/internal/ancestry",
         "//src/internal/client",
