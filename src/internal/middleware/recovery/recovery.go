@@ -37,7 +37,8 @@ func StreamServerInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.S
 	defer func() {
 		if err := recover(); err != nil {
 			stack := make([]byte, panicLen)
-			runtime.Stack(stack, false)
+			n := runtime.Stack(stack, false)
+			stack = stack[:n]
 			retErr = status.Errorf(PanicCode, "panic: %v\n%s", err, stack)
 		}
 	}()
