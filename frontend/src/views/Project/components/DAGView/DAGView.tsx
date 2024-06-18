@@ -27,7 +27,6 @@ import {
   DownloadSVG,
   useModal,
 } from '@pachyderm/components';
-import useCurrentWidthAndHeight from '@pachyderm/components/hooks/useCurrentWidthAndHeight';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
 import CreateRepoModal from '../CreateRepoModal';
@@ -38,8 +37,6 @@ import RangeSlider from './components/RangeSlider';
 import styles from './DAGView.module.css';
 import {useCanvasDownload} from './hooks/useCanvasDownload';
 import {MAX_SCALE_VALUE, useDAGView} from './hooks/useDAGView';
-
-const CANVAS_CONTROLS_MIN_WIDTH = 950;
 
 type DAGViewProps = {
   dags: Dags | undefined;
@@ -74,9 +71,6 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
   const {openModal, closeModal, isOpen} = useModal(false);
 
   const noDags = dags && dags.nodes.length === 0 && dags.links.length === 0;
-
-  const {ref: headerRef, width: headerWidth} = useCurrentWidthAndHeight();
-  const isResponsive = headerWidth <= CANVAS_CONTROLS_MIN_WIDTH;
 
   const {hasAllPermissions: hasProjectCreateRepo} = useAuthorize(
     {
@@ -146,7 +140,6 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
   return (
     <View className={styles.view}>
       <div
-        ref={headerRef}
         className={styles.topSection}
         style={isSidebarOpen ? {width: `calc(100% - ${sidebarSize}px)`} : {}}
       >
@@ -160,9 +153,9 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
             value={sliderZoomValue * 100}
             disabled={noDags}
           />
-          {isResponsive && (
-            <ButtonGroup>
-              <div className={styles.divider} />
+          <ButtonGroup>
+            <div className={styles.divider} />
+            <div className={styles.responsiveControls}>
               <DefaultDropdown
                 items={menuItems}
                 onSelect={onDropdownMenuSelect}
@@ -175,10 +168,10 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
                 menuOpts={{pin: 'left'}}
                 aria-label="Open DAG controls menu"
               />
-            </ButtonGroup>
-          )}
-          {!isResponsive && (
-            <ButtonGroup>
+            </div>
+          </ButtonGroup>
+          <ButtonGroup>
+            <div className={styles.fullControls}>
               <Button
                 className={styles.controlButton}
                 buttonType="ghost"
@@ -240,8 +233,8 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
               >
                 Download Canvas
               </Button>
-            </ButtonGroup>
-          )}
+            </div>
+          </ButtonGroup>
         </div>
         <DAGError error={error} />
       </div>
