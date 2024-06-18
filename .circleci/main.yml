@@ -1187,7 +1187,7 @@ jobs:
                 gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/docker/pachyderm_*_linux_amd64.tar.gz ./dist-pach/docker/pachyderm_*linux_arm64.tar.gz  --generate-notes --prerelease
             else
                 echo "regular release."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/docker/pachyderm_*_linux_arm64.tar.gz ./dist-pach/docker/pachyderm_*linux_arm64.tar.gz --generate-notes
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/docker/pachyderm_*_linux_amd64.tar.gz ./dist-pach/docker/pachyderm_*linux_arm64.tar.gz --generate-notes
             fi
   console-release-draft:
     docker:
