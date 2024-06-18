@@ -338,7 +338,7 @@ func TestRenderTemplate(t *testing.T) {
 	val, err := structpb.NewStruct(map[string]any{
 		"arg1": "value1",
 	})
-
+	require.NoError(t, err)
 	res, err := client.RenderTemplate(ctx, &pps.RenderTemplateRequest{
 		Args: val,
 		Template: `
