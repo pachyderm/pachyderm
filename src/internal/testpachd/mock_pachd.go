@@ -968,6 +968,7 @@ type deleteRepoFunc func(context.Context, *pfs.DeleteRepoRequest) (*pfs.DeleteRe
 type deleteReposFunc func(context.Context, *pfs.DeleteReposRequest) (*pfs.DeleteReposResponse, error)
 type startCommitFunc func(context.Context, *pfs.StartCommitRequest) (*pfs.Commit, error)
 type finishCommitFunc func(context.Context, *pfs.FinishCommitRequest) (*emptypb.Empty, error)
+type forgetCommitFunc func(context.Context, *pfs.ForgetCommitRequest) (*pfs.ForgetCommitResponse, error)
 type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error)
 type listCommitFunc func(*pfs.ListCommitRequest, pfs.API_ListCommitServer) error
 type squashCommitSetFunc func(context.Context, *pfs.SquashCommitSetRequest) (*emptypb.Empty, error)
@@ -1024,6 +1025,7 @@ type mockDeleteRepo struct{ handler deleteRepoFunc }
 type mockDeleteRepos struct{ handler deleteReposFunc }
 type mockStartCommit struct{ handler startCommitFunc }
 type mockFinishCommit struct{ handler finishCommitFunc }
+type mockForgetCommit struct{ handler forgetCommitFunc }
 type mockInspectCommit struct{ handler inspectCommitFunc }
 type mockListCommit struct{ handler listCommitFunc }
 type mockSquashCommitSet struct{ handler squashCommitSetFunc }
@@ -1080,6 +1082,7 @@ func (mock *mockDeleteRepo) Use(cb deleteRepoFunc)                     { mock.ha
 func (mock *mockDeleteRepos) Use(cb deleteReposFunc)                   { mock.handler = cb }
 func (mock *mockStartCommit) Use(cb startCommitFunc)                   { mock.handler = cb }
 func (mock *mockFinishCommit) Use(cb finishCommitFunc)                 { mock.handler = cb }
+func (mock *mockForgetCommit) Use(cb forgetCommitFunc)                 { mock.handler = cb }
 func (mock *mockInspectCommit) Use(cb inspectCommitFunc)               { mock.handler = cb }
 func (mock *mockListCommit) Use(cb listCommitFunc)                     { mock.handler = cb }
 func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc)           { mock.handler = cb }
@@ -1143,6 +1146,7 @@ type mockPFSServer struct {
 	DeleteRepos          mockDeleteRepos
 	StartCommit          mockStartCommit
 	FinishCommit         mockFinishCommit
+	ForgetCommit         mockForgetCommit
 	InspectCommit        mockInspectCommit
 	ListCommit           mockListCommit
 	SubscribeCommit      mockSubscribeCommit
@@ -1241,6 +1245,12 @@ func (api *pfsServerAPI) FinishCommit(ctx context.Context, req *pfs.FinishCommit
 		return api.mock.FinishCommit.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.FinishCommit")
+}
+func (api *pfsServerAPI) ForgetCommit(ctx context.Context, req *pfs.ForgetCommitRequest) (*pfs.ForgetCommitResponse, error) {
+	if api.mock.ForgetCommit.handler != nil {
+		return api.mock.ForgetCommit.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.ForgetCommit")
 }
 func (api *pfsServerAPI) InspectCommit(ctx context.Context, req *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 	if api.mock.InspectCommit.handler != nil {

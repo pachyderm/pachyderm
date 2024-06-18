@@ -400,6 +400,10 @@ func (c *unsupportedPfsBuilderClient) FinishCommit(_ context.Context, _ *pfs_v2.
 	return nil, unsupportedError("FinishCommit")
 }
 
+func (c *unsupportedPfsBuilderClient) ForgetCommit(_ context.Context, _ *pfs_v2.ForgetCommitRequest, opts ...grpc.CallOption) (*pfs_v2.ForgetCommitResponse, error) {
+	return nil, unsupportedError("ForgetCommit")
+}
+
 func (c *unsupportedPfsBuilderClient) Fsck(_ context.Context, _ *pfs_v2.FsckRequest, opts ...grpc.CallOption) (pfs_v2.API_FsckClient, error) {
 	return nil, unsupportedError("Fsck")
 }

@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ForgetCommitResponse",
+    "definitions": {
+        "ForgetCommitResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Forget Commit Response"
+        }
+    }
+}

@@ -277,6 +277,13 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return &emptypb.Empty{}, nil
 }
 
+func (a *apiServer) forgetCommitTx(txnCtx *txncontext.TransactionContext, commit *pfsdb.Commit) (*pfs.ForgetCommitResponse, error) {
+	if err := a.driver.commitStore.DropFileSetsTx(txnCtx.SqlTx, commit); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return &pfs.ForgetCommitResponse{}, nil
+}
+
 // InspectCommitInTransaction is identical to InspectCommit (some features
 // excluded) except that it can run inside an existing postgres transaction.
 // This is not an RPC.
