@@ -86,7 +86,9 @@ func createCommit(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo 
 	createRepo(t, ctx, tx, newRepoInfo(commitInfo.Commit.Repo.Project, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type))
 	commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 	require.NoError(t, err)
-	return &pfsdb.Commit{ID: commitID, CommitInfo: commitInfo}
+	commit, err := pfsdb.GetCommit(ctx, tx, commitID)
+	require.NoError(t, err)
+	return commit
 }
 
 func TestGetBranchByNameMissingRepo(t *testing.T) {
@@ -118,7 +120,7 @@ func TestBranchUpsert(t *testing.T) {
 					Repo: repoInfo.Repo,
 					Name: "master",
 				},
-				Head: commit1.CommitInfo.Commit,
+				Head: commit1.Pb(),
 			}
 			id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
@@ -130,8 +132,8 @@ func TestBranchUpsert(t *testing.T) {
 			require.NoDiff(t, branchInfo, gotBranchByName.BranchInfo, compareBranchOpts())
 
 			// Update branch to point to second commit
-			commit2 := createCommit(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commit1.CommitInfo.Commit))
-			branchInfo.Head = commit2.CommitInfo.Commit
+			commit2 := createCommit(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commit1.Pb()))
+			branchInfo.Head = commit2.Pb()
 			id2, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
 			require.Equal(t, id, id2, "UpsertBranch should keep id stable")
@@ -522,11 +524,11 @@ func TestBranchTrigger(t *testing.T) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			var err error
 			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
-			commit1 := createCommit(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
+			commit1 := createCommit(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).Pb()
 			masterBranchInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "master"}, Head: commit1}
 			masterBranchID, err = pfsdb.UpsertBranch(ctx, tx, masterBranchInfo)
 			require.NoError(t, err)
-			commit2 := createCommit(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
+			commit2 := createCommit(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).Pb()
 			stagingBranchInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "staging"}, Head: commit2}
 			stagingBranchID, err = pfsdb.UpsertBranch(ctx, tx, stagingBranchInfo)
 			require.NoError(t, err)
@@ -625,7 +627,7 @@ func TestPickBranch(t *testing.T) {
 				Repo: repoInfo.Repo,
 				Name: "test-branch",
 			},
-			Head: commit.CommitInfo.Commit,
+			Head: commit.Pb(),
 		}
 		id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 		require.NoError(t, err, "should be able to upsert branch")
