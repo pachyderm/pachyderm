@@ -3756,6 +3756,10 @@ func spoutLabels(pipeline *pps.Pipeline) map[string]string {
 }
 
 func (a *apiServer) RenderTemplate(ctx context.Context, req *pps.RenderTemplateRequest) (*pps.RenderTemplateResponse, error) {
+
+	if req.Args == nil {
+		return nil, errors.Errorf("No arguments provided. Please provide arguments.")
+	}
 	jsonResult, err := pachtmpl.RenderTemplate(req.Template, req.Args)
 	if err != nil {
 		return nil, err
