@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -218,7 +216,9 @@ func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset
 	var size int64
 	for i, result := range results {
 		if errStr == "" && i != 0 {
-			errStr = checkIndex(results[i-1].Last, result.First)
+			if err := fileset.CheckIndex(results[i-1].Last, result.First); err != nil {
+				errStr = err.Error()
+			}
 		}
 		if errStr == "" {
 			errStr = result.Error
@@ -368,7 +368,9 @@ func processValidateTask(ctx context.Context, storage *fileset.Storage, task *Va
 			}
 			result.Last = idx
 			if result.Error == "" {
-				result.Error = checkIndex(prev, idx)
+				if err := fileset.CheckIndex(prev, idx); err != nil {
+					result.Error = err.Error()
+				}
 			}
 			prev = idx
 			result.SizeBytes += index.SizeBytes(idx)
@@ -381,19 +383,6 @@ func processValidateTask(ctx context.Context, storage *fileset.Storage, task *Va
 		return nil, err
 	}
 	return serializeValidateTaskResult(result)
-}
-
-func checkIndex(prev, curr *index.Index) string {
-	if prev == nil || curr == nil {
-		return ""
-	}
-	if curr.Path == prev.Path {
-		return fmt.Sprintf("duplicate path output by different datums (%v from %v and %v from %v)", prev.Path, prev.File.Datum, curr.Path, curr.File.Datum)
-	}
-	if strings.HasPrefix(curr.Path, prev.Path+"/") {
-		return fmt.Sprintf("file / directory path collision (%v)", curr.Path)
-	}
-	return ""
 }
 
 func serializeShardTask(task *ShardTask) (*anypb.Any, error) { return anypb.New(task) }

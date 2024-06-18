@@ -4,6 +4,7 @@ from jupyter_server.services.contents.filemanager import FileContentsManager
 import mimetypes
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps, auth
+from pachyderm_sdk.api.pfs import Branch, Repo
 import os
 from pathlib import Path
 from tornado import web
@@ -183,89 +184,47 @@ def _default_name(branch: pfs.Branch) -> str:
 
 
 class PFSManager(FileContentsManager):
-    # changes from mount-server impl:
-    #  - branch name will always be present in the dir name, even if master.
-    #    this is to get around the edge case where you have a repo that is
-    #    the prefix of another repo plus a branch name
-
-    class Mount(typing.TypedDict):
-        name: str
-        repo: str
-        project: str
-        branch: str
+    mounted_branch: typing.Optional[pfs.Branch] = None
 
     class Repo(typing.TypedDict):
-        repo: str
+        name: str
         project: str
-        authorization: str
-        branches: typing.List[str]
+        uri: str
+        branches: typing.List[Branch]
+
+    class Branch(typing.TypedDict):
+        name: str
+        uri: str
 
     def __init__(self, client: Client, **kwargs):
         self._client = client
-        # maintain a dict/list of repos we have "mounted"
-        self._mounted = dict()
         super().__init__(**kwargs)
 
-    def mount_repo(
-        self, repo: str, branch: str, project: str = "default", name: str = None
-    ):
-        branch_uri = f"{project}/{repo}@{branch}"
-        mounted_branch = pfs.Branch.from_uri(branch_uri)
-        name = name or _default_name(mounted_branch)
-        if name in self._mounted:
-            raise ValueError(f"attempted to mount as {name} which is already mounted.")
-        self._mounted[name] = mounted_branch
+    def mount_branch(self, branch: pfs.Branch):
+        if not self.branch_exists(branch=branch):
+            raise ValueError("branch_uri exists but does not resolve a valid branch")
+        self.mounted_branch = branch
 
-    def unmount_repo(self, name: str):
-        if name not in self._mounted:
-            raise ValueError(f"attempted to unmount {name} which was not mounted.")
-        del self._mounted[name]
+    def unmount_branch(self):
+        self.mounted_branch = None
 
-    def unmount_all(self):
-        self._mounted.clear()
-
-    def _get_auth_str(self, auth_info: pfs.AuthInfo) -> str:
-        if not auth_info:
-            return "off"
-        if auth.Permission.REPO_WRITE in auth_info.permissions:
-            return "write"
-        if (
-            auth.Permission.REPO_READ in auth_info.permissions
-            and auth.Permission.REPO_LIST_COMMIT in auth_info.permissions
-            and auth.Permission.REPO_LIST_BRANCH in auth_info.permissions
-            and auth.Permission.REPO_LIST_FILE in auth_info.permissions
-        ):
-            return "read"
-        return "none"
-
-    def list_mounts(self) -> dict:
-        mounted: list[self.Mount] = []
-        repo_info = {
+    def list_repos(self) -> typing.List[Repo]:
+        return {
             r.repo.as_uri(): self.Repo(
-                repo=r.repo.name,
+                name=r.repo.name,
                 project=r.repo.project.name,
-                authorization=self._get_auth_str(r.auth_info),
-                branches=[b.name for b in r.branches],
+                uri=r.repo.as_uri(),
+                branches=[self.Branch(name=b.name, uri=b.as_uri()) for b in r.branches],
             )
             for r in self._client.pfs.list_repo()
         }
 
-        for (name, branch) in self._mounted.items():
-            mounted.append(
-                self.Mount(
-                    name=name,
-                    repo=branch.repo.name,
-                    project=branch.repo.project.name,
-                    branch=branch.name,
-                )
-            )
-            repo_info[branch.repo.as_uri()]["branches"].remove(branch.name)
-            if len(repo_info[branch.repo.as_uri()]["branches"]) == 0:
-                del repo_info[branch.repo.as_uri()]
-
-        unmounted = [r for r in repo_info.values()]
-
-        return {"mounted": mounted, "unmounted": unmounted}
+    def branch_exists(self, branch: pfs.Branch) -> bool:
+        try:
+            self._client.pfs.inspect_branch(branch=branch)
+        except:
+            return False
+        return True
 
     def _get_name(self, path: str) -> str:
         path = path.lstrip("/")
@@ -279,21 +238,23 @@ class PFSManager(FileContentsManager):
             return ""
         return str(Path(*Path(path).parts[1:]))
 
-    # returns None for empty path, i.e. the top-level directory
-    def _get_file_from_path(self, path: str) -> pfs.File:
+    # returns None for empty path, i.e. the top-level directory or if no branch is mounted
+    def _get_file_from_path(self, path: str) -> typing.Optional[pfs.File]:
+        if not self.mounted_branch:
+            return None
+
         name = self._get_name(path)
         if not name:
             return None
 
-        if name not in self._mounted:
-            raise FileNotFoundError(f"{name} not mounted")
-
         path_str = self._get_path(path)
-        file_uri = f"{self._mounted[name]}:/{path_str}"
+        file_uri = f"{self.mounted_branch.as_uri()}:/{path_str}"
         return pfs.File.from_uri(file_uri)
 
     def download_file(self, path: str):
         file = self._get_file_from_path(path=path)
+        if file is None:
+            raise ValueError("Cannot find file to download")
         _download_file(client=self._client, file=file, destination=Path(self.root_dir))
 
     def is_hidden(self, path):
@@ -329,57 +290,14 @@ class PFSManager(FileContentsManager):
             return True
         return self._client.pfs.path_exists(file=file)
 
-    def _get_repo_models(self) -> typing.List[ContentModel]:
-        models = []
-        for repo, branch in self._mounted.items():
-            time = self._client.pfs.inspect_commit(
-                commit=pfs.Commit(branch=branch, repo=branch.repo)
-            ).started
-            models.append(
-                ContentModel(
-                    name=repo,
-                    path=repo,
-                    type="directory",
-                    created=time,
-                    last_modified=time,
-                    content=None,
-                    mimetype=None,
-                    format=None,
-                    writable=False,
-                    file_uri=None,
-                )
-            )
-        return models
-
-    def _get_toplevel_model(self, content: bool) -> ContentModel:
-        if content:
-            format = "json"
-            content_model = self._get_repo_models()
-        else:
-            format = None
-            content_model = None
-        return ContentModel(
-            name="",
-            path="/",
-            type="directory",
-            created=DEFAULT_DATETIME,
-            last_modified=DEFAULT_DATETIME,
-            content=content_model,
-            mimetype=None,
-            format=format,
-            writable=False,
-            file_uri=None,
-        )
-
-    def _get_empty_repo_model(self, name: str, content: bool):
-        repo = self._client.pfs.inspect_repo(repo=self._mounted[name].repo)
+    def _get_content_model(self, name: str, path: str, created: datetime, content: typing.Optional[typing.List[ContentModel]]):
         return ContentModel(
             name=name,
-            path=name,
+            path=path,
             type="directory",
-            created=repo.created,
-            last_modified=repo.created,
-            content=[] if content else None,
+            created=created,
+            last_modified=created,
+            content=content,
             mimetype=None,
             format="json" if content else None,
             writable=False,
@@ -402,12 +320,20 @@ class PFSManager(FileContentsManager):
                 reason="bad type",
             )
 
-        file = self._get_file_from_path(path=path)
+        # Show an empty toplevel model if no branch is specified
+        if self.mounted_branch is None:
+            return self._get_content_model("", "/", DEFAULT_DATETIME, None)
 
+        mounted_branch_name = _default_name(self.mounted_branch)
+        mounted_branch_created = self._client.pfs.inspect_commit(
+            commit=pfs.Commit(branch=self.mounted_branch, repo=self.mounted_branch.repo)
+        ).started
+        file = self._get_file_from_path(path)
+
+        # Show a toplevel domain with a directory for the mounted branch
         if file is None:
-            # show top-level dir
-            return self._get_toplevel_model(content=content)
-
+            mounted_branch_content_model = [self._get_content_model(mounted_branch_name, mounted_branch_name, mounted_branch_created, None)] if content else None
+            return self._get_content_model("", "/", DEFAULT_DATETIME, mounted_branch_content_model)
         try:
             fileinfo = self._client.pfs.inspect_file(file=file)
         except grpc.RpcError as err:
@@ -416,9 +342,8 @@ class PFSManager(FileContentsManager):
                 err.code() == grpc.StatusCode.NOT_FOUND
                 or err.code() == grpc.StatusCode.UNKNOWN
             ) and not self._get_path(path=path):
-                return self._get_empty_repo_model(
-                    name=self._get_name(path), content=content
-                )
+                repo = self._client.pfs.inspect_repo(repo=self.mounted_branch.repo)
+                return self._get_content_model(self._get_name(path), path, repo.created, [mounted_branch_content_model])
             else:
                 raise err
 
@@ -479,17 +404,18 @@ class DatumManager(FileContentsManager):
     class DatumState(typing.TypedDict):
         id: str
         idx: int
-        num_datums: int
+        num_datums_received: int
         all_datums_received: bool
 
     class CurrentDatum(typing.TypedDict):
-        num_datums: int
+        num_datums_received: int
         input: str
         idx: int
         all_datums_received: bool
 
     _FILEINFO_DIR = os.path.expanduser("~") + "/.cache/pfs_datum"
     _DOWNLOAD_DIR = os.path.expanduser("~") + "/.cache/pfs_datum_download"
+    DATUM_BATCH_SIZE = 100
 
     def __init__(self, client: Client, **kwargs):
         self._client = client
@@ -497,9 +423,11 @@ class DatumManager(FileContentsManager):
         super().__init__(**kwargs)
 
     def _reset(self):
+        self._datum_batch_generator = None
         self._datum_list = list()
         self._dirs = set()
         self._datum_index = 0
+        self._all_datums_received = False
         self._mount_time = DEFAULT_DATETIME
         self._input = None
         self._download_dir = None
@@ -535,8 +463,7 @@ class DatumManager(FileContentsManager):
                     raise ValueError(f"Input contains non-existent branch {branch}")
                 raise err
 
-            commit = pfs.Commit(repo=repo, id=commit_id, branch=branch)
-            commit_uri = commit.as_uri()
+            commit_uri = f"{repo.as_uri()}@{commit_id}"
             if commit_uri in self._repo_names:
                 raise ValueError(
                     "Loading multiple instances of the same commit is currently not supported in the extension"
@@ -560,7 +487,11 @@ class DatumManager(FileContentsManager):
         try:
             input = pps.Input().from_dict(input_dict["input"])
             self._input = input
-            self._datum_list = list(self._client.pps.list_datum(input=input))
+            self._datum_batch_generator = self._client.pps.generate_datums(
+                input_spec=input, batch_size=DatumManager.DATUM_BATCH_SIZE
+            )
+            self._datum_list = list()
+            self._get_datum_batch()
             self._datum_index = 0
             self._mount_time = datetime.datetime.now()
             self._repo_names.clear()
@@ -569,11 +500,34 @@ class DatumManager(FileContentsManager):
                 self._reset()
                 raise ValueError("input produced no datums to mount")
             self._update_mount()
+        except grpc.RpcError as e:
+            if (
+                e.code() == grpc.StatusCode.NOT_FOUND
+                or e.code() == grpc.StatusCode.UNKNOWN
+                and "not found" in e.details()
+            ):
+                self._reset()
+                raise ValueError("non-existent branch or repo in input")
         except Exception as e:
             self._reset()
             raise e
 
+    def _get_datum_batch(self):
+        try:
+            batch = next(self._datum_batch_generator)
+        except StopIteration:
+            batch = []
+
+        self._datum_list.extend(batch)
+        if len(batch) < self.DATUM_BATCH_SIZE:
+            self._all_datums_received = True
+
     def next_datum(self):
+        if (
+            self._datum_index == len(self._datum_list) - 1
+            and not self._all_datums_received
+        ):
+            self._get_datum_batch()
         self._datum_index = (self._datum_index + 1) % len(self._datum_list)
         self._update_mount()
 
@@ -587,16 +541,16 @@ class DatumManager(FileContentsManager):
         return self.DatumState(
             id=self._datum_list[self._datum_index].datum.id,
             idx=self._datum_index,
-            num_datums=len(self._datum_list),
-            all_datums_received=True,
+            num_datums_received=len(self._datum_list),
+            all_datums_received=self._all_datums_received,
         )
 
     def current_datum(self) -> dict:
         return self.CurrentDatum(
-            num_datums=len(self._datum_list),
+            num_datums_received=len(self._datum_list),
             input=self._input.to_json() if self._input else None,
             idx=self._datum_index,
-            all_datums_received=True,
+            all_datums_received=self._all_datums_received,
         )
 
     def download(self):
@@ -656,7 +610,8 @@ class DatumManager(FileContentsManager):
             raise e
 
     def _get_relative_path(self, fileinfo: pfs.FileInfo) -> Path:
-        commit_uri = fileinfo.file.commit.as_uri()
+        commit = fileinfo.file.commit
+        commit_uri = f"{commit.repo.as_uri()}@{commit.id}"
         name = self._repo_names[commit_uri]
         return Path(name, fileinfo.file.path.strip("/"))
 

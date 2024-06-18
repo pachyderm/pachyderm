@@ -167,7 +167,6 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 			require.NoError(t, cmdutil.PopulateDefaults(config))
 			config.StorageBackend = obj.Local
 			config.StorageRoot = path.Join(realEnv.Directory, "localStorage")
-			config.GoCDKEnabled = true
 			config.StorageURL = "file://" + config.StorageRoot
 		},
 		DefaultConfigOptions,
@@ -234,7 +233,6 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		ctx,
 		pfsserver.WorkerEnv{
 			DB:          pfsEnv.DB,
-			ObjClient:   pfsEnv.ObjectClient,
 			Bucket:      pfsEnv.Bucket,
 			TaskService: pfsEnv.TaskService,
 		},
@@ -339,7 +337,10 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	})
 	go debugWorker.Run(ctx) //nolint:errcheck
 
-	realEnv.LogsServer, err = logsserver.NewAPIServer(logsserver.Env{GetLokiClient: realEnv.ServiceEnv.GetLokiClient})
+	realEnv.LogsServer, err = logsserver.NewAPIServer(logsserver.Env{
+		GetLokiClient: realEnv.ServiceEnv.GetLokiClient,
+		AuthServer:    realEnv.AuthServer,
+	})
 	require.NoError(t, err)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)

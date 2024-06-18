@@ -53,14 +53,10 @@ spec:
         - --mode
         - "$(MODE)"
         env:
-        - name: GOCDK_ENABLED
-          value: {{ .Values.pachd.storage.gocdkEnabled | default true | quote }}
-        {{- if .Values.pachd.storage.storageURL }}
+        {{- if ne .Values.deployTarget "LOCAL" }}
         - name: STORAGE_URL
-          value: {{ .Values.pachd.storage.storageURL }}
+          value: {{ required "storage URL required" .Values.pachd.storage.storageURL | quote }}
         {{- end }}
-        - name: PACHW_IN_SIDECARS
-          value: {{ .Values.pachw.inSidecars | quote }}
         - name: PACHW_MIN_REPLICAS
           value: {{ .Values.pachw.minReplicas | default 0 | quote }}
         - name: PACHW_MAX_REPLICAS

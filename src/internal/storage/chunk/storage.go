@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"gocloud.dev/blob"
+
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
@@ -32,6 +35,7 @@ type Storage struct {
 	db            *pachsql.DB
 	tracker       track.Tracker
 	store         kv.Store
+	bucket        *blob.Bucket
 	memCache      *memoryCache
 	deduper       *miscutil.WorkDeduper[pachhash.Output]
 	pool          *kv.Pool
@@ -41,10 +45,11 @@ type Storage struct {
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(store kv.Store, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
+func NewStorage(store kv.Store, bucket *blob.Bucket, db *pachsql.DB, tracker track.Tracker, opts ...StorageOption) *Storage {
 	s := &Storage{
 		db:            db,
 		store:         store,
+		bucket:        bucket,
 		tracker:       tracker,
 		memCache:      newMemoryCache(50),
 		deduper:       &miscutil.WorkDeduper[pachhash.Output]{},
@@ -62,12 +67,14 @@ func NewStorage(store kv.Store, db *pachsql.DB, tracker track.Tracker, opts ...S
 
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
+	ctx = pctx.Child(ctx, "chunkReader")
 	client := NewClient(s.store, s.db, s.tracker, nil, s.pool)
 	defaultOpts := []ReaderOption{WithPrefetchLimit(s.prefetchLimit)}
 	return newReader(ctx, s, client, dataRefs, append(defaultOpts, opts...)...)
 }
 
 func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) *DataReader {
+	ctx = pctx.Child(ctx, "chunkDataReader")
 	client := NewClient(s.store, s.db, s.tracker, nil, s.pool)
 	return newDataReader(ctx, s, client, dataRef, 0)
 }

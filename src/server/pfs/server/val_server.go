@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 
@@ -45,7 +46,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(ctx context.Context, txnC
 	if err := checkCommit(userCommit); err != nil {
 		return errors.Wrap(err, "check new file commit")
 	}
-	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return a.apiServer.FinishCommitInTransaction(ctx, txnCtx, request)
@@ -248,7 +249,7 @@ func (a *validatedAPIServer) WalkCommitProvenance(request *pfs.WalkCommitProvena
 		}
 		return a.apiServer.WalkCommitProvenanceTx(ctx, txnCtx,
 			&WalkCommitProvenanceRequest{
-				StartWithID:                 commits,
+				Start:                       commits,
 				WalkCommitProvenanceRequest: request,
 			}, srv)
 	}), "walk commit provenance")
@@ -264,7 +265,7 @@ func (a *validatedAPIServer) WalkCommitSubvenance(request *pfs.WalkCommitSubvena
 		}
 		return a.apiServer.WalkCommitSubvenanceTx(ctx, txnCtx,
 			&WalkCommitSubvenanceRequest{
-				StartWithID:                 commits,
+				Start:                       commits,
 				WalkCommitSubvenanceRequest: request,
 			}, srv)
 	}), "walk commit subvenance")
@@ -280,7 +281,7 @@ func (a *validatedAPIServer) WalkBranchProvenance(request *pfs.WalkBranchProvena
 		}
 		return a.apiServer.WalkBranchProvenanceTx(ctx, txnCtx,
 			&WalkBranchProvenanceRequest{
-				StartWithID:                 branches,
+				Start:                       branches,
 				WalkBranchProvenanceRequest: request,
 			}, srv)
 	}), "walk branch provenance")
@@ -296,14 +297,14 @@ func (a *validatedAPIServer) WalkBranchSubvenance(request *pfs.WalkBranchSubvena
 		}
 		return a.apiServer.WalkBranchSubvenanceTx(ctx, txnCtx,
 			&WalkBranchSubvenanceRequest{
-				StartWithID:                 branches,
+				Start:                       branches,
 				WalkBranchSubvenanceRequest: request,
 			}, srv)
 	}), "walk branch subvenance")
 }
 
-func (a *validatedAPIServer) pickCommits(ctx context.Context, tx *pachsql.Tx, pickers []*pfs.CommitPicker) ([]*pfsdb.CommitWithID, error) {
-	commits := make([]*pfsdb.CommitWithID, 0)
+func (a *validatedAPIServer) pickCommits(ctx context.Context, tx *pachsql.Tx, pickers []*pfs.CommitPicker) ([]*pfsdb.Commit, error) {
+	commits := make([]*pfsdb.Commit, 0)
 	for _, picker := range pickers {
 		commit, err := pfsdb.PickCommit(ctx, picker, tx)
 		if err != nil {
@@ -314,8 +315,8 @@ func (a *validatedAPIServer) pickCommits(ctx context.Context, tx *pachsql.Tx, pi
 	return commits, nil
 }
 
-func (a *validatedAPIServer) pickBranches(ctx context.Context, tx *pachsql.Tx, pickers []*pfs.BranchPicker) ([]*pfsdb.BranchInfoWithID, error) {
-	branches := make([]*pfsdb.BranchInfoWithID, 0)
+func (a *validatedAPIServer) pickBranches(ctx context.Context, tx *pachsql.Tx, pickers []*pfs.BranchPicker) ([]*pfsdb.Branch, error) {
+	branches := make([]*pfsdb.Branch, 0)
 	for _, picker := range pickers {
 		branch, err := pfsdb.PickBranch(ctx, picker, tx)
 		if err != nil {

@@ -184,7 +184,7 @@ func InitServiceEnv(ctx context.Context, config *pachconfig.Configuration) *Nonb
 	if !env.isWorker() {
 		goCtx(&env.dbEg, env.ctx, env.initDirectDBClient)
 	}
-	env.listener = env.newListener()
+	env.listener = env.newListener(ctx)
 	if lokiHost, lokiPort := env.config.LokiHost, env.config.LokiPort; lokiHost != "" && lokiPort != "" {
 		env.lokiClient = &loki.Client{
 			Address: fmt.Sprintf("http://%s", net.JoinHostPort(lokiHost, lokiPort)),
@@ -347,6 +347,7 @@ func (env *NonblockingServiceEnv) initDirectDBClient(ctx context.Context) error 
 	defer end()
 
 	db, err := dbutil.NewDB(
+		ctx,
 		dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
 		dbutil.WithDBName(env.config.PostgresDBName),
 		dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
@@ -374,6 +375,7 @@ func (env *NonblockingServiceEnv) initDBClient(ctx context.Context) error {
 	ctx, end := log.SpanContext(ctx, "initDBClient")
 	defer end()
 	db, err := dbutil.NewDB(
+		ctx,
 		dbutil.WithHostPort(env.config.PGBouncerHost, env.config.PGBouncerPort),
 		dbutil.WithDBName(env.config.PostgresDBName),
 		dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),
@@ -394,13 +396,13 @@ func (env *NonblockingServiceEnv) initDBClient(ctx context.Context) error {
 	return nil
 }
 
-func (env *NonblockingServiceEnv) newListener() col.PostgresListener {
+func (env *NonblockingServiceEnv) newListener(ctx context.Context) col.PostgresListener {
 	// TODO: Change this to be based on whether a direct connection to postgres is available.
 	// A direct connection will not be available in the workers when the PG bouncer changes are in.
 	if env.isWorker() {
 		return env.newProxyListener()
 	}
-	return env.newDirectListener()
+	return env.newDirectListener(ctx)
 }
 
 func (env *NonblockingServiceEnv) newProxyListener() col.PostgresListener {
@@ -422,8 +424,9 @@ func (env *NonblockingServiceEnv) newProxyClient() (proxy.APIClient, error) {
 	return servicePachClient.ProxyClient, nil
 }
 
-func (env *NonblockingServiceEnv) newDirectListener() col.PostgresListener {
+func (env *NonblockingServiceEnv) newDirectListener(ctx context.Context) col.PostgresListener {
 	dsn := dbutil.GetDSN(
+		ctx,
 		dbutil.WithHostPort(env.config.PostgresHost, env.config.PostgresPort),
 		dbutil.WithDBName(env.config.PostgresDBName),
 		dbutil.WithUserPassword(env.config.PostgresUser, env.config.PostgresPassword),

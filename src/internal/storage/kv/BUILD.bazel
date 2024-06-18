@@ -8,7 +8,6 @@ go_library(
         "lru_cache.go",
         "memory.go",
         "obj_adapter.go",
-        "obj_adapter2.go",
         "pool.go",
         "prefixed.go",
         "semaphored.go",
@@ -19,8 +18,8 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/internal/log",
+        "//src/internal/meters",
         "//src/internal/miscutil",
-        "//src/internal/obj",
         "//src/internal/pacherr",
         "//src/internal/pctx",
         "//src/internal/require",
@@ -42,7 +41,6 @@ go_test(
     srcs = ["kv_test.go"],
     embed = [":kv"],
     deps = [
-        "//src/internal/obj",
         "//src/internal/require",
         "@dev_gocloud//blob/fileblob",
     ],

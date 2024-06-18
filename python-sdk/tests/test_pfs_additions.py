@@ -77,6 +77,10 @@ def test_branch_error(bad_uri: str):
       "prod/results@123456789abc4def1234567890abcdef^2",
       "ancestor"
       ),
+     (Commit(id="123456789abc4def1234567890abcdef", repo=Repo(name="results", project=Project(name="prod"))),
+      "prod/results@123456789abc4def1234567890abcdef",
+      "id",
+      ),
      ]
 )
 # fmt: on

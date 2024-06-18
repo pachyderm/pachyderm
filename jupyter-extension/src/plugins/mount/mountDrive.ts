@@ -2,7 +2,6 @@ import {ModelDB} from '@jupyterlab/observables';
 import {Contents, ServerConnection} from '@jupyterlab/services';
 import {PartialJSONObject} from '@lumino/coreutils';
 import {Signal, ISignal} from '@lumino/signaling';
-import {showErrorMessage} from '@jupyterlab/apputils';
 import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {URLExt} from '@jupyterlab/coreutils';
 import {requestAPI} from '../../handler';
@@ -59,13 +58,16 @@ export class MountDrive implements Contents.IDrive {
   // True if the FileBrowser contents scrolling event listener has been setup, false if not. Avoids setting up multiple
   // scroll event listeners.
   private _hasScrollEventListener: boolean;
+  // Function to call when the repo needs to be unmounted likely due to some error state.
+  private _unmountRepo: () => void;
 
   constructor(
     registry: DocumentRegistry,
     path: string,
     nameSuffix: string,
     id: string,
-    _rerenderFileBrowser: () => Promise<void>,
+    rerenderFileBrowser: () => Promise<void>,
+    unmountRepo: () => void,
   ) {
     this._registry = registry;
     this._cache = {
@@ -78,10 +80,11 @@ export class MountDrive implements Contents.IDrive {
     this._path = path;
     this._nameSuffix = nameSuffix;
     this._id = id;
-    this._rerenderFileBrowser = _rerenderFileBrowser;
+    this._rerenderFileBrowser = rerenderFileBrowser;
     this._previousFilter = null;
     this._index = 0;
     this._hasScrollEventListener = false;
+    this._unmountRepo = unmountRepo;
   }
 
   get name(): string {
@@ -135,9 +138,12 @@ export class MountDrive implements Contents.IDrive {
     //   and not paginate the results.
     let shallowResponse;
     try {
-      shallowResponse = await this._get(url, {content: '0'});
+      shallowResponse = await this._get(url, {
+        content: '0',
+      });
     } catch (e) {
-      showErrorMessage('Get Error', url + ' not found');
+      console.debug('Get Error', url + ' not found. Unmounting repo.');
+      this._unmountRepo();
       return DEFAULT_CONTENT_MODEL;
     }
 
@@ -280,7 +286,8 @@ export class MountDrive implements Contents.IDrive {
       }
 
       // This should never happen and means some critical backend error has occured.
-      showErrorMessage('Failed Fetching Next Results', e);
+      console.debug(`Failed Fetching Next Results ${e}. Umounting repo`);
+      this._unmountRepo();
     });
   }
 

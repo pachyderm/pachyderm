@@ -29,15 +29,6 @@ class LogLevel(betterproto.Enum):
     LOG_LEVEL_ERROR = 2
 
 
-class LogFormat(betterproto.Enum):
-    LOG_FORMAT_UNKNOWN = 0
-    """error"""
-
-    LOG_FORMAT_VERBATIM_WITH_TIMESTAMP = 1
-    LOG_FORMAT_PARSED_JSON = 2
-    LOG_FORMAT_PPS_LOGMESSAGE = 3
-
-
 @dataclass(eq=False, repr=False)
 class LogQuery(betterproto.Message):
     user: "UserLogQuery" = betterproto.message_field(1, group="query_type")
@@ -95,6 +86,9 @@ class UserLogQuery(betterproto.Message):
     )
     """One job in one pipeline"""
 
+    job_datum: "JobDatumLogQuery" = betterproto.message_field(6, group="user_type")
+    """One datum in one job"""
+
 
 @dataclass(eq=False, repr=False)
 class PipelineLogQuery(betterproto.Message):
@@ -109,24 +103,57 @@ class PipelineJobLogQuery(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class JobDatumLogQuery(betterproto.Message):
+    job: str = betterproto.string_field(1)
+    datum: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class LogFilter(betterproto.Message):
+    """A LogFilter selects which log lines are returned."""
+
     time_range: "TimeRangeLogFilter" = betterproto.message_field(1)
+    """If set, only return logs in the provided time range."""
+
     limit: int = betterproto.uint64_field(2)
+    """If set, return at maximum this number of logs."""
+
     regex: "RegexLogFilter" = betterproto.message_field(3)
+    """If set, only return logs that match this regular expression."""
+
     level: "LogLevel" = betterproto.enum_field(4)
     """
-    Minimum log level to return; worker will always run at level debug, but
-    setting INFO here restores original behavior
+    If set, only return logs that are greater than or equal to this log level.
+    (DEBUG returns DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.).
     """
 
 
 @dataclass(eq=False, repr=False)
 class TimeRangeLogFilter(betterproto.Message):
+    """
+    A TimeRangeLogFilter selects logs within a time range.  Either or both
+    timestamps can be null. If from is after until, logs will be returns in
+    reverse order.  (The first log you see will always be from the "from"
+    time.)
+    """
+
     from_: datetime = betterproto.message_field(1)
-    """Can be null"""
+    """
+    Where in time to start returning logs from; includes logs with this exact
+    timestamp.  If null, starts at the beginning of time.
+    """
 
     until: datetime = betterproto.message_field(2)
-    """Can be null"""
+    """
+    Where in time to stop returning logs from; includes logs with this exact
+    timestamp.  If null, ends at the end of time.
+    """
+
+    offset: int = betterproto.uint64_field(3)
+    """
+    Offset from which to return results, in the case of multiple entries from
+    the same nanosecond.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -141,7 +168,6 @@ class GetLogsRequest(betterproto.Message):
     filter: "LogFilter" = betterproto.message_field(2)
     tail: bool = betterproto.bool_field(3)
     want_paging_hint: bool = betterproto.bool_field(4)
-    log_format: "LogFormat" = betterproto.enum_field(5)
 
 
 @dataclass(eq=False, repr=False)
@@ -157,22 +183,13 @@ class PagingHint(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class LogMessage(betterproto.Message):
-    verbatim: "VerbatimLogMessage" = betterproto.message_field(1, group="log_type")
-    json: "ParsedJsonLogMessage" = betterproto.message_field(2, group="log_type")
-    pps_log_message: "_pps__.LogMessage" = betterproto.message_field(
-        3, group="log_type"
-    )
-
-
-@dataclass(eq=False, repr=False)
 class VerbatimLogMessage(betterproto.Message):
     line: bytes = betterproto.bytes_field(1)
     timestamp: datetime = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)
-class ParsedJsonLogMessage(betterproto.Message):
+class LogMessage(betterproto.Message):
     verbatim: "VerbatimLogMessage" = betterproto.message_field(1)
     """The verbatim line from Loki"""
 
@@ -201,8 +218,7 @@ class ApiStub:
         query: "LogQuery" = None,
         filter: "LogFilter" = None,
         tail: bool = False,
-        want_paging_hint: bool = False,
-        log_format: "LogFormat" = None
+        want_paging_hint: bool = False
     ) -> Iterator["GetLogsResponse"]:
 
         request = GetLogsRequest()
@@ -212,7 +228,6 @@ class ApiStub:
             request.filter = filter
         request.tail = tail
         request.want_paging_hint = want_paging_hint
-        request.log_format = log_format
 
         for response in self.__rpc_get_logs(request):
             yield response

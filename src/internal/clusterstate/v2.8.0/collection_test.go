@@ -24,9 +24,10 @@ var (
 )
 
 func newTestDB(t testing.TB) (*pachsql.DB, string) {
+	ctx := pctx.TestContext(t)
 	options := dockertestenv.NewTestDBConfig(t).Direct.DBOptions()
-	dsn := dbutil.GetDSN(options...)
-	db, err := dbutil.NewDB(options...)
+	dsn := dbutil.GetDSN(ctx, options...)
+	db, err := dbutil.NewDB(ctx, options...)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
@@ -54,7 +55,7 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 		t.Fatal("could create test collection:", err)
 	}
 	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-		return testCol.ReadWrite(tx).Put("foo1", &col.TestItem{Id: "foo", Value: "bar", Data: "baz"})
+		return testCol.ReadWrite(tx).Put(ctx, "foo1", &col.TestItem{Id: "foo", Value: "bar", Data: "baz"})
 	}); err != nil {
 		t.Fatal("could not write test item:", err)
 	}
@@ -69,7 +70,7 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 		t.Fatal("could not migrate test item:", err)
 	}
 	var item col.TestItem
-	if err := testCol.ReadOnly(ctx).Get("foo", &item); err != nil {
+	if err := testCol.ReadOnly().Get(ctx, "foo", &item); err != nil {
 		t.Error("could not read migrated item:", err)
 	}
 	if item.Id != "foo" {
@@ -78,7 +79,7 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 	if item.Value != "bar quux" {
 		t.Errorf("%q ≠ %q", item.Value, "bar quux")
 	}
-	if err := testCol.ReadOnly(ctx).Get("foo1", &item); err != nil {
+	if err := testCol.ReadOnly().Get(ctx, "foo1", &item); err != nil {
 		if !col.IsErrNotFound(err) {
 			t.Error("could not try to get migrated item:", err)
 		}

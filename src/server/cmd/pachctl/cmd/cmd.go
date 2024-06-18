@@ -345,8 +345,9 @@ func PachctlCmd() (*cobra.Command, error) {
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
-	rootCmd.PersistentFlags().BoolVarP(&pachctlCfg.Verbose, "verbose", "v", false, "Output verbose logs")
+	rootCmd.PersistentFlags().BoolVarP(&pachctlCfg.Verbose, "verbose", "v", false, "Output verbose logs.")
 	rootCmd.PersistentFlags().BoolVar(&color.NoColor, "no-color", false, "Turn off colors.")
+	rootCmd.PersistentFlags().DurationVar(&pachctlCfg.Timeout, "rpc-timeout", 0, "If non-zero, perform all client operations with this RPC deadline.")
 
 	var subcommands []*cobra.Command
 

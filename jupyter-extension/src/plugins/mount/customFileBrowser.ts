@@ -14,6 +14,7 @@ import {each} from '@lumino/algorithm';
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 import {requestAPI} from '../../handler';
+import {IPachydermModel} from './types';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
@@ -22,6 +23,7 @@ const createCustomFileBrowser = (
   path: string,
   downloadPath: string,
   nameSuffix: string,
+  unmountRepo: () => void,
 ): FileBrowser => {
   const id = `jupyterlab-pachyderm-browser-${nameSuffix}`;
   const drive = new MountDrive(
@@ -32,6 +34,7 @@ const createCustomFileBrowser = (
     async () => {
       await browser.model.cd();
     },
+    unmountRepo,
   );
   manager.services.contents.addDrive(drive);
 
@@ -119,13 +122,87 @@ const createCustomFileBrowser = (
               MOUNT_BROWSER_PREFIX + nameSuffix + ':',
               '',
             );
-            requestAPI(
-              'download/' + downloadPath + '/' + itemPath,
-              'PUT',
-            ).catch((e) => {
-              showErrorMessage('Download Error', e.response.statusText);
-            });
+            requestAPI(`download/${downloadPath}/${itemPath}`, 'PUT').catch(
+              (e) => {
+                showErrorMessage('Download Error', e.response.statusText);
+              },
+            );
           });
+        },
+      });
+
+      // We need to register this as an app command, but because this function is called multiple times we only want to register it once.
+      // This command must be registered as an app command to work with notification commandIds
+      if (!app.commands.hasCommand('open-pachyderm-sdk')) {
+        app.commands.addCommand('open-pachyderm-sdk', {
+          execute: () => {
+            window
+              ?.open('https://docs.pachyderm.com/latest/sdk/', '_blank')
+              ?.focus();
+          },
+        });
+      }
+
+      commands.addCommand('open-determined', {
+        label: 'Copy Pachyderm File URI',
+        icon: 'fa fa-link',
+        mnemonic: 0,
+        execute: () => {
+          if (navigator.clipboard && window.isSecureContext) {
+            let fileUris = '';
+            each(browser.selectedItems(), (item) => {
+              fileUris += `${(item as IPachydermModel).file_uri}\n`;
+            });
+            navigator.clipboard.writeText(fileUris);
+            app.commands.execute('apputils:notify', {
+              message: 'Pachyderm File URI copied to clipboard.',
+              type: 'success',
+              options: {
+                autoClose: 10000, // 10 seconds
+                actions: [
+                  {
+                    label: 'Open Pachyderm SDK Docs',
+                    commandId: 'open-pachyderm-sdk',
+                    displayType: 'link',
+                  },
+                ],
+              },
+            });
+          } else {
+            each(browser.selectedItems(), (item) => {
+              item = item as IPachydermModel;
+              app.commands.execute('apputils:notify', {
+                message: (item as IPachydermModel).file_uri,
+                type: 'success',
+                options: {
+                  autoClose: false, // disable autoclose since the user needs to copy the url manually.
+                  actions: [
+                    {
+                      label: 'Open Pachyderm SDK Docs',
+                      commandId: 'open-pachyderm-sdk',
+                      displayType: 'link',
+                    },
+                  ],
+                },
+              });
+            });
+            // Notifications have around a 400 character restriction. This should likely workaround the problem of too many urls overloading that limit
+            app.commands.execute('apputils:notify', {
+              message:
+                'Pachyderm File URI could not be copied to clipboard due to browser clipboard restrictions.',
+              type: 'warning',
+              options: {
+                autoClose: false, // disable autoclose since the user needs to copy the url manually.
+                actions: [
+                  {
+                    label: 'Open Pachyderm SDK Docs',
+                    commandId: 'open-pachyderm-sdk',
+                    displayType: 'link',
+                  },
+                ],
+              },
+            });
+          }
         },
       });
 
@@ -133,6 +210,7 @@ const createCustomFileBrowser = (
       menu.addItem({command: 'file-open'});
       menu.addItem({command: 'copy-path'});
       menu.addItem({command: 'file-download'});
+      menu.addItem({command: 'open-determined'});
 
       const browserContent = dirListing.node.getElementsByClassName(
         'jp-DirListing-content',
@@ -156,6 +234,7 @@ const createCustomFileBrowser = (
       });
     }
   } catch (e) {
+    // This should not log!
     console.log('Failed to edit default browser.');
   }
 

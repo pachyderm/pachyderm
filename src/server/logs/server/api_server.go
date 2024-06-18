@@ -11,12 +11,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 )
 
 type APIServer = *apiServer
 
 type Env struct {
 	GetLokiClient func() (*loki.Client, error)
+	AuthServer    authserver.APIServer
 }
 
 type apiServer struct {
@@ -30,6 +32,7 @@ func NewAPIServer(env Env) (*apiServer, error) {
 		env: env,
 		service: logservice.LogService{
 			GetLokiClient: env.GetLokiClient,
+			AuthServer:    env.AuthServer,
 		},
 	}, nil
 }

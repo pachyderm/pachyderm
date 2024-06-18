@@ -12,6 +12,13 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/exp/maps"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
+	md "google.golang.org/grpc/metadata"
+
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
@@ -28,15 +35,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"github.com/pachyderm/pachyderm/v2/src/worker"
-	"golang.org/x/exp/maps"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
-	md "google.golang.org/grpc/metadata"
 )
 
 type gRPCParams struct {
@@ -58,6 +60,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		pfs.File_pfs_pfs_proto,
 		pps.File_pps_pps_proto,
 		proxy.File_proxy_proxy_proto,
+		storage.File_storage_fileset_proto,
 		transaction.File_transaction_transaction_proto,
 		versionpb.File_version_versionpb_version_proto,
 		worker.File_worker_worker_proto,

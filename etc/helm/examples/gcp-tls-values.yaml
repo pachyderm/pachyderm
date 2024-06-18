@@ -12,6 +12,7 @@ ingress:
 
 pachd:
   storage:
+    storageURL: gs://fake-bucket
     google:
       bucket: "fake-bucket"
       cred: ""

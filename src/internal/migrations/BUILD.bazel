@@ -8,7 +8,6 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/internal/log",
-        "//src/internal/obj",
         "//src/internal/pachsql",
         "@io_etcd_go_etcd_client_v3//:client",
         "@org_uber_go_zap//:zap",

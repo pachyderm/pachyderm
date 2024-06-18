@@ -9,6 +9,7 @@ go_library(
         "//src/internal/errors",
         "//src/internal/lokiutil/client",
         "//src/logs",
+        "//src/server/auth",
         "//src/server/logs",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
@@ -18,6 +19,7 @@ go_library(
 go_test(
     name = "server_test",
     srcs = ["api_server_test.go"],
+    pure = "on",
     deps = [
         "//src/internal/dockertestenv",
         "//src/internal/lokiutil",

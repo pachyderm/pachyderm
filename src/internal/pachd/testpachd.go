@@ -35,11 +35,12 @@ import (
 
 // TestPachdOptions allow a testpachd to be customized.
 type TestPachdOption struct {
-	noLogToFile   bool // A flag to turn off the LogToFileOption when it's the default.
-	MutateContext func(ctx context.Context) context.Context
-	MutateEnv     func(env *Env)
-	MutateConfig  func(config *pachconfig.PachdFullConfiguration)
-	MutatePachd   func(full *Full)
+	noLogToFile      bool // A flag to turn off the LogToFileOption when it's the default.
+	MutateContext    func(ctx context.Context) context.Context
+	MutateEnv        func(env *Env)
+	MutateConfig     func(config *pachconfig.PachdFullConfiguration)
+	MutatePachd      func(full *Full)
+	MutateFullOption func(fullOption *FullOption)
 }
 
 // NoLogToFileOption is an option that disable's NewTestPachd's default behavior of logging pachd
@@ -92,6 +93,7 @@ func NewTestPachd(t testing.TB, opts ...TestPachdOption) *client.APIClient {
 	db := testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...)
 	directDB := testutil.OpenDB(t, dbcfg.Direct.DBOptions()...)
 	dbListenerConfig := dbutil.GetDSN(
+		ctx,
 		dbutil.WithHostPort(dbcfg.Direct.Host, int(dbcfg.Direct.Port)),
 		dbutil.WithDBName(dbcfg.Direct.DBName),
 		dbutil.WithUserPassword(dbcfg.Direct.User, dbcfg.Direct.Password),
@@ -152,6 +154,7 @@ func newTestPachd(env Env, opts []TestPachdOption) *Full {
 	env.GetLokiClient = func() (*lokiclient.Client, error) {
 		return nil, errors.New("no loki")
 	}
+	fullOption := &FullOption{}
 	for _, opt := range opts {
 		if opt.MutateEnv != nil {
 			opt.MutateEnv(&env)
@@ -159,8 +162,11 @@ func newTestPachd(env Env, opts []TestPachdOption) *Full {
 		if opt.MutateConfig != nil {
 			opt.MutateConfig(&config)
 		}
+		if opt.MutateFullOption != nil {
+			opt.MutateFullOption(fullOption)
+		}
 	}
-	pd := NewFull(env, config)
+	pd := NewFull(env, config, fullOption)
 	for _, opt := range opts {
 		if opt.MutatePachd != nil {
 			opt.MutatePachd(pd)
@@ -192,17 +198,18 @@ func BuildTestPachd(ctx context.Context, opts ...TestPachdOption) (*Full, *clean
 	if err != nil {
 		return nil, cleaner, errors.Wrap(err, "test db config")
 	}
-	db, err := dbutil.NewDB(dbcfg.PGBouncer.DBOptions()...)
+	db, err := dbutil.NewDB(ctx, dbcfg.PGBouncer.DBOptions()...)
 	if err != nil {
 		return nil, cleaner, errors.Wrap(err, "open pgbouncer connection")
 	}
 	cleaner.AddCleanup("pgbouncer connection", db.Close)
-	directDB, err := dbutil.NewDB(dbcfg.Direct.DBOptions()...)
+	directDB, err := dbutil.NewDB(ctx, dbcfg.Direct.DBOptions()...)
 	if err != nil {
 		return nil, cleaner, errors.Wrap(err, "open direct db connection")
 	}
 	cleaner.AddCleanup("direct db connection", directDB.Close)
 	dbListenerConfig := dbutil.GetDSN(
+		ctx,
 		dbutil.WithHostPort(dbcfg.Direct.Host, int(dbcfg.Direct.Port)),
 		dbutil.WithDBName(dbcfg.Direct.DBName),
 		dbutil.WithUserPassword(dbcfg.Direct.User, dbcfg.Direct.Password),

@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
@@ -53,6 +55,7 @@ func NewClient(store kv.Store, db *pachsql.DB, tr track.Tracker, renewer *Renewe
 // Create creates a new chunk from metadata and chunkData.
 // It returns the ID for the chunk
 func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byte) (_ ID, retErr error) {
+	ctx = pctx.Child(ctx, "trackedClient")
 	if c.renewer == nil {
 		panic("client must have a renewer to create chunks")
 	}
@@ -159,6 +162,22 @@ func (c *trackedClient) afterUpload(ctx context.Context, chunkID ID, gen uint64)
 		panic("(chunk_id, gen) is not unique")
 	}
 	return nil
+}
+
+func (c *trackedClient) GetPath(ctx context.Context, id ID) (string, error) {
+	var ents []Entry
+	if err := c.db.SelectContext(ctx, &ents, `
+		SELECT chunk_id, gen
+		FROM storage.chunk_objects
+		WHERE uploaded = TRUE AND tombstone = FALSE AND chunk_id = $1
+		`, id); err != nil {
+		return "", errors.EnsureStack(err)
+	}
+	if len(ents) == 0 {
+		return "", errors.Errorf("no objects for chunk %v", id)
+	}
+	// TODO: Refactor chunk prefix.
+	return string(append([]byte("chunk/"), chunkKey(ents[0].ChunkID, ents[0].Gen)...)), nil
 }
 
 // Get writes data for a chunk with ID chunkID to w.

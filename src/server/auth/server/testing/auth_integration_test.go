@@ -229,7 +229,7 @@ func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) 
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit1, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(projectName, repoName, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, aliceClient.FinishCommit(projectName, repoName, "", commit1.Id))
 
 	jobInfos, err := aliceClient.WaitJobSetAll(commit1.Id, false)
 	require.NoError(t, err)
@@ -811,7 +811,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	err = aliceClient.PutFile(commit, tu.UniqueString("/file1"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
@@ -851,7 +851,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	err = rootClient.PutFile(commit, tu.UniqueString("/file2"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := rootClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
 		return err
@@ -892,7 +892,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {

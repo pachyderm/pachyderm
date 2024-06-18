@@ -9,7 +9,6 @@ import {
   CrossInputSpec,
   CurrentDatumResponse,
   DownloadPath,
-  ListMountsResponse,
   MountDatumResponse,
   PfsInput,
 } from 'plugins/mount/types';
@@ -25,7 +24,6 @@ export type useDatumResponse = {
   callNextDatum: () => Promise<void>;
   callPrevDatum: () => Promise<void>;
   callDownloadDatum: () => Promise<void>;
-  callUnmountAll: () => Promise<void>;
   errorMessage: string;
   initialInputSpec: JSONObject;
 };
@@ -42,7 +40,7 @@ export const useDatum = (
   const [currDatum, setCurrDatum] = useState<MountDatumResponse>({
     id: '',
     idx: -1,
-    num_datums: 0,
+    num_datums_received: 0,
     all_datums_received: false,
   });
   const [inputSpec, setInputSpec] = useState('');
@@ -60,7 +58,7 @@ export const useDatum = (
       setCurrDatum({
         id: '',
         idx: currentDatumInfo.idx,
-        num_datums: currentDatumInfo.num_datums,
+        num_datums_received: currentDatumInfo.num_datums_received,
         all_datums_received: currentDatumInfo.all_datums_received,
       });
       setInputSpec(inputSpecObjToText(currentDatumInfo.input));
@@ -149,7 +147,7 @@ export const useDatum = (
           'Poorly formatted input spec- must be either YAML or JSON',
         );
       } else if (e instanceof ServerConnection.ResponseError) {
-        setErrorMessage('Bad data in input spec');
+        setErrorMessage('Bad data in input spec: ' + e.response.statusText);
       } else {
         setErrorMessage('Error mounting datums');
       }
@@ -172,7 +170,7 @@ export const useDatum = (
         setCurrDatum({
           id: currDatum.id,
           idx: currDatum.idx,
-          num_datums: currDatum.num_datums,
+          num_datums_received: currDatum.num_datums_received,
           all_datums_received: true,
         });
         setErrorMessage('Reached final datum');
@@ -211,30 +209,6 @@ export const useDatum = (
     setLoading(false);
   };
 
-  const callUnmountAll = async () => {
-    setLoading(true);
-
-    try {
-      open('');
-      await requestAPI<ListMountsResponse>('_unmount_all', 'PUT');
-      open('');
-      await pollRefresh();
-      setCurrDatum({
-        id: '',
-        idx: -1,
-        num_datums: 0,
-        all_datums_received: false,
-      });
-      setShouldShowCycler(false);
-      setShouldShowDownload(false);
-    } catch (e) {
-      console.log(e);
-    }
-
-    setErrorMessage('');
-    setLoading(false);
-  };
-
   return {
     loading,
     shouldShowCycler,
@@ -246,7 +220,6 @@ export const useDatum = (
     callNextDatum,
     callPrevDatum,
     callDownloadDatum,
-    callUnmountAll,
     errorMessage,
     initialInputSpec,
   };

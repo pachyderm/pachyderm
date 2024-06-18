@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/JobDatumLogQuery",
+    "definitions": {
+        "JobDatumLogQuery": {
+            "properties": {
+                "job": {
+                    "type": "string"
+                },
+                "datum": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Job Datum Log Query"
+        }
+    }
+}

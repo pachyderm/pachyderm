@@ -119,7 +119,7 @@ class TestUnitCommit:
         repo = client.new_repo(default_project)
         branch = pfs.Branch(repo=repo, name="master")
         commit = client.pfs.start_commit(branch=branch)
-        assert commit.branch.repo.name == repo.name
+        assert commit.repo.name == repo.name
 
         # cannot start new commit before the previous one is finished
         with pytest.raises(grpc.RpcError, match=r"parent commit .* has not been finished"):
@@ -139,7 +139,7 @@ class TestUnitCommit:
         client.pfs.finish_commit(commit=commit1)
 
         commit2 = client.pfs.start_commit(parent=commit1, branch=branch)
-        assert commit2.branch.repo.name == repo.name
+        assert commit2.repo.name == repo.name
 
     @staticmethod
     def test_start_commit_fork(client: TestClient, default_project: bool):
@@ -151,8 +151,7 @@ class TestUnitCommit:
         client.pfs.finish_commit(commit=commit1)
 
         commit2 = client.pfs.start_commit(parent=commit1, branch=patch_branch)
-        assert commit2.branch.name == patch_branch.name
-        assert commit2.branch.repo.name == repo.name
+        assert commit2.repo.name == repo.name
 
         assert client.pfs.branch_exists(master_branch)
         assert client.pfs.branch_exists(patch_branch)
@@ -198,8 +197,8 @@ class TestUnitCommit:
             commit=commit, wait=pfs.CommitState.FINISHED
         )
         assert commit_info.finished
-        assert commit_info.commit.branch.name == branch.name
-        assert commit_info.commit.branch.repo.name == repo.name
+        assert commit_info.commit.branch.name == ""
+        assert commit_info.commit.repo.name == repo.name
 
     @staticmethod
     def test_squash_commit(client: TestClient, default_project: bool):
@@ -258,8 +257,7 @@ class TestUnitCommit:
         _generated_commit = next(commit_generator)
         generated_commit = next(commit_generator)
         assert generated_commit.commit.id == commit.id
-        assert generated_commit.commit.branch.repo.name == repo.name
-        assert generated_commit.commit.branch.name == "master"
+        assert generated_commit.commit.repo.name == repo.name
 
     @staticmethod
     def test_list_commit(client: TestClient):
@@ -384,7 +382,7 @@ class TestModifyFile:
 
         with client.pfs.commit(branch=branch) as commit2:
             commit2.delete_file(path="/file1.dat")
-        assert not client.pfs.path_exists(file=pfs.File.from_uri(f"{commit2}:/file1.dat"))
+        assert not client.pfs.path_exists(file=pfs.File(commit=commit2, path="/file1.dat"))
 
     @staticmethod
     def test_walk_file(client: TestClient, default_project: bool):

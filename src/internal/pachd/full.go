@@ -22,17 +22,19 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	lokiclient "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	clientlog_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
+	storage_server "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -56,6 +58,7 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxy_server "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version_server "github.com/pachyderm/pachyderm/v2/src/version"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -171,12 +174,14 @@ type Env struct {
 	DB               *pachsql.DB
 	DirectDB         *pachsql.DB
 	DBListenerConfig string
-	ObjClient        obj.Client
 	Bucket           *obj.Bucket
 	EtcdClient       *clientv3.Client
 	Listener         net.Listener
 	K8sObjects       []runtime.Object
 	GetLokiClient    func() (*lokiclient.Client, error)
+}
+type FullOption struct {
+	DesiredState *migrations.State
 }
 
 type Full struct {
@@ -195,7 +200,7 @@ type Full struct {
 	txnSrv        transaction.APIServer
 	authSrv       auth.APIServer
 	pfsSrv        pfs.APIServer
-	storageSrv    *storage.Server
+	storageSrv    *storage_server.Server
 	ppsSrv        pps.APIServer
 	metadataSrv   metadata.APIServer
 	adminSrv      admin.APIServer
@@ -213,7 +218,7 @@ type Full struct {
 }
 
 // NewFull sets up a new Full pachd and returns it.
-func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
+func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption) *Full {
 	pd := &Full{env: env, config: config, authReady: make(chan struct{})}
 
 	pd.selfGRPC = newSelfGRPC(env.Listener, nil)
@@ -234,13 +239,18 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 
 	kubeClient := fake.NewSimpleClientset(env.K8sObjects...)
 
+	desiredStateOverride := &clusterstate.DesiredClusterState
+	if opt != nil && opt.DesiredState != nil {
+		desiredStateOverride = opt.DesiredState
+	}
+
 	pd.addSetup(
 		printVersion(),
 		tweakResources(config.GlobalConfiguration),
 		initJaeger(),
 		awaitDB(env.DB),
-		runMigrations(env.DirectDB, env.EtcdClient),
-		awaitMigrations(env.DB),
+		runMigrations(env.DirectDB, env.EtcdClient, desiredStateOverride),
+		awaitMigrations(env.DB, *desiredStateOverride),
 		setupStep{
 			Name: "setup listener",
 			Fn: func(ctx context.Context) error {
@@ -286,7 +296,6 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				DB:            env.DB,
 				Bucket:        env.Bucket,
 				Listener:      pd.dbListener,
-				ObjectClient:  env.ObjClient,
 				EtcdClient:    env.EtcdClient,
 				EtcdPrefix:    etcdPrefix,
 				TaskService:   task.NewEtcdService(env.EtcdClient, etcdPrefix),
@@ -299,8 +308,8 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				GetPPSServer: func() ppsiface.APIServer { return pd.ppsSrv.(pps_server.APIServer) },
 			}
 		}),
-		initStorageServer(&pd.storageSrv, func() storage.Env {
-			return storage.Env{
+		initStorageServer(&pd.storageSrv, func() storage_server.Env {
+			return storage_server.Env{
 				DB:     env.DB,
 				Bucket: env.Bucket,
 				Config: config.StorageConfiguration,
@@ -456,6 +465,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				var err error
 				pd.logsSrv, err = logs_server.NewAPIServer(logs_server.Env{
 					GetLokiClient: env.GetLokiClient,
+					AuthServer:    pd.authSrv.(auth_server.APIServer),
 				})
 				if err != nil {
 					return errors.Wrap(err, "logs_server.NewAPIServer")
@@ -469,7 +479,6 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 			etcdPrefix := path.Join(config.EtcdPrefix, config.PFSEtcdPrefix)
 			return pfs_server.WorkerEnv{
 				DB:          env.DB,
-				ObjClient:   env.ObjClient,
 				Bucket:      env.Bucket,
 				TaskService: task.NewEtcdService(env.EtcdClient, etcdPrefix),
 			}
@@ -497,6 +506,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		logs.RegisterAPIServer(gs, pd.logsSrv)
 		metadata.RegisterAPIServer(gs, pd.metadataSrv)
 		pfs.RegisterAPIServer(gs, pd.pfsSrv)
+		storage.RegisterFilesetServer(gs, pd.storageSrv)
 		pps.RegisterAPIServer(gs, pd.ppsSrv)
 		proxy.RegisterAPIServer(gs, pd.proxySrv)
 		version.RegisterAPIServer(gs, pd.version)

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package cdr;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/cdr";
+
+message Ref {
+    oneof body {
+        // Sources
+        HTTP http = 1;
+        // Constraints 
+        ContentHash content_hash = 2;
+        SizeLimits size_limits = 3;
+        // 1:1 Transforms
+        Cipher cipher = 4;
+        Compress compress = 5;
+        Slice slice = 6;
+        // Many:1 Transforms
+        Concat concat = 7;
+    }
+}
+
+message HTTP {
+    string url = 1;
+    map<string, string> headers = 2;
+}
+
+// Contraints
+message ContentHash {
+    Ref inner = 1;
+    HashAlgo algo = 2;
+    bytes hash = 3;
+}
+
+enum HashAlgo {
+    UNKNOWN_HASH = 0;
+    BLAKE2b_256 = 1;
+}
+
+message SizeLimits {
+    Ref inner = 1;
+    int64 min = 2;
+    int64 max = 3;
+}
+
+// 1:1 Transforms
+message Cipher {
+    Ref inner = 1;
+    CipherAlgo algo = 2;
+    bytes key = 3;
+    bytes nonce = 4;
+}
+
+enum CipherAlgo {
+    UNKNOWN_CIPHER = 0;
+    CHACHA20 = 1;
+}
+
+message Compress {
+    Ref inner = 1;
+    CompressAlgo algo = 2;    
+}
+
+enum CompressAlgo{
+    UNKNOWN_COMPRESS = 0;
+    GZIP = 1;
+}
+
+// 1:1 Transforms
+message Slice {
+    Ref inner = 1;
+    uint64 start = 2;
+    uint64 end = 3;
+}
+
+// Many:1 Transforms
+message Concat {
+    repeated Ref refs = 1;
+}

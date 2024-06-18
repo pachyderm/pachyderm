@@ -137,6 +137,7 @@ func NewTestDBConfigCtx(ctx context.Context) (config DBConfig, cleaner *cleanup.
 	}
 
 	db, err := dbutil.NewDB(
+		ctx,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
@@ -230,7 +231,7 @@ func EnsureDBEnv(ctx context.Context) error {
 		PortMap: map[uint16]uint16{
 			30228: 5432,
 		},
-		Image: "postgres:15-alpine",
+		Image: "postgres:13.0-alpine",
 		Cmd:   []string{"postgres", "-c", "max_connections=500", "-c", "fsync=off"},
 	}); err != nil {
 		return errors.EnsureStack(err)
@@ -264,6 +265,7 @@ func EnsureDBEnv(ctx context.Context) error {
 
 	return backoff.RetryUntilCancel(ctx, func() error {
 		db, err := dbutil.NewDB(
+			ctx,
 			dbutil.WithDBName(DefaultPostgresDatabase),
 			dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
 			dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),

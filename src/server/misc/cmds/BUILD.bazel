@@ -34,6 +34,7 @@ go_library(
         "//src/pfs",
         "//src/pps",
         "//src/proxy",
+        "//src/storage",
         "//src/transaction",
         "//src/version/versionpb",
         "//src/worker",

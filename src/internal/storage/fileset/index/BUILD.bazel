@@ -19,6 +19,7 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/internal/errutil",
+        "//src/internal/meters",
         "//src/internal/miscutil",
         "//src/internal/pbutil",
         "//src/internal/pctx",

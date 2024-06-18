@@ -39,7 +39,6 @@ type GlobalConfiguration struct {
 	LokiPort               string `env:"LOKI_SERVICE_PORT"`
 	OidcPort               uint16 `env:"OIDC_PORT,default=1657"`
 	IsPachw                bool   `env:"IS_PACHW,default=false"`
-	PachwInSidecars        bool   `env:"PACHW_IN_SIDECARS,default=true"`
 	PachwMinReplicas       int    `env:"PACHW_MIN_REPLICAS"`
 	PachwMaxReplicas       int    `env:"PACHW_MAX_REPLICAS,default=1"`
 	PachdServiceHost       string `env:"PACHD_SERVICE_HOST"`
@@ -131,7 +130,6 @@ func (PachdFullConfiguration) isPachConfig() {}
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
-	GoCDKEnabled               bool   `env:"GOCDK_ENABLED,default=true"`
 	StorageURL                 string `env:"STORAGE_URL,default="`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
