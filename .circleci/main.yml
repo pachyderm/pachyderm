@@ -1377,7 +1377,7 @@ jobs:
       - install-poetry
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
-          command: poetry --no-ansi install
+          command: poetry --no-ansi install -E cdr
       - wait-for-minikube
       - run:
           name: Install minio
@@ -1409,16 +1409,16 @@ jobs:
               --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
               --set pachd.rootToken=roottoken1234
       - run:
-          name: kubectl port-forward for minio
-          command: kubectl port-forward service/minio 9000:9000
-          background: true
-      - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
             sleep 20
             kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
             until poetry run pachyderm-sdk-check-connection "$(minikube ip):30080"; do sleep 5; done
             until poetry run pachyderm-sdk-check-connection "$(minikube ip):30081"; do sleep 5; done
+      - run:
+          name: kubectl port-forward for minio
+          command: kubectl port-forward service/minio 9000:9000
+          background: true
       - run:
           name: Run Tests
           command: |

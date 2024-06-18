@@ -5,7 +5,6 @@ from hmac import compare_digest
 from urllib.parse import urlparse
 
 from betterproto import which_one_of
-import requests
 
 from . import (
     Ref,
@@ -14,9 +13,11 @@ from . import (
 )
 
 try:
+    import requests
     from Crypto.Cipher import ChaCha20
     CDR_ENABLED = True
 except ImportError:
+    requests = None
     ChaCha20 = None
     CDR_ENABLED = False
 
