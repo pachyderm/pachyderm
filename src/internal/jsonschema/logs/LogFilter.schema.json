@@ -25,7 +25,12 @@
                         "LOG_LEVEL_ERROR"
                     ],
                     "type": "string",
-                    "title": "Log Level"
+                    "title": "Log Level",
+                    "description": "LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR."
+                },
+                "userLogsOnly": {
+                    "type": "boolean",
+                    "description": "If true, only return logs from user code, excluding matched log messages only related to internal Pachyderm operations."
                 }
             },
             "additionalProperties": false,

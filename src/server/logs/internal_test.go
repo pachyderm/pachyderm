@@ -140,3 +140,114 @@ func Test_adapter_publish(t *testing.T) {
 		})
 	}
 }
+
+func TestCompileRequest(t *testing.T) {
+	testData := []struct {
+		name                       string
+		req                        *logs.GetLogsRequest
+		want                       string
+		wantIncluded, wantExcluded []*logs.LogMessage
+	}{
+		{
+			name: "pipeline",
+			req: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Pipeline{
+								Pipeline: &logs.PipelineLogQuery{
+									Project:  "project",
+									Pipeline: "pipeline",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: `{app="pipeline",suite="pachyderm",container="user",pipelineProject="project",pipelineName="pipeline"}`,
+			wantIncluded: []*logs.LogMessage{
+				{
+					PpsLogMessage: &pps.LogMessage{
+						Message: "hi from worker",
+					},
+				},
+				{
+					PpsLogMessage: &pps.LogMessage{
+						Message: "hi from user code",
+						User:    true,
+					},
+				},
+			},
+		},
+		{
+			name: "pipeline user logs",
+			req: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Pipeline{
+								Pipeline: &logs.PipelineLogQuery{
+									Project:  "project",
+									Pipeline: "pipeline",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					UserLogsOnly: true,
+				},
+			},
+			want: `{app="pipeline",suite="pachyderm",container="user",pipelineProject="project",pipelineName="pipeline"}`,
+			wantIncluded: []*logs.LogMessage{
+				{
+					PpsLogMessage: &pps.LogMessage{
+						Message: "hi from user code",
+						User:    true,
+					},
+				},
+				{
+					Object: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"user": structpb.NewBoolValue(true),
+						},
+					},
+				},
+			},
+			wantExcluded: []*logs.LogMessage{
+				{
+					PpsLogMessage: &pps.LogMessage{
+						Message: "hi from worker",
+					},
+				},
+				{},
+			},
+		},
+	}
+
+	for _, test := range testData {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := pctx.TestContext(t)
+			var ls LogService
+			got, filter, err := ls.compileRequest(ctx, test.req)
+			if err != nil {
+				t.Fatalf("compileRequest: %v", err)
+			}
+			if want := test.want; got != want {
+				t.Errorf("desired logql:\n  got: %v\n want: %v", got, want)
+			}
+			for _, l := range test.wantIncluded {
+				got := filter(map[string]string{}, l)
+				if !got {
+					t.Errorf("log should be included, but would be filtered out:\n    %s", l.String())
+				}
+			}
+			for _, l := range test.wantExcluded {
+				got := filter(map[string]string{}, l)
+				if got {
+					t.Errorf("log should be excluded, but wasn't:\n    %s", l.String())
+				}
+			}
+		})
+	}
+}

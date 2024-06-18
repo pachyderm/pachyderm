@@ -33,35 +33,35 @@
             "properties": {
                 "logql": {
                     "type": "string",
-                    "description": "Arbitrary LogQL query"
+                    "description": "Arbitrary LogQL query."
                 },
                 "pod": {
                     "type": "string",
-                    "description": "A pod's logs (all containers)"
+                    "description": "A pod's logs (all containers)."
                 },
                 "podContainer": {
                     "$ref": "#/definitions/logs.PodContainer",
                     "additionalProperties": false,
-                    "description": "One container"
+                    "description": "One container."
                 },
                 "app": {
                     "type": "string",
-                    "description": "One \"app\" (logql -\u003e {app=X})"
+                    "description": "One \"app\" (logql -\u003e {app=X})."
                 },
                 "master": {
                     "$ref": "#/definitions/logs.PipelineLogQuery",
                     "additionalProperties": false,
-                    "description": "All master worker lines from a pipeline"
+                    "description": "All master worker lines from a pipeline."
                 },
                 "storage": {
                     "$ref": "#/definitions/logs.PipelineLogQuery",
                     "additionalProperties": false,
-                    "description": "All storage container lines from a pipeline"
+                    "description": "All storage container lines from a pipeline."
                 },
                 "user": {
                     "$ref": "#/definitions/logs.UserLogQuery",
                     "additionalProperties": false,
-                    "description": "All worker lines from a pipeline/job"
+                    "description": "All worker lines from a pipeline/job."
                 }
             },
             "additionalProperties": false,
@@ -129,15 +129,18 @@
         "logs.JobDatumLogQuery": {
             "properties": {
                 "job": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The hex-encoded ID of the job."
                 },
                 "datum": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The hex-encoded ID of the datum."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Job Datum Log Query"
+            "title": "Job Datum Log Query",
+            "description": "JobDatumLogQuery returns logs from the processing of one datum that was part of the job."
         },
         "logs.LogFilter": {
             "properties": {
@@ -162,7 +165,12 @@
                         "LOG_LEVEL_ERROR"
                     ],
                     "type": "string",
-                    "title": "Log Level"
+                    "title": "Log Level",
+                    "description": "LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR."
+                },
+                "userLogsOnly": {
+                    "type": "boolean",
+                    "description": "If true, only return logs from user code, excluding matched log messages only related to internal Pachyderm operations."
                 }
             },
             "additionalProperties": false,
@@ -201,11 +209,13 @@
             "properties": {
                 "user": {
                     "$ref": "#/definitions/logs.UserLogQuery",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "A user query; covering day-to-day Pachyderm use cases."
                 },
                 "admin": {
                     "$ref": "#/definitions/logs.AdminLogQuery",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "A more broad log query that requires special permissions; useful for debugging Pachyderm itself."
                 }
             },
             "additionalProperties": false,
@@ -222,7 +232,8 @@
                     ]
                 }
             ],
-            "title": "Log Query"
+            "title": "Log Query",
+            "description": "LogQuery names a source of logs."
         },
         "logs.PagingHint": {
             "properties": {
@@ -243,41 +254,50 @@
             "properties": {
                 "pipeline": {
                     "$ref": "#/definitions/logs.PipelineLogQuery",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "The pipeline."
                 },
                 "job": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The hex-encoded ID of the job."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Pipeline Job Log Query"
+            "title": "Pipeline Job Log Query",
+            "description": "PipelineJobLogQuery selects all logs from a job that a named pipeline performed."
         },
         "logs.PipelineLogQuery": {
             "properties": {
                 "project": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The project the pipeline is in."
                 },
                 "pipeline": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The name of the pipeline."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Pipeline Log Query"
+            "title": "Pipeline Log Query",
+            "description": "PipelineLogQuery selects all logs from all runs of a named pipeline."
         },
         "logs.PodContainer": {
             "properties": {
                 "pod": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The full name of the pod."
                 },
                 "container": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The name of the container."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Pod Container"
+            "title": "Pod Container",
+            "description": "PodContainer identifies a container running in a Pod."
         },
         "logs.RegexLogFilter": {
             "properties": {
@@ -318,25 +338,25 @@
             "properties": {
                 "project": {
                     "type": "string",
-                    "description": "All pipelines in the project"
+                    "description": "All pipelines in the project."
                 },
                 "pipeline": {
                     "$ref": "#/definitions/logs.PipelineLogQuery",
                     "additionalProperties": false,
-                    "description": "One pipeline in a project"
+                    "description": "One pipeline in a project."
                 },
                 "datum": {
                     "type": "string",
-                    "description": "One datum."
+                    "description": "One datum, by hex-encoded ID."
                 },
                 "job": {
                     "type": "string",
-                    "description": "One job, across pipelines and projects"
+                    "description": "One job by hex-encoded ID, across pipelines and projects."
                 },
                 "pipelineJob": {
                     "$ref": "#/definitions/logs.PipelineJobLogQuery",
                     "additionalProperties": false,
-                    "description": "One job in one pipeline"
+                    "description": "One job in one pipeline."
                 },
                 "jobDatum": {
                     "$ref": "#/definitions/logs.JobDatumLogQuery",
@@ -379,7 +399,7 @@
                 }
             ],
             "title": "User Log Query",
-            "description": "Only returns \"user\" logs"
+            "description": "A UserLogQuery selects logs that Pachyderm users need to see during normal Pachyderm operations."
         },
         "logs.VerbatimLogMessage": {
             "properties": {

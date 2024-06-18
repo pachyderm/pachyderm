@@ -1317,6 +1317,8 @@ func (m *LogFilter) validate(all bool) error {
 
 	// no validation rules for Level
 
+	// no validation rules for UserLogsOnly
+
 	if len(errors) > 0 {
 		return LogFilterMultiError(errors)
 	}

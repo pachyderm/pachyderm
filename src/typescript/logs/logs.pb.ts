@@ -70,6 +70,7 @@ export type LogFilter = {
   limit?: string
   regex?: RegexLogFilter
   level?: LogLevel
+  userLogsOnly?: boolean
 }
 
 export type TimeRangeLogFilter = {

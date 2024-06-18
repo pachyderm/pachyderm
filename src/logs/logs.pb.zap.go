@@ -137,6 +137,7 @@ func (x *LogFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddReflected("regex", x.Regex)
 	}
 	enc.AddString("level", x.Level.String())
+	enc.AddBool("user_logs_only", x.UserLogsOnly)
 	return nil
 }
 

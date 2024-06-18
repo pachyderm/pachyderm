@@ -5,15 +5,18 @@
         "PodContainer": {
             "properties": {
                 "pod": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The full name of the pod."
                 },
                 "container": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "The name of the container."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Pod Container"
+            "title": "Pod Container",
+            "description": "PodContainer identifies a container running in a Pod."
         }
     }
 }

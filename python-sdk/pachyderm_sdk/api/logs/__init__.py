@@ -24,6 +24,11 @@ if TYPE_CHECKING:
 
 
 class LogLevel(betterproto.Enum):
+    """
+    LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and
+    ERROR.
+    """
+
     LOG_LEVEL_DEBUG = 0
     LOG_LEVEL_INFO = 1
     LOG_LEVEL_ERROR = 2
@@ -31,60 +36,76 @@ class LogLevel(betterproto.Enum):
 
 @dataclass(eq=False, repr=False)
 class LogQuery(betterproto.Message):
+    """LogQuery names a source of logs."""
+
     user: "UserLogQuery" = betterproto.message_field(1, group="query_type")
+    """A user query; covering day-to-day Pachyderm use cases."""
+
     admin: "AdminLogQuery" = betterproto.message_field(2, group="query_type")
+    """
+    A more broad log query that requires special permissions; useful for
+    debugging Pachyderm itself.
+    """
 
 
 @dataclass(eq=False, repr=False)
 class AdminLogQuery(betterproto.Message):
     logql: str = betterproto.string_field(1, group="admin_type")
-    """Arbitrary LogQL query"""
+    """Arbitrary LogQL query."""
 
     pod: str = betterproto.string_field(2, group="admin_type")
-    """A pod's logs (all containers)"""
+    """A pod's logs (all containers)."""
 
     pod_container: "PodContainer" = betterproto.message_field(3, group="admin_type")
-    """One container"""
+    """One container."""
 
     app: str = betterproto.string_field(4, group="admin_type")
-    """One "app" (logql -> {app=X})"""
+    """One "app" (logql -> {app=X})."""
 
     master: "PipelineLogQuery" = betterproto.message_field(5, group="admin_type")
-    """All master worker lines from a pipeline"""
+    """All master worker lines from a pipeline."""
 
     storage: "PipelineLogQuery" = betterproto.message_field(6, group="admin_type")
-    """All storage container lines from a pipeline"""
+    """All storage container lines from a pipeline."""
 
     user: "UserLogQuery" = betterproto.message_field(7, group="admin_type")
-    """All worker lines from a pipeline/job"""
+    """All worker lines from a pipeline/job."""
 
 
 @dataclass(eq=False, repr=False)
 class PodContainer(betterproto.Message):
+    """PodContainer identifies a container running in a Pod."""
+
     pod: str = betterproto.string_field(1)
+    """The full name of the pod."""
+
     container: str = betterproto.string_field(2)
+    """The name of the container."""
 
 
 @dataclass(eq=False, repr=False)
 class UserLogQuery(betterproto.Message):
-    """Only returns "user" logs"""
+    """
+    A UserLogQuery selects logs that Pachyderm users need to see during normal
+    Pachyderm operations.
+    """
 
     project: str = betterproto.string_field(1, group="user_type")
-    """All pipelines in the project"""
+    """All pipelines in the project."""
 
     pipeline: "PipelineLogQuery" = betterproto.message_field(2, group="user_type")
-    """One pipeline in a project"""
+    """One pipeline in a project."""
 
     datum: str = betterproto.string_field(3, group="user_type")
-    """One datum."""
+    """One datum, by hex-encoded ID."""
 
     job: str = betterproto.string_field(4, group="user_type")
-    """One job, across pipelines and projects"""
+    """One job by hex-encoded ID, across pipelines and projects."""
 
     pipeline_job: "PipelineJobLogQuery" = betterproto.message_field(
         5, group="user_type"
     )
-    """One job in one pipeline"""
+    """One job in one pipeline."""
 
     job_datum: "JobDatumLogQuery" = betterproto.message_field(6, group="user_type")
     """One datum in one job"""
@@ -92,20 +113,41 @@ class UserLogQuery(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class PipelineLogQuery(betterproto.Message):
+    """PipelineLogQuery selects all logs from all runs of a named pipeline."""
+
     project: str = betterproto.string_field(1)
+    """The project the pipeline is in."""
+
     pipeline: str = betterproto.string_field(2)
+    """The name of the pipeline."""
 
 
 @dataclass(eq=False, repr=False)
 class PipelineJobLogQuery(betterproto.Message):
+    """
+    PipelineJobLogQuery selects all logs from a job that a named pipeline
+    performed.
+    """
+
     pipeline: "PipelineLogQuery" = betterproto.message_field(1)
+    """The pipeline."""
+
     job: str = betterproto.string_field(2)
+    """The hex-encoded ID of the job."""
 
 
 @dataclass(eq=False, repr=False)
 class JobDatumLogQuery(betterproto.Message):
+    """
+    JobDatumLogQuery returns logs from the processing of one datum that was
+    part of the job.
+    """
+
     job: str = betterproto.string_field(1)
+    """The hex-encoded ID of the job."""
+
     datum: str = betterproto.string_field(2)
+    """The hex-encoded ID of the datum."""
 
 
 @dataclass(eq=False, repr=False)
@@ -125,6 +167,12 @@ class LogFilter(betterproto.Message):
     """
     If set, only return logs that are greater than or equal to this log level.
     (DEBUG returns DEBUG, INFO, ERROR, INFO returns INFO and ERROR, etc.).
+    """
+
+    user_logs_only: bool = betterproto.bool_field(5)
+    """
+    If true, only return logs from user code, excluding matched log messages
+    only related to internal Pachyderm operations.
     """
 
 
