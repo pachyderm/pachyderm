@@ -11670,6 +11670,7 @@ func TestPipelinesSummary(t *testing.T) {
 		Unhealthy
 		Paused
 		Failed
+		Crashing
 	)
 	createPipeline := func(project, name string, state PipState) {
 		cmd := []string{"cp", "-r", "/pfs/in", "/pfs/out"}
@@ -11679,10 +11680,16 @@ func TestPipelinesSummary(t *testing.T) {
 		case Failed:
 			cmd = nil
 		}
+
+		image := ""
+		if state == Crashing {
+			// Make pipeline crash
+			image = "fehowfpjoefw"
+		}
 		require.NoError(t, c.CreatePipeline(
 			project,
 			name,
-			"", /* default image*/
+			image,
 			cmd,
 			nil, /* stdin */
 			nil, /* spec */
@@ -11700,7 +11707,7 @@ func TestPipelinesSummary(t *testing.T) {
 	for _, prj := range projects {
 		require.NoError(t, c.CreateProject(prj))
 	}
-	pips := []string{"A", "B", "C", "D", "E"}
+	pips := []string{"A", "B", "C", "D", "E", "F"}
 	for _, prj := range projects {
 		for i, pip := range pips {
 			var state PipState = Active
@@ -11710,6 +11717,8 @@ func TestPipelinesSummary(t *testing.T) {
 				state = Paused
 			} else if i == 2 {
 				state = Failed
+			} else if i == 3 {
+				state = Crashing
 			}
 			createPipeline(prj, pip, state)
 		}
@@ -11742,7 +11751,7 @@ func TestPipelinesSummary(t *testing.T) {
 			require.Equal(t, project, resp.Summaries[i].Project.Name)
 			require.Equal(t, int64(3), resp.Summaries[i].ActivePipelines) // unhealthy pipelines are still active
 			require.Equal(t, int64(1), resp.Summaries[i].PausedPipelines)
-			require.Equal(t, int64(1), resp.Summaries[i].FailedPipelines)
+			require.Equal(t, int64(2), resp.Summaries[i].FailedPipelines)
 			require.Equal(t, int64(1), resp.Summaries[i].UnhealthyPipelines)
 		}
 	}
