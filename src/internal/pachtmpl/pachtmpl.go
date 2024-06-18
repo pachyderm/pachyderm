@@ -30,7 +30,13 @@ func ParseArgs(argStrs []string) (*structpb.Struct, error) {
 		}
 
 	}
-	return structpb.NewStruct(ret)
+
+	argsStruct, err := structpb.NewStruct(ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "structpb.NewStruct on %#v", argsStruct)
+	}
+
+	return argsStruct, nil
 }
 
 // RenderTemplate renders the template tmpl, using args and returns the result.

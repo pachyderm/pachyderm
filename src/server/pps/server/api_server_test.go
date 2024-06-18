@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -334,10 +335,12 @@ func TestRenderTemplate(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient.PpsAPIClient
+	val, err := structpb.NewStruct(map[string]any{
+		"arg1": "value1",
+	})
+
 	res, err := client.RenderTemplate(ctx, &pps.RenderTemplateRequest{
-		Args: map[string]string{
-			"arg1": "value1",
-		},
+		Args: val,
 		Template: `
 			function (arg1) {
 				pipeline: {name: arg1},
