@@ -33,7 +33,7 @@ export const LINEAGE_FILE_BROWSER_PATH =
 export const LINEAGE_FILE_BROWSER_PATH_LATEST =
   '/lineage/:projectId/repos/:repoId/latest';
 export const LINEAGE_FILE_PREVIEW_PATH =
-'/lineage/:projectId/repos/:repoId/commit/:commitId/:filePath?';
+  '/lineage/:projectId/repos/:repoId/commit/:commitId/:filePath?';
 
 export const LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST = `/lineage/:projectId/pipelines/:pipelineId/logs`;
 export const LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH = `/lineage/:projectId/pipelines/:pipelineId/jobs/:jobId/logs`;
@@ -45,6 +45,7 @@ export const CLUSTER_CONFIG = `/cluster/defaults`;
 export const PROJECT_CONFIG_PATH = `/project/:projectId/defaults`;
 export const CREATE_PIPELINE_PATH = `/lineage/:projectId/create/pipeline`;
 export const UPDATE_PIPELINE_PATH = `/lineage/:projectId/update/pipeline/:pipelineId`;
+export const PIPELINE_TEMPLATE_PATH = `/lineage/:projectId/create/template`;
 export const DUPLICATE_PIPELINE_PATH = `/lineage/:projectId/duplicate/pipeline/:pipelineId`;
 
 export const PROJECT_SIDENAV_PATHS = [
@@ -80,6 +81,7 @@ export const PROJECT_PATHS = [
   PROJECT_CONFIG_PATH,
   CREATE_PIPELINE_PATH,
   UPDATE_PIPELINE_PATH,
+  PIPELINE_TEMPLATE_PATH,
   DUPLICATE_PIPELINE_PATH,
   ...PROJECT_SIDENAV_PATHS,
 ];

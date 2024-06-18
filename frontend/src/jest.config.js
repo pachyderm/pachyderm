@@ -13,6 +13,7 @@ const moduleNameMapper = pathsToModuleNameMapper(
 );
 
 baseConfig.moduleNameMapper = {
+  '\\?raw$': 'jest-raw-loader',
   ...baseConfig.moduleNameMapper,
   ...moduleNameMapper,
 };

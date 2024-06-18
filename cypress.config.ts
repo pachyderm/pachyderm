@@ -33,7 +33,7 @@ export default defineConfig({
   viewportHeight: 900, // default is 800
   viewportWidth: 1000, // default is 1000
   e2e: {
-    baseUrl: 'http://localhost:4000/',
+    baseUrl: 'http://localhost:4000',
     specPattern: 'cypress/e2e/**/*.{js,jsx,ts,tsx}',
     setupNodeEvents(on, config) {
       codeCoverageTask(on, config);

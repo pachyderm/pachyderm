@@ -9,7 +9,6 @@ import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {Empty} from '@dash-frontend/api/googleTypes';
-import {InspectProjectRequest, ProjectInfo} from '@dash-frontend/api/pfs';
 import {
   GetClusterDefaultsRequest,
   GetClusterDefaultsResponse,
@@ -25,6 +24,8 @@ import {
   mockGetEnterpriseInfo,
   mockPipelines,
   mockEmptyJob,
+  mockInspectProject,
+  mockCreatePipelineSuccess,
 } from '@dash-frontend/mocks';
 import {
   mockCreatePipelineRequestSchema,
@@ -60,20 +61,9 @@ describe('PipelineEditor', () => {
     server.use(mockPipelines());
     server.use(mockGetEnterpriseInfo());
     server.use(mockEmptyJob());
-    server.use(
-      rest.post<InspectProjectRequest, Empty, ProjectInfo>(
-        '/api/pfs_v2.API/InspectProject',
-        async (_req, res, ctx) => {
-          return res(
-            ctx.json({
-              project: {name: 'default'},
-              description: '',
-              createdAt: '2017-07-14T02:40:20.000Z',
-            }),
-          );
-        },
-      ),
-    );
+    server.use(mockInspectProject());
+    server.use(mockCreatePipelineSuccess());
+
     server.use(
       rest.post<GetClusterDefaultsRequest, Empty, GetClusterDefaultsResponse>(
         '/api/pps_v2.API/GetClusterDefaults',
@@ -109,18 +99,6 @@ describe('PipelineEditor', () => {
                 null,
                 4,
               ),
-            }),
-          );
-        },
-      ),
-    );
-    server.use(
-      rest.post<CreatePipelineV2Request, Empty, CreatePipelineV2Response>(
-        '/api/pps_v2.API/CreatePipelineV2',
-        (_req, res, ctx) => {
-          return res(
-            ctx.json({
-              effectiveCreatePipelineRequestJson: '{\n  "effectiveSpec": {}\n}',
             }),
           );
         },

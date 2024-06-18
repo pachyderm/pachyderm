@@ -11,6 +11,8 @@ import {
   JobState as PipelineInfoJobState,
   PipelineState,
   JobState,
+  CreatePipelineV2Request,
+  CreatePipelineV2Response,
 } from '@dash-frontend/api/pps';
 import {RequestError} from '@dash-frontend/api/utils/error';
 import {getISOStringFromUnix} from '@dash-frontend/lib/dateTime';
@@ -340,3 +342,14 @@ export const generatePagingPipelines = (n: number): PipelineInfo[] => {
   }
   return pipelines;
 };
+export const mockCreatePipelineSuccess = () =>
+  rest.post<CreatePipelineV2Request, Empty, CreatePipelineV2Response>(
+    '/api/pps_v2.API/CreatePipelineV2',
+    (_req, res, ctx) => {
+      return res(
+        ctx.json({
+          effectiveCreatePipelineRequestJson: '{\n  "effectiveSpec": {}\n}',
+        }),
+      );
+    },
+  );

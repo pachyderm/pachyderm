@@ -24,6 +24,7 @@ import {
   StartPipelineRequest,
   StopPipelineRequest,
   RunCronRequest,
+  RenderTemplateRequest,
 } from '@dash-frontend/generated/proto/pps/pps.pb';
 import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
 import {InternalJobSet} from '@dash-frontend/lib/types';
@@ -298,6 +299,10 @@ export const stopJob = async (req: StopJobRequest) => {
 
 export const runCron = async (req: RunCronRequest) => {
   return await pps.RunCron(req, getRequestOptions());
+};
+
+export const renderTemplate = async (req: RenderTemplateRequest) => {
+  return await pps.RenderTemplate(req, getRequestOptions());
 };
 
 // Export all of the pps types

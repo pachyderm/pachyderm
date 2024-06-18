@@ -149,6 +149,7 @@
     "jest": "^29.6.4",
     "jest-environment-jsdom": "^29.7.0",
     "jest-fetch-mock": "^3.0.3",
+    "jest-raw-loader": "^1.0.1",
     "msw": "^1.2.4",
     "postcss-custom-media": "^8.0.2",
     "postcss-flexbugs-fixes": "^5.0.2",

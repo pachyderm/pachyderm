@@ -1,7 +1,11 @@
 import {rest} from 'msw';
 
 import {Empty} from '@dash-frontend/api/googleTypes';
-import {ProjectInfo, ListProjectRequest} from '@dash-frontend/api/pfs';
+import {
+  ProjectInfo,
+  ListProjectRequest,
+  InspectProjectRequest,
+} from '@dash-frontend/api/pfs';
 
 type ProjectsMap = {
   projects: ProjectInfo[];
@@ -35,5 +39,19 @@ export const mockProjects = () =>
     '/api/pfs_v2.API/ListProject',
     async (_req, res, ctx) => {
       return res(ctx.json(ALL_PROJECTS.projects));
+    },
+  );
+
+export const mockInspectProject = () =>
+  rest.post<InspectProjectRequest, Empty, ProjectInfo>(
+    '/api/pfs_v2.API/InspectProject',
+    async (_req, res, ctx) => {
+      return res(
+        ctx.json({
+          project: {name: 'default'},
+          description: '',
+          createdAt: '2017-07-14T02:40:20.000Z',
+        }),
+      );
     },
   );

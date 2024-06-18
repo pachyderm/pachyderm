@@ -1,0 +1,81 @@
+.view {
+  padding: 0;
+}
+
+.titleBar {
+  display: inline-flex;
+  align-items: center;
+  border-bottom: solid 1px var(--border-grey);
+  padding: 1rem;
+}
+
+.grid {
+  padding: 1rem;
+  gap: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.card {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  height: 14rem;
+  width: 14rem;
+  gap: 1rem;
+  border-radius: 3px;
+  border: 1px solid var(--border-grey);
+  background: var(--white);
+  box-shadow: 2px 2px 8px var(--dropshadow-grey);
+}
+
+.selected {
+  padding-left: 0.813rem;
+  border: 1px solid var(--cyan);
+  border-left: 0.25rem solid var(--cyan);
+}
+
+.urlRow {
+  flex-basis: 100%;
+}
+
+.cardTitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.description {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+}
+
+.formBase {
+  padding: 1rem;
+  width: 50%;
+}
+
+@media (--small-viewport) {
+  .formBase {
+    padding: 1rem;
+    width: 100%;
+  }
+}
+
+.formHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.formFields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  margin-top: 1rem;
+}

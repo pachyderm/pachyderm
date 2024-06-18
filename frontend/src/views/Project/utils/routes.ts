@@ -35,6 +35,7 @@ import {
   CREATE_PIPELINE_PATH,
   UPDATE_PIPELINE_PATH,
   DUPLICATE_PIPELINE_PATH,
+  PIPELINE_TEMPLATE_PATH,
 } from '../constants/projectPaths';
 
 const generateRouteFn = <S extends string>(path: S) => {
@@ -80,6 +81,7 @@ export const pipelineRoute = generateRouteFn(LINEAGE_PIPELINE_PATH);
 export const createPipelineRoute = generateRouteFn(CREATE_PIPELINE_PATH);
 export const updatePipelineRoute = generateRouteFn(UPDATE_PIPELINE_PATH);
 export const duplicatePipelineRoute = generateRouteFn(DUPLICATE_PIPELINE_PATH);
+export const PipelineTemplateRoute = generateRouteFn(PIPELINE_TEMPLATE_PATH);
 
 export const fileBrowserRoute = generateLineageOrProjectRouteFn(
   PROJECT_FILE_BROWSER_PATH,

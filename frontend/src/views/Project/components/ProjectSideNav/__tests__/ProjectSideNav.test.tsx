@@ -69,7 +69,7 @@ describe('project sidenav', () => {
       );
       await click(
         screen.getByRole('menuitem', {
-          name: /pipeline/i,
+          name: 'Pipeline',
         }),
       );
 

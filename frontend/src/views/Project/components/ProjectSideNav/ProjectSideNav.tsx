@@ -15,6 +15,7 @@ import {
   projectJobsRoute,
   createPipelineRoute,
   projectConfigRoute,
+  PipelineTemplateRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 import {
   SideNav,
@@ -104,6 +105,15 @@ const ProjectSideNav: React.FC = () => {
                   id="pipeline"
                 >
                   Pipeline
+                </Dropdown.MenuItem>
+                <Dropdown.MenuItem
+                  closeOnClick
+                  onClick={() =>
+                    browserHistory.push(PipelineTemplateRoute({projectId}))
+                  }
+                  id="template"
+                >
+                  Pipeline from template
                 </Dropdown.MenuItem>
               </Dropdown.Menu>
             </Dropdown>
