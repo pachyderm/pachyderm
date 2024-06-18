@@ -68,6 +68,11 @@ const PipelineInfo: React.FC = () => {
         {pipeline?.details?.outputBranch}
       </Description>
 
+      <Description term="Workers Active" loading={loading}>
+        {pipeline?.details?.workersAvailable}/
+        {pipeline?.details?.workersRequested}
+      </Description>
+
       {pipeline?.details?.service?.type === 'LoadBalancer' && (
         <Description term="Service IP" loading={loading}>
           <Link

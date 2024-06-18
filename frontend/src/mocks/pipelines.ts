@@ -144,6 +144,9 @@ const MONTAGE_PIPELINE: PipelineInfo = buildPipeline({
         },
       ],
     },
+    parallelismSpec: {constant: '1'},
+    workersAvailable: '1',
+    workersRequested: '1',
   },
   version: '1',
   state: PipelineState.PIPELINE_FAILURE,
@@ -153,6 +156,7 @@ const MONTAGE_PIPELINE: PipelineInfo = buildPipeline({
   effectiveSpecJson: JSON.stringify(effectiveSpecJsonMontage, null, 2),
   userSpecJson: JSON.stringify(userSpecJsonMontage, null, 2),
   reason: 'Pipeline failed because we have no memory!',
+  parallelism: '1',
 });
 
 const EDGES_PIPELINE: PipelineInfo = buildPipeline({
