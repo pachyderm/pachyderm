@@ -20,8 +20,8 @@ func ParseArgs(argStrs []string) (*structpb.Struct, error) {
 		if len(kv) != 2 {
 			return nil, errors.Errorf("invalid template argument %q: must have form \"key=value\"", argStr)
 		}
-		b, err := strconv.ParseBool(kv[1])
-		if err != nil {
+		b, notBool := strconv.ParseBool(kv[1])
+		if notBool != nil {
 			key, value := kv[0], kv[1]
 			ret[key] = value
 		} else {
