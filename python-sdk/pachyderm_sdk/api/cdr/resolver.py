@@ -1,4 +1,5 @@
 """Handwritten classes/methods that augment the existing CDR API."""
+
 import gzip
 from hashlib import blake2b
 from hmac import compare_digest
@@ -8,13 +9,22 @@ from betterproto import which_one_of
 
 from . import (
     Ref,
-    Cipher, Compress, Concat, ContentHash, Http, SizeLimits, Slice,
-    CipherAlgo, CompressAlgo, HashAlgo,
+    Cipher,
+    Compress,
+    Concat,
+    ContentHash,
+    Http,
+    SizeLimits,
+    Slice,
+    CipherAlgo,
+    CompressAlgo,
+    HashAlgo,
 )
 
 try:
     import requests
     from Crypto.Cipher import ChaCha20
+
     CDR_ENABLED = True
 except ImportError:
     requests = None
@@ -25,8 +35,8 @@ except ImportError:
 class CdrResolver:
     """Class capable of resolving CDRs returned by the PFS API."""
 
-    def __init__(self, *, http_host_replacement: str = ''):
-        """ Creates a CdrResolver.
+    def __init__(self, *, http_host_replacement: str = ""):
+        """Creates a CdrResolver.
         Whether CDR functionality is enabled is checked at time of initialization.
 
         Parameters
@@ -65,9 +75,9 @@ class CdrResolver:
         elif isinstance(body, SizeLimits):
             return self._dereference_size_limits(body)
         elif isinstance(body, Concat):
-            return b''.join(map(self.resolve, body.refs))
+            return b"".join(map(self.resolve, body.refs))
         elif isinstance(body, Slice):
-            return self.resolve(body.inner)[body.start:body.end]
+            return self.resolve(body.inner)[body.start : body.end]
         else:
             raise ValueError(f"unsupported Ref variant: {body}")
 
@@ -85,7 +95,7 @@ class CdrResolver:
         url, headers = body.url, body.headers
         if self.http_host_replacement:
             parsed_url = urlparse(body.url)
-            headers['Host'] = parsed_url.netloc
+            headers["Host"] = parsed_url.netloc
             url = parsed_url._replace(netloc=self.http_host_replacement).geturl()
 
         response = requests.get(url=url, headers=headers)
@@ -115,9 +125,7 @@ class CdrResolver:
         inner_hash = blake2b(inner, digest_size=32).digest()
         if not compare_digest(inner_hash, body.hash):
             raise ValueError(
-                f"content failed hash check. "
-                f"HAVE: {inner_hash} "
-                f"WANT: {body.hash}"
+                f"content failed hash check. HAVE: {inner_hash} WANT: {body.hash}"
             )
         return inner
 
