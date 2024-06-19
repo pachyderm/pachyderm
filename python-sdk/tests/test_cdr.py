@@ -26,7 +26,8 @@ class TestCDR:
         request_iterator = (
             storage.CreateFilesetRequest(
                 append_file=storage.AppendFile(path=path, data=data)
-            ) for path, data in files.items()
+            )
+            for path, data in files.items()
         )
         fileset_id = client.storage.create_fileset(request_iterator).fileset_id
         response = client.storage.read_fileset_cdr(fileset_id=fileset_id)
