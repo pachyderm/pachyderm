@@ -162,7 +162,7 @@ func ListProject(ctx context.Context, tx *pachsql.Tx) ([]Project, error) {
 
 // CreateProject creates an entry in the core.projects table.
 func CreateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo) error {
-	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description, metadata) VALUES ($1, $2, $3);", project.Project.Name, project.Description, &pgjsontypes.StringMap{Data: project.Metadata})
+	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description, metadata, created_by) VALUES ($1, $2, $3, $4);", project.Project.Name, project.Description, &pgjsontypes.StringMap{Data: project.Metadata}, project.CreatedBy)
 	//todo: insert project.authInfo into auth table.
 	if err != nil && IsErrProjectAlreadyExists(err) {
 		return &ProjectAlreadyExistsError{Name: project.Project.Name}
@@ -212,12 +212,13 @@ func GetProject(ctx context.Context, tx *pachsql.Tx, projectName string) (*Proje
 }
 
 func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*Project, error) {
-	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at, metadata, id FROM core.projects WHERE %s = $1", where), whereVal)
+	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at, metadata, created_by, id FROM core.projects WHERE %s = $1", where), whereVal)
 	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
 	id := 0
 	var createdAt time.Time
+	var createdBy string
 	metadata := &pgjsontypes.StringMap{Data: make(map[string]string)}
-	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &metadata, &id)
+	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &metadata, &createdBy, &id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {
@@ -229,6 +230,7 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	}
 	project.CreatedAt = timestamppb.New(createdAt)
 	project.Metadata = metadata.Data
+	project.CreatedBy = createdBy
 	return &Project{
 		ID:          ProjectID(id),
 		ProjectInfo: project,
