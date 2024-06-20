@@ -123,6 +123,13 @@ message PFSInput {
   // Trigger defines when this input is processed by the pipeline, if it's nil
   // the input is processed anytime something is committed to the input branch.
   pfs_v2.Trigger trigger = 12;
+  DatumGen datum_gen = 15;
+  
+}
+
+message DatumGen {
+  string cmd = 1;
+  repeated string stdin = 2;
 }
 
 message CronInput {
@@ -719,10 +726,15 @@ message SchedulingSpec {
   string priority_class_name = 2;
 }
 
+message PipelineDatumFilter {
+  repeated string id = 1;
+}
+
 message RerunPipelineRequest {
   Pipeline pipeline = 1 [(validate.rules).message.required = true];
   // Reprocess forces the pipeline to reprocess all datums.
   bool reprocess = 15;
+  PipelineDatumFilter filter = 2;
 }
 
 message CreatePipelineRequest {

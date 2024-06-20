@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DatumGen",
+    "definitions": {
+        "DatumGen": {
+            "properties": {
+                "cmd": {
+                    "type": "string"
+                },
+                "stdin": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Datum Gen"
+        }
+    }
+}

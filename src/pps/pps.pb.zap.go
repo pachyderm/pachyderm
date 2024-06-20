@@ -187,6 +187,22 @@ func (x *PFSInput) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("empty_files", x.EmptyFiles)
 	enc.AddBool("s3", x.S3)
 	enc.AddObject("trigger", x.Trigger)
+	enc.AddObject("datum_gen", x.DatumGen)
+	return nil
+}
+
+func (x *DatumGen) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("cmd", x.Cmd)
+	stdinArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Stdin {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("stdin", zapcore.ArrayMarshalerFunc(stdinArrMarshaller))
 	return nil
 }
 
@@ -825,12 +841,27 @@ func (x *SchedulingSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *PipelineDatumFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	idArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Id {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("id", zapcore.ArrayMarshalerFunc(idArrMarshaller))
+	return nil
+}
+
 func (x *RerunPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
 	enc.AddObject("pipeline", x.Pipeline)
 	enc.AddBool("reprocess", x.Reprocess)
+	enc.AddObject("filter", x.Filter)
 	return nil
 }
 

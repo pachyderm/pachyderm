@@ -162,6 +162,12 @@ export type PFSInput = {
   emptyFiles?: boolean
   s3?: boolean
   trigger?: Pfs_v2Pfs.Trigger
+  datumGen?: DatumGen
+}
+
+export type DatumGen = {
+  cmd?: string
+  stdin?: string[]
 }
 
 export type CronInput = {
@@ -522,9 +528,14 @@ export type SchedulingSpec = {
   priorityClassName?: string
 }
 
+export type PipelineDatumFilter = {
+  id?: string[]
+}
+
 export type RerunPipelineRequest = {
   pipeline?: Pipeline
   reprocess?: boolean
+  filter?: PipelineDatumFilter
 }
 
 export type CreatePipelineRequest = {

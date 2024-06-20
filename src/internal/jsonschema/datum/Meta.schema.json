@@ -45,6 +45,22 @@
             "type": "object",
             "title": "Meta"
         },
+        "common.DatumGen": {
+            "properties": {
+                "cmd": {
+                    "type": "string"
+                },
+                "stdin": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Datum Gen"
+        },
         "common.Input": {
             "properties": {
                 "fileInfo": {
@@ -75,6 +91,10 @@
                 "s3": {
                     "type": "boolean",
                     "description": "If set, workers won't create an input directory for this input"
+                },
+                "datumGen": {
+                    "$ref": "#/definitions/common.DatumGen",
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false,

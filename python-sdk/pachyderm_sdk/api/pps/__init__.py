@@ -268,6 +268,14 @@ class PfsInput(betterproto.Message):
     the input is processed anytime something is committed to the input branch.
     """
 
+    datum_gen: "DatumGen" = betterproto.message_field(15)
+
+
+@dataclass(eq=False, repr=False)
+class DatumGen(betterproto.Message):
+    cmd: str = betterproto.string_field(1)
+    stdin: List[str] = betterproto.string_field(2)
+
 
 @dataclass(eq=False, repr=False)
 class CronInput(betterproto.Message):
@@ -926,10 +934,17 @@ class SchedulingSpec(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class PipelineDatumFilter(betterproto.Message):
+    id: List[str] = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
 class RerunPipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     reprocess: bool = betterproto.bool_field(15)
     """Reprocess forces the pipeline to reprocess all datums."""
+
+    filter: "PipelineDatumFilter" = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -1739,13 +1754,19 @@ class ApiStub:
         return self.__rpc_restart_datum(request)
 
     def rerun_pipeline(
-        self, *, pipeline: "Pipeline" = None, reprocess: bool = False
+        self,
+        *,
+        pipeline: "Pipeline" = None,
+        reprocess: bool = False,
+        filter: "PipelineDatumFilter" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
 
         request = RerunPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
         request.reprocess = reprocess
+        if filter is not None:
+            request.filter = filter
 
         return self.__rpc_rerun_pipeline(request)
 
