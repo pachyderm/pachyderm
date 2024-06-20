@@ -47,7 +47,7 @@
   display: none;
 }
 
-@container dag-view (max-width: 780px) {
+@container dag-view (width < 800px) {
   .responsiveControls {
     display: inline;
   }
