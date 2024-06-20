@@ -63,8 +63,12 @@ describe('Long Running Tests', () => {
     */
       cy.findByRole('heading', {name: 'default'});
       cy.visit('/lineage/default');
-
-      cy.findByRole('button', {name: /download canvas/i}).click();
+      cy.findByRole('button', {
+        name: /open dag controls menu/i,
+      }).click();
+      cy.findByRole('menuitem', {
+        name: /download canvas/i,
+      }).click();
 
       cy.waitUntil(() =>
         cy.task('readDownloadedFileMaybe', `default.svg`),
