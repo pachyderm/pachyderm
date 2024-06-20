@@ -185,6 +185,57 @@ describe('Repos', () => {
     cy.findByText('TestRepo').should('not.exist');
   });
 
+  it('should allow a user to update repo metadata', () => {
+    cy.findByText('TestRepo', {timeout: 12000}).click();
+  
+    cy.findByRole('tab', {name: /user metadata/i}).click();
+    cy.findAllByRole('button', {name: /edit/i}).eq(0).click();
+    cy.findByRole('heading', {name: /edit repo metadata/i});
+
+    cy.findByRole('button', {name: /add new/i}).click();
+
+    cy.findAllByPlaceholderText('key').eq(0).type('newKey');
+    cy.findAllByPlaceholderText('value').eq(0).type('newValue');
+    cy.findAllByPlaceholderText('key').eq(1).type('deleteKey');
+    cy.findAllByPlaceholderText('value').eq(1).type('deleteValue');
+
+    cy.findByRole('button', {name: /apply metadata/i}).click();
+
+    cy.findByRole('heading', {name: /edit repo metadata/i}).should(
+      'not.exist',
+    );
+    cy.findByText('newKey').should('exist');
+    cy.findByText('newValue').should('exist');
+    cy.findByText('deleteKey').should('exist');
+    cy.findByText('deleteValue').should('exist');
+
+    cy.findAllByRole('button', {name: /edit/i}).eq(0).click();
+    cy.findByRole('heading', {name: /edit repo metadata/i});
+    cy.findByRole('button', {name: /delete metadata row 0/i}).click();
+    cy.findByRole('button', {name: /apply metadata/i}).click();
+
+    cy.findByText('deleteKey').should('not.exist');
+    cy.findByText('deleteValue').should('not.exist');
+  });
+
+  it('should allow a user to update commit metadata', () => {
+    cy.findByText('TestRepo', {timeout: 12000}).click();
+  
+    cy.findByRole('tab', {name: /user metadata/i}).click();
+    cy.findAllByRole('button', {name: /edit/i}).eq(1).click();
+    cy.findByRole('heading', {name: /edit commit metadata/i});
+
+    cy.findAllByPlaceholderText('key').eq(0).type('commitKey');
+    cy.findAllByPlaceholderText('value').eq(0).type('commitValue');
+
+    cy.findByRole('button', {name: /apply metadata/i}).click();
+    
+    cy.findByRole('heading', {name: /edit commit metadata/i}).should('not.exist');
+
+    cy.findByText('commitKey').should('exist');
+    cy.findByText('commitValue').should('exist');
+  });
+
   // TODO: FRON-1500 Address before 2.11 release.
   it.skip('should allow a user to select a repo from the list view to inspect commits', () => {
     cy.setupProject().visit('/');

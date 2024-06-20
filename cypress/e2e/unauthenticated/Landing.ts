@@ -3,6 +3,8 @@ describe('Landing', () => {
     cy.deleteReposAndPipelines();
     cy.setupProject();
     cy.exec('pachctl delete project new-project', {failOnNonZeroExit: false});
+    cy.exec('pachctl edit metadata cluster "" replace {}', {failOnNonZeroExit: false});
+    cy.exec('pachctl edit metadata project default replace {}', {failOnNonZeroExit: false});
     cy.exec(
       `echo '{"createPipelineRequest":{"resourceRequests":{"cpu":1,"memory":"256Mi","disk":"1Gi"},"sidecarResourceRequests":{"cpu":1,"memory":"256Mi","disk":"1Gi"}}}' | pachctl update defaults --cluster`,
     );
@@ -14,6 +16,8 @@ describe('Landing', () => {
   after(() => {
     cy.deleteReposAndPipelines();
     cy.exec('pachctl delete project new-project', {failOnNonZeroExit: false});
+    cy.exec('pachctl edit metadata cluster "" replace {}', {failOnNonZeroExit: false});
+    cy.exec('pachctl edit metadata project default replace {}', {failOnNonZeroExit: false});
     cy.exec(
       `echo '{"createPipelineRequest":{"resourceRequests":{"cpu":1,"memory":"256Mi","disk":"1Gi"},"sidecarResourceRequests":{"cpu":1,"memory":"256Mi","disk":"1Gi"}}}' | pachctl update defaults --cluster`,
     );
@@ -109,6 +113,37 @@ describe('Landing', () => {
     cy.contains('[role="row"]', /new-project/i).should('not.exist');
   });
 
+  it('should update and save project metadata', () => {
+    cy.findByRole('tab', {name: /user metadata/i}).click();
+    cy.findByRole('button', {name: /edit/i}).click();
+    cy.findByRole('heading', {name: /edit project metadata/i});
+
+    cy.findByRole('button', {name: /add new/i}).click();
+
+    cy.findAllByPlaceholderText('key').eq(0).type('newKey');
+    cy.findAllByPlaceholderText('value').eq(0).type('newValue');
+    cy.findAllByPlaceholderText('key').eq(1).type('deleteKey');
+    cy.findAllByPlaceholderText('value').eq(1).type('deleteValue');
+
+    cy.findByRole('button', {name: /apply metadata/i}).click();
+
+    cy.findByRole('heading', {name: /edit project metadata/i}).should(
+      'not.exist',
+    );
+    cy.findByText('newKey').should('exist');
+    cy.findByText('newValue').should('exist');
+    cy.findByText('deleteKey').should('exist');
+    cy.findByText('deleteValue').should('exist');
+
+    cy.findByRole('button', {name: /edit/i}).click();
+    cy.findByRole('heading', {name: /edit project metadata/i});
+    cy.findByRole('button', {name: /delete metadata row 0/i}).click();
+    cy.findByRole('button', {name: /apply metadata/i}).click();
+
+    cy.findByText('deleteKey').should('not.exist');
+    cy.findByText('deleteValue').should('not.exist');
+  });
+
   it('should update and apply the cluster config and regenerate a pipeline', () => {
     cy.findByRole('button', {
       name: /cluster defaults/i,
@@ -138,7 +173,10 @@ describe('Landing', () => {
       name: /save/i,
     }).click();
 
-    cy.findByRole('alert').should('have.text', 'Cluster defaults saved successfuly');
+    cy.findByRole('alert').should(
+      'have.text',
+      'Cluster defaults saved successfuly',
+    );
 
     cy.visit('/lineage/default/pipelines/edges/spec');
 
@@ -180,7 +218,10 @@ describe('Landing', () => {
       name: /save/i,
     }).click();
 
-    cy.findByRole('alert').should('have.text', 'Project defaults saved successfuly');
+    cy.findByRole('alert').should(
+      'have.text',
+      'Project defaults saved successfuly',
+    );
 
     cy.visit('/lineage/default/pipelines/edges/spec');
 
@@ -188,5 +229,25 @@ describe('Landing', () => {
     cy.findByText(`"2Gi"`, {
       timeout: 12000,
     });
+  });
+
+  it('should update and save cluster metadata', () => {
+    cy.findByRole('button', {
+      name: /cluster defaults/i,
+      timeout: 12000,
+    }).click();
+
+    cy.findByRole('button', {name: /cluster metadata/i}).click();
+    cy.findByRole('heading', {name: /edit cluster metadata/i});
+
+    cy.findAllByPlaceholderText('key').eq(0).type('newKey');
+    cy.findAllByPlaceholderText('value').eq(0).type('newValue');
+
+    cy.findByRole('button', {name: /apply metadata/i}).click();
+    cy.findByRole('button', {name: /cluster metadata/i}).click();
+    cy.findByRole('heading', {name: /edit cluster metadata/i});
+
+    cy.findByPlaceholderText('key').should('have.value', 'newKey');
+    cy.findByPlaceholderText('value').should('have.value', 'newValue');
   });
 });
