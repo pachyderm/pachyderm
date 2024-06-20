@@ -165,8 +165,7 @@ const UploadTemplate: React.FC<UploadTemplateProps> = ({
             wrapText
           />
           More information avaliable in our{' '}
-          {/* TODO: update with link to template metadata in the docs */}
-          <BrandedDocLink pathWithoutDomain="/build-dags/pipeline-operations/jsonnet-pipeline-specs/">
+          <BrandedDocLink pathWithoutDomain="/build-dags/pipeline-operations/jsonnet-pipeline-specs/#console">
             docs
           </BrandedDocLink>
         </BasicModal>
