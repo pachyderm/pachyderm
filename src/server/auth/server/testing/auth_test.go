@@ -2934,3 +2934,21 @@ func TestSetProjectDefaults(t *testing.T) {
 	_, err = alice.SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{Project: &pfs.Project{Name: aliceProject}, ProjectDefaultsJson: `{}`})
 	require.NoError(t, err, "user must be able to set own projects’ defaults")
 }
+
+func TestCreatedBy(t *testing.T) {
+	t.Parallel()
+	c := at.EnvWithAuth(t).PachClient
+
+	admin := tu.AuthenticateClient(t, c, auth.RootUser)
+	aliceName, alice := tu.RandomRobot(t, c, "alice")
+	adminProject := tu.UniqueString("adminProject")
+	require.NoError(t, admin.CreateProject(adminProject))
+	aliceProject := tu.UniqueString("aliceProject")
+	require.NoError(t, alice.CreateProject(aliceProject))
+	pi, err := admin.InspectProject(adminProject)
+	require.NoError(t, err)
+	require.Equal(t, "pach:root", pi.CreatedBy)
+	pi, err = alice.InspectProject(aliceProject)
+	require.NoError(t, err)
+	require.Equal(t, aliceName, pi.CreatedBy)
+}
