@@ -142,7 +142,7 @@ export class MountPlugin implements IMountPlugin {
       'explore',
       'pfs',
       () => {
-        this.updateMountedRepo(null, null);
+        this.updateMountedRepo(null, null, null);
       },
     );
 
@@ -176,7 +176,7 @@ export class MountPlugin implements IMountPlugin {
       'test',
       'datum',
       () => {
-        this.updateMountedRepo(null, null);
+        this.updateMountedRepo(null, null, null);
       },
     );
 
@@ -268,8 +268,9 @@ export class MountPlugin implements IMountPlugin {
   updateMountedRepo = async (
     repo: Repo | null,
     mountedBranch: Branch | null,
+    commit: string | null,
   ): Promise<void> => {
-    await this._poller.updateMountedRepo(repo, mountedBranch);
+    await this._poller.updateMountedRepo(repo, mountedBranch, commit);
 
     this._pfsBrowser.model.cd('/');
     this._datumBrowser.model.cd('/');
