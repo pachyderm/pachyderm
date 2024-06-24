@@ -25,6 +25,7 @@ const PipelineStepsTable: React.FC<PipelineStepsTableProps> = ({
     setPageSize,
     hasNextPage,
     isAuthActive,
+    pipelineCount,
   } = usePipelinesList();
   const {sortedPipelines, formCtx, staticFilterKeys, clearableFiltersMap} =
     usePipelineFilters({pipelines});
@@ -57,6 +58,7 @@ const PipelineStepsTable: React.FC<PipelineStepsTableProps> = ({
         setPageSize={setPageSize}
         hasNextPage={hasNextPage}
         isAuthActive={isAuthActive}
+        pipelineCount={pipelineCount}
       />
     </Form>
   );

@@ -10,19 +10,15 @@ import {
 } from '@dash-frontend/api/auth';
 import {Empty} from '@dash-frontend/api/googleTypes';
 import {
-  ListPipelineRequest,
-  PipelineInfo,
-  PipelineState,
-} from '@dash-frontend/api/pps';
-import {
   mockProjects,
   mockEmptyGetAuthorize,
   mockGetVersionInfo,
   mockTrueGetAuthorize,
-  buildPipeline,
   mockGetEnterpriseInfo,
   mockFalseGetAuthorize,
   mockEmptyGetRoles,
+  mockRepoSummaries,
+  mockPipelineSummaries,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
 
@@ -45,29 +41,8 @@ describe('Landing', () => {
     server.use(mockGetEnterpriseInfo());
     server.use(mockGetVersionInfo());
     server.use(mockProjects());
-    server.use(
-      rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
-        '/api/pps_v2.API/ListPipeline',
-        (req, res, ctx) => {
-          if (req.body.projects?.[0].name === 'ProjectC') {
-            return res(
-              ctx.json([
-                buildPipeline({
-                  state: PipelineState.PIPELINE_FAILURE,
-                }),
-              ]),
-            );
-          }
-
-          return res(ctx.json([buildPipeline()]));
-        },
-      ),
-    );
-    server.use(
-      rest.post('/api/pfs_v2.API/ListRepo', (_req, res, ctx) => {
-        return res(ctx.json([]));
-      }),
-    );
+    server.use(mockRepoSummaries());
+    server.use(mockPipelineSummaries());
     server.use(
       rest.post('/api/pps_v2.API/ListJob', (_req, res, ctx) => {
         return res(ctx.json([]));
@@ -181,7 +156,7 @@ describe('Landing', () => {
     ).toBeInTheDocument();
 
     expect(await screen.findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(
-      2,
+      3,
     );
     expect(
       await screen.findAllByTestId('ProjectStatus__UNHEALTHY'),

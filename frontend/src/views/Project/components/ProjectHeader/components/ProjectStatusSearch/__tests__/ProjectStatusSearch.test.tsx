@@ -10,6 +10,8 @@ import {
   ListPipelineRequest,
   PipelineInfo,
   PipelineState,
+  PipelinesSummaryRequest,
+  PipelinesSummaryResponse,
 } from '@dash-frontend/api/pps';
 import {buildPipeline, buildRepo} from '@dash-frontend/mocks';
 import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
@@ -35,6 +37,26 @@ describe('ProjectStatusSearch', () => {
       rest.post<ListRepoRequest, Empty, RepoInfo[]>(
         '/api/pfs_v2.API/ListRepo',
         (_req, res, ctx) => res(ctx.json([])),
+      ),
+    );
+    server.use(
+      rest.post<PipelinesSummaryRequest, Empty, PipelinesSummaryResponse>(
+        '/api/pps_v2.API/PipelinesSummary',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              summaries: [
+                {
+                  project: {name: 'default'},
+                  activePipelines: '0',
+                  pausedPipelines: '0',
+                  failedPipelines: '1',
+                  unhealthyPipelines: '0',
+                },
+              ],
+            }),
+          );
+        },
       ),
     );
   });
@@ -77,6 +99,26 @@ describe('ProjectStatusSearch', () => {
               }),
             ]),
           ),
+      ),
+    );
+    server.use(
+      rest.post<PipelinesSummaryRequest, Empty, PipelinesSummaryResponse>(
+        '/api/pps_v2.API/PipelinesSummary',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              summaries: [
+                {
+                  project: {name: 'default'},
+                  activePipelines: '1',
+                  pausedPipelines: '0',
+                  failedPipelines: '0',
+                  unhealthyPipelines: '0',
+                },
+              ],
+            }),
+          );
+        },
       ),
     );
 

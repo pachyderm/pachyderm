@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 
 import {ProjectStatus} from '@dash-frontend/api/pfs';
-import {useProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
+import {usePipelineSummary} from '@dash-frontend/hooks/usePipelineSummary';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   Button,
@@ -19,7 +19,7 @@ const ProjectStatusSearch: React.FC = () => {
   const {projectId} = useUrlState();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const {projectStatus, loading} = useProjectStatus(projectId);
+  const {projectStatus, loading} = usePipelineSummary(projectId);
 
   const handleOutsideClick = useCallback(() => {
     if (isOpen) {

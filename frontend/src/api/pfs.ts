@@ -22,6 +22,7 @@ import {
   StartCommitRequest,
   FinishCommitRequest,
   GlobFileRequest,
+  ReposSummaryRequest,
 } from '@dash-frontend/generated/proto/pfs/pfs.pb';
 
 import {pps, pfs} from './base/api';
@@ -42,6 +43,10 @@ export const listProject = async () => {
   );
 
   return projects;
+};
+
+export const reposSummary = async (req: ReposSummaryRequest) => {
+  return await pfs.ReposSummary(req, getRequestOptions());
 };
 
 export const listRepo = async (req: ListRepoRequest) => {

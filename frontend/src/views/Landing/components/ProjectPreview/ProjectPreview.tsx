@@ -1,6 +1,6 @@
 import classNames from 'classnames';
 import filesize from 'filesize';
-import React, {useMemo, useRef} from 'react';
+import React, {useRef} from 'react';
 import {Link} from 'react-router-dom';
 
 import {
@@ -15,9 +15,8 @@ import {
 } from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import useIntersection from '@dash-frontend/hooks/useIntersection';
 import {useJobSets} from '@dash-frontend/hooks/useJobSets';
-import {usePipelines} from '@dash-frontend/hooks/usePipelines';
-import {useProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
-import {useRepos} from '@dash-frontend/hooks/useRepos';
+import {usePipelineSummaries} from '@dash-frontend/hooks/usePipelineSummary';
+import {useRepoSummary} from '@dash-frontend/hooks/useRepoSummary';
 import UserMetadata from '@dash-frontend/views/Project/components/ProjectSidebar/components/RepoDetails/components/UserMetadata';
 import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
 import {Group, Tabs} from '@pachyderm/components';
@@ -37,50 +36,44 @@ const emptyProjectMessage = 'Create your first repo/pipeline!';
 
 type ProjectPreviewProps = {
   project: ProjectInfo;
+  allProjectNames: (string | undefined)[];
 };
 
 const JOB_SET_LIMIT = 10;
 
-const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
+const ProjectPreview: React.FC<ProjectPreviewProps> = ({
+  project,
+  allProjectNames,
+}) => {
   const projectName = project.project?.name;
   const {
-    repos,
-    loading: reposLoading,
-    error: reposError,
-  } = useRepos(projectName);
+    repoSummary,
+    loading: repoSummaryLoading,
+    error: repoSummaryError,
+  } = useRepoSummary(projectName);
   const {
-    pipelines,
-    loading: pipelinesLoading,
-    error: pipelinesError,
-  } = usePipelines(projectName);
+    pipelineSummaries,
+    loading: pipelineSummaryLoading,
+    error: pipelineSummaryError,
+  } = usePipelineSummaries(allProjectNames);
+  const pipelineSummary = pipelineSummaries?.find(
+    (summary) => summary.summary.project?.name === project.project?.name,
+  );
+  const pipelineCount = pipelineSummary?.pipelineCount;
+  const projectStatus = pipelineSummary?.projectStatus;
+
   const {
     jobs,
     loading: jobsLoading,
     error: jobsError,
   } = useJobSets({projectName}, JOB_SET_LIMIT);
-  const {
-    projectStatus,
-    loading: projectStatusLoading,
-    error: projectStatusError,
-  } = useProjectStatus(projectName);
 
   const sidebarRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLHeadingElement>(null);
   const isStuck = useIntersection(subtitleRef.current, sidebarRef.current);
-  const sizeDisplay = useMemo(() => {
-    const totalSizeBytes =
-      repos?.reduce(
-        (sum, repo) =>
-          sum +
-          Number(repo?.details?.sizeBytes ?? repo?.sizeBytesUpperBound ?? 0),
-        0,
-      ) || 0;
 
-    return filesize(totalSizeBytes);
-  }, [repos]);
-  const repoCount = repos?.length || 0;
-  const pipelineCount = pipelines?.length || 0;
-  const shouldShowEmptyState = repoCount === 0 && pipelineCount === 0;
+  const shouldShowEmptyState =
+    Number(repoSummary?.userRepoCount) === 0 && pipelineCount === 0;
 
   return (
     <div className={styles.base} ref={sidebarRef}>
@@ -96,22 +89,22 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
             <>
               <Description
                 term="Total No. of Repos/Pipelines"
-                loading={reposLoading || pipelinesLoading}
-                error={reposError || pipelinesError}
+                loading={repoSummaryLoading || pipelineSummaryLoading}
+                error={repoSummaryError || pipelineSummaryError}
               >
-                {repoCount}/{pipelineCount}
+                {repoSummary?.userRepoCount || 0}/{pipelineCount}
               </Description>
               <Description
                 term="Total Data Size"
-                loading={reposLoading}
-                error={reposError}
+                loading={repoSummaryLoading}
+                error={repoSummaryError}
               >
-                {sizeDisplay}
+                {filesize(Number(repoSummary?.sizeBytes) || 0)}
               </Description>
               <Description
                 term="Pipeline Status"
-                loading={projectStatusLoading}
-                error={projectStatusError}
+                loading={pipelineSummaryLoading}
+                error={pipelineSummaryError}
               >
                 <div className={styles.inline}>
                   <ProjectStatus status={projectStatus} />

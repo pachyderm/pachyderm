@@ -25,6 +25,7 @@ type PipelineStepsListProps = {
   setPageSize: React.Dispatch<React.SetStateAction<number>>;
   hasNextPage: boolean;
   isAuthActive: boolean;
+  pipelineCount?: number;
 };
 
 const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
@@ -38,6 +39,7 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
   setPageSize,
   hasNextPage,
   isAuthActive,
+  pipelineCount,
 }) => {
   if (!loading && error) {
     return (
@@ -136,6 +138,9 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
             nextPageDisabled={!hasNextPage}
             updatePageSize={setPageSize}
             pageSize={pageSize}
+            pageCount={
+              pipelineCount ? Math.ceil(pipelineCount / pageSize) : undefined
+            }
           />
         </TableViewPaginationWrapper>
       )}

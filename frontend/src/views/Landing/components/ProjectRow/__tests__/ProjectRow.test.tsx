@@ -15,15 +15,18 @@ import {
   DeleteProjectRequest,
   DeleteReposRequest,
   DeleteReposResponse,
+  ReposSummaryRequest,
+  ReposSummaryResponse,
 } from '@dash-frontend/api/pfs';
 import {
   DeletePipelinesRequest,
   DeletePipelinesResponse,
+  PipelinesSummaryRequest,
+  PipelinesSummaryResponse,
 } from '@dash-frontend/api/pps';
 import {
   mockFalseGetAuthorize,
   mockEmptyGetRoles,
-  mockHealthyPipelines,
   mockGetEnterpriseInfoInactive,
   mockTrueGetAuthorize,
   mockGetVersionInfo,
@@ -52,12 +55,50 @@ describe('ProjectRow RBAC', () => {
         setSelectedProject={() => null}
         setMyProjectsCount={() => null}
         setAllProjectsCount={() => null}
+        allProjectNames={['ProjectA']}
       />
     );
   });
 
   beforeAll(() => {
-    server.use(mockHealthyPipelines());
+    server.use(
+      rest.post<ReposSummaryRequest, Empty, ReposSummaryResponse>(
+        '/api/pfs_v2.API/ReposSummary',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              summaries: [
+                {
+                  project: {name: 'default'},
+                  userRepoCount: '0',
+                  sizeBytes: '0',
+                },
+              ],
+            }),
+          );
+        },
+      ),
+    );
+    server.use(
+      rest.post<PipelinesSummaryRequest, Empty, PipelinesSummaryResponse>(
+        '/api/pps_v2.API/PipelinesSummary',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              summaries: [
+                {
+                  project: {name: 'ProjectA'},
+                  activePipelines: '3',
+                  pausedPipelines: '0',
+                  failedPipelines: '0',
+                  unhealthyPipelines: '0',
+                },
+              ],
+            }),
+          );
+        },
+      ),
+    );
     server.listen();
     server.use(mockGetVersionInfo());
     server.use(mockGetEnterpriseInfoInactive());

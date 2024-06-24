@@ -26,6 +26,7 @@ import {
   mockPipelinesEmpty,
   mockGetVersionInfo,
   generatePagingRepos,
+  mockRepoSummaries,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -147,6 +148,7 @@ describe('Repo List', () => {
     server.use(mockEmptyGetAuthorize());
     server.use(mockGetEnterpriseInfo());
     server.use(mockRepos());
+    server.use(mockRepoSummaries());
     server.use(mockMontageLastCommit());
     server.use(mockEdgesLastCommit());
     server.use(mockImagesLastCommit());

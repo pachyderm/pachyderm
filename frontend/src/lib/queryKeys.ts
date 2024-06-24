@@ -27,6 +27,11 @@ const projectQueryKeys = {
     projectId,
     'projectDefaults',
   ],
+  pipelinesSummary: ({projectIds}: {projectIds?: (string | undefined)[]}) => [
+    projectIds,
+    'pipelines',
+    'summary',
+  ],
   pipelines: ({
     projectId,
     pageSize,
@@ -36,6 +41,11 @@ const projectQueryKeys = {
     pageSize?: number;
     pageIndex?: number;
   }) => [projectId, 'pipelines', pageSize, pageIndex],
+  reposSummary: ({projectId}: {projectId?: string}) => [
+    projectId,
+    'repos',
+    'summary',
+  ],
   repos: ({
     projectId,
     pageSize,

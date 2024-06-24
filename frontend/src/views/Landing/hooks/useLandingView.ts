@@ -5,8 +5,8 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
 import {ProjectInfo} from '@dash-frontend/api/pfs';
+import {usePipelineSummaries} from '@dash-frontend/hooks/usePipelineSummary';
 import {useProjects} from '@dash-frontend/hooks/useProjects';
-import {useGetProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
 import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
 import {
   SortableItem,
@@ -54,7 +54,8 @@ const sortOptions: sortOptionsType = {
 
 export const useLandingView = () => {
   const {projects, loading} = useProjects();
-  const getProjectStatus = useGetProjectStatus();
+  const allProjectNames = projects.map((p) => p.project?.name);
+  const {pipelineSummaries} = usePipelineSummaries(allProjectNames);
   const {
     sortedData: sortedProjects,
     setComparator,
@@ -131,7 +132,10 @@ export const useLandingView = () => {
 
   const filteredProjects = useMemo(() => {
     return sortedProjects.filter((project) => {
-      const projectStatus = getProjectStatus(project?.project?.name);
+      const pipelineSummary = pipelineSummaries?.find(
+        (summary) => summary.summary.project?.name === project?.project?.name,
+      );
+      const projectStatus = pipelineSummary?.projectStatus;
       const projectStatusIsPending = !projectStatus;
       const isNotFilteredOutByStatus = projectStatus && filters[projectStatus];
 
@@ -144,7 +148,7 @@ export const useLandingView = () => {
         (projectStatusIsPending || isNotFilteredOutByStatus)
       );
     });
-  }, [searchValue, sortedProjects, getProjectStatus, filters]);
+  }, [sortedProjects, pipelineSummaries, filters, searchValue]);
 
   useEffect(() => {
     if (!loading && !projectsLoaded) {
@@ -169,6 +173,7 @@ export const useLandingView = () => {
     setMyProjectsCount,
     allProjectsCount,
     setAllProjectsCount,
+    allProjectNames,
     searchValue,
     setSearchValue,
     sortButtonText,

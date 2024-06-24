@@ -70,6 +70,7 @@ export const Landing: React.FC = () => {
     setMyProjectsCount,
     allProjectsCount,
     setAllProjectsCount,
+    allProjectNames,
     searchValue,
     setSearchValue,
     sortButtonText,
@@ -182,11 +183,13 @@ export const Landing: React.FC = () => {
                 setSelectedProject={setSelectedProject}
                 setMyProjectsCount={setMyProjectsCount}
                 setAllProjectsCount={setAllProjectsCount}
+                allProjectNames={allProjectNames}
               />
             </TabView.Body.Content>
             {isAuthActive && (
               <TabView.Body.Content id="allProjects">
                 <ProjectTab
+                  allProjectNames={allProjectNames}
                   noProjects={noProjects}
                   filteredProjects={filteredProjects}
                   selectedProject={selectedProjectInfo}
@@ -202,7 +205,10 @@ export const Landing: React.FC = () => {
       </View>
       <Sidebar>
         {selectedProjectInfo && (
-          <ProjectPreview project={selectedProjectInfo} />
+          <ProjectPreview
+            project={selectedProjectInfo}
+            allProjectNames={allProjectNames}
+          />
         )}
       </Sidebar>
       {createIsOpen && (

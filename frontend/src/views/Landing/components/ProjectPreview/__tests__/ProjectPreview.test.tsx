@@ -5,17 +5,20 @@ import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {Empty} from '@dash-frontend/api/googleTypes';
-import {RepoInfo, ListRepoRequest} from '@dash-frontend/api/pfs';
 import {
-  PipelineInfo,
-  ListPipelineRequest,
+  ReposSummaryRequest,
+  ReposSummaryResponse,
+} from '@dash-frontend/api/pfs';
+import {
   JobState,
+  PipelinesSummaryRequest,
+  PipelinesSummaryResponse,
 } from '@dash-frontend/api/pps';
 import {
   mockGetEnterpriseInfoInactive,
   buildJob,
-  buildPipeline,
-  buildRepo,
+  mockRepoSummaries,
+  mockPipelineSummaries,
   mockGetVersionInfo,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
@@ -32,6 +35,7 @@ describe('ProjectPreview', () => {
         project: {name: 'ProjectA'},
         metadata: {metadataProjectKey: 'metadataProjectValue'},
       }}
+      allProjectNames={['ProjectA']}
     />
   ));
 
@@ -40,28 +44,8 @@ describe('ProjectPreview', () => {
   beforeEach(() => {
     server.use(mockGetVersionInfo());
     server.use(mockGetEnterpriseInfoInactive());
-    server.use(
-      rest.post<ListRepoRequest, Empty, RepoInfo[]>(
-        '/api/pfs_v2.API/ListRepo',
-        (_req, res, ctx) => {
-          return res(
-            ctx.json([
-              buildRepo({sizeBytesUpperBound: '3000'}),
-              buildRepo({sizeBytesUpperBound: '0'}),
-              buildRepo({sizeBytesUpperBound: '0'}),
-            ]),
-          );
-        },
-      ),
-    );
-    server.use(
-      rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
-        '/api/pps_v2.API/ListPipeline',
-        (_req, res, ctx) => {
-          return res(ctx.json([buildPipeline(), buildPipeline()]));
-        },
-      ),
-    );
+    server.use(mockRepoSummaries());
+    server.use(mockPipelineSummaries());
     server.use(
       rest.post('/api/pps_v2.API/ListJob', (_req, res, ctx) => {
         return res(ctx.json([]));
@@ -73,14 +57,34 @@ describe('ProjectPreview', () => {
 
   it('should not display the project details when the project is empty', async () => {
     server.use(
-      rest.post('/api/pfs_v2.API/ListRepo', (_req, res, ctx) => {
-        return res(ctx.json([]));
-      }),
+      rest.post<ReposSummaryRequest, Empty, ReposSummaryResponse>(
+        '/api/pfs_v2.API/ReposSummary',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              summaries: [
+                {
+                  project: {name: 'ProjectA'},
+                  userRepoCount: '0',
+                  sizeBytes: '0',
+                },
+              ],
+            }),
+          );
+        },
+      ),
     );
     server.use(
-      rest.post('/api/pps_v2.API/ListPipeline', (_req, res, ctx) => {
-        return res(ctx.json([]));
-      }),
+      rest.post<PipelinesSummaryRequest, Empty, PipelinesSummaryResponse>(
+        '/api/pps_v2.API/PipelinesSummary',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              summaries: [],
+            }),
+          );
+        },
+      ),
     );
 
     render(<ProjectPreview />);

@@ -13,6 +13,7 @@ import {
   mockPipelines,
   mockInspectProject,
   mockCreatePipelineSuccess,
+  mockPipelineSummaries,
 } from '@dash-frontend/mocks';
 import {
   mockBadFormatTemplate,
@@ -49,6 +50,7 @@ describe('PipelineTemplate', () => {
     server.use(mockInspectProject());
     server.use(mockCreatePipelineSuccess());
     server.use(mockSimpleTemplate());
+    server.use(mockPipelineSummaries());
 
     // eslint does not like that "render" is in the function name
     // eslint-disable-next-line testing-library/no-render-in-setup

@@ -24,6 +24,7 @@ import {
   StartPipelineRequest,
   StopPipelineRequest,
   RunCronRequest,
+  PipelinesSummaryRequest,
   RenderTemplateRequest,
 } from '@dash-frontend/generated/proto/pps/pps.pb';
 import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
@@ -37,6 +38,10 @@ import {jobsMapToJobSet} from './utils/transform';
 
 export const inspectPipeline = async (req: InspectPipelineRequest) => {
   return await pps.InspectPipeline(req, getRequestOptions());
+};
+
+export const pipelinesSummary = async (req: PipelinesSummaryRequest) => {
+  return await pps.PipelinesSummary(req, getRequestOptions());
 };
 
 export const listPipeline = async (req: ListPipelineRequest) => {

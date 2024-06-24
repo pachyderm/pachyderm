@@ -10,7 +10,7 @@ import {
   ResourceType,
   useAuthorize,
 } from '@dash-frontend/hooks/useAuthorize';
-import {useProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
+import {usePipelineSummaries} from '@dash-frontend/hooks/usePipelineSummary';
 import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {
   lineageRoute,
@@ -40,6 +40,7 @@ import styles from './ProjectRow.module.css';
 type ProjectRowProps = {
   multiProject: boolean;
   project: ProjectInfo;
+  allProjectNames: (string | undefined)[];
   isSelected: boolean;
   setSelectedProject: () => void;
   setMyProjectsCount: React.Dispatch<React.SetStateAction<number>>;
@@ -55,8 +56,13 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   setMyProjectsCount,
   setAllProjectsCount,
   showOnlyAccessible,
+  allProjectNames,
 }) => {
-  const {projectStatus} = useProjectStatus(project.project?.name || '');
+  const {pipelineSummaries} = usePipelineSummaries(allProjectNames);
+  const pipelineSummary = pipelineSummaries?.find(
+    (summary) => summary.summary.project?.name === project.project?.name,
+  );
+  const projectStatus = pipelineSummary?.projectStatus;
   const browserHistory = useHistory();
   const {
     openModal: openRolesModal,

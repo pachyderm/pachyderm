@@ -2,6 +2,7 @@ import {useCallback, useEffect, useState} from 'react';
 
 import {ResourceType, useAuthorize} from '@dash-frontend/hooks/useAuthorize';
 import {usePaginatedPipelines} from '@dash-frontend/hooks/usePipelines';
+import {usePipelineSummary} from '@dash-frontend/hooks/usePipelineSummary';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 export const PIPELINES_DEFAULT_PAGE_SIZE = 15;
@@ -24,6 +25,7 @@ const usePipelinesList = () => {
     pageSize,
     pageIndex,
   );
+  const {pipelineCount} = usePipelineSummary(projectId);
 
   const updatePage = useCallback((page: number) => {
     setPageIndex(page - 1);
@@ -43,6 +45,7 @@ const usePipelinesList = () => {
     setPageSize,
     hasNextPage: pipelines?.length === pageSize,
     isAuthActive,
+    pipelineCount,
   };
 };
 

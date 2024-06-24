@@ -22,6 +22,7 @@ const ReposTable: React.FC<ReposTableProps> = ({filtersExpanded}) => {
     pageSize,
     setPageSize,
     hasNextPage,
+    totalRepos,
   } = useRepositoriesList();
   const {sortedRepos, formCtx, staticFilterKeys} = useRepoFilters({repos});
 
@@ -51,6 +52,7 @@ const ReposTable: React.FC<ReposTableProps> = ({filtersExpanded}) => {
         pageSize={pageSize}
         setPageSize={setPageSize}
         hasNextPage={hasNextPage}
+        totalRepos={totalRepos}
       />
     </Form>
   );

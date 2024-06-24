@@ -21,6 +21,7 @@ import {
   mockGetVersionInfo,
   generatePagingPipelines,
   REPO_INFO_EMPTY,
+  mockPipelineSummaries,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -43,6 +44,7 @@ describe('Pipelines', () => {
     server.use(mockPipelines());
     server.use(mockGetEnterpriseInfoInactive());
     server.use(mockEmptyGetRoles());
+    server.use(mockPipelineSummaries());
     server.use(mockTrueGetAuthorize());
     server.use(
       rest.post<InspectRepoRequest, Empty, RepoInfo>(

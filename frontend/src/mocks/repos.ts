@@ -6,6 +6,8 @@ import {
   ListRepoRequest,
   InspectRepoRequest,
   RepoInfo,
+  ReposSummaryRequest,
+  ReposSummaryResponse,
 } from '@dash-frontend/api/pfs';
 import {RequestError} from '@dash-frontend/api/utils/error';
 
@@ -164,3 +166,25 @@ export const generatePagingRepos = (n: number): RepoInfo[] => {
   }
   return repos;
 };
+
+export const mockRepoSummaries = () =>
+  rest.post<ReposSummaryRequest, Empty, ReposSummaryResponse>(
+    '/api/pfs_v2.API/ReposSummary',
+    async (req, res, ctx) => {
+      const body = await req.json();
+      if (body.projects[0]?.name === 'ProjectA') {
+        return res(
+          ctx.json({
+            summaries: [
+              {
+                project: {name: 'ProjectA'},
+                userRepoCount: '3',
+                sizeBytes: '3000',
+              },
+            ],
+          }),
+        );
+      }
+      return res(ctx.json({summaries: []}));
+    },
+  );

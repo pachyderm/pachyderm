@@ -24,6 +24,7 @@ import {
   mockGetEnterpriseInfo,
   mockPipelines,
   mockEmptyJob,
+  mockPipelineSummaries,
   mockInspectProject,
   mockCreatePipelineSuccess,
 } from '@dash-frontend/mocks';
@@ -59,6 +60,7 @@ describe('PipelineEditor', () => {
     server.use(mockCreatePipelineRequestSchema);
     server.use(mockGetMontagePipeline());
     server.use(mockPipelines());
+    server.use(mockPipelineSummaries());
     server.use(mockGetEnterpriseInfo());
     server.use(mockEmptyJob());
     server.use(mockInspectProject());

@@ -12,6 +12,7 @@ type ProjectTabProps = {
   noProjects: boolean;
   filteredProjects: ProjectInfo[];
   selectedProject?: ProjectInfo;
+  allProjectNames: (string | undefined)[];
   setSelectedProject: React.Dispatch<React.SetStateAction<string | undefined>>;
   setMyProjectsCount: React.Dispatch<React.SetStateAction<number>>;
   setAllProjectsCount: React.Dispatch<React.SetStateAction<number>>;
@@ -26,6 +27,7 @@ const ProjectTab: React.FC<ProjectTabProps> = ({
   setAllProjectsCount,
   selectedProject,
   showOnlyAccessible,
+  allProjectNames,
 }) => {
   return (
     <Group className={styles.projectsList} spacing={16} vertical>
@@ -42,6 +44,7 @@ const ProjectTab: React.FC<ProjectTabProps> = ({
       ) : (
         filteredProjects.map((project) => (
           <ProjectRow
+            allProjectNames={allProjectNames}
             showOnlyAccessible={showOnlyAccessible}
             multiProject={true}
             project={project}

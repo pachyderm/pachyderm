@@ -11,6 +11,8 @@ import {
   JobState as PipelineInfoJobState,
   PipelineState,
   JobState,
+  PipelinesSummaryRequest,
+  PipelinesSummaryResponse,
   CreatePipelineV2Request,
   CreatePipelineV2Response,
 } from '@dash-frontend/api/pps';
@@ -225,14 +227,6 @@ export const mockGetEdgesPipeline = () =>
     },
   );
 
-export const mockHealthyPipelines = () =>
-  rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
-    '/api/pps_v2.API/ListPipeline',
-    async (_req, res, ctx) => {
-      return res(ctx.json([buildPipeline(), buildPipeline(), buildPipeline()]));
-    },
-  );
-
 export const mockEmptyInspectPipeline = () =>
   rest.post<ListPipelineRequest, Empty, RequestError>(
     '/api/pps_v2.API/InspectPipeline',
@@ -342,6 +336,34 @@ export const generatePagingPipelines = (n: number): PipelineInfo[] => {
   }
   return pipelines;
 };
+
+export const mockPipelineSummaries = () =>
+  rest.post<PipelinesSummaryRequest, Empty, PipelinesSummaryResponse>(
+    '/api/pps_v2.API/PipelinesSummary',
+    async (_req, res, ctx) => {
+      return res(
+        ctx.json({
+          summaries: [
+            {
+              project: {name: 'ProjectA'},
+              activePipelines: '2',
+              pausedPipelines: '0',
+              failedPipelines: '0',
+              unhealthyPipelines: '0',
+            },
+            {
+              project: {name: 'ProjectC'},
+              activePipelines: '0',
+              pausedPipelines: '0',
+              failedPipelines: '1',
+              unhealthyPipelines: '0',
+            },
+          ],
+        }),
+      );
+    },
+  );
+
 export const mockCreatePipelineSuccess = () =>
   rest.post<CreatePipelineV2Request, Empty, CreatePipelineV2Response>(
     '/api/pps_v2.API/CreatePipelineV2',

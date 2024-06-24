@@ -24,6 +24,7 @@ type RepositoriesListProps = {
   pageSize: number;
   setPageSize: React.Dispatch<React.SetStateAction<number>>;
   hasNextPage: boolean;
+  totalRepos?: number;
 };
 
 const RepositoriesList: React.FC<RepositoriesListProps> = ({
@@ -36,6 +37,7 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
   pageSize,
   setPageSize,
   hasNextPage,
+  totalRepos,
 }) => {
   if (!loading && error) {
     return (
@@ -125,6 +127,9 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
             nextPageDisabled={!hasNextPage}
             updatePageSize={setPageSize}
             pageSize={pageSize}
+            pageCount={
+              totalRepos ? Math.ceil(totalRepos / pageSize) : undefined
+            }
           />
         </TableViewPaginationWrapper>
       )}

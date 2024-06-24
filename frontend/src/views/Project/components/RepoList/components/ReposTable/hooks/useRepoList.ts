@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useState} from 'react';
 
 import {usePaginatedRepos} from '@dash-frontend/hooks/useRepos';
+import {useRepoSummary} from '@dash-frontend/hooks/useRepoSummary';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 export const REPOS_DEFAULT_PAGE_SIZE = 15;
@@ -15,6 +16,8 @@ const useRepositoriesList = () => {
     pageSize,
     pageIndex,
   );
+  const {repoSummary} = useRepoSummary(projectId);
+  const totalRepos = Number(repoSummary?.userRepoCount || 0);
 
   const updatePage = useCallback((page: number) => {
     setPageIndex(page - 1);
@@ -32,6 +35,7 @@ const useRepositoriesList = () => {
     updatePage,
     pageSize,
     setPageSize,
+    totalRepos,
     hasNextPage: repos?.length === pageSize,
   };
 };
