@@ -13,12 +13,14 @@ type ExploreProps = {
     mountedBranch: Branch | null,
     commit: string | null,
   ) => void;
+  mountedRepoUri: string | null;
 };
 
 const Explore: React.FC<ExploreProps> = ({
   repos,
   mountedRepo,
   updateMountedRepo,
+  mountedRepoUri,
 }) => {
   // Avoids rendering the dropdowns until mount information is loaded.
   if (!mountedRepo && Object.keys(repos).length === 0) {
@@ -100,6 +102,9 @@ const Explore: React.FC<ExploreProps> = ({
           />
         </>
       )}
+      <p className="pachyderm-Explore-mount-uri">
+        Mounted Uri: {mountedRepoUri}
+      </p>
     </div>
   );
 };

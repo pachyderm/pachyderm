@@ -157,6 +157,7 @@ export class MountPlugin implements IMountPlugin {
                   repos={repos || this._poller.repos}
                   mountedRepo={mountedRepo || this._poller.mountedRepo}
                   updateMountedRepo={this.updateMountedRepo.bind(this)}
+                  mountedRepoUri={this._poller.mountedRepoUri}
                 />
               )}
             </UseSignal>
