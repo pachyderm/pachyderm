@@ -216,10 +216,11 @@ func (ring *Ring) releaseLock(key string) error {
 	// - The unlock call completes successfully.
 	ctx := lockInfo.ctx
 	return backoff.RetryNotify(func() error {
-		if errors.Is(context.Cause(ctx), context.Canceled) {
-			return nil
+		err := lockInfo.lock.Unlock(ctx)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return errors.Wrap(err, "releasing lock")
 		}
-		return lockInfo.lock.Unlock(ctx)
+		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		log.Error(ctx, "releasing lock; retrying", zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
