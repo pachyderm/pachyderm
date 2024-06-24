@@ -185,5 +185,45 @@ describe('PollMounts', () => {
         commit_uri: expectedMountedRepo.branch?.uri,
       });
     });
+
+    it('should set mounted repo with commit', async () => {
+      const pollMounts = new PollMounts('testPollMounts');
+      localStorage.setItem(
+        PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
+        '{{{{{ def not json }}}}}',
+      );
+      const mountedBranch: Branch = {
+        name: 'branch2',
+        uri: 'test_repo@branch2',
+      };
+      const repo: Repo = {
+        name: 'name',
+        project: 'test',
+        uri: 'test_repo',
+        branches: [
+          {
+            name: 'branch1',
+            uri: 'test_repo@branch1',
+          },
+          mountedBranch,
+        ],
+      };
+      const commit = '17ad1a170664403a98cb75db3e20fa11';
+      const expectedMountedRepo: MountedRepo = {
+        branch: mountedBranch,
+        repo,
+        commit,
+      };
+
+      await pollMounts.updateMountedRepo(repo, mountedBranch, commit);
+
+      expect(pollMounts.mountedRepo).toEqual(expectedMountedRepo);
+      expect(
+        localStorage.getItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY),
+      ).toEqual(JSON.stringify(expectedMountedRepo));
+      expect(mockedRequestAPI).toHaveBeenCalledWith('explore/mount', 'PUT', {
+        commit_uri: 'test_repo@branch2=17ad1a170664403a98cb75db3e20fa11',
+      });
+    });
   });
 });
