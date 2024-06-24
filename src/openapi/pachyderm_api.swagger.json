@@ -8298,12 +8298,13 @@
     "logsLogLevel": {
       "type": "string",
       "enum": [
+        "LOG_LEVEL_UNSET",
         "LOG_LEVEL_DEBUG",
         "LOG_LEVEL_INFO",
         "LOG_LEVEL_ERROR"
       ],
-      "default": "LOG_LEVEL_DEBUG",
-      "description": "LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR."
+      "default": "LOG_LEVEL_UNSET",
+      "description": "LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR.\n\n - LOG_LEVEL_UNSET: Use default log level filtering.\n - LOG_LEVEL_DEBUG: Include DEBUG, INFO, and ERROR logs.\n - LOG_LEVEL_INFO: Include INFO and ERROR logs.\n - LOG_LEVEL_ERROR: Include only ERROR logs."
     },
     "logsLogMessage": {
       "type": "object",
