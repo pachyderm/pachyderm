@@ -44,3 +44,14 @@
     margin-top: 0;
   }
 }
+
+@media (max-width: 600px) {
+  .base {
+    display: inline-flex;
+  }
+
+  .base + .base {
+    margin-left: 2rem;
+    margin-top: 0;
+  }
+}

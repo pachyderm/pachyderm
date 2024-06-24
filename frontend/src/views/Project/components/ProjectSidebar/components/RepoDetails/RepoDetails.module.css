@@ -14,14 +14,32 @@
 
 .tabsHeader {
   display: flex;
-  flex-wrap: wrap;
   position: sticky;
   top: 0rem;
   background-color: var(--white);
   padding-top: 1rem;
   z-index: var(--z-index-sticky-header);
+  overflow-x: auto;
+  white-space: nowrap;
+  align-items: center;
 }
 
+.tabsHeader::-webkit-scrollbar {
+  height: 0.1rem;
+}
+
+.tabsHeader::-webkit-scrollbar-track {
+  background: var(--background-grey);
+}
+
+.tabsHeader::-webkit-scrollbar-thumb {
+  background: var(--border-grey);
+  border-radius: 20px;
+}
+
+.tabsHeader::-webkit-scrollbar-thumb:hover {
+  background: var(--dropshadow-grey);
+}
 .section {
   margin: 0 1rem;
 }
