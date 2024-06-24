@@ -138,6 +138,14 @@ func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRe
 	}
 	switch query := query.QueryType.(type) {
 	case *logs.LogQuery_User:
+		// The caller of compileRequest ensures that Filter is not nil.  After
+		// compileRequest, we re-read the level to add a global level filter.
+		if f := request.GetFilter(); f != nil && f.GetLevel() == logs.LogLevel_LOG_LEVEL_UNSET {
+			// If the log level filter is unset, we default to INFO level logs.  The
+			// worker defaults to running at DEBUG now and this avoids spam unless
+			// explicitly requested.
+			request.Filter.Level = logs.LogLevel_LOG_LEVEL_INFO
+		}
 		return ls.compileUserLogQueryReq(ctx, query.User, true, request.GetFilter().GetUserLogsOnly())
 	case *logs.LogQuery_Admin:
 		if ls.AuthServer != nil {

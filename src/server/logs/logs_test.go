@@ -1110,6 +1110,37 @@ func TestWithRealLogs(t *testing.T) {
 				},
 				Filter: &logs.LogFilter{
 					Limit: 2,
+					// Implicitly filtered to INFO and above.
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "connecting to postgres",
+				}),
+				jsonLog(map[string]any{
+					"message": "started transform spawner process",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "pipeline logs at debug level",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Pipeline{
+								Pipeline: &logs.PipelineLogQuery{
+									Project:  "default",
+									Pipeline: "edges",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					Limit: 2,
+					Level: logs.LogLevel_LOG_LEVEL_DEBUG,
 				},
 			},
 			want: []*logs.GetLogsResponse{
@@ -1294,6 +1325,7 @@ func TestWithRealLogs(t *testing.T) {
 						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
 					},
 					Limit: 2,
+					Level: logs.LogLevel_LOG_LEVEL_DEBUG,
 				},
 			},
 			want: []*logs.GetLogsResponse{
