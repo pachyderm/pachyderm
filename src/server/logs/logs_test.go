@@ -1044,6 +1044,56 @@ func TestWithRealLogs(t *testing.T) {
 			},
 		},
 		{
+			name: "simple logs mid-stream, errors only",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_Admin{
+						Admin: &logs.AdminLogQuery{
+							AdminType: &logs.AdminLogQuery_App{
+								App: "simple",
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 970, time.UTC)),
+					},
+					Limit: 3,
+					Level: logs.LogLevel_LOG_LEVEL_ERROR,
+				},
+				WantPagingHint: true,
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}"), onlyTimeRangeInPagingHint},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{"message": "971", "#suite": "pachyderm", "#app": "simple"}),
+				jsonLog(map[string]any{"message": "974", "#suite": "pachyderm", "#app": "simple"}),
+				jsonLog(map[string]any{"message": "977", "#suite": "pachyderm", "#app": "simple"}),
+				{
+					ResponseType: &logs.GetLogsResponse_PagingHint{
+						PagingHint: &logs.PagingHint{
+							Older: &logs.GetLogsRequest{
+								Filter: &logs.LogFilter{
+									TimeRange: &logs.TimeRangeLogFilter{
+										Until: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 969, time.UTC)),
+									},
+									Level: logs.LogLevel_LOG_LEVEL_ERROR,
+								},
+							},
+							Newer: &logs.GetLogsRequest{
+								Filter: &logs.LogFilter{
+									TimeRange: &logs.TimeRangeLogFilter{
+										From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 978, time.UTC)),
+									},
+									Level: logs.LogLevel_LOG_LEVEL_ERROR,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "pipeline logs",
 			query: &logs.GetLogsRequest{
 				Query: &logs.LogQuery{

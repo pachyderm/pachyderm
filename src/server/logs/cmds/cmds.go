@@ -155,20 +155,21 @@ func hasDisallowedFlags(cmd *cobra.Command, flags ...string) bool {
 
 func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var (
-		commands  []*cobra.Command
-		logQL     string
-		project   = pachCtx.Project
-		pipeline  string
-		job       string
-		datum     string
-		from      = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
-		to        = cmdutil.TimeFlag(time.Now())
-		offset    uint
-		pod       string
-		container string
-		app       string
-		limit     uint
-		user      bool
+		commands    []*cobra.Command
+		logQL       string
+		project     = pachCtx.Project
+		pipeline    string
+		job         string
+		datum       string
+		from        = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
+		to          = cmdutil.TimeFlag(time.Now())
+		offset      uint
+		pod         string
+		container   string
+		app         string
+		limit       uint
+		user        bool
+		levelString string
 	)
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): Remove references to “new” and unhide.
@@ -183,6 +184,18 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 			defer client.Close()
 
+			level := logs.LogLevel_LOG_LEVEL_UNSET
+			switch levelString {
+			case "debug":
+				level = logs.LogLevel_LOG_LEVEL_DEBUG
+			case "info":
+				level = logs.LogLevel_LOG_LEVEL_INFO
+			case "error":
+				level = logs.LogLevel_LOG_LEVEL_ERROR
+			default:
+				fmt.Fprintf(os.Stderr, `invalid log level %q; use "debug", "info", or "error"`+"\n", levelString)
+			}
+
 			isAdmin, err := isAdmin(client.Ctx(), client)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
@@ -193,6 +206,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			req.Filter = &logs.LogFilter{
 				Limit:        uint64(limit),
 				UserLogsOnly: user,
+				Level:        level,
 			}
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
 				From:   timestamppb.New(time.Time(from)),
@@ -309,6 +323,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().StringVar(&container, "container", container, "Container name belonging to the pod specified in the --pod argument.")
 	logsCmd.Flags().StringVar(&app, "app", app, "Return logs for all pods with a certain value for the label 'app'.")
 	logsCmd.Flags().BoolVar(&user, "user", false, "Only return logs from user code.")
+	logsCmd.Flags().StringVar(&levelString, "level", "", "If set, return only logs greater than or equal to this severity; debug, info, error.")
 	commands = append(commands, logsCmd)
 	return commands
 }
