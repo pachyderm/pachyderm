@@ -35,7 +35,7 @@ export class PollMounts {
         commit_uri: this.mountedRepoUri,
       });
     } catch (e) {
-      localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+      this.mountedRepo = null;
       requestAPI<AuthConfig>('explore/unmount', 'PUT');
     }
   }
@@ -79,13 +79,17 @@ export class PollMounts {
     return this._mountedRepo;
   }
 
-  set mountedRepo(data: MountedRepo | null) {
-    this._mountedRepo = data;
-    localStorage.setItem(
-      PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
-      JSON.stringify(this.mountedRepo),
-    );
-    this._mountedRepoSignal.emit(data);
+  set mountedRepo(repo: MountedRepo | null) {
+    this._mountedRepo = repo;
+    if (!repo) {
+      localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+    } else {
+      localStorage.setItem(
+        PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
+        JSON.stringify(this.mountedRepo),
+      );
+    }
+    this._mountedRepoSignal.emit(repo);
   }
 
   get mountedRepoUri(): string | null {
@@ -164,8 +168,7 @@ export class PollMounts {
     mountedBranch: Branch | null,
     commit: string | null,
   ): Promise<void> => {
-    if (repo === null) {
-      localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+    if (!repo) {
       this.mountedRepo = null;
       return Promise.resolve();
     }

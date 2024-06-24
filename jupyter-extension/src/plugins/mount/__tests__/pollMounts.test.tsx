@@ -9,11 +9,12 @@ describe('PollMounts', () => {
     typeof handler.requestAPI
   >;
   beforeEach(() => {
+    // const localStorage = {};
     mockedRequestAPI.mockClear();
     localStorage.clear();
+    // jest.spyOn(Storage.prototype, 'setItem');
+    // Storage.prototype.setItem = jest.fn();
   });
-
-  // TODO: new test for commit work
 
   it('should get mounted repo from localStorage', () => {
     const expectedMountedRepo: MountedRepo = {
@@ -88,6 +89,7 @@ describe('PollMounts', () => {
       };
 
       await pollMounts.updateMountedRepo(repo, null, null);
+      window.dispatchEvent( new Event('storage') )
 
       expect(pollMounts.mountedRepo).toEqual(expectedMountedRepo);
       expect(
@@ -123,6 +125,7 @@ describe('PollMounts', () => {
       };
 
       await pollMounts.updateMountedRepo(repo, null, null);
+      window.dispatchEvent( new Event('storage') )
 
       expect(pollMounts.mountedRepo).toEqual(expectedMountedRepo);
       expect(
@@ -141,6 +144,7 @@ describe('PollMounts', () => {
       );
 
       await pollMounts.updateMountedRepo(null, null, null);
+      window.dispatchEvent(new Event('storage'))
 
       expect(pollMounts.mountedRepo).toBeNull();
       expect(
