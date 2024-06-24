@@ -183,7 +183,11 @@ func (q *batchQuery) run(rctx context.Context) error {
 			continue
 		}
 		q.newOffset = 0
-		resp, err := q.client.QueryRange(ctx, q.query, q.batchSize, s, e, q.iter.Direction(), 0, 0, true)
+
+		// Bound QueryRange to 1 minute, to work around a bug where Loki hangs when lines are too long.
+		tctx, cancel := context.WithTimeout(ctx, time.Minute)
+		resp, err := q.client.QueryRange(tctx, q.query, q.batchSize, s, e, q.iter.Direction(), 0, 0, true)
+		cancel()
 		if err != nil {
 			msg := "<nil>"
 			if resp != nil {
@@ -278,10 +282,13 @@ func (q *batchQuery) handleBatch(ctx context.Context, resp *QueryResponse, offse
 var BatchSizeWarning atomic.Bool
 
 func (q *batchQuery) queryOneNanosecond(ctx context.Context, t time.Time, offset uint) (retErr error) {
-	ctx, done := log.SpanContext(ctx, "queryOneNanosecond", Time("time", t))
+	ctx, done := log.SpanContext(ctx, "queryOneNanosecond", Time("nanosecond", t))
 	defer done(log.Errorp(&retErr))
 
-	resp, err := q.client.QueryRange(ctx, q.query, q.batchSize, t, t.Add(time.Nanosecond), q.iter.Direction(), 0, 0, true)
+	// Bound QueryRange to 1 minute, to work around a bug where Loki hangs when lines are too long.
+	tctx, cancel := context.WithTimeout(ctx, time.Minute)
+	resp, err := q.client.QueryRange(tctx, q.query, q.batchSize, t, t.Add(time.Nanosecond), q.iter.Direction(), 0, 0, true)
+	cancel()
 	if err != nil {
 		msg := "<nil>"
 		if resp != nil {
