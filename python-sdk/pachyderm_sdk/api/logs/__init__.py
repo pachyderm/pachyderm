@@ -108,7 +108,12 @@ class UserLogQuery(betterproto.Message):
     """One job in one pipeline."""
 
     job_datum: "JobDatumLogQuery" = betterproto.message_field(6, group="user_type")
-    """One datum in one job"""
+    """One datum in one job."""
+
+    pipeline_datum: "PipelineDatumLogQuery" = betterproto.message_field(
+        7, group="user_type"
+    )
+    """One datum in one pipeline."""
 
 
 @dataclass(eq=False, repr=False)
@@ -145,6 +150,17 @@ class JobDatumLogQuery(betterproto.Message):
 
     job: str = betterproto.string_field(1)
     """The hex-encoded ID of the job."""
+
+    datum: str = betterproto.string_field(2)
+    """The hex-encoded ID of the datum."""
+
+
+@dataclass(eq=False, repr=False)
+class PipelineDatumLogQuery(betterproto.Message):
+    """PipelineDatumLogQuery returns logs from one datum in one pipeline."""
+
+    pipeline: "PipelineLogQuery" = betterproto.message_field(1)
+    """The pipeline."""
 
     datum: str = betterproto.string_field(2)
     """The hex-encoded ID of the datum."""

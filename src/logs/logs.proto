@@ -66,8 +66,10 @@ message UserLogQuery {
     string job = 4;
     // One job in one pipeline.
     PipelineJobLogQuery pipeline_job = 5;
-    // One datum in one job
+    // One datum in one job.
     JobDatumLogQuery job_datum = 6;
+    // One datum in one pipeline.
+    PipelineDatumLogQuery pipeline_datum = 7;
   }
 }
 
@@ -91,6 +93,14 @@ message PipelineJobLogQuery {
 message JobDatumLogQuery {
   // The hex-encoded ID of the job.
   string job = 1;
+  // The hex-encoded ID of the datum.
+  string datum = 2;
+}
+
+// PipelineDatumLogQuery returns logs from one datum in one pipeline.
+message PipelineDatumLogQuery {
+  // The pipeline.
+  PipelineLogQuery pipeline = 1;
   // The hex-encoded ID of the datum.
   string datum = 2;
 }
