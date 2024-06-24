@@ -228,11 +228,10 @@ class PFSManager(FileContentsManager):
         }
 
     def commit_exists(self, commit: pfs.Commit) -> bool:
-        # try:
-            return self._client.pfs.inspect_commit(commit=commit)
-        # except:
-        #     return False
-        # return True
+        try:
+            return self._client.pfs.inspect_commit(commit=commit) is not None
+        except:
+            return False
 
     def _get_name(self, path: str) -> str:
         path = path.lstrip("/")
