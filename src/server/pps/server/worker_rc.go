@@ -192,7 +192,6 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 			Value: "",
 		},
 	}
-	commonEnv = append(commonEnv, log.WorkerLogConfig.AsKubernetesEnvironment()...)
 
 	// Set up sidecar env vars
 	sidecarEnv := []v1.EnvVar{
@@ -222,6 +221,7 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	sidecarEnv = append(sidecarEnv, kd.getStorageEnvVars(pipelineInfo)...)
 	sidecarEnv = append(sidecarEnv, commonEnv...)
 	sidecarEnv = append(sidecarEnv, kd.getEgressSecretEnvVars(pipelineInfo)...)
+	sidecarEnv = append(sidecarEnv, log.SidecarLogConfig.AsKubernetesEnvironment()...)
 
 	// Set up worker env vars
 	workerEnv := append(options.workerEnv, []v1.EnvVar{
@@ -262,6 +262,7 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		},
 	}...)
 	workerEnv = append(workerEnv, commonEnv...)
+	workerEnv = append(workerEnv, log.WorkerLogConfig.AsKubernetesEnvironment()...)
 
 	// Set S3GatewayPort in the worker (for user code) and sidecar (for serving)
 	if options.s3GatewayPort != 0 {
