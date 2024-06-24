@@ -14,7 +14,6 @@ import {
 import {showErrorMessage} from '@jupyterlab/apputils';
 import {ServerConnection} from '@jupyterlab/services';
 
-
 export class PollMounts {
   static MOUNTED_REPO_LOCAL_STORAGE_KEY = 'mountedRepo';
 
@@ -205,7 +204,9 @@ export class PollMounts {
 
     return {
       pfs: {
-        name: `${mountedRepo.repo.project}_${mountedRepo.repo.name}_${mountedRepo.branch?.name || mountedRepo.commit}`,
+        name: `${mountedRepo.repo.project}_${mountedRepo.repo.name}_${
+          mountedRepo.branch?.name || mountedRepo.commit
+        }`,
         repo,
         glob: '/*',
       },

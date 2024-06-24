@@ -26,7 +26,7 @@ const Explore: React.FC<ExploreProps> = ({
   }
 
   return (
-    <div className="pachyderm-explore-view" style={{'height': '400px'}}>
+    <div className="pachyderm-explore-view">
       <DropdownCombobox
         testIdPrefix="ProjectRepo-"
         initialSelectedItem={mountedRepo?.repo.uri}
@@ -92,7 +92,9 @@ const Explore: React.FC<ExploreProps> = ({
             }}
           />
           <TextInput
-            onSubmit={(value) => updateMountedRepo(mountedRepo.repo, null, value)}
+            onSubmit={(value) =>
+              updateMountedRepo(mountedRepo.repo, null, value)
+            }
             placeholder="Commit"
             testIdPrefix="Commit-"
           />

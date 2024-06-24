@@ -7,7 +7,6 @@ import {URLExt} from '@jupyterlab/coreutils';
 import {requestAPI} from '../../handler';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 
-
 // How many Content li are visible at a given time for the user to scroll.
 const VISIBLE_CONTENT_LI_COUNT = 500;
 // How many items to request per page.
