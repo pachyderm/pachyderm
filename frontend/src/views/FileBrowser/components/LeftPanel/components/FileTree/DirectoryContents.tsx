@@ -7,6 +7,7 @@ import removeStartingSlash from '@dash-frontend/lib/removeStartingSlash';
 import {
   ChevronDownSVG,
   ChevronRightSVG,
+  SpinnerSVG,
   FolderSVG,
   DocumentSVG,
   StatusWarningSVG,
@@ -147,7 +148,10 @@ const DirectoryContents = ({
           );
         })
       ) : loading ? (
-        <span>Loading...</span>
+        <span className={styles.fileLoading}>
+          <SpinnerSVG className={styles.spinnerIcon} />
+          <div className={styles.loadingText}>Loading...</div>
+        </span>
       ) : (
         <div className={styles.noFiles}>No files found</div>
       )}

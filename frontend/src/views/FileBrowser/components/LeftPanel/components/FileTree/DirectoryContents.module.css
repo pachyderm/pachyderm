@@ -72,3 +72,18 @@ li {
 .noFiles {
   padding: 1rem;
 }
+
+.fileLoading {
+  height: 1.875rem;
+  display: flex;
+  padding-left: 0.5rem;
+  padding-top: 0.2rem;
+}
+
+.spinnerIcon {
+  margin: 0 !important;
+}
+
+.loadingText {
+  padding-left: 0.5rem;
+}
