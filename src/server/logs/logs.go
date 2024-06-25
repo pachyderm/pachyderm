@@ -247,6 +247,16 @@ func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.Use
 		}
 		job := query.PipelineJob.Job
 		return ls.compilePipelineJobLogsReq(project, pipeline, job, userOnly)
+	case *logs.UserLogQuery_PipelineDatum:
+		project := query.PipelineDatum.Pipeline.Project
+		pipeline := query.PipelineDatum.Pipeline.Pipeline
+		if checkAuth {
+			if pass := ls.authPipelineLogs(ctx, pipeline, project, nil); !pass {
+				return "", nil, nil
+			}
+		}
+		datum := query.PipelineDatum.Datum
+		return ls.compilePipelineDatumLogsReq(project, pipeline, datum, userOnly)
 	default:
 		return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
 	}
@@ -410,7 +420,33 @@ func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string, us
 		}
 		return false
 	}), nil
+}
 
+func (ls LogService) compilePipelineDatumLogsReq(project, pipeline, datum string, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+	if project == "" {
+		return "", nil, userLogQueryValidateErr("PipelineDatum", "Project")
+	}
+	if pipeline == "" {
+		return "", nil, userLogQueryValidateErr("PipelineDatum", "Pipeline")
+	}
+	if datum == "" {
+		return "", nil, userLogQueryValidateErr("PipelineDatum", "Datum")
+	}
+	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), filterUserLogs(userOnly, func(labels map[string]string, msg *logs.LogMessage) bool {
+		if msg.GetPpsLogMessage().GetDatumId() == datum {
+			return true
+		}
+		ff := msg.GetObject().GetFields()
+		if ff != nil {
+			v, ok := ff["datumId"]
+			if ok {
+				if v.GetStringValue() == datum {
+					return true
+				}
+			}
+		}
+		return false
+	}), nil
 }
 
 func (ls LogService) authLogMessage(ctx context.Context, labels map[string]string, msg *logs.LogMessage, cache map[string]bool) bool {

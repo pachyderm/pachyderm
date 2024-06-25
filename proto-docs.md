@@ -294,6 +294,7 @@
     - [LogMessage](#logs-LogMessage)
     - [LogQuery](#logs-LogQuery)
     - [PagingHint](#logs-PagingHint)
+    - [PipelineDatumLogQuery](#logs-PipelineDatumLogQuery)
     - [PipelineJobLogQuery](#logs-PipelineJobLogQuery)
     - [PipelineLogQuery](#logs-PipelineLogQuery)
     - [PodContainer](#logs-PodContainer)
@@ -4811,6 +4812,22 @@ LogQuery names a source of logs.
 
 
 
+<a name="logs-PipelineDatumLogQuery"></a>
+
+### PipelineDatumLogQuery
+PipelineDatumLogQuery returns logs from one datum in one pipeline.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pipeline | [PipelineLogQuery](#logs-PipelineLogQuery) |  | The pipeline. |
+| datum | [string](#string) |  | The hex-encoded ID of the datum. |
+
+
+
+
+
+
 <a name="logs-PipelineJobLogQuery"></a>
 
 ### PipelineJobLogQuery
@@ -4907,7 +4924,8 @@ A UserLogQuery selects logs that Pachyderm users need to see during normal Pachy
 | datum | [string](#string) |  | One datum, by hex-encoded ID. |
 | job | [string](#string) |  | One job by hex-encoded ID, across pipelines and projects. |
 | pipeline_job | [PipelineJobLogQuery](#logs-PipelineJobLogQuery) |  | One job in one pipeline. |
-| job_datum | [JobDatumLogQuery](#logs-JobDatumLogQuery) |  | One datum in one job |
+| job_datum | [JobDatumLogQuery](#logs-JobDatumLogQuery) |  | One datum in one job. |
+| pipeline_datum | [PipelineDatumLogQuery](#logs-PipelineDatumLogQuery) |  | One datum in one pipeline. |
 
 
 

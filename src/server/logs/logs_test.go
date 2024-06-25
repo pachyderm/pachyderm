@@ -1416,6 +1416,68 @@ func TestWithRealLogs(t *testing.T) {
 			},
 			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
 		},
+		{
+			name: "datum logs for a pipeline, with user filter",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_PipelineDatum{
+								PipelineDatum: &logs.PipelineDatumLogQuery{
+									Pipeline: &logs.PipelineLogQuery{
+										Project:  "default",
+										Pipeline: "edges",
+									},
+									Datum: "3c726887e69fb82e628366072e57087868f7f42b29613ac50ffaa692e5a78d5c",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit:        2,
+					UserLogsOnly: true,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "datum logs for a pipeline that doesn't contain that datum",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_PipelineDatum{
+								PipelineDatum: &logs.PipelineDatumLogQuery{
+									Pipeline: &logs.PipelineLogQuery{
+										Project:  "default",
+										Pipeline: "montage",
+									},
+									Datum: "3c726887e69fb82e628366072e57087868f7f42b29613ac50ffaa692e5a78d5c",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit: 2,
+				},
+			},
+		},
 	}
 	ctx := pctx.TestContext(t)
 	l, err := testloki.New(ctx, t.TempDir())

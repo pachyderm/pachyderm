@@ -48,7 +48,7 @@ type BaseUserLogQuery = {
 }
 
 export type UserLogQuery = BaseUserLogQuery
-  & OneOf<{ project: string; pipeline: PipelineLogQuery; datum: string; job: string; pipelineJob: PipelineJobLogQuery; jobDatum: JobDatumLogQuery }>
+  & OneOf<{ project: string; pipeline: PipelineLogQuery; datum: string; job: string; pipelineJob: PipelineJobLogQuery; jobDatum: JobDatumLogQuery; pipelineDatum: PipelineDatumLogQuery }>
 
 export type PipelineLogQuery = {
   project?: string
@@ -62,6 +62,11 @@ export type PipelineJobLogQuery = {
 
 export type JobDatumLogQuery = {
   job?: string
+  datum?: string
+}
+
+export type PipelineDatumLogQuery = {
+  pipeline?: PipelineLogQuery
   datum?: string
 }
 

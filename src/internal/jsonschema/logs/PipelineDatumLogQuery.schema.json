@@ -1,0 +1,39 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/PipelineDatumLogQuery",
+    "definitions": {
+        "PipelineDatumLogQuery": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false,
+                    "description": "The pipeline."
+                },
+                "datum": {
+                    "type": "string",
+                    "description": "The hex-encoded ID of the datum."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Datum Log Query",
+            "description": "PipelineDatumLogQuery returns logs from one datum in one pipeline."
+        },
+        "logs.PipelineLogQuery": {
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "description": "The project the pipeline is in."
+                },
+                "pipeline": {
+                    "type": "string",
+                    "description": "The name of the pipeline."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Log Query",
+            "description": "PipelineLogQuery selects all logs from all runs of a named pipeline."
+        }
+    }
+}
