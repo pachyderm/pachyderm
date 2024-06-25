@@ -66,7 +66,7 @@ const createCustomFileBrowser = (
   }
 
   try {
-    const widgets = browser.layout ? Array.from(browser.layout) : [];
+    const widgets = browser.widgets[0].layout ? Array.from(browser.widgets[0].layout) : [];
     const breadCrumbs = widgets.find(
       (element) => element instanceof BreadCrumbs,
     );

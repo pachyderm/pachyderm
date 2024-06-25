@@ -1,4 +1,4 @@
-FROM jupyter/scipy-notebook:lab-4.0.7
+FROM jupyter/scipy-notebook:lab-4.0.11
 
 ENV PFS_MOUNT_DIR=/pfs
 
