@@ -276,7 +276,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
           </Description>
         </div>
         <div className={styles.inputSection}>
-          {job?.outputCommit?.id && job?.outputCommit?.branch?.name && (
+          {job?.outputCommit?.id && (
             <Description
               term="Output Commit"
               loading={jobLoading}

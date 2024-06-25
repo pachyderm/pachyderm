@@ -18,6 +18,8 @@ import {
   mockEmptyCommitDiff,
   mockEmptyInspectPipeline,
   mockFinishCommit,
+  mockGetBranches,
+  mockGetBranchesMasterOnly,
   mockGetMontagePipeline,
   mockGetVersionInfo,
   mockStartCommit,
@@ -53,6 +55,7 @@ describe('List View Table', () => {
     server.use(mockGetVersionInfo());
     server.use(mockEmptyCommitDiff());
     server.use(mockEmptyInspectPipeline());
+    server.use(mockGetBranches());
   });
 
   afterEach(() => server.resetHandlers());
@@ -297,6 +300,7 @@ describe('List View Table', () => {
     });
 
     it('should not allow file deletion for commits without branches', async () => {
+      server.use(mockGetBranchesMasterOnly());
       window.history.replaceState(
         {},
         '',
@@ -340,7 +344,7 @@ describe('List View Table', () => {
       await hover(deleteButton);
       expect(
         screen.getByText(
-          'You cannot delete files from a commit that is not associated with a branch',
+          'You cannot delete files from a commit that is not a branch head',
         ),
       ).toBeInTheDocument();
 

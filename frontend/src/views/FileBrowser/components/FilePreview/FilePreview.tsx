@@ -40,7 +40,7 @@ const FilePreview = ({file}: FilePreviewProps) => {
     iconItems,
     fileType,
     handleBackNav,
-    branchId,
+    commitBranches,
   } = useFileActions(file, openDeleteModal);
 
   return (
@@ -76,7 +76,9 @@ const FilePreview = ({file}: FilePreviewProps) => {
           aria-label="file metadata"
         >
           <div className={styles.description}>
-            <Description term="Branch">{branchId}</Description>
+            <Description term="Branch">
+              {commitBranches?.map((b) => b.branch?.name || '').join(', ')}
+            </Description>
           </div>
           <div className={styles.description}>
             <Description term="File Type">{fileType}</Description>

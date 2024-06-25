@@ -30,16 +30,6 @@ export const MOCK_IMAGES_FILES: FileInfo[] = [
           },
         },
         id: '4a83c74809664f899261baccdb47cd90',
-        branch: {
-          repo: {
-            name: 'images',
-            type: 'user',
-            project: {
-              name: 'default',
-            },
-          },
-          name: 'master',
-        },
       },
       path: '/AT-AT.png',
       datum: 'default',
@@ -59,16 +49,6 @@ export const MOCK_IMAGES_FILES: FileInfo[] = [
           },
         },
         id: '4a83c74809664f899261baccdb47cd90',
-        branch: {
-          repo: {
-            name: 'images',
-            type: 'user',
-            project: {
-              name: 'default',
-            },
-          },
-          name: 'master',
-        },
       },
       path: '/liberty.png',
       datum: 'default',
@@ -88,16 +68,6 @@ export const MOCK_IMAGES_FILES: FileInfo[] = [
           },
         },
         id: '4a83c74809664f899261baccdb47cd90',
-        branch: {
-          repo: {
-            name: 'images',
-            type: 'user',
-            project: {
-              name: 'default',
-            },
-          },
-          name: 'master',
-        },
       },
       path: '/cats/',
       datum: 'default',
@@ -117,16 +87,6 @@ export const MOCK_IMAGES_FILES: FileInfo[] = [
           },
         },
         id: '4a83c74809664f899261baccdb47cd90',
-        branch: {
-          repo: {
-            name: 'images',
-            type: 'user',
-            project: {
-              name: 'default',
-            },
-          },
-          name: 'master',
-        },
       },
       path: '/json_nested_arrays.json',
       datum: 'default',
@@ -201,16 +161,6 @@ export const generatePagingFiles = ({
               },
             },
             id: commitId,
-            branch: {
-              repo: {
-                name: repoName,
-                type: 'user',
-                project: {
-                  name: 'default',
-                },
-              },
-              name: 'master',
-            },
           },
           path: `/${id}.png`,
         },

@@ -20,7 +20,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.path span {
-  padding-right: 0.5rem;
-}

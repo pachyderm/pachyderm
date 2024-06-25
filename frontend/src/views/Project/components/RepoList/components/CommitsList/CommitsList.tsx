@@ -10,7 +10,7 @@ import {
 } from '@dash-frontend/components/TableView';
 import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import formatBytes from '@dash-frontend/lib/formatBytes';
-import {Table, Form, Pager} from '@pachyderm/components';
+import {Table, Form, Pager, SkeletonBodyText} from '@pachyderm/components';
 
 import useCommitsList, {
   COMMITS_DEFAULT_PAGE_SIZE,
@@ -32,6 +32,8 @@ const CommitsList: React.FC<CommitsListProps> = ({
     iconItems,
     onOverflowMenuSelect,
     loading,
+    branchesLoading,
+    branches,
     error,
     commits,
     cursors,
@@ -84,32 +86,43 @@ const CommitsList: React.FC<CommitsListProps> = ({
                 </Table.Row>
               </Table.Head>
               <Table.Body>
-                {commits?.map((commit) => (
-                  <Table.Row
-                    key={`${commit.commit?.id}-${commit?.commit?.repo?.name}`}
-                    data-testid="CommitsList__row"
-                    overflowMenuItems={iconItems}
-                    dropdownOnSelect={onOverflowMenuSelect(commit)}
-                  >
-                    <Table.DataCell>{`@${commit.commit?.repo?.name}`}</Table.DataCell>
-                    <Table.DataCell width={210}>
-                      {getStandardDateFromISOString(commit?.finished)}
-                    </Table.DataCell>
-                    <Table.DataCell width={330}>
-                      {commit?.commit?.id}
-                    </Table.DataCell>
-                    <Table.DataCell>
-                      {commit?.commit?.branch?.name}
-                    </Table.DataCell>
-                    <Table.DataCell width={120}>
-                      {formatBytes(
-                        commit?.details?.sizeBytes ??
-                          commit?.sizeBytesUpperBound,
-                      )}
-                    </Table.DataCell>
-                    <Table.DataCell>{commit.description}</Table.DataCell>
-                  </Table.Row>
-                ))}
+                {commits?.map((commit) => {
+                  const commitBranches = branches?.filter(
+                    (branch) => branch.head?.id === commit?.commit?.id,
+                  );
+                  return (
+                    <Table.Row
+                      key={`${commit.commit?.id}-${commit?.commit?.repo?.name}`}
+                      data-testid="CommitsList__row"
+                      overflowMenuItems={iconItems}
+                      dropdownOnSelect={onOverflowMenuSelect(commit)}
+                    >
+                      <Table.DataCell>{`@${commit.commit?.repo?.name}`}</Table.DataCell>
+                      <Table.DataCell width={210}>
+                        {getStandardDateFromISOString(commit?.finished)}
+                      </Table.DataCell>
+                      <Table.DataCell width={330}>
+                        {commit?.commit?.id}
+                      </Table.DataCell>
+                      <Table.DataCell>
+                        {branchesLoading ? (
+                          <SkeletonBodyText />
+                        ) : commitBranches && commitBranches.length > 0 ? (
+                          `@${commitBranches.map((b) => b.branch?.name).join(', ')}`
+                        ) : (
+                          '-'
+                        )}
+                      </Table.DataCell>
+                      <Table.DataCell width={120}>
+                        {formatBytes(
+                          commit?.details?.sizeBytes ??
+                            commit?.sizeBytesUpperBound,
+                        )}
+                      </Table.DataCell>
+                      <Table.DataCell>{commit.description}</Table.DataCell>
+                    </Table.Row>
+                  );
+                })}
               </Table.Body>
             </Table>
           </TableViewWrapper>

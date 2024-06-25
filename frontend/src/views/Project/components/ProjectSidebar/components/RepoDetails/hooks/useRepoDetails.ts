@@ -5,6 +5,7 @@ import {
   ResourceType,
   useAuthorize,
 } from '@dash-frontend/hooks/useAuthorize';
+import {useBranches} from '@dash-frontend/hooks/useBranches';
 import {useCommitDiff} from '@dash-frontend/hooks/useCommitDiff';
 import {useCommits} from '@dash-frontend/hooks/useCommits';
 import {useCurrentRepo} from '@dash-frontend/hooks/useCurrentRepo';
@@ -17,6 +18,10 @@ const useRepoDetails = () => {
   const {repoId, projectId, commitId} = useUrlState();
   const {searchParams} = useUrlQueryState();
   const {loading: repoLoading, repo, error: repoError} = useCurrentRepo();
+  const {branches, loading: branchesLoading} = useBranches({
+    projectId,
+    repoId,
+  });
   const {getPathToFileBrowser} = useFileBrowserNavigation();
 
   const givenCommitId = searchParams.globalIdFilter || commitId;
@@ -35,6 +40,9 @@ const useRepoDetails = () => {
   });
 
   const commit = commits && commits[0];
+  const commitBranches = branches?.filter(
+    (branch) => branch.head?.id === commit?.commit?.id,
+  );
 
   const {
     fileDiff,
@@ -51,9 +59,6 @@ const useRepoDetails = () => {
               name: projectId,
             },
             type: 'user',
-          },
-          branch: {
-            name: commit?.commit?.branch?.name,
           },
         },
         path: '/',
@@ -78,7 +83,10 @@ const useRepoDetails = () => {
   });
 
   const currentRepoLoading =
-    repoLoading || commitLoading || repoId !== repo?.repo?.name;
+    repoLoading ||
+    commitLoading ||
+    branchesLoading ||
+    repoId !== repo?.repo?.name;
 
   return {
     projectId,
@@ -86,6 +94,7 @@ const useRepoDetails = () => {
     repo,
     commit,
     givenCommitId,
+    commitBranches,
     currentRepoLoading,
     commitError,
     commitDiff: formattedDiff,

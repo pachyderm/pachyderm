@@ -4,6 +4,7 @@ import {Route, Switch} from 'react-router-dom';
 import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import ContentBox from '@dash-frontend/components/ContentBox';
+import {ContentBoxContent} from '@dash-frontend/components/ContentBox/ContentBox';
 import Description from '@dash-frontend/components/Description';
 import EmptyState from '@dash-frontend/components/EmptyState/EmptyState';
 import GlobalIdCopy from '@dash-frontend/components/GlobalIdCopy';
@@ -11,7 +12,13 @@ import GlobalIdDisclaimer from '@dash-frontend/components/GlobalIdDisclaimer';
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
 import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
-import {LINEAGE_REPO_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {
+  LINEAGE_REPO_PATH,
+  LINEAGE_FILE_BROWSER_PATH,
+  LINEAGE_FILE_BROWSER_PATH_LATEST,
+  PROJECT_FILE_BROWSER_PATH_LATEST,
+  PROJECT_FILE_BROWSER_PATH,
+} from '@dash-frontend/views/Project/constants/projectPaths';
 import {fileUploadRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   SkeletonDisplayText,
@@ -49,6 +56,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
     repo,
     commit,
     givenCommitId,
+    commitBranches,
     repoError,
     currentRepoLoading,
     commitDiff,
@@ -80,6 +88,40 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
       </div>
     );
   }
+
+  const contentDetails: ContentBoxContent[] = [
+    {
+      label: 'Commit ID',
+      value: commit ? <GlobalIdCopy id={commit.commit?.id || ''} /> : 'N/A',
+      responsiveValue: commit ? (
+        <GlobalIdCopy id={commit.commit?.id || ''} shortenId />
+      ) : (
+        'N/A'
+      ),
+      dataTestId: 'RepoDetails__commit_id',
+    },
+  ];
+  const fileBrowserContentDetails: ContentBoxContent[] = [];
+  if (commitBranches && commitBranches.length > 0) {
+    fileBrowserContentDetails.push({
+      label: 'Branch',
+      value: commitBranches.map((b) => b.branch?.name || '').join(', '),
+      dataTestId: 'RepoDetails__commit_branch',
+    });
+  }
+  fileBrowserContentDetails.push(
+    {
+      label: 'Commit Type',
+      value: commit?.origin?.kind?.toLowerCase() || '-',
+      dataTestId: 'RepoDetails__commit_type',
+    },
+    {
+      label: 'Start',
+      value: commit ? getStandardDateFromISOString(commit.started) : 'N/A',
+      dataTestId: 'RepoDetails__commit_start',
+    },
+  );
+  contentDetails.push(...fileBrowserContentDetails);
 
   return (
     <div className={styles.base} data-testid="RepoDetails__base">
@@ -127,27 +169,27 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
         </Tabs.TabsHeader>
         <Tabs.TabPanel id={TAB_ID.OVERVIEW}>
           <section className={styles.section}>
-            {commit?.commit?.id && (
-              <div className={styles.commitSummaryLabel}>
-                Commit Summary
-                {commit && (
-                  <Button
-                    buttonType="ghost"
-                    to={getPathToFileBrowser({
-                      projectId,
-                      repoId,
-                      commitId: commit.commit?.id,
-                    })}
-                    disabled={!commit}
-                    aria-label="Inspect Commit"
-                  >
-                    Inspect Commit
-                  </Button>
-                )}
-              </div>
-            )}
             <Switch>
               <Route path={LINEAGE_REPO_PATH} exact>
+                {commit?.commit?.id && (
+                  <div className={styles.commitSummaryLabel}>
+                    Commit Summary
+                    {commit && (
+                      <Button
+                        buttonType="ghost"
+                        to={getPathToFileBrowser({
+                          projectId,
+                          repoId,
+                          commitId: commit.commit?.id,
+                        })}
+                        disabled={!commit}
+                        aria-label="Inspect Commit"
+                      >
+                        Inspect Commit
+                      </Button>
+                    )}
+                  </div>
+                )}
                 {(currentRepoLoading || commit) && (
                   <GlobalIdDisclaimer
                     globalId={globalId}
@@ -158,37 +200,25 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                 {(currentRepoLoading || commit) && (
                   <ContentBox
                     loading={currentRepoLoading}
-                    content={[
-                      {
-                        label: 'Commit ID',
-                        value: commit ? (
-                          <GlobalIdCopy id={commit.commit?.id || ''} />
-                        ) : (
-                          'N/A'
-                        ),
-                        responsiveValue: commit ? (
-                          <GlobalIdCopy
-                            id={commit.commit?.id || ''}
-                            shortenId
-                          />
-                        ) : (
-                          'N/A'
-                        ),
-                        dataTestId: 'RepoDetails__commit_id',
-                      },
-                      {label: 'Branch', value: commit?.commit?.branch?.name},
-                      {
-                        label: 'Commit Type',
-                        value: commit?.origin?.kind?.toLowerCase(),
-                      },
-                      {
-                        label: 'Start',
-                        value: commit
-                          ? getStandardDateFromISOString(commit.started)
-                          : 'N/A',
-                        dataTestId: 'RepoDetails__commit_start',
-                      },
-                    ]}
+                    content={contentDetails}
+                  />
+                )}
+              </Route>
+            </Switch>
+
+            <Switch>
+              <Route
+                path={[
+                  LINEAGE_FILE_BROWSER_PATH,
+                  LINEAGE_FILE_BROWSER_PATH_LATEST,
+                  PROJECT_FILE_BROWSER_PATH,
+                  PROJECT_FILE_BROWSER_PATH_LATEST,
+                ]}
+              >
+                {(currentRepoLoading || commit) && (
+                  <ContentBox
+                    loading={currentRepoLoading}
+                    content={fileBrowserContentDetails}
                   />
                 )}
               </Route>

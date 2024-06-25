@@ -16,9 +16,6 @@ const useFileHistory = (commit: CommitInfo) => {
           },
           type: 'user',
         },
-        branch: {
-          name: commit?.commit?.branch?.name,
-        },
       },
       path: filePath || '/',
     },

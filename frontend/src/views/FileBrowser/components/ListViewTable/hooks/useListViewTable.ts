@@ -2,6 +2,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {useHistory} from 'react-router';
 
 import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
+import {useBranches} from '@dash-frontend/hooks/useBranches';
 import useDeleteFiles from '@dash-frontend/hooks/useDeleteFiles';
 import {usePipeline} from '@dash-frontend/hooks/usePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -12,7 +13,6 @@ import {useModal} from '@pachyderm/components';
 const useListViewTable = (files: FileInfo[]) => {
   const {repoId, projectId, filePath} = useUrlState();
   const commitId = files[0]?.file?.commit?.id || '';
-  const branchId = files[0]?.file?.commit?.branch?.name || '';
 
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const browserHistory = useHistory();
@@ -23,6 +23,12 @@ const useListViewTable = (files: FileInfo[]) => {
       project: {name: projectId},
     },
   });
+  const {branches} = useBranches({
+    projectId,
+    repoId,
+  });
+  const commitBranch = branches?.find((branch) => branch.head?.id === commitId);
+  const branchId = commitBranch?.branch?.name || '';
 
   const noFilesSelected = selectedFiles.length === 0;
   const isOutputRepo = Boolean(pipeline);

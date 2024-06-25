@@ -24,7 +24,7 @@ const SELECT_FILES_DOWNLOAD =
   'Select one or more files to multi-download files';
 const OUTPUT_REPO = 'You cannot delete files in an output repo';
 const NO_BRANCH =
-  'You cannot delete files from a commit that is not associated with a branch';
+  'You cannot delete files from a commit that is not a branch head';
 
 const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
   const {

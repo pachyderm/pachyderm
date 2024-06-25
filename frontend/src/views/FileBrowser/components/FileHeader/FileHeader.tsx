@@ -15,13 +15,9 @@ import styles from './FileHeader.module.css';
 
 type FileHeaderProps = {
   commitId?: string;
-  selectedCommitBranchName?: string;
 };
 
-const FileHeader: React.FC<FileHeaderProps> = ({
-  commitId,
-  selectedCommitBranchName,
-}) => {
+const FileHeader: React.FC<FileHeaderProps> = ({commitId}) => {
   const {filePath, projectId, repoId} = useUrlState();
 
   const commitPath = commitId
@@ -39,30 +35,19 @@ const FileHeader: React.FC<FileHeaderProps> = ({
   return (
     <div className={styles.base}>
       <div className={styles.path} data-testid="FileHeader__path">
-        <CaptionText color="black">Repository...</CaptionText>
-        <CaptionText color="black">/</CaptionText>
-        {selectedCommitBranchName && (
-          <>
-            <CaptionText color="black">
-              Branch: {selectedCommitBranchName}
-            </CaptionText>
-            <CaptionText color="black">/</CaptionText>
-          </>
-        )}
-
+        <CaptionText color="black">{repoId}@</CaptionText>
         {filePath ? (
           <Link inline to={commitPath}>
             <CaptionText className={styles.link}>
-              Commit: {commitId && commitId.slice(0, 6)}...
+              {commitId && commitId.slice(0, 6)}
             </CaptionText>
           </Link>
         ) : (
-          <CaptionText color="black">Commit: {commitId || '...'}</CaptionText>
+          <CaptionText color="black">{commitId}</CaptionText>
         )}
         {filePath && (
           <>
-            <CaptionText color="black">/</CaptionText>
-            <CaptionText color="black">Path: {filePath}</CaptionText>
+            <CaptionText color="black">:{filePath}</CaptionText>
           </>
         )}
       </div>

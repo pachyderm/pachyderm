@@ -33,6 +33,7 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
     getPathToFileBrowser,
     projectId,
     repoId,
+    branches,
   } = useCommitList(repo);
 
   if (!loading && error) {
@@ -71,6 +72,9 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
         </div>
       ) : (
         previousCommits?.map((commit) => {
+          const commitBranches = branches?.filter(
+            (branch) => branch.head?.id === commit?.commit?.id,
+          );
           return (
             <div
               className={styles.commit}
@@ -83,8 +87,8 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
               <CaptionTextSmall
                 className={styles.commitText}
               >{`${commit.commit?.id?.slice(0, 6)}...${
-                commit.commit?.branch?.name
-                  ? `@${commit.commit?.branch?.name}`
+                commitBranches && commitBranches.length > 0
+                  ? `@${commitBranches.map((b) => b.branch?.name).join(', ')}`
                   : ''
               } | ${commit.origin?.kind?.toLowerCase()}`}</CaptionTextSmall>
               <span className={styles.bottomContent}>

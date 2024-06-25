@@ -13,6 +13,73 @@ const BRANCH_MASTER: BranchInfo = {
     },
     __typename: 'Branch',
   },
+  head: {
+    id: 'c43fffd650a24b40b7d9f1bf90fcfdbe',
+  },
+  __typename: 'BranchInfo',
+};
+
+const BRANCH_NEW: BranchInfo = {
+  branch: {
+    name: 'new',
+    repo: {
+      name: 'images',
+      type: undefined,
+      __typename: 'Repo',
+    },
+    __typename: 'Branch',
+  },
+  head: {
+    id: '4a83c74809664f899261baccdb47cd90',
+  },
+  __typename: 'BranchInfo',
+};
+
+const BRANCH_SAMPLE: BranchInfo = {
+  branch: {
+    name: 'sample',
+    repo: {
+      name: 'images',
+      type: undefined,
+      __typename: 'Repo',
+    },
+    __typename: 'Branch',
+  },
+  head: {
+    id: '4eb1aa567dab483f93a109db4641ee75',
+  },
+  __typename: 'BranchInfo',
+};
+
+const BRANCH_RENDER: BranchInfo = {
+  branch: {
+    name: 'render',
+    repo: {
+      name: 'images',
+      type: undefined,
+      __typename: 'Repo',
+    },
+    __typename: 'Branch',
+  },
+  head: {
+    id: '252d1850a5fa484ca7320ce1091cf483',
+  },
+  __typename: 'BranchInfo',
+};
+
+const BRANCH_RENDERTWO: BranchInfo = {
+  branch: {
+    name: 'renderTwo',
+    repo: {
+      name: 'images',
+      type: undefined,
+      __typename: 'Repo',
+    },
+    __typename: 'Branch',
+  },
+  head: {
+    id: '252d1850a5fa484ca7320ce1091cf483',
+  },
   __typename: 'BranchInfo',
 };
 
@@ -41,6 +108,15 @@ export const mockGetBranches = () =>
   rest.post<ListBranchRequest, Empty, BranchInfo[]>(
     '/api/pfs_v2.API/ListBranch',
     (_req, res, ctx) => {
-      return res(ctx.json([BRANCH_MASTER, BRANCH_TEST]));
+      return res(
+        ctx.json([
+          BRANCH_MASTER,
+          BRANCH_SAMPLE,
+          BRANCH_NEW,
+          BRANCH_RENDER,
+          BRANCH_RENDERTWO,
+          BRANCH_TEST,
+        ]),
+      );
     },
   );

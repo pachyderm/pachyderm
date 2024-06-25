@@ -2,6 +2,7 @@ import {useCallback, useEffect} from 'react';
 import {useHistory} from 'react-router';
 
 import {CommitInfo} from '@dash-frontend/api/pfs';
+import {useBranches} from '@dash-frontend/hooks/useBranches';
 import {useCommits} from '@dash-frontend/hooks/useCommits';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useTimestampPagination from '@dash-frontend/hooks/useTimestampPagination';
@@ -37,6 +38,11 @@ const useCommitsList = (selectedRepo: string, reverseOrder: boolean) => {
     },
   });
   const hasNextPage = !!cursor;
+
+  const {branches, loading: branchesLoading} = useBranches({
+    projectId,
+    repoId: selectedRepo,
+  });
 
   const updatePage = useCallback(
     (page: number) => {
@@ -105,6 +111,8 @@ const useCommitsList = (selectedRepo: string, reverseOrder: boolean) => {
   return {
     commits,
     loading,
+    branchesLoading,
+    branches,
     error,
     iconItems,
     onOverflowMenuSelect,

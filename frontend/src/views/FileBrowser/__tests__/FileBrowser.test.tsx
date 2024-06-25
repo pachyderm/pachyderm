@@ -29,7 +29,6 @@ import {
   mockImagesFiles,
   mockEmptyInspectPipeline,
   mockGetVersionInfo,
-  mockGetImageCommitsNoBranch,
   inspectCommit,
   COMMIT_INFO_4A,
   COMMIT_INFO_C4,
@@ -148,6 +147,15 @@ describe('File Browser', () => {
     it('should display repo details at top level and in a folder', async () => {
       render(<FileBrowser />);
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+      expect(
+        screen.getByTestId('RepoDetails__commit_branch'),
+      ).toHaveTextContent('Branch:new');
+      expect(screen.getByTestId('RepoDetails__commit_type')).toHaveTextContent(
+        'Commit Type:user',
+      );
+      expect(screen.getByTestId('RepoDetails__commit_start')).toHaveTextContent(
+        'Start:Jul 24, 2023; 17:58',
+      );
       expect(await screen.findByText('added mako')).toBeInTheDocument();
       expect(await screen.findByText('images')).toBeInTheDocument();
       expect(await screen.findByText('repo of images')).toBeInTheDocument();
@@ -177,36 +185,44 @@ describe('File Browser', () => {
   });
 
   describe('Middle Section', () => {
-    it('should display commit id and branch, and copy path on click', async () => {
+    it('should display commit id and copy path on click', async () => {
       render(<FileBrowser />);
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
-
-      expect(
-        screen.getByText('Commit: 4a83c74809664f899261baccdb47cd90'),
-      ).toBeInTheDocument();
-      expect(screen.getByText('Branch: master')).toBeInTheDocument();
 
       const copyAction = await screen.findByRole('button', {
         name: 'Copy commit id',
       });
       await click(copyAction);
 
+      expect(screen.getByTestId('FileHeader__path')).toHaveTextContent(
+        'images@4a83c74809664f899261baccdb47cd90',
+      );
+
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
         'images@4a83c74809664f899261baccdb47cd90',
       );
     });
 
-    it('should display commit id only if there is no branch', async () => {
+    it('should display commit id and copy path on click while in a file path', async () => {
       window.history.replaceState(
         {},
         '',
-        '/project/default/repos/images/latest',
+        '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/cats%2F/',
       );
-      server.use(mockGetImageCommitsNoBranch());
       render(<FileBrowser />);
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+      const copyAction = await screen.findByRole('button', {
+        name: 'Copy commit id',
+      });
+      await click(copyAction);
+
       expect(screen.getByTestId('FileHeader__path')).toHaveTextContent(
-        'Repository.../Commit: g2bb3e50cd124b76840145a8c18f8892',
+        'images@4a83c7:cats/',
+      );
+
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        'images@4a83c74809664f899261baccdb47cd90:cats/',
       );
     });
 

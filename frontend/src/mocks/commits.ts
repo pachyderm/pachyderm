@@ -32,10 +32,6 @@ export const COMMIT_INFO_4E: CommitInfo = buildCommit({
   commit: {
     id: '4eb1aa567dab483f93a109db4641ee75',
     repo: {name: 'images', project: {name: 'default'}},
-    branch: {
-      name: 'master',
-      __typename: 'Branch',
-    },
   },
   description: 'commit not finished',
   started: '2023-07-24T17:58:25Z',
@@ -50,10 +46,6 @@ export const COMMIT_INFO_4A: CommitInfo = buildCommit({
   commit: {
     id: '4a83c74809664f899261baccdb47cd90',
     repo: {name: 'images', project: {name: 'default'}},
-    branch: {
-      name: 'master',
-      __typename: 'Branch',
-    },
   },
   description: 'added mako',
   started: '2023-07-24T17:58:25Z',
@@ -69,10 +61,6 @@ export const COMMIT_INFO_C4: CommitInfo = buildCommit({
   commit: {
     id: 'c43fffd650a24b40b7d9f1bf90fcfdbe',
     repo: {name: 'images', project: {name: 'default'}},
-    branch: {
-      name: 'master',
-      __typename: 'Branch',
-    },
   },
   description: 'sold materia',
   started: '2023-07-24T17:58:25Z',
@@ -128,13 +116,11 @@ export const IMAGE_COMMITS_NO_BRANCH: CommitInfo[] = [
 type generateCommitsArgs = {
   n: number;
   repoName?: string;
-  branchName?: string;
 };
 
 export const generatePagingCommits = ({
   n,
   repoName = 'repo',
-  branchName = 'master',
 }: generateCommitsArgs): CommitInfo[] => {
   const commits: CommitInfo[] = [];
 
@@ -144,10 +130,6 @@ export const generatePagingCommits = ({
         commit: {
           id: generateId(),
           repo: {name: repoName, project: {name: 'default'}},
-          branch: {
-            name: branchName,
-            __typename: 'Branch',
-          },
         },
         description: `item ${i}`,
         started: getISOStringFromUnix(i),
@@ -256,16 +238,6 @@ export const mockDiffFile = () => {
                     },
                   },
                   id: '0b773ae5bd3248c2b84987df9c2385c8',
-                  branch: {
-                    repo: {
-                      name: 'images',
-                      type: 'user',
-                      project: {
-                        name: 'default',
-                      },
-                    },
-                    name: 'master',
-                  },
                 },
                 path: '/',
                 datum: '',

@@ -39,7 +39,6 @@ const FileBrowser: React.FC = () => {
     isDirectory,
     isRoot,
     selectedCommitId,
-    selectedCommitBranchName,
     handleBackNav,
     pageSize,
     setPageSize,
@@ -81,10 +80,7 @@ const FileBrowser: React.FC = () => {
 
         <FullPageResizablePanelModal.Body defaultSize={50} minSize={25}>
           <div className={styles.base}>
-            <FileHeader
-              commitId={selectedCommitId}
-              selectedCommitBranchName={selectedCommitBranchName}
-            />
+            <FileHeader commitId={selectedCommitId} />
             {!fileToPreview && !loading && (
               <div className={styles.header}>
                 <div data-testid="FileBrowser__title">

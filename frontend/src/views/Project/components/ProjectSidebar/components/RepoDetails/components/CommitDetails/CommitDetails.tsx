@@ -33,7 +33,6 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({
   diffLoading,
 }) => {
   const {getPathToFileBrowser} = useFileBrowserNavigation();
-
   const isLineageRepoRoute = useRouteMatch({
     path: LINEAGE_REPO_PATH,
     exact: true,
@@ -51,9 +50,7 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({
     Number(commit.details?.sizeBytes || 0) - (commitDiff?.size || 0),
   );
 
-  const parentCommitLinkText = `${commit.parentCommit?.id?.slice(0, 6)}...${
-    commit.commit?.branch?.name ? `@${commit.commit?.branch?.name}` : ''
-  }`;
+  const parentCommitLinkText = `${commit.parentCommit?.id?.slice(0, 6)}...`;
   const parentCommitParams = {
     projectId: commit.commit?.repo?.project?.name || '',
     repoId: commit.commit?.repo?.name || '',

@@ -48,6 +48,7 @@ import {
   mockGetImageCommitsNoBranch,
   mockGetVersionInfo,
   buildCommit,
+  mockGetBranches,
 } from '@dash-frontend/mocks';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
@@ -79,6 +80,7 @@ describe('ProjectSidebar', () => {
     server.use(mockEmptyGetRoles());
     server.use(mockGetEnterpriseInfoInactive());
     server.use(mockGetImageCommits());
+    server.use(mockGetBranches());
   });
 
   afterAll(() => server.close());
@@ -741,13 +743,17 @@ description: >-
       );
 
       expect(
+        screen.getByTestId('RepoDetails__commit_branch'),
+      ).toHaveTextContent('Branch:new');
+
+      expect(
         screen.getByText('You are viewing the most recent commit'),
       ).toBeInTheDocument();
 
       expect(await screen.findByText('139.24 kB')).toBeInTheDocument();
       await screen.findByText('4a83c74809664f899261baccdb47cd90');
       expect(screen.getByText('+ 58.65 kB')).toBeInTheDocument();
-      await screen.findByText('4eb1aa...@master');
+      await screen.findByText('4eb1aa...');
 
       await waitFor(() =>
         expect(
@@ -766,7 +772,7 @@ description: >-
 
       const previousCommits = screen.queryAllByTestId('CommitList__commit');
       expect(previousCommits).toHaveLength(2);
-      expect(previousCommits[0]).toHaveTextContent(/4eb1aa...@master/);
+      expect(previousCommits[0]).toHaveTextContent(/4eb1aa...@sample/);
       expect(previousCommits[0]).toHaveTextContent('Jul 24, 2023; 17:58');
       expect(previousCommits[1]).toHaveTextContent(/c43fff...@master/);
       expect(previousCommits[1]).toHaveTextContent('Jul 24, 2023; 17:58');

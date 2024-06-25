@@ -5,13 +5,15 @@ import {CaptionTextSmall, Group, SkeletonBodyText} from '@pachyderm/components';
 
 import styles from './ContentBox.module.css';
 
+export type ContentBoxContent = {
+  label: string;
+  value: React.ReactNode;
+  dataTestId?: string;
+  responsiveValue?: React.ReactNode;
+};
+
 type ContentBoxProps = {
-  content: {
-    label: string;
-    value: React.ReactNode;
-    dataTestId?: string;
-    responsiveValue?: React.ReactNode;
-  }[];
+  content: ContentBoxContent[];
   loading?: boolean;
 };
 

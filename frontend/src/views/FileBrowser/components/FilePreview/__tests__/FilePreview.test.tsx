@@ -19,6 +19,8 @@ import {
   mockGetMontagePipeline,
   mockEmptyInspectPipeline,
   mockGetImageCommitsNoBranch,
+  mockGetBranches,
+  mockGetBranchesMasterOnly,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -40,6 +42,7 @@ describe('File Preview', () => {
     server.resetHandlers();
     server.use(mockGetEnterpriseInfo());
     server.use(mockEmptyInspectPipeline());
+    server.use(mockGetBranches());
   });
 
   afterAll(() => server.close());
@@ -63,16 +66,6 @@ describe('File Preview', () => {
               },
             },
             id: '252d1850a5fa484ca7320ce1091cf483',
-            branch: {
-              repo: {
-                name: 'file',
-                type: 'user',
-                project: {
-                  name: 'default',
-                },
-              },
-              name: 'master',
-            },
           },
           path: `/${fileName}`,
           datum: 'default',
@@ -367,16 +360,6 @@ describe('File Preview', () => {
               },
             },
             id: '252d1850a5fa484ca7320ce1091cf483',
-            branch: {
-              repo: {
-                name: 'lots-of-commits',
-                type: 'user',
-                project: {
-                  name: 'default',
-                },
-              },
-              name: 'master',
-            },
           },
           path: '/data.unsupported',
           datum: 'default',
@@ -424,16 +407,6 @@ describe('File Preview', () => {
               },
             },
             id: '252d1850a5fa484ca7320ce1091cf483',
-            branch: {
-              repo: {
-                name: 'text',
-                type: 'user',
-                project: {
-                  name: 'default',
-                },
-              },
-              name: 'master',
-            },
           },
           path: '/data.txt',
           datum: 'default',
@@ -471,16 +444,6 @@ describe('File Preview', () => {
               },
             },
             id: '252d1850a5fa484ca7320ce1091cf483',
-            branch: {
-              repo: {
-                name: 'image',
-                type: 'user',
-                project: {
-                  name: 'default',
-                },
-              },
-              name: 'master',
-            },
           },
           path: '/image.png',
           datum: 'default',
@@ -500,7 +463,9 @@ describe('File Preview', () => {
 
       const metadata = await screen.findByLabelText('file metadata');
 
-      expect(within(metadata).getByText('master')).toBeInTheDocument();
+      expect(
+        await within(metadata).findByText('render, renderTwo'),
+      ).toBeInTheDocument();
       expect(within(metadata).getByText('png')).toBeInTheDocument();
       expect(within(metadata).getByText('58.65 kB')).toBeInTheDocument();
       expect(within(metadata).getByText('/image.png')).toBeInTheDocument();
@@ -602,6 +567,7 @@ describe('File Preview', () => {
         committed: '2023-11-08T18:12:19.363338Z',
         sizeBytes: '58650',
       });
+      server.use(mockGetBranchesMasterOnly());
 
       window.history.replaceState(
         {},

@@ -1,6 +1,7 @@
 import {useHistory} from 'react-router';
 
 import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
+import {useBranches} from '@dash-frontend/hooks/useBranches';
 import useDeleteFiles from '@dash-frontend/hooks/useDeleteFiles';
 import {usePipeline} from '@dash-frontend/hooks/usePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -14,13 +15,21 @@ const useFileDelete = (file: FileInfo) => {
     isOpen: deleteModalOpen,
   } = useModal(false);
   const {repoId, projectId} = useUrlState();
-  const branchId = file.file?.commit?.branch?.name || undefined;
   const {loading: pipelineLoading, pipeline} = usePipeline({
     pipeline: {
       name: repoId,
       project: {name: projectId},
     },
   });
+  const {branches, loading: branchesLoading} = useBranches({
+    projectId,
+    repoId,
+  });
+  const commitBranch = branches?.find(
+    (branch) => branch.head?.id === file.file?.commit?.id,
+  );
+  // TODO: FRON-1519
+  const branchId = commitBranch?.branch?.name || undefined;
 
   const browserHistory = useHistory();
 
@@ -56,7 +65,8 @@ const useFileDelete = (file: FileInfo) => {
     deleteFile,
     loading: deleteLoading,
     error,
-    deleteDisabled: Boolean(pipeline) || pipelineLoading,
+    deleteDisabled:
+      Boolean(pipeline) || pipelineLoading || branchesLoading || !commitBranch,
   };
 };
 

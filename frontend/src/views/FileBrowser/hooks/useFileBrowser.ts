@@ -56,7 +56,6 @@ const useFileBrowser = () => {
   }, [branchId, commitId, filePath, previousCommitId, previousFilePath]);
 
   const selectedCommitId = commitId || commits?.[0]?.commit?.id;
-  const selectedCommitBranchName = commits?.[0]?.commit?.branch?.name;
 
   const isCommitOpen = !commits?.[0]?.finished;
 
@@ -140,7 +139,6 @@ const useFileBrowser = () => {
     isDirectory,
     isRoot,
     selectedCommitId,
-    selectedCommitBranchName,
     pageSize,
     setPageSize,
     page,

@@ -14,6 +14,7 @@ import {
   mockGetImageCommits,
   mockGetEnterpriseInfoInactive,
   generatePagingCommits,
+  mockGetBranches,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -30,6 +31,7 @@ describe('Repo Commits List', () => {
     server.listen();
     server.use(mockGetImageCommits());
     server.use(mockGetEnterpriseInfoInactive());
+    server.use(mockGetBranches());
   });
 
   beforeEach(async () => {

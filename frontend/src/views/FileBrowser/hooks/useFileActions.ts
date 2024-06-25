@@ -2,6 +2,7 @@ import {useState} from 'react';
 import {useHistory} from 'react-router';
 
 import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
+import {useBranches} from '@dash-frontend/hooks/useBranches';
 import {usePipeline} from '@dash-frontend/hooks/usePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {getDownloadLink} from '@dash-frontend/lib/fileUtils';
@@ -22,7 +23,6 @@ const useFileActions = (
 
   const {repoId, projectId} = useUrlState();
   const commitId = file.file?.commit?.id || '';
-  const branchId = file.file?.commit?.branch?.name;
 
   const {loading: pipelineLoading, pipeline} = usePipeline({
     pipeline: {
@@ -30,7 +30,20 @@ const useFileActions = (
       project: {name: projectId},
     },
   });
-  const deleteDisabled = Boolean(pipeline) || pipelineLoading || !branchId;
+  const {branches, loading: branchesLoading} = useBranches({
+    projectId,
+    repoId,
+  });
+  const commitBranches = branches?.filter(
+    (branch) => branch.head?.id === file.file?.commit?.id,
+  );
+
+  const deleteDisabled =
+    Boolean(pipeline) ||
+    pipelineLoading ||
+    branchesLoading ||
+    !commitBranches ||
+    commitBranches.length === 0;
 
   const downloadLink = getDownloadLink(file, true);
 
@@ -109,7 +122,7 @@ const useFileActions = (
     onMenuSelect,
     iconItems,
     fileType,
-    branchId,
+    commitBranches,
     handleBackNav,
   };
 };
