@@ -41,9 +41,9 @@ compile_pip_requirements(
 # Gazelle python extension needs a manifest file mapping from
 # an import to the installed package that provides it.
 # This macro produces two targets:
-# - //:gazelle_python_manifest.update can be used with `bazel run`
+# - :gazelle_python_manifest.update can be used with `bazel run`
 #   to recalculate the manifest
-# - //:gazelle_python_manifest.test is a test target ensuring that
+# - :gazelle_python_manifest.test is a test target ensuring that
 #   the manifest doesn't need to be updated
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
