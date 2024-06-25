@@ -1,5 +1,5 @@
 load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test", "buildozer_binary")
-load("@gazelle//:def.bzl", "gazelle")
+load("@gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@rules_go//go:def.bzl", "go_library", "nogo")
 
 licenses(["notice"])
@@ -10,7 +10,7 @@ exports_files([
     "MODULE.bazel",
 ])
 
-# Conifigure supported architectures.  Note that some architectures are only supported for tooling
+# Configure supported architectures.  Note that some architectures are only supported for tooling
 # reasons; you can run protoc Windows, but you can't run Pachyderm or pachctl on Windows.  Which
 # tools are available on which architectures is a product of the upstream projects; even though most
 # upstream projects are written in Go and could theoretically run anywhere Go can, we still use
@@ -68,11 +68,23 @@ config_setting(
 
 # Add gazelle for "bazel run gazelle -- ..."
 
+# gazelle:python_extension disabled
+gazelle_binary(
+    name = "custom_gazelle_binary",
+    languages = [
+        "@gazelle//language/go",  # Built-in rule from gazelle for Golang.
+        "@gazelle//language/proto",  # Built-in rule from gazelle for Protos.
+        "@rules_python_gazelle_plugin//python",  # Use gazelle from rules_python.
+    ],
+    visibility = ["//visibility:public"],
+)
+
 # gazelle:prefix github.com/pachyderm/pachyderm/v2
 # gazelle:proto disable_global
 gazelle(
     name = "gazelle",
     build_tags = ["bazel"],
+    gazelle = "//:custom_gazelle_binary",
 )
 
 # Configure nogo (a linter that runs next to the compiler).
@@ -155,6 +167,7 @@ test_suite(
     ],
     tests = [
         ":buildifier_test",
+        "//jupyter-extension:gazelle_python_manifest.test",
         "//src/proto:run_test",
     ],
 )
