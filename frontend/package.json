@@ -93,7 +93,7 @@
     "@storybook/addon-controls": "^8.1.6",
     "@storybook/addon-essentials": "^8.1.6",
     "@storybook/addon-links": "^8.1.6",
-    "@storybook/react": "^8.1.6",
+    "@storybook/react": "^8.1.10",
     "@storybook/react-vite": "^8.1.6",
     "@svgr/rollup": "^8.1.0",
     "@swc/core": "^1.3.103",
