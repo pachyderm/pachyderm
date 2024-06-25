@@ -251,7 +251,9 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.visit('/lineage/hornet/pipelines/pipeline1-reader');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoReader/i);
-      cy.findByRole('button', {name: 'Pipeline Actions'}).click();
+      cy.findByRole('button', {
+        name: /pipeline-actions-menu/i,
+      }).click();
       cy.findByRole('menuitem', {
         name: /delete pipeline/i,
       })
@@ -263,7 +265,9 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.visit('/lineage/hornet/pipelines/pipeline2-writer');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoWriter/i);
-      cy.findByRole('button', {name: 'Pipeline Actions'}).click();
+      cy.findByRole('button', {
+        name: /pipeline-actions-menu/i,
+      }).click();
       cy.findByRole('menuitem', {
         name: /delete pipeline/i,
       }).should('be.disabled');
@@ -282,7 +286,9 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.visit('/lineage/hornet/pipelines/pipeline3-owner');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoOwner/i);
-      cy.findByRole('button', {name: 'Pipeline Actions'}).click();
+      cy.findByRole('button', {
+        name: /pipeline-actions-menu/i,
+      }).click();
       cy.findByRole('menuitem', {
         name: /delete pipeline/i,
       }).should('be.enabled');

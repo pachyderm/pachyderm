@@ -58,8 +58,6 @@ describe('PipelineInfo', () => {
       'Standard',
     );
     expect(screen.getByLabelText('Datum Timeout')).toHaveTextContent('N/A');
-    expect(screen.getByLabelText('Datum Tries')).toHaveTextContent('3');
-    expect(screen.getByLabelText('Job Timeout')).toHaveTextContent('N/A');
     expect(screen.getByLabelText('Output Branch')).toHaveTextContent('master');
     expect(screen.getByLabelText('Workers Active')).toHaveTextContent('1/1');
     expect(screen.getByLabelText('Egress')).toHaveTextContent('No');

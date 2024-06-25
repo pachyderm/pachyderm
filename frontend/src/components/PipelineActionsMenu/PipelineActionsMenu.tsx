@@ -1,10 +1,16 @@
 import React from 'react';
 
-import {DefaultDropdown, ChevronDownSVG} from '@pachyderm/components';
+import {
+  DefaultDropdown,
+  ChevronDownSVG,
+  OverflowSVG,
+  ButtonTypeOptions,
+} from '@pachyderm/components';
 
 import DeletePipelineModal from './components/DeletePipelineModal';
 import RerunPipelineModal from './components/RerunPipelineModal';
 import usePipelineActionsMenu from './hooks/usePipelineActionsMenu';
+import styles from './PipelineActionsMenu.module.css';
 
 type PipelineActionsModalsProps = {
   pipelineId: string;
@@ -57,22 +63,40 @@ const PipelineActionsMenu: React.FC<PipelineActionsMenuProps> = ({
     onMenuOpen,
   } = usePipelineActionsMenu(pipelineId);
 
+  const dropdownClasses = {
+    items: menuItems,
+    onSelect: onDropdownMenuSelect,
+    menuOpts: {pin: 'right' as 'right' | undefined},
+    openOnClick: onMenuOpen,
+  };
+
+  const buttonOpts = {
+    hideChevron: true,
+    buttonType: 'secondary' as ButtonTypeOptions,
+    color: 'purple',
+  };
+
   return (
-    <>
+    <div className={styles.dropdownWrapper}>
       <DefaultDropdown
-        items={menuItems}
-        onSelect={onDropdownMenuSelect}
+        className={styles.fullContent}
         buttonOpts={{
-          hideChevron: true,
-          buttonType: 'secondary',
           IconSVG: ChevronDownSVG,
-          color: 'purple',
+          ...buttonOpts,
         }}
-        menuOpts={{pin: 'right'}}
-        openOnClick={onMenuOpen}
+        {...dropdownClasses}
       >
         Pipeline Actions
       </DefaultDropdown>
+      <DefaultDropdown
+        className={styles.responsiveContent}
+        buttonOpts={{
+          IconSVG: OverflowSVG,
+          ...buttonOpts,
+        }}
+        aria-label="pipeline-actions-menu"
+        {...dropdownClasses}
+      />
       <PipelineActionsModals
         pipelineId={pipelineId}
         closeRerunPipelineModal={closeRerunPipelineModal}
@@ -80,7 +104,7 @@ const PipelineActionsMenu: React.FC<PipelineActionsMenuProps> = ({
         deletePipelineModalOpen={deletePipelineModalOpen}
         setDeleteModalOpen={setDeleteModalOpen}
       />
-    </>
+    </div>
   );
 };
 

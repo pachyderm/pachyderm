@@ -23,9 +23,13 @@ describe('Pipeline Actions', () => {
 
     cy.visit('/lineage/default/pipelines/edges');
 
-    cy.findByRole('heading', {name: /success/i, timeout: 30_000}).should('exist');
+    cy.findByRole('heading', {name: /success/i, timeout: 30_000}).should(
+      'exist',
+    );
 
-    cy.findByRole('button', {name: /pipeline actions/i}).click();
+    cy.findByRole('button', {
+      name: /pipeline-actions-menu/i,
+    }).click();
     cy.findByRole('menuitem', {name: /rerun pipeline/i}).click();
 
     cy.findByRole('radio', {name: /process all datums/}).click({force: true});
@@ -47,17 +51,27 @@ describe('Pipeline Actions', () => {
 
     cy.visit('/lineage/default/pipelines/edges/info');
 
-    cy.findByRole('heading', {name: /running/i, timeout: 30_000}).should('exist');
+    cy.findByRole('heading', {name: /running/i, timeout: 30_000}).should(
+      'exist',
+    );
 
-    cy.findByRole('button', {name: /pipeline actions/i}).click();
+    cy.findByRole('button', {
+      name: /pipeline-actions-menu/i,
+    }).click();
     cy.findByRole('menuitem', {name: /pause pipeline/i}).click();
 
-    cy.findByRole('heading', {name: /paused/i, timeout: 20_000}).should('exist');
+    cy.findByRole('heading', {name: /paused/i, timeout: 20_000}).should(
+      'exist',
+    );
 
-    cy.findByRole('button', {name: /pipeline actions/i}).click();
+    cy.findByRole('button', {
+      name: /pipeline-actions-menu/i,
+    }).click();
     cy.findByRole('menuitem', {name: /restart pipeline/i}).click();
 
-    cy.findByRole('heading', {name: /running/i, timeout: 20_000}).should('exist');
+    cy.findByRole('heading', {name: /running/i, timeout: 20_000}).should(
+      'exist',
+    );
   });
 
   it('should allow a user to trigger a cron pipeline', () => {
@@ -69,7 +83,9 @@ describe('Pipeline Actions', () => {
       'exist',
     );
 
-    cy.findByRole('button', {name: /pipeline actions/i}).click();
+    cy.findByRole('button', {
+      name: /pipeline-actions-menu/i,
+    }).click();
     cy.findByRole('menuitem', {name: /run cron/i}).click();
 
     cy.findByRole('heading', {name: /created|running/i}).should('exist');

@@ -54,8 +54,8 @@
 .sideBarToolbar {
   display: flex;
   padding: 1rem;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
 .dragBar {
@@ -89,4 +89,15 @@
 .resizable.active {
   cursor: ew-resize;
   pointer-events: all;
+}
+
+.flex {
+  flex: 1;
+}
+
+.actionsGroup {
+  flex: 1;
+  z-index: var(--z-index-dropdown-menu);
+  container-name: sidebarActionGroup;
+  container-type: inline-size;
 }

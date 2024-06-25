@@ -280,7 +280,11 @@ describe('Pipeline Actions Menu', () => {
       );
       render(<PipelineActionsMenu />);
 
-      await click(screen.getByRole('button', {name: 'Pipeline Actions'}));
+      await click(
+        screen.getByRole('button', {
+          name: /pipeline actions/i,
+        }),
+      );
 
       const runCronButton = await screen.findByRole('menuitem', {
         name: /run cron/i,

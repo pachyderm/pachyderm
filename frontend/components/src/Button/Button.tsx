@@ -7,17 +7,19 @@ import {Icon} from '../Icon';
 
 import styles from './Button.module.css';
 
+export type ButtonTypeOptions =
+  | 'primary'
+  | 'secondary'
+  | 'ghost'
+  | 'tertiary'
+  | 'quaternary'
+  | 'dropdown'
+  | 'input';
+
 export type ButtonProps = React.ButtonHTMLAttributes<
   HTMLButtonElement & HTMLAnchorElement
 > & {
-  buttonType?:
-    | 'primary'
-    | 'secondary'
-    | 'ghost'
-    | 'tertiary'
-    | 'quaternary'
-    | 'dropdown'
-    | 'input';
+  buttonType?: ButtonTypeOptions;
   color?: string;
   href?: string;
   to?: LinkProps['to'];

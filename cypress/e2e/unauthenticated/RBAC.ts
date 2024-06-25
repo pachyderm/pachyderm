@@ -63,7 +63,7 @@ describe('Repo / Pipeline table', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByRole('status', {timeout: 15000}).should('not.exist'); // Wait for details to load
       cy.findByText(/your roles/).should('not.exist');
-      
+
       cy.findByRole('button', {name: 'Repo Actions'}).click();
       cy.findByRole('menuitem', {
         name: /delete repo/i,
@@ -79,7 +79,7 @@ describe('Repo / Pipeline table', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByRole('status', {timeout: 15000}).should('not.exist'); // Wait for details to load
       cy.findByText(/your roles/).should('not.exist');
-      
+
       cy.findByRole('button', {name: 'Repo Actions'}).click();
       cy.findByRole('menuitem', {name: /delete repo/i}).should('be.disabled');
     });
@@ -96,8 +96,12 @@ describe('Repo / Pipeline table', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByRole('status', {timeout: 15000}).should('not.exist'); // Wait for details to load
       cy.findByText(/your roles/).should('not.exist');
-      cy.findByRole('button', {name: 'Pipeline Actions'}).click();
-      cy.findByRole('menuitem', {name: /delete pipeline/i}).should('be.enabled');
+      cy.findByRole('button', {
+        name: /pipeline-actions-menu/i,
+      }).click();
+      cy.findByRole('menuitem', {name: /delete pipeline/i}).should(
+        'be.enabled',
+      );
     });
 
     // Pipelines table

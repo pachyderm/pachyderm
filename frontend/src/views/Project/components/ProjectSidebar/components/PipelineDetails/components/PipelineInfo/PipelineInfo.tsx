@@ -52,16 +52,6 @@ const PipelineInfo: React.FC = () => {
               ? `${parse(pipeline?.details?.datumTimeout, 's')} seconds`
               : 'N/A'}
           </Description>
-
-          <Description term="Datum Tries" loading={loading}>
-            {pipeline?.details?.datumTries}
-          </Description>
-
-          <Description term="Job Timeout" loading={loading}>
-            {pipeline?.details?.jobTimeout
-              ? `${parse(pipeline.details?.jobTimeout, 's')} seconds`
-              : 'N/A'}
-          </Description>
         </>
       )}
       <Description term="Output Branch" loading={loading}>

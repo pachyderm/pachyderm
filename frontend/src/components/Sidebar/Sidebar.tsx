@@ -84,33 +84,31 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
         <Route path={[PROJECT_PATH, LINEAGE_PATH]}>
           <div className={styles.sideBarToolbar}>
-            <ButtonGroup>
+            <ButtonGroup className={styles.flex}>
               <Route path={LINEAGE_PIPELINE_PATH}>
-                <Group spacing={8}>
+                <Group spacing={8} className={styles.actionsGroup}>
                   <ReadLogsButton />
                   <PipelineActionsMenu pipelineId={pipelineId} />
                 </Group>
               </Route>
               <Route path={LINEAGE_REPO_PATH}>
-                <Group spacing={8}>
+                <Group spacing={8} className={styles.actionsGroup}>
                   <InspectCommitsButton />
                   <RepoActionsMenu repoId={repoId} />
                 </Group>
               </Route>
             </ButtonGroup>
-            <ButtonGroup>
-              <Route path={[LINEAGE_PIPELINE_PATH, LINEAGE_REPO_PATH]}>
-                {onClose && (
-                  <Button
-                    IconSVG={CloseSVG}
-                    onClick={onClose}
-                    aria-label="Close sidebar"
-                    color="black"
-                    buttonType="ghost"
-                  />
-                )}
-              </Route>
-            </ButtonGroup>
+            <Route path={[LINEAGE_PIPELINE_PATH, LINEAGE_REPO_PATH]}>
+              {onClose && (
+                <Button
+                  IconSVG={CloseSVG}
+                  onClick={onClose}
+                  aria-label="Close sidebar"
+                  color="black"
+                  buttonType="ghost"
+                />
+              )}
+            </Route>
           </div>
         </Route>
 

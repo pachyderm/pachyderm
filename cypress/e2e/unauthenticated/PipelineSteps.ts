@@ -141,7 +141,7 @@ describe('Pipelines', () => {
       timeout: 10000,
     }).click();
     cy.findByRole('button', {
-      name: /pipeline actions/i,
+      name: /pipeline-actions-menu/i,
     }).click();
     cy.findByRole('menuitem', {
       name: /update pipeline/i,
@@ -202,7 +202,7 @@ describe('Pipelines', () => {
       timeout: 10000,
     }).click();
     cy.findByRole('button', {
-      name: /pipeline actions/i,
+      name: /pipeline-actions-menu/i,
     }).click();
     cy.findByRole('menuitem', {
       name: /duplicate pipeline/i,

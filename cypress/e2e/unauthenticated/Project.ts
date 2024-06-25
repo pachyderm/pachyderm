@@ -33,14 +33,18 @@ describe('Project', () => {
     cy.get('#GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838').within(() =>
       cy.findByText('Pipeline').click(),
     );
-    cy.findByRole('button', {name: 'Pipeline Actions'}).click();
+    cy.findByRole('button', {
+      name: /pipeline-actions-menu/i,
+    }).click();
     cy.findByRole('menuitem', {name: 'Delete Pipeline'}).should('be.disabled');
     cy.findByRole('button', {name: 'Close sidebar'}).click();
 
     cy.get('#GROUP_52faf83dd0fff4b0d510f5326e2bf66e8b5a2ed6').within(() =>
       cy.findByText('Pipeline').click({force: true}),
     );
-    cy.findByRole('button', {name: 'Pipeline Actions'}).click();
+    cy.findByRole('button', {
+      name: /pipeline-actions-menu/i,
+    }).click();
     cy.findByRole('menuitem', {name: 'Delete Pipeline'}).click();
     cy.findByTestId('ModalFooter__confirm').click();
     cy.findByTestId('ModalFooter__confirm').should('not.exist');
@@ -57,7 +61,9 @@ describe('Project', () => {
     cy.get('#GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838').within(() =>
       cy.findByText('Pipeline').click(),
     );
-    cy.findByRole('button', {name: 'Pipeline Actions'}).click();
+    cy.findByRole('button', {
+      name: /pipeline-actions-menu/i,
+    }).click();
     cy.findByRole('menuitem', {name: 'Delete Pipeline'}).click();
     cy.findByTestId('ModalFooter__confirm').click();
     cy.findByTestId('ModalFooter__confirm').should('not.exist');

@@ -39,7 +39,11 @@ describe('Repo Actions Menu', () => {
     window.history.replaceState('', '', '/project/default/repos');
     render(<RepoActionsMenu />);
 
-    await click(screen.getByRole('button', {name: 'Repo Actions'}));
+    await click(
+      screen.getByRole('button', {
+        name: /repo actions/i,
+      }),
+    );
     await click(
       await screen.findByRole('menuitem', {
         name: /view in dag/i,
@@ -52,7 +56,11 @@ describe('Repo Actions Menu', () => {
   it('should not allow users to view a repo in the DAG if already in the DAG', async () => {
     render(<RepoActionsMenu />);
 
-    await click(screen.getByRole('button', {name: 'Repo Actions'}));
+    await click(
+      screen.getByRole('button', {
+        name: /repo actions/i,
+      }),
+    );
     expect(
       screen.queryByRole('menuitem', {
         name: /view in dag/i,
@@ -63,7 +71,11 @@ describe('Repo Actions Menu', () => {
   it('should allow users to open the file upload modal', async () => {
     render(<RepoActionsMenu />);
 
-    await click(screen.getByRole('button', {name: 'Repo Actions'}));
+    await click(
+      screen.getByRole('button', {
+        name: /repo actions/i,
+      }),
+    );
     await click(
       await screen.findByRole('menuitem', {
         name: /upload files/i,
@@ -78,7 +90,11 @@ describe('Repo Actions Menu', () => {
   it('should allow users to open the delete repo modal', async () => {
     render(<RepoActionsMenu />);
 
-    await click(screen.getByRole('button', {name: 'Repo Actions'}));
+    await click(
+      screen.getByRole('button', {
+        name: /repo actions/i,
+      }),
+    );
     await click(
       await screen.findByRole('menuitem', {
         name: /delete repo/i,
@@ -96,7 +112,11 @@ describe('Repo Actions Menu', () => {
     server.use(mockPipelines());
     render(<RepoActionsMenu />);
 
-    await click(screen.getByRole('button', {name: 'Repo Actions'}));
+    await click(
+      screen.getByRole('button', {
+        name: /repo actions/i,
+      }),
+    );
 
     const deleteButton = await screen.findByRole('menuitem', {
       name: /delete repo/i,
@@ -114,7 +134,11 @@ describe('Repo Actions Menu', () => {
     server.use(mockFalseGetAuthorize());
     render(<RepoActionsMenu />);
 
-    await click(screen.getByRole('button', {name: 'Repo Actions'}));
+    await click(
+      screen.getByRole('button', {
+        name: /repo actions/i,
+      }),
+    );
 
     const deleteButton = await screen.findByRole('menuitem', {
       name: /delete repo/i,
