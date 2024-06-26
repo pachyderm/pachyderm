@@ -578,7 +578,7 @@ func CheckRepoCmd(pachCtx *config.Context, pachctlCfg *pachctl.Config) *cobra.Co
 	check := &cobra.Command{
 		Use:   "{{alias}} <repo> [<user>]",
 		Short: "Check the permissions a user has on a repo",
-		Long:  "This command checks the permissions a given subject (user, robot) has on a given repo.",
+		Long:  "This command checks the permissions a given subject (user, pipeline, robot) has on a given repo.  If the subject is not specified, the subject is the currently logged-in user is issuing the command.",
 		Example: "\t- {{alias}} foo user:alan.watts@domain.com" +
 			"\t- {{alias}} foo user:alan.watts@domain.com --project bar" +
 			"\t- {{alias}} foo robot:my-robot",
