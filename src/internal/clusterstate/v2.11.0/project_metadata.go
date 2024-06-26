@@ -16,3 +16,11 @@ func addProjectMetadata(ctx context.Context, env migrations.Env) error {
 	}
 	return nil
 }
+
+func addCommitCreatedBy(ctx context.Context, env migrations.Env) error {
+	ctx = pctx.Child(ctx, "addCommitCreationInfo")
+	if _, err := env.Tx.ExecContext(ctx, `ALTER TABLE pfs.commits ADD COLUMN created_by TEXT NOT NULL DEFAULT ''`); err != nil {
+		return errors.Wrap(err, "add created_by and created_at to pfs.commits")
+	}
+	return nil
+}

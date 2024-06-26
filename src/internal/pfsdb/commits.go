@@ -49,12 +49,13 @@ const (
     	 validating_time_s,
     	 size,
     	 error,
-    	 metadata)
+    	 metadata,
+    	 created_by)
 		VALUES
 		($4, $5,
 		 (SELECT id from repo_row_id),
 		 (SELECT id from pfs.branches WHERE name=$6 AND repo_id=(SELECT id from repo_row_id)),
-		 $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+		 $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		RETURNING int_id;`
 	updateCommit = `
 		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=:repo.name AND type=:repo.type AND project_id=(SELECT id from core.projects WHERE name= :repo.project.name))
@@ -72,7 +73,8 @@ const (
 			validating_time_s=:validating_time_s,
 			size=:size,
 			error=:error,
-			metadata=:metadata
+			metadata=:metadata,
+			created_by=:created_by
 		WHERE int_id=:int_id;`
 	commitFields = `
 		commit.int_id,
@@ -91,6 +93,7 @@ const (
 		commit.created_at,
 		commit.updated_at,
 		commit.metadata,
+		commit.created_by,
 		commit.repo_id AS "repo.id",
 		repo.name AS "repo.name",
 		repo.type AS "repo.type",
@@ -113,6 +116,7 @@ const (
 		commit.created_at,
 		commit.updated_at,
 		commit.metadata,
+		commit.created_by,
 		commit.repo_id,
 		repo.name,
 		repo.type,
@@ -269,13 +273,14 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
 		Metadata:       pgjsontypes.StringMap{Data: commitInfo.Metadata},
+		CreatedBy:      commitInfo.CreatedBy,
 	}
 	// It would be nice to use a named query here, but sadly there is no NamedQueryRowContext. Additionally,
 	// we run into errors when using named statements: (named statement already exists).
 
 	row := tx.QueryRowxContext(ctx, createCommit, insert.Repo.Name, insert.Repo.Type, insert.Repo.Project.Name,
 		insert.CommitID, insert.CommitSetID, insert.BranchName, insert.Description, insert.Origin, insert.StartTime, insert.FinishingTime,
-		insert.FinishedTime, insert.CompactingTime, insert.ValidatingTime, insert.Size, insert.Error, insert.Metadata)
+		insert.FinishedTime, insert.CompactingTime, insert.ValidatingTime, insert.Size, insert.Error, insert.Metadata, insert.CreatedBy)
 	lastInsertId := 0
 	if err := row.Scan(&lastInsertId); err != nil {
 		return 0, errors.Wrap(err, "scanning id from create commitInfo")
@@ -645,6 +650,7 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
 		Metadata:       pgjsontypes.StringMap{Data: commitInfo.Metadata},
+		CreatedBy:      commitInfo.CreatedBy,
 	}
 	query := updateCommit
 	res, err := tx.NamedExecContext(ctx, query, update)
@@ -832,6 +838,7 @@ func parseCommitInfoFromRow(row *CommitRow) *pfs.CommitInfo {
 		Description: row.Description,
 		Error:       row.Error,
 		Metadata:    row.Metadata.Data,
+		CreatedBy:   row.CreatedBy,
 		Details: &pfs.CommitInfo_Details{
 			CompactingTime: pbutil.BigIntToDurationpb(row.CompactingTime),
 			ValidatingTime: pbutil.BigIntToDurationpb(row.ValidatingTime),

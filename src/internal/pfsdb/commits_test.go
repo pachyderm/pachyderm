@@ -722,7 +722,8 @@ func testCommitWithCommitKey(ctx context.Context, t *testing.T, tx *pachsql.Tx, 
 		Origin: &pfs.CommitOrigin{
 			Kind: pfs.OriginKind_USER,
 		},
-		Started: timestamppb.New(time.Now()),
+		Started:   timestamppb.New(time.Now()),
+		CreatedBy: "the_tests",
 	}
 	_, err := pfsdb.UpsertRepo(ctx, tx, repoInfo)
 	require.NoError(t, err, "should be able to create repo")

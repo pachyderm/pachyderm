@@ -210,6 +210,7 @@ message CommitInfo {
   Details details = 12;
   // Metadata is user-applied annotations.
   map<string, string> metadata = 14;
+  string created_by = 16;
 }
 
 message CommitSet {

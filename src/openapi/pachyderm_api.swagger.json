@@ -8789,6 +8789,9 @@
             "type": "string"
           },
           "description": "Metadata is user-applied annotations."
+        },
+        "createdBy": {
+          "type": "string"
         }
       },
       "title": "CommitInfo is the main data structure representing a commit in postgres"

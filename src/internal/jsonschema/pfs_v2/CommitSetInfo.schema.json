@@ -121,6 +121,9 @@
                     },
                     "type": "object",
                     "description": "Metadata is user-applied annotations."
+                },
+                "createdBy": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,
