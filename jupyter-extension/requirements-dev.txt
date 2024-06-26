@@ -8,6 +8,9 @@ pytest==8.1.1
 pytest-asyncio==0.23.5
 twine==3.7.1
 
+# Explicitly require (for Linus) to prevent platform specific lock files.
+# This package does nothing if not used on darwin.
+appnope
 
 # security patches
 idna!=3.6
