@@ -19,6 +19,7 @@ compile_pip_requirements(
 compile_pip_requirements(
     name = "requirements-dev",
     src = "requirements-dev.txt",
+    extra_args = ["--no-annotate"],
     requirements_txt = "requirements-dev-lock.txt",
 )
 
