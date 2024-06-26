@@ -536,7 +536,7 @@ type adapter struct {
 }
 
 func (a *adapter) addLevelFilter(l logs.LogLevel) {
-	if l > logs.LogLevel_LOG_LEVEL_UNSET && a.level == logs.LogLevel_LOG_LEVEL_UNSET {
+	if l != logs.LogLevel_LOG_LEVEL_UNSET && a.level == logs.LogLevel_LOG_LEVEL_UNSET {
 		a.level = l
 	}
 }
