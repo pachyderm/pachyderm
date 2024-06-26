@@ -208,7 +208,6 @@ class PFSManager(FileContentsManager):
         super().__init__(**kwargs)
 
     def mount_commit(self, commit: pfs.Commit):
-        print(commit)
         if not self.commit_exists(commit=commit):
             raise ValueError("commit_uri exists but does not resolve a valid branch")
         self.mounted_commit = commit
