@@ -3,6 +3,7 @@ package authdb
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -106,4 +107,12 @@ func ResourceKey(r *auth.Resource) string {
 		return auth.ClusterRoleBindingKey
 	}
 	return fmt.Sprintf("%s:%s", r.Type, r.Name)
+}
+
+// EnsurePrincipal ensures that the named principal exists in the database.
+func EnsurePrincipal(ctx context.Context, tx *pachsql.Tx, subject string) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
+		return errors.Wrap(err, "insert into auth.principals")
+	}
+	return nil
 }
