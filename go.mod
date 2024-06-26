@@ -343,7 +343,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.20.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	golang.org/x/image v0.0.0-20210216034530-4410531fe030 // indirect
+	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.149.0 // indirect
