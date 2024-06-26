@@ -4967,7 +4967,7 @@
       "os:osx,arch:aarch64": {
         "bzlTransitiveDigest": "DuaQj5QkmWphuYHt4Cg3VUKL4lFjh64NKgX3NBE8sLk=",
         "recordedFileInputs": {
-          "@@//jupyter-extension/requirements-dev-lock-darwin.txt": "077eecb7842cc90224117dff9d423b6a11bff3542526bec76ba1dab41e2093c0",
+          "@@//jupyter-extension/requirements-dev-lock-darwin.txt": "2aa25c9d9668a510c63013b7c6e70137a7b71771f4bc6a4b458cad2aa97584c7",
           "@@//jupyter-extension/requirements-lock.txt": "c7d161bdc9b7ec082b39d7c571a064623b22af73bf2d54efeb599aee1dd72471"
         },
         "recordedDirentsInputs": {},
@@ -5537,7 +5537,7 @@
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
             "attributes": {
-              "requirement": "jupyterlab==4.0.7     --hash=sha256:08683045117cc495531fdb39c22ababb9aaac6977a45e67cfad20046564c9c7c     --hash=sha256:48792efd9f962b2bcda1f87d72168ff122c288b1d97d32109e4a11b33dc862be",
+              "requirement": "jupyterlab==4.0.11     --hash=sha256:536bf0e78723153a5016ca7efb88ed0ecd7070d3f1555d5b0e2770658f900a3c     --hash=sha256:d1aec24712566bc25a36229788242778e498ca4088028e2f9aa156b8b7fdc8fc",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
               "whl_patches": {},
