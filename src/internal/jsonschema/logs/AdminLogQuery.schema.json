@@ -94,6 +94,23 @@
             "title": "Job Datum Log Query",
             "description": "JobDatumLogQuery returns logs from the processing of one datum that was part of the job."
         },
+        "logs.PipelineDatumLogQuery": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false,
+                    "description": "The pipeline."
+                },
+                "datum": {
+                    "type": "string",
+                    "description": "The hex-encoded ID of the datum."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Datum Log Query",
+            "description": "PipelineDatumLogQuery returns logs from one datum in one pipeline."
+        },
         "logs.PipelineJobLogQuery": {
             "properties": {
                 "pipeline": {
@@ -170,7 +187,12 @@
                 "jobDatum": {
                     "$ref": "#/definitions/logs.JobDatumLogQuery",
                     "additionalProperties": false,
-                    "description": "One datum in one job"
+                    "description": "One datum in one job."
+                },
+                "pipelineDatum": {
+                    "$ref": "#/definitions/logs.PipelineDatumLogQuery",
+                    "additionalProperties": false,
+                    "description": "One datum in one pipeline."
                 }
             },
             "additionalProperties": false,
@@ -204,6 +226,11 @@
                 {
                     "required": [
                         "job_datum"
+                    ]
+                },
+                {
+                    "required": [
+                        "pipeline_datum"
                     ]
                 }
             ],

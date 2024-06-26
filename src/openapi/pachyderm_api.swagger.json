@@ -8352,6 +8352,20 @@
         }
       }
     },
+    "logsPipelineDatumLogQuery": {
+      "type": "object",
+      "properties": {
+        "pipeline": {
+          "$ref": "#/definitions/logsPipelineLogQuery",
+          "description": "The pipeline."
+        },
+        "datum": {
+          "type": "string",
+          "description": "The hex-encoded ID of the datum."
+        }
+      },
+      "description": "PipelineDatumLogQuery returns logs from one datum in one pipeline."
+    },
     "logsPipelineJobLogQuery": {
       "type": "object",
       "properties": {
@@ -8451,7 +8465,11 @@
         },
         "jobDatum": {
           "$ref": "#/definitions/logsJobDatumLogQuery",
-          "title": "One datum in one job"
+          "description": "One datum in one job."
+        },
+        "pipelineDatum": {
+          "$ref": "#/definitions/logsPipelineDatumLogQuery",
+          "description": "One datum in one pipeline."
         }
       },
       "description": "A UserLogQuery selects logs that Pachyderm users need to see during normal Pachyderm operations."
