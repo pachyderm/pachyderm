@@ -184,8 +184,10 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 			defer client.Close()
 
-			level := logs.LogLevel_LOG_LEVEL_UNSET
+			var level logs.LogLevel
 			switch levelString {
+			case "":
+				level = logs.LogLevel_LOG_LEVEL_UNSET
 			case "debug":
 				level = logs.LogLevel_LOG_LEVEL_DEBUG
 			case "info":
