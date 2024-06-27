@@ -8,6 +8,15 @@ pytest==8.1.1
 pytest-asyncio==0.23.5
 twine==3.7.1
 
+# Explicitly require (for Linux) to prevent platform specific lock files.
+# This package does nothing if not used on a Darwin system.
+appnope
+
+# Explicitly require (for Darwin) to prevent platform specific lock files.
+# These packages are required by keyring for Linux systems, but should be unused otherwise.
+cryptography
+jeepney
+secretstorage
 
 # security patches
 idna!=3.6
