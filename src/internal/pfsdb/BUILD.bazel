@@ -48,6 +48,7 @@ go_test(
         "projects_test.go",
         "repos_test.go",
     ],
+    shard_count = 4,
     deps = [
         ":pfsdb",
         "//src/internal/client",

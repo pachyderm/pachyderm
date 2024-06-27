@@ -276,6 +276,9 @@ func (x *CommitInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
+	enc.AddString("created_by", x.CreatedBy)
+	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
+	protoextensions.AddTimestamp(enc, "updated_at", x.UpdatedAt)
 	return nil
 }
 
@@ -346,6 +349,7 @@ func (x *ProjectInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
+	enc.AddString("created_by", x.CreatedBy)
 	return nil
 }
 

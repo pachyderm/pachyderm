@@ -387,6 +387,8 @@ func TestUpdateCommitWithParent(t *testing.T) {
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, id, commitInfo), "should be able to update commit")
 			getInfo, err := pfsdb.GetCommitInfo(ctx, tx, id)
 			require.NoError(t, err, "should be able to get commit")
+			getInfo.CreatedAt = nil
+			getInfo.UpdatedAt = nil
 			commitsMatch(t, getInfo, commitInfo)
 		})
 	})
@@ -452,6 +454,8 @@ func TestUpdateCommitWithChildren(t *testing.T) {
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, id, commitInfo), "should be able to update commit")
 			getInfo, err := pfsdb.GetCommitInfo(ctx, tx, id)
 			require.NoError(t, err, "should be able to get commit")
+			getInfo.CreatedAt = nil
+			getInfo.UpdatedAt = nil
 			commitsMatch(t, getInfo, commitInfo)
 		})
 	})
@@ -685,6 +689,7 @@ func withDB(t *testing.T, testCase commitTestCase) {
 }
 
 func commitsMatch(t *testing.T, expected, actual *pfs.CommitInfo) {
+	t.Helper()
 	want := proto.Clone(expected).(*pfs.CommitInfo)
 	got := proto.Clone(actual).(*pfs.CommitInfo)
 
@@ -709,6 +714,12 @@ func commitsMatch(t *testing.T, expected, actual *pfs.CommitInfo) {
 		want.ChildCommits[i].Branch = nil
 	}
 
+	if want.CreatedAt == nil {
+		got.CreatedAt = nil
+	}
+	if want.UpdatedAt == nil {
+		got.UpdatedAt = nil
+	}
 	require.NoDiff(t, want, got, []cmp.Option{protocmp.Transform()})
 }
 
@@ -722,7 +733,8 @@ func testCommitWithCommitKey(ctx context.Context, t *testing.T, tx *pachsql.Tx, 
 		Origin: &pfs.CommitOrigin{
 			Kind: pfs.OriginKind_USER,
 		},
-		Started: timestamppb.New(time.Now()),
+		Started:   timestamppb.New(time.Now()),
+		CreatedBy: "the_tests",
 	}
 	_, err := pfsdb.UpsertRepo(ctx, tx, repoInfo)
 	require.NoError(t, err, "should be able to create repo")

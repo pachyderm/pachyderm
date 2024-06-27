@@ -131,6 +131,7 @@ type CommitRow struct {
 	BranchName sql.NullString `db:"branch_name"`
 	BranchID   sql.NullInt64  `db:"branch_id"`
 	Repo       RepoRow        `db:"repo"`
+	CreatedBy  string         `db:"created_by"`
 	CreatedAtUpdatedAt
 }
 

@@ -545,7 +545,9 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 			"update project %s", req.GetProject().GetName())
 	}
 	// If auth is active, make caller the owner of this new project.
+	var username string
 	if whoAmI, err := txnCtx.WhoAmI(); err == nil {
+		username = whoAmI.GetUsername()
 		if err := d.env.Auth.CreateRoleBindingInTransaction(
 			ctx,
 			txnCtx,
@@ -562,6 +564,7 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 		Project:     req.Project,
 		Description: req.Description,
 		CreatedAt:   timestamppb.Now(),
+		CreatedBy:   username,
 	}); err != nil {
 		if errors.As(err, &pfsdb.ProjectAlreadyExistsError{}) {
 			return errors.Join(err, pfsserver.ErrProjectExists{Project: req.Project})
@@ -1031,9 +1034,10 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 			Id:     txnCtx.CommitSetID,
 		}
 		newCommitInfo := &pfs.CommitInfo{
-			Commit:  newCommit,
-			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-			Started: txnCtx.Timestamp,
+			Commit:    newCommit,
+			Origin:    &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+			Started:   txnCtx.Timestamp,
+			CreatedBy: txnCtx.Username(),
 		}
 		// enumerate the new commit's provenance
 		for _, b := range bi.DirectProvenance {
@@ -1780,15 +1784,17 @@ func (d *driver) validateDAGStructure(ctx context.Context, txnCtx *txncontext.Tr
 }
 
 func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) *pfs.CommitInfo {
+	log.Info(pctx.TODO(), "creating commit", zap.Stack("stack"), zap.String("username", txnCtx.Username()), zap.Stringer("branch", branch), zap.String("id", txnCtx.CommitSetID))
 	return &pfs.CommitInfo{
 		Commit: &pfs.Commit{
 			Branch: branch,
 			Repo:   branch.Repo,
 			Id:     txnCtx.CommitSetID,
 		},
-		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
-		Started: txnCtx.Timestamp,
-		Details: &pfs.CommitInfo_Details{},
+		Origin:    &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
+		Started:   txnCtx.Timestamp,
+		Details:   &pfs.CommitInfo_Details{},
+		CreatedBy: txnCtx.Username(),
 	}
 }
 
@@ -2095,9 +2101,10 @@ func (d *driver) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Transac
 	commitHandle := branch.NewCommit(txnCtx.CommitSetID)
 	commitHandle.Repo = branch.Repo
 	commitInfo := &pfs.CommitInfo{
-		Commit:  commitHandle,
-		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-		Started: txnCtx.Timestamp,
+		Commit:    commitHandle,
+		Origin:    &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Started:   txnCtx.Timestamp,
+		CreatedBy: txnCtx.Username(),
 	}
 	if closed {
 		commitInfo.Finishing = txnCtx.Timestamp

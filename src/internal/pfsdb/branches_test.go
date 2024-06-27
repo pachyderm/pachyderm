@@ -64,6 +64,7 @@ func newCommitInfo(repo *pfs.Repo, id string, parent *pfs.Commit) *pfs.CommitInf
 		ParentCommit: parent,
 		Origin:       &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
 		Metadata:     map[string]string{"key": "value"},
+		CreatedBy:    "the_tests",
 		Started:      timestamppb.New(time.Now()),
 	}
 }

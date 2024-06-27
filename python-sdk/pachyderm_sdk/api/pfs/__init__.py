@@ -336,6 +336,17 @@ class CommitInfo(betterproto.Message):
     )
     """Metadata is user-applied annotations."""
 
+    created_by: str = betterproto.string_field(16)
+    """
+    The user that created this commit or caused this commit to be created.
+    """
+
+    created_at: datetime = betterproto.message_field(17)
+    """The time the commit was added to the database."""
+
+    updated_at: datetime = betterproto.message_field(18)
+    """The time this commit was most recently updated."""
+
 
 @dataclass(eq=False, repr=False)
 class CommitInfoDetails(betterproto.Message):
@@ -380,6 +391,7 @@ class ProjectInfo(betterproto.Message):
     metadata: Dict[str, str] = betterproto.map_field(
         5, betterproto.TYPE_STRING, betterproto.TYPE_STRING
     )
+    created_by: str = betterproto.string_field(6)
 
 
 @dataclass(eq=False, repr=False)
