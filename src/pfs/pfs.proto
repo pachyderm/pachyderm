@@ -210,7 +210,12 @@ message CommitInfo {
   Details details = 12;
   // Metadata is user-applied annotations.
   map<string, string> metadata = 14;
+  // The user that created this commit or caused this commit to be created.
   string created_by = 16;
+  // The time the commit was added to the database.
+  google.protobuf.Timestamp created_at = 17;
+  // The time this commit was most recently updated.
+  google.protobuf.Timestamp updated_at = 18;
 }
 
 message CommitSet {

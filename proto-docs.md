@@ -5429,7 +5429,9 @@ CommitInfo is the main data structure representing a commit in postgres
 | size_bytes_upper_bound | [int64](#int64) |  |  |
 | details | [CommitInfo.Details](#pfs_v2-CommitInfo-Details) |  |  |
 | metadata | [CommitInfo.MetadataEntry](#pfs_v2-CommitInfo-MetadataEntry) | repeated | Metadata is user-applied annotations. |
-| created_by | [string](#string) |  |  |
+| created_by | [string](#string) |  | The user that created this commit or caused this commit to be created. |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | The time the commit was added to the database. |
+| updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | The time this commit was most recently updated. |
 
 
 

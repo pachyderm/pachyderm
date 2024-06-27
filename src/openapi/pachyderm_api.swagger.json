@@ -8791,7 +8791,18 @@
           "description": "Metadata is user-applied annotations."
         },
         "createdBy": {
-          "type": "string"
+          "type": "string",
+          "description": "The user that created this commit or caused this commit to be created."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The time the commit was added to the database."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The time this commit was most recently updated."
         }
       },
       "title": "CommitInfo is the main data structure representing a commit in postgres"

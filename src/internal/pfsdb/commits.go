@@ -14,6 +14,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -844,6 +845,8 @@ func parseCommitInfoFromRow(row *CommitRow) *pfs.CommitInfo {
 			ValidatingTime: pbutil.BigIntToDurationpb(row.ValidatingTime),
 			SizeBytes:      row.Size,
 		},
+		CreatedAt: timestamppb.New(row.CreatedAt),
+		UpdatedAt: timestamppb.New(row.UpdatedAt),
 	}
 	return commitInfo
 }
