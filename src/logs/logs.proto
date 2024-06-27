@@ -48,9 +48,14 @@ message PodContainer {
 
 // LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR.
 enum LogLevel {
-  LOG_LEVEL_DEBUG = 0;
-  LOG_LEVEL_INFO = 1;
-  LOG_LEVEL_ERROR = 2;
+  // Use default log level filtering.
+  LOG_LEVEL_UNSET = 0;
+  // Include DEBUG, INFO, and ERROR logs.
+  LOG_LEVEL_DEBUG = 1;
+  // Include INFO and ERROR logs.
+  LOG_LEVEL_INFO = 2;
+  // Include only ERROR logs.
+  LOG_LEVEL_ERROR = 3;
 }
 
 // A UserLogQuery selects logs that Pachyderm users need to see during normal Pachyderm operations.

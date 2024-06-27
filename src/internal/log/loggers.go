@@ -97,20 +97,25 @@ type StartupLogConfig struct {
 	DisableLogSampling bool
 }
 
-// WorkerLogConfig is the configuration that worker_rc.go reads to propagate the startup state of
-// the logging subsystem to new workers.  Some of this state can change as pachd runs (the log
-// level), so we capture a view at app startup and only propagate that view to the workers.
-var WorkerLogConfig = StartupLogConfig{}
+var (
+	// SidecarLogConfig is the configuration that worker_rc.go reads to propagate the
+	// startup state of the logging subsystem to pachd running inside workers.  Some of this
+	// state can change as pachd runs (the log level), so we capture a view at app startup and
+	// only propagate that view to the workers.
+	SidecarLogConfig StartupLogConfig
+	// WorkerLogConfig is the configuration that worker_rc.go reads to propagate the startup
+	// state of the logging subsystem to the user container.
+	WorkerLogConfig StartupLogConfig
+)
 
 // AsKubernetesEnvironment returns environment variables that should be set to propagate the logging
 // config.
 func (c StartupLogConfig) AsKubernetesEnvironment() []v1.EnvVar {
-	result := []v1.EnvVar{
-		{
-			Name:  EnvLogLevel,
-			Value: c.LogLevel.String(),
-		},
-	}
+	var result []v1.EnvVar
+	result = append(result, v1.EnvVar{
+		Name:  EnvLogLevel,
+		Value: c.LogLevel.String(),
+	})
 	if c.DevelopmentLogger {
 		result = append(result, v1.EnvVar{
 			Name:  EnvDevelopmentLogger,
@@ -128,21 +133,24 @@ func (c StartupLogConfig) AsKubernetesEnvironment() []v1.EnvVar {
 
 func init() {
 	if lvl := os.Getenv(EnvLogLevel); lvl != "" {
+		old := logLevel.String()
 		if err := logLevel.UnmarshalText([]byte(lvl)); err != nil {
 			addInitWarningf("parse $%s: %v; proceeding at %v level", EnvLogLevel, err, logLevel.Level().String())
 		}
-	} else if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
-		if err := logLevel.UnmarshalText([]byte(lvl)); err != nil {
-			addInitWarningf("parse $LOG_LEVEL: %v; proceeding at %v level", err, logLevel.Level().String())
+		if old != logLevel.String() {
+			// Only propagate the log level if it was changed from the default.
+			WorkerLogConfig.LogLevel = logLevel.Level()
+		} else {
+			WorkerLogConfig.LogLevel = zapcore.DebugLevel
 		}
-		addInitWarningf("$LOG_LEVEL has been renamed to $PACHYDERM_LOG_LEVEL; please set pachd.logLevel in the helm chart rather than passing in LOG_LEVEL as a patch")
 	}
-	WorkerLogConfig.LogLevel = logLevel.Level()
+	SidecarLogConfig.LogLevel = logLevel.Level()
 
 	if d := os.Getenv(EnvDevelopmentLogger); d != "" {
 		if d == "true" || d == "1" {
 			developmentLogger = true
 			WorkerLogConfig.DevelopmentLogger = true
+			SidecarLogConfig.DevelopmentLogger = true
 		} else {
 			addInitWarningf("$%s set but unparsable; got %q, want 'true' or '1'", EnvDevelopmentLogger, d)
 		}
@@ -152,6 +160,7 @@ func init() {
 		if s == "true" || s == "1" {
 			samplingDisabled = true
 			WorkerLogConfig.DisableLogSampling = true
+			SidecarLogConfig.DisableLogSampling = true
 		} else {
 			addInitWarningf("$%s set but unparsable; got %q, want 'true' or '1'", EnvDisableLogSampling, s)
 		}

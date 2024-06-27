@@ -9790,19 +9790,24 @@
           "description": "LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR.",
           "values": [
             {
-              "name": "LOG_LEVEL_DEBUG",
+              "name": "LOG_LEVEL_UNSET",
               "number": "0",
-              "description": ""
+              "description": "Use default log level filtering."
+            },
+            {
+              "name": "LOG_LEVEL_DEBUG",
+              "number": "1",
+              "description": "Include DEBUG, INFO, and ERROR logs."
             },
             {
               "name": "LOG_LEVEL_INFO",
-              "number": "1",
-              "description": ""
+              "number": "2",
+              "description": "Include INFO and ERROR logs."
             },
             {
               "name": "LOG_LEVEL_ERROR",
-              "number": "2",
-              "description": ""
+              "number": "3",
+              "description": "Include only ERROR logs."
             }
           ]
         }

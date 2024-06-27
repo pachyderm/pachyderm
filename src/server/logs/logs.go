@@ -2,6 +2,7 @@ package logs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -75,6 +76,8 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if err != nil {
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
+	adapter.addLevelFilter(filter.GetLevel())
+
 	var from, to time.Time
 	if t := filter.GetTimeRange().GetFrom(); t != nil {
 		from = t.AsTime()
@@ -135,6 +138,14 @@ func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRe
 	}
 	switch query := query.QueryType.(type) {
 	case *logs.LogQuery_User:
+		// The caller of compileRequest ensures that Filter is not nil.  After
+		// compileRequest, we re-read the level to add a global level filter.
+		if f := request.GetFilter(); f != nil && f.GetLevel() == logs.LogLevel_LOG_LEVEL_UNSET {
+			// If the log level filter is unset, we default to INFO level logs.  The
+			// worker defaults to running at DEBUG now and this avoids spam unless
+			// explicitly requested.
+			request.Filter.Level = logs.LogLevel_LOG_LEVEL_INFO
+		}
 		return ls.compileUserLogQueryReq(ctx, query.User, true, request.GetFilter().GetUserLogsOnly())
 	case *logs.LogQuery_Admin:
 		if ls.AuthServer != nil {
@@ -519,14 +530,38 @@ type passFunc func(labels map[string]string, msg *logs.LogMessage) bool
 // An adapter publishes log entries to a ResponsePublisher in a specified format.
 type adapter struct {
 	responsePublisher ResponsePublisher
+	level             logs.LogLevel
 	// If pass returns false, the message will not be published.
 	pass passFunc
+}
+
+func (a *adapter) addLevelFilter(l logs.LogLevel) {
+	if l != logs.LogLevel_LOG_LEVEL_UNSET && a.level == logs.LogLevel_LOG_LEVEL_UNSET {
+		a.level = l
+	}
+}
+
+type severityMessage struct {
+	Severity string `json:"severity"`
+}
+
+func (s severityMessage) asLogLevel() logs.LogLevel {
+	switch s.Severity {
+	case "debug":
+		return logs.LogLevel_LOG_LEVEL_DEBUG
+	case "info":
+		return logs.LogLevel_LOG_LEVEL_INFO
+	default:
+		return logs.LogLevel_LOG_LEVEL_ERROR
+	}
+
 }
 
 func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki.Entry) (bool, error) {
 	if entry == nil {
 		return false, nil
 	}
+	entry.Line = strings.TrimSpace(entry.Line)
 	msg := &logs.LogMessage{
 		Verbatim: &logs.VerbatimLogMessage{
 			Line:      []byte(entry.Line),
@@ -534,15 +569,28 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 		},
 		Object: new(structpb.Struct),
 	}
+	var severity severityMessage
 	if strings.HasPrefix(entry.Line, "{") && strings.HasSuffix(entry.Line, "}") {
+		// Try to extract the severity for filtering.  This JSON parser does not care about
+		// duplicate fields, validity as a structpb.Struct message, etc.
+		if err := json.Unmarshal([]byte(entry.Line), &severity); err != nil {
+			log.Debug(ctx, "failed to unmarshal json into severity message", zap.Error(err))
+		}
+
+		// Try a stricter parse to get the rest of the fields.  This will fail on duplicate
+		// fields (which Zap allows), etc.
 		if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
 			log.Debug(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
-			msg.Object = nil
+			msg.Object.Fields = map[string]*structpb.Value{
+				"#error": structpb.NewStringValue(err.Error()),
+			}
 		} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
 			if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
 				msg.NativeTimestamp = timestamppb.New(t)
 			}
 		}
+
+		// Build a legacy pps.LogMessage.
 		msg.PpsLogMessage = new(pps.LogMessage)
 		m := protojson.UnmarshalOptions{
 			AllowPartial:   true,
@@ -562,6 +610,13 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 	}
 	if len(msg.Object.AsMap()) == 0 {
 		msg.Object = nil
+	}
+
+	if a.level == logs.LogLevel_LOG_LEVEL_INFO && severity.asLogLevel() < logs.LogLevel_LOG_LEVEL_INFO {
+		return false, nil
+	}
+	if a.level == logs.LogLevel_LOG_LEVEL_ERROR && severity.asLogLevel() < logs.LogLevel_LOG_LEVEL_ERROR {
+		return false, nil
 	}
 	if a.pass != nil && !a.pass(map[string]string(labels), msg) {
 		return false, nil

@@ -19,6 +19,7 @@ type OneOf<T> =
     : never);
 
 export enum LogLevel {
+  LOG_LEVEL_UNSET = "LOG_LEVEL_UNSET",
   LOG_LEVEL_DEBUG = "LOG_LEVEL_DEBUG",
   LOG_LEVEL_INFO = "LOG_LEVEL_INFO",
   LOG_LEVEL_ERROR = "LOG_LEVEL_ERROR",
