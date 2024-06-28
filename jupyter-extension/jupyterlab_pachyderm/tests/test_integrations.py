@@ -77,7 +77,7 @@ async def test_pfs_mount_commit_with_branch(pachyderm_resources, http_client: As
     repos, _, files, commits = pachyderm_resources
 
     branch_uri = f'{repos[0]}@master'
-    commit_id = commits[branch_uri][0]
+    commit_id = commits[branch_uri][1]
     r = await http_client.put("/explore/mount", json={"commit_uri": f'{repos[0]}@master={commit_id}'})
     assert r.status_code == 200, r.text
     r = await http_client.get("/pfs/images")
@@ -90,7 +90,7 @@ async def test_pfs_mount_commit_without_branch(pachyderm_resources, http_client:
     repos, _, files, commits = pachyderm_resources
 
     branch_uri = f'{repos[0]}@master'
-    commit_id = commits[branch_uri][0]
+    commit_id = commits[branch_uri][1]
     r = await http_client.put("/explore/mount", json={"commit_uri": f'{repos[0]}@{commit_id}'})
     assert r.status_code == 200, r.text
     r = await http_client.get("/pfs/images")
