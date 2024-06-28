@@ -1774,6 +1774,9 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 
 // generates a token, and stores it's hash and supporting data in postgres
 func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
+	if _, err := a.env.DB.ExecContext(ctx, `INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
+		return errors.Wrapf(err, "ensuring %s is in auth.principals", subject)
+	}
 	if _, err := a.env.DB.ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration)
 		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
@@ -1794,6 +1797,9 @@ func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, 
 }
 
 func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txncontext.TransactionContext, tokenHash string, subject string) error {
+	if _, err := txnCtx.SqlTx.Exec(`INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
+		return errors.Wrapf(err, "ensuring %s is in auth.principals", subject)
+	}
 	if _, err := txnCtx.SqlTx.Exec(
 		`INSERT INTO auth.auth_tokens (token_hash, subject)
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
