@@ -2951,4 +2951,19 @@ func TestCreatedBy(t *testing.T) {
 	pi, err = alice.InspectProject(aliceProject)
 	require.NoError(t, err)
 	require.Equal(t, aliceName, pi.CreatedBy)
+
+	pp, err := admin.ListProject()
+	require.NoError(t, err)
+	for _, p := range pp {
+		switch p.Project.Name {
+		case "default":
+			require.Equal(t, "", p.CreatedBy)
+		case adminProject:
+			require.Equal(t, "pach:root", p.CreatedBy)
+		case aliceProject:
+			require.Equal(t, aliceName, p.CreatedBy)
+		default:
+			t.Fatalf("unexpected project %v", p.Project)
+		}
+	}
 }

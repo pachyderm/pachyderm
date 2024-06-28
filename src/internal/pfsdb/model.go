@@ -36,6 +36,7 @@ type ProjectRow struct {
 	Description string                `db:"description"`
 	Metadata    pgjsontypes.StringMap `db:"metadata"`
 	CreatedAtUpdatedAt
+	CreatedBy *string `db:"created_by"`
 }
 
 func (project *ProjectRow) Pb() *pfs.Project {
@@ -45,6 +46,10 @@ func (project *ProjectRow) Pb() *pfs.Project {
 }
 
 func (project *ProjectRow) PbInfo() *pfs.ProjectInfo {
+	var createdBy string
+	if project.CreatedBy != nil {
+		createdBy = *project.CreatedBy
+	}
 	return &pfs.ProjectInfo{
 		Project: &pfs.Project{
 			Name: project.Name,
@@ -52,6 +57,7 @@ func (project *ProjectRow) PbInfo() *pfs.ProjectInfo {
 		Description: project.Description,
 		CreatedAt:   timestamppb.New(project.CreatedAt),
 		Metadata:    project.Metadata.Data,
+		CreatedBy:   createdBy,
 	}
 }
 

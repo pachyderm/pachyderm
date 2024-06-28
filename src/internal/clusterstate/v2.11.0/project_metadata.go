@@ -11,7 +11,7 @@ import (
 func addProjectMetadata(ctx context.Context, env migrations.Env) error {
 	ctx = pctx.Child(ctx, "addProjectMetadata")
 	tx := env.Tx
-	if _, err := tx.ExecContext(ctx, `ALTER TABLE core.projects ADD COLUMN created_by TEXT NOT NULL DEFAULT ''`); err != nil {
+	if _, err := tx.ExecContext(ctx, `ALTER TABLE core.projects ADD COLUMN created_by TEXT REFERENCES auth.principals(subject)`); err != nil {
 		return errors.Wrap(err, "add created_by column to core.projects")
 	}
 	return nil

@@ -76,6 +76,7 @@ var (
 	ProjectColumnID        = projectColumn("project.id")
 	ProjectColumnCreatedAt = projectColumn("project.created_at")
 	ProjectColumnUpdatedAt = projectColumn("project.updated_at")
+	ProjectColumnCreatedBy = projectColumn("project.created_by")
 )
 
 type OrderByProjectColumn OrderByColumn[projectColumn]
@@ -117,7 +118,7 @@ func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			values = append(values, filter.Name)
 		}
 	}
-	query := "SELECT id,name,description,metadata,created_at,updated_at FROM core.projects project"
+	query := "SELECT id,name,description,metadata,created_at,updated_at,created_by FROM core.projects project"
 	if len(conditions) > 0 {
 		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
@@ -230,7 +231,9 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	}
 	project.CreatedAt = timestamppb.New(createdAt)
 	project.Metadata = metadata.Data
+	fmt.Println("QQQ cb", createdBy)
 	if createdBy != nil {
+		fmt.Println("QQQ *cb", *createdBy)
 		project.CreatedBy = *createdBy
 	}
 	return &Project{
