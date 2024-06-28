@@ -2,7 +2,11 @@ const baseConfig = require('@pachyderm/config/jest.config');
 
 const esModules = [
   '@jupyterlab/',
+  '@jupyter/',
+  '@microsoft/',
+  'exenv-es6/',
   'lib0',
+  'vscode-ws-jsonrpc/',
   'y\\-protocols',
   'y\\-websocket',
   'yjs',
