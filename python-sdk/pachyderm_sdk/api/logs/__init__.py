@@ -29,9 +29,17 @@ class LogLevel(betterproto.Enum):
     ERROR.
     """
 
-    LOG_LEVEL_DEBUG = 0
-    LOG_LEVEL_INFO = 1
-    LOG_LEVEL_ERROR = 2
+    LOG_LEVEL_UNSET = 0
+    """Use default log level filtering."""
+
+    LOG_LEVEL_DEBUG = 1
+    """Include DEBUG, INFO, and ERROR logs."""
+
+    LOG_LEVEL_INFO = 2
+    """Include INFO and ERROR logs."""
+
+    LOG_LEVEL_ERROR = 3
+    """Include only ERROR logs."""
 
 
 @dataclass(eq=False, repr=False)
@@ -108,7 +116,12 @@ class UserLogQuery(betterproto.Message):
     """One job in one pipeline."""
 
     job_datum: "JobDatumLogQuery" = betterproto.message_field(6, group="user_type")
-    """One datum in one job"""
+    """One datum in one job."""
+
+    pipeline_datum: "PipelineDatumLogQuery" = betterproto.message_field(
+        7, group="user_type"
+    )
+    """One datum in one pipeline."""
 
 
 @dataclass(eq=False, repr=False)
@@ -145,6 +158,17 @@ class JobDatumLogQuery(betterproto.Message):
 
     job: str = betterproto.string_field(1)
     """The hex-encoded ID of the job."""
+
+    datum: str = betterproto.string_field(2)
+    """The hex-encoded ID of the datum."""
+
+
+@dataclass(eq=False, repr=False)
+class PipelineDatumLogQuery(betterproto.Message):
+    """PipelineDatumLogQuery returns logs from one datum in one pipeline."""
+
+    pipeline: "PipelineLogQuery" = betterproto.message_field(1)
+    """The pipeline."""
 
     datum: str = betterproto.string_field(2)
     """The hex-encoded ID of the datum."""

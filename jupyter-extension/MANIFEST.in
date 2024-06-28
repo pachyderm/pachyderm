@@ -16,11 +16,13 @@ exclude BUILD.bazel
 exclude MODULE.bazel
 exclude MODULE.bazel.lock
 exclude WORKSPACE
+exclude gazelle_python.yaml
 exclude requirements-dev-lock.txt
 exclude requirements-dev.txt
 exclude requirements-lock.txt
 exclude requirements-dev-lock-darwin.txt
 exclude requirements-dev-lock-linux.txt
+recursive-exclude jupyterlab_pachyderm *.bazel
 
 include package.json
 include install.json

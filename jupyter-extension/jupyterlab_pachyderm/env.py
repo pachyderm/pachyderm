@@ -14,7 +14,7 @@ DEX_TOKEN = os.environ.get("DEX_TOKEN", None)
 
 PACHYDERM_EXT_DEBUG = strtobool(os.environ.get("PACHYDERM_EXT_DEBUG", "False").lower())
 if PACHYDERM_EXT_DEBUG:
-    from jupyterlab_pachyderm.log import get_logger
+    from .log import get_logger
 
     logger = get_logger()
     logger.setLevel("DEBUG")

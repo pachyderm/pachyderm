@@ -19,6 +19,7 @@ type OneOf<T> =
     : never);
 
 export enum LogLevel {
+  LOG_LEVEL_UNSET = "LOG_LEVEL_UNSET",
   LOG_LEVEL_DEBUG = "LOG_LEVEL_DEBUG",
   LOG_LEVEL_INFO = "LOG_LEVEL_INFO",
   LOG_LEVEL_ERROR = "LOG_LEVEL_ERROR",
@@ -48,7 +49,7 @@ type BaseUserLogQuery = {
 }
 
 export type UserLogQuery = BaseUserLogQuery
-  & OneOf<{ project: string; pipeline: PipelineLogQuery; datum: string; job: string; pipelineJob: PipelineJobLogQuery; jobDatum: JobDatumLogQuery }>
+  & OneOf<{ project: string; pipeline: PipelineLogQuery; datum: string; job: string; pipelineJob: PipelineJobLogQuery; jobDatum: JobDatumLogQuery; pipelineDatum: PipelineDatumLogQuery }>
 
 export type PipelineLogQuery = {
   project?: string
@@ -62,6 +63,11 @@ export type PipelineJobLogQuery = {
 
 export type JobDatumLogQuery = {
   job?: string
+  datum?: string
+}
+
+export type PipelineDatumLogQuery = {
+  pipeline?: PipelineLogQuery
   datum?: string
 }
 

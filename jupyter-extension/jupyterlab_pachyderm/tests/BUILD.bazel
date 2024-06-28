@@ -1,0 +1,5 @@
+# Disable gazelle for tests for now.
+# The tests reference the library as jupyterlab_pachyderm, but bazel exposes
+# it as jupyter-extension.jupyterlab_pachyderm. This needs to be rectified
+# before the tests can be run though bazel.
+# gazelle:python_extension disabled

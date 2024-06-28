@@ -18,6 +18,7 @@ import (
 )
 
 func TestMicrosoft(t *testing.T) {
+	t.Skip("azure account seems broken: PFS-255")
 	integrationtests.LoadMicrosoftParameters(t)
 	require.NoError(t, os.Setenv("AZURE_STORAGE_ACCOUNT", os.Getenv("MICROSOFT_CLIENT_ID")))
 	require.NoError(t, os.Setenv("AZURE_STORAGE_KEY", os.Getenv("MICROSOFT_CLIENT_SECRET")))

@@ -9790,19 +9790,24 @@
           "description": "LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR.",
           "values": [
             {
-              "name": "LOG_LEVEL_DEBUG",
+              "name": "LOG_LEVEL_UNSET",
               "number": "0",
-              "description": ""
+              "description": "Use default log level filtering."
+            },
+            {
+              "name": "LOG_LEVEL_DEBUG",
+              "number": "1",
+              "description": "Include DEBUG, INFO, and ERROR logs."
             },
             {
               "name": "LOG_LEVEL_INFO",
-              "number": "1",
-              "description": ""
+              "number": "2",
+              "description": "Include INFO and ERROR logs."
             },
             {
               "name": "LOG_LEVEL_ERROR",
-              "number": "2",
-              "description": ""
+              "number": "3",
+              "description": "Include only ERROR logs."
             }
           ]
         }
@@ -10242,6 +10247,42 @@
           ]
         },
         {
+          "name": "PipelineDatumLogQuery",
+          "longName": "PipelineDatumLogQuery",
+          "fullName": "logs.PipelineDatumLogQuery",
+          "description": "PipelineDatumLogQuery returns logs from one datum in one pipeline.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "pipeline",
+              "description": "The pipeline.",
+              "label": "",
+              "type": "PipelineLogQuery",
+              "longType": "PipelineLogQuery",
+              "fullType": "logs.PipelineLogQuery",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "datum",
+              "description": "The hex-encoded ID of the datum.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "PipelineJobLogQuery",
           "longName": "PipelineJobLogQuery",
           "fullName": "logs.PipelineJobLogQuery",
@@ -10505,11 +10546,23 @@
             },
             {
               "name": "job_datum",
-              "description": "One datum in one job",
+              "description": "One datum in one job.",
               "label": "",
               "type": "JobDatumLogQuery",
               "longType": "JobDatumLogQuery",
               "fullType": "logs.JobDatumLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "user_type",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline_datum",
+              "description": "One datum in one pipeline.",
+              "label": "",
+              "type": "PipelineDatumLogQuery",
+              "longType": "PipelineDatumLogQuery",
+              "fullType": "logs.PipelineDatumLogQuery",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "user_type",
