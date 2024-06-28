@@ -216,7 +216,7 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
 	id := 0
 	var createdAt time.Time
-	var createdBy string
+	var createdBy *string
 	metadata := &pgjsontypes.StringMap{Data: make(map[string]string)}
 	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &metadata, &createdBy, &id)
 	if err != nil {
@@ -230,7 +230,9 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	}
 	project.CreatedAt = timestamppb.New(createdAt)
 	project.Metadata = metadata.Data
-	project.CreatedBy = createdBy
+	if createdBy != nil {
+		project.CreatedBy = *createdBy
+	}
 	return &Project{
 		ID:          ProjectID(id),
 		ProjectInfo: project,
