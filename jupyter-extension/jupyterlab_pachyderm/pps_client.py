@@ -191,6 +191,8 @@ def upload_environment(
             print("Finished installing requirements")
 
         print("running user code")
+
+        # gazelle:ignore user_code
         import user_code  # This runs the user's code.
 
     entrypoint_script = (

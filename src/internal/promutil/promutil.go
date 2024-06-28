@@ -43,7 +43,7 @@ func (rt *loggingRT) RoundTrip(req *http.Request) (*http.Response, error) {
 	start := time.Now()
 	ctx := pctx.Child(req.Context(), "outgoingHttp", pctx.WithFields([]log.Field{
 		zap.String("name", rt.name),
-		zap.String("method", req.Method),
+		zap.String("http_method", req.Method),
 		zap.String("uri", req.URL.String()),
 	}...))
 	ctx, task := trace.NewTask(ctx, "http client "+req.Method+" "+req.URL.Host)

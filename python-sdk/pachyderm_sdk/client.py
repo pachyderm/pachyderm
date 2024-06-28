@@ -16,6 +16,7 @@ from .api.license import ApiStub as _LicenseStub
 from .api.metadata import ApiStub as _MetadataApiStub
 from .api.pfs.extension import ApiStub as _PfsStub
 from .api.pps.extension import ApiStub as _PpsStub
+from .api.storage import FilesetStub as _StorageStub
 from .api.transaction.extension import ApiStub as _TransactionStub
 from .api.version import ApiStub as _VersionStub, Version
 from .api.worker.extension import WorkerStub as _WorkerStub
@@ -126,6 +127,7 @@ class Client:
             get_transaction_id=lambda: self.transaction_id,
         )
         self.pps = _PpsStub(self._channel)
+        self.storage = _StorageStub(self._channel)
         self.transaction = _TransactionStub(
             self._channel,
             get_transaction_id=lambda: self.transaction_id,

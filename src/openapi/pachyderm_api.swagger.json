@@ -8298,12 +8298,13 @@
     "logsLogLevel": {
       "type": "string",
       "enum": [
+        "LOG_LEVEL_UNSET",
         "LOG_LEVEL_DEBUG",
         "LOG_LEVEL_INFO",
         "LOG_LEVEL_ERROR"
       ],
-      "default": "LOG_LEVEL_DEBUG",
-      "description": "LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR."
+      "default": "LOG_LEVEL_UNSET",
+      "description": "LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERROR.\n\n - LOG_LEVEL_UNSET: Use default log level filtering.\n - LOG_LEVEL_DEBUG: Include DEBUG, INFO, and ERROR logs.\n - LOG_LEVEL_INFO: Include INFO and ERROR logs.\n - LOG_LEVEL_ERROR: Include only ERROR logs."
     },
     "logsLogMessage": {
       "type": "object",
@@ -8351,6 +8352,20 @@
           "$ref": "#/definitions/logsGetLogsRequest"
         }
       }
+    },
+    "logsPipelineDatumLogQuery": {
+      "type": "object",
+      "properties": {
+        "pipeline": {
+          "$ref": "#/definitions/logsPipelineLogQuery",
+          "description": "The pipeline."
+        },
+        "datum": {
+          "type": "string",
+          "description": "The hex-encoded ID of the datum."
+        }
+      },
+      "description": "PipelineDatumLogQuery returns logs from one datum in one pipeline."
     },
     "logsPipelineJobLogQuery": {
       "type": "object",
@@ -8451,7 +8466,11 @@
         },
         "jobDatum": {
           "$ref": "#/definitions/logsJobDatumLogQuery",
-          "title": "One datum in one job"
+          "description": "One datum in one job."
+        },
+        "pipelineDatum": {
+          "$ref": "#/definitions/logsPipelineDatumLogQuery",
+          "description": "One datum in one pipeline."
         }
       },
       "description": "A UserLogQuery selects logs that Pachyderm users need to see during normal Pachyderm operations."
