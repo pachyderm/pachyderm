@@ -22,6 +22,7 @@ func (s *Storage) CDRFromDataRef(ctx context.Context, dataRef *DataRef) (*cdr.Re
 		return nil, errors.EnsureStack(err)
 	}
 	ref := createHTTPRef(url, nil)
+	ref = createContentHashRef(ref, dataRef.Ref.Id)
 	ref = createCipherRef(ref, dataRef.Ref.EncryptionAlgo, dataRef.Ref.Dek)
 	ref = createCompressRef(ref, dataRef.Ref.CompressionAlgo)
 	ref = createSliceRef(ref, uint64(dataRef.OffsetBytes), uint64(dataRef.OffsetBytes+dataRef.SizeBytes))
@@ -34,6 +35,18 @@ func createHTTPRef(url string, headers map[string]string) *cdr.Ref {
 			Url:     url,
 			Headers: headers,
 		}},
+	}
+}
+
+func createContentHashRef(ref *cdr.Ref, hash []byte) *cdr.Ref {
+	return &cdr.Ref{
+		Body: &cdr.Ref_ContentHash{
+			ContentHash: &cdr.ContentHash{
+				Inner: ref,
+				Algo:  cdr.HashAlgo_BLAKE2b_256,
+				Hash:  hash,
+			},
+		},
 	}
 }
 

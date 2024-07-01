@@ -340,10 +340,10 @@ textarea {
 }
 
 .pachyderm-explore-widget {
-  /* Locks the top part of the explore SplitPanel to be exactly 6.1em even if adjusted by JS */
-  min-height: 6.1em;
-  max-height: 6.1em;
-  height: 6.1em;
+  /* Locks the top part of the explore SplitPanel to be exactly 9.3em even if adjusted by JS */
+  min-height: 11.75em;
+  max-height: 11.75em;
+  height: 11.75em;
 
   /* Resets the z-index from JuypterLab to allow Dropdowns to appear over content */
   z-index: initial;

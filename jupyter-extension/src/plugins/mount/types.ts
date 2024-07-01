@@ -68,8 +68,9 @@ export type Repos = {
 };
 
 export type MountedRepo = {
-  mountedBranch: Branch;
   repo: Repo;
+  branch: Branch | null;
+  commit: string | null;
 };
 
 export type Project = {

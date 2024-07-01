@@ -8,5 +8,8 @@
       ],
       "url": "https://raw.githubusercontent.com/pachyderm/pachyderm/master/src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json"
     }
+  ],
+  "python.analysis.extraPaths": [
+    "./python-sdk"
   ]
 }

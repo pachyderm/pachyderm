@@ -12,8 +12,7 @@ compatible with this location. These dependencies have been moved to the `requir
 `requirements-dev.txt` files. However, for bazel to run "hermetic" builds for this project, these
 third-party dependencies must be "locked" to ensure that all developers and tests are run using the
 exact same versions of these dependencies. These lock files are `requirements-lock.txt` and
-`requirements-dev-lock.txt` (ideally these would "lock" to the same file). The following command
-regenerate these lock files:
+`requirements-dev-lock.txt`. The following command regenerate these lock files:
 
 ```
 bazel run :requirements.update

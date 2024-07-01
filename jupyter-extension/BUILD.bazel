@@ -33,8 +33,7 @@ compile_pip_requirements(
 compile_pip_requirements(
     name = "requirements-dev",
     src = "requirements-dev.txt",
-    requirements_darwin = "requirements-dev-lock-darwin.txt",
-    requirements_linux = "requirements-dev-lock-linux.txt",
+    extra_args = ["--no-annotate"],
     requirements_txt = "requirements-dev-lock.txt",
 )
 

@@ -11,6 +11,7 @@ import {
   CrossInputSpec,
   PfsInput,
 } from './types';
+import {showErrorMessage} from '@jupyterlab/apputils';
 import {ServerConnection} from '@jupyterlab/services';
 
 export class PollMounts {
@@ -30,10 +31,10 @@ export class PollMounts {
       const mountedRepo: MountedRepo = JSON.parse(mountedRepoString);
       this.mountedRepo = mountedRepo;
       requestAPI<AuthConfig>('explore/mount', 'PUT', {
-        branch_uri: mountedRepo.mountedBranch.uri,
+        commit_uri: this.mountedRepoUri,
       });
     } catch (e) {
-      localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+      this.mountedRepo = null;
       requestAPI<AuthConfig>('explore/unmount', 'PUT');
     }
   }
@@ -77,9 +78,33 @@ export class PollMounts {
     return this._mountedRepo;
   }
 
-  set mountedRepo(data: MountedRepo | null) {
-    this._mountedRepo = data;
-    this._mountedRepoSignal.emit(data);
+  set mountedRepo(repo: MountedRepo | null) {
+    this._mountedRepo = repo;
+    if (!repo) {
+      localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+    } else {
+      localStorage.setItem(
+        PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
+        JSON.stringify(this.mountedRepo),
+      );
+    }
+    this._mountedRepoSignal.emit(repo);
+  }
+
+  get mountedRepoUri(): string | null {
+    if (this.mountedRepo === null) {
+      return null;
+    }
+
+    if (this.mountedRepo.commit) {
+      return `${this.mountedRepo.repo.uri}@${this.mountedRepo.branch?.name}=${this.mountedRepo.commit}`;
+    }
+
+    if (this.mountedRepo.branch) {
+      return this.mountedRepo.branch.uri;
+    }
+
+    return null;
   }
 
   get health(): HealthCheck {
@@ -127,12 +152,22 @@ export class PollMounts {
     return this._dataPoll;
   }
 
+  updateServerMountedRepo = async (): Promise<void> => {
+    try {
+      await requestAPI<AuthConfig>('explore/mount', 'PUT', {
+        commit_uri: this.mountedRepoUri,
+      });
+    } catch (e) {
+      showErrorMessage('Error mounting repo', e);
+    }
+  };
+
   updateMountedRepo = async (
     repo: Repo | null,
     mountedBranch: Branch | null,
+    commit: string | null,
   ): Promise<void> => {
-    if (repo === null) {
-      localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+    if (!repo) {
       this.mountedRepo = null;
       return Promise.resolve();
     }
@@ -147,16 +182,12 @@ export class PollMounts {
     }
 
     this.mountedRepo = {
-      mountedBranch,
+      branch: mountedBranch,
       repo,
+      commit,
     };
-    localStorage.setItem(
-      PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
-      JSON.stringify(this.mountedRepo),
-    );
-    await requestAPI<AuthConfig>('explore/mount', 'PUT', {
-      branch_uri: mountedBranch.uri,
-    });
+    this.updateServerMountedRepo();
+
     return Promise.resolve();
   };
 
@@ -173,7 +204,9 @@ export class PollMounts {
 
     return {
       pfs: {
-        name: `${mountedRepo.repo.project}_${mountedRepo.repo.name}_${mountedRepo.mountedBranch.name}`,
+        name: `${mountedRepo.repo.project}_${mountedRepo.repo.name}_${
+          mountedRepo.branch?.name || mountedRepo.commit
+        }`,
         repo,
         glob: '/*',
       },
