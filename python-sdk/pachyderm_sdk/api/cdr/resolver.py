@@ -139,6 +139,7 @@ class CdrResolver:
           * the content will be saved to the cache after resolving the HTTP reference.
           * the cache uses the hex string of the content hash as its key (file name).
         """
+
         def _deref_inner() -> bytes:
             if body.algo != HashAlgo.BLAKE2b_256:
                 raise ValueError(f"unrecognized hash algorithm: {body.algo}")

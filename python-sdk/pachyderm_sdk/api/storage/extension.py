@@ -1,4 +1,5 @@
 """Handwritten classes/methods that augment the existing Storage API."""
+
 import os
 from pathlib import Path
 from typing import Union
@@ -73,7 +74,7 @@ class ApiStub(_GeneratedApiStub):
         resolver = CdrResolver(
             cache_location=cache_location,
             fetch_missing_chunks=fetch_missing_chunks,
-            http_host_replacement=http_host_replacement
+            http_host_replacement=http_host_replacement,
         )
 
         for msg in self.read_fileset_cdr(fileset_id=fileset, filters=[as_filter(path)]):
@@ -119,8 +120,7 @@ class ApiStub(_GeneratedApiStub):
             If true, prune (delete) any chunks that are not required to assemble the fileset.
         """
         resolver = CdrResolver(
-            cache_location=cache_location,
-            http_host_replacement=http_host_replacement
+            cache_location=cache_location, http_host_replacement=http_host_replacement
         )
 
         unused_chunks = set()
@@ -130,7 +130,9 @@ class ApiStub(_GeneratedApiStub):
         def cache_chunks(ref: Ref) -> None:
             field, body = which_one_of(ref, "body")
             if isinstance(body, Http):
-                raise ValueError("malformed CDR: no ContentHash message contained within the CDR")
+                raise ValueError(
+                    "malformed CDR: no ContentHash message contained within the CDR"
+                )
             elif isinstance(body, ContentHash):
                 chunk_name = body.hash.hex()
                 unused_chunks.discard(chunk_name)

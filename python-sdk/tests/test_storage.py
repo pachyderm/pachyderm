@@ -21,9 +21,7 @@ def fileset(client: TestClient) -> Tuple[str, Dict[str, bytes]]:
     """
     files = {f"/file{i}": os.urandom(1024) for i in range(10)}
     request_iterator = (
-        storage.CreateFilesetRequest(
-            append_file=storage.AppendFile(path=file, data=data)
-        )
+        storage.CreateFilesetRequest(append_file=storage.AppendFile(path=file, data=data))
         for file, data in files.items()
     )
     fileset = client.storage.create_fileset(request_iterator).fileset_id
