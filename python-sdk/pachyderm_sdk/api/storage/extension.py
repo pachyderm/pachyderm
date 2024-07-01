@@ -128,14 +128,16 @@ class ApiStub(_GeneratedApiStub):
             unused_chunks = {file.name for file in resolver.cache.iterdir()}
 
         def cache_chunks(ref: Ref) -> None:
+            """This is an optimization. We could simply call resolver.resolve() and
+            discard the output, but that would preform additional computation for
+            decompressing, decrypting, assembling, etc."""
             field, body = which_one_of(ref, "body")
             if isinstance(body, Http):
                 raise ValueError(
                     "malformed CDR: no ContentHash message contained within the CDR"
                 )
             elif isinstance(body, ContentHash):
-                chunk_name = body.hash.hex()
-                unused_chunks.discard(chunk_name)
+                unused_chunks.discard(resolver._chunk_name(body))
                 resolver._dereference_content_hash(body)
                 return
             elif isinstance(body, (Cipher, Compress, SizeLimits, Slice)):

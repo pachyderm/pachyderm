@@ -154,8 +154,7 @@ class CdrResolver:
         if not self.cache:
             return _deref_inner()
 
-        chunk_name = body.hash.hex()
-        chunk_file = self.cache.joinpath(chunk_name)
+        chunk_file = self.cache.joinpath(self._chunk_name(body))
         if chunk_file.exists():
             return chunk_file.read_bytes()
         if not chunk_file.exists() and self.fetch_missing_chunks:
@@ -180,3 +179,8 @@ class CdrResolver:
                 f"WANT: {body.max} bytes "
             )
         return inner
+
+    @staticmethod
+    def _chunk_name(content_hash: ContentHash) -> str:
+        prefix = content_hash.algo.name.lower()
+        return f"{prefix}_{content_hash.hash.hex()}"
