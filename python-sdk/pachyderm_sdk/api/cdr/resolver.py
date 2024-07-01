@@ -1,8 +1,11 @@
 """Handwritten classes/methods that augment the existing CDR API."""
 
+import os
 import gzip
 from hashlib import blake2b
 from hmac import compare_digest
+from pathlib import Path
+from typing import Optional
 from urllib.parse import urlparse
 
 from betterproto import which_one_of
@@ -35,7 +38,13 @@ except ImportError:
 class CdrResolver:
     """Class capable of resolving CDRs returned by the PFS API."""
 
-    def __init__(self, *, http_host_replacement: str = ""):
+    def __init__(
+        self,
+        *,
+        cache_location: Optional[os.PathLike] = None,
+        fetch_missing_chunks: bool = True,
+        http_host_replacement: str = "",
+    ):
         """Creates a CdrResolver.
         Whether CDR functionality is enabled is checked at time of initialization.
 
@@ -59,6 +68,10 @@ class CdrResolver:
                 f"To enable CDR functionality, reinstall package with: \n"
                 f"  - pip install pachyderm_sdk[cdr]"
             )
+        self.cache = cache_location
+        if self.cache is not None:
+            self.cache = Path(os.path.expanduser(self.cache)).resolve()
+        self.fetch_missing_chunks = fetch_missing_chunks
         self.http_host_replacement = http_host_replacement
 
     def resolve(self, ref: Ref) -> bytes:
@@ -118,16 +131,37 @@ class CdrResolver:
         return gzip.decompress(inner)
 
     def _dereference_content_hash(self, body: ContentHash) -> bytes:
-        """Resolves a ContentHash CDR. This method must resolve its inner CDR."""
-        if body.algo != HashAlgo.BLAKE2b_256:
-            raise ValueError(f"unrecognized hash algorithm: {body.algo}")
-        inner = self.resolve(body.inner)
-        inner_hash = blake2b(inner, digest_size=32).digest()
-        if not compare_digest(inner_hash, body.hash):
-            raise ValueError(
-                f"content failed hash check. HAVE: {inner_hash} WANT: {body.hash}"
-            )
-        return inner
+        """Resolves a ContentHash CDR. This method must resolve its inner CDR.
+
+        If the cache_location has been set:
+          * the content will be read from disk if the content exists within the cache,
+            rather than resolving the HTTP reference.
+          * the content will be saved to the cache after resolving the HTTP reference.
+          * the cache uses the hex string of the content hash as its key (file name).
+        """
+
+        def _deref_inner() -> bytes:
+            if body.algo != HashAlgo.BLAKE2b_256:
+                raise ValueError(f"unrecognized hash algorithm: {body.algo}")
+            inner = self.resolve(body.inner)
+            inner_hash = blake2b(inner, digest_size=32).digest()
+            if not compare_digest(inner_hash, body.hash):
+                raise ValueError(
+                    f"content failed hash check. HAVE: {inner_hash} WANT: {body.hash}"
+                )
+            return inner
+
+        if not self.cache:
+            return _deref_inner()
+
+        chunk_file = self.cache.joinpath(self._chunk_name(body))
+        if chunk_file.exists():
+            return chunk_file.read_bytes()
+        if not chunk_file.exists() and self.fetch_missing_chunks:
+            content = _deref_inner()
+            chunk_file.write_bytes(content)
+            return content
+        raise FileNotFoundError(f"chunk missing from cache: {chunk_file}")
 
     def _dereference_size_limits(self, body: SizeLimits) -> bytes:
         """Resolves a SizeLimits CDR. This method must resolve its inner CDR."""
@@ -145,3 +179,8 @@ class CdrResolver:
                 f"WANT: {body.max} bytes "
             )
         return inner
+
+    @staticmethod
+    def _chunk_name(content_hash: ContentHash) -> str:
+        algorith = HashAlgo(content_hash.algo)
+        return f"{algorith.name.lower()}_{content_hash.hash.hex()}"
