@@ -3,32 +3,58 @@ package pachtmpl
 import (
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/google/go-jsonnet"
+	"github.com/google/go-jsonnet/ast"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ParseArgs parses args of the form key=value
-func ParseArgs(argStrs []string) (map[string]string, error) {
-	ret := make(map[string]string)
+func ParseArgs(argStrs []string) (*structpb.Struct, error) {
+	ret := make(map[string]any)
 	for _, argStr := range argStrs {
 		kv := strings.SplitN(argStr, "=", 2)
 		if len(kv) != 2 {
 			return nil, errors.Errorf("invalid template argument %q: must have form \"key=value\"", argStr)
 		}
-		key, value := kv[0], kv[1]
-		ret[key] = value
+		b, notBool := strconv.ParseBool(kv[1])
+		if notBool != nil {
+			key, value := kv[0], kv[1]
+			ret[key] = value
+		} else {
+			key, value := kv[0], b
+			ret[key] = value
+		}
+
 	}
-	return ret, nil
+
+	argsStruct, err := structpb.NewStruct(ret)
+	if err != nil {
+		return nil, errors.Wrapf(err, "structpb.NewStruct on %#v", argsStruct)
+	}
+
+	return argsStruct, nil
 }
 
 // RenderTemplate renders the template tmpl, using args and returns the result.
-func RenderTemplate(tmpl string, args map[string]string) (string, error) {
+func RenderTemplate(tmpl string, args *structpb.Struct) (string, error) {
 	vm := newVM(nil)
-	for key, value := range args {
-		vm.TLAVar(key, value)
+	for key, value := range args.Fields {
+		switch value.Kind.(type) {
+		case *structpb.Value_NumberValue:
+			numberNode := &ast.LiteralNumber{OriginalString: strconv.FormatFloat(value.GetNumberValue(), 'f', -1, 64)}
+			vm.TLANode(key, numberNode)
+		case *structpb.Value_BoolValue:
+			boolNode := &ast.LiteralBoolean{Value: value.GetBoolValue()}
+			vm.TLANode(key, boolNode)
+		default:
+			vm.TLAVar(key, value.GetStringValue())
+		}
 	}
+
 	output, err := vm.EvaluateAnonymousSnippet("main", string(tmpl))
 	if err != nil {
 		return "", errors.Wrapf(err, "template err")

@@ -1215,9 +1215,7 @@ class RunLoadTestResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class RenderTemplateRequest(betterproto.Message):
     template: str = betterproto.string_field(1)
-    args: Dict[str, str] = betterproto.map_field(
-        2, betterproto.TYPE_STRING, betterproto.TYPE_STRING
-    )
+    args: "betterproto_lib_google_protobuf.Struct" = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -2140,12 +2138,16 @@ class ApiStub:
         return self.__rpc_run_load_test_default(request)
 
     def render_template(
-        self, *, template: str = "", args: Dict[str, str] = None
+        self,
+        *,
+        template: str = "",
+        args: "betterproto_lib_google_protobuf.Struct" = None
     ) -> "RenderTemplateResponse":
 
         request = RenderTemplateRequest()
         request.template = template
-        request.args = args
+        if args is not None:
+            request.args = args
 
         return self.__rpc_render_template(request)
 

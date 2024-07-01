@@ -543,7 +543,6 @@
     - [ProcessStats](#pps_v2-ProcessStats)
     - [ProjectDefaults](#pps_v2-ProjectDefaults)
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
-    - [RenderTemplateRequest.ArgsEntry](#pps_v2-RenderTemplateRequest-ArgsEntry)
     - [RenderTemplateResponse](#pps_v2-RenderTemplateResponse)
     - [RerunPipelineRequest](#pps_v2-RerunPipelineRequest)
     - [ResourceSpec](#pps_v2-ResourceSpec)
@@ -8846,23 +8845,7 @@ potentially expensive operations.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | template | [string](#string) |  |  |
-| args | [RenderTemplateRequest.ArgsEntry](#pps_v2-RenderTemplateRequest-ArgsEntry) | repeated |  |
-
-
-
-
-
-
-<a name="pps_v2-RenderTemplateRequest-ArgsEntry"></a>
-
-### RenderTemplateRequest.ArgsEntry
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| key | [string](#string) |  |  |
-| value | [string](#string) |  |  |
+| args | [google.protobuf.Struct](#google-protobuf-Struct) |  |  |
 
 
 
