@@ -13,6 +13,12 @@ from .utils import count
 
 @pytest.fixture
 def fileset(client: TestClient) -> Tuple[str, Dict[str, bytes]]:
+    """Creates a fileset.
+
+    Returns
+    -------
+        (fileset_id, Dict[path, data])
+    """
     files = {f"/file{i}": os.urandom(1024) for i in range(10)}
     request_iterator = (
         storage.CreateFilesetRequest(
@@ -25,6 +31,12 @@ def fileset(client: TestClient) -> Tuple[str, Dict[str, bytes]]:
 
 
 class TestStorage:
+    """
+    Note:
+      As our tests and local development uses in-cluster object storage
+      (usually Minio), we need to patch the host of the presigned URL with
+      the correct, external host.
+    """
 
     @staticmethod
     def test_fetch_chunks(
@@ -32,13 +44,7 @@ class TestStorage:
         fileset: Tuple[str, Dict[str, bytes]],
         tmp_path: Path,
     ):
-        """Test fetching chunks are stored in a local cache.
-
-        Notes:
-          * As our tests and local development uses in-cluster object storage
-          (usually Minio), we need to patch the host of the presigned URL with
-          the correct, external host.
-        """
+        """Test fetching chunks are stored in a local cache."""
         # Arrange
         fileset_id, _ = fileset
 
@@ -53,8 +59,6 @@ class TestStorage:
             http_host_replacement="localhost:9000",
         )
 
-        print(list(tmp_path.iterdir()))
-
         # Assert
         assert count(tmp_path.iterdir()) > 0
 
@@ -64,13 +68,7 @@ class TestStorage:
         fileset: Tuple[str, Dict[str, bytes]],
         tmp_path: Path,
     ):
-        """Test fetching chunks with prune removes unused files.
-
-        Notes:
-          * As our tests and local development uses in-cluster object storage
-          (usually Minio), we need to patch the host of the presigned URL with
-          the correct, external host.
-        """
+        """Test fetching chunks with prune removes unused files."""
         # Arrange
         fileset_id, _ = fileset
         unused_chunk = tmp_path.joinpath("abcdefgh12345678")
@@ -97,11 +95,21 @@ class TestStorage:
         fileset: Tuple[str, Dict[str, bytes]],
         tmp_path: Path,
     ):
+        """Test assembling fileset.
+
+        This test assembles the fileset once with fetch_missing_chunks=True,
+        then wipes the fileset and runs again with fetch_missing_chunks=False.
+        This is to test that assembling the fileset writes chunks to the cache
+        when fetch_missing_chunks=True.
+        """
         # Arrange
         fileset_id, files = fileset
         destination = tmp_path.joinpath("pfs")
 
         # Act
+        # This is hardcoded to replace the host of the presigned URL with
+        # localhost:9000. This test needs to be run simultaneously with:
+        #   - kubectl port-forward service/minio 9000:9000
         client.storage.assemble_fileset(
             fileset_id,
             path="/",
@@ -113,12 +121,17 @@ class TestStorage:
 
         # Assert
         for file_name, data in files.items():
-            file = destination.joinpath(file_name)
+            file = destination.joinpath(file_name[1:])
             assert file.exists()
             assert file.read_bytes() == data
 
-        # Act
+        # Arrange
         shutil.rmtree(destination)
+
+        # Act
+        # This is hardcoded to replace the host of the presigned URL with
+        # localhost:9000. This test needs to be run simultaneously with:
+        #   - kubectl port-forward service/minio 9000:9000
         client.storage.assemble_fileset(
             fileset_id,
             path="/",
@@ -129,10 +142,9 @@ class TestStorage:
         )
 
         # Assert
-        for file_name, data in files.items():
-            file = destination.joinpath(file_name)
-            assert file.exists()
-            assert file.read_bytes() == data
+        for file in destination.iterdir():
+            key = "/" + file.name
+            assert file.read_bytes() == files[key]
 
     @staticmethod
     def test_assemble_fileset_incomplete_cache(
@@ -140,6 +152,8 @@ class TestStorage:
         fileset: Tuple[str, Dict[str, bytes]],
         tmp_path: Path,
     ):
+        """Test that missing chunks with fetch_missing_chunks=False
+        raises a FileNotFoundError."""
         # Arrange
         fileset_id, files = fileset
         destination = tmp_path.joinpath("pfs")

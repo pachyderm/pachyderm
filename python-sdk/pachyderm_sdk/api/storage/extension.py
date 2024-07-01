@@ -62,6 +62,11 @@ class ApiStub(_GeneratedApiStub):
             This may fix any issues, depending on the object storage and how they
             generate presigned URLs.
             Example: localhost:9000
+
+        Raises
+        ------
+            FileNotFoundError:
+                if chunk is missing from cache and fetch_missing_chunks=False.
         """
         destination = Path(os.path.expanduser(destination)).resolve()
         destination.mkdir(parents=True, exist_ok=True)

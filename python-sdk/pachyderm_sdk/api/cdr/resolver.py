@@ -70,7 +70,7 @@ class CdrResolver:
             )
         self.cache = cache_location
         if self.cache is not None:
-            self.cache = cache = Path(os.path.expanduser(self.cache)).resolve()
+            self.cache = Path(os.path.expanduser(self.cache)).resolve()
         self.fetch_missing_chunks = fetch_missing_chunks
         self.http_host_replacement = http_host_replacement
 
