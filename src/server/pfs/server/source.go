@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"io"
 	"path"
 	"strings"
@@ -23,22 +24,22 @@ type Source interface {
 }
 
 type source struct {
-	commitInfo                  *pfs.CommitInfo
+	commit                      *pfsdb.Commit
 	fileSet                     fileset.FileSet
 	dirIndexOpts, fileIndexOpts []index.Option
 	upper                       string
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
-func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOption) Source {
+func NewSource(commit *pfsdb.Commit, fs fileset.FileSet, opts ...SourceOption) Source {
 	fs = fileset.NewPathValidator(fs)
 	sc := &sourceConfig{}
 	for _, opt := range opts {
 		opt(sc)
 	}
 	s := &source{
-		commitInfo: commitInfo,
-		fileSet:    fileset.NewDirInserter(fs, sc.prefix),
+		commit:  commit,
+		fileSet: fileset.NewDirInserter(fs, sc.prefix),
 		dirIndexOpts: []index.Option{
 			index.WithPrefix(sc.prefix),
 			index.WithDatum(sc.datum),
@@ -87,12 +88,12 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 		if s.upper != "" && idx.Path >= s.upper {
 			return errutil.ErrBreak
 		}
-		file := s.commitInfo.Commit.NewFile(idx.Path)
+		file := s.commit.Pb().NewFile(idx.Path)
 		file.Datum = idx.File.Datum
 		fi := &pfs.FileInfo{
 			File:      file,
 			FileType:  pfs.FileType_FILE,
-			Committed: s.commitInfo.Finishing,
+			Committed: s.commit.Finishing(),
 		}
 		if fileset.IsDir(idx.Path) {
 			fi.FileType = pfs.FileType_DIR

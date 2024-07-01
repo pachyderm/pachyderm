@@ -24,6 +24,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, suite)
 	defer db.Close()
 	// setup schema
+	// todo(fahad): refactor this to no longer use collections schemas.
 	withTx(suite, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		_, err := tx.ExecContext(ctx, `CREATE SCHEMA collections`)
 		require.NoError(suite, err)
@@ -145,13 +146,11 @@ func TestGetProvenantCommits(t *testing.T) {
 				id, err := pfsdb.CreateCommit(ctx, tx, commit)
 				require.NoError(t, err, "should be able to create commit")
 				if i > 1 { // make every commit provenant on the commit before it.
-					commit.DirectProvenance = []*pfs.Commit{commits[i-1].Commit}
-					createCommitProvenance(ctx, t, tx, id, commit.DirectProvenance)
+					createCommitProvenanceFromRows(ctx, t, tx, id, []*pfsdb.CommitRow{commits[i-1].CommitRow})
 				}
-				commits[i] = &pfsdb.Commit{
-					ID:         id,
-					CommitInfo: commit,
-				}
+				row, err := pfsdb.GetCommit(ctx, tx, id)
+				require.NoError(t, err, "should be able to get created commit")
+				commits[i] = row
 			}
 			provenantCommits, err := pfsdb.GetProvenantCommits(ctx, tx, commits[size].ID)
 			require.NoError(t, err, "should be able to get provenant commits")
@@ -189,51 +188,31 @@ func TestCommitDirectSubvenance(t *testing.T) {
 				commit := testCommitWithCommitKey(ctx, t, tx, fmt.Sprintf("r%d", i), fmt.Sprintf("c%d", i))
 				id, err := pfsdb.CreateCommit(ctx, tx, commit)
 				require.NoError(t, err, "should be able to create commit")
-				commits[i] = &pfsdb.Commit{
-					ID:         id,
-					CommitInfo: commit,
-				}
+				row, err := pfsdb.GetCommit(ctx, tx, id)
+				require.NoError(t, err, "should be able to get commit")
+				commits[i] = row
 			}
 			// create a DAG that resembles a complete binary tree. Children are in the provenance of their parent.
 			for i := 1; i <= size/2; i++ {
 				leftChildIndex, rightChildIndex := 2*i, 2*i+1
-				commits[i].DirectProvenance = []*pfs.Commit{commits[leftChildIndex].Commit, commits[rightChildIndex].Commit}
-				createCommitProvenance(ctx, t, tx, commits[i].ID, commits[i].DirectProvenance)
+				commits[i].DirectProvenance = []*pfsdb.CommitRow{commits[leftChildIndex].CommitRow, commits[rightChildIndex].CommitRow}
+				createCommitProvenanceFromRows(ctx, t, tx, commits[i].ID, commits[i].DirectProvenance)
 			}
 			for i := 1; i <= size; i++ {
-				c, err := pfsdb.GetCommitInfo(ctx, tx, commits[i].ID)
+				c, err := pfsdb.GetCommit(ctx, tx, commits[i].ID)
 				require.NoError(t, err)
 				if i == 1 {
 					require.Equal(t, len(c.DirectSubvenance), 0)
 				} else {
 					require.Equal(t, len(c.DirectSubvenance), 1)
-					require.Equal(t, commits[i/2].Commit.Key(), c.DirectSubvenance[0].Key())
+					require.Equal(t, pfsdb.CommitKey(commits[i/2].Pb()), pfsdb.CommitKey(c.DirectSubvenance[0].Pb()))
 				}
 			}
 		})
 	})
 }
 
-func createCommitProvenance(ctx context.Context, t *testing.T, tx *pachsql.Tx, fromId pfsdb.CommitID, provenantCommits []*pfs.Commit) {
-	createCommitProvenanceFromRows(ctx, t, tx, fromId, getProvenantCommitRows(ctx, t, tx, provenantCommits))
-}
-
-func getProvenantCommitRows(ctx context.Context, t *testing.T, tx *pachsql.Tx, provenantCommits []*pfs.Commit) []pfsdb.CommitRow {
-	provCommits := ""
-	for _, provCommit := range provenantCommits {
-		provCommits = provCommits + fmt.Sprintf("'%s', ", pfsdb.CommitKey(provCommit))
-	}
-	if len(provCommits) > 0 {
-		provCommits = provCommits[:len(provCommits)-2] // remove ", " from last element.
-	}
-	rows := make([]pfsdb.CommitRow, 0)
-	require.NoError(t, tx.SelectContext(ctx, &rows,
-		fmt.Sprintf("SELECT DISTINCT commit.commit_id, commit.int_id FROM pfs.commits commit WHERE commit_id IN (%s)", provCommits)),
-		"should be able to get commit ids")
-	return rows
-}
-
-func createCommitProvenanceFromRows(ctx context.Context, t *testing.T, tx *pachsql.Tx, fromId pfsdb.CommitID, provCommitRows []pfsdb.CommitRow) {
+func createCommitProvenanceFromRows(ctx context.Context, t *testing.T, tx *pachsql.Tx, fromId pfsdb.CommitID, provCommitRows []*pfsdb.CommitRow) {
 	provInsertQuery := `
 		INSERT INTO pfs.commit_provenance
 		(from_id, to_id)
@@ -332,10 +311,9 @@ func (td *testDAG) addCommitSet(tx *pachsql.Tx, commitID string, repo string) (*
 }
 
 func addCommitWrapper(tx *pachsql.Tx, c *pfs.Commit) error {
-	if _, err := tx.Exec(`INSERT INTO collections.commits(key) VALUES ($1);`, pfsdb.CommitKey(c)); err != nil {
-		return errors.Wrapf(err, "insert %q to collections.commits", pfsdb.CommitKey(c))
-	}
-	return pfsdb.AddCommit(tx, c)
+	stmt := `INSERT INTO pfs.commits(commit_id, commit_set_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;`
+	_, err := tx.Exec(stmt, pfsdb.CommitKey(c), c.Id)
+	return errors.Wrapf(err, "insert commit %q into pfs.commits", pfsdb.CommitKey(c))
 }
 
 func withTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Context, *pachsql.Tx)) {
