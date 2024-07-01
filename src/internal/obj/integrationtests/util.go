@@ -88,19 +88,3 @@ func LoadGoogleHMACParameters(t *testing.T) (string, string, string, string, str
 
 	return id, secret, bucket, region, "storage.googleapis.com"
 }
-
-// LoadMicrosoftParameters loads the test parameters for Azure blob storage:
-//
-//	id - the key id credential
-//	secret - the key secret credential
-//	container - the Azure blob container to issue requests towards
-func LoadMicrosoftParameters(t *testing.T) (string, string, string) {
-	id := os.Getenv("MICROSOFT_CLIENT_ID")
-	secret := os.Getenv("MICROSOFT_CLIENT_SECRET")
-	container := os.Getenv("MICROSOFT_CLIENT_CONTAINER")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", container)
-
-	return id, secret, container
-}

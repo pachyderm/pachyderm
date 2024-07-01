@@ -17,20 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
-func TestMicrosoft(t *testing.T) {
-	t.Skip("azure account seems broken: PFS-255")
-	integrationtests.LoadMicrosoftParameters(t)
-	require.NoError(t, os.Setenv("AZURE_STORAGE_ACCOUNT", os.Getenv("MICROSOFT_CLIENT_ID")))
-	require.NoError(t, os.Setenv("AZURE_STORAGE_KEY", os.Getenv("MICROSOFT_CLIENT_SECRET")))
-	bucketName := os.Getenv("MICROSOFT_CLIENT_CONTAINER")
-	url, err := obj.ParseURL("azblob://" + bucketName)
-	require.NoError(t, err, "should be able to parse url")
-	writeReadDelete(t, url)
-	url, err = obj.ParseURL("wasb://" + bucketName + "@" + os.Getenv("MICROSOFT_CLIENT_ID") + ".blob.core.windows.net")
-	require.NoError(t, err, "should be able to parse url")
-	writeReadDelete(t, url)
-}
-
 func TestGoogle(t *testing.T) {
 	integrationtests.LoadGoogleParameters(t)
 	credFile := path.Join(t.TempDir(), "tmp-google-cred")

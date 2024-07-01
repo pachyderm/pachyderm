@@ -28,12 +28,12 @@ func TestMicrosoft(t *testing.T) {
 		{
 			helmKey: "pachd.storage.microsoft.id",
 			value:   "a-fine-id",
-			envVar:  "MICROSOFT_ID",
+			envVar:  "AZURE_STORAGE_ACCOUNT",
 		},
 		{
 			helmKey: "pachd.storage.microsoft.secret",
 			value:   "super-secret-something",
-			envVar:  "MICROSOFT_SECRET",
+			envVar:  "AZURE_STORAGE_KEY",
 		},
 	}
 	var (
