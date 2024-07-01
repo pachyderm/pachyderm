@@ -465,7 +465,6 @@
     - [ProcessQueueRequest](#pjs-ProcessQueueRequest)
     - [ProcessQueueResponse](#pjs-ProcessQueueResponse)
     - [Queue](#pjs-Queue)
-    - [QueueElement](#pjs-QueueElement)
     - [QueueInfo](#pjs-QueueInfo)
     - [QueueInfoDetails](#pjs-QueueInfoDetails)
     - [WalkJobRequest](#pjs-WalkJobRequest)
@@ -7202,7 +7201,7 @@ These are the different places where a commit may be originated from
 | ----- | ---- | ----- | ----------- |
 | context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
 | spec | [google.protobuf.Any](#google-protobuf-Any) |  |  |
-| input | [QueueElement](#pjs-QueueElement) |  |  |
+| input | [string](#string) |  |  |
 | cache_read | [bool](#bool) |  |  |
 | cache_write | [bool](#bool) |  |  |
 
@@ -7340,9 +7339,9 @@ JobInfo describes a Job
 | job | [Job](#pjs-Job) |  | Job is the Job&#39;s identity |
 | parent_job | [Job](#pjs-Job) |  | parent_job is the Job&#39;s parent if it exists. |
 | state | [JobState](#pjs-JobState) |  | state is the Job&#39;s state. See JobState for a description of the possible states. |
-| spec | [google.protobuf.Any](#google-protobuf-Any) |  | spec is the code specification for the Job. |
-| input | [QueueElement](#pjs-QueueElement) |  | input is the input data for the Job. |
-| output | [QueueElement](#pjs-QueueElement) |  | output is produced by a successfully completing Job |
+| spec | [string](#string) |  | spec is the id of the fileset with the code specification for the Job. |
+| input | [string](#string) |  | input is the input fileset for the Job. |
+| output | [string](#string) |  | output is the output fileset produced by a successfully completing Job |
 | error | [JobErrorCode](#pjs-JobErrorCode) |  | error is set when the Job is unable to complete successfully |
 
 
@@ -7442,7 +7441,7 @@ ProcessQueueRequest is the client -&gt; server message for the bi-di ProcessQueu
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | queue | [Queue](#pjs-Queue) |  | queue is set to start processing from a Queue. |
-| output | [QueueElement](#pjs-QueueElement) |  | output is set by the client to complete the Job successfully. |
+| output | [string](#string) |  | output is set by the client to complete the Job successfully. |
 | failed | [bool](#bool) |  | failed is set by the client to fail the Job. The Job will transition to state DONE with code FAILED. |
 
 
@@ -7459,7 +7458,7 @@ ProcessQueueResposne is the server -&gt; client message for the bi-di ProcessQue
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | context | [string](#string) |  | context is a bearer token used to act on behalf of the Job in other RPCs. The server issues this token to the client, and the client should use it when performing Job RPCs. |
-| input | [QueueElement](#pjs-QueueElement) |  | input is the input data for a Job. The server sends this to ask the client to compute the output. |
+| input | [string](#string) |  | input is the input fileset for a Job. The server sends this to ask the client to compute the output. |
 
 
 
@@ -7482,22 +7481,6 @@ Queue will be nil to identify no Queue, or to indicate unset.
 
 
 
-<a name="pjs-QueueElement"></a>
-
-### QueueElement
-QueueElement is a single element in a Queue.
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| data | [bytes](#bytes) |  | data is opaque data used as the input and output of Jobs |
-| filesets | [string](#string) | repeated | filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs. Any of the filesets referenced here will be persisted for as long as this element is in a Queue. New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary. |
-
-
-
-
-
-
 <a name="pjs-QueueInfo"></a>
 
 ### QueueInfo
@@ -7507,7 +7490,7 @@ QueueInfo describes a Queue
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | queue | [Queue](#pjs-Queue) |  | queue is the Queue&#39;s identity |
-| spec | [google.protobuf.Any](#google-protobuf-Any) |  | spec specifies the code to be run to process the Queue. |
+| spec | [string](#string) |  | spec is the id of the fileset with the code to be run to process the Queue. |
 
 
 

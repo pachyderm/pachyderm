@@ -10,7 +10,6 @@ from typing import (
     Dict,
     Iterable,
     Iterator,
-    List,
     Optional,
     Union,
 )
@@ -83,14 +82,18 @@ class JobInfo(betterproto.Message):
     states.
     """
 
-    spec: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(4)
-    """spec is the code specification for the Job."""
+    spec: str = betterproto.string_field(4)
+    """
+    spec is the id of the fileset with the code specification for the Job.
+    """
 
-    input: "QueueElement" = betterproto.message_field(5)
-    """input is the input data for the Job."""
+    input: str = betterproto.string_field(5)
+    """input is the input fileset for the Job."""
 
-    output: "QueueElement" = betterproto.message_field(6, group="result")
-    """output is produced by a successfully completing Job"""
+    output: str = betterproto.string_field(6, group="result")
+    """
+    output is the output fileset produced by a successfully completing Job
+    """
 
     error: "JobErrorCode" = betterproto.enum_field(7, group="result")
     """error is set when the Job is unable to complete successfully"""
@@ -123,8 +126,10 @@ class QueueInfo(betterproto.Message):
     queue: "Queue" = betterproto.message_field(1)
     """queue is the Queue's identity"""
 
-    spec: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(2)
-    """spec specifies the code to be run to process the Queue."""
+    spec: str = betterproto.string_field(2)
+    """
+    spec is the id of the fileset with the code to be run to process the Queue.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -141,22 +146,6 @@ class QueueInfoDetails(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class QueueElement(betterproto.Message):
-    """QueueElement is a single element in a Queue."""
-
-    data: bytes = betterproto.bytes_field(1)
-    """data is opaque data used as the input and output of Jobs"""
-
-    filesets: List[str] = betterproto.string_field(2)
-    """
-    filesets is a list of Fileset handles, used to associate Filesets with the
-    input and output of Jobs. Any of the filesets referenced here will be
-    persisted for as long as this element is in a Queue. New handles, pointing
-    to equivalent Filesets, are minted whenever they cross the API boundary.
-    """
-
-
-@dataclass(eq=False, repr=False)
 class CreateJobRequest(betterproto.Message):
     context: str = betterproto.string_field(1)
     """
@@ -164,7 +153,7 @@ class CreateJobRequest(betterproto.Message):
     """
 
     spec: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(2)
-    input: "QueueElement" = betterproto.message_field(3)
+    input: str = betterproto.string_field(3)
     cache_read: bool = betterproto.bool_field(4)
     cache_write: bool = betterproto.bool_field(5)
 
@@ -274,7 +263,7 @@ class ProcessQueueRequest(betterproto.Message):
     queue: "Queue" = betterproto.message_field(1)
     """queue is set to start processing from a Queue."""
 
-    output: "QueueElement" = betterproto.message_field(2, group="result")
+    output: str = betterproto.string_field(2, group="result")
     """output is set by the client to complete the Job successfully."""
 
     failed: bool = betterproto.bool_field(3, group="result")
@@ -298,10 +287,10 @@ class ProcessQueueResponse(betterproto.Message):
     when performing Job RPCs.
     """
 
-    input: "QueueElement" = betterproto.message_field(2)
+    input: str = betterproto.string_field(2)
     """
-    input is the input data for a Job. The server sends this to ask the client
-    to compute the output.
+    input is the input fileset for a Job. The server sends this to ask the
+    client to compute the output.
     """
 
 
@@ -383,7 +372,7 @@ class ApiStub:
         *,
         context: str = "",
         spec: "betterproto_lib_google_protobuf.Any" = None,
-        input: "QueueElement" = None,
+        input: str = "",
         cache_read: bool = False,
         cache_write: bool = False
     ) -> "CreateJobResponse":
@@ -392,8 +381,7 @@ class ApiStub:
         request.context = context
         if spec is not None:
             request.spec = spec
-        if input is not None:
-            request.input = input
+        request.input = input
         request.cache_read = cache_read
         request.cache_write = cache_write
 

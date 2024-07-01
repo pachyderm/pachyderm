@@ -39,12 +39,12 @@ type BaseJobInfo = {
   job?: Job
   parentJob?: Job
   state?: JobState
-  spec?: GoogleProtobufAny.Any
-  input?: QueueElement
+  spec?: string
+  input?: string
 }
 
 export type JobInfo = BaseJobInfo
-  & OneOf<{ output: QueueElement; error: JobErrorCode }>
+  & OneOf<{ output: string; error: JobErrorCode }>
 
 export type JobInfoDetails = {
   jobInfo?: JobInfo
@@ -56,7 +56,7 @@ export type Queue = {
 
 export type QueueInfo = {
   queue?: Queue
-  spec?: GoogleProtobufAny.Any
+  spec?: string
 }
 
 export type QueueInfoDetails = {
@@ -64,15 +64,10 @@ export type QueueInfoDetails = {
   size?: string
 }
 
-export type QueueElement = {
-  data?: Uint8Array
-  filesets?: string[]
-}
-
 export type CreateJobRequest = {
   context?: string
   spec?: GoogleProtobufAny.Any
-  input?: QueueElement
+  input?: string
   cacheRead?: boolean
   cacheWrite?: boolean
 }
@@ -128,11 +123,11 @@ type BaseProcessQueueRequest = {
 }
 
 export type ProcessQueueRequest = BaseProcessQueueRequest
-  & OneOf<{ output: QueueElement; failed: boolean }>
+  & OneOf<{ output: string; failed: boolean }>
 
 export type ProcessQueueResponse = {
   context?: string
-  input?: QueueElement
+  input?: string
 }
 
 export type ListQueueRequest = {

@@ -10083,7 +10083,7 @@
           "$ref": "#/definitions/protobufAny"
         },
         "input": {
-          "$ref": "#/definitions/pjsQueueElement"
+          "type": "string"
         },
         "cacheRead": {
           "type": "boolean"
@@ -10190,16 +10190,16 @@
           "description": "state is the Job's state.\nSee JobState for a description of the possible states."
         },
         "spec": {
-          "$ref": "#/definitions/protobufAny",
-          "description": "spec is the code specification for the Job."
+          "type": "string",
+          "description": "spec is the id of the fileset with the code specification for the Job."
         },
         "input": {
-          "$ref": "#/definitions/pjsQueueElement",
-          "description": "input is the input data for the Job."
+          "type": "string",
+          "description": "input is the input fileset for the Job."
         },
         "output": {
-          "$ref": "#/definitions/pjsQueueElement",
-          "title": "output is produced by a successfully completing Job"
+          "type": "string",
+          "title": "output is the output fileset produced by a successfully completing Job"
         },
         "error": {
           "$ref": "#/definitions/pjsJobErrorCode",
@@ -10283,7 +10283,7 @@
           "description": "queue is set to start processing from a Queue."
         },
         "output": {
-          "$ref": "#/definitions/pjsQueueElement",
+          "type": "string",
           "description": "output is set by the client to complete the Job successfully."
         },
         "failed": {
@@ -10301,8 +10301,8 @@
           "description": "context is a bearer token used to act on behalf of the Job in other RPCs.\nThe server issues this token to the client, and the client should use it when performing Job RPCs."
         },
         "input": {
-          "$ref": "#/definitions/pjsQueueElement",
-          "description": "input is the input data for a Job.\nThe server sends this to ask the client to compute the output."
+          "type": "string",
+          "description": "input is the input fileset for a Job.\nThe server sends this to ask the client to compute the output."
         }
       },
       "description": "ProcessQueueResposne is the server -\u003e client message for the bi-di ProcessQueue RPC."
@@ -10317,24 +10317,6 @@
       },
       "description": "Queue uniquely identifies a Queue\nQueue will be nil to identify no Queue, or to indicate unset."
     },
-    "pjsQueueElement": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "string",
-          "format": "byte",
-          "title": "data is opaque data used as the input and output of Jobs"
-        },
-        "filesets": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs.\nAny of the filesets referenced here will be persisted for as long as this element is in a Queue.\nNew handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary."
-        }
-      },
-      "description": "QueueElement is a single element in a Queue."
-    },
     "pjsQueueInfo": {
       "type": "object",
       "properties": {
@@ -10343,8 +10325,8 @@
           "title": "queue is the Queue's identity"
         },
         "spec": {
-          "$ref": "#/definitions/protobufAny",
-          "description": "spec specifies the code to be run to process the Queue."
+          "type": "string",
+          "description": "spec is the id of the fileset with the code to be run to process the Queue."
         }
       },
       "title": "QueueInfo describes a Queue"

@@ -9,5 +9,6 @@ func Migrate(state migrations.State) migrations.State {
 		Apply("Normalize commit totals", normalizeCommitTotals, migrations.Squash).
 		Apply("Normalize commit diffs", normalizeCommitDiffs, migrations.Squash).
 		Apply("Add auth principals table", addAuthPrincipals, migrations.Squash).
-		Apply("Add project created_by", addProjectCreatedBy, migrations.Squash)
+		Apply("Add project created_by", addProjectCreatedBy, migrations.Squash).
+		Apply("Create PJS schema", createPJSSchema, migrations.Squash)
 }

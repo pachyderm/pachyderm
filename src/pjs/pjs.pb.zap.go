@@ -24,9 +24,9 @@ func (x *JobInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddObject("job", x.Job)
 	enc.AddObject("parent_job", x.ParentJob)
 	enc.AddString("state", x.State.String())
-	protoextensions.AddAny(enc, "spec", x.Spec)
-	enc.AddObject("input", x.Input)
-	enc.AddObject("output", x.GetOutput())
+	enc.AddString("spec", x.Spec)
+	enc.AddString("input", x.Input)
+	enc.AddString("output", x.GetOutput())
 	enc.AddString("error", x.GetError().String())
 	return nil
 }
@@ -52,7 +52,7 @@ func (x *QueueInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("queue", x.Queue)
-	protoextensions.AddAny(enc, "spec", x.Spec)
+	enc.AddString("spec", x.Spec)
 	return nil
 }
 
@@ -65,28 +65,13 @@ func (x *QueueInfoDetails) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *QueueElement) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	protoextensions.AddBytes(enc, "data", x.Data)
-	filesetsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.Filesets {
-			enc.AppendString(v)
-		}
-		return nil
-	}
-	enc.AddArray("filesets", zapcore.ArrayMarshalerFunc(filesetsArrMarshaller))
-	return nil
-}
-
 func (x *CreateJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
 	enc.AddString("context", x.Context)
 	protoextensions.AddAny(enc, "spec", x.Spec)
-	enc.AddObject("input", x.Input)
+	enc.AddString("input", x.Input)
 	enc.AddBool("cache_read", x.CacheRead)
 	enc.AddBool("cache_write", x.CacheWrite)
 	return nil
@@ -182,7 +167,7 @@ func (x *ProcessQueueRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddObject("queue", x.Queue)
-	enc.AddObject("output", x.GetOutput())
+	enc.AddString("output", x.GetOutput())
 	enc.AddBool("failed", x.GetFailed())
 	return nil
 }
@@ -192,7 +177,7 @@ func (x *ProcessQueueResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddString("context", x.Context)
-	enc.AddObject("input", x.Input)
+	enc.AddString("input", x.Input)
 	return nil
 }
 
