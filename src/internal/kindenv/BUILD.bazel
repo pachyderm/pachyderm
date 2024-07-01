@@ -54,6 +54,7 @@ go_library(
         "//src/version",
         "//src/version/versionpb",
         "@com_github_adrg_xdg//:xdg",
+        "@com_github_docker_docker//api/types",
         "@com_github_docker_docker//api/types/container",
         "@com_github_docker_docker//api/types/network",
         "@com_github_docker_docker//api/types/strslice",
