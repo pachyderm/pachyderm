@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "govulncheck_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/tools/govulncheck",
+    visibility = ["//visibility:private"],
+    deps = ["@org_golang_x_vuln//scan"],
+)
+
+go_binary(
+    name = "govulncheck",
+    embed = [":govulncheck_lib"],
+    visibility = ["//visibility:public"],
+)
