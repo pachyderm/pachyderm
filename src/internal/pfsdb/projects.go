@@ -163,7 +163,11 @@ func ListProject(ctx context.Context, tx *pachsql.Tx) ([]Project, error) {
 
 // CreateProject creates an entry in the core.projects table.
 func CreateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo) error {
-	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description, metadata, created_by) VALUES ($1, $2, $3, $4);", project.Project.Name, project.Description, &pgjsontypes.StringMap{Data: project.Metadata}, project.CreatedBy)
+	var createdBy *string
+	if project.CreatedBy != "" {
+		createdBy = &project.CreatedBy
+	}
+	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description, metadata, created_by) VALUES ($1, $2, $3, $4);", project.Project.Name, project.Description, &pgjsontypes.StringMap{Data: project.Metadata}, createdBy)
 	//todo: insert project.authInfo into auth table.
 	if err != nil && IsErrProjectAlreadyExists(err) {
 		return &ProjectAlreadyExistsError{Name: project.Project.Name}
