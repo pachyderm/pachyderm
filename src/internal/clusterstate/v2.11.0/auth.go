@@ -9,7 +9,7 @@ import (
 )
 
 func addAuthPrincipals(ctx context.Context, env migrations.Env) error {
-	ctx = pctx.Child(ctx, "normalizeCommitTotals")
+	ctx = pctx.Child(ctx, "addAuthPrincipals")
 	tx := env.Tx
 	if _, err := tx.ExecContext(ctx, `CREATE TABLE auth.principals AS SELECT subject, MIN(created_at) first_seen FROM auth.auth_tokens GROUP BY subject;`); err != nil {
 		return errors.Wrap(err, "create auth.principals")
