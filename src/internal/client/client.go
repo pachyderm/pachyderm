@@ -812,7 +812,7 @@ func (c APIClient) DeleteAllEnterprise(ctx context.Context) error {
 func DefaultDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		// Don't return from Dial() until the connection has been established.
-		grpc.WithBlock(),
+		grpc.WithBlock(), //nolint:staticcheck
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                20 * time.Second,
 			Timeout:             20 * time.Second,
@@ -851,7 +851,7 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 	// service discovery forever.
 	dialOptions = append(dialOptions, grpc.WithDisableServiceConfig())
 
-	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...)
+	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...) //nolint:staticcheck
 	if err != nil {
 		return err
 	}
