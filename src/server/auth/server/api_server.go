@@ -1774,18 +1774,20 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 
 // generates a token, and stores it's hash and supporting data in postgres
 func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
-	if _, err := a.env.DB.ExecContext(ctx, `INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
-		return errors.Wrapf(err, "ensuring %s is in auth.principals", subject)
-	}
-	if _, err := a.env.DB.ExecContext(ctx,
-		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration)
-		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
-		if dbutil.IsUniqueViolation(err) {
-			return errors.New("cannot overwrite existing token with same hash")
+	return a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		if _, err := txnCtx.SqlTx.ExecContext(ctx, `INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
+			return errors.Wrapf(err, "ensuring %s is in auth.principals", subject)
 		}
-		return errors.Wrapf(err, "error storing token")
-	}
-	return nil
+		if _, err := txnCtx.SqlTx.ExecContext(ctx,
+			`INSERT INTO auth.auth_tokens (token_hash, subject, expiration)
+		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
+			if dbutil.IsUniqueViolation(err) {
+				return errors.New("cannot overwrite existing token with same hash")
+			}
+			return errors.Wrapf(err, "error storing token")
+		}
+		return nil
+	})
 }
 
 // TODO(acohen4): replace this function with what's implemented in postgres-integration once it lands
