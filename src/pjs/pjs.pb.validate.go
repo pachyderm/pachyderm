@@ -216,63 +216,9 @@ func (m *JobInfo) validate(all bool) error {
 
 	// no validation rules for State
 
-	if all {
-		switch v := interface{}(m.GetSpec()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, JobInfoValidationError{
-					field:  "Spec",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, JobInfoValidationError{
-					field:  "Spec",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetSpec()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return JobInfoValidationError{
-				field:  "Spec",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
+	// no validation rules for Spec
 
-	if all {
-		switch v := interface{}(m.GetInput()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, JobInfoValidationError{
-					field:  "Input",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, JobInfoValidationError{
-					field:  "Input",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetInput()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return JobInfoValidationError{
-				field:  "Input",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
+	// no validation rules for Input
 
 	switch v := m.Result.(type) {
 	case *JobInfo_Output:
@@ -286,36 +232,7 @@ func (m *JobInfo) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
-
-		if all {
-			switch v := interface{}(m.GetOutput()).(type) {
-			case interface{ ValidateAll() error }:
-				if err := v.ValidateAll(); err != nil {
-					errors = append(errors, JobInfoValidationError{
-						field:  "Output",
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			case interface{ Validate() error }:
-				if err := v.Validate(); err != nil {
-					errors = append(errors, JobInfoValidationError{
-						field:  "Output",
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			}
-		} else if v, ok := interface{}(m.GetOutput()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return JobInfoValidationError{
-					field:  "Output",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
+		// no validation rules for Output
 	case *JobInfo_Error:
 		if v == nil {
 			err := JobInfoValidationError{
@@ -689,34 +606,7 @@ func (m *QueueInfo) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetSpec()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, QueueInfoValidationError{
-					field:  "Spec",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, QueueInfoValidationError{
-					field:  "Spec",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetSpec()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return QueueInfoValidationError{
-				field:  "Spec",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
+	// no validation rules for Spec
 
 	if len(errors) > 0 {
 		return QueueInfoMultiError(errors)
@@ -926,107 +816,6 @@ var _ interface {
 	ErrorName() string
 } = QueueInfoDetailsValidationError{}
 
-// Validate checks the field values on QueueElement with the rules defined in
-// the proto definition for this message. If any rules are violated, the first
-// error encountered is returned, or nil if there are no violations.
-func (m *QueueElement) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on QueueElement with the rules defined
-// in the proto definition for this message. If any rules are violated, the
-// result is a list of violation errors wrapped in QueueElementMultiError, or
-// nil if none found.
-func (m *QueueElement) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *QueueElement) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	// no validation rules for Data
-
-	if len(errors) > 0 {
-		return QueueElementMultiError(errors)
-	}
-
-	return nil
-}
-
-// QueueElementMultiError is an error wrapping multiple validation errors
-// returned by QueueElement.ValidateAll() if the designated constraints aren't met.
-type QueueElementMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m QueueElementMultiError) Error() string {
-	var msgs []string
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m QueueElementMultiError) AllErrors() []error { return m }
-
-// QueueElementValidationError is the validation error returned by
-// QueueElement.Validate if the designated constraints aren't met.
-type QueueElementValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e QueueElementValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e QueueElementValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e QueueElementValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e QueueElementValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e QueueElementValidationError) ErrorName() string { return "QueueElementValidationError" }
-
-// Error satisfies the builtin error interface
-func (e QueueElementValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sQueueElement.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = QueueElementValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = QueueElementValidationError{}
-
 // Validate checks the field values on CreateJobRequest with the rules defined
 // in the proto definition for this message. If any rules are violated, the
 // first error encountered is returned, or nil if there are no violations.
@@ -1080,34 +869,7 @@ func (m *CreateJobRequest) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetInput()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, CreateJobRequestValidationError{
-					field:  "Input",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, CreateJobRequestValidationError{
-					field:  "Input",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetInput()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CreateJobRequestValidationError{
-				field:  "Input",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
+	// no validation rules for Input
 
 	// no validation rules for CacheRead
 
@@ -2564,36 +2326,7 @@ func (m *ProcessQueueRequest) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
-
-		if all {
-			switch v := interface{}(m.GetOutput()).(type) {
-			case interface{ ValidateAll() error }:
-				if err := v.ValidateAll(); err != nil {
-					errors = append(errors, ProcessQueueRequestValidationError{
-						field:  "Output",
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			case interface{ Validate() error }:
-				if err := v.Validate(); err != nil {
-					errors = append(errors, ProcessQueueRequestValidationError{
-						field:  "Output",
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			}
-		} else if v, ok := interface{}(m.GetOutput()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return ProcessQueueRequestValidationError{
-					field:  "Output",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
+		// no validation rules for Output
 	case *ProcessQueueRequest_Failed:
 		if v == nil {
 			err := ProcessQueueRequestValidationError{
@@ -2714,34 +2447,7 @@ func (m *ProcessQueueResponse) validate(all bool) error {
 
 	// no validation rules for Context
 
-	if all {
-		switch v := interface{}(m.GetInput()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ProcessQueueResponseValidationError{
-					field:  "Input",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, ProcessQueueResponseValidationError{
-					field:  "Input",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetInput()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ProcessQueueResponseValidationError{
-				field:  "Input",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
+	// no validation rules for Input
 
 	if len(errors) > 0 {
 		return ProcessQueueResponseMultiError(errors)

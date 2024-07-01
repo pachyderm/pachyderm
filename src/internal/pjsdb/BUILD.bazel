@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "pjsdb",
+    srcs = ["crud.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pjsdb",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/pachhash",
+        "//src/internal/pachsql",
+        "//src/pjs",
+        "@com_github_pkg_errors//:errors",
+    ],
+)
