@@ -8,7 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 
-func addProjectMetadata(ctx context.Context, env migrations.Env) error {
+func addProjectCreatedBy(ctx context.Context, env migrations.Env) error {
 	ctx = pctx.Child(ctx, "addProjectMetadata")
 	tx := env.Tx
 	if _, err := tx.ExecContext(ctx, `ALTER TABLE core.projects ADD COLUMN created_by TEXT REFERENCES auth.principals(subject)`); err != nil {
