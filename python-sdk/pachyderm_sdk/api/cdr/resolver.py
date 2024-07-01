@@ -182,5 +182,5 @@ class CdrResolver:
 
     @staticmethod
     def _chunk_name(content_hash: ContentHash) -> str:
-        prefix = content_hash.algo.name.lower()
-        return f"{prefix}_{content_hash.hash.hex()}"
+        algorith = HashAlgo(content_hash.algo)
+        return f"{algorith.name.lower()}_{content_hash.hash.hex()}"
