@@ -19,26 +19,30 @@ from jupyterlab_pachyderm.tests import DEFAULT_PROJECT
 async def pachyderm_resources(http_client: AsyncClient):
     repos = ["images", "edges", "montage"]
     branches = ["master", "dev"]
+    commits = {} # {branch_uri: [commit_id, ...]}
     files = ["file1", "file2"]
 
     client = Client.from_config()
     for repo in repos:
         client.pfs.create_repo(repo=pfs.Repo(name=repo))
         for branch in branches:
+            branch_uri = f"{repo}@{branch}"
+            commits[branch_uri] = []
             for file in files:
                 with client.pfs.commit(
-                    branch=pfs.Branch.from_uri(f"{repo}@{branch}")
+                    branch=pfs.Branch.from_uri(branch_uri)
                 ) as c:
                     c.put_file_from_bytes(path=f"/{file}", data=b"some data")
                 c.wait()
+                commits[branch_uri].append(c.id)
 
-    yield repos, branches, files
+    yield repos, branches, files, commits
 
     for repo in repos:
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
 
 async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
-    repos, branches, _ = pachyderm_resources
+    repos, branches, _, _ = pachyderm_resources
 
     r = await http_client.get("repos")
     assert r.status_code == 200, r.text
@@ -52,39 +56,54 @@ async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
             assert branch['name'] in branches
 
 async def test_mount_missing_body(pachyderm_resources, http_client: AsyncClient):
-    _, _, _ = pachyderm_resources
+    _, _, _, _ = pachyderm_resources
 
     r = await http_client.put("/explore/mount")
     assert r.status_code == 400, r.text
 
-async def test_mount_missing_branch_uri(pachyderm_resources, http_client: AsyncClient):
-    _, _, _ = pachyderm_resources
+async def test_mount_missing_commit_uri(pachyderm_resources, http_client: AsyncClient):
+    _, _, _, _ = pachyderm_resources
 
     r = await http_client.put("/explore/mount", json={})
     assert r.status_code == 400, r.text
 
-async def test_mount_invalid_branch_uri(pachyderm_resources, http_client: AsyncClient):
-    _, _, _ = pachyderm_resources
+async def test_mount_invalid_commit_uri(pachyderm_resources, http_client: AsyncClient):
+    _, _, _, _ = pachyderm_resources
 
-    r = await http_client.put("/explore/mount", json={'branch_uri': 'fake@repo/fakebranch'})
+    r = await http_client.put("/explore/mount", json={'commit_uri': 'fake@repo/fakebranch'})
     assert r.status_code == 400, r.text
 
-async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
-    repos, _, files = pachyderm_resources
-    to_mount = {
-        "mounts": [
-            {
-                "name": repos[0],
-                "repo": repos[0],
-                "branch": "master",
-                "project": DEFAULT_PROJECT,
-            },
-        ]
-    }
+async def test_pfs_mount_commit_with_branch(pachyderm_resources, http_client: AsyncClient):
+    repos, _, files, commits = pachyderm_resources
 
+    branch_uri = f'{repos[0]}@master'
+    commit_id = commits[branch_uri][1]
+    r = await http_client.put("/explore/mount", json={"commit_uri": f'{repos[0]}@master={commit_id}'})
+    assert r.status_code == 200, r.text
+    r = await http_client.get("/pfs/images")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 2
+    assert sorted([c["name"] for c in r["content"]]) == sorted(files)
+
+async def test_pfs_mount_commit_without_branch(pachyderm_resources, http_client: AsyncClient):
+    repos, _, files, commits = pachyderm_resources
+
+    branch_uri = f'{repos[0]}@master'
+    commit_id = commits[branch_uri][1]
+    r = await http_client.put("/explore/mount", json={"commit_uri": f'{repos[0]}@{commit_id}'})
+    assert r.status_code == 200, r.text
+    r = await http_client.get("/pfs/images")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 2
+    assert sorted([c["name"] for c in r["content"]]) == sorted(files)
+
+async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
+    repos, _, files, _ = pachyderm_resources
 
     # Assert default parameters return all
-    r = await http_client.put("/explore/mount", json={"branch_uri": f'{repos[0]}@master'})
+    r = await http_client.put("/explore/mount", json={"commit_uri": f'{repos[0]}@master'})
     assert r.status_code == 200, r.text
     r = await http_client.get("/pfs/images")
     assert r.status_code == 200, r.text
@@ -110,7 +129,7 @@ async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
 
 
 async def test_view_datum_pagination(pachyderm_resources, http_client: AsyncClient):
-    repos, _, files = pachyderm_resources
+    repos, _, files, _ = pachyderm_resources
     input_spec = {
         "input": {
             "pfs": {
@@ -163,14 +182,14 @@ async def test_download_file(
     app: Application,
     tmp_path: Path,
 ):
-    repos, _, files = pachyderm_resources
+    repos, _, files, _ = pachyderm_resources
 
     # Set root dir to a temporary path to ensure test is repeatable.
     pfs_manager = app.settings.get("pfs_contents_manager")
     assert pfs_manager is not None
     pfs_manager.root_dir = str(tmp_path)
 
-    r = await http_client.put("/explore/mount", json={"branch_uri": f'{repos[0]}@master'})
+    r = await http_client.put("/explore/mount", json={"commit_uri": f'{repos[0]}@master'})
     assert r.status_code == 200, r.text
     r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}")
     assert r.status_code == 200, r.text
@@ -181,7 +200,7 @@ async def test_download_file(
     r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?")
     assert r.status_code == 400, r.text
 
-    r = await http_client.put("/explore/mount", json={"branch_uri": f'{repos[1]}@master'})
+    r = await http_client.put("/explore/mount", json={"commit_uri": f'{repos[1]}@master'})
     assert r.status_code == 200, r.text
     r = await http_client.put(f"/download/explore/{repos[1]}")
     assert r.status_code == 200, r.text
@@ -194,7 +213,7 @@ async def test_download_file(
     assert r.status_code == 400, r.text
 
 async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
-    repos, branches, files = pachyderm_resources
+    repos, _, files, _ = pachyderm_resources
     input_spec = {
         "input": {
             "cross": [
@@ -371,7 +390,7 @@ async def test_mount_datums_multiple_batches(http_client: AsyncClient):
 
 
 async def test_download_datum(pachyderm_resources, http_client: AsyncClient):
-    repos, _, files = pachyderm_resources
+    repos, _, files, _ = pachyderm_resources
     input_spec = {
         "input": {
             "cross": [

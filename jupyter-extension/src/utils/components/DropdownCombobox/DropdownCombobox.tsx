@@ -55,7 +55,7 @@ export const DropdownCombobox: React.FC<DropdownComboboxProps> = ({
   }, [items]);
 
   return (
-    <div className="pachyderm-DropdownCombobox">
+    <div className="pachyderm-TextInput pachyderm-DropdownCombobox">
       <div className="bp3-input-group jp-InputGroup">
         <input
           {...getInputProps()}

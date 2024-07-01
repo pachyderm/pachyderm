@@ -1,0 +1,12 @@
+.pachyderm-TextInput {
+  display: inline-block;
+  margin-top: 0;
+  padding-top: 1em;
+  position: relative;
+  width: 100%;
+}
+
+.pachyderm-TextInput > div {
+  margin: 0 0.85em 0 0.85em;
+  padding: 0;
+}
