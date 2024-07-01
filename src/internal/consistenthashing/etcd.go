@@ -215,16 +215,14 @@ func (ring *Ring) releaseLock(key string) error {
 	// - The lock context is canceled.
 	// - The unlock call completes successfully.
 	ctx := lockInfo.ctx
-	return backoff.RetryNotify(func() error {
-		err := lockInfo.lock.Unlock(ctx)
-		if err != nil && !errors.Is(err, context.Canceled) {
-			return errors.Wrap(err, "releasing lock")
-		}
-		return nil
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		log.Error(ctx, "releasing lock; retrying", zap.Error(err), zap.Duration("retryAfter", d))
-		return nil
-	})
+	return backoff.RetryUntilCancel(ctx,
+		func() error { return lockInfo.lock.Unlock(ctx) },
+		backoff.NewInfiniteBackOff(),
+		func(err error, d time.Duration) error {
+			log.Error(ctx, "releasing lock; retrying", zap.Error(err), zap.Duration("retryAfter", d), zap.String("lock", key))
+			return nil
+		},
+	)
 }
 
 func (ring *Ring) insertById(ctx context.Context, id string) {
