@@ -235,9 +235,7 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	}
 	project.CreatedAt = timestamppb.New(createdAt)
 	project.Metadata = metadata.Data
-	fmt.Println("QQQ cb", createdBy)
 	if createdBy != nil {
-		fmt.Println("QQQ *cb", *createdBy)
 		project.CreatedBy = *createdBy
 	}
 	return &Project{
