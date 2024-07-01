@@ -98,16 +98,18 @@ require (
 	gocloud.dev v0.27.0
 	golang.org/x/crypto v0.24.0
 	golang.org/x/exp v0.0.0-20240314144324-c7f7c6466f7f
-	golang.org/x/mod v0.17.0
+	golang.org/x/mod v0.18.0
 	golang.org/x/net v0.26.0
 	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.7.0
 	golang.org/x/sys v0.21.0
+	golang.org/x/telemetry v0.0.0-20240522233618-39ace7a40ae7
 	golang.org/x/term v0.21.0
 	golang.org/x/text v0.16.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240624140628-dc46fd24d27d
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.2
+	golang.org/x/vuln v1.1.2
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.2
 	k8s.io/apimachinery v0.29.2
@@ -118,6 +120,8 @@ require (
 	sigs.k8s.io/kind v0.22.0
 	sigs.k8s.io/yaml v1.4.0
 )
+
+require golang.org/x/tools v0.22.0 // indirect
 
 require (
 	cloud.google.com/go v0.115.0 // indirect
