@@ -280,6 +280,7 @@ use_repo(
     "org_golang_x_sys",
     "org_golang_x_term",
     "org_golang_x_text",
+    "org_golang_x_vuln",
     "org_uber_go_atomic",
     "org_uber_go_automaxprocs",
     "org_uber_go_zap",
