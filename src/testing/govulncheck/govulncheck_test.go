@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"golang.org/x/exp/maps"
 	"golang.org/x/vuln/scan"
@@ -105,10 +106,10 @@ func decode(t *testing.T, r io.Reader) ([]string, *bytes.Buffer, error) {
 	}
 }
 
-func printSummary(ctx context.Context, r io.Reader) error {
+func printSummary(ctx context.Context, input io.Reader, output io.Writer) error {
 	cmd := scan.Command(ctx, "-mode=convert")
-	cmd.Stdin = r
-	cmd.Stdout = os.Stdout
+	cmd.Stdin = input
+	cmd.Stdout = output
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return errors.Wrap(err, "start conversion command")
@@ -150,7 +151,8 @@ func govulncheck(t *testing.T, pkg string) {
 	}
 
 	ctx = pctx.TestContext(t)
-	if err := printSummary(ctx, details); err != nil {
+	out := log.WriterAt(ctx, log.InfoLevel)
+	if err := printSummary(ctx, details, out); err != nil {
 		t.Errorf("printSummary: %v", err)
 	}
 	if len(vulnerable) > 0 {
@@ -174,7 +176,8 @@ func TestDecode(t *testing.T) {
 	}
 
 	ctx := pctx.TestContext(t)
-	if err := printSummary(ctx, details); err != nil {
+	out := log.WriterAt(ctx, log.DebugLevel)
+	if err := printSummary(ctx, details, out); err != nil {
 		t.Logf("%v", err)
 	}
 }
