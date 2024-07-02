@@ -146,18 +146,22 @@ func FinishReportAndFlushUserAction(action string, err error, start time.Time) f
 	return wait
 }
 
-func (r *Reporter) reportClusterMetrics(ctx context.Context) {
+func (r *Reporter) reportClusterMetrics(rctx context.Context) {
 	ticker := time.NewTicker(reportingInterval)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-ctx.Done():
+		case <-rctx.Done():
 			return
 		case <-ticker.C:
 		}
 		metrics := &Metrics{}
-		r.internalMetrics(metrics)
-		externalMetrics(r.env.GetKubeClient(), metrics) //nolint:errcheck
+		ctx, c := context.WithTimeout(rctx, reportingInterval/2)
+		r.internalMetrics(ctx, metrics)
+		c()
+		ctx, c = context.WithTimeout(rctx, reportingInterval/2)
+		externalMetrics(ctx, r.env.GetKubeClient(), metrics) //nolint:errcheck
+		c()
 		metrics.ClusterId = r.clusterID
 		metrics.PodId = uuid.NewWithoutDashes()
 		metrics.Version = version.PrettyPrintVersion(version.Version)
@@ -165,8 +169,8 @@ func (r *Reporter) reportClusterMetrics(ctx context.Context) {
 	}
 }
 
-func externalMetrics(kubeClient kube.Interface, metrics *Metrics) error {
-	nodeList, err := kubeClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+func externalMetrics(ctx context.Context, kubeClient kube.Interface, metrics *Metrics) error {
+	nodeList, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "externalMetrics: unable to retrieve node list from k8s")
 	}
@@ -248,12 +252,9 @@ func inputMetrics(input *pps.Input, metrics *Metrics) {
 	}
 }
 
-func (r *Reporter) internalMetrics(metrics *Metrics) {
+func (r *Reporter) internalMetrics(ctx context.Context, metrics *Metrics) {
 	// We should not return due to an error
 	// Activation code
-	ctx, cf := pctx.WithCancel(context.Background())
-	defer cf()
-
 	enterpriseState, err := r.env.EnterpriseServer().GetState(ctx, &enterprise.GetStateRequest{})
 	if err == nil {
 		metrics.ActivationCode = enterpriseState.ActivationCode
