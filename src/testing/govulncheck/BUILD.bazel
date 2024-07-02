@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "govulncheck_test",
+    size = "large",
+    srcs = ["govulncheck_test.go"],
+    data = [
+        "testdata/ignored.json",
+        "//:MODULE.bazel",
+        "@rules_go//go",
+    ],
+    tags = [
+        "external",
+        "manual",
+        "no-cache",
+        "no-sandbox",
+    ],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "@com_github_google_go_cmp//cmp",
+        "@org_golang_x_exp//maps",
+        "@org_golang_x_vuln//scan",
+        "@rules_go//go/runfiles:go_default_library",
+    ],
+)
