@@ -2,6 +2,7 @@ package logs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -75,6 +76,8 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if err != nil {
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
+	adapter.addLevelFilter(filter.GetLevel())
+
 	var from, to time.Time
 	if t := filter.GetTimeRange().GetFrom(); t != nil {
 		from = t.AsTime()
@@ -135,7 +138,15 @@ func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRe
 	}
 	switch query := query.QueryType.(type) {
 	case *logs.LogQuery_User:
-		return ls.compileUserLogQueryReq(ctx, query.User, true)
+		// The caller of compileRequest ensures that Filter is not nil.  After
+		// compileRequest, we re-read the level to add a global level filter.
+		if f := request.GetFilter(); f != nil && f.GetLevel() == logs.LogLevel_LOG_LEVEL_UNSET {
+			// If the log level filter is unset, we default to INFO level logs.  The
+			// worker defaults to running at DEBUG now and this avoids spam unless
+			// explicitly requested.
+			request.Filter.Level = logs.LogLevel_LOG_LEVEL_INFO
+		}
+		return ls.compileUserLogQueryReq(ctx, query.User, true, request.GetFilter().GetUserLogsOnly())
 	case *logs.LogQuery_Admin:
 		if ls.AuthServer != nil {
 			if err := ls.AuthServer.CheckClusterIsAuthorized(ctx, auth.Permission_CLUSTER_GET_LOKI_LOGS); err != nil && !auth.IsErrNotActivated(err) {
@@ -205,7 +216,7 @@ func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRe
 					return true
 				}, nil
 		case *logs.AdminLogQuery_User:
-			return ls.compileUserLogQueryReq(ctx, query.User, false)
+			return ls.compileUserLogQueryReq(ctx, query.User, false, request.GetFilter().GetUserLogsOnly())
 		default:
 			return "", nil, nil
 		}
@@ -214,7 +225,7 @@ func (ls LogService) compileRequest(ctx context.Context, request *logs.GetLogsRe
 	}
 }
 
-func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.UserLogQuery, checkAuth bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.UserLogQuery, checkAuth bool, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	switch query := query.GetUserType().(type) {
 	case *logs.UserLogQuery_Pipeline:
 		pipeline := query.Pipeline.Pipeline
@@ -224,19 +235,19 @@ func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.Use
 				return "", nil, nil
 			}
 		}
-		return ls.compilePipelineLogsReq(project, pipeline)
+		return ls.compilePipelineLogsReq(project, pipeline, userOnly)
 	case *logs.UserLogQuery_JobDatum:
 		authCache := make(map[string]bool)
-		return ls.compileJobDatumsLogsReq(ctx, query.JobDatum.Job, query.JobDatum.Datum, checkAuth, authCache)
+		return ls.compileJobDatumsLogsReq(ctx, query.JobDatum.Job, query.JobDatum.Datum, checkAuth, authCache, userOnly)
 	case *logs.UserLogQuery_Datum:
 		authCache := make(map[string]bool)
-		return ls.compileDatumsLogsReq(ctx, query.Datum, checkAuth, authCache)
+		return ls.compileDatumsLogsReq(ctx, query.Datum, checkAuth, authCache, userOnly)
 	case *logs.UserLogQuery_Project:
 		authCache := make(map[string]bool)
-		return ls.compileProjectLogsReq(ctx, query.Project, checkAuth, authCache)
+		return ls.compileProjectLogsReq(ctx, query.Project, checkAuth, authCache, userOnly)
 	case *logs.UserLogQuery_Job:
 		authCache := make(map[string]bool)
-		return ls.compileJobLogsReq(ctx, query.Job, checkAuth, authCache)
+		return ls.compileJobLogsReq(ctx, query.Job, checkAuth, authCache, userOnly)
 	case *logs.UserLogQuery_PipelineJob:
 		project := query.PipelineJob.Pipeline.Project
 		pipeline := query.PipelineJob.Pipeline.Pipeline
@@ -246,45 +257,67 @@ func (ls LogService) compileUserLogQueryReq(ctx context.Context, query *logs.Use
 			}
 		}
 		job := query.PipelineJob.Job
-		return ls.compilePipelineJobLogsReq(project, pipeline, job)
+		return ls.compilePipelineJobLogsReq(project, pipeline, job, userOnly)
+	case *logs.UserLogQuery_PipelineDatum:
+		project := query.PipelineDatum.Pipeline.Project
+		pipeline := query.PipelineDatum.Pipeline.Pipeline
+		if checkAuth {
+			if pass := ls.authPipelineLogs(ctx, pipeline, project, nil); !pass {
+				return "", nil, nil
+			}
+		}
+		datum := query.PipelineDatum.Datum
+		return ls.compilePipelineDatumLogsReq(project, pipeline, datum, userOnly)
 	default:
 		return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
 	}
 }
 
-func (ls LogService) compilePipelineLogsReq(project, pipeline string) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func matchesUserOnlyRequest(userOnly bool, msg *logs.LogMessage) bool {
+	if !userOnly {
+		return true
+	}
+	if msg.GetPpsLogMessage().GetUser() {
+		return true
+	}
+	if ff := msg.GetObject().GetFields(); ff != nil {
+		v, ok := ff["user"]
+		if ok {
+			if v.GetBoolValue() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func filterUserLogs(userOnly bool, next func(map[string]string, *logs.LogMessage) bool) func(map[string]string, *logs.LogMessage) bool {
+	return func(labels map[string]string, msg *logs.LogMessage) bool {
+		return next(labels, msg) && matchesUserOnlyRequest(userOnly, msg)
+	}
+}
+
+func (ls LogService) compilePipelineLogsReq(project, pipeline string, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if pipeline == "" {
 		return "", nil, userLogQueryValidateErr("Pipeline", "Pipeline")
 	}
 	if project == "" {
 		return "", nil, userLogQueryValidateErr("Pipeline", "Project")
 	}
-	return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline),
-		func(labels map[string]string, msg *logs.LogMessage) bool {
-			if msg.GetPpsLogMessage().GetUser() {
-				return true
-			}
-			ff := msg.GetObject().GetFields()
-			if ff != nil {
-				v, ok := ff["user"]
-				if ok {
-					if v.GetBoolValue() {
-						return true
-					}
-				}
-			}
-			return false
-		}, nil
+	filter := func(labels map[string]string, msg *logs.LogMessage) bool {
+		return matchesUserOnlyRequest(userOnly, msg)
+	}
+	return fmt.Sprintf(`{app="pipeline",suite="pachyderm",container="user",pipelineProject=%q,pipelineName=%q}`, project, pipeline), filter, nil
 }
 
-func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum string, checkAuth bool, authCache map[string]bool, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if job == "" {
 		return "", nil, userLogQueryValidateErr("JobDatum", "Job")
 	}
 	if datum == "" {
 		return "", nil, userLogQueryValidateErr("JobDatum", "Datum")
 	}
-	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), func(labels map[string]string, msg *logs.LogMessage) bool {
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), filterUserLogs(userOnly, func(labels map[string]string, msg *logs.LogMessage) bool {
 		logDatumId := msg.GetPpsLogMessage().GetDatumId()
 		logJobId := msg.GetPpsLogMessage().GetJobId()
 		if logJobId != "" && logDatumId != "" {
@@ -308,14 +341,14 @@ func (ls LogService) compileJobDatumsLogsReq(ctx context.Context, job, datum str
 			return ls.authLogMessage(ctx, labels, msg, authCache)
 		}
 		return true
-	}, nil
+	}), nil
 }
 
-func (ls LogService) compileDatumsLogsReq(ctx context.Context, datum string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func (ls LogService) compileDatumsLogsReq(ctx context.Context, datum string, checkAuth bool, authCache map[string]bool, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if datum == "" {
 		return "", nil, userLogQueryValidateErr("Datum", "Datum")
 	}
-	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), func(labels map[string]string, msg *logs.LogMessage) bool {
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, datum), filterUserLogs(userOnly, func(labels map[string]string, msg *logs.LogMessage) bool {
 		if msg.GetPpsLogMessage().GetDatumId() != "" && msg.GetPpsLogMessage().GetDatumId() != datum {
 			return false
 		}
@@ -333,26 +366,26 @@ func (ls LogService) compileDatumsLogsReq(ctx context.Context, datum string, che
 			return ls.authLogMessage(ctx, labels, msg, authCache)
 		}
 		return true
-	}, nil
+	}), nil
 }
 
-func (ls LogService) compileProjectLogsReq(ctx context.Context, project string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func (ls LogService) compileProjectLogsReq(ctx context.Context, project string, checkAuth bool, authCache map[string]bool, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if project == "" {
 		return "", nil, userLogQueryValidateErr("Project", "Project")
 	}
-	return fmt.Sprintf(`{suite="pachyderm",app="pipeline",pipelineProject=%q}`, project), func(labels map[string]string, msg *logs.LogMessage) bool {
+	return fmt.Sprintf(`{suite="pachyderm",app="pipeline",pipelineProject=%q}`, project), filterUserLogs(userOnly, func(labels map[string]string, msg *logs.LogMessage) bool {
 		if checkAuth {
 			return ls.authLogMessage(ctx, labels, msg, authCache)
 		}
 		return true
-	}, nil
+	}), nil
 }
 
-func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAuth bool, authCache map[string]bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAuth bool, authCache map[string]bool, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if job == "" {
 		return "", nil, userLogQueryValidateErr("Job", "Job")
 	}
-	return `{suite="pachyderm",app="pipeline"}`, func(labels map[string]string, msg *logs.LogMessage) bool {
+	return `{suite="pachyderm",app="pipeline"}`, filterUserLogs(userOnly, func(labels map[string]string, msg *logs.LogMessage) bool {
 		if msg.GetPpsLogMessage().GetJobId() != "" && msg.GetPpsLogMessage().GetJobId() != job {
 			return false
 		}
@@ -370,10 +403,10 @@ func (ls LogService) compileJobLogsReq(ctx context.Context, job string, checkAut
 			return ls.authLogMessage(ctx, labels, msg, authCache)
 		}
 		return true
-	}, nil
+	}), nil
 }
 
-func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
 	if project == "" {
 		return "", nil, userLogQueryValidateErr("PipelineJob", "Project")
 	}
@@ -383,7 +416,7 @@ func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (s
 	if job == "" {
 		return "", nil, userLogQueryValidateErr("PipelineJob", "Job")
 	}
-	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), func(labels map[string]string, msg *logs.LogMessage) bool {
+	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), filterUserLogs(userOnly, func(labels map[string]string, msg *logs.LogMessage) bool {
 		if msg.GetPpsLogMessage().GetJobId() == job {
 			return true
 		}
@@ -397,8 +430,34 @@ func (ls LogService) compilePipelineJobLogsReq(project, pipeline, job string) (s
 			}
 		}
 		return false
-	}, nil
+	}), nil
+}
 
+func (ls LogService) compilePipelineDatumLogsReq(project, pipeline, datum string, userOnly bool) (string, func(map[string]string, *logs.LogMessage) bool, error) {
+	if project == "" {
+		return "", nil, userLogQueryValidateErr("PipelineDatum", "Project")
+	}
+	if pipeline == "" {
+		return "", nil, userLogQueryValidateErr("PipelineDatum", "Pipeline")
+	}
+	if datum == "" {
+		return "", nil, userLogQueryValidateErr("PipelineDatum", "Datum")
+	}
+	return fmt.Sprintf(`{suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline), filterUserLogs(userOnly, func(labels map[string]string, msg *logs.LogMessage) bool {
+		if msg.GetPpsLogMessage().GetDatumId() == datum {
+			return true
+		}
+		ff := msg.GetObject().GetFields()
+		if ff != nil {
+			v, ok := ff["datumId"]
+			if ok {
+				if v.GetStringValue() == datum {
+					return true
+				}
+			}
+		}
+		return false
+	}), nil
 }
 
 func (ls LogService) authLogMessage(ctx context.Context, labels map[string]string, msg *logs.LogMessage, cache map[string]bool) bool {
@@ -471,14 +530,38 @@ type passFunc func(labels map[string]string, msg *logs.LogMessage) bool
 // An adapter publishes log entries to a ResponsePublisher in a specified format.
 type adapter struct {
 	responsePublisher ResponsePublisher
+	level             logs.LogLevel
 	// If pass returns false, the message will not be published.
 	pass passFunc
+}
+
+func (a *adapter) addLevelFilter(l logs.LogLevel) {
+	if l != logs.LogLevel_LOG_LEVEL_UNSET && a.level == logs.LogLevel_LOG_LEVEL_UNSET {
+		a.level = l
+	}
+}
+
+type severityMessage struct {
+	Severity string `json:"severity"`
+}
+
+func (s severityMessage) asLogLevel() logs.LogLevel {
+	switch s.Severity {
+	case "debug":
+		return logs.LogLevel_LOG_LEVEL_DEBUG
+	case "info":
+		return logs.LogLevel_LOG_LEVEL_INFO
+	default:
+		return logs.LogLevel_LOG_LEVEL_ERROR
+	}
+
 }
 
 func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki.Entry) (bool, error) {
 	if entry == nil {
 		return false, nil
 	}
+	entry.Line = strings.TrimSpace(entry.Line)
 	msg := &logs.LogMessage{
 		Verbatim: &logs.VerbatimLogMessage{
 			Line:      []byte(entry.Line),
@@ -486,15 +569,28 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 		},
 		Object: new(structpb.Struct),
 	}
+	var severity severityMessage
 	if strings.HasPrefix(entry.Line, "{") && strings.HasSuffix(entry.Line, "}") {
+		// Try to extract the severity for filtering.  This JSON parser does not care about
+		// duplicate fields, validity as a structpb.Struct message, etc.
+		if err := json.Unmarshal([]byte(entry.Line), &severity); err != nil {
+			log.Debug(ctx, "failed to unmarshal json into severity message", zap.Error(err))
+		}
+
+		// Try a stricter parse to get the rest of the fields.  This will fail on duplicate
+		// fields (which Zap allows), etc.
 		if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
 			log.Debug(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
-			msg.Object = nil
+			msg.Object.Fields = map[string]*structpb.Value{
+				"#error": structpb.NewStringValue(err.Error()),
+			}
 		} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
 			if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
 				msg.NativeTimestamp = timestamppb.New(t)
 			}
 		}
+
+		// Build a legacy pps.LogMessage.
 		msg.PpsLogMessage = new(pps.LogMessage)
 		m := protojson.UnmarshalOptions{
 			AllowPartial:   true,
@@ -515,8 +611,15 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 	if len(msg.Object.AsMap()) == 0 {
 		msg.Object = nil
 	}
+
+	if a.level == logs.LogLevel_LOG_LEVEL_INFO && severity.asLogLevel() < logs.LogLevel_LOG_LEVEL_INFO {
+		return false, nil
+	}
+	if a.level == logs.LogLevel_LOG_LEVEL_ERROR && severity.asLogLevel() < logs.LogLevel_LOG_LEVEL_ERROR {
+		return false, nil
+	}
 	if a.pass != nil && !a.pass(map[string]string(labels), msg) {
-		return true, nil
+		return false, nil
 	}
 	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
 		ResponseType: &logs.GetLogsResponse_Log{

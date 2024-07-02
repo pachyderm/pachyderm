@@ -87,6 +87,11 @@ func (x *UserLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("job_datum", x.GetJobDatum())
 	}
+	if obj, ok := interface{}(x.GetPipelineDatum()).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("pipeline_datum", obj)
+	} else {
+		enc.AddReflected("pipeline_datum", x.GetPipelineDatum())
+	}
 	return nil
 }
 
@@ -121,6 +126,19 @@ func (x *JobDatumLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *PipelineDatumLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	if obj, ok := interface{}(x.Pipeline).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("pipeline", obj)
+	} else {
+		enc.AddReflected("pipeline", x.Pipeline)
+	}
+	enc.AddString("datum", x.Datum)
+	return nil
+}
+
 func (x *LogFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -137,6 +155,7 @@ func (x *LogFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddReflected("regex", x.Regex)
 	}
 	enc.AddString("level", x.Level.String())
+	enc.AddBool("user_logs_only", x.UserLogsOnly)
 	return nil
 }
 

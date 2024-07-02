@@ -1,0 +1,48 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+
+# This directive tells Gazelle to use this dir (`src`) as the root python path.
+# gazelle:python_root
+
+# This directive tells Gazelle to append "//tests:__subpackages__" to the
+# visibility of all python targets.
+# gazelle:python_visibility //tests:__subpackages__
+
+py_binary(
+    name = "dev_server",
+    srcs = ["dev_server.py"],
+    visibility = [
+        "//jupyter-extension/jupyterlab_pachyderm:__subpackages__",
+        "//tests:__subpackages__",
+    ],
+    deps = [
+        "@jupyter-pip-requirements//jupyter_server",
+        "@jupyter-pip-requirements//tornado",
+    ],
+)
+
+py_library(
+    name = "jupyterlab_pachyderm",
+    srcs = [
+        "__init__.py",
+        "_version.py",
+        "dev_server.py",
+        "env.py",
+        "handlers.py",
+        "log.py",
+        "pfs_manager.py",
+        "pps_client.py",
+    ],
+    visibility = [
+        "//jupyter-extension/jupyterlab_pachyderm:__subpackages__",
+        "//tests:__subpackages__",
+    ],
+    deps = [
+        "@jupyter-pip-requirements//grpcio",
+        "@jupyter-pip-requirements//jupyter_server",
+        "@jupyter-pip-requirements//nbconvert",
+        "@jupyter-pip-requirements//pachyderm_sdk",
+        "@jupyter-pip-requirements//pyyaml",
+        "@jupyter-pip-requirements//tornado",
+        "@jupyter-pip-requirements//traitlets",
+    ],
+)

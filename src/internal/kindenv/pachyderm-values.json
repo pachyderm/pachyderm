@@ -28,7 +28,6 @@
     "rootToken": "iamroot",
     "storage": {
       "backend": "AMAZON",
-      "gocdkEnabled": true,
       "storageURL": "s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region",
       "amazon": {
         "id": "minioadmin",

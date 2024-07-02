@@ -247,7 +247,6 @@ func withMinio() *helm.Options {
 		SetValues: map[string]string{
 			"deployTarget":                "custom",
 			"pachd.storage.backend":       "AMAZON",
-			"pachd.storage.gocdkEnabled":  "true",
 			"pachd.storage.amazon.id":     "minioadmin",
 			"pachd.storage.amazon.secret": "minioadmin",
 		},

@@ -33,7 +33,7 @@ func getTestEnv(t *testing.T) serviceenv.ServiceEnv {
 		Configuration: pachconfig.NewConfiguration(&pachconfig.PachdFullConfiguration{}),
 		Ctx:           ctx,
 	}
-	require.NoError(t, migrations.ApplyMigrations(ctx, env.GetDBClient(), migrations.MakeEnv(nil, env.GetEtcdClient()), clusterstate.DesiredClusterState))
+	require.NoError(t, migrations.ApplyMigrations(ctx, env.GetDBClient(), migrations.MakeEnv(env.GetEtcdClient()), clusterstate.DesiredClusterState))
 	require.NoError(t, migrations.BlockUntil(ctx, env.GetDBClient(), clusterstate.DesiredClusterState))
 	return env
 }

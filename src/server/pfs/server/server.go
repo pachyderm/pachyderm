@@ -13,7 +13,6 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
 
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -45,14 +44,13 @@ type PFSAuth interface {
 
 // Env is the dependencies needed to run the PFS API server
 type Env struct {
-	ObjectClient obj.Client
-	Bucket       *blob.Bucket
-	DB           *pachsql.DB
-	EtcdPrefix   string
-	EtcdClient   *etcd.Client
-	TaskService  task.Service
-	TxnEnv       *txnenv.TransactionEnv
-	Listener     col.PostgresListener
+	Bucket      *blob.Bucket
+	DB          *pachsql.DB
+	EtcdPrefix  string
+	EtcdClient  *etcd.Client
+	TaskService task.Service
+	TxnEnv      *txnenv.TransactionEnv
+	Listener    col.PostgresListener
 
 	Auth                 PFSAuth
 	GetPipelineInspector func() PipelineInspector

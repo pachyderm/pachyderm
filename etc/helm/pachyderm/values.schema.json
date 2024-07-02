@@ -1321,9 +1321,6 @@
                         "diskCacheSize": {
                             "type": "integer"
                         },
-                        "gocdkEnabled": {
-                            "type": "boolean"
-                        },
                         "google": {
                             "type": "object",
                             "properties": {

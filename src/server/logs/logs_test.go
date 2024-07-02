@@ -1043,6 +1043,523 @@ func TestWithRealLogs(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "simple logs mid-stream, errors only",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_Admin{
+						Admin: &logs.AdminLogQuery{
+							AdminType: &logs.AdminLogQuery_App{
+								App: "simple",
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 970, time.UTC)),
+					},
+					Limit: 3,
+					Level: logs.LogLevel_LOG_LEVEL_ERROR,
+				},
+				WantPagingHint: true,
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}"), onlyTimeRangeInPagingHint},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{"message": "971", "#suite": "pachyderm", "#app": "simple"}),
+				jsonLog(map[string]any{"message": "974", "#suite": "pachyderm", "#app": "simple"}),
+				jsonLog(map[string]any{"message": "977", "#suite": "pachyderm", "#app": "simple"}),
+				{
+					ResponseType: &logs.GetLogsResponse_PagingHint{
+						PagingHint: &logs.PagingHint{
+							Older: &logs.GetLogsRequest{
+								Filter: &logs.LogFilter{
+									TimeRange: &logs.TimeRangeLogFilter{
+										Until: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 969, time.UTC)),
+									},
+									Level: logs.LogLevel_LOG_LEVEL_ERROR,
+								},
+							},
+							Newer: &logs.GetLogsRequest{
+								Filter: &logs.LogFilter{
+									TimeRange: &logs.TimeRangeLogFilter{
+										From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 978, time.UTC)),
+									},
+									Level: logs.LogLevel_LOG_LEVEL_ERROR,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "pipeline logs",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Pipeline{
+								Pipeline: &logs.PipelineLogQuery{
+									Project:  "default",
+									Pipeline: "edges",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					Limit: 2,
+					// Implicitly filtered to INFO and above.
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "connecting to postgres",
+				}),
+				jsonLog(map[string]any{
+					"message": "started transform spawner process",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "pipeline logs at debug level",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Pipeline{
+								Pipeline: &logs.PipelineLogQuery{
+									Project:  "default",
+									Pipeline: "edges",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					Limit: 2,
+					Level: logs.LogLevel_LOG_LEVEL_DEBUG,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "version info",
+				}),
+				jsonLog(map[string]any{
+					"message": "serviceenv: span start",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "user code logs from a pipeline",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Pipeline{
+								Pipeline: &logs.PipelineLogQuery{
+									Project:  "default",
+									Pipeline: "edges",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					UserLogsOnly: true,
+					Limit:        2,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "job + datum",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_JobDatum{
+								JobDatum: &logs.JobDatumLogQuery{
+									Job:   "14a8aecd0b944adb96e9ab1ad06cf29e",
+									Datum: "3c726887e69fb82e628366072e57087868f7f42b29613ac50ffaa692e5a78d5c",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					// TODO(jrockway): |= in Loki is INCREDIBLY slow for some reason.
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 6, 13, 3, 0, 40, 0, time.UTC)),
+					},
+					Limit: 2,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "beginning to run user code",
+				}),
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "user code logs from a job/datum",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_JobDatum{
+								JobDatum: &logs.JobDatumLogQuery{
+									Job:   "14a8aecd0b944adb96e9ab1ad06cf29e",
+									Datum: "3c726887e69fb82e628366072e57087868f7f42b29613ac50ffaa692e5a78d5c",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 6, 13, 3, 0, 40, 0, time.UTC)),
+					},
+					UserLogsOnly: true,
+					Limit:        2,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "datum",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Datum{
+								Datum: "3c726887e69fb82e628366072e57087868f7f42b29613ac50ffaa692e5a78d5c",
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 6, 13, 3, 0, 40, 0, time.UTC)),
+					},
+					Limit: 2,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "beginning to run user code",
+				}),
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "user code logs from a datum",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Datum{
+								Datum: "3c726887e69fb82e628366072e57087868f7f42b29613ac50ffaa692e5a78d5c",
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 6, 13, 3, 0, 40, 0, time.UTC)),
+					},
+					UserLogsOnly: true,
+					Limit:        2,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "project",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Project{
+								Project: "default",
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit: 2,
+					Level: logs.LogLevel_LOG_LEVEL_DEBUG,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "version info",
+				}),
+				jsonLog(map[string]any{
+					"message": "serviceenv: span start",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "user code logs from a project",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Project{
+								Project: "default",
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					UserLogsOnly: true,
+					Limit:        2,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "job",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Job{
+								Job: "14a8aecd0b944adb96e9ab1ad06cf29e",
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit: 2,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "updating job info, state: JOB_STARTING",
+				}),
+				jsonLog(map[string]any{
+					"message": "started waiting for job inputs",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "user code logs from a pipeline job",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_PipelineJob{
+								PipelineJob: &logs.PipelineJobLogQuery{
+									Pipeline: &logs.PipelineLogQuery{
+										Project:  "default",
+										Pipeline: "edges",
+									},
+									Job: "14a8aecd0b944adb96e9ab1ad06cf29e",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit:        2,
+					UserLogsOnly: true,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "job",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_PipelineJob{
+								PipelineJob: &logs.PipelineJobLogQuery{
+									Pipeline: &logs.PipelineLogQuery{
+										Project:  "default",
+										Pipeline: "edges",
+									},
+									Job: "14a8aecd0b944adb96e9ab1ad06cf29e",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit: 2,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "updating job info, state: JOB_STARTING",
+				}),
+				jsonLog(map[string]any{
+					"message": "started waiting for job inputs",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "user code logs from a pipeline job",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_Job{
+								Job: "14a8aecd0b944adb96e9ab1ad06cf29e",
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit:        2,
+					UserLogsOnly: true,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "datum logs for a pipeline, with user filter",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_PipelineDatum{
+								PipelineDatum: &logs.PipelineDatumLogQuery{
+									Pipeline: &logs.PipelineLogQuery{
+										Project:  "default",
+										Pipeline: "edges",
+									},
+									Datum: "3c726887e69fb82e628366072e57087868f7f42b29613ac50ffaa692e5a78d5c",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit:        2,
+					UserLogsOnly: true,
+				},
+			},
+			want: []*logs.GetLogsResponse{
+				jsonLog(map[string]any{
+					"message": "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment.",
+				}),
+				jsonLog(map[string]any{
+					"message": "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.')",
+				}),
+			},
+			opts: []cmp.Option{onlyCompareObject, jqObject("{message}")},
+		},
+		{
+			name: "datum logs for a pipeline that doesn't contain that datum",
+			query: &logs.GetLogsRequest{
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_User{
+						User: &logs.UserLogQuery{
+							UserType: &logs.UserLogQuery_PipelineDatum{
+								PipelineDatum: &logs.PipelineDatumLogQuery{
+									Pipeline: &logs.PipelineLogQuery{
+										Project:  "default",
+										Pipeline: "montage",
+									},
+									Datum: "3c726887e69fb82e628366072e57087868f7f42b29613ac50ffaa692e5a78d5c",
+								},
+							},
+						},
+					},
+				},
+				Filter: &logs.LogFilter{
+					TimeRange: &logs.TimeRangeLogFilter{
+						From: timestamppb.New(time.Date(2024, 5, 1, 0, 0, 0, 0, time.UTC)),
+					},
+					Limit: 2,
+				},
+			},
+		},
 	}
 	ctx := pctx.TestContext(t)
 	l, err := testloki.New(ctx, t.TempDir())

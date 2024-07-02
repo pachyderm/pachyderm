@@ -380,6 +380,7 @@ class ProjectInfo(betterproto.Message):
     metadata: Dict[str, str] = betterproto.map_field(
         5, betterproto.TYPE_STRING, betterproto.TYPE_STRING
     )
+    created_by: str = betterproto.string_field(6)
 
 
 @dataclass(eq=False, repr=False)

@@ -245,6 +245,7 @@ message ProjectInfo {
   AuthInfo auth_info = 3;
   google.protobuf.Timestamp created_at = 4;
   map<string, string> metadata = 5;
+  string created_by = 6;
 }
 
 // ProjectPicker defines mutually exclusive pickers that resolve to a single project.

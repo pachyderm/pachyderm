@@ -1,60 +1,9 @@
-load("@rules_go//go:def.bzl", "go_library", "go_test")
-
-# gazelle:go_test file
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "integrationtests",
-    srcs = [
-        "tests.go",
-        "util.go",
-    ],
+    srcs = ["util.go"],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/obj/integrationtests",
     visibility = ["//src:__subpackages__"],
     deps = ["//src/internal/require"],
-)
-
-go_test(
-    name = "amazon_test",
-    srcs = ["amazon_test.go"],
-    embed = [":integrationtests"],
-    tags = ["external"],
-    deps = [
-        "//src/internal/obj",
-        "//src/internal/pctx",
-        "//src/internal/require",
-    ],
-)
-
-go_test(
-    name = "google_test",
-    srcs = ["google_test.go"],
-    embed = [":integrationtests"],
-    tags = ["external"],
-    deps = [
-        "//src/internal/obj",
-        "//src/internal/require",
-        "@org_golang_google_api//option",
-    ],
-)
-
-go_test(
-    name = "microsoft_test",
-    srcs = ["microsoft_test.go"],
-    embed = [":integrationtests"],
-    tags = ["external"],
-    deps = [
-        "//src/internal/obj",
-        "//src/internal/require",
-    ],
-)
-
-go_test(
-    name = "minio_test",
-    srcs = ["minio_test.go"],
-    embed = [":integrationtests"],
-    tags = ["external"],
-    deps = [
-        "//src/internal/obj",
-        "//src/internal/require",
-    ],
 )

@@ -89,7 +89,7 @@ func newDriver(ctx context.Context, env Env) (*driver, error) {
 	if err := func() error {
 		ctx, cf := context.WithTimeout(pctx.Child(ctx, "newDriver"), 30*time.Second)
 		defer cf()
-		return obj.TestStorage(ctx, env.Bucket, env.ObjectClient)
+		return obj.TestStorage(ctx, env.Bucket)
 	}(); err != nil {
 		return nil, err
 	}
@@ -107,12 +107,8 @@ func newDriver(ctx context.Context, env Env) (*driver, error) {
 	}
 	storageEnv := storage.Env{
 		DB:     env.DB,
+		Bucket: env.Bucket,
 		Config: env.StorageConfig,
-	}
-	if env.Bucket != nil {
-		storageEnv.Bucket = env.Bucket
-	} else {
-		storageEnv.ObjectStore = env.ObjectClient
 	}
 	storageSrv, err := storage.New(ctx, storageEnv)
 	if err != nil {
@@ -549,7 +545,9 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 			"update project %s", req.GetProject().GetName())
 	}
 	// If auth is active, make caller the owner of this new project.
+	var username string
 	if whoAmI, err := txnCtx.WhoAmI(); err == nil {
+		username = whoAmI.GetUsername()
 		if err := d.env.Auth.CreateRoleBindingInTransaction(
 			ctx,
 			txnCtx,
@@ -566,6 +564,7 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 		Project:     req.Project,
 		Description: req.Description,
 		CreatedAt:   timestamppb.Now(),
+		CreatedBy:   username,
 	}); err != nil {
 		if errors.As(err, &pfsdb.ProjectAlreadyExistsError{}) {
 			return errors.Join(err, pfsserver.ErrProjectExists{Project: req.Project})

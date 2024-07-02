@@ -182,9 +182,16 @@ def _default_name(branch: pfs.Branch) -> str:
         name = f"{name}_{branch.name}"
     return name
 
+def _default_commit_name(commit: pfs.Commit) -> str:
+    name = commit.repo.name
+    if commit.repo.project.name and commit.repo.project.name != "default":
+        name = f"{commit.repo.project.name}_{name}"
+    if commit.branch.name and commit.branch.name != "master":
+        name = f"{name}_{commit.branch.name}"
+    return name
 
 class PFSManager(FileContentsManager):
-    mounted_branch: typing.Optional[pfs.Branch] = None
+    mounted_commit: typing.Optional[pfs.Commit] = None
 
     class Repo(typing.TypedDict):
         name: str
@@ -200,13 +207,13 @@ class PFSManager(FileContentsManager):
         self._client = client
         super().__init__(**kwargs)
 
-    def mount_branch(self, branch: pfs.Branch):
-        if not self.branch_exists(branch=branch):
-            raise ValueError("branch_uri exists but does not resolve a valid branch")
-        self.mounted_branch = branch
+    def mount_commit(self, commit: pfs.Commit):
+        if not self.commit_exists(commit=commit):
+            raise ValueError("commit_uri exists but does not resolve a valid branch")
+        self.mounted_commit = commit
 
-    def unmount_branch(self):
-        self.mounted_branch = None
+    def unmount_commit(self):
+        self.mounted_commit = None
 
     def list_repos(self) -> typing.List[Repo]:
         return {
@@ -219,12 +226,11 @@ class PFSManager(FileContentsManager):
             for r in self._client.pfs.list_repo()
         }
 
-    def branch_exists(self, branch: pfs.Branch) -> bool:
+    def commit_exists(self, commit: pfs.Commit) -> bool:
         try:
-            self._client.pfs.inspect_branch(branch=branch)
+            return self._client.pfs.inspect_commit(commit=commit) is not None
         except:
             return False
-        return True
 
     def _get_name(self, path: str) -> str:
         path = path.lstrip("/")
@@ -240,7 +246,7 @@ class PFSManager(FileContentsManager):
 
     # returns None for empty path, i.e. the top-level directory or if no branch is mounted
     def _get_file_from_path(self, path: str) -> typing.Optional[pfs.File]:
-        if not self.mounted_branch:
+        if not self.mounted_commit:
             return None
 
         name = self._get_name(path)
@@ -248,7 +254,7 @@ class PFSManager(FileContentsManager):
             return None
 
         path_str = self._get_path(path)
-        file_uri = f"{self.mounted_branch.as_uri()}:/{path_str}"
+        file_uri = f"{self.mounted_commit.as_uri()}:/{path_str}"
         return pfs.File.from_uri(file_uri)
 
     def download_file(self, path: str):
@@ -321,12 +327,12 @@ class PFSManager(FileContentsManager):
             )
 
         # Show an empty toplevel model if no branch is specified
-        if self.mounted_branch is None:
+        if self.mounted_commit is None:
             return self._get_content_model("", "/", DEFAULT_DATETIME, None)
 
-        mounted_branch_name = _default_name(self.mounted_branch)
+        mounted_branch_name = _default_commit_name(self.mounted_commit)
         mounted_branch_created = self._client.pfs.inspect_commit(
-            commit=pfs.Commit(branch=self.mounted_branch, repo=self.mounted_branch.repo)
+            commit=self.mounted_commit
         ).started
         file = self._get_file_from_path(path)
 
@@ -342,7 +348,7 @@ class PFSManager(FileContentsManager):
                 err.code() == grpc.StatusCode.NOT_FOUND
                 or err.code() == grpc.StatusCode.UNKNOWN
             ) and not self._get_path(path=path):
-                repo = self._client.pfs.inspect_repo(repo=self.mounted_branch.repo)
+                repo = self._client.pfs.inspect_repo(repo=self.mounted_commit.repo)
                 return self._get_content_model(self._get_name(path), path, repo.created, [mounted_branch_content_model])
             else:
                 raise err

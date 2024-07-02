@@ -15,7 +15,6 @@ go_library(
         "//src/internal/errors",
         "//src/internal/grpcutil",
         "//src/internal/log",
-        "//src/internal/obj",
         "//src/internal/pachconfig",
         "//src/internal/pachsql",
         "//src/internal/storage/chunk",

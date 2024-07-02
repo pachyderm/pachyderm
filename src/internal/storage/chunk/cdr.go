@@ -17,14 +17,12 @@ func (s *Storage) CDRFromDataRef(ctx context.Context, dataRef *DataRef) (*cdr.Re
 	if err != nil {
 		return nil, err
 	}
-	if s.bucket == nil {
-		return nil, errors.Errorf("GoCDK must be enabled for CDRs")
-	}
 	url, err := s.bucket.SignedURL(ctx, path, &blob.SignedURLOptions{Expiry: 24 * time.Hour})
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	ref := createHTTPRef(url, nil)
+	ref = createContentHashRef(ref, dataRef.Ref.Id)
 	ref = createCipherRef(ref, dataRef.Ref.EncryptionAlgo, dataRef.Ref.Dek)
 	ref = createCompressRef(ref, dataRef.Ref.CompressionAlgo)
 	ref = createSliceRef(ref, uint64(dataRef.OffsetBytes), uint64(dataRef.OffsetBytes+dataRef.SizeBytes))
@@ -37,6 +35,18 @@ func createHTTPRef(url string, headers map[string]string) *cdr.Ref {
 			Url:     url,
 			Headers: headers,
 		}},
+	}
+}
+
+func createContentHashRef(ref *cdr.Ref, hash []byte) *cdr.Ref {
+	return &cdr.Ref{
+		Body: &cdr.Ref_ContentHash{
+			ContentHash: &cdr.ContentHash{
+				Inner: ref,
+				Algo:  cdr.HashAlgo_BLAKE2b_256,
+				Hash:  hash,
+			},
+		},
 	}
 }
 

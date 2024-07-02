@@ -1758,7 +1758,7 @@ func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.TokenInfo, err
 func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject string, ttlSeconds int64) (string, error) {
 	token := uuid.NewWithoutDashes()
 	if err := a.insertAuthToken(ctx, auth.HashToken(token), subject, ttlSeconds); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "could not generate and insert auth token")
 	}
 	return token, nil
 }
@@ -1774,15 +1774,20 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 
 // generates a token, and stores it's hash and supporting data in postgres
 func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
-	if _, err := a.env.DB.ExecContext(ctx,
-		`INSERT INTO auth.auth_tokens (token_hash, subject, expiration)
-		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
-		if dbutil.IsUniqueViolation(err) {
-			return errors.New("cannot overwrite existing token with same hash")
+	return dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
+			return errors.Wrapf(err, "ensuring %s is in auth.principals", subject)
 		}
-		return errors.Wrapf(err, "error storing token")
-	}
-	return nil
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO auth.auth_tokens (token_hash, subject, expiration)
+		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
+			if dbutil.IsUniqueViolation(err) {
+				return errors.New("cannot overwrite existing token with same hash")
+			}
+			return errors.Wrapf(err, "error storing token")
+		}
+		return nil
+	})
 }
 
 // TODO(acohen4): replace this function with what's implemented in postgres-integration once it lands
@@ -1794,6 +1799,9 @@ func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, 
 }
 
 func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txncontext.TransactionContext, tokenHash string, subject string) error {
+	if _, err := txnCtx.SqlTx.Exec(`INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
+		return errors.Wrapf(err, "ensuring %s is in auth.principals", subject)
+	}
 	if _, err := txnCtx.SqlTx.Exec(
 		`INSERT INTO auth.auth_tokens (token_hash, subject)
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
