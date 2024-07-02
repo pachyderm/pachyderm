@@ -105,6 +105,20 @@ func decode(t *testing.T, r io.Reader) ([]string, *bytes.Buffer, error) {
 	}
 }
 
+func printSummary(ctx context.Context, r io.Reader) error {
+	cmd := scan.Command(ctx, "-mode=convert")
+	cmd.Stdin = r
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		return errors.Wrap(err, "start conversion command")
+	}
+	if err := cmd.Wait(); err != nil {
+		return errors.Wrap(err, "wait for conversion command")
+	}
+	return nil
+}
+
 func govulncheck(t *testing.T, pkg string) {
 	t.Helper()
 	ctx, cancel := context.WithCancelCause(pctx.TestContext(t))
@@ -122,7 +136,7 @@ func govulncheck(t *testing.T, pkg string) {
 		}
 		close(doneCh)
 	}()
-	vulnerable, processed, err := decode(t, r)
+	vulnerable, details, err := decode(t, r)
 	if err != nil {
 		t.Fatalf("decode vulnerability report: %v", err)
 	}
@@ -136,17 +150,9 @@ func govulncheck(t *testing.T, pkg string) {
 	}
 
 	ctx = pctx.TestContext(t)
-	cmd = scan.Command(ctx, "-mode=convert")
-	cmd.Stdin = processed
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("start conversion command: %v", err)
+	if err := printSummary(ctx, details); err != nil {
+		t.Errorf("printSummary: %v", err)
 	}
-	if err := cmd.Wait(); err != nil {
-		t.Fatalf("wait for conversion command: %v", err)
-	}
-
 	if len(vulnerable) > 0 {
 		t.Fatalf("code is vulnerable to: %v; see above output for details", strings.Join(vulnerable, ", "))
 	}
@@ -158,12 +164,17 @@ func TestDecode(t *testing.T) {
 		t.Fatalf("open testdata: %v", err)
 	}
 	t.Cleanup(func() { fh.Close() })
-	got, _, err := decode(t, fh)
+	got, details, err := decode(t, fh)
 	if err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 	want := []string{"GO-2024-2512"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("vulnerabilities in testdata report (-want +got):\n%s", diff)
+	}
+
+	ctx := pctx.TestContext(t)
+	if err := printSummary(ctx, details); err != nil {
+		t.Logf("%v", err)
 	}
 }
