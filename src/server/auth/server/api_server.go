@@ -1758,7 +1758,7 @@ func (a *apiServer) listRobotTokens(ctx context.Context) ([]*auth.TokenInfo, err
 func (a *apiServer) generateAndInsertAuthToken(ctx context.Context, subject string, ttlSeconds int64) (string, error) {
 	token := uuid.NewWithoutDashes()
 	if err := a.insertAuthToken(ctx, auth.HashToken(token), subject, ttlSeconds); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "could not generate and insert auth token")
 	}
 	return token, nil
 }
@@ -1774,11 +1774,11 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 
 // generates a token, and stores it's hash and supporting data in postgres
 func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
-	return a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		if _, err := txnCtx.SqlTx.ExecContext(ctx, `INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
+	return dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
 			return errors.Wrapf(err, "ensuring %s is in auth.principals", subject)
 		}
-		if _, err := txnCtx.SqlTx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO auth.auth_tokens (token_hash, subject, expiration)
 		VALUES ($1, $2, NOW() + $3 * interval '1 sec')`, tokenHash, subject, ttlSeconds); err != nil {
 			if dbutil.IsUniqueViolation(err) {
