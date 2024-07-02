@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_test(
     name = "govulncheck_test",
@@ -9,6 +9,7 @@ go_test(
         "//:MODULE.bazel",
         "@rules_go//go",
     ],
+    embed = [":govulncheck"],
     tags = [
         "external",
         "manual",
@@ -21,6 +22,13 @@ go_test(
         "@com_github_google_go_cmp//cmp",
         "@org_golang_x_exp//maps",
         "@org_golang_x_vuln//scan",
-        "@rules_go//go/runfiles:go_default_library",
     ],
+)
+
+go_library(
+    name = "govulncheck",
+    srcs = ["govulncheck.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/testing/govulncheck",
+    visibility = ["//visibility:public"],
+    deps = ["@rules_go//go/runfiles:go_default_library"],
 )

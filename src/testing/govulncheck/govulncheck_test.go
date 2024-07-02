@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -34,31 +33,7 @@ var (
 )
 
 func TestGovulncheck(t *testing.T) {
-	// Find the source code.
-	mod, err := runfiles.Rlocation("_main/MODULE.bazel")
-	if err != nil {
-		t.Fatalf("find MODULE.bazel: %v", err)
-	}
-	real, err := os.Readlink(mod)
-	if err != nil {
-		t.Fatalf("readlink(MODULE.bazel): %v", err)
-	}
-	root := filepath.Dir(real)
-
-	// Find go.
-	if goBin, err := runfiles.Rlocation("rules_go~~go_sdk~go_sdk/bin/go"); err != nil {
-		t.Logf("can't find go binary; using installed go instead: %v", err)
-	} else {
-		path := os.Getenv("PATH")
-		path = filepath.Dir(goBin) + ":" + path
-		os.Setenv("PATH", path)
-	}
-
-	// govulncheck ends up shelling out to Go and downloading modules, etc.  It is slow to
-	// delete them all when the job is done (as would happen with t.TempDir), so we don't
-	// bother.
-	os.Setenv("GOPATH", "/tmp/govulncheck/gopath")
-	os.Setenv("GOCACHE", "/tmp/govulncheck/gocache")
+	root := SetupEnv()
 
 	// Run govulncheck for each workspace-relative package listed above.
 	for _, pkg := range packages {
