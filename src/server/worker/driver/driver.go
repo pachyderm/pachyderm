@@ -137,6 +137,17 @@ type driver struct {
 	inputDir string
 }
 
+func NewEmptyDriver(ctx context.Context, pipelineInfo *pps.PipelineInfo) Driver {
+	wd, _ := os.Getwd()
+	return &driver{
+		ctx:             ctx,
+		pipelineInfo:    pipelineInfo,
+		activeDataMutex: &sync.Mutex{},
+		rootDir:         wd,
+		inputDir:        "/tmp",
+	}
+}
+
 // NewDriver constructs a Driver object using the given clients and pipeline
 // settings.  It makes blocking calls to determine the user/group to use with
 // the user code on the current worker node, as well as determining if
