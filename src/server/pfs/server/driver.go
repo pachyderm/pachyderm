@@ -545,7 +545,9 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 			"update project %s", req.GetProject().GetName())
 	}
 	// If auth is active, make caller the owner of this new project.
+	var username string
 	if whoAmI, err := txnCtx.WhoAmI(); err == nil {
+		username = whoAmI.GetUsername()
 		if err := d.env.Auth.CreateRoleBindingInTransaction(
 			ctx,
 			txnCtx,
@@ -562,6 +564,7 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 		Project:     req.Project,
 		Description: req.Description,
 		CreatedAt:   timestamppb.Now(),
+		CreatedBy:   username,
 	}); err != nil {
 		if errors.As(err, &pfsdb.ProjectAlreadyExistsError{}) {
 			return errors.Join(err, pfsserver.ErrProjectExists{Project: req.Project})

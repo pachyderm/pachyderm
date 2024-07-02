@@ -169,7 +169,7 @@ func propagateLogLevel(ctx context.Context, req *debug.SetLogLevelRequest, pod, 
 	defer log.Span(ctx, fmt.Sprintf("propagateLogLevel(%s)", pod))(log.Errorp(&retErr))
 	opts := client.DefaultDialOptions()
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	cc, err := grpc.DialContext(ctx, addr, opts...)
+	cc, err := grpc.DialContext(ctx, addr, opts...) //nolint:staticcheck
 	if err != nil {
 		return nil, errors.Wrap(err, "dial")
 	}

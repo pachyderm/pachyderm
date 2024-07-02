@@ -124,7 +124,7 @@ func runMigrations(db *pachsql.DB, etcdClient *etcd.Client, state *migrations.St
 
 func newSelfGRPC(l net.Listener, opts []grpc.DialOption) *grpc.ClientConn {
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	gc, err := grpc.Dial(l.Addr().String(), opts...)
+	gc, err := grpc.Dial(l.Addr().String(), opts...) //nolint:staticcheck
 	if err != nil {
 		// This is always a configuration issue, Dial does not initiate a network connection before returning.
 		panic(err)
