@@ -103,7 +103,6 @@ require (
 	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.7.0
 	golang.org/x/sys v0.21.0
-	golang.org/x/telemetry v0.0.0-20240522233618-39ace7a40ae7
 	golang.org/x/term v0.21.0
 	golang.org/x/text v0.16.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240624140628-dc46fd24d27d
@@ -121,7 +120,10 @@ require (
 	sigs.k8s.io/yaml v1.4.0
 )
 
-require golang.org/x/tools v0.22.0 // indirect
+require (
+	golang.org/x/telemetry v0.0.0-20240522233618-39ace7a40ae7 // indirect
+	golang.org/x/tools v0.22.0 // indirect
+)
 
 require (
 	cloud.google.com/go v0.115.0 // indirect
