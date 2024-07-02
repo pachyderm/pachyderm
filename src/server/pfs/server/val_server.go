@@ -135,7 +135,7 @@ func (a *validatedAPIServer) ForgetCommit(ctx context.Context, req *pfs.ForgetCo
 			}
 		}
 		if len(c.DirectProvenance) == 0 {
-			return errors.New("the commit to be forgotten must be in output repo")
+			return errors.New("the commit to be forgotten must be in an output repo")
 		}
 		r, err := a.apiServer.forgetCommitTx(txnCtx, c)
 		if err != nil {

@@ -7648,8 +7648,7 @@ func gcOption(c *pachconfig.Configuration) {
 
 func TestForgetRPC(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	dbcfg := dockertestenv.NewTestDBConfig(t)
-	env := realenv.NewRealEnv(ctx, t, dbcfg.PachConfigOption, gcOption)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, gcOption)
 
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "in"))
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
@@ -7664,15 +7663,12 @@ func TestForgetRPC(t *testing.T) {
 	require.NoError(t, finishCommit(env.PachClient, "in", "master", ""))
 
 	var chunkCount int64
-	db := testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...)
-	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		if err := db.QueryRow("select count(*) from storage.chunk_objects").Scan(&chunkCount); err != nil {
-			return errors.Wrap(err, "select storage chunks")
-		}
+	db := env.ServiceEnv.GetDBClient()
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		err := db.QueryRow("select count(*) from storage.chunk_objects").Scan(&chunkCount)
+		require.NoError(t, err)
 		return nil
-	}); err != nil {
-		t.Fatalf("select from storage chunks: %v", err)
-	}
+	}))
 
 	// sanity check. There should be at least one chunk data
 	require.NotEqual(t, int64(0), chunkCount)
@@ -7690,39 +7686,31 @@ func TestForgetRPC(t *testing.T) {
 	require.NoError(t, err)
 	// TTL for filesets in tracker_objects is 10 minutes. We use the following
 	// query to manually make all the filesets expired to save time.
-	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		// we expire filesets immediately
-		if _, err := tx.Exec("UPDATE storage.tracker_objects SET expires_at = CURRENT_TIMESTAMP WHERE str_id LIKE 'fileset%'"); err != nil {
-			return errors.Wrap(err, "update filesets TTL")
-		}
+		_, err := tx.Exec("UPDATE storage.tracker_objects SET expires_at = CURRENT_TIMESTAMP WHERE str_id LIKE 'fileset%'")
+		require.NoError(t, err)
 		// we expire chunks after 6 seconds
-		if _, err := tx.Exec("UPDATE storage.tracker_objects SET expires_at = CURRENT_TIMESTAMP + INTERVAL '6 seconds' WHERE str_id LIKE 'chunk%'"); err != nil {
-			return errors.Wrap(err, "update filesets TTL")
-		}
+		_, err = tx.Exec("UPDATE storage.tracker_objects SET expires_at = CURRENT_TIMESTAMP + INTERVAL '6 seconds' WHERE str_id LIKE 'chunk%'")
+		require.NoError(t, err)
 		return nil
-	}); err != nil {
-		t.Fatalf("update filesets TTL: %v", err)
-	}
+	}))
 	// we wait enough time to expire the trackers objects and let gc kick in
 	time.Sleep(21 * time.Second)
 
-	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		if err := db.QueryRow("select count(*) from storage.chunk_objects").Scan(&chunkCount); err != nil {
-			return errors.Wrap(err, "select storage chunks")
-		}
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		err := db.QueryRow("select count(*) from storage.chunk_objects").Scan(&chunkCount)
+		require.NoError(t, err)
 		return nil
-	}); err != nil {
-		t.Fatalf("select from storage chunks: %v", err)
-	}
+	}))
 
 	// the chunks data should be successfully dropped
 	require.Equal(t, int64(0), chunkCount)
 }
 
-func TestForgetRPCNoOpenChild(t *testing.T) {
+func TestForgetRPCOpenChild(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	dbcfg := dockertestenv.NewTestDBConfig(t)
-	env := realenv.NewRealEnv(ctx, t, dbcfg.PachConfigOption, gcOption)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, gcOption)
 
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "in"))
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
@@ -7750,13 +7738,12 @@ func TestForgetRPCNoOpenChild(t *testing.T) {
 	}
 
 	_, err = env.PFSServer.ForgetCommit(ctx, &pfs.ForgetCommitRequest{Commit: &picker})
-	require.YesError(t, err)
+	require.Equal(t, "Forget Commit: direct descendants must be closed", err.Error())
 }
 
 func TestForgetRPCInputCommit(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	dbcfg := dockertestenv.NewTestDBConfig(t)
-	env := realenv.NewRealEnv(ctx, t, dbcfg.PachConfigOption, gcOption)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, gcOption)
 
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "in"))
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
@@ -7777,5 +7764,5 @@ func TestForgetRPCInputCommit(t *testing.T) {
 	}
 
 	_, err = env.PFSServer.ForgetCommit(ctx, &pfs.ForgetCommitRequest{Commit: &picker})
-	require.YesError(t, err)
+	require.Equal(t, "Forget Commit: the commit to be forgotten must be in an output repo", err.Error())
 }
