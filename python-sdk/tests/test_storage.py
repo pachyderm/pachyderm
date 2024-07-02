@@ -7,7 +7,7 @@ import pytest
 
 from tests.fixtures import *
 
-from pachyderm_sdk.api import storage
+from pachyderm_sdk.api import cdr, storage
 from .utils import count
 
 
@@ -45,6 +45,7 @@ class TestStorage:
         """Test fetching chunks are stored in a local cache."""
         # Arrange
         fileset_id, _ = fileset
+        expected_prefix = cdr.HashAlgo.BLAKE2b_256.name.lower()
 
         # Act
         # This is hardcoded to replace the host of the presigned URL with
@@ -59,6 +60,8 @@ class TestStorage:
 
         # Assert
         assert count(tmp_path.iterdir()) > 0
+        for file in tmp_path.iterdir():
+            assert file.name.startswith(expected_prefix)
 
     @staticmethod
     def test_fetch_chunks_prune(

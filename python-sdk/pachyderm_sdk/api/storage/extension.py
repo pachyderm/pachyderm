@@ -43,7 +43,7 @@ class ApiStub(_GeneratedApiStub):
         ----------
         fileset : str
             The UUID of the fileset.
-        path : str
+        path : typing.Union[str, PathRange]
             The path, regex, or PathRange within the fileset to assemble.
             A value of "/" assembles the entire fileset.
         destination : os.PathLike
@@ -53,7 +53,7 @@ class ApiStub(_GeneratedApiStub):
         fetch_missing_chunks : bool (kwarg only)
             If true, fetch any missing chunks needed to assemble the fileset.
             If false, raise an error if any chunks are missing.
-        http_host_replacement : str
+        http_host_replacement : str (kwarg only)
             The value of this parameter replaces the host (including port) within
             the presigned URLs when resolving CDRs. This configuration is useful
             if, for some reason, the URL that pachd uses to interact with object
@@ -79,9 +79,11 @@ class ApiStub(_GeneratedApiStub):
 
         for msg in self.read_fileset_cdr(fileset_id=fileset, filters=[as_filter(path)]):
             content = resolver.resolve(msg.ref)
-            file_path = msg.path
-            if file_path.startswith("/"):
-                file_path = file_path.removeprefix("/")
+
+            # File paths returned from PFS are absolute.
+            # By removing the leading "/", we convert the path from absolute
+            #   to relative from the repo root.
+            file_path = msg.path.removeprefix("/")
             destination.joinpath(file_path).write_bytes(content)
 
     def fetch_chunks(
@@ -101,12 +103,12 @@ class ApiStub(_GeneratedApiStub):
         ----------
         fileset : str
             The UUID of the fileset.
-        path : str
+        path : typing.Union[str, PathRange]
             A path, regex, or PathRange within the fileset.
             A value of "/" fetches the entire fileset.
         cache_location : os.PathLike (kwarg only)
             The location of the chunk cache. This is also configurable thru ENV VAR.
-        http_host_replacement : str
+        http_host_replacement : str (kwarg only)
             The value of this parameter replaces the host (including port) within
             the presigned URLs when resolving CDRs. This configuration is useful
             if, for some reason, the URL that pachd uses to interact with object
