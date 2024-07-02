@@ -3914,6 +3914,8 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| created_by | [string](#string) |  |  |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | json | [string](#string) |  |  |
 
 
