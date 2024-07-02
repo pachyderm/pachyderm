@@ -120,7 +120,7 @@ func (a *validatedAPIServer) ClearCommit(ctx context.Context, req *pfs.ClearComm
 
 func (a *validatedAPIServer) ForgetCommit(ctx context.Context, req *pfs.ForgetCommitRequest) (*pfs.ForgetCommitResponse, error) {
 	var resp *pfs.ForgetCommitResponse
-	return resp, errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+	return resp, errors.Wrap(a.driver.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		c, err := pfsdb.PickCommit(ctx, req.Commit, txnCtx.SqlTx)
 		if err != nil {
 			return errors.Wrap(err, "pick commits")
@@ -131,10 +131,10 @@ func (a *validatedAPIServer) ForgetCommit(ctx context.Context, req *pfs.ForgetCo
 				return errors.Wrap(err, "get commit by key")
 			}
 			if childCommitInfo.Finished == nil {
-				return errors.New("descendants must be closed commits")
+				return errors.New("direct descendants must be closed")
 			}
 		}
-		if c.Origin.Kind != pfs.OriginKind_AUTO {
+		if len(c.DirectProvenance) == 0 {
 			return errors.New("the commit to be forgotten must be in output repo")
 		}
 		r, err := a.apiServer.forgetCommitTx(txnCtx, c)
