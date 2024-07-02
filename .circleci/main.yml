@@ -728,18 +728,6 @@ jobs:
       - run: tar xzvf jsonnet-bin-v0.17.0-linux.tar.gz
       - run: mv jsonnet jsonnetfmt /usr/local/bin
       - run: make -C etc/generate-envoy-config test
-  govulncheck:
-    executor: docker-go
-    resource_class: xlarge
-    steps:
-      - checkout
-      - run:
-          name: Install govulncheck
-          command: go install golang.org/x/vuln/cmd/govulncheck@latest
-      - run:
-          name: Check for known security vulnerabilities
-          command: |
-            find -name go.mod -print0 | xargs -0 -I{} sh -c 'cd $(dirname {}); echo; echo '---'; echo $PWD; exec govulncheck ./...'
   jupyter-extension-test:
     parameters:
       python-version:
@@ -1559,6 +1547,20 @@ jobs:
           when: always
       - store_test_results:
           path: /tmp/bazel-testlogs/
+  bazel-govulncheck:
+    resource_class: xlarge
+    docker:
+      - image: << pipeline.parameters.ci_runner_image >>
+    steps:
+      - checkout
+      - run: |
+          bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+                     --test_env=GOMEMLIMIT=12GiB //src/testing/govulncheck:govulncheck_test
+      - run:
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
+      - store_test_results:
+          path: /tmp/bazel-testlogs/
   bazel-tests:
     resource_class: 2xlarge+
     docker:
@@ -1649,8 +1651,8 @@ workflows:
     jobs:
       - check-prettier
       - bazel-style-tests
+      - bazel-govulncheck
       - jsonnet-lint
-      - govulncheck
       - static-go-checks
       - test-envoy
   helm-tests:
@@ -2235,7 +2237,7 @@ commands:
           when: always
           command: |
             if [ "<< parameters.amd >>" = "true" ]; then
-              npm install -g @datadog/datadog-ci 
+              npm install -g @datadog/datadog-ci
               datadog-ci junit upload --service "pachyderm/<< parameters.service >>" --env "<< parameters.env >>" << parameters.path >>
             else
               curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" --output "./datadog-ci" && chmod +x ./datadog-ci
