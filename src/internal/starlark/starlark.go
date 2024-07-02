@@ -101,7 +101,7 @@ func Run(rctx context.Context, in string, opts Options, f RunFunc) (starlark.Str
 	dir := filepath.Dir(path)
 	abs, err := filepath.Abs(dir)
 	if err != nil {
-		return nil, errors.Wrapf(err, "find absolute location of starlark file %v", path)
+		abs = dir
 	}
 
 	thread := newThread(filepath.Base(path))
