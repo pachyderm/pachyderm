@@ -24,6 +24,9 @@
                         "type": "string"
                     },
                     "type": "object"
+                },
+                "createdBy": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

@@ -346,6 +346,7 @@ func (x *ProjectInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
+	enc.AddString("created_by", x.CreatedBy)
 	return nil
 }
 

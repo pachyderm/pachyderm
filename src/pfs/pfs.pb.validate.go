@@ -3053,6 +3053,8 @@ func (m *ProjectInfo) validate(all bool) error {
 
 	// no validation rules for Metadata
 
+	// no validation rules for CreatedBy
+
 	if len(errors) > 0 {
 		return ProjectInfoMultiError(errors)
 	}
