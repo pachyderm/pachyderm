@@ -13573,6 +13573,41 @@
           ]
         },
         {
+          "name": "ForgetCommitRequest",
+          "longName": "ForgetCommitRequest",
+          "fullName": "pfs_v2.ForgetCommitRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "commit",
+              "description": "",
+              "label": "",
+              "type": "CommitPicker",
+              "longType": "CommitPicker",
+              "fullType": "pfs_v2.CommitPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ForgetCommitResponse",
+          "longName": "ForgetCommitResponse",
+          "fullName": "pfs_v2.ForgetCommitResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
           "name": "FsckRequest",
           "longName": "FsckRequest",
           "fullName": "pfs_v2.FsckRequest",
@@ -16624,6 +16659,18 @@
               "responseType": "ReposSummaryResponse",
               "responseLongType": "ReposSummaryResponse",
               "responseFullType": "pfs_v2.ReposSummaryResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "ForgetCommit",
+              "description": "Forget API",
+              "requestType": "ForgetCommitRequest",
+              "requestLongType": "ForgetCommitRequest",
+              "requestFullType": "pfs_v2.ForgetCommitRequest",
+              "requestStreaming": false,
+              "responseType": "ForgetCommitResponse",
+              "responseLongType": "ForgetCommitResponse",
+              "responseFullType": "pfs_v2.ForgetCommitResponse",
               "responseStreaming": false
             }
           ]

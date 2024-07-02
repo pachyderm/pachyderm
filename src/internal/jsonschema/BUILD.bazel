@@ -536,6 +536,8 @@ go_library(
         "cdr/Slice.schema.json",
         "storage/ReadFilesetCDRResponse.schema.json",
         "logs/PipelineDatumLogQuery.schema.json",
+        "pfs_v2/ForgetCommitRequest.schema.json",
+        "pfs_v2/ForgetCommitResponse.schema.json",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/jsonschema",
     visibility = ["//src:__subpackages__"],

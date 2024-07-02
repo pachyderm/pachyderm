@@ -77,6 +77,7 @@ const (
 	API_ListProject_FullMethodName          = "/pfs_v2.API/ListProject"
 	API_DeleteProject_FullMethodName        = "/pfs_v2.API/DeleteProject"
 	API_ReposSummary_FullMethodName         = "/pfs_v2.API/ReposSummary"
+	API_ForgetCommit_FullMethodName         = "/pfs_v2.API/ForgetCommit"
 )
 
 // APIClient is the client API for API service.
@@ -199,6 +200,8 @@ type APIClient interface {
 	// Summary API
 	// ReposSummary returns a list of summaries about the repos for each of the requested projects.
 	ReposSummary(ctx context.Context, in *ReposSummaryRequest, opts ...grpc.CallOption) (*ReposSummaryResponse, error)
+	// Forget API
+	ForgetCommit(ctx context.Context, in *ForgetCommitRequest, opts ...grpc.CallOption) (*ForgetCommitResponse, error)
 }
 
 type aPIClient struct {
@@ -1214,6 +1217,15 @@ func (c *aPIClient) ReposSummary(ctx context.Context, in *ReposSummaryRequest, o
 	return out, nil
 }
 
+func (c *aPIClient) ForgetCommit(ctx context.Context, in *ForgetCommitRequest, opts ...grpc.CallOption) (*ForgetCommitResponse, error) {
+	out := new(ForgetCommitResponse)
+	err := c.cc.Invoke(ctx, API_ForgetCommit_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 // All implementations must embed UnimplementedAPIServer
 // for forward compatibility
@@ -1334,6 +1346,8 @@ type APIServer interface {
 	// Summary API
 	// ReposSummary returns a list of summaries about the repos for each of the requested projects.
 	ReposSummary(context.Context, *ReposSummaryRequest) (*ReposSummaryResponse, error)
+	// Forget API
+	ForgetCommit(context.Context, *ForgetCommitRequest) (*ForgetCommitResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -1505,6 +1519,9 @@ func (UnimplementedAPIServer) DeleteProject(context.Context, *DeleteProjectReque
 }
 func (UnimplementedAPIServer) ReposSummary(context.Context, *ReposSummaryRequest) (*ReposSummaryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReposSummary not implemented")
+}
+func (UnimplementedAPIServer) ForgetCommit(context.Context, *ForgetCommitRequest) (*ForgetCommitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ForgetCommit not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
@@ -2585,6 +2602,24 @@ func _API_ReposSummary_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_ForgetCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ForgetCommitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).ForgetCommit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_ForgetCommit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ForgetCommit(ctx, req.(*ForgetCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // API_ServiceDesc is the grpc.ServiceDesc for API service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2723,6 +2758,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReposSummary",
 			Handler:    _API_ReposSummary_Handler,
+		},
+		{
+			MethodName: "ForgetCommit",
+			Handler:    _API_ForgetCommit_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

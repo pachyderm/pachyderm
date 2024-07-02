@@ -375,6 +375,8 @@
     - [FindCommitsRequest](#pfs_v2-FindCommitsRequest)
     - [FindCommitsResponse](#pfs_v2-FindCommitsResponse)
     - [FinishCommitRequest](#pfs_v2-FinishCommitRequest)
+    - [ForgetCommitRequest](#pfs_v2-ForgetCommitRequest)
+    - [ForgetCommitResponse](#pfs_v2-ForgetCommitResponse)
     - [FsckRequest](#pfs_v2-FsckRequest)
     - [FsckResponse](#pfs_v2-FsckResponse)
     - [GetCacheRequest](#pfs_v2-GetCacheRequest)
@@ -6039,6 +6041,31 @@ DeleteReposRequest is used to delete more than one repo at once.
 
 
 
+<a name="pfs_v2-ForgetCommitRequest"></a>
+
+### ForgetCommitRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| commit | [CommitPicker](#pfs_v2-CommitPicker) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-ForgetCommitResponse"></a>
+
+### ForgetCommitResponse
+
+
+
+
+
+
+
 <a name="pfs_v2-FsckRequest"></a>
 
 ### FsckRequest
@@ -7126,6 +7153,7 @@ These are the different places where a commit may be originated from
 | ListProject | [ListProjectRequest](#pfs_v2-ListProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) stream | ListProject returns info about all projects. |
 | DeleteProject | [DeleteProjectRequest](#pfs_v2-DeleteProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteProject deletes a project. |
 | ReposSummary | [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest) | [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse) | Summary API ReposSummary returns a list of summaries about the repos for each of the requested projects. |
+| ForgetCommit | [ForgetCommitRequest](#pfs_v2-ForgetCommitRequest) | [ForgetCommitResponse](#pfs_v2-ForgetCommitResponse) | Forget API |
 
  
 
