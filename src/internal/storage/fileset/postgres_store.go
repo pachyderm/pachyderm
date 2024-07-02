@@ -151,7 +151,7 @@ func (s *postgresStore) Exists(ctx context.Context, id ID) (bool, error) {
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func SetupPostgresStoreV0(ctx context.Context, tx *pachsql.Tx) error {
 	const schema = `
-	CREATE TABLE storage.filesets (
+	CREATE TABLE IF NOT EXISTS storage.filesets (
 		id UUID NOT NULL PRIMARY KEY,
 		metadata_pb BYTEA NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
