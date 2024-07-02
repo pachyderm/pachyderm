@@ -15,7 +15,7 @@ func addAuthPrincipals(ctx context.Context, env migrations.Env) error {
 		return errors.Wrap(err, "create auth.principals")
 	}
 
-	if _, err := tx.ExecContext(ctx, `ALTER TABLE auth.principals ADD PRIMARY KEY (subject);`); err != nil {
+	if _, err := tx.ExecContext(ctx, `ALTER TABLE auth.principals ADD PRIMARY KEY (subject), ALTER COLUMN first_seen SET NOT NULL,  ADD CONSTRAINT auth_principals_subject_not_blank CHECK (subject <> '');`); err != nil {
 		return errors.Wrap(err, "add primary key constraint to auth.principals")
 	}
 	if _, err := tx.ExecContext(ctx, `ALTER TABLE auth.auth_tokens ADD FOREIGN KEY (subject) REFERENCES auth.principals (subject);`); err != nil {
