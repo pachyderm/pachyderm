@@ -5,11 +5,12 @@ module(
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.5.0")  # Needed for arm64 jq and rules_oci/#425.
 bazel_dep(name = "container_structure_test", version = "1.16.0")
-bazel_dep(name = "gazelle", version = "0.35.0")
+bazel_dep(name = "gazelle", version = "0.36.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
-bazel_dep(name = "rules_go", version = "0.46.0")
+bazel_dep(name = "rules_go", version = "0.48.1")
 bazel_dep(name = "rules_oci", version = "1.5.1")
-bazel_dep(name = "rules_python", version = "0.27.1")
+bazel_dep(name = "rules_python", version = "0.32.2")
+bazel_dep(name = "rules_python_gazelle_plugin", version = "0.32.2")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
@@ -115,19 +116,22 @@ go_deps.gazelle_override(
 # These next two directives are necessary if google.golang.org/protobuf in go.mod is different from
 # what rules_go bundles (see go/private/repositories.bzl for the version they use).
 go_deps.gazelle_override(
-    build_file_generation = "off",
+    build_file_generation = "on",
     path = "google.golang.org/protobuf",
+    directives = [
+        "gazelle:proto disable_global",
+     ],
 )
-go_deps.module_override(
-    patch_strip = 1,
-    patches = [
-        # This patch is from running: `gazelle -repo_root . -go_prefix google.golang.org/protobuf
-        # -go_naming_convention import_alias -proto disable_global` in a checkout of
-        # google.golang.org/protobuf corresponding to the version we use in go.mod.
-        "//private:google-golang-org-protobuf.patch",
-    ],
-    path = "google.golang.org/protobuf",
-)
+# go_deps.module_override(
+#     patch_strip = 1,
+#     patches = [
+#         # This patch is from running: `gazelle -repo_root . -go_prefix google.golang.org/protobuf
+#         # -go_naming_convention import_alias -proto disable_global` in a checkout of
+#         # google.golang.org/protobuf corresponding to the version we use in go.mod.
+#         "//private:google-golang-org-protobuf.patch",
+#     ],
+#     path = "google.golang.org/protobuf",
+# )
 
 # This is a program and not a module, but we depend on it since there aren't prebuilt binaries
 # available.
@@ -395,8 +399,7 @@ oci.pull(
 )
 use_repo(oci, "distroless", "pause", "zot_amd64", "zot_arm64")
 
-python = use_extension("@rules_python//python:extensions.bzl", "python")
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
-    is_default = True,
     python_version = "3.12.1",
 )
