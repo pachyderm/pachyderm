@@ -627,6 +627,9 @@ func (d *driver) inheritedEnvVars() []string {
 	for _, s := range d.pipelineInfo.Details.Transform.Secrets {
 		results = append(results, s.EnvVar)
 	}
+	results = append(results, "PATH")
+	results = append(results, "HOME")
+	results = append(results, "PACH_NAMESPACE")
 	return results
 }
 
