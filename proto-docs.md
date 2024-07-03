@@ -8154,6 +8154,8 @@ Delete more than one pipeline.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | project_defaults_json | [string](#string) |  | A JSON-encoded ProjectDefaults message, this is the verbatim input passed to SetProjectDefaults. |
+| created_by | [string](#string) |  |  |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 
 
 

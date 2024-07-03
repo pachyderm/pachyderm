@@ -10906,6 +10906,13 @@
         "projectDefaultsJson": {
           "type": "string",
           "description": "A JSON-encoded ProjectDefaults message, this is the verbatim input passed\nto SetProjectDefaults."
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
