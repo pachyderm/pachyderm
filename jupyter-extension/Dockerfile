@@ -11,7 +11,7 @@ USER root
 COPY ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
 
 USER $NB_UID
-RUN pip install --upgrade pip
+RUN pip install pip==24.0
 
 USER root
 WORKDIR /app
