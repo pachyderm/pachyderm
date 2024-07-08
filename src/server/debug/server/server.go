@@ -322,8 +322,8 @@ func (s *lockedServer) Send(c *debug.DumpChunk) error {
 	return s.Debug_DumpV2Server.Send(c)
 }
 
-func (s *debugServer) DumpV2(request *debug.DumpV2Request, _server debug.Debug_DumpV2Server) error {
-	server := &lockedServer{Debug_DumpV2Server: _server}
+func (s *debugServer) DumpV2(request *debug.DumpV2Request, originalServer debug.Debug_DumpV2Server) error {
+	server := &lockedServer{Debug_DumpV2Server: originalServer}
 	if request == nil {
 		return errors.New("nil debug.DumpV2Request")
 	}
