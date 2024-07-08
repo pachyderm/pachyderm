@@ -117,10 +117,10 @@ go_deps.gazelle_override(
 # what rules_go bundles (see go/private/repositories.bzl for the version they use).
 go_deps.gazelle_override(
     build_file_generation = "on",
-    path = "google.golang.org/protobuf",
     directives = [
         "gazelle:proto disable_global",
-     ],
+    ],
+    path = "google.golang.org/protobuf",
 )
 # go_deps.module_override(
 #     patch_strip = 1,

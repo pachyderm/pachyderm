@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "1e385b02873091e99a1e7c1eef744c2462b1b15c8fa51600ef0ff1d7ea59592f",
+  "moduleFileHash": "415735586687508140b9151797fa3906a893563d509125abb7f8cfbe7cbd0925",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -433,10 +433,10 @@
               "tagName": "gazelle_override",
               "attributeValues": {
                 "build_file_generation": "on",
-                "path": "google.golang.org/protobuf",
                 "directives": [
                   "gazelle:proto disable_global"
-                ]
+                ],
+                "path": "google.golang.org/protobuf"
               },
               "devDependency": false,
               "location": {
