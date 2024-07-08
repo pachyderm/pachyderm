@@ -3,6 +3,7 @@ package pjsdb_test
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
@@ -12,7 +13,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 )
@@ -24,35 +27,34 @@ type dependencies struct {
 	s   *fileset.Storage
 }
 
-func withDB(t *testing.T, f func(context.Context, *testing.T, *pachsql.DB)) {
+func DB(t *testing.T) (context.Context, *pachsql.DB) {
 	t.Helper()
 	ctx := pctx.Child(pctx.TestContext(t), t.Name())
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	f(ctx, t, db)
+	return ctx, db
 }
 
-func withFilesetStorage(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Context, *fileset.Storage)) {
+func FilesetStorage(t *testing.T, db *pachsql.DB) *fileset.Storage {
 	t.Helper()
-	f(ctx, fileset.NewTestStorage(ctx, t, db, track.NewTestTracker(t, db)))
+	store := kv.NewFSStore(filepath.Join(t.TempDir(), "obj-store"), 512, chunk.DefaultMaxChunkSize)
+	tr := track.NewPostgresTracker(db)
+	return fileset.NewStorage(fileset.NewPostgresStore(db), tr, chunk.NewStorage(store, nil, db, tr))
 }
 
-func withTx(t *testing.T, ctx context.Context, db *pachsql.DB, s *fileset.Storage, f func(context.Context, *pachsql.Tx, *fileset.Storage)) {
+func withTx(t *testing.T, ctx context.Context, db *pachsql.DB, s *fileset.Storage, f func(d dependencies)) {
 	t.Helper()
 	tx, err := db.BeginTxx(ctx, nil)
 	require.NoError(t, err)
-	f(ctx, tx, s)
+	f(dependencies{ctx: ctx, db: db, tx: tx, s: s})
 	require.NoError(t, tx.Commit())
 }
 
 func withDependencies(t *testing.T, f func(d dependencies)) {
-	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
-		withFilesetStorage(t, ctx, db, func(ctx context.Context, s *fileset.Storage) {
-			withTx(t, ctx, db, s, func(ctx context.Context, tx *pachsql.Tx, s *fileset.Storage) {
-				f(dependencies{ctx: ctx, db: db, tx: tx, s: s})
-			})
-		})
+	ctx, db := DB(t)
+	withTx(t, ctx, db, FilesetStorage(t, db), func(d dependencies) {
+		f(d)
 	})
 }
 

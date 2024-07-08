@@ -34,7 +34,7 @@ func validateFileset(ctx context.Context, s *fileset.Storage, filesetHandle stri
 
 func openFileset(ctx context.Context, s *fileset.Storage, filesetHandle string) (fileset.FileSet, error) {
 	if filesetHandle == "" {
-		return nil, FilesetHandleIsEmptyError
+		return nil, ErrFilesetHandleisEmpty
 	}
 	id, err := fileset.ParseID(filesetHandle)
 	if err != nil {

@@ -49,7 +49,7 @@ func (req CreateJobRequest) Sanitize(ctx context.Context, tx *pachsql.Tx, s *fil
 		parent.Int64 = int64(req.Parent)
 		if _, err := GetJob(ctx, tx, req.Parent); err != nil {
 			if errors.As(err, &JobNotFoundError{}) {
-				return emptyReq, errors.Join(ParentNotFoundError, errors.Wrap(err, "sanitize: parent"))
+				return emptyReq, errors.Join(ErrParentNotFound, errors.Wrap(err, "sanitize: parent"))
 			}
 			return emptyReq, errors.Wrap(err, "sanitize: parent")
 		}

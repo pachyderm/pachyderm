@@ -3,6 +3,8 @@ package pjsdb
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -30,7 +32,14 @@ type IterateJobsFilter struct {
 	//Done       time.Time
 }
 
-func (f *IterateJobsFilter) apply() (conditions []string, values []any) {
+func (f IterateJobsFilter) IsEmpty() bool {
+	if diff := cmp.Diff(f, IterateJobsFilter{}, cmpopts.EquateEmpty()); diff != "" {
+		return false
+	}
+	return true
+}
+
+func (f IterateJobsFilter) apply() (conditions []string, values []any) {
 	if f.Parent != 0 {
 		conditions = append(conditions, "parent = ?")
 		values = append(values, f.Parent)
@@ -60,39 +69,36 @@ func (f *IterateJobsFilter) apply() (conditions []string, values []any) {
 
 type IterateJobsRequest struct {
 	IteratorConfiguration
-	Filter *IterateJobsFilter
+	Filter IterateJobsFilter
 }
 
-// JobIterator implements stream.Iterator[T] on Job objects following the
+// JobsIterator implements stream.Iterator[T] on Job objects following the
 // pattern set by the pfsdb package.
 // Iterators are the underlying type used by list-style crud operations.
-type JobIterator struct {
-	paginator pageIterator[JobRow]
+type JobsIterator struct {
+	paginator pageIterator[jobRow]
 	extCtx    sqlx.ExtContext
 }
 
-var _ stream.Iterator[Job] = &JobIterator{} // catch changes that break the interface.
+var _ stream.Iterator[Job] = &JobsIterator{} // catch changes that break the interface.
 
-func (i *JobIterator) Next(ctx context.Context, dst *Job) error {
+func (i *JobsIterator) Next(ctx context.Context, dst *Job) error {
 	if dst == nil {
-		return errors.Errorf("dst JobRow cannot be nil")
+		return errors.Errorf("dst jobRow cannot be nil")
 	}
 	row, err := i.paginator.next(ctx, i.extCtx)
 	if err != nil {
 		return err
 	}
-	job := &Job{JobRow: *row}
-	*dst = *job
+	*dst = row.ToJob()
 	return nil
 }
 
-func NewJobsIterator(extCtx sqlx.ExtContext, req IterateJobsRequest) *JobIterator {
+func NewJobsIterator(extCtx sqlx.ExtContext, req IterateJobsRequest) *JobsIterator {
 	var conditions []string
 	var values []any
 	query := `SELECT * FROM pjs.jobs`
-	if req.Filter != nil {
-		conditions, values = req.Filter.apply()
-	}
+	conditions, values = req.Filter.apply()
 	if len(conditions) > 0 {
 		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
@@ -101,8 +107,8 @@ func NewJobsIterator(extCtx sqlx.ExtContext, req IterateJobsRequest) *JobIterato
 	if req.PageSize == 0 {
 		req.PageSize = defaultPageSize
 	}
-	return &JobIterator{
-		paginator: newPageIterator[JobRow](query, values, req.StartPage, req.PageSize, 0),
+	return &JobsIterator{
+		paginator: newPageIterator[jobRow](query, values, req.StartPage, req.PageSize, 0),
 		extCtx:    extCtx,
 	}
 }
@@ -110,7 +116,7 @@ func NewJobsIterator(extCtx sqlx.ExtContext, req IterateJobsRequest) *JobIterato
 // ForEachJob iterates over each Job 'job' in the jobs table and executes the callback cb(job).
 func ForEachJob(ctx context.Context, db *pachsql.DB, req IterateJobsRequest, cb func(job Job) error) error {
 	ctx = pctx.Child(ctx, "forEachJob")
-	if err := stream.ForEach[Job](pctx.Child(ctx, "forEach"), NewJobsIterator(db, req), cb); err != nil {
+	if err := stream.ForEach[Job](ctx, NewJobsIterator(db, req), cb); err != nil {
 		return errors.Wrap(err, "for each job")
 	}
 	return nil
@@ -119,10 +125,10 @@ func ForEachJob(ctx context.Context, db *pachsql.DB, req IterateJobsRequest, cb 
 // ForEachJobTxByFilter is like ForEachJob but requires a *pachsql.Tx and a IterateJobsFilter.
 func ForEachJobTxByFilter(ctx context.Context, tx *pachsql.Tx, req IterateJobsRequest, cb func(job Job) error) error {
 	ctx = pctx.Child(ctx, "forEachJobTxByFilter")
-	if req.Filter == nil {
+	if req.Filter.IsEmpty() {
 		return errors.Errorf("filter cannot be empty")
 	}
-	if err := stream.ForEach[Job](pctx.Child(ctx, "forEach"), NewJobsIterator(tx, req), func(job Job) error {
+	if err := stream.ForEach[Job](ctx, NewJobsIterator(tx, req), func(job Job) error {
 		return cb(job)
 	}); err != nil {
 		return errors.Wrap(err, "for each job tx by filter")

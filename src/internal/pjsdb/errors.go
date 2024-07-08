@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	FilesetHandleIsEmptyError = errors.New("fileset handle is empty")
-	ParentNotFoundError       = errors.New("parent job not found")
+	ErrFilesetHandleisEmpty = errors.New("fileset handle is empty")
+	ErrParentNotFound       = errors.New("parent job not found")
 )
 
 type InvalidFilesetError struct {

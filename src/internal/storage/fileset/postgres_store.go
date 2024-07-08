@@ -151,7 +151,7 @@ func (s *postgresStore) Exists(ctx context.Context, id ID) (bool, error) {
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func SetupPostgresStoreV0(ctx context.Context, tx *pachsql.Tx) error {
 	const schema = `
-	CREATE TABLE IF NOT EXISTS storage.filesets (
+	CREATE TABLE storage.filesets (
 		id UUID NOT NULL PRIMARY KEY,
 		metadata_pb BYTEA NOT NULL,
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -164,7 +164,7 @@ func SetupPostgresStoreV0(ctx context.Context, tx *pachsql.Tx) error {
 // NewTestStore returns a Store scoped to the lifetime of the test.
 func NewTestStore(ctx context.Context, t testing.TB, db *pachsql.DB) MetadataStore {
 	tx := db.MustBegin()
-	tx.MustExec(`CREATE SCHEMA IF NOT EXISTS storage`)
+	tx.MustExec(`CREATE SCHEMA storage`)
 	require.NoError(t, SetupPostgresStoreV0(ctx, tx))
 	require.NoError(t, tx.Commit())
 	return NewPostgresStore(db)

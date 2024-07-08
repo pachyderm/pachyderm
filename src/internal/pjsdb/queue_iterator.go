@@ -38,7 +38,7 @@ func (i *QueuesIterator) Next(ctx context.Context, dst *Queue) error {
 	if err != nil {
 		return errors.Wrap(err, "next")
 	}
-	*dst = *queue
+	*dst = queue
 	return nil
 }
 
@@ -67,7 +67,7 @@ func NewQueuesIterator(extCtx sqlx.ExtContext, req IterateQueuesRequest) *Queues
 // ForEachQueue calculates and iterates over each Queue 'queue' in the pfs.jobs table and executes the callback cb(queue).
 func ForEachQueue(ctx context.Context, db *pachsql.DB, req IterateQueuesRequest, cb func(queue Queue) error) error {
 	ctx = pctx.Child(ctx, "forEachQueue")
-	if err := stream.ForEach[Queue](pctx.Child(ctx, "forEach"), NewQueuesIterator(db, req), cb); err != nil {
+	if err := stream.ForEach[Queue](ctx, NewQueuesIterator(db, req), cb); err != nil {
 		return errors.Wrap(err, "for each queue")
 	}
 	return nil

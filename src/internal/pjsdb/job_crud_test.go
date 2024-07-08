@@ -50,32 +50,6 @@ func TestCreateJob(t *testing.T) {
 	})
 }
 
-func fullBinaryJobTree(t *testing.T, d dependencies, maxDepth int) {
-	if maxDepth == 0 {
-		return
-	}
-	edges := make(map[pjsdb.JobID][]pjsdb.JobID)
-	parents := make([]pjsdb.JobID, 0)
-	// create node at depth == 1
-	parent, err := createJob(t, d, createRootJob(t, d))
-	require.NoError(t, err)
-	parents = append(parents, parent)
-	// create nodes at depth > 1
-	for depth := 2; depth <= maxDepth; depth++ {
-		newParents := make([]pjsdb.JobID, 0)
-		for _, p := range parents {
-			leftChild, err := createJob(t, d, p)
-			require.NoError(t, err)
-			rightChild, err := createJob(t, d, p)
-			require.NoError(t, err)
-			children := []pjsdb.JobID{leftChild, rightChild}
-			edges[p] = children
-			newParents = append(newParents, children...)
-		}
-		parents = newParents
-	}
-}
-
 func TestCancelJob(t *testing.T) {
 	t.Run("valid/cancel/single", func(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
@@ -239,7 +213,7 @@ func TestDeleteJob(t *testing.T) {
 func TestListJobTxByFilter(t *testing.T) {
 	t.Run("valid/spec", func(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
-			expected := make([]*pjsdb.Job, 0)
+			expected := make([]pjsdb.Job, 0)
 			var err error
 			targetFs := mockFileset(t, d, "/spec", "#!/bin/bash; echo 'hello';")
 			for i := 0; i < 5; i++ {
@@ -250,9 +224,35 @@ func TestListJobTxByFilter(t *testing.T) {
 				expected = append(expected, included)
 			}
 			jobs, err := pjsdb.ListJobTxByFilter(d.ctx, d.tx,
-				pjsdb.IterateJobsRequest{Filter: &pjsdb.IterateJobsFilter{Spec: []byte(targetFs.HexString())}})
+				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Spec: []byte(targetFs.HexString())}})
 			require.NoError(t, err)
 			require.NoDiff(t, expected, jobs, nil)
 		})
 	})
+}
+
+func fullBinaryJobTree(t *testing.T, d dependencies, maxDepth int) {
+	if maxDepth == 0 {
+		return
+	}
+	edges := make(map[pjsdb.JobID][]pjsdb.JobID)
+	parents := make([]pjsdb.JobID, 0)
+	// create node at depth == 1
+	parent, err := createJob(t, d, createRootJob(t, d))
+	require.NoError(t, err)
+	parents = append(parents, parent)
+	// create nodes at depth > 1
+	for depth := 2; depth <= maxDepth; depth++ {
+		newParents := make([]pjsdb.JobID, 0)
+		for _, p := range parents {
+			leftChild, err := createJob(t, d, p)
+			require.NoError(t, err)
+			rightChild, err := createJob(t, d, p)
+			require.NoError(t, err)
+			children := []pjsdb.JobID{leftChild, rightChild}
+			edges[p] = children
+			newParents = append(newParents, children...)
+		}
+		parents = newParents
+	}
 }

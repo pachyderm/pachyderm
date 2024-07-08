@@ -14,22 +14,30 @@ import (
 //TODO(Fahad): Too much copy/paste from pfsdb, see if we can move the iterator code into another package which we can share
 // between this and other db packages.
 
+// OrderByColumn is used to configure iteratorRequests.
+// values for Column and SortOrder are exposed as constants
+// with prefixes Column_ such as ColumnID and SortOrder_ such as SortOrderAsc.
 type OrderByColumn struct {
-	Column string
-	Order  sortOrder
+	Column    jobColumn
+	SortOrder sortOrder
 }
 
+// these types are unexported to force callers of this API to use the exported column and sort orders.
+type jobColumn string
 type sortOrder string
 
 const (
-	SortOrderNone   = sortOrder("")
+	ColumnID       = jobColumn("id")
+	ColumnParent   = jobColumn("parent")
+	ColumnSpecHash = jobColumn("spec_hash")
+
 	SortOrderAsc    = sortOrder("ASC")
 	SortOrderDesc   = sortOrder("DESC")
 	defaultPageSize = 100
 )
 
 type Iterable interface {
-	JobRow | queueRecord
+	jobRow | queueRecord
 }
 
 type IteratorConfiguration struct {
@@ -39,12 +47,12 @@ type IteratorConfiguration struct {
 }
 
 func (c *IteratorConfiguration) orderBy() string {
-	if c.OrderBys == nil {
-		c.OrderBys = []OrderByColumn{{Column: "id", Order: SortOrderAsc}}
+	if len(c.OrderBys) == 0 {
+		c.OrderBys = []OrderByColumn{{Column: ColumnID, SortOrder: SortOrderAsc}}
 	}
 	values := make([]string, len(c.OrderBys))
 	for i, col := range c.OrderBys {
-		values[i] = fmt.Sprintf("%s %s", col.Column, col.Order)
+		values[i] = fmt.Sprintf("%s %s", col.Column, col.SortOrder)
 	}
 	return "\nORDER BY " + strings.Join(values, ", ")
 }
@@ -54,7 +62,7 @@ type pageIterator[T Iterable] struct {
 	values                  []any
 	limit, offset, maxPages uint64
 	page                    []T
-	pageIdx                 int
+	pageIndex               int
 	pagesSeen               int
 }
 
@@ -83,13 +91,13 @@ func (i *pageIterator[T]) nextPage(ctx context.Context, extCtx sqlx.ExtContext) 
 		return stream.EOS()
 	}
 	i.page = page
-	i.pageIdx = 0
+	i.pageIndex = 0
 	i.offset += i.limit
 	return nil
 }
 
 func (i *pageIterator[T]) hasNext() bool {
-	return i.pageIdx < len(i.page)
+	return i.pageIndex < len(i.page)
 }
 
 func (i *pageIterator[T]) next(ctx context.Context, extCtx sqlx.ExtContext) (*T, error) {
@@ -98,7 +106,7 @@ func (i *pageIterator[T]) next(ctx context.Context, extCtx sqlx.ExtContext) (*T,
 			return nil, err
 		}
 	}
-	t := i.page[i.pageIdx]
-	i.pageIdx++
+	t := i.page[i.pageIndex]
+	i.pageIndex++
 	return &t, nil
 }

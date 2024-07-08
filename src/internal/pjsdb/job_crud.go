@@ -2,6 +2,7 @@ package pjsdb
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -45,18 +46,18 @@ func CreateJob(ctx context.Context, tx *pachsql.Tx, req createJobRequest) (JobID
 }
 
 // GetJob returns a job by its JobID. GetJob should not be used to claim a job.
-func GetJob(ctx context.Context, tx *pachsql.Tx, id JobID) (*Job, error) {
+func GetJob(ctx context.Context, tx *pachsql.Tx, id JobID) (Job, error) {
 	ctx = pctx.Child(ctx, "getJob")
-	rows := []JobRow{{}}
-	err := sqlx.SelectContext(ctx, tx, &rows, `SELECT * FROM pjs.jobs WHERE id = $1`, id)
+	var row jobRow
+	err := sqlx.GetContext(ctx, tx, &row, `SELECT * FROM pjs.jobs WHERE id = $1`, id)
 	if err != nil {
-		return nil, errors.Wrap(err, "get job")
-	}
-	if len(rows) == 0 {
-		return nil, &JobNotFoundError{ID: id}
+		if errors.Is(err, sql.ErrNoRows) {
+			return Job{}, &JobNotFoundError{ID: id}
+		}
+		return Job{}, errors.Wrap(err, "get job")
 	}
 	// since id is the primary key, it should be impossible for more than one row to be returned.
-	return &Job{JobRow: rows[0]}, nil
+	return row.ToJob(), nil
 }
 
 // CancelJob cancels job with ID 'id' and all child jobs of 'id'.
@@ -79,13 +80,13 @@ func CancelJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 }
 
 // WalkJob walks from job 'id' down to all of its children.
-func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]*Job, error) {
+func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]Job, error) {
 	pctx.Child(ctx, "walkJob")
 	job, err := GetJob(ctx, tx, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "walk job")
 	}
-	rows := make([]JobRow, 0)
+	rows := make([]jobRow, 0)
 	if err = sqlx.SelectContext(ctx, tx, &rows, recursiveTraverseChildren+`
     SELECT j.* FROM pjs.jobs j
 	INNER JOIN children c ON j.id = c.id
@@ -94,21 +95,21 @@ func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]*Job, error) {
 	`, job.ID); err != nil {
 		return nil, errors.Wrap(err, "walk job")
 	}
-	jobs := make([]*Job, 0)
+	jobs := make([]Job, 0)
 	for _, row := range rows {
-		jobs = append(jobs, &Job{row})
+		jobs = append(jobs, row.ToJob())
 	}
 	return jobs, nil
 }
 
 // ListJobTxByFilter returns a list of Job objects matching the filter criteria in req.Filter.
 // req.Filter must not be nil.
-func ListJobTxByFilter(ctx context.Context, tx *pachsql.Tx, req IterateJobsRequest) ([]*Job, error) {
+func ListJobTxByFilter(ctx context.Context, tx *pachsql.Tx, req IterateJobsRequest) ([]Job, error) {
 	ctx = pctx.Child(ctx, "listJobTxByFilter")
-	var jobs []*Job
+	var jobs []Job
 	if err := ForEachJobTxByFilter(ctx, tx, req, func(job Job) error {
 		j := job
-		jobs = append(jobs, &j)
+		jobs = append(jobs, j)
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "list jobs tx by filter")
@@ -143,7 +144,7 @@ func validateJobTree(ctx context.Context, tx *pachsql.Tx, id JobID) error {
 	if err != nil {
 		return errors.Wrap(err, "validateJobTree")
 	}
-	rows := make([]JobRow, 0)
+	rows := make([]jobRow, 0)
 	if err = sqlx.SelectContext(ctx, tx, &rows, recursiveTraverseChildren+`
 		SELECT j.id, j.parent FROM pjs.jobs j
 		INNER JOIN children c ON j.id = c.id

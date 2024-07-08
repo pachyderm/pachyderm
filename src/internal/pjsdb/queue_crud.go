@@ -9,12 +9,12 @@ import (
 )
 
 // ListQueues returns a list of Queue objects.
-func ListQueues(ctx context.Context, db *pachsql.DB, req IterateQueuesRequest) ([]*Queue, error) {
+func ListQueues(ctx context.Context, db *pachsql.DB, req IterateQueuesRequest) ([]Queue, error) {
 	ctx = pctx.Child(ctx, "listQueue")
-	var queues []*Queue
+	var queues []Queue
 	if err := ForEachQueue(ctx, db, req, func(queue Queue) error {
 		q := queue
-		queues = append(queues, &q)
+		queues = append(queues, q)
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "list queue")

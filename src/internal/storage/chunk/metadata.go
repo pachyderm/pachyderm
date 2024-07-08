@@ -66,7 +66,7 @@ type Entry struct {
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func SetupPostgresStoreV0(ctx context.Context, tx *pachsql.Tx) error {
 	_, err := tx.Exec(`
-	CREATE TABLE IF NOT EXISTS storage.chunk_objects (
+	CREATE TABLE storage.chunk_objects (
 		chunk_id BYTEA NOT NULL,
 		gen BIGSERIAL NOT NULL,
 		uploaded BOOLEAN NOT NULL DEFAULT FALSE,
@@ -77,7 +77,7 @@ func SetupPostgresStoreV0(ctx context.Context, tx *pachsql.Tx) error {
 		PRIMARY KEY(chunk_id, gen)
 	);
 
-	CREATE TABLE IF NOT EXISTS storage.keys (
+	CREATE TABLE storage.keys (
 		name VARCHAR(128) NOT NULL,
 		data BYTEA NOT NULL,
 

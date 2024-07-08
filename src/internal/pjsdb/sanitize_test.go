@@ -71,7 +71,7 @@ func TestCreateJobRequest_Sanitize(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			err := trySanitize(t, d, pjsdb.JobID(1000), nil)
 			require.YesError(t, err)
-			if !errors.As(err, pjsdb.ParentNotFoundError) {
+			if !errors.As(err, pjsdb.ErrParentNotFound) {
 				t.Fatalf("expected parent not found error, got: %s", err)
 			}
 		})
