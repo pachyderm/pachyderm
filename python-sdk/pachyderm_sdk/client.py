@@ -16,7 +16,7 @@ from .api.license import ApiStub as _LicenseStub
 from .api.metadata import ApiStub as _MetadataApiStub
 from .api.pfs.extension import ApiStub as _PfsStub
 from .api.pps.extension import ApiStub as _PpsStub
-from .api.storage import FilesetStub as _StorageStub
+from .api.storage.extension import ApiStub as _StorageStub
 from .api.transaction.extension import ApiStub as _TransactionStub
 from .api.version import ApiStub as _VersionStub, Version
 from .api.worker.extension import WorkerStub as _WorkerStub
