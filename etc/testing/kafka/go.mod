@@ -1,6 +1,6 @@
 module github.com/pachyderm/pachyderm/etc/testing/kafka
 
-go 1.20
+go 1.22.5
 
 require github.com/segmentio/kafka-go v0.4.8
 
