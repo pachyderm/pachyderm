@@ -22,7 +22,7 @@ func NewTestClient(t testing.TB, regFunc func(*grpc.Server)) *grpc.ClientConn {
 	eg.Go(func() error {
 		return errors.EnsureStack(gserv.Serve(listener))
 	})
-	gconn, err := grpc.DialContext(ctx, "", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+	gconn, err := grpc.DialContext(ctx, "", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { //nolint:staticcheck
 		res, err := listener.Dial()
 		return res, errors.EnsureStack(err)
 	}), grpc.WithTransportCredentials(insecure.NewCredentials()))

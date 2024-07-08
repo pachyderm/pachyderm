@@ -56,7 +56,7 @@ func newInClusterDetClient(ctx context.Context, cfg detConfig) (det.DeterminedCl
 	if err != nil {
 		return nil, nil, nil, errors.Wrapf(err, "parsing determined url %q", cfg.MasterURL)
 	}
-	conn, err := grpc.DialContext(ctx, determinedURL.Host, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
+	conn, err := grpc.DialContext(ctx, determinedURL.Host, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary)) //nolint:staticcheck
 	if err != nil {
 		return nil, nil, nil, errors.Wrapf(err, "dialing determined at %q", determinedURL.Host)
 	}
