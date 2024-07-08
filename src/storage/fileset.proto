@@ -21,6 +21,14 @@ message DeleteFile {
   string path = 1;
 }
 
+// TODO: Src and dst naming?
+// TODO: Append?
+message CopyFile {
+  string fileset_id = 1;
+  string src = 2;
+  string dst = 3;
+}
+
 // A CreateFilesetRequest corresponds to a single file modification.
 // Supported file modifications are append and delete.
 // A put / overwrite file modification can be performed by a delete followed by an
@@ -30,6 +38,7 @@ message CreateFilesetRequest {
   oneof modification {
     AppendFile append_file = 1;
     DeleteFile delete_file = 2;
+    CopyFile copy_file = 3;
   }
 }
 

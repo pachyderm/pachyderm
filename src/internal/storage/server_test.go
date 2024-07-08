@@ -319,6 +319,49 @@ func checkFileset(ctx context.Context, t *testing.T, c storage.FilesetClient, re
 	require.Equal(t, 0, len(expected))
 }
 
+func TestCopy(t *testing.T) {
+	pachClient := pachd.NewTestPachd(t)
+	ctx := pachClient.Ctx()
+	c := pachClient.FilesetClient
+	baseId, testFiles, err := createFileset(ctx, c, 100, units.KB)
+	require.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		offset := rand.Intn(len(testFiles) - 1)
+		size := rand.Intn(len(testFiles)-offset) + 1
+		copyFiles := testFiles[offset : offset+size]
+		id, err := copyFileset(ctx, c, baseId, copyFiles)
+		require.NoError(t, err)
+		checkFileset(ctx, t, c, &storage.ReadFilesetRequest{FilesetId: id}, copyFiles)
+	}
+	id, err := copyFileset(ctx, c, baseId, []*testFile{{path: "/"}})
+	require.NoError(t, err)
+	checkFileset(ctx, t, c, &storage.ReadFilesetRequest{FilesetId: id}, testFiles)
+}
+
+func copyFileset(ctx context.Context, c storage.FilesetClient, filesetId string, files []*testFile) (string, error) {
+	cfc, err := c.CreateFileset(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, file := range files {
+		if err := cfc.Send(&storage.CreateFilesetRequest{
+			Modification: &storage.CreateFilesetRequest_CopyFile{
+				CopyFile: &storage.CopyFile{
+					FilesetId: filesetId,
+					Src:       file.path,
+				},
+			},
+		}); err != nil {
+			return "", err
+		}
+	}
+	response, err := cfc.CloseAndRecv()
+	if err != nil {
+		return "", err
+	}
+	return response.FilesetId, nil
+}
+
 func TestReadFilesetCDR(t *testing.T) {
 	pachClient := pachd.NewTestPachd(t)
 	ctx := pachClient.Ctx()

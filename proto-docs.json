@@ -29805,6 +29805,54 @@
           ]
         },
         {
+          "name": "CopyFile",
+          "longName": "CopyFile",
+          "fullName": "storage.CopyFile",
+          "description": "TODO: Src and dst naming?\nTODO: Append?",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "src",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "dst",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "CreateFilesetRequest",
           "longName": "CreateFilesetRequest",
           "fullName": "storage.CreateFilesetRequest",
@@ -29833,6 +29881,18 @@
               "type": "DeleteFile",
               "longType": "DeleteFile",
               "fullType": "storage.DeleteFile",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "modification",
+              "defaultValue": ""
+            },
+            {
+              "name": "copy_file",
+              "description": "",
+              "label": "",
+              "type": "CopyFile",
+              "longType": "CopyFile",
+              "fullType": "storage.CopyFile",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "modification",

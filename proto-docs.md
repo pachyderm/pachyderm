@@ -694,6 +694,7 @@
     - [AppendFile](#storage-AppendFile)
     - [ComposeFilesetRequest](#storage-ComposeFilesetRequest)
     - [ComposeFilesetResponse](#storage-ComposeFilesetResponse)
+    - [CopyFile](#storage-CopyFile)
     - [CreateFilesetRequest](#storage-CreateFilesetRequest)
     - [CreateFilesetResponse](#storage-CreateFilesetResponse)
     - [DeleteFile](#storage-DeleteFile)
@@ -11118,6 +11119,24 @@ a file with the specified path doesn&#39;t exist, it will be created.
 
 
 
+<a name="storage-CopyFile"></a>
+
+### CopyFile
+TODO: Src and dst naming?
+TODO: Append?
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| src | [string](#string) |  |  |
+| dst | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="storage-CreateFilesetRequest"></a>
 
 ### CreateFilesetRequest
@@ -11132,6 +11151,7 @@ append.
 | ----- | ---- | ----- | ----------- |
 | append_file | [AppendFile](#storage-AppendFile) |  |  |
 | delete_file | [DeleteFile](#storage-DeleteFile) |  |  |
+| copy_file | [CopyFile](#storage-CopyFile) |  |  |
 
 
 

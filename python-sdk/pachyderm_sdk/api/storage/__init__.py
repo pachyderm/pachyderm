@@ -48,6 +48,15 @@ class DeleteFile(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class CopyFile(betterproto.Message):
+    """TODO: Src and dst naming? TODO: Append?"""
+
+    fileset_id: str = betterproto.string_field(1)
+    src: str = betterproto.string_field(2)
+    dst: str = betterproto.string_field(3)
+
+
+@dataclass(eq=False, repr=False)
 class CreateFilesetRequest(betterproto.Message):
     """
     A CreateFilesetRequest corresponds to a single file modification. Supported
@@ -58,6 +67,7 @@ class CreateFilesetRequest(betterproto.Message):
 
     append_file: "AppendFile" = betterproto.message_field(1, group="modification")
     delete_file: "DeleteFile" = betterproto.message_field(2, group="modification")
+    copy_file: "CopyFile" = betterproto.message_field(3, group="modification")
 
 
 @dataclass(eq=False, repr=False)

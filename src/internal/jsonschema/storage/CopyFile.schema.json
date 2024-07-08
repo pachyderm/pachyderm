@@ -1,0 +1,23 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CopyFile",
+    "definitions": {
+        "CopyFile": {
+            "properties": {
+                "filesetId": {
+                    "type": "string"
+                },
+                "src": {
+                    "type": "string"
+                },
+                "dst": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Copy File",
+            "description": "TODO: Src and dst naming? TODO: Append?"
+        }
+    }
+}

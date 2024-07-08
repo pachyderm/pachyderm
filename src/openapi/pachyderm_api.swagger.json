@@ -12457,6 +12457,21 @@
         }
       }
     },
+    "storageCopyFile": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "src": {
+          "type": "string"
+        },
+        "dst": {
+          "type": "string"
+        }
+      },
+      "title": "TODO: Src and dst naming?\nTODO: Append?"
+    },
     "storageCreateFilesetRequest": {
       "type": "object",
       "properties": {
@@ -12465,6 +12480,9 @@
         },
         "deleteFile": {
           "$ref": "#/definitions/storageDeleteFile"
+        },
+        "copyFile": {
+          "$ref": "#/definitions/storageCopyFile"
         }
       },
       "description": "A CreateFilesetRequest corresponds to a single file modification.\nSupported file modifications are append and delete.\nA put / overwrite file modification can be performed by a delete followed by an\nappend.\n TODO: Decide how to handle datums."
