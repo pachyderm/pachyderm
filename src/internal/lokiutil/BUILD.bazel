@@ -1,10 +1,11 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "lokiutil",
     srcs = [
         "fake.go",
         "lokiutil.go",
+        "repair.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil",
     visibility = ["//src:__subpackages__"],
@@ -13,4 +14,11 @@ go_library(
         "//src/internal/errutil",
         "//src/internal/lokiutil/client",
     ],
+)
+
+go_test(
+    name = "lokiutil_test",
+    srcs = ["repair_test.go"],
+    embed = [":lokiutil"],
+    deps = ["@com_github_google_go_cmp//cmp"],
 )
