@@ -550,8 +550,14 @@ func (d *driver) UserCodeEnv(
 	inputs []*common.Input,
 	pachToken string,
 ) []string {
-	result := os.Environ()
-
+	var result []string
+	for _, kv := range os.Environ() {
+		for _, k := range d.inheritedEnvVars() {
+			if strings.HasPrefix(kv, k+"=") {
+				result = append(result, kv)
+			}
+		}
+	}
 	for _, input := range inputs {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
 		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.Id))
@@ -611,6 +617,20 @@ func (d *driver) UserCodeEnv(
 		result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.Id))
 	}
 	return result
+}
+
+func (d *driver) inheritedEnvVars() []string {
+	var results []string
+	for k := range d.pipelineInfo.Details.Transform.Env {
+		results = append(results, k)
+	}
+	for _, s := range d.pipelineInfo.Details.Transform.Secrets {
+		results = append(results, s.EnvVar)
+	}
+	results = append(results, "PATH")
+	results = append(results, "HOME")
+	results = append(results, "PACH_NAMESPACE")
+	return results
 }
 
 func (d *driver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
