@@ -1478,3 +1478,18 @@ func TestRerunPipeline(t *testing.T) {
 		"job", jobs[0].Job.GetId(),
 	).Run())
 }
+
+func TestProjectDefaultsMetadata(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	projectName := tu.UniqueString("proj")
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl create project {{.projectName}}
+		echo '{"createPipelineRequest": {"autoscaling": true}} | pachctl create defaults --project {{.projectName}}
+		pachctl inspect defaults --project {{.projectName}} --raw | jq -r .createdBy | match "pach:root
+`,
+		"projectName:", projectName,
+	).Run())
+}
