@@ -1490,6 +1490,6 @@ func TestProjectDefaultsMetadata(t *testing.T) {
 		echo '{"createPipelineRequest": {"autoscaling": true}}' | pachctl create defaults --project {{.projectName}}
 		pachctl inspect defaults --project {{.projectName}} --raw | jq -r .createdBy | match "pach:root"
 	`,
-		"projectName:", projectName,
+		"projectName", projectName,
 	).Run())
 }
