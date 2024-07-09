@@ -1,4 +1,4 @@
-FROM jupyter/scipy-notebook:lab-3.3.3
+FROM jupyter/scipy-notebook:lab-3.6.3
 # https://github.com/pachyderm/docker-stacks/pull/1/commits/fde4beb9ff1afb404f0e34828adc1f311f4bf2d7
 
 ENV PFS_MOUNT_DIR=/pfs
@@ -24,6 +24,6 @@ RUN chmod 777 /pfs
 USER $NB_UID
 COPY dist dist
 WORKDIR /home/jovyan
-RUN pip install `find /app/dist/ -name \*.whl` nbgitpuller
+RUN pip install `find /app/dist/ -name \*.whl` jupyterlab==3.6.7 nbgitpuller
 RUN pip install determined==0.23.3
 RUN /opt/conda/bin/jupyter lab extension disable nbclassic
