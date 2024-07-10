@@ -5021,6 +5021,7 @@ Edit represents editing one piece of metadata.
 | branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  | branch targets a branch&#39;s metadata. |
 | repo | [pfs_v2.RepoPicker](#pfs_v2-RepoPicker) |  | repo targets a repo&#39;s metadata. |
 | cluster | [ClusterPicker](#metadata-ClusterPicker) |  | cluster targets the cluster&#39;s metadata. |
+| pipeline | [pps_v2.PipelinePicker](#pps_v2-PipelinePicker) |  | pipeline targets a pipeline. |
 | replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
 | add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
 | edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |

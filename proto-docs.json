@@ -10787,6 +10787,18 @@
               }
             },
             {
+              "name": "pipeline",
+              "description": "pipeline targets a pipeline.",
+              "label": "",
+              "type": "PipelinePicker",
+              "longType": "pps_v2.PipelinePicker",
+              "fullType": "pps_v2.PipelinePicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": ""
+            },
+            {
               "name": "replace",
               "description": "replace replaces a target's metadata with a new metadata mapping.",
               "label": "",

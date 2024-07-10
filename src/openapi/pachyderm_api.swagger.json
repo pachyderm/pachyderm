@@ -8530,6 +8530,10 @@
           "$ref": "#/definitions/metadataClusterPicker",
           "description": "cluster targets the cluster's metadata."
         },
+        "pipeline": {
+          "$ref": "#/definitions/pps_v2PipelinePicker",
+          "description": "pipeline targets a pipeline."
+        },
         "replace": {
           "$ref": "#/definitions/EditReplace",
           "description": "replace replaces a target's metadata with a new metadata mapping."
@@ -11758,6 +11762,25 @@
         "RECENT"
       ],
       "default": "RECENT"
+    },
+    "pps_v2PipelinePicker": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/pps_v2PipelinePickerRepoName"
+        }
+      }
+    },
+    "pps_v2PipelinePickerRepoName": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2ProjectPicker"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
     },
     "pps_v2PipelineState": {
       "type": "string",

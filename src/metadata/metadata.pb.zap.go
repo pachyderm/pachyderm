@@ -29,6 +29,7 @@ func (x *Edit) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("cluster", x.GetCluster())
 	}
+	enc.AddObject("pipeline", x.GetPipeline())
 	if obj, ok := interface{}(x.GetReplace()).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("replace", obj)
 	} else {

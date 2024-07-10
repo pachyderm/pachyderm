@@ -29,6 +29,11 @@
                     "additionalProperties": false,
                     "description": "cluster targets the cluster's metadata."
                 },
+                "pipeline": {
+                    "$ref": "#/definitions/pps_v2.PipelinePicker",
+                    "additionalProperties": false,
+                    "description": "pipeline targets a pipeline."
+                },
                 "replace": {
                     "$ref": "#/definitions/metadata.Edit.Replace",
                     "additionalProperties": false,
@@ -76,6 +81,11 @@
                 {
                     "required": [
                         "cluster"
+                    ]
+                },
+                {
+                    "required": [
+                        "pipeline"
                     ]
                 },
                 {
@@ -342,6 +352,39 @@
                 "type": {
                     "type": "string",
                     "description": "type is optional. If omitted, the default type is 'user'."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Repo Name"
+        },
+        "pps_v2.PipelinePicker": {
+            "properties": {
+                "name": {
+                    "$ref": "#/definitions/pps_v2.PipelinePicker.RepoName",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "PipelinePicker is used to select a single pipeline.  It is a pfs.RepoPicker\n where the repo type defaults to \"spec.\"",
+            "description": "PipelinePicker is used to select a single pipeline.  It is a pfs.RepoPicker where the repo type defaults to \"spec.\""
+        },
+        "pps_v2.PipelinePicker.RepoName": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.ProjectPicker",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,
