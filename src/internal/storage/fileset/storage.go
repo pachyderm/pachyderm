@@ -465,3 +465,42 @@ func (d *deleter) DeleteTx(tx *pachsql.Tx, oid string) error {
 	}
 	return d.store.DeleteTx(tx, *id)
 }
+
+// ResolveHandle determines which ValidFileset a Handle points to.
+// TODO(Fahad): once handles are actually external, we'll need to determine this via a lookup table.
+func (s *Storage) ResolveHandle(ctx context.Context, handle Handle) (ValidFileset, error) {
+	id, err := ParseID(string(handle))
+	if err != nil {
+		return nil, errors.Wrap(err, "resolve handle")
+	}
+	fs, err := s.Open(ctx, []ID{*id})
+	if err != nil {
+		return nil, errors.Wrap(err, "resolve handle")
+	}
+	return internalFileset{
+		id:      *id,
+		fileset: fs,
+	}, nil
+}
+
+// Pin resolves and clones a ValidFileset, keeping it alive forever.
+/* 	TODO(Fahad): Replace cloning with new fileset ID system where IDs are stable hashes of the root.
+   	Fileset trees must be convergent in order to achieve this. */
+func (s *Storage) Pin(ctx context.Context, fs ValidFileset) (ValidFileset, error) {
+	var id *ID
+	var err error
+	if err = dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
+		id, err = s.CloneTx(tx, fs.ID(), track.NoTTL)
+		return err
+	}); err != nil {
+		return nil, errors.Wrap(err, "pin")
+	}
+	newFs, err := s.Open(ctx, []ID{*id})
+	if err != nil {
+		return nil, errors.Wrap(err, "pin")
+	}
+	return internalFileset{
+		id:      *id,
+		fileset: newFs,
+	}, nil
+}

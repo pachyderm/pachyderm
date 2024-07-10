@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
 	"io"
 	"math/rand"
 	"sort"
@@ -353,4 +354,43 @@ func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, ms
 		write(data[offset : offset+size])
 	}
 	require.True(t, bytes.Equal(stableHash, getHash()), msg)
+}
+
+func TestHash(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	storage := newTestStorage(ctx, t)
+	fs := writeFileSet(ctx, t, storage, []*testFile{{path: "/", datum: "default", data: []byte("test")}})
+	vFs, err := storage.ResolveHandle(ctx, Handle(fs.HexString()))
+	require.NoError(t, err)
+	hFs, err := Hash(ctx, vFs)
+	require.NoError(t, err)
+	require.NotNil(t, hFs.Hash())
+}
+
+func TestPin(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	storage := newTestStorage(ctx, t)
+	tF := testFile{path: "/", datum: "default", data: []byte("test")}
+	fs := writeFileSet(ctx, t, storage, []*testFile{&tF})
+	vFs, err := storage.ResolveHandle(ctx, Handle(fs.HexString()))
+	require.NoError(t, err)
+	pinnedFs, err := storage.Pin(ctx, vFs)
+	require.NoError(t, err)
+	// validate pinned fileset is the same.
+	id := pinnedFs.ID()
+	if diff := cmp.Diff(id, ID{}); diff == "" {
+		t.Fatal("id is empty")
+	}
+	var files []File
+	require.NoError(t, pinnedFs.Fileset().Iterate(ctx, func(f File) error {
+		files = append(files, f)
+		return nil
+	}))
+	require.Len(t, files, 1)
+	// compare pinned fileset's file to the test file.
+	require.Equal(t, tF.datum, files[0].Index().File.Datum)
+	require.Equal(t, tF.path, files[0].Index().Path)
+	w := &bytes.Buffer{}
+	require.NoError(t, files[0].Content(ctx, w))
+	require.Equal(t, tF.data, w.Bytes())
 }
