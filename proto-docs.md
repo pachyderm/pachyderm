@@ -3915,6 +3915,8 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| created_by | [string](#string) |  |  |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | json | [string](#string) |  |  |
 
 
@@ -8167,6 +8169,8 @@ Delete more than one pipeline.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | project_defaults_json | [string](#string) |  | A JSON-encoded ProjectDefaults message, this is the verbatim input passed to SetProjectDefaults. |
+| created_by | [string](#string) |  |  |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 
 
 
