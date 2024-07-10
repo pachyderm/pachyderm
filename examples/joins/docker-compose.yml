@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+ 
+
+  notebook:
+    build: 
+      context: .
+      target: notebook
+      dockerfile: Dockerfile.notebook
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - "8888:8888"
+    environment:
+      - GRANT_SUDO=yes
+
+
+  buildah:
+    build: 
+      context: .
+      target: buildah
+      dockerfile: Dockerfile.notebook
+    security_opt:
+      - seccomp:unconfined
