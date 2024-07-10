@@ -32,7 +32,7 @@ const (
 
 type postgresCollection struct {
 	table              string
-	db                 *pachsql.DB
+	db                 sqlx.ExtContext
 	listener           PostgresListener
 	template           proto.Message
 	indexes            []*Index
@@ -95,7 +95,7 @@ func WithPutHook(putHook func(*pachsql.Tx, interface{}) error) Option {
 }
 
 // NewPostgresCollection creates a new collection backed by postgres.
-func NewPostgresCollection(name string, db *pachsql.DB, listener PostgresListener, template proto.Message, indexes []*Index, opts ...Option) PostgresCollection {
+func NewPostgresCollection(name string, db sqlx.ExtContext, listener PostgresListener, template proto.Message, indexes []*Index, opts ...Option) PostgresCollection {
 	col := &postgresCollection{
 		table:              name,
 		db:                 db,
@@ -506,7 +506,7 @@ func (c *postgresReadWriteCollection) List(ctx context.Context, val proto.Messag
 
 func (c *postgresReadOnlyCollection) Count(ctx context.Context) (int64, error) {
 	query := fmt.Sprintf("select count(*) from collections.%s", c.table)
-	row := c.db.QueryRowContext(ctx, query)
+	row := c.db.QueryRowxContext(ctx, query)
 
 	var result int64
 	err := row.Scan(&result)
