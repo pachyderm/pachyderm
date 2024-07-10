@@ -50,15 +50,13 @@ func ConfigureOIDCProvider(t *testing.T, c *client.APIClient, unitTest bool) err
 	// is not reachable without a tunnel on minikube's IP.
 	local := true
 	issuerHost := "pachd"
-	issuerPort := "1658"
-	redirectPort := "1657"
+	issuerPort := strconv.Itoa(int(c.GetAddress().Port + 8))
+	redirectPort := strconv.Itoa(int(c.GetAddress().Port + 7))
 
 	if unitTest {
 		// In unit tests, all grpc servers listen on the peerPort which is randomly generated.
 		local = false
 		issuerHost = c.GetAddress().Host
-		issuerPort = strconv.Itoa(int(c.GetAddress().Port + 8))
-		redirectPort = strconv.Itoa(int(c.GetAddress().Port + 7))
 	}
 
 	_, err = adminClient.SetIdentityServerConfig(adminClient.Ctx(), &identity.SetIdentityServerConfigRequest{
@@ -186,10 +184,7 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 		return http.ErrUseLastResponse
 	}
 
-	redirectPort := "1657"
-	if unitTest {
-		redirectPort = strconv.Itoa(int(testClient.GetAddress().Port + 7))
-	}
+	redirectPort := strconv.Itoa(int(testClient.GetAddress().Port + 7))
 
 	oauthConfig := oauth2.Config{
 		ClientID:     "testapp",
