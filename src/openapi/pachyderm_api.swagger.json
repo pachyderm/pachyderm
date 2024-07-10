@@ -12481,6 +12481,23 @@
         }
       }
     },
+    "storageCopyFile": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "src": {
+          "type": "string",
+          "description": "Src is the source path of the file or directory."
+        },
+        "dst": {
+          "type": "string",
+          "description": "Dst is the destination path of the file or directory.\nIf dst is unset, src will be used as the destination path."
+        }
+      },
+      "title": "CopyFile copies a file or directory from the specified fileset with the\nspecified path. If a file or directory with the specified path doesn't\nexist in the specified fileset, the copy will be a no-op.\nTODO: Append?"
+    },
     "storageCreateFilesetRequest": {
       "type": "object",
       "properties": {
@@ -12489,6 +12506,9 @@
         },
         "deleteFile": {
           "$ref": "#/definitions/storageDeleteFile"
+        },
+        "copyFile": {
+          "$ref": "#/definitions/storageCopyFile"
         }
       },
       "description": "A CreateFilesetRequest corresponds to a single file modification.\nSupported file modifications are append and delete.\nA put / overwrite file modification can be performed by a delete followed by an\nappend.\n TODO: Decide how to handle datums."

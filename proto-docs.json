@@ -29865,6 +29865,54 @@
           ]
         },
         {
+          "name": "CopyFile",
+          "longName": "CopyFile",
+          "fullName": "storage.CopyFile",
+          "description": "CopyFile copies a file or directory from the specified fileset with the\nspecified path. If a file or directory with the specified path doesn't\nexist in the specified fileset, the copy will be a no-op.\nTODO: Append?",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "src",
+              "description": "Src is the source path of the file or directory.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "dst",
+              "description": "Dst is the destination path of the file or directory.\nIf dst is unset, src will be used as the destination path.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "CreateFilesetRequest",
           "longName": "CreateFilesetRequest",
           "fullName": "storage.CreateFilesetRequest",
@@ -29893,6 +29941,18 @@
               "type": "DeleteFile",
               "longType": "DeleteFile",
               "fullType": "storage.DeleteFile",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "modification",
+              "defaultValue": ""
+            },
+            {
+              "name": "copy_file",
+              "description": "",
+              "label": "",
+              "type": "CopyFile",
+              "longType": "CopyFile",
+              "fullType": "storage.CopyFile",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "modification",

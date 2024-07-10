@@ -11,6 +11,10 @@
                 "deleteFile": {
                     "$ref": "#/definitions/storage.DeleteFile",
                     "additionalProperties": false
+                },
+                "copyFile": {
+                    "$ref": "#/definitions/storage.CopyFile",
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false,
@@ -24,6 +28,11 @@
                 {
                     "required": [
                         "delete_file"
+                    ]
+                },
+                {
+                    "required": [
+                        "copy_file"
                     ]
                 }
             ],
@@ -44,6 +53,25 @@
             "type": "object",
             "title": "Append File",
             "description": "AppendFile will append the provided data to the file with the specified path. If a file with the specified path doesn't exist, it will be created."
+        },
+        "storage.CopyFile": {
+            "properties": {
+                "filesetId": {
+                    "type": "string"
+                },
+                "src": {
+                    "type": "string",
+                    "description": "Src is the source path of the file or directory."
+                },
+                "dst": {
+                    "type": "string",
+                    "description": "Dst is the destination path of the file or directory. If dst is unset, src will be used as the destination path."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Copy File",
+            "description": "CopyFile copies a file or directory from the specified fileset with the specified path. If a file or directory with the specified path doesn't exist in the specified fileset, the copy will be a no-op. TODO: Append?"
         },
         "storage.DeleteFile": {
             "properties": {

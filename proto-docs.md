@@ -695,6 +695,7 @@
     - [AppendFile](#storage-AppendFile)
     - [ComposeFilesetRequest](#storage-ComposeFilesetRequest)
     - [ComposeFilesetResponse](#storage-ComposeFilesetResponse)
+    - [CopyFile](#storage-CopyFile)
     - [CreateFilesetRequest](#storage-CreateFilesetRequest)
     - [CreateFilesetResponse](#storage-CreateFilesetResponse)
     - [DeleteFile](#storage-DeleteFile)
@@ -11137,6 +11138,26 @@ a file with the specified path doesn&#39;t exist, it will be created.
 
 
 
+<a name="storage-CopyFile"></a>
+
+### CopyFile
+CopyFile copies a file or directory from the specified fileset with the
+specified path. If a file or directory with the specified path doesn&#39;t
+exist in the specified fileset, the copy will be a no-op.
+TODO: Append?
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| src | [string](#string) |  | Src is the source path of the file or directory. |
+| dst | [string](#string) |  | Dst is the destination path of the file or directory. If dst is unset, src will be used as the destination path. |
+
+
+
+
+
+
 <a name="storage-CreateFilesetRequest"></a>
 
 ### CreateFilesetRequest
@@ -11151,6 +11172,7 @@ append.
 | ----- | ---- | ----- | ----------- |
 | append_file | [AppendFile](#storage-AppendFile) |  |  |
 | delete_file | [DeleteFile](#storage-DeleteFile) |  |  |
+| copy_file | [CopyFile](#storage-CopyFile) |  |  |
 
 
 

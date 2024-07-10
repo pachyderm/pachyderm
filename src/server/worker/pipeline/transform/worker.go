@@ -281,11 +281,18 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
 		pachClient := pachClient.WithCtx(ctx)
 		cacheClient := pfssync.NewCacheClient(pachClient, renewer)
+		di := datum.NewFileSetIterator(ctx, pachClient.PfsAPIClient, task.FileSetId, task.PathRange)
+		filesetId, err := datum.CreateInputFileset(ctx, pachClient.FilesetClient, cacheClient, di)
+		if err != nil {
+			return err
+		}
+		if err := renewer.Add(ctx, filesetId); err != nil {
+			return err
+		}
 		// Setup file operation client for output meta commit.
 		resp, err := cacheClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 			// Setup file operation client for output PFS commit.
 			resp, err := cacheClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) error {
-				di := datum.NewFileSetIterator(pachClient.Ctx(), pachClient.PfsAPIClient, task.FileSetId, task.PathRange)
 				opts := []datum.SetOption{
 					datum.WithMetaOutput(mfMeta),
 					datum.WithPFSOutput(mfPFS),
@@ -294,7 +301,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 				if driver.PipelineInfo().Details.Transform.DatumBatching {
 					return handleDatumSetBatching(ctx, driver, logger, task, status, cacheClient, di, opts)
 				}
-				return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, opts, func(ctx context.Context, logger logs.TaggedLogger, env []string) error {
+				return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, filesetId, opts, func(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 					return errors.EnsureStack(driver.RunUserCode(ctx, logger, env))
 				})
 			})
@@ -356,7 +363,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 		if err := start(); err != nil {
 			return errors.Wrap(err, "error starting user code")
 		}
-		return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, setOpts, func(ctx context.Context, logger logs.TaggedLogger, env []string) (retErr error) {
+		return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, "", setOpts, func(ctx context.Context, logger logs.TaggedLogger, env []string) (retErr error) {
 			defer func() {
 				// Restart the user code if an error occurred.
 				if retErr != nil {
@@ -386,7 +393,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 type datumCallback = func(ctx context.Context, logger logs.TaggedLogger, env []string) error
 
 // TODO: There are way too many parameters here. Consider grouping them into a reasonable struct or storing some of these in the driver.
-func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, setOpts []datum.SetOption, cb datumCallback) error {
+func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.TaggedLogger, task *DatumSetTask, status *Status, cacheClient *pfssync.CacheClient, di datum.Iterator, filesetId string, setOpts []datum.SetOption, cb datumCallback) error {
 	jobInfo, err := driver.GetJobInfo(task.Job)
 	if err != nil {
 		return errors.Wrapf(err, "load datum set's job info for job %q", task.Job.String())
@@ -407,7 +414,7 @@ func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.Tag
 			inputs := meta.Inputs
 			logger := baseLogger.WithData(inputs)
 
-			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs, jobInfo.GetAuthToken())
+			env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, inputs, jobInfo.GetAuthToken(), filesetId)
 			opts := []datum.Option{datum.WithEnv(env)}
 			if driver.PipelineInfo().Details.DatumTimeout != nil {
 				timeout := driver.PipelineInfo().Details.DatumTimeout.AsDuration()
