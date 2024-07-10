@@ -91,7 +91,7 @@ func pipelineCommitKey(commit *pfs.Commit) (string, error) {
 }
 
 // Pipelines returns a PostgresCollection of pipelines
-func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+func Pipelines(db sqlx.ExtContext, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		pipelinesCollectionName,
 		db,
