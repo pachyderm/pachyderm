@@ -49,11 +49,21 @@ class DeleteFile(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class CopyFile(betterproto.Message):
-    """TODO: Src and dst naming? TODO: Append?"""
+    """
+    CopyFile copies a file or directory from the specified fileset with the
+    specified path. If a file or directory with the specified path doesn't
+    exist in the specified fileset, the copy will be a no-op. TODO: Append?
+    """
 
     fileset_id: str = betterproto.string_field(1)
     src: str = betterproto.string_field(2)
+    """Src is the source path of the file or directory."""
+
     dst: str = betterproto.string_field(3)
+    """
+    Dst is the destination path of the file or directory. If dst is unset, src
+    will be used as the destination path.
+    """
 
 
 @dataclass(eq=False, repr=False)

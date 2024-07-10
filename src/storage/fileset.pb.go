@@ -129,7 +129,9 @@ func (x *DeleteFile) GetPath() string {
 	return ""
 }
 
-// TODO: Src and dst naming?
+// CopyFile copies a file or directory from the specified fileset with the
+// specified path. If a file or directory with the specified path doesn't
+// exist in the specified fileset, the copy will be a no-op.
 // TODO: Append?
 type CopyFile struct {
 	state         protoimpl.MessageState
@@ -137,8 +139,11 @@ type CopyFile struct {
 	unknownFields protoimpl.UnknownFields
 
 	FilesetId string `protobuf:"bytes,1,opt,name=fileset_id,json=filesetId,proto3" json:"fileset_id,omitempty"`
-	Src       string `protobuf:"bytes,2,opt,name=src,proto3" json:"src,omitempty"`
-	Dst       string `protobuf:"bytes,3,opt,name=dst,proto3" json:"dst,omitempty"`
+	// Src is the source path of the file or directory.
+	Src string `protobuf:"bytes,2,opt,name=src,proto3" json:"src,omitempty"`
+	// Dst is the destination path of the file or directory.
+	// If dst is unset, src will be used as the destination path.
+	Dst string `protobuf:"bytes,3,opt,name=dst,proto3" json:"dst,omitempty"`
 }
 
 func (x *CopyFile) Reset() {

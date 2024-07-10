@@ -12464,13 +12464,15 @@
           "type": "string"
         },
         "src": {
-          "type": "string"
+          "type": "string",
+          "description": "Src is the source path of the file or directory."
         },
         "dst": {
-          "type": "string"
+          "type": "string",
+          "description": "Dst is the destination path of the file or directory.\nIf dst is unset, src will be used as the destination path."
         }
       },
-      "title": "TODO: Src and dst naming?\nTODO: Append?"
+      "title": "CopyFile copies a file or directory from the specified fileset with the\nspecified path. If a file or directory with the specified path doesn't\nexist in the specified fileset, the copy will be a no-op.\nTODO: Append?"
     },
     "storageCreateFilesetRequest": {
       "type": "object",
