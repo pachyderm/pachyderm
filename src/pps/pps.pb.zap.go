@@ -1332,3 +1332,20 @@ func (x *PipelinesSummary) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt64("unhealthy_pipelines", x.UnhealthyPipelines)
 	return nil
 }
+
+func (x *PipelinePicker) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("name", x.GetName())
+	return nil
+}
+
+func (x *PipelinePicker_RepoName) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	enc.AddString("name", x.Name)
+	return nil
+}

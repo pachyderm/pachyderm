@@ -1352,6 +1352,17 @@ class PipelinesSummary(betterproto.Message):
     """count of pipelines with a failed latest job"""
 
 
+@dataclass(eq=False, repr=False)
+class PipelinePicker(betterproto.Message):
+    name: "PipelinePickerRepoName" = betterproto.message_field(1, group="picker")
+
+
+@dataclass(eq=False, repr=False)
+class PipelinePickerRepoName(betterproto.Message):
+    project: "_pfs__.ProjectPicker" = betterproto.message_field(1)
+    name: str = betterproto.string_field(2)
+
+
 class ApiStub:
 
     def __init__(self, channel: "grpc.Channel"):

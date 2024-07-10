@@ -779,6 +779,18 @@ export type PipelinesSummary = {
   unhealthyPipelines?: string
 }
 
+export type PipelinePickerRepoName = {
+  project?: Pfs_v2Pfs.ProjectPicker
+  name?: string
+}
+
+
+type BasePipelinePicker = {
+}
+
+export type PipelinePicker = BasePipelinePicker
+  & OneOf<{ name: PipelinePickerRepoName }>
+
 export class API {
   static InspectJob(req: InspectJobRequest, initReq?: fm.InitReq): Promise<JobInfo> {
     return fm.fetchReq<InspectJobRequest, JobInfo>(`/pps_v2.API/InspectJob`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})

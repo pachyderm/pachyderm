@@ -539,6 +539,8 @@
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
     - [PipelineInfos](#pps_v2-PipelineInfos)
     - [PipelinePage](#pps_v2-PipelinePage)
+    - [PipelinePicker](#pps_v2-PipelinePicker)
+    - [PipelinePicker.RepoName](#pps_v2-PipelinePicker-RepoName)
     - [PipelinesSummary](#pps_v2-PipelinesSummary)
     - [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest)
     - [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse)
@@ -8777,6 +8779,37 @@ potentially expensive operations.
 | order | [PipelinePage.Ordering](#pps_v2-PipelinePage-Ordering) |  |  |
 | page_size | [int64](#int64) |  |  |
 | page_index | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelinePicker"></a>
+
+### PipelinePicker
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [PipelinePicker.RepoName](#pps_v2-PipelinePicker-RepoName) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelinePicker-RepoName"></a>
+
+### PipelinePicker.RepoName
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  |  |
+| name | [string](#string) |  |  |
 
 
 

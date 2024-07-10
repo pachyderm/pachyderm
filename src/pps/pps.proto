@@ -1050,6 +1050,19 @@ message PipelinesSummary {
   int64 unhealthy_pipelines = 5;
 }
 
+// PipelinePicker is used to select a single pipeline.  It is a pfs.RepoPicker
+// where the repo type defaults to "spec."
+
+message PipelinePicker {
+  message RepoName {
+    pfs_v2.ProjectPicker project = 1;
+    string name = 2;
+  }
+  oneof picker {
+    RepoName name = 1;
+  }
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
