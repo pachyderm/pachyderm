@@ -39,6 +39,7 @@ go_library(
         "//src/server/pfs/server",
         "//src/server/worker/common",
         "//src/server/worker/stats",
+        "//src/storage",
         "@com_github_pachyderm_ohmyglob//:ohmyglob",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_protobuf//encoding/protojson",
