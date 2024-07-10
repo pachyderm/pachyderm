@@ -34,7 +34,7 @@ func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, er
 		return nil, errors.EnsureStack(err)
 	}
 	defer tx.Rollback()
-	ti, err := GetTableInfoTx(tx, tableName)
+	ti, err := GetTableInfoTx(ctx, &Tx{tx: tx, ctx: ctx}, tableName)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -42,11 +42,11 @@ func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, er
 }
 
 // GetTableInfoTx looks up information about the table using INFORMATION_SCHEMA
-func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
+func GetTableInfoTx(ctx context.Context, tx *Tx, tablePath string) (*TableInfo, error) {
 	schemaName, tableName := SplitTableSchema(tx.DriverName(), tablePath)
 	if schemaName == "" {
 		// Check whether table is unique, and infer schema_name
-		if rows, err := tx.Query(fmt.Sprintf(`
+		if rows, err := tx.Query(ctx, fmt.Sprintf(`
 		SELECT lower(table_schema) as schema_name
 		FROM information_schema.tables
 		WHERE lower(table_name) = lower('%s')`, tableName)); err != nil {
@@ -82,7 +82,7 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	ORDER BY ordinal_position`, tableName, schemaName)
 	// We use tx.Query, not tx.Select here because MySQL and Postgres have conflicting capitalization
 	// and sqlx complains about scanning using struct tags.
-	rows, err := tx.Query(q)
+	rows, err := tx.Query(ctx, q)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}

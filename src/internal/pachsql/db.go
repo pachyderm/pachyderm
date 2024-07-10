@@ -34,9 +34,6 @@ var fixMysqlLoggerOnce sync.Once
 // DB is an alias for sqlx.DB which is the standard database type used throughout the project
 type DB = sqlx.DB
 
-// Tx is an alias for sqlx.Tx which is the standard transaction type used throughout the project
-type Tx = sqlx.Tx
-
 // Stmt is an alias for sqlx.Stmt which is the standard prepared statement type used throught the project
 type Stmt = sqlx.Stmt
 
