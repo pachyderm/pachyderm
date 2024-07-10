@@ -199,3 +199,10 @@ func TestRepairLine(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkRepairCRI(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		RepairLine("2020-01-02T12:34:56.789Z stdout F this is a line")
+		RepairLine("foobar stdout F this is a line")
+	}
+}

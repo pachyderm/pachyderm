@@ -6,6 +6,7 @@ package lokiutil
 import (
 	"encoding/json"
 	"strings"
+	"time"
 )
 
 func tryDocker(input map[string]any) (result string) {
@@ -35,7 +36,7 @@ func tryCRI(input string) (result string) {
 	if len(parts) != 4 {
 		return input
 	}
-	time, stream, flag, msg := parts[0], parts[1], parts[2], parts[3]
+	ts, stream, flag, msg := parts[0], parts[1], parts[2], parts[3]
 	switch flag {
 	case "P", "F":
 	default:
@@ -46,17 +47,8 @@ func tryCRI(input string) (result string) {
 	default:
 		return input
 	}
-	for _, r := range time {
-		switch r {
-		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'T', 'Z', ':', '.', '+', '-':
-			// We don't do a full parse of the time; if it contains only valid
-			// RFC3339Nano bytes, then we assume it's valid enough to continue testing
-			// the other parts.
-			continue
-		default:
-			// Any non-RFC3339Nano characters?  Not a CRI log.
-			return input
-		}
+	if _, err := time.Parse(time.RFC3339Nano, ts); err != nil {
+		return input
 	}
 	return msg
 }
@@ -78,7 +70,7 @@ func RepairLine(line string) (resultLine string, resultJSON map[string]any) {
 
 	switch line[0] {
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		// This will be '2' for the next
+		// This will be '2' for the next 980 years ;)
 		resultLine = tryCRI(line)
 
 	case '{':
