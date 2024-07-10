@@ -11,6 +11,10 @@
                 "reprocess": {
                     "type": "boolean",
                     "description": "Reprocess forces the pipeline to reprocess all datums."
+                },
+                "filter": {
+                    "$ref": "#/definitions/pps_v2.PipelineDatumFilter",
+                    "additionalProperties": false
                 }
             },
             "additionalProperties": false,
@@ -40,6 +44,19 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Pipeline"
+        },
+        "pps_v2.PipelineDatumFilter": {
+            "properties": {
+                "id": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Datum Filter"
         }
     }
 }

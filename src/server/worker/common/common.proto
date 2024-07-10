@@ -17,4 +17,10 @@ message Input {
   string branch = 8;
   bool empty_files = 10;
   bool s3 = 11; // If set, workers won't create an input directory for this input
+  DatumGen datum_gen= 12;  
+}
+
+message DatumGen {
+  string cmd = 1;
+  repeated string stdin = 2;
 }

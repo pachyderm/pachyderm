@@ -103,6 +103,22 @@
             "type": "object",
             "title": "Cron Input"
         },
+        "pps_v2.DatumGen": {
+            "properties": {
+                "cmd": {
+                    "type": "string"
+                },
+                "stdin": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Datum Gen"
+        },
         "pps_v2.Input": {
             "properties": {
                 "pfs": {
@@ -337,6 +353,16 @@
                         {}
                     ],
                     "description": "Trigger defines when this input is processed by the pipeline, if it's nil the input is processed anytime something is committed to the input branch."
+                },
+                "datumGen": {
+                    "$ref": "#/definitions/pps_v2.DatumGen",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 }
             },
             "additionalProperties": false,

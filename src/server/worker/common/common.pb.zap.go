@@ -21,5 +21,25 @@ func (x *Input) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("branch", x.Branch)
 	enc.AddBool("empty_files", x.EmptyFiles)
 	enc.AddBool("s3", x.S3)
+	if obj, ok := interface{}(x.DatumGen).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("datum_gen", obj)
+	} else {
+		enc.AddReflected("datum_gen", x.DatumGen)
+	}
+	return nil
+}
+
+func (x *DatumGen) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("cmd", x.Cmd)
+	stdinArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Stdin {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("stdin", zapcore.ArrayMarshalerFunc(stdinArrMarshaller))
 	return nil
 }

@@ -15,4 +15,10 @@ export type Input = {
   branch?: string
   emptyFiles?: boolean
   s3?: boolean
+  datumGen?: DatumGen
+}
+
+export type DatumGen = {
+  cmd?: string
+  stdin?: string[]
 }
