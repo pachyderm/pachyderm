@@ -39,12 +39,28 @@ import (
 	"crypto/rand"
 	"database/sql/driver"
 	"encoding/hex"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 )
+
+// Handle is an external ID that points to an ValidFileset. A Handle may expire or be invalidated to prevent access
+// to the underlying Fileset.
+type Handle string
+
+// ValidFileset is the internal representation of a fileset for the next version of the storage system.
+type ValidFileset interface {
+	ID() ID
+	Fileset() FileSet
+}
+
+// PinnedFileset represents a ValidFileset that cannot expire.
+type PinnedFileset struct {
+	internalFileset
+}
 
 // ID is the unique identifier for a fileset
 type ID [16]byte
@@ -199,4 +215,54 @@ func idsToHex(xs []ID) []string {
 		ys[i] = xs[i].HexString()
 	}
 	return ys
+}
+
+// HashedFileset is a ValidFileset whose hash has been calculated.
+type HashedFileset interface {
+	ValidFileset
+	Hash() []byte
+}
+
+// internalFileset is an internal UUID of a Handle that has been validated.
+// a validated UUID exists in the storage.filesets table.
+// It is unexported so that it cannot be created by a caller.
+type internalFileset struct {
+	id      ID
+	fileset FileSet
+	hash    []byte
+}
+
+func (v internalFileset) ID() ID {
+	return v.id
+}
+
+func (v internalFileset) Fileset() FileSet {
+	return v.fileset
+}
+
+func (v internalFileset) Hash() []byte {
+	return v.hash
+}
+
+func Hash(ctx context.Context, fs ValidFileset) (HashedFileset, error) {
+	hash := pachhash.New()
+	if err := fs.Fileset().Iterate(ctx, func(f File) error {
+		fHash, err := f.Hash(ctx)
+		if err != nil {
+			return errors.Wrap(err, "hashing file "+f.Index().Path)
+		}
+		// naively assuming that this is better than xor'ing a bunch of hashes together.
+		if _, err := hash.Write(fHash); err != nil {
+			return errors.Wrap(err, "writing file hash"+f.Index().Path)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "hash: iterating over files")
+	}
+	fsHash := hash.Sum(nil)
+	return internalFileset{
+		id:      fs.ID(),
+		fileset: fs.Fileset(),
+		hash:    fsHash,
+	}, nil
 }

@@ -354,3 +354,33 @@ func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, ms
 	}
 	require.True(t, bytes.Equal(stableHash, getHash()), msg)
 }
+
+func TestHash(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	storage := newTestStorage(ctx, t)
+	fs := writeFileSet(ctx, t, storage, []*testFile{{path: "/", datum: "default", data: []byte("test")}})
+	vFs, err := storage.ResolveHandle(ctx, Handle(fs.HexString()))
+	require.NoError(t, err)
+	hFs, err := Hash(ctx, vFs)
+	require.NoError(t, err)
+	require.NotNil(t, hFs.Hash())
+}
+
+func TestPin(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	storage := newTestStorage(ctx, t)
+	tF := testFile{path: "/", datum: "default", data: []byte("test")}
+	fs := writeFileSet(ctx, t, storage, []*testFile{&tF})
+	vFs, err := storage.ResolveHandle(ctx, Handle(fs.HexString()))
+	require.NoError(t, err)
+	pinnedFs, err := storage.Pin(ctx, vFs)
+	require.NoError(t, err)
+	// validate pinned fileset is the same.
+	var files []File
+	require.NoError(t, pinnedFs.Fileset().Iterate(ctx, func(f File) error {
+		files = append(files, f)
+		return nil
+	}))
+	require.Len(t, files, 1)
+	checkFile(ctx, t, files[0], &tF)
+}
