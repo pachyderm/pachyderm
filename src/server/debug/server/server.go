@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/wcharczuk/go-chart"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
@@ -50,6 +51,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -102,7 +104,64 @@ func NewDebugServer(env Env) debug.DebugServer {
 		logLevel:      log.LogLevel,
 		grpcLevel:     log.GRPCLevel,
 	}
+	ctx := pctx.Background("debug server")
+	go s.logDBState(ctx)
 	return s
+}
+
+func (s *debugServer) logDBState(ctx context.Context) {
+	ticker := time.NewTicker(8 * time.Second)
+	queries := map[string]string{
+		"idle queries": `
+                  SELECT current_timestamp - query_start AS runtime,
+                         datname,
+                         usename,
+                         client_addr,
+                         backend_xid,
+                         state,
+                         query
+		  FROM pg_stat_activity WHERE state LIKE '%idle%' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`,
+		"active queries": `
+                  SELECT current_timestamp - query_start AS runtime,
+                         datname,
+                         usename,
+                         client_addr,
+                         backend_xid,
+                         state,
+                         query
+		  FROM pg_stat_activity WHERE state NOT LIKE '%idle%' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`,
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			log.Error(pctx.TODO(), "log db context cancelled", zap.Error(context.Cause(ctx)))
+			return
+		case <-ticker.C:
+			for msg, query := range queries {
+				rows, err := s.database.QueryContext(ctx, query)
+				if err != nil {
+					log.Error(ctx, fmt.Sprintf("query %s", msg), zap.Error(err))
+					continue
+				}
+				var activities []map[string]interface{}
+				for rows.Next() {
+					r := make(map[string]interface{})
+					if err := sqlx.MapScan(rows, r); err != nil {
+						log.Error(ctx, fmt.Sprintf("map scan row for:  %s", msg), zap.Error(err))
+						break
+					}
+					activities = append(activities, r)
+				}
+				if err := rows.Err(); err != nil {
+					log.Error(ctx, fmt.Sprintf("write results for  %s", msg), zap.Error(err))
+					continue
+				}
+				if len(activities) > 0 {
+					log.Info(ctx, msg, zap.Any("activities", activities))
+				}
+			}
+		}
+	}
 }
 
 // the returned taskPath gets deleted by the caller after its contents are streamed, and is the location of any associated error file
