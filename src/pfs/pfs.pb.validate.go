@@ -3053,6 +3053,8 @@ func (m *ProjectInfo) validate(all bool) error {
 
 	// no validation rules for Metadata
 
+	// no validation rules for CreatedBy
+
 	if len(errors) > 0 {
 		return ProjectInfoMultiError(errors)
 	}
@@ -13575,6 +13577,239 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ReposSummaryResponseValidationError{}
+
+// Validate checks the field values on ForgetCommitRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ForgetCommitRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ForgetCommitRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ForgetCommitRequestMultiError, or nil if none found.
+func (m *ForgetCommitRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ForgetCommitRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetCommit()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ForgetCommitRequestValidationError{
+					field:  "Commit",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ForgetCommitRequestValidationError{
+					field:  "Commit",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetCommit()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ForgetCommitRequestValidationError{
+				field:  "Commit",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return ForgetCommitRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// ForgetCommitRequestMultiError is an error wrapping multiple validation
+// errors returned by ForgetCommitRequest.ValidateAll() if the designated
+// constraints aren't met.
+type ForgetCommitRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ForgetCommitRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ForgetCommitRequestMultiError) AllErrors() []error { return m }
+
+// ForgetCommitRequestValidationError is the validation error returned by
+// ForgetCommitRequest.Validate if the designated constraints aren't met.
+type ForgetCommitRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ForgetCommitRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ForgetCommitRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ForgetCommitRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ForgetCommitRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ForgetCommitRequestValidationError) ErrorName() string {
+	return "ForgetCommitRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ForgetCommitRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sForgetCommitRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ForgetCommitRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ForgetCommitRequestValidationError{}
+
+// Validate checks the field values on ForgetCommitResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ForgetCommitResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ForgetCommitResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ForgetCommitResponseMultiError, or nil if none found.
+func (m *ForgetCommitResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ForgetCommitResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return ForgetCommitResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// ForgetCommitResponseMultiError is an error wrapping multiple validation
+// errors returned by ForgetCommitResponse.ValidateAll() if the designated
+// constraints aren't met.
+type ForgetCommitResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ForgetCommitResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ForgetCommitResponseMultiError) AllErrors() []error { return m }
+
+// ForgetCommitResponseValidationError is the validation error returned by
+// ForgetCommitResponse.Validate if the designated constraints aren't met.
+type ForgetCommitResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ForgetCommitResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ForgetCommitResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ForgetCommitResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ForgetCommitResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ForgetCommitResponseValidationError) ErrorName() string {
+	return "ForgetCommitResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ForgetCommitResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sForgetCommitResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ForgetCommitResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ForgetCommitResponseValidationError{}
 
 // Validate checks the field values on RepoPicker_RepoName with the rules
 // defined in the proto definition for this message. If any rules are

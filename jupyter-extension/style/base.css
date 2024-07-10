@@ -6,6 +6,9 @@
 @import url('../src/utils/components/Circle/circle.css');
 @import url('../src/utils/components/DropdownCombobox/DropdownCombobox.css');
 @import url('../src/utils/components/LoadingDots/loadingDots.css');
+@import url('../src/utils/components/TextInput/TextInput.css');
+
+@import url('../src/plugins/mount/components/Explore/Explore.css');
 
 :root {
   --dropshadow-grey: #c6c6c6;

@@ -245,6 +245,7 @@ message ProjectInfo {
   AuthInfo auth_info = 3;
   google.protobuf.Timestamp created_at = 4;
   map<string, string> metadata = 5;
+  string created_by = 6;
 }
 
 // ProjectPicker defines mutually exclusive pickers that resolve to a single project.
@@ -772,6 +773,12 @@ message ReposSummaryResponse {
   repeated ReposSummary summaries = 1; // repo summaries for the requested projects
 }
 
+message ForgetCommitRequest {
+  CommitPicker commit = 1;
+}
+
+message ForgetCommitResponse {}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -900,4 +907,7 @@ service API {
   // Summary API
   // ReposSummary returns a list of summaries about the repos for each of the requested projects.
   rpc ReposSummary(ReposSummaryRequest) returns (ReposSummaryResponse) {}
+
+  // Forget API
+  rpc ForgetCommit(ForgetCommitRequest) returns (ForgetCommitResponse) {}
 }

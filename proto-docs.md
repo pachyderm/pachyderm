@@ -294,6 +294,7 @@
     - [LogMessage](#logs-LogMessage)
     - [LogQuery](#logs-LogQuery)
     - [PagingHint](#logs-PagingHint)
+    - [PipelineDatumLogQuery](#logs-PipelineDatumLogQuery)
     - [PipelineJobLogQuery](#logs-PipelineJobLogQuery)
     - [PipelineLogQuery](#logs-PipelineLogQuery)
     - [PodContainer](#logs-PodContainer)
@@ -374,6 +375,8 @@
     - [FindCommitsRequest](#pfs_v2-FindCommitsRequest)
     - [FindCommitsResponse](#pfs_v2-FindCommitsResponse)
     - [FinishCommitRequest](#pfs_v2-FinishCommitRequest)
+    - [ForgetCommitRequest](#pfs_v2-ForgetCommitRequest)
+    - [ForgetCommitResponse](#pfs_v2-ForgetCommitResponse)
     - [FsckRequest](#pfs_v2-FsckRequest)
     - [FsckResponse](#pfs_v2-FsckResponse)
     - [GetCacheRequest](#pfs_v2-GetCacheRequest)
@@ -454,15 +457,16 @@
     - [InspectQueueResponse](#pjs-InspectQueueResponse)
     - [Job](#pjs-Job)
     - [JobInfo](#pjs-JobInfo)
+    - [JobInfo.Success](#pjs-JobInfo-Success)
     - [JobInfoDetails](#pjs-JobInfoDetails)
     - [ListJobRequest](#pjs-ListJobRequest)
     - [ListJobResponse](#pjs-ListJobResponse)
     - [ListQueueRequest](#pjs-ListQueueRequest)
     - [ListQueueResponse](#pjs-ListQueueResponse)
     - [ProcessQueueRequest](#pjs-ProcessQueueRequest)
+    - [ProcessQueueRequest.Success](#pjs-ProcessQueueRequest-Success)
     - [ProcessQueueResponse](#pjs-ProcessQueueResponse)
     - [Queue](#pjs-Queue)
-    - [QueueElement](#pjs-QueueElement)
     - [QueueInfo](#pjs-QueueInfo)
     - [QueueInfoDetails](#pjs-QueueInfoDetails)
     - [WalkJobRequest](#pjs-WalkJobRequest)
@@ -3911,6 +3915,8 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| created_by | [string](#string) |  |  |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | json | [string](#string) |  |  |
 
 
@@ -4811,6 +4817,22 @@ LogQuery names a source of logs.
 
 
 
+<a name="logs-PipelineDatumLogQuery"></a>
+
+### PipelineDatumLogQuery
+PipelineDatumLogQuery returns logs from one datum in one pipeline.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pipeline | [PipelineLogQuery](#logs-PipelineLogQuery) |  | The pipeline. |
+| datum | [string](#string) |  | The hex-encoded ID of the datum. |
+
+
+
+
+
+
 <a name="logs-PipelineJobLogQuery"></a>
 
 ### PipelineJobLogQuery
@@ -4907,7 +4929,8 @@ A UserLogQuery selects logs that Pachyderm users need to see during normal Pachy
 | datum | [string](#string) |  | One datum, by hex-encoded ID. |
 | job | [string](#string) |  | One job by hex-encoded ID, across pipelines and projects. |
 | pipeline_job | [PipelineJobLogQuery](#logs-PipelineJobLogQuery) |  | One job in one pipeline. |
-| job_datum | [JobDatumLogQuery](#logs-JobDatumLogQuery) |  | One datum in one job |
+| job_datum | [JobDatumLogQuery](#logs-JobDatumLogQuery) |  | One datum in one job. |
+| pipeline_datum | [PipelineDatumLogQuery](#logs-PipelineDatumLogQuery) |  | One datum in one pipeline. |
 
 
 
@@ -4939,9 +4962,10 @@ LogLevel selects a log level. Pachyderm services only have DEBUG, INFO, and ERRO
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| LOG_LEVEL_DEBUG | 0 |  |
-| LOG_LEVEL_INFO | 1 |  |
-| LOG_LEVEL_ERROR | 2 |  |
+| LOG_LEVEL_UNSET | 0 | Use default log level filtering. |
+| LOG_LEVEL_DEBUG | 1 | Include DEBUG, INFO, and ERROR logs. |
+| LOG_LEVEL_INFO | 2 | Include INFO and ERROR logs. |
+| LOG_LEVEL_ERROR | 3 | Include only ERROR logs. |
 
 
  
@@ -6020,6 +6044,31 @@ DeleteReposRequest is used to delete more than one repo at once.
 
 
 
+<a name="pfs_v2-ForgetCommitRequest"></a>
+
+### ForgetCommitRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| commit | [CommitPicker](#pfs_v2-CommitPicker) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-ForgetCommitResponse"></a>
+
+### ForgetCommitResponse
+
+
+
+
+
+
+
 <a name="pfs_v2-FsckRequest"></a>
 
 ### FsckRequest
@@ -6432,6 +6481,7 @@ DeleteReposRequest is used to delete more than one repo at once.
 | auth_info | [AuthInfo](#pfs_v2-AuthInfo) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | metadata | [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry) | repeated |  |
+| created_by | [string](#string) |  |  |
 
 
 
@@ -7106,6 +7156,7 @@ These are the different places where a commit may be originated from
 | ListProject | [ListProjectRequest](#pfs_v2-ListProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) stream | ListProject returns info about all projects. |
 | DeleteProject | [DeleteProjectRequest](#pfs_v2-DeleteProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteProject deletes a project. |
 | ReposSummary | [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest) | [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse) | Summary API ReposSummary returns a list of summaries about the repos for each of the requested projects. |
+| ForgetCommit | [ForgetCommitRequest](#pfs_v2-ForgetCommitRequest) | [ForgetCommitResponse](#pfs_v2-ForgetCommitResponse) | Forget API |
 
  
 
@@ -7153,8 +7204,8 @@ These are the different places where a commit may be originated from
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
-| spec | [google.protobuf.Any](#google-protobuf-Any) |  |  |
-| input | [QueueElement](#pjs-QueueElement) |  |  |
+| program | [string](#string) |  | program is a fileset handle. |
+| input | [string](#string) | repeated | input is a list of fileset handles. |
 | cache_read | [bool](#bool) |  |  |
 | cache_write | [bool](#bool) |  |  |
 
@@ -7292,10 +7343,25 @@ JobInfo describes a Job
 | job | [Job](#pjs-Job) |  | Job is the Job&#39;s identity |
 | parent_job | [Job](#pjs-Job) |  | parent_job is the Job&#39;s parent if it exists. |
 | state | [JobState](#pjs-JobState) |  | state is the Job&#39;s state. See JobState for a description of the possible states. |
-| spec | [google.protobuf.Any](#google-protobuf-Any) |  | spec is the code specification for the Job. |
-| input | [QueueElement](#pjs-QueueElement) |  | input is the input data for the Job. |
-| output | [QueueElement](#pjs-QueueElement) |  | output is produced by a successfully completing Job |
+| program | [string](#string) |  | program is the fileset that contains the code specification for the Job. |
+| input | [string](#string) | repeated | input is the input fileset handles for the Job. |
+| success | [JobInfo.Success](#pjs-JobInfo-Success) |  |  |
 | error | [JobErrorCode](#pjs-JobErrorCode) |  | error is set when the Job is unable to complete successfully |
+
+
+
+
+
+
+<a name="pjs-JobInfo-Success"></a>
+
+### JobInfo.Success
+Success is produced by a successfully completing Job.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| output | [string](#string) | repeated | output is a list of fileset handles produced by a successful Job. |
 
 
 
@@ -7394,8 +7460,23 @@ ProcessQueueRequest is the client -&gt; server message for the bi-di ProcessQueu
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | queue | [Queue](#pjs-Queue) |  | queue is set to start processing from a Queue. |
-| output | [QueueElement](#pjs-QueueElement) |  | output is set by the client to complete the Job successfully. |
+| success | [ProcessQueueRequest.Success](#pjs-ProcessQueueRequest-Success) |  |  |
 | failed | [bool](#bool) |  | failed is set by the client to fail the Job. The Job will transition to state DONE with code FAILED. |
+
+
+
+
+
+
+<a name="pjs-ProcessQueueRequest-Success"></a>
+
+### ProcessQueueRequest.Success
+Success is set by the client to complete the Job successfully.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| output | [string](#string) | repeated | output is a list of fileset handles produced by a successful Job. |
 
 
 
@@ -7411,7 +7492,7 @@ ProcessQueueResposne is the server -&gt; client message for the bi-di ProcessQue
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | context | [string](#string) |  | context is a bearer token used to act on behalf of the Job in other RPCs. The server issues this token to the client, and the client should use it when performing Job RPCs. |
-| input | [QueueElement](#pjs-QueueElement) |  | input is the input data for a Job. The server sends this to ask the client to compute the output. |
+| input | [string](#string) | repeated | input is the input data for a Job. The server sends this to ask the client to compute the output. |
 
 
 
@@ -7428,22 +7509,6 @@ Queue will be nil to identify no Queue, or to indicate unset.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | id | [bytes](#bytes) |  |  |
-
-
-
-
-
-
-<a name="pjs-QueueElement"></a>
-
-### QueueElement
-QueueElement is a single element in a Queue.
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| data | [bytes](#bytes) |  | data is opaque data used as the input and output of Jobs |
-| filesets | [string](#string) | repeated | filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs. Any of the filesets referenced here will be persisted for as long as this element is in a Queue. New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary. |
 
 
 
@@ -8104,6 +8169,8 @@ Delete more than one pipeline.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | project_defaults_json | [string](#string) |  | A JSON-encoded ProjectDefaults message, this is the verbatim input passed to SetProjectDefaults. |
+| created_by | [string](#string) |  |  |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 
 
 

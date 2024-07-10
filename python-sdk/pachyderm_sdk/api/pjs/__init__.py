@@ -83,17 +83,25 @@ class JobInfo(betterproto.Message):
     states.
     """
 
-    spec: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(4)
-    """spec is the code specification for the Job."""
+    program: str = betterproto.string_field(4)
+    """
+    program is the fileset that contains the code specification for the Job.
+    """
 
-    input: "QueueElement" = betterproto.message_field(5)
-    """input is the input data for the Job."""
+    input: List[str] = betterproto.string_field(5)
+    """input is the input fileset handles for the Job."""
 
-    output: "QueueElement" = betterproto.message_field(6, group="result")
-    """output is produced by a successfully completing Job"""
-
+    success: "JobInfoSuccess" = betterproto.message_field(6, group="result")
     error: "JobErrorCode" = betterproto.enum_field(7, group="result")
     """error is set when the Job is unable to complete successfully"""
+
+
+@dataclass(eq=False, repr=False)
+class JobInfoSuccess(betterproto.Message):
+    """Success is produced by a successfully completing Job."""
+
+    output: List[str] = betterproto.string_field(1)
+    """output is a list of fileset handles produced by a successful Job."""
 
 
 @dataclass(eq=False, repr=False)
@@ -141,30 +149,18 @@ class QueueInfoDetails(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class QueueElement(betterproto.Message):
-    """QueueElement is a single element in a Queue."""
-
-    data: bytes = betterproto.bytes_field(1)
-    """data is opaque data used as the input and output of Jobs"""
-
-    filesets: List[str] = betterproto.string_field(2)
-    """
-    filesets is a list of Fileset handles, used to associate Filesets with the
-    input and output of Jobs. Any of the filesets referenced here will be
-    persisted for as long as this element is in a Queue. New handles, pointing
-    to equivalent Filesets, are minted whenever they cross the API boundary.
-    """
-
-
-@dataclass(eq=False, repr=False)
 class CreateJobRequest(betterproto.Message):
     context: str = betterproto.string_field(1)
     """
     context is a bearer token used when calling from within a running Job.
     """
 
-    spec: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(2)
-    input: "QueueElement" = betterproto.message_field(3)
+    program: str = betterproto.string_field(2)
+    """program is a fileset handle."""
+
+    input: List[str] = betterproto.string_field(3)
+    """input is a list of fileset handles."""
+
     cache_read: bool = betterproto.bool_field(4)
     cache_write: bool = betterproto.bool_field(5)
 
@@ -274,14 +270,20 @@ class ProcessQueueRequest(betterproto.Message):
     queue: "Queue" = betterproto.message_field(1)
     """queue is set to start processing from a Queue."""
 
-    output: "QueueElement" = betterproto.message_field(2, group="result")
-    """output is set by the client to complete the Job successfully."""
-
+    success: "ProcessQueueRequestSuccess" = betterproto.message_field(2, group="result")
     failed: bool = betterproto.bool_field(3, group="result")
     """
     failed is set by the client to fail the Job. The Job will transition to
     state DONE with code FAILED.
     """
+
+
+@dataclass(eq=False, repr=False)
+class ProcessQueueRequestSuccess(betterproto.Message):
+    """Success is set by the client to complete the Job successfully."""
+
+    output: List[str] = betterproto.string_field(1)
+    """output is a list of fileset handles produced by a successful Job."""
 
 
 @dataclass(eq=False, repr=False)
@@ -298,7 +300,7 @@ class ProcessQueueResponse(betterproto.Message):
     when performing Job RPCs.
     """
 
-    input: "QueueElement" = betterproto.message_field(2)
+    input: List[str] = betterproto.string_field(2)
     """
     input is the input data for a Job. The server sends this to ask the client
     to compute the output.
@@ -382,18 +384,17 @@ class ApiStub:
         self,
         *,
         context: str = "",
-        spec: "betterproto_lib_google_protobuf.Any" = None,
-        input: "QueueElement" = None,
+        program: str = "",
+        input: Optional[List[str]] = None,
         cache_read: bool = False,
         cache_write: bool = False
     ) -> "CreateJobResponse":
+        input = input or []
 
         request = CreateJobRequest()
         request.context = context
-        if spec is not None:
-            request.spec = spec
-        if input is not None:
-            request.input = input
+        request.program = program
+        request.input = input
         request.cache_read = cache_read
         request.cache_write = cache_write
 

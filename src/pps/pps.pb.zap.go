@@ -1264,6 +1264,8 @@ func (x *GetProjectDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 		return nil
 	}
 	enc.AddString("project_defaults_json", x.ProjectDefaultsJson)
+	enc.AddString("created_by", x.CreatedBy)
+	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
 	return nil
 }
 

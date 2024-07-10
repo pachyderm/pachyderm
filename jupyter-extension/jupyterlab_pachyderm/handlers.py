@@ -531,12 +531,12 @@ class ExploreMountHandler(BaseHandler):
         try:
             body = self.get_json_body()
             if not body:
-                raise ValueError("branch_uri does not exist in body of request")
-            branch_uri = body.get("branch_uri")
-            if branch_uri is None:
-                raise ValueError("branch_uri does not exist in body of request")
-            branch = pfs.Branch.from_uri(branch_uri)
-            self.pfs_manager.mount_branch(branch=branch)
+                raise ValueError("commit_uri does not exist in body of request")
+            commit_uri = body.get("commit_uri")
+            if commit_uri is None:
+                raise ValueError("commit_uri does not exist in body of request")
+            commit = pfs.Commit.from_uri(commit_uri)
+            self.pfs_manager.mount_commit(commit=commit)
         except ValueError as e:
             raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:
@@ -547,7 +547,7 @@ class ExploreUnmountHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
-            self.pfs_manager.unmount_branch()
+            self.pfs_manager.unmount_commit()
         except ValueError as e:
             raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:

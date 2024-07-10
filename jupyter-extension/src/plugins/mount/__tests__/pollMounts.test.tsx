@@ -15,7 +15,7 @@ describe('PollMounts', () => {
 
   it('should get mounted repo from localStorage', () => {
     const expectedMountedRepo: MountedRepo = {
-      mountedBranch: {
+      branch: {
         name: 'branch',
         uri: 'test_repo@branch',
       },
@@ -30,6 +30,7 @@ describe('PollMounts', () => {
           },
         ],
       },
+      commit: null,
     };
     localStorage.setItem(
       PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
@@ -40,7 +41,7 @@ describe('PollMounts', () => {
 
     expect(pollMounts.mountedRepo).toEqual(expectedMountedRepo);
     expect(mockedRequestAPI).toHaveBeenCalledWith('explore/mount', 'PUT', {
-      branch_uri: expectedMountedRepo.mountedBranch.uri,
+      commit_uri: expectedMountedRepo.branch?.uri,
     });
   });
 
@@ -79,18 +80,19 @@ describe('PollMounts', () => {
         ],
       };
       const expectedMountedRepo: MountedRepo = {
-        mountedBranch: masterBranch,
+        branch: masterBranch,
         repo,
+        commit: null,
       };
 
-      await pollMounts.updateMountedRepo(repo, null);
+      await pollMounts.updateMountedRepo(repo, null, null);
 
       expect(pollMounts.mountedRepo).toEqual(expectedMountedRepo);
       expect(
         localStorage.getItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY),
       ).toEqual(JSON.stringify(expectedMountedRepo));
       expect(mockedRequestAPI).toHaveBeenCalledWith('explore/mount', 'PUT', {
-        branch_uri: expectedMountedRepo.mountedBranch.uri,
+        commit_uri: expectedMountedRepo.branch?.uri,
       });
     });
 
@@ -113,18 +115,19 @@ describe('PollMounts', () => {
         ],
       };
       const expectedMountedRepo: MountedRepo = {
-        mountedBranch: firstBranch,
+        branch: firstBranch,
         repo,
+        commit: null,
       };
 
-      await pollMounts.updateMountedRepo(repo, null);
+      await pollMounts.updateMountedRepo(repo, null, null);
 
       expect(pollMounts.mountedRepo).toEqual(expectedMountedRepo);
       expect(
         localStorage.getItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY),
       ).toEqual(JSON.stringify(expectedMountedRepo));
       expect(mockedRequestAPI).toHaveBeenCalledWith('explore/mount', 'PUT', {
-        branch_uri: expectedMountedRepo.mountedBranch.uri,
+        commit_uri: expectedMountedRepo.branch?.uri,
       });
     });
 
@@ -135,7 +138,7 @@ describe('PollMounts', () => {
         '{{{{{ def not json }}}}}',
       );
 
-      await pollMounts.updateMountedRepo(null, null);
+      await pollMounts.updateMountedRepo(null, null, null);
 
       expect(pollMounts.mountedRepo).toBeNull();
       expect(
@@ -167,18 +170,59 @@ describe('PollMounts', () => {
         ],
       };
       const expectedMountedRepo: MountedRepo = {
-        mountedBranch: mountedBranch,
+        branch: mountedBranch,
         repo,
+        commit: null,
       };
 
-      await pollMounts.updateMountedRepo(repo, mountedBranch);
+      await pollMounts.updateMountedRepo(repo, mountedBranch, null);
 
       expect(pollMounts.mountedRepo).toEqual(expectedMountedRepo);
       expect(
         localStorage.getItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY),
       ).toEqual(JSON.stringify(expectedMountedRepo));
       expect(mockedRequestAPI).toHaveBeenCalledWith('explore/mount', 'PUT', {
-        branch_uri: expectedMountedRepo.mountedBranch.uri,
+        commit_uri: expectedMountedRepo.branch?.uri,
+      });
+    });
+
+    it('should set mounted repo with commit', async () => {
+      const pollMounts = new PollMounts('testPollMounts');
+      localStorage.setItem(
+        PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
+        '{{{{{ def not json }}}}}',
+      );
+      const mountedBranch: Branch = {
+        name: 'branch2',
+        uri: 'test_repo@branch2',
+      };
+      const repo: Repo = {
+        name: 'name',
+        project: 'test',
+        uri: 'test_repo',
+        branches: [
+          {
+            name: 'branch1',
+            uri: 'test_repo@branch1',
+          },
+          mountedBranch,
+        ],
+      };
+      const commit = '17ad1a170664403a98cb75db3e20fa11';
+      const expectedMountedRepo: MountedRepo = {
+        branch: mountedBranch,
+        repo,
+        commit,
+      };
+
+      await pollMounts.updateMountedRepo(repo, mountedBranch, commit);
+
+      expect(pollMounts.mountedRepo).toEqual(expectedMountedRepo);
+      expect(
+        localStorage.getItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY),
+      ).toEqual(JSON.stringify(expectedMountedRepo));
+      expect(mockedRequestAPI).toHaveBeenCalledWith('explore/mount', 'PUT', {
+        commit_uri: 'test_repo@branch2=17ad1a170664403a98cb75db3e20fa11',
       });
     });
   });

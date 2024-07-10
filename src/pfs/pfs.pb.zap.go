@@ -346,6 +346,7 @@ func (x *ProjectInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
+	enc.AddString("created_by", x.CreatedBy)
 	return nil
 }
 
@@ -1173,5 +1174,20 @@ func (x *ReposSummaryResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddArray("summaries", zapcore.ArrayMarshalerFunc(summariesArrMarshaller))
+	return nil
+}
+
+func (x *ForgetCommitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("commit", x.Commit)
+	return nil
+}
+
+func (x *ForgetCommitResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
 	return nil
 }

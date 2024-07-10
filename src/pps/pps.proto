@@ -1012,6 +1012,8 @@ message GetProjectDefaultsResponse {
   // A JSON-encoded ProjectDefaults message, this is the verbatim input passed
   // to SetProjectDefaults.
   string project_defaults_json = 1;
+  string created_by = 2;
+  google.protobuf.Timestamp created_at = 3;
 }
 
 message SetProjectDefaultsRequest {

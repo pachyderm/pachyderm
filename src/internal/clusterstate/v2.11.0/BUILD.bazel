@@ -3,9 +3,11 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "v2_11_0",
     srcs = [
+        "auth.go",
         "clusterstate.go",
         "commit_diffs.go",
         "commit_totals.go",
+        "project_metadata.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.11.0",
     visibility = ["//src:__subpackages__"],

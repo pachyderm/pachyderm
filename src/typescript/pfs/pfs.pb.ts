@@ -230,6 +230,7 @@ export type ProjectInfo = {
   authInfo?: AuthInfo
   createdAt?: GoogleProtobufTimestamp.Timestamp
   metadata?: {[key: string]: string}
+  createdBy?: string
 }
 
 
@@ -663,6 +664,13 @@ export type ReposSummaryResponse = {
   summaries?: ReposSummary[]
 }
 
+export type ForgetCommitRequest = {
+  commit?: CommitPicker
+}
+
+export type ForgetCommitResponse = {
+}
+
 export class API {
   static CreateRepo(req: CreateRepoRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<CreateRepoRequest, GoogleProtobufEmpty.Empty>(`/pfs_v2.API/CreateRepo`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
@@ -822,5 +830,8 @@ export class API {
   }
   static ReposSummary(req: ReposSummaryRequest, initReq?: fm.InitReq): Promise<ReposSummaryResponse> {
     return fm.fetchReq<ReposSummaryRequest, ReposSummaryResponse>(`/pfs_v2.API/ReposSummary`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static ForgetCommit(req: ForgetCommitRequest, initReq?: fm.InitReq): Promise<ForgetCommitResponse> {
+    return fm.fetchReq<ForgetCommitRequest, ForgetCommitResponse>(`/pfs_v2.API/ForgetCommit`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
 }

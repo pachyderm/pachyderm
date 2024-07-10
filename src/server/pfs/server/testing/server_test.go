@@ -7564,3 +7564,129 @@ func TestWalkFileInvalid(t *testing.T) {
 		return nil
 	}))
 }
+
+func gcOption(c *pachconfig.Configuration) {
+	c.PachdSpecificConfiguration.StorageGCPeriod = 5
+	c.PachdSpecificConfiguration.StorageChunkGCPeriod = 5
+}
+
+func TestForgetRPC(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, gcOption)
+
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "in"))
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
+	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
+
+	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "out", "master", "")
+	require.NoError(t, err)
+	commit := commitInfo.Commit
+
+	require.NoError(t, env.PachClient.PutFile(commit, "file", strings.NewReader("foo")))
+	require.NoError(t, finishCommit(env.PachClient, "out", "master", ""))
+	require.NoError(t, finishCommit(env.PachClient, "in", "master", ""))
+
+	var chunkCount int64
+	db := env.ServiceEnv.GetDBClient()
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		err := db.QueryRow("select count(*) from storage.chunk_objects").Scan(&chunkCount)
+		require.NoError(t, err)
+		return nil
+	}))
+
+	// sanity check. There should be at least one chunk data
+	require.NotEqual(t, int64(0), chunkCount)
+
+	picker := pfs.CommitPicker{
+		Picker: &pfs.CommitPicker_Id{
+			Id: &pfs.CommitPicker_CommitByGlobalId{
+				Repo: repoPicker("out", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName)),
+				Id:   commit.Id,
+			},
+		},
+	}
+
+	_, err = env.PFSServer.ForgetCommit(ctx, &pfs.ForgetCommitRequest{Commit: &picker})
+	require.NoError(t, err)
+	// TTL for filesets in tracker_objects is 10 minutes. We use the following
+	// query to manually make all the filesets expired to save time.
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		// we expire filesets immediately
+		_, err := tx.Exec("UPDATE storage.tracker_objects SET expires_at = CURRENT_TIMESTAMP WHERE str_id LIKE 'fileset%'")
+		require.NoError(t, err)
+		// we expire chunks after 6 seconds
+		_, err = tx.Exec("UPDATE storage.tracker_objects SET expires_at = CURRENT_TIMESTAMP + INTERVAL '6 seconds' WHERE str_id LIKE 'chunk%'")
+		require.NoError(t, err)
+		return nil
+	}))
+	// we wait enough time to expire the trackers objects and let gc kick in
+	time.Sleep(21 * time.Second)
+
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		err := db.QueryRow("select count(*) from storage.chunk_objects").Scan(&chunkCount)
+		require.NoError(t, err)
+		return nil
+	}))
+
+	// the chunks data should be successfully dropped
+	require.Equal(t, int64(0), chunkCount)
+}
+
+func TestForgetRPCOpenChild(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, gcOption)
+
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "in"))
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
+	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
+
+	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "out", "master", "")
+	require.NoError(t, err)
+	commit1 := commitInfo.Commit
+	require.NoError(t, finishCommit(env.PachClient, "out", "master", ""))
+	require.NoError(t, finishCommit(env.PachClient, "in", "master", ""))
+
+	_, err = env.PachClient.PfsAPIClient.StartCommit(env.PachClient.Ctx(), &pfs.StartCommitRequest{
+		Branch: client.NewBranch(pfs.DefaultProjectName, "out", "foo"),
+		Parent: commit1,
+	})
+	require.NoError(t, err)
+
+	picker := pfs.CommitPicker{
+		Picker: &pfs.CommitPicker_Id{
+			Id: &pfs.CommitPicker_CommitByGlobalId{
+				Repo: repoPicker("out", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName)),
+				Id:   commit1.Id,
+			},
+		},
+	}
+
+	_, err = env.PFSServer.ForgetCommit(ctx, &pfs.ForgetCommitRequest{Commit: &picker})
+	require.Equal(t, "Forget Commit: direct descendants must be closed", err.Error())
+}
+
+func TestForgetRPCInputCommit(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, gcOption)
+
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "in"))
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
+	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
+
+	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "in", "master", "")
+	require.NoError(t, err)
+	commit := commitInfo.Commit
+	require.NoError(t, finishCommit(env.PachClient, "out", "master", ""))
+
+	picker := pfs.CommitPicker{
+		Picker: &pfs.CommitPicker_Id{
+			Id: &pfs.CommitPicker_CommitByGlobalId{
+				Repo: repoPicker("in", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName)),
+				Id:   commit.Id,
+			},
+		},
+	}
+
+	_, err = env.PFSServer.ForgetCommit(ctx, &pfs.ForgetCommitRequest{Commit: &picker})
+	require.Equal(t, "Forget Commit: the commit to be forgotten must be in an output repo", err.Error())
+}

@@ -8,9 +8,10 @@ bazel_dep(name = "circl", version = "1.3.7")
 bazel_dep(name = "container_structure_test", version = "1.16.0")
 bazel_dep(name = "gazelle", version = "0.36.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
-bazel_dep(name = "rules_go", version = "0.47.0")
+bazel_dep(name = "rules_go", version = "0.48.1")
 bazel_dep(name = "rules_oci", version = "1.7.5")
-bazel_dep(name = "rules_python", version = "0.31.0")
+bazel_dep(name = "rules_python", version = "0.32.2")
+bazel_dep(name = "rules_python_gazelle_plugin", version = "0.32.2")  # Same version as rules_python
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
@@ -18,7 +19,7 @@ go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.nogo(nogo = "//:nogo")
 go_sdk.download(
     name = "go_sdk",
-    version = "1.22.4",
+    version = "1.22.5",
 )
 use_repo(go_sdk, "go_sdk")
 
@@ -279,6 +280,7 @@ use_repo(
     "org_golang_x_sys",
     "org_golang_x_term",
     "org_golang_x_text",
+    "org_golang_x_vuln",
     "org_uber_go_atomic",
     "org_uber_go_automaxprocs",
     "org_uber_go_zap",
@@ -411,8 +413,6 @@ pip.parse(
 pip.parse(
     hub_name = "jupyter-pip-requirements-dev",
     python_version = "3.9",
-    requirements_darwin = "//jupyter-extension:requirements-dev-lock-darwin.txt",
-    requirements_linux = "//jupyter-extension:requirements-dev-lock-linux.txt",
     requirements_lock = "//jupyter-extension:requirements-dev-lock.txt",
 )
 use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")

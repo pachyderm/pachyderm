@@ -25,8 +25,10 @@ betterproto = "2.0.0b6"
 certifi = ">=2022.9"
 grpcio = ">=1.52.0"
 grpc-interceptor = "^0.14.2"
-python-dotenv = "1.0"
 more-itertools = "^10.2.0"
+python-dotenv = "1.0"
+pycryptodome = {version=">=3.9.8,<4.0", optional=true}
+requests = {version=">=2.30,!=2.32.0,!=2.32.1", optional=true}
 
 [tool.poetry.dev-dependencies]
 black = "^24.3.0"
@@ -34,6 +36,9 @@ pdoc3 = "0.10.0"
 pandas = "2.0.3"
 pytest = "^7.2.1"
 pytest-black-ng = "^0.4.1"
+
+[tool.poetry.extras]
+cdr = ["pycryptodome", "requests"]
 
 [tool.poetry.scripts]
 pachyderm-sdk-check-connection = 'pachyderm_sdk.__main__:check_connection'

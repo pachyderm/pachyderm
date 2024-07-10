@@ -76,6 +76,7 @@ var (
 	ProjectColumnID        = projectColumn("project.id")
 	ProjectColumnCreatedAt = projectColumn("project.created_at")
 	ProjectColumnUpdatedAt = projectColumn("project.updated_at")
+	ProjectColumnCreatedBy = projectColumn("project.created_by")
 )
 
 type OrderByProjectColumn OrderByColumn[projectColumn]
@@ -117,7 +118,7 @@ func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			values = append(values, filter.Name)
 		}
 	}
-	query := "SELECT id,name,description,metadata,created_at,updated_at FROM core.projects project"
+	query := "SELECT id,name,description,metadata,created_at,updated_at,created_by FROM core.projects project"
 	if len(conditions) > 0 {
 		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
@@ -162,7 +163,11 @@ func ListProject(ctx context.Context, tx *pachsql.Tx) ([]Project, error) {
 
 // CreateProject creates an entry in the core.projects table.
 func CreateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo) error {
-	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description, metadata) VALUES ($1, $2, $3);", project.Project.Name, project.Description, &pgjsontypes.StringMap{Data: project.Metadata})
+	var createdBy *string
+	if project.CreatedBy != "" {
+		createdBy = &project.CreatedBy
+	}
+	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description, metadata, created_by) VALUES ($1, $2, $3, $4);", project.Project.Name, project.Description, &pgjsontypes.StringMap{Data: project.Metadata}, createdBy)
 	//todo: insert project.authInfo into auth table.
 	if err != nil && IsErrProjectAlreadyExists(err) {
 		return &ProjectAlreadyExistsError{Name: project.Project.Name}
@@ -212,12 +217,13 @@ func GetProject(ctx context.Context, tx *pachsql.Tx, projectName string) (*Proje
 }
 
 func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*Project, error) {
-	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at, metadata, id FROM core.projects WHERE %s = $1", where), whereVal)
+	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at, metadata, created_by, id FROM core.projects WHERE %s = $1", where), whereVal)
 	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
 	id := 0
 	var createdAt time.Time
+	var createdBy *string
 	metadata := &pgjsontypes.StringMap{Data: make(map[string]string)}
-	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &metadata, &id)
+	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &metadata, &createdBy, &id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {
@@ -229,6 +235,9 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	}
 	project.CreatedAt = timestamppb.New(createdAt)
 	project.Metadata = metadata.Data
+	if createdBy != nil {
+		project.CreatedBy = *createdBy
+	}
 	return &Project{
 		ID:          ProjectID(id),
 		ProjectInfo: project,

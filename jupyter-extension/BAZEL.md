@@ -12,8 +12,7 @@ compatible with this location. These dependencies have been moved to the `requir
 `requirements-dev.txt` files. However, for bazel to run "hermetic" builds for this project, these
 third-party dependencies must be "locked" to ensure that all developers and tests are run using the
 exact same versions of these dependencies. These lock files are `requirements-lock.txt` and
-`requirements-dev-lock.txt` (ideally these would "lock" to the same file). The following command
-regenerate these lock files:
+`requirements-dev-lock.txt`. The following command regenerate these lock files:
 
 ```
 bazel run :requirements.update
@@ -31,3 +30,16 @@ Note that Python requires different versions of dependencies depending on the ho
 Linux and Mac require different versions of modules. When you run `:requirements.update`, it only
 updates for your current platform. So if you run this on a Mac, CI will fail because it's Linux, and
 you should also run it on your Linux VM and check in those generated changes.
+
+
+### Gazelle
+The jupyter-extension project is now hooked into the gazelle tooling used throughout the repo.
+Gazelle will mark intra-project dependencies automatically when invoked. To run gazelle:
+```
+bazel run //:gazelle
+```
+When adding a new python package as a dependency, the gazelle_python manifest will need to be updated.
+This can be done with the following command:
+```
+bazel run :gazelle_python_manifest.update
+```
