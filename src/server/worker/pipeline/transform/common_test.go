@@ -100,8 +100,8 @@ func (td *testDriver) WithContext(ctx context.Context) driver.Driver {
 func (td *testDriver) WithActiveData(inputs []*common.Input, dir string, cb func() error) error {
 	return errors.EnsureStack(td.inner.WithActiveData(inputs, dir, cb))
 }
-func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input, pachToken string) []string {
-	return td.inner.UserCodeEnv(jobID, commit, inputs, pachToken)
+func (td *testDriver) UserCodeEnv(jobID string, commit *pfs.Commit, inputs []*common.Input, pachToken string, filesetId string) []string {
+	return td.inner.UserCodeEnv(jobID, commit, inputs, pachToken, filesetId)
 }
 func (td *testDriver) RunUserCode(ctx context.Context, logger logs.TaggedLogger, env []string) error {
 	return errors.EnsureStack(td.inner.RunUserCode(ctx, logger, env))

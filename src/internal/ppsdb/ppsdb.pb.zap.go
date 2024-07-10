@@ -5,6 +5,7 @@
 package ppsdb
 
 import (
+	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -20,6 +21,8 @@ func (x *ProjectDefaultsWrapper) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	if x == nil {
 		return nil
 	}
+	enc.AddString("created_by", x.CreatedBy)
+	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
 	enc.AddString("json", x.Json)
 	return nil
 }

@@ -362,6 +362,7 @@ export type PipelineInfoDetails = {
   determined?: Determined
   maximumExpectedUptime?: GoogleProtobufDuration.Duration
   workersStartedAt?: GoogleProtobufTimestamp.Timestamp
+  pachMetadata?: {[key: string]: string}
 }
 
 export type PipelineInfo = {
@@ -749,6 +750,8 @@ export type GetProjectDefaultsRequest = {
 
 export type GetProjectDefaultsResponse = {
   projectDefaultsJson?: string
+  createdBy?: string
+  createdAt?: GoogleProtobufTimestamp.Timestamp
 }
 
 export type SetProjectDefaultsRequest = {

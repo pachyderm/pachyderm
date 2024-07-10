@@ -609,6 +609,9 @@ class PipelineInfoDetails(betterproto.Message):
     determined: "Determined" = betterproto.message_field(36)
     maximum_expected_uptime: timedelta = betterproto.message_field(37)
     workers_started_at: datetime = betterproto.message_field(38)
+    pach_metadata: Dict[str, str] = betterproto.map_field(
+        39, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
 
 
 @dataclass(eq=False, repr=False)
@@ -1301,6 +1304,9 @@ class GetProjectDefaultsResponse(betterproto.Message):
     A JSON-encoded ProjectDefaults message, this is the verbatim input passed
     to SetProjectDefaults.
     """
+
+    created_by: str = betterproto.string_field(2)
+    created_at: datetime = betterproto.message_field(3)
 
 
 @dataclass(eq=False, repr=False)

@@ -4040,7 +4040,11 @@ func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectD
 
 		projectDefaults.Json = "{}"
 	}
-	return &pps.GetProjectDefaultsResponse{ProjectDefaultsJson: projectDefaults.Json}, nil
+	return &pps.GetProjectDefaultsResponse{
+		ProjectDefaultsJson: projectDefaults.Json,
+		CreatedBy:           projectDefaults.CreatedBy,
+		CreatedAt:           projectDefaults.CreatedAt,
+	}, nil
 }
 
 // SetProjectDefaults sets the defaults for a project.  If regenerate is true,
@@ -4130,7 +4134,21 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(ctx, req.GetProject().String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
+		// get old defaults in order to get created_by and created_at
+		projectDefaultsTxn := a.projectDefaults.ReadWrite(txnCtx.SqlTx)
+		// If auth is active, make caller the owner of these new project defaults.
+		var username string
+		if whoAmI, err := txnCtx.WhoAmI(); err == nil {
+			username = whoAmI.GetUsername()
+		} else if !errors.Is(err, auth.ErrNotActivated) {
+			return errors.Wrap(err, "could not get caller's username")
+		}
+		var new = &ppsdb.ProjectDefaultsWrapper{
+			Json:      req.GetProjectDefaultsJson(),
+			CreatedBy: username,
+			CreatedAt: timestamppb.New(time.Now()),
+		}
+		if err := projectDefaultsTxn.Put(ctx, req.GetProject().String(), new); err != nil {
 			return err
 		}
 		for _, p := range pp {

@@ -545,6 +545,12 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	enc.AddObject("determined", x.Determined)
 	protoextensions.AddDuration(enc, "maximum_expected_uptime", x.MaximumExpectedUptime)
 	protoextensions.AddTimestamp(enc, "workers_started_at", x.WorkersStartedAt)
+	enc.AddObject("pach_metadata", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for k, v := range x.PachMetadata {
+			enc.AddString(fmt.Sprintf("%v", k), v)
+		}
+		return nil
+	}))
 	return nil
 }
 
@@ -1264,6 +1270,8 @@ func (x *GetProjectDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 		return nil
 	}
 	enc.AddString("project_defaults_json", x.ProjectDefaultsJson)
+	enc.AddString("created_by", x.CreatedBy)
+	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
 	return nil
 }
 

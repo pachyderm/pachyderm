@@ -7,7 +7,10 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"io"
+	"path"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/cdr"
@@ -17,6 +20,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -96,7 +101,6 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 	return res, errors.EnsureStack(err)
 }
 
-// TODO: Copy file.
 func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error {
 	ctx := server.Context()
 	var id *fileset.ID
@@ -123,6 +127,10 @@ func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error
 				if err := uw.Delete(ctx, mod.DeleteFile.Path, ""); err != nil {
 					return err
 				}
+			case *storage.CreateFilesetRequest_CopyFile:
+				if err := s.copyFile(ctx, uw, mod.CopyFile); err != nil {
+					return err
+				}
 			}
 		}
 		id, err = uw.Close(ctx)
@@ -133,6 +141,35 @@ func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error
 	return server.SendAndClose(&storage.CreateFilesetResponse{
 		FilesetId: id.HexString(),
 	})
+}
+
+func (s *Server) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, msg *storage.CopyFile) error {
+	id, err := fileset.ParseID(msg.FilesetId)
+	if err != nil {
+		return err
+	}
+	fs, err := s.Filesets.Open(ctx, []fileset.ID{*id})
+	if err != nil {
+		return err
+	}
+	srcPath := pfsfile.CleanPath(msg.Src)
+	dstPath := srcPath
+	if msg.Dst != "" {
+		dstPath = pfsfile.CleanPath(msg.Dst)
+	}
+	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+		return idx.Path == srcPath || strings.HasPrefix(idx.Path, fileset.Clean(srcPath, true))
+	})
+	fs = fileset.NewIndexMapper(fs, func(idx *index.Index) *index.Index {
+		idx = protoutil.Clone(idx)
+		relPath, err := filepath.Rel(srcPath, idx.Path)
+		if err != nil {
+			panic(err)
+		}
+		idx.Path = path.Join(dstPath, relPath)
+		return idx
+	})
+	return uw.Copy(ctx, fs, "", false, index.WithPrefix(srcPath))
 }
 
 // TODO: Add file filter error types.

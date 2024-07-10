@@ -868,7 +868,8 @@
                 },
                 "metadata": {
                     "$ref": "#/definitions/pps_v2.Metadata",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "Kubernetes metadata"
                 },
                 "reprocessSpec": {
                     "type": "string"
@@ -905,6 +906,12 @@
                 "workersStartedAt": {
                     "type": "string",
                     "format": "date-time"
+                },
+                "pachMetadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
                 }
             },
             "additionalProperties": false,

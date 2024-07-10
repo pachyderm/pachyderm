@@ -93,7 +93,7 @@ type Driver interface {
 
 	// UserCodeEnv returns the set of environment variables to construct when
 	// launching the configured user process.
-	UserCodeEnv(string, *pfs.Commit, []*common.Input, string) []string
+	UserCodeEnv(string, *pfs.Commit, []*common.Input, string, string) []string
 
 	RunUserCode(context.Context, logs.TaggedLogger, []string) error
 
@@ -549,6 +549,7 @@ func (d *driver) UserCodeEnv(
 	outputCommit *pfs.Commit,
 	inputs []*common.Input,
 	pachToken string,
+	filesetId string,
 ) []string {
 	var result []string
 	for _, kv := range os.Environ() {
@@ -615,6 +616,9 @@ func (d *driver) UserCodeEnv(
 	}
 	if outputCommit != nil {
 		result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommit.Id))
+	}
+	if filesetId != "" {
+		result = append(result, fmt.Sprintf("%s=%s", client.FilesetIDEnv, filesetId))
 	}
 	return result
 }

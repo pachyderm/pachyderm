@@ -4,6 +4,13 @@
     "definitions": {
         "ProjectDefaultsWrapper": {
             "properties": {
+                "createdBy": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                },
                 "json": {
                     "type": "string"
                 }
