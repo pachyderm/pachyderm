@@ -160,7 +160,7 @@ const GlobalFilter: React.FC = () => {
             Global IDs reflect the DAG&apos;s state when a job ran, showing all
             processed pipelines and sub-jobs for that job.{' '}
             <BrandedDocLink
-              pathWithoutDomain="concepts/advanced-concepts/globalid/"
+              pathWithoutDomain="/learn/glossary/globalid/"
               className={styles.link}
             >
               Learn more about Global IDs.

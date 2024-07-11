@@ -55,7 +55,7 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
         message="This is normal for new DAGs, but we still wanted to notify you because Pachyderm didn't detect any repositories on our end."
         linkToDocs={{
           text: 'Try creating a repository',
-          pathWithoutDomain: 'concepts/data-concepts/repo/',
+          pathWithoutDomain: '/learn/console-guide/repo-actions/create-repo/',
         }}
       />
     );

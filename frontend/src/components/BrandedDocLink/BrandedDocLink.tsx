@@ -16,7 +16,9 @@ const BrandedDocLink: React.FC<
   const {enterpriseActive} = useEnterpriseActive();
   const {version} = useVersion();
 
-  const domain = enterpriseActive ? 'mldm.pachyderm.com' : 'docs.pachyderm.com';
+  const domain = enterpriseActive
+    ? 'docs.ai-solutions.ext.hpe.com/products/mldm'
+    : 'docs.pachyderm.com/products/mldm';
   const docsVersion = version
     ? `${version.major}.${version.minor}.x`
     : 'latest';

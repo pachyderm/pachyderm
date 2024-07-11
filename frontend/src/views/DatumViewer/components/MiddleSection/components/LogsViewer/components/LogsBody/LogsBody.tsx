@@ -112,9 +112,7 @@ const LogsBody: React.FC<LogsBodyProps> = ({
         Make sure you have access to all repositories that are inputs to this
         pipeline. Also, if you haven&apos;t already, consider setting up a
         persistent log aggregator like{' '}
-        <BrandedDocLink pathWithoutDomain="deploy-manage/deploy/loki/">
-          Loki
-        </BrandedDocLink>
+        <BrandedDocLink pathWithoutDomain="/set-up/loki/">Loki</BrandedDocLink>
       </EmptyState>
     );
   }

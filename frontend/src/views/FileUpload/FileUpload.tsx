@@ -65,7 +65,7 @@ const FileUpload: React.FC = () => {
                 <Group vertical spacing={8} align="start">
                   <BrandedDocLink
                     className={styles.terminal}
-                    pathWithoutDomain="how-tos/basic-data-operations/load-data-into-pachyderm"
+                    pathWithoutDomain="/run-commands/pachctl_put_file/"
                   >
                     For large file uploads via CTL
                   </BrandedDocLink>

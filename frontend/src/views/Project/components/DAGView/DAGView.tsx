@@ -262,7 +262,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           }
           linkToDocs={{
             text: 'How to create a repo on CLI',
-            pathWithoutDomain: 'concepts/data-concepts/repo/',
+            pathWithoutDomain: '/run-commands/pachctl_create_repo/',
           }}
         />
       )}

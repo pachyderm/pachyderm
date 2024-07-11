@@ -39,7 +39,10 @@ describe('BrandedDocLink', () => {
         screen.getByRole('link', {
           name: /click here/i,
         }),
-      ).toHaveAttribute('href', 'https://docs.pachyderm.com/0.0.x/fruit'),
+      ).toHaveAttribute(
+        'href',
+        'https://docs.pachyderm.com/products/mldm/0.0.x/fruit',
+      ),
     );
   });
 
@@ -68,7 +71,10 @@ describe('BrandedDocLink', () => {
         screen.getByRole('link', {
           name: /click here/i,
         }),
-      ).toHaveAttribute('href', 'https://mldm.pachyderm.com/0.0.x/fruit'),
+      ).toHaveAttribute(
+        'href',
+        'https://docs.ai-solutions.ext.hpe.com/products/mldm/0.0.x/fruit',
+      ),
     );
   });
 });
