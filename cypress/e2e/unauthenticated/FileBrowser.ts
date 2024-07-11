@@ -8,9 +8,9 @@ describe('FileBrowser', () => {
     beforeEach(() => {
       cy.multiLineExec(
         `pachctl create repo images
-        pachctl put file images@master:one.png -f cypress/fixtures/liberty.png
-        pachctl put file images@master:a/b/c/one/one.png -f cypress/fixtures/liberty.png
-        pachctl put file images@master:two.png -f cypress/fixtures/liberty.png
+        pachctl put file images@master:one.png -f cypress/fixtures/cat.png
+        pachctl put file images@master:a/b/c/one/one.png -f cypress/fixtures/cat.png
+        pachctl put file images@master:two.png -f cypress/fixtures/cat.png
         `,
       ).visit('/');
     });
@@ -33,14 +33,14 @@ describe('FileBrowser', () => {
     beforeEach(() => {
       cy.multiLineExec(
         `pachctl create repo images
-        pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png
-        pachctl put file images@master:image1.png -f cypress/fixtures/AT-AT.png
-        pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
+        pachctl put file images@master:image1.png -f cypress/fixtures/cat.png
+        pachctl put file images@master:image1.png -f cypress/fixtures/fruit.png
+        pachctl put file images@test:image1.png -f cypress/fixtures/cat.png
         pachctl delete file images@test:image1.png
-        pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
-        pachctl put file images@test:image1.png -f cypress/fixtures/AT-AT.png
-        pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
-        pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
+        pachctl put file images@test:image1.png -f cypress/fixtures/cat.png
+        pachctl put file images@test:image1.png -f cypress/fixtures/fruit.png
+        pachctl put file images@test:image1.png -f cypress/fixtures/cat.png
+        pachctl put file images@test:image1.png -f cypress/fixtures/cat.png
         `,
       ).visit('/');
     });
@@ -90,7 +90,7 @@ describe('FileBrowser', () => {
         name: 'Load older file versions',
       }).click();
 
-      cy.get(`[aria-label="file metadata"]`).findByText('58.65 kB');
+      cy.get(`[aria-label="file metadata"]`).findByText('263.07 kB');
       cy.findByTestId('FileHistory__commitList')
         .children()
         .should(($links) => {
@@ -122,7 +122,7 @@ describe('FileBrowser', () => {
         });
 
       cy.findByRole('dialog').within(() => {
-        cy.findByText('80.59 kB');
+        cy.findByText('404.55 kB');
       });
     });
   });

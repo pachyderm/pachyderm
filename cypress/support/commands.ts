@@ -131,7 +131,7 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
     return cy.exec('jq -r .pachReleaseCommit version.json').then((res) => {
       cy.exec('pachctl create repo images')
         .exec(
-          'pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png',
+          'pachctl put file images@master:image1.png -f cypress/fixtures/cat.png',
         )
         .exec(
           `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/edges.pipeline.json`,
@@ -178,20 +178,20 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
     return cy.exec('jq -r .pachReleaseCommit version.json').then(() => {
       cy.exec('pachctl create repo images')
         .exec(
-          'pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png',
+          'pachctl put file images@master:image1.png -f cypress/fixtures/cat.png',
         )
         .exec(
-          'pachctl put file images@master:image1.png -f cypress/fixtures/AT-AT.png',
+          'pachctl put file images@master:image1.png -f cypress/fixtures/fruit.png',
         )
         .exec(
-          'pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png',
+          'pachctl put file images@test:image1.png -f cypress/fixtures/cat.png',
         )
         .exec('pachctl delete file images@test:image1.png')
         .exec(
-          'pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png',
+          'pachctl put file images@test:image1.png -f cypress/fixtures/cat.png',
         )
         .exec(
-          'pachctl put file images@test:image1.png -f cypress/fixtures/AT-AT.png',
+          'pachctl put file images@test:image1.png -f cypress/fixtures/fruit.png',
         );
     });
   }
@@ -199,7 +199,7 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
   return cy.exec('jq -r .pachReleaseCommit version.json').then((res) => {
     cy.exec('pachctl create repo images')
       .exec(
-        'pachctl put file images@master:liberty.png -f cypress/fixtures/liberty.png',
+        'pachctl put file images@master:cat.png -f cypress/fixtures/cat.png',
       )
       .exec(
         `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/edges.pipeline.json`,

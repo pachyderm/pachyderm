@@ -47,7 +47,7 @@ describe('Repos', () => {
     cy.findByRole('menuitem', {name: 'Upload Files'}).click();
     cy.findByText('For large file uploads via CTL');
 
-    cy.fixture('AT-AT.png', null).as('file');
+    cy.fixture('fruit.png', null).as('file');
     cy.waitUntil(() =>
       cy.findByLabelText('Attach Files').should('not.be.disabled'),
     );
@@ -55,16 +55,16 @@ describe('Repos', () => {
       [
         {
           contents: '@file',
-          fileName: 'AT-AT.png',
+          fileName: 'fruit.png',
         },
       ],
       {force: true},
     );
 
-    cy.findByText('AT-AT.png').should('exist');
+    cy.findByText('fruit.png').should('exist');
     cy.findByLabelText('Upload Selected Files').click();
     cy.findByTestId('FileCard__cancel').click({force: true}); // file card can sometimes be above the fold
-    cy.findByText('AT-AT.png').should('not.exist');
+    cy.findByText('fruit.png').should('not.exist');
   });
 
   it('should upload a file for the specified path, branch, message, and files', () => {
@@ -72,7 +72,7 @@ describe('Repos', () => {
     cy.findByRole('button', {name: 'Repo Actions'}).click();
     cy.findByRole('menuitem', {name: 'Upload Files'}).click();
 
-    cy.fixture('AT-AT.png', null).as('file1');
+    cy.fixture('cat.png', null).as('file1');
 
     cy.waitUntil(() =>
       cy.findByLabelText('Attach Files').should('not.be.disabled'),
@@ -81,7 +81,7 @@ describe('Repos', () => {
       [
         {
           contents: '@file1',
-          fileName: 'AT-AT.png',
+          fileName: 'cat.png',
         },
       ],
       {force: true},
@@ -101,7 +101,7 @@ describe('Repos', () => {
 
     // Needs to wait for commit polling to update
     cy.visit('/lineage/default/repos/TestRepo');
-    cy.findByText('80.59 kB', {timeout: 30000}).should('exist');
+    cy.findByText('263.07 kB', {timeout: 30000}).should('exist');
     cy.findByText('New').should('exist');
     cy.findByText('Parent Commit').should('exist');
 
@@ -117,8 +117,8 @@ describe('Repos', () => {
     cy.findByRole('menuitem', {name: 'Upload Files'}).click();
     cy.findByText('For large file uploads via CTL');
 
-    cy.fixture('AT-AT.png', null).as('file1');
-    cy.fixture('puppy.png', null).as('file2');
+    cy.fixture('fruit.png', null).as('file1');
+    cy.fixture('cat.png', null).as('file2');
 
     cy.waitUntil(() =>
       cy.findByLabelText('Attach Files').should('not.be.disabled'),
@@ -127,11 +127,11 @@ describe('Repos', () => {
       [
         {
           contents: '@file1',
-          fileName: 'AT-AT.png',
+          fileName: 'fruit.png',
         },
         {
           contents: '@file2',
-          fileName: 'puppy.png',
+          fileName: 'cat.png',
         },
       ],
       {force: true},
@@ -145,7 +145,7 @@ describe('Repos', () => {
 
     // Needs to wait for commit polling to update
     cy.visit('/lineage/default/repos/TestRepo');
-    cy.findByText('532.13 kB', {timeout: 30000});
+    cy.findByText('667.61 kB', {timeout: 30000});
     cy.findByText('2');
     cy.findByText('New');
 
@@ -160,7 +160,7 @@ describe('Repos', () => {
       [
         {
           contents: '@file1',
-          fileName: 'puppy.png',
+          fileName: 'car.png',
         },
       ],
       {force: true},
@@ -172,7 +172,7 @@ describe('Repos', () => {
     cy.findByLabelText('Commit Selected Files').click();
 
     cy.visit('/lineage/default/repos/TestRepo');
-    cy.findByText('161.18 kB', {timeout: 30000});
+    cy.findByText('1.08 MB', {timeout: 30000});
   });
 
   it('should allow a user to delete a repo', () => {
@@ -259,7 +259,7 @@ describe('Repos', () => {
     cy.findByText('Inspect commit').click();
 
     cy.findByText('Commit files for');
-    cy.findAllByText('liberty.png').last();
+    cy.findAllByText('cat.png').last();
     cy.findByText('Added');
 
     // table filters are kept on close

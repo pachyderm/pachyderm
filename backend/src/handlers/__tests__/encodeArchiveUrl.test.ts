@@ -9,7 +9,7 @@ describe('EncodeArchiceUrl', () => {
         projectId: 'default',
         repoId: 'images',
         commitId: '5b31d378267c4e7a8f260edbd7811c3d',
-        paths: ['/AT-AT.png', '/cats/', '/json_nested_arrays.json'],
+        paths: ['/fruit.png', '/cats/', '/json_nested_arrays.json'],
       },
     });
 
@@ -17,7 +17,7 @@ describe('EncodeArchiceUrl', () => {
     await encodeArchiveUrl(request, response);
 
     expect(JSON.parse(response._getData())).toEqual({
-      url: '/proxyForward/archive/ASi1L_0guvUCAHKFFBpwSR1wND_wozPYnfTk738G-KbSdtipquqdH478UX6xSbKOe367c-QP83OhIT1RGgM0Zgic4DlL-XEHFIprtQVQFVqa-KQ3KHzLRRjMPCg2NgcCAGsV6dVHCgo.zip',
+      url: '/proxyForward/archive/ASi1L_0guuUCAHIFFBmAhw6AP1rgZ5QcddIBBnqHazbQLoCBGY0YbXhBPKEx6lp-515tePEaQR4e0QGKv7ZCWNSMUblsOZCOU5osaJmOSrQGsUHB-ekBljcc6ngDAgB7FZ1TRwoK.zip',
     });
   });
 });

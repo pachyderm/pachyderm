@@ -172,7 +172,7 @@ describe('File Browser', () => {
 
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
-      const files = screen.getAllByText('AT-AT.png');
+      const files = screen.getAllByText('fruit.png');
       expect(files).toHaveLength(2);
       await click(files[0]);
       expect(await screen.findByText('File Versions')).toBeInTheDocument();
@@ -235,7 +235,7 @@ describe('File Browser', () => {
       await click((await screen.findAllByText('Preview'))[0]);
 
       expect(window.location.pathname).toBe(
-        '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/AT-AT.png/',
+        '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/fruit.png/',
       );
     });
 

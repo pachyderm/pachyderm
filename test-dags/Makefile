@@ -10,19 +10,19 @@ generate-datums:
 
 setup-opencv:
 	-pachctl create repo images
-	-pachctl put file images@master:liberty.png -f ../etc/testing/files/46Q8nDz.jpg
+	-pachctl put file images@master:liberty.png -f ../etc/testing/files/car.png
 	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.pipeline.json
-	-pachctl put file images@master:AT-AT.png -f ../etc/testing/files/8MN9Kg0.jpg
-	-pachctl put file images@master:kitten.png -f ../etc/testing/files/g2QnNqa.jpg
+	-pachctl put file images@master:fruit.png -f ../etc/testing/files/fruit.png
+	-pachctl put file images@master:cat.png -f ../etc/testing/files/cat.png
 	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.pipeline.json
 
 setup-tutorial-project:
 	-pachctl create project tutorial --description wow
 	-pachctl create repo images --project tutorial
 	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.pipeline.json --project tutorial
-	-pachctl put file images@master:birthday-cake.jpg -f ../etc/testing/files/FOO9q43.jpg --project tutorial
+	-pachctl put file images@master:birthday-cake.jpg -f ../etc/testing/files/fruit.png --project tutorial
 	-pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.pipeline.json --project tutorial
-	-pachctl put file images@master:pooh.jpg -f ../etc/testing/files/Togu2RY.jpg --project tutorial
+	-pachctl put file images@master:pooh.jpg -f ../etc/testing/files/car.png --project tutorial
 
 setup-multi-project: setup-multi-project-1 setup-multi-project-2 setup-multi-project-cron-egress
 
@@ -31,9 +31,9 @@ setup-multi-project-1:
 	-pachctl create project Multi-Project-A2 --description 'Contains node 2 of pipeline A.'
 	-pachctl create repo images --project Multi-Project-A1
 	-pachctl create pipeline -f ./multi-project/A2_edges.pipeline.json --project Multi-Project-A2
-	-pachctl put file images@master:birthday-cake.jpg -f ../etc/testing/files/FOO9q43.jpg --project Multi-Project-A1
+	-pachctl put file images@master:birthday-cake.jpg -f ../etc/testing/files/fruit.png --project Multi-Project-A1
 	-pachctl create pipeline -f ./multi-project/A1_montage.pipeline.json --project Multi-Project-A1
-	-pachctl put file images@master:pooh.jpg -f ../etc/testing/files/Togu2RY.jpg --project Multi-Project-A1
+	-pachctl put file images@master:pooh.jpg -f ../etc/testing/files/car.png --project Multi-Project-A1
 
 setup-multi-project-2:
 	-pachctl create project Multi-Project-B1 --description 'Contains nodes 1 and 4 of pipeline B.'
@@ -42,8 +42,8 @@ setup-multi-project-2:
 	-pachctl create pipeline -f ./multi-project/B1_edge.pipeline.json --project Multi-Project-B2
 	-pachctl create pipeline -f ./multi-project/B2_edge.pipeline.json --project Multi-Project-B2
 	-pachctl create pipeline -f ./multi-project/B3_edge.pipeline.json --project Multi-Project-B1
-	-pachctl put file images@master:birthday-cake.jpg -f ../etc/testing/files/FOO9q43.jpg --project Multi-Project-B1
-	-pachctl put file images@master:pooh.jpg -f ../etc/testing/files/Togu2RY.jpg --project Multi-Project-B1
+	-pachctl put file images@master:birthday-cake.jpg -f ../etc/testing/files/fruit.png --project Multi-Project-B1
+	-pachctl put file images@master:pooh.jpg -f ../etc/testing/files/car.png --project Multi-Project-B1
 
 setup-multi-project-cron-egress:
 	-pachctl create project Multi-Project-C1 --description 'Contains a cron repo.'
@@ -106,7 +106,7 @@ generate-rbac: rbac-setup rbac-root rbac-tomcat rbac-viper rbac-warthog
 	
 setup-service-pipeline:
 	-pachctl create repo service-input
-	-pachctl put file service-input@master:birthday-cake.jpg -f ../etc/testing/files/FOO9q43.jpg
+	-pachctl put file service-input@master:birthday-cake.jpg -f ../etc/testing/files/fruit.png
 	-pachctl create pipeline -f ./pipelines/simple-service.pipeline.json
 
 setup-spout-pipeline:

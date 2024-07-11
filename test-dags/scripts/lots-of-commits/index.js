@@ -7,7 +7,7 @@ try {
   for (let i = 0; i < NUM_COMMITS; i++) {
     const rand = Math.trunc(Math.random() * 1000000000).toString();
     exec(
-      `pachctl put file ${REPO_NAME}@master:${rand}.png -f ../etc/testing/files/AT-AT.png`,
+      `pachctl put file ${REPO_NAME}@master:${rand}.png -f ../etc/testing/files/fruit.png`,
       (err, stdout, stderr) => {
         if (err) {
           console.log(err);

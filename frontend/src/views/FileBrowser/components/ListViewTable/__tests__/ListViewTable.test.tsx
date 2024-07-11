@@ -114,7 +114,7 @@ describe('List View Table', () => {
 
     const files = await screen.findAllByTestId('FileTableRow__row');
 
-    expect(files[0]).toHaveTextContent('AT-AT.png');
+    expect(files[0]).toHaveTextContent('fruit.png');
     expect(files[0]).toHaveTextContent('-');
     expect(files[0]).toHaveTextContent('80.59 kB');
     expect(files[1]).toHaveTextContent('liberty.png');
@@ -125,9 +125,9 @@ describe('List View Table', () => {
   it('should navigate to preview on file link', async () => {
     render(<ListViewTable files={MOCK_IMAGES_FILES} />);
 
-    await click(screen.getByText('AT-AT.png'));
+    await click(screen.getByText('fruit.png'));
     expect(window.location.pathname).toBe(
-      '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/AT-AT.png/',
+      '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/fruit.png/',
     );
   });
 
@@ -147,7 +147,7 @@ describe('List View Table', () => {
     await click((await screen.findAllByText('Copy Path'))[0]);
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      'images@4a83c74809664f899261baccdb47cd90:/AT-AT.png',
+      'images@4a83c74809664f899261baccdb47cd90:/fruit.png',
     );
   });
 
@@ -166,7 +166,7 @@ describe('List View Table', () => {
 
       await click(
         screen.getByRole('cell', {
-          name: /at-at\.png/i,
+          name: /fruit\.png/i,
         }),
       );
 
@@ -186,7 +186,7 @@ describe('List View Table', () => {
             const body = await req.text();
             const expected =
               '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"},"__typename":"Repo"},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"},"__typename":"Commit"}}\n' +
-              '{"deleteFile":{"path":"/AT-AT.png"}}';
+              '{"deleteFile":{"path":"/fruit.png"}}';
             if (body === expected) {
               return res(ctx.json({}));
             }
@@ -217,7 +217,7 @@ describe('List View Table', () => {
             const body = await req.text();
             const expected =
               '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"},"__typename":"Repo"},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"},"__typename":"Commit"}}\n' +
-              '{"deleteFile":{"path":"/AT-AT.png"}}\n' +
+              '{"deleteFile":{"path":"/fruit.png"}}\n' +
               '{"deleteFile":{"path":"/cats/"}}\n' +
               '{"deleteFile":{"path":"/liberty.png"}}';
             if (body === expected) {
@@ -237,7 +237,7 @@ describe('List View Table', () => {
 
       await click(
         screen.getByRole('cell', {
-          name: /at-at\.png/i,
+          name: /fruit\.png/i,
         }),
       );
       await click(
@@ -257,7 +257,7 @@ describe('List View Table', () => {
 
       const modal = await screen.findByRole('dialog');
       expect(await within(modal).findByRole('list')).toHaveTextContent(
-        '/AT-AT.png/cats//liberty.png',
+        '/fruit.png/cats//liberty.png',
       );
       const deleteConfirm = await within(modal).findByRole('button', {
         name: /delete/i,
@@ -285,7 +285,7 @@ describe('List View Table', () => {
 
       await click(
         screen.getByRole('cell', {
-          name: /at-at\.png/i,
+          name: /fruit\.png/i,
         }),
       );
 
@@ -319,7 +319,7 @@ describe('List View Table', () => {
             },
             id: '4a83c74809664f899261baccdb47cd90',
           },
-          path: '/AT-AT.png',
+          path: '/fruit.png',
           datum: 'default',
         },
         fileType: FileType.FILE,
@@ -336,7 +336,7 @@ describe('List View Table', () => {
 
       await click(
         screen.getByRole('cell', {
-          name: /at-at\.png/i,
+          name: /fruit\.png/i,
         }),
       );
 
@@ -369,7 +369,7 @@ describe('List View Table', () => {
 
       await click(
         screen.getByRole('cell', {
-          name: /at-at\.png/i,
+          name: /fruit\.png/i,
         }),
       );
 
@@ -387,14 +387,14 @@ describe('List View Table', () => {
 
       // using .* regex for the "Change" column of the table
       const hamburger = screen.getByRole('button', {
-        name: /at-at\.png.*80\.59 kb/i,
+        name: /fruit\.png.*80\.59 kb/i,
       });
       await click(hamburger);
       const downloadButton = within(hamburger).getByText(/Download/i);
       await click(downloadButton);
 
       expect(spy).toHaveBeenLastCalledWith(
-        '/proxyForward/pfs/default/images/4a83c74809664f899261baccdb47cd90/AT-AT.png?download',
+        '/proxyForward/pfs/default/images/4a83c74809664f899261baccdb47cd90/fruit.png?download',
       );
     });
 
@@ -402,7 +402,7 @@ describe('List View Table', () => {
       const spy = jest.spyOn(window, 'open');
 
       server.use(
-        mockEncode(['/AT-AT.png', '/cats/', '/json_nested_arrays.json']),
+        mockEncode(['/fruit.png', '/cats/', '/json_nested_arrays.json']),
       );
 
       render(<ListViewTable files={MOCK_IMAGES_FILES} />);
@@ -415,7 +415,7 @@ describe('List View Table', () => {
 
       await click(
         screen.getByRole('cell', {
-          name: /at-at\.png/i,
+          name: /fruit\.png/i,
         }),
       );
       await click(

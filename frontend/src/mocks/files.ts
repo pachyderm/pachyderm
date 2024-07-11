@@ -31,7 +31,7 @@ export const MOCK_IMAGES_FILES: FileInfo[] = [
         },
         id: '4a83c74809664f899261baccdb47cd90',
       },
-      path: '/AT-AT.png',
+      path: '/fruit.png',
       datum: 'default',
     },
     fileType: FileType.FILE,

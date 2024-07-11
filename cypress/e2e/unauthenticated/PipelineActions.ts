@@ -17,7 +17,7 @@ describe('Pipeline Actions', () => {
   it('should allow a user to rerun a pipeline and then stop the job', () => {
     cy.exec('pachctl create repo images')
       .exec(
-        'pachctl put file images@master:liberty.png -f cypress/fixtures/liberty.png',
+        'pachctl put file images@master:cat.png -f cypress/fixtures/cat.png',
       )
       .exec(`pachctl create pipeline -f cypress/fixtures/edges.pipeline.json`);
 
@@ -45,7 +45,7 @@ describe('Pipeline Actions', () => {
   it('should allow a user to pause and restart a pipeline', () => {
     cy.exec('pachctl create repo images')
       .exec(
-        'pachctl put file images@master:liberty.png -f cypress/fixtures/liberty.png',
+        'pachctl put file images@master:cat.png -f cypress/fixtures/cat.png',
       )
       .exec(`pachctl create pipeline -f cypress/fixtures/edges.pipeline.json`);
 

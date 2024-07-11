@@ -90,7 +90,7 @@ const setup = async () => {
     (commitIndex) =>
       `pachctl put file repo-${
         commitIndex % 2
-      }@master:liberty-${commitIndex}.png -f ./etc/testing/files/46Q8nDz.jpg`,
+      }@master:fruit-${commitIndex}.png -f ./etc/testing/files/fruit.png`,
   );
   console.log('committing files...');
 
