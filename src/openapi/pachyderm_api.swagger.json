@@ -11605,6 +11605,12 @@
         "effectiveSpecJson": {
           "type": "string",
           "description": "The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults."
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       },
       "description": "PipelineInfo is proto for each pipeline that Pachd stores in the\ndatabase. It tracks the state of the pipeline, and points to its metadata in\nPFS (and, by pointing to a PFS commit, de facto tracks the pipeline's\nversion).  Any information about the pipeline _not_ stored in the database is\nin the Details object, which requires fetching the spec from PFS or other\npotentially expensive operations."
@@ -11731,12 +11737,6 @@
         "workersStartedAt": {
           "type": "string",
           "format": "date-time"
-        },
-        "pachMetadata": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
         }
       }
     },

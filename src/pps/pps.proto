@@ -473,12 +473,12 @@ message PipelineInfo {
     Determined determined = 36;
     google.protobuf.Duration maximum_expected_uptime = 37;
     google.protobuf.Timestamp workers_started_at = 38;
-    map<string,string> pach_metadata = 39;
   }
   Details details = 12;
   reserved "details_json";
   string user_spec_json = 13; // The user-submitted pipeline spec in JSON format.
   string effective_spec_json = 14; // The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults.
+  map<string,string> metadata = 15;
 }
 
 message PipelineInfos {

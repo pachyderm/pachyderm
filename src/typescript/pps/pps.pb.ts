@@ -362,7 +362,6 @@ export type PipelineInfoDetails = {
   determined?: Determined
   maximumExpectedUptime?: GoogleProtobufDuration.Duration
   workersStartedAt?: GoogleProtobufTimestamp.Timestamp
-  pachMetadata?: {[key: string]: string}
 }
 
 export type PipelineInfo = {
@@ -379,6 +378,7 @@ export type PipelineInfo = {
   details?: PipelineInfoDetails
   userSpecJson?: string
   effectiveSpecJson?: string
+  metadata?: {[key: string]: string}
 }
 
 export type PipelineInfos = {

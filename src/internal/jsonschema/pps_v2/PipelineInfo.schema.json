@@ -82,6 +82,12 @@
                 "effectiveSpecJson": {
                     "type": "string",
                     "description": "The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults."
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
                 }
             },
             "additionalProperties": false,
@@ -892,12 +898,6 @@
                 "workersStartedAt": {
                     "type": "string",
                     "format": "date-time"
-                },
-                "pachMetadata": {
-                    "additionalProperties": {
-                        "type": "string"
-                    },
-                    "type": "object"
                 }
             },
             "additionalProperties": false,

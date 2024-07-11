@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -131,6 +132,25 @@ func editInTx(ctx context.Context, tc *txncontext.TransactionContext, authServer
 		}
 		if err := coredb.UpdateClusterMetadata(ctx, tc.SqlTx, md); err != nil {
 			return errors.Wrap(err, "update cluster metadata")
+		}
+	case *metadata.Edit_Pipeline:
+		p, err := ppsdb.PickPipeline(ctx, x.Pipeline, tc.SqlTx)
+		if err != nil {
+			return errors.Wrap(err, "pick pipeline")
+		}
+		r := &pfs.Repo{
+			Type:    pfs.UserRepoType,
+			Project: p.Pipeline.Project,
+			Name:    p.Pipeline.Name,
+		}
+		if err := authServer.CheckRepoIsAuthorizedInTransaction(ctx, tc, r, auth.Permission_REPO_WRITE); err != nil {
+			return errors.Wrapf(err, "check permissions on repo %q", r.Key())
+		}
+		if err := editMetadata(edit, &p.PipelineInfo.Metadata); err != nil {
+			return errors.Wrapf(err, "edit repo %q", r.Key())
+		}
+		if err := ppsdb.UpsertPipeline(ctx, tc.SqlTx, p.PipelineInfo); err != nil {
+			return errors.Wrapf(err, "update repo %q", r.Key())
 		}
 	default:
 		return errors.Errorf("unknown target %v", edit.GetTarget())

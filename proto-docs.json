@@ -21850,6 +21850,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "PipelineInfo.MetadataEntry",
+              "fullType": "pps_v2.PipelineInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -22294,25 +22306,13 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
-            },
-            {
-              "name": "pach_metadata",
-              "description": "",
-              "label": "repeated",
-              "type": "PachMetadataEntry",
-              "longType": "PipelineInfo.Details.PachMetadataEntry",
-              "fullType": "pps_v2.PipelineInfo.Details.PachMetadataEntry",
-              "ismap": true,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
             }
           ]
         },
         {
-          "name": "PachMetadataEntry",
-          "longName": "PipelineInfo.Details.PachMetadataEntry",
-          "fullName": "pps_v2.PipelineInfo.Details.PachMetadataEntry",
+          "name": "MetadataEntry",
+          "longName": "PipelineInfo.MetadataEntry",
+          "fullName": "pps_v2.PipelineInfo.MetadataEntry",
           "description": "",
           "hasExtensions": false,
           "hasFields": true,

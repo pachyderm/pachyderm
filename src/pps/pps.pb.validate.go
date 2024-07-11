@@ -4485,6 +4485,8 @@ func (m *PipelineInfo) validate(all bool) error {
 
 	// no validation rules for EffectiveSpecJson
 
+	// no validation rules for Metadata
+
 	if len(errors) > 0 {
 		return PipelineInfoMultiError(errors)
 	}
@@ -15316,8 +15318,6 @@ func (m *PipelineInfo_Details) validate(all bool) error {
 			}
 		}
 	}
-
-	// no validation rules for PachMetadata
 
 	if len(errors) > 0 {
 		return PipelineInfo_DetailsMultiError(errors)

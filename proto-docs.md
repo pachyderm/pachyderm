@@ -538,7 +538,7 @@
     - [Pipeline](#pps_v2-Pipeline)
     - [PipelineInfo](#pps_v2-PipelineInfo)
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
-    - [PipelineInfo.Details.PachMetadataEntry](#pps_v2-PipelineInfo-Details-PachMetadataEntry)
+    - [PipelineInfo.MetadataEntry](#pps_v2-PipelineInfo-MetadataEntry)
     - [PipelineInfos](#pps_v2-PipelineInfos)
     - [PipelinePage](#pps_v2-PipelinePage)
     - [PipelinePicker](#pps_v2-PipelinePicker)
@@ -8719,6 +8719,7 @@ potentially expensive operations.
 | details | [PipelineInfo.Details](#pps_v2-PipelineInfo-Details) |  |  |
 | user_spec_json | [string](#string) |  | The user-submitted pipeline spec in JSON format. |
 | effective_spec_json | [string](#string) |  | The effective spec used to create the pipeline. Created by merging the user spec into the cluster defaults. |
+| metadata | [PipelineInfo.MetadataEntry](#pps_v2-PipelineInfo-MetadataEntry) | repeated |  |
 
 
 
@@ -8769,16 +8770,15 @@ potentially expensive operations.
 | determined | [Determined](#pps_v2-Determined) |  |  |
 | maximum_expected_uptime | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | workers_started_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
-| pach_metadata | [PipelineInfo.Details.PachMetadataEntry](#pps_v2-PipelineInfo-Details-PachMetadataEntry) | repeated |  |
 
 
 
 
 
 
-<a name="pps_v2-PipelineInfo-Details-PachMetadataEntry"></a>
+<a name="pps_v2-PipelineInfo-MetadataEntry"></a>
 
-### PipelineInfo.Details.PachMetadataEntry
+### PipelineInfo.MetadataEntry
 
 
 

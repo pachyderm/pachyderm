@@ -33,6 +33,17 @@ func GetPipeline(ctx context.Context, tx *pachsql.Tx, projectName, pipelineName 
 	return Pipeline{pi}, nil
 }
 
+// UpsertPipeline attempts to update (or create) a pipeline.  It does not return an
+// ID because ppsdb has not yet been converted to be fully relational yet and
+// pipeline IDs do not yet exist.
+func UpsertPipeline(ctx context.Context, tx *pachsql.Tx, pi *pps.PipelineInfo) error {
+	var old pps.PipelineInfo
+	return errors.Wrap(Pipelines(tx, nil).ReadWrite(tx).Upsert(ctx, pi.SpecCommit, &old, func() error {
+		old = *pi
+		return nil
+	}), "upserting pipeline")
+}
+
 // PickPipeline picks a pipeline from the database.
 func PickPipeline(ctx context.Context, pp *pps.PipelinePicker, tx *pachsql.Tx) (Pipeline, error) {
 	if pp == nil || pp.Picker == nil {

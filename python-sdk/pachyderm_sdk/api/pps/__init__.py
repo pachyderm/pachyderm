@@ -563,6 +563,9 @@ class PipelineInfo(betterproto.Message):
     details: "PipelineInfoDetails" = betterproto.message_field(12)
     user_spec_json: str = betterproto.string_field(13)
     effective_spec_json: str = betterproto.string_field(14)
+    metadata: Dict[str, str] = betterproto.map_field(
+        15, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
 
 
 @dataclass(eq=False, repr=False)
@@ -609,9 +612,6 @@ class PipelineInfoDetails(betterproto.Message):
     determined: "Determined" = betterproto.message_field(36)
     maximum_expected_uptime: timedelta = betterproto.message_field(37)
     workers_started_at: datetime = betterproto.message_field(38)
-    pach_metadata: Dict[str, str] = betterproto.map_field(
-        39, betterproto.TYPE_STRING, betterproto.TYPE_STRING
-    )
 
 
 @dataclass(eq=False, repr=False)
