@@ -15,6 +15,7 @@ import {
 
 import useFileActions from '../../hooks/useFileActions';
 import useFileDelete from '../../hooks/useFileDelete';
+import BranchConfirmationModal from '../BranchConfirmationModal';
 
 import FilePreviewContent from './components/FilePreviewContent';
 import styles from './FilePreview.module.css';
@@ -25,13 +26,21 @@ type FilePreviewProps = {
 
 const FilePreview = ({file}: FilePreviewProps) => {
   const {
-    deleteModalOpen,
-    openDeleteModal,
-    closeModal,
-    deleteFile,
-    loading,
-    error,
-  } = useFileDelete(file);
+    openDeleteConfirmationModal,
+    closeDeleteConfirmationModal,
+    deleteConfirmationModalOpen,
+    openBranchSelectionModal,
+    closeBranchSelectionModal,
+    branchSelectionModalOpen,
+    submitBranchSelectionForm,
+    deleteFiles,
+    deleteLoading,
+    deleteError,
+    hasManyBranches,
+  } = useFileDelete([file]);
+  const fileDeleteAction = hasManyBranches
+    ? openBranchSelectionModal
+    : openDeleteConfirmationModal;
   const {
     fileName,
     viewSource,
@@ -41,7 +50,7 @@ const FilePreview = ({file}: FilePreviewProps) => {
     fileType,
     handleBackNav,
     commitBranches,
-  } = useFileActions(file, openDeleteModal);
+  } = useFileActions(file, fileDeleteAction);
 
   return (
     <div className={styles.base}>
@@ -102,18 +111,29 @@ const FilePreview = ({file}: FilePreviewProps) => {
         viewSource={viewSource}
         toggleViewSource={toggleViewSource}
       />
+      {branchSelectionModalOpen && (
+        <BranchConfirmationModal
+          commitBranches={commitBranches}
+          onHide={closeBranchSelectionModal}
+          onSubmit={submitBranchSelectionForm}
+          loading={deleteLoading}
+          deleteError={deleteError}
+        >
+          {file.file?.path}
+        </BranchConfirmationModal>
+      )}
 
-      {deleteModalOpen && (
+      {deleteConfirmationModalOpen && (
         <BasicModal
-          show={deleteModalOpen}
-          onHide={closeModal}
+          show={deleteConfirmationModalOpen}
+          onHide={closeDeleteConfirmationModal}
           headerContent="Are you sure you want to delete this File?"
           actionable
           mode="Small"
           confirmText="Delete"
-          onConfirm={deleteFile}
-          loading={loading}
-          errorMessage={error}
+          onConfirm={deleteFiles}
+          loading={deleteLoading}
+          errorMessage={deleteError}
         >
           {file.file?.path}
           <br />

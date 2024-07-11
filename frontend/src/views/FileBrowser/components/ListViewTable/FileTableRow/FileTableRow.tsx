@@ -18,6 +18,7 @@ import {
 
 import useFileActions from '../../../hooks/useFileActions';
 import useFileDelete from '../../../hooks/useFileDelete';
+import BranchConfirmationModal from '../../BranchConfirmationModal';
 
 type FileTableRowProps = {
   selectedFiles: string[];
@@ -33,18 +34,25 @@ const FileTableRow: React.FC<FileTableRowProps> = ({
   const {repoId, projectId} = useUrlState();
 
   const {
-    deleteModalOpen,
-    openDeleteModal,
-    closeModal,
-    deleteFile,
-    loading,
-    error,
-  } = useFileDelete(file);
-  const {fileName, filePath, onMenuSelect, iconItems} = useFileActions(
-    file,
-    openDeleteModal,
-    file.fileType === FileType.FILE,
-  );
+    openDeleteConfirmationModal,
+    closeDeleteConfirmationModal,
+    deleteConfirmationModalOpen,
+    openBranchSelectionModal,
+    closeBranchSelectionModal,
+    branchSelectionModalOpen,
+    deleteFiles,
+    submitBranchSelectionForm,
+    deleteLoading,
+    deleteError,
+    hasManyBranches,
+  } = useFileDelete([file]);
+
+  const fileDeleteAction = hasManyBranches
+    ? openBranchSelectionModal
+    : openDeleteConfirmationModal;
+
+  const {fileName, filePath, onMenuSelect, iconItems, commitBranches} =
+    useFileActions(file, fileDeleteAction, file.fileType === FileType.FILE);
 
   // Using the commitId from the file object because users can navigate
   // here using the /latest path which will not have a commitId in the url.
@@ -99,17 +107,30 @@ const FileTableRow: React.FC<FileTableRowProps> = ({
         {diffLoading ? <SkeletonBodyText /> : commitAction}
       </Table.DataCell>
       <Table.DataCell>{formatBytes(file.sizeBytes || 0)}</Table.DataCell>
-      {deleteModalOpen && (
+
+      {branchSelectionModalOpen && (
+        <BranchConfirmationModal
+          commitBranches={commitBranches}
+          onHide={closeBranchSelectionModal}
+          onSubmit={submitBranchSelectionForm}
+          loading={deleteLoading}
+          deleteError={deleteError}
+        >
+          {file.file?.path}
+        </BranchConfirmationModal>
+      )}
+
+      {deleteConfirmationModalOpen && (
         <BasicModal
-          show={deleteModalOpen}
-          onHide={closeModal}
+          show={deleteConfirmationModalOpen}
+          onHide={closeDeleteConfirmationModal}
           headerContent="Are you sure you want to delete this File?"
           actionable
           mode="Small"
           confirmText="Delete"
-          onConfirm={deleteFile}
-          loading={loading}
-          errorMessage={error}
+          onConfirm={deleteFiles}
+          loading={deleteLoading}
+          errorMessage={deleteError}
         >
           {file.file?.path}
           <br />

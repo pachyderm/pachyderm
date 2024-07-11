@@ -11,6 +11,9 @@ import {
   Tooltip,
 } from '@pachyderm/components';
 
+import useFileDelete from '../../hooks/useFileDelete';
+import BranchConfirmationModal from '../BranchConfirmationModal';
+
 import FileTableRow from './FileTableRow';
 import useListViewTable from './hooks/useListViewTable';
 import styles from './ListViewTable.module.css';
@@ -29,28 +32,40 @@ const NO_BRANCH =
 const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
   const {
     repoId,
-    pipelineLoading,
-    branchId,
     selectedFiles,
     addSelection,
-    deleteModalOpen,
-    openDeleteModal,
-    closeModal,
+    downloadSelected,
+    noFilesSelected,
+  } = useListViewTable(files);
+
+  const {
+    openDeleteConfirmationModal,
+    closeDeleteConfirmationModal,
+    deleteConfirmationModalOpen,
+    openBranchSelectionModal,
+    closeBranchSelectionModal,
+    branchSelectionModalOpen,
+    submitBranchSelectionForm,
+    commitBranches,
+    hasManyBranches,
     deleteFiles,
     deleteLoading,
     deleteError,
-    downloadSelected,
-    noFilesSelected,
     isOutputRepo,
-  } = useListViewTable(files);
+    deleteDisabled: fileDeleteDisabled,
+    firstBranchId,
+  } = useFileDelete(files, selectedFiles);
 
-  const deleteDisabled =
-    isOutputRepo || pipelineLoading || noFilesSelected || !branchId;
+  const deleteDisabled = fileDeleteDisabled || noFilesSelected;
+
+  const fileDeleteAction = hasManyBranches
+    ? openBranchSelectionModal
+    : openDeleteConfirmationModal;
 
   let tooltipText = SELECT_FILES_DELETE;
   if (isOutputRepo) {
     tooltipText = OUTPUT_REPO;
-  } else if (!branchId) {
+  } else if (!firstBranchId) {
     tooltipText = NO_BRANCH;
   }
   return (
@@ -60,7 +75,7 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
           <span>
             <Button
               IconSVG={TrashSVG}
-              onClick={openDeleteModal}
+              onClick={fileDeleteAction}
               disabled={deleteDisabled}
               buttonType="ghost"
               color="black"
@@ -109,11 +124,24 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
           </Table.Body>
         </Table>
       </div>
-      {deleteModalOpen && (
+
+      {branchSelectionModalOpen && (
+        <BranchConfirmationModal
+          commitBranches={commitBranches}
+          onHide={closeBranchSelectionModal}
+          onSubmit={submitBranchSelectionForm}
+          loading={deleteLoading}
+          deleteError={deleteError}
+        >
+          {selectedFiles.join(', ')}
+        </BranchConfirmationModal>
+      )}
+
+      {deleteConfirmationModalOpen && (
         <BasicModal
-          show={deleteModalOpen}
-          onHide={closeModal}
-          headerContent={`Are you sure you want to delete the selected items from ${repoId}@${branchId}?`}
+          show={deleteConfirmationModalOpen}
+          onHide={closeDeleteConfirmationModal}
+          headerContent={`Are you sure you want to delete the selected items from ${repoId}@${firstBranchId}?`}
           actionable
           mode="Small"
           confirmText="Delete"

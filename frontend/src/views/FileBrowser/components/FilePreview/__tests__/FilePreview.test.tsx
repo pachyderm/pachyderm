@@ -10,7 +10,11 @@ import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {Empty} from '@dash-frontend/api/googleTypes';
-import {FileType} from '@dash-frontend/generated/proto/pfs/pfs.pb';
+import {
+  BranchInfo,
+  FileType,
+  ListBranchRequest,
+} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {
   mockGetEnterpriseInfo,
   buildFile,
@@ -21,6 +25,7 @@ import {
   mockGetImageCommitsNoBranch,
   mockGetBranches,
   mockGetBranchesMasterOnly,
+  BRANCH_RENDER,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -587,6 +592,14 @@ describe('File Preview', () => {
         '',
         '/project/default/repos/image/commit/default/image.png',
       );
+      server.use(
+        rest.post<ListBranchRequest, Empty, BranchInfo[]>(
+          '/api/pfs_v2.API/ListBranch',
+          (_req, res, ctx) => {
+            return res(ctx.json([BRANCH_RENDER]));
+          },
+        ),
+      );
       server.use(mockEmptyInspectPipeline());
       server.use(mockStartCommit('720d471659dc4682a53576fdb637a482'));
       server.use(
@@ -615,6 +628,56 @@ describe('File Preview', () => {
       await click(deleteConfirm);
 
       // The delete is finished after navigating to the new commit
+      await waitFor(() =>
+        expect(window.location.pathname).toBe(
+          '/project/default/repos/image/commit/720d471659dc4682a53576fdb637a482/',
+        ),
+      );
+    });
+
+    it('should delete a file with multiple branches on action click', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/default/repos/image/commit/default/image.png',
+      );
+      server.use(mockEmptyInspectPipeline());
+      server.use(mockStartCommit('720d471659dc4682a53576fdb637a482'));
+      server.use(
+        rest.post<string, Empty>(
+          '/api/pfs_v2.API/ModifyFile',
+          async (req, res, ctx) => {
+            const body = await req.text();
+            const expected =
+              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"},"__typename":"Repo"},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"},"__typename":"Commit"}}\n' +
+              '{"deleteFile":{"path":"/image.png"}}';
+            if (body === expected) {
+              return res(ctx.json({}));
+            }
+          },
+        ),
+      );
+      server.use(mockFinishCommit());
+
+      render(<FilePreview file={file} />);
+
+      await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
+      await click((await screen.findAllByText('Delete'))[0]);
+
+      const deleteConfirm = await screen.findByTestId('ModalFooter__confirm');
+
+      await click(
+        screen.getByRole('combobox', {
+          name: /branch/i,
+        }),
+      );
+      await click(
+        screen.getByRole('option', {
+          name: 'render',
+        }),
+      );
+
+      await click(deleteConfirm);
       await waitFor(() =>
         expect(window.location.pathname).toBe(
           '/project/default/repos/image/commit/720d471659dc4682a53576fdb637a482/',

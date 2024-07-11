@@ -1,3 +1,4 @@
+import {useCallback} from 'react';
 import {useHistory} from 'react-router';
 
 import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
@@ -8,12 +9,23 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {useModal} from '@pachyderm/components';
 
-const useFileDelete = (file: FileInfo) => {
+type BranchFormFields = {
+  branch: string;
+};
+
+const useFileDelete = (files: FileInfo[], selectedFiles?: string[]) => {
   const {
-    openModal: openDeleteModal,
-    closeModal,
-    isOpen: deleteModalOpen,
+    openModal: openDeleteConfirmationModal,
+    closeModal: closeDeleteConfirmationModal,
+    isOpen: deleteConfirmationModalOpen,
   } = useModal(false);
+  const {
+    openModal: openBranchSelectionModal,
+    closeModal: closeBranchSelectionModal,
+    isOpen: branchSelectionModalOpen,
+  } = useModal(false);
+
+  const browserHistory = useHistory();
   const {repoId, projectId} = useUrlState();
   const {loading: pipelineLoading, pipeline} = usePipeline({
     pipeline: {
@@ -25,18 +37,21 @@ const useFileDelete = (file: FileInfo) => {
     projectId,
     repoId,
   });
-  const commitBranch = branches?.find(
-    (branch) => branch.head?.id === file.file?.commit?.id,
+  const commitBranches = branches?.filter(
+    (branch) => branch.head?.id === files[0].file?.commit?.id,
   );
-  // TODO: FRON-1519
-  const branchId = commitBranch?.branch?.name || undefined;
 
-  const browserHistory = useHistory();
+  const firstBranchId =
+    (commitBranches &&
+      commitBranches?.length > 0 &&
+      commitBranches[0]?.branch?.name) ||
+    undefined;
+  const hasManyBranches = commitBranches && commitBranches?.length > 1;
 
   const {
     deleteFiles: deleteHook,
     loading: deleteLoading,
-    error,
+    error: deleteError,
   } = useDeleteFiles({
     onSuccess: (id) => {
       browserHistory.push(
@@ -49,24 +64,49 @@ const useFileDelete = (file: FileInfo) => {
     },
   });
 
-  const deleteFile = () => {
-    deleteHook({
-      filePaths: [file.file?.path || ''],
-      repoId: repoId,
-      branchId: branchId || '',
-      projectId,
-    });
-  };
+  const deleteFiles = useCallback(
+    (selectedBranch?: string) => {
+      deleteHook({
+        filePaths: selectedFiles || files.map((file) => file.file?.path || ''),
+        repoId: repoId,
+        branchId: selectedBranch || firstBranchId || '',
+        projectId,
+      });
+    },
+    [deleteHook, files, firstBranchId, projectId, repoId, selectedFiles],
+  );
+
+  const submitBranchSelectionForm = useCallback(
+    (formData: BranchFormFields) => {
+      deleteFiles(formData.branch);
+    },
+    [deleteFiles],
+  );
+
+  const isOutputRepo = Boolean(pipeline);
+  const deleteDisabled =
+    isOutputRepo ||
+    pipelineLoading ||
+    branchesLoading ||
+    !commitBranches ||
+    commitBranches.length === 0;
 
   return {
-    deleteModalOpen,
-    openDeleteModal,
-    closeModal,
-    deleteFile,
-    loading: deleteLoading,
-    error,
-    deleteDisabled:
-      Boolean(pipeline) || pipelineLoading || branchesLoading || !commitBranch,
+    openDeleteConfirmationModal,
+    closeDeleteConfirmationModal,
+    deleteConfirmationModalOpen,
+    openBranchSelectionModal,
+    closeBranchSelectionModal,
+    branchSelectionModalOpen,
+    submitBranchSelectionForm,
+    deleteFiles: () => deleteFiles(),
+    deleteLoading,
+    deleteError,
+    commitBranches,
+    hasManyBranches,
+    deleteDisabled,
+    isOutputRepo,
+    firstBranchId,
   };
 };
 

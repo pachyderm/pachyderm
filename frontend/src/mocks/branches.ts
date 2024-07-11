@@ -51,7 +51,7 @@ const BRANCH_SAMPLE: BranchInfo = {
   __typename: 'BranchInfo',
 };
 
-const BRANCH_RENDER: BranchInfo = {
+export const BRANCH_RENDER: BranchInfo = {
   branch: {
     name: 'render',
     repo: {
