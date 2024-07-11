@@ -78,14 +78,14 @@ export const modifyRoleBinding = async (req: ModifyRoleBindingRequest) => {
 };
 
 export const authenticate = async (code: string) => {
-  const {idToken, message} = (await fetch('/auth/exchange', {
+  const {idToken, message, details} = (await fetch('/auth/exchange', {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify({code}),
   }).then((res) => res.json())) as Exchange & RequestError;
 
   if (!idToken) {
-    throw new Error(message);
+    throw new Error(message, {cause: details});
   }
 
   try {
@@ -134,11 +134,11 @@ export const config = async () => {
     headers: getHeaders(),
   });
 
-  const {message, authEndpoint, clientId, pachdClientId} =
+  const {message, details, authEndpoint, clientId, pachdClientId} =
     (await res.json()) as AuthConfig & RequestError;
 
   if (!res.ok || message) {
-    throw new Error(message);
+    throw new Error(message, {cause: details});
   }
 
   return {

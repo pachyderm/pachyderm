@@ -91,9 +91,10 @@ describe('api/rest', () => {
       server.use(mockWhoAmIActivated());
       server.use(mockAuthConfigError());
 
-      await expect(() => config()).rejects.toThrow(
-        'Authentication Error: Issuer is misconfigured.',
-      );
+      await expect(() => config()).rejects.toMatchObject({
+        message: 'Authentication Error: Issuer is misconfigured.',
+        cause: ['Additional details from API response'],
+      });
     });
   });
 
@@ -167,15 +168,17 @@ describe('api/rest', () => {
             return res(
               ctx.json({
                 message: 'Authenticate Error: Could not exchange codes.',
+                details: ['Additional details from API response'],
               }),
             );
           },
         ),
       );
 
-      await expect(() => authenticate('321')).rejects.toThrow(
-        'Authenticate Error: Could not exchange codes.',
-      );
+      await expect(() => authenticate('321')).rejects.toMatchObject({
+        message: 'Authenticate Error: Could not exchange codes.',
+        cause: ['Additional details from API response'],
+      });
     });
 
     it('should throw an error when it did not receive a pach token', async () => {

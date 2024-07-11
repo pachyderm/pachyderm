@@ -31,6 +31,7 @@ export const streamingError = (
 export type RequestError = {
   code?: number;
   details?: string[];
+  cause?: string[];
   message?: string;
 };
 export const isErrorWithCode = (
@@ -47,8 +48,12 @@ export const isErrorWithMessage = (
 
 export const isErrorWithDetails = (
   error: unknown,
-): error is Required<Pick<RequestError, 'details'>> => {
-  return error !== null && typeof error === 'object' && 'details' in error;
+): error is Required<Pick<RequestError, 'details' | 'cause'>> => {
+  return (
+    error !== null &&
+    typeof error === 'object' &&
+    ('details' in error || 'cause' in error)
+  );
 };
 
 export const isUnknown = (error: unknown) => {

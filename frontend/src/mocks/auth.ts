@@ -147,6 +147,7 @@ export const mockAuthConfigError = () =>
       ctx.status(401),
       ctx.json({
         message: 'Authentication Error: Issuer is misconfigured.',
+        details: ['Additional details from API response'],
       }),
     );
   });
@@ -157,6 +158,7 @@ export const mockAuthConfigNotConfigured = () =>
       ctx.status(200),
       ctx.json({
         message: 'Authentication Error: Unable to connect to issuer.',
+        details: ['Additional details from API response'],
       }),
     );
   });
@@ -167,6 +169,7 @@ export const mockAuthExchanceError = () =>
       ctx.status(200),
       ctx.json({
         message: 'Authentication Error: Invalid code.',
+        details: ['Additional details from API response'],
       }),
     );
   });

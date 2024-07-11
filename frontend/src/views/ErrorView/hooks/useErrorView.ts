@@ -53,9 +53,20 @@ const useErrorView = (error?: unknown) => {
     }
   }, [errorType, error]);
 
-  const errorDetails = isErrorWithDetails(error)
-    ? error.details.reduce((acc, curr) => (acc = acc + '\n' + curr), '')
-    : undefined;
+  const errorDetails = useMemo(() => {
+    if (isErrorWithDetails(error)) {
+      if (error.details) {
+        return error.details.reduce(
+          (acc, curr) => (acc = acc + '\n' + curr),
+          '',
+        );
+      }
+      if (error.cause) {
+        return error.cause.reduce((acc, curr) => (acc = acc + '\n' + curr), '');
+      }
+    }
+    return undefined;
+  }, [error]);
 
   return {errorType, errorMessage, errorDetails};
 };
