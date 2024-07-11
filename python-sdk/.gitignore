@@ -8,3 +8,7 @@ dist
 docs/*.zip
 docs/pachyderm_sdk
 .python-version
+
+cdr_perf/cache-decrypted
+cdr_perf/cache-encrypted
+cdr_perf/fileset

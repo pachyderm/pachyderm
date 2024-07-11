@@ -44,6 +44,7 @@ class CdrResolver:
         cache_location: Optional[os.PathLike] = None,
         fetch_missing_chunks: bool = True,
         http_host_replacement: str = "",
+        encrypted: bool = True,
     ):
         """Creates a CdrResolver.
         Whether CDR functionality is enabled is checked at time of initialization.
@@ -73,6 +74,7 @@ class CdrResolver:
             self.cache = Path(os.path.expanduser(self.cache)).resolve()
         self.fetch_missing_chunks = fetch_missing_chunks
         self.http_host_replacement = http_host_replacement
+        self.encrypted = encrypted
 
     def resolve(self, ref: Ref) -> bytes:
         """Resolve a CDR reference."""
@@ -117,11 +119,24 @@ class CdrResolver:
 
     def _dereference_cipher(self, body: Cipher) -> bytes:
         """Resolves a Cipher CDR. This method must resolve its inner CDR."""
-        if body.algo != CipherAlgo.CHACHA20:
-            raise ValueError(f"unrecognized cipher algorithm: {body.algo}")
-        inner = self.resolve(body.inner)
-        cipher = ChaCha20.new(key=body.key, nonce=body.nonce)
-        return cipher.decrypt(inner)
+
+        def _deref_inner() -> bytes:
+            if body.algo != CipherAlgo.CHACHA20:
+                raise ValueError(f"unrecognized cipher algorithm: {body.algo}")
+            inner = self.resolve(body.inner)
+            cipher = ChaCha20.new(key=body.key, nonce=body.nonce)
+            return cipher.decrypt(inner)
+
+        if not self.cache or self.encrypted:
+            return _deref_inner()
+        chunk_file = self.cache.joinpath(self._chunk_name2(Ref(cipher=body)))
+        if chunk_file.exists():
+            return chunk_file.read_bytes()
+        if not chunk_file.exists() and self.fetch_missing_chunks:
+            content = _deref_inner()
+            chunk_file.write_bytes(content)
+            return content
+        raise FileNotFoundError(f"chunk missing from cache: {chunk_file}")
 
     def _dereference_compress(self, body: Compress) -> bytes:
         """Resolves a Compress CDR. This method must resolve its inner CDR."""
@@ -151,7 +166,7 @@ class CdrResolver:
                 )
             return inner
 
-        if not self.cache:
+        if not self.cache or not self.encrypted:
             return _deref_inner()
 
         chunk_file = self.cache.joinpath(self._chunk_name(body))
@@ -184,3 +199,14 @@ class CdrResolver:
     def _chunk_name(content_hash: ContentHash) -> str:
         algorith = HashAlgo(content_hash.algo)
         return f"{algorith.name.lower()}_{content_hash.hash.hex()}"
+
+    @staticmethod
+    def _chunk_name2(ref: Ref) -> str:
+        field, body = which_one_of(ref, "body")
+        if isinstance(body, (Http, Concat)):
+            raise ValueError(f"unsupported Ref variant: {body}")
+        elif isinstance(body, (Cipher, Compress, SizeLimits, Slice)):
+            return CdrResolver._chunk_name2(body.inner)
+        elif isinstance(body, ContentHash):
+            algorith = HashAlgo(body.algo)
+            return f"{algorith.name.lower()}_{body.hash.hex()}"

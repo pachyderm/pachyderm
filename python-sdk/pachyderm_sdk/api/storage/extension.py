@@ -33,6 +33,7 @@ class ApiStub(_GeneratedApiStub):
         cache_location: os.PathLike = CDR_CACHE_LOCATION,
         fetch_missing_chunks: bool = True,
         http_host_replacement: str = "",
+        encrypted: bool = True
     ) -> None:
         """Assemble the data contained at the specified path within the fileset
         and write that data to the specified destination directory. This method
@@ -75,6 +76,7 @@ class ApiStub(_GeneratedApiStub):
             cache_location=cache_location,
             fetch_missing_chunks=fetch_missing_chunks,
             http_host_replacement=http_host_replacement,
+            encrypted=encrypted
         )
 
         for msg in self.read_fileset_cdr(fileset_id=fileset, filters=[as_filter(path)]):
@@ -84,7 +86,9 @@ class ApiStub(_GeneratedApiStub):
             # By removing the leading "/", we convert the path from absolute
             #   to relative from the repo root.
             file_path = msg.path.removeprefix("/")
-            destination.joinpath(file_path).write_bytes(content)
+            file = destination.joinpath(file_path)
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_bytes(content)
 
     def fetch_chunks(
         self,
@@ -94,6 +98,7 @@ class ApiStub(_GeneratedApiStub):
         cache_location: os.PathLike = CDR_CACHE_LOCATION,
         http_host_replacement: str = "",
         prune: bool = False,
+        encrypted: bool = True,
     ) -> None:
         """Fetch all of the PFS chunks required to assemble the data contained
         at the specified path within the fileset and write them to the cache
@@ -122,14 +127,15 @@ class ApiStub(_GeneratedApiStub):
             If true, prune (delete) any chunks that are not required to assemble the fileset.
         """
         resolver = CdrResolver(
-            cache_location=cache_location, http_host_replacement=http_host_replacement
+            cache_location=cache_location, http_host_replacement=http_host_replacement, encrypted=encrypted
         )
+        resolver.cache.mkdir(parents=True, exist_ok=True)
 
         unused_chunks = set()
         if prune:
             unused_chunks = {file.name for file in resolver.cache.iterdir()}
 
-        def cache_chunks(ref: Ref) -> None:
+        def cache_chunks_encrypted(ref: Ref) -> None:
             """This is an optimization. We could simply call resolver.resolve() and
             discard the output, but that would preform additional computation for
             decompressing, decrypting, assembling, etc."""
@@ -143,15 +149,41 @@ class ApiStub(_GeneratedApiStub):
                 resolver._dereference_content_hash(body)
                 return
             elif isinstance(body, (Cipher, Compress, SizeLimits, Slice)):
-                return cache_chunks(body.inner)
+                return cache_chunks_encrypted(body.inner)
             elif isinstance(body, Concat):
                 for inner_ref in body.refs:
-                    return cache_chunks(inner_ref)
+                    cache_chunks_encrypted(inner_ref)
+                return
+            else:
+                raise ValueError(f"unsupported Ref variant: {body}")
+
+        def cache_chunks_unencrypted(ref: Ref) -> None:
+            """This is an optimization. We could simply call resolver.resolve() and
+            discard the output, but that would preform additional computation for
+            decompressing, decrypting, assembling, etc."""
+            field, body = which_one_of(ref, "body")
+            if isinstance(body, Http):
+                raise ValueError(
+                    "malformed CDR: no Cipher message contained within the CDR"
+                )
+            elif isinstance(body, Cipher):
+                unused_chunks.discard(resolver._chunk_name2(ref))
+                resolver._dereference_cipher(body)
+                return
+            elif isinstance(body, (Compress, ContentHash, SizeLimits, Slice)):
+                return cache_chunks_unencrypted(body.inner)
+            elif isinstance(body, Concat):
+                for inner_ref in body.refs:
+                    cache_chunks_unencrypted(inner_ref)
+                return
             else:
                 raise ValueError(f"unsupported Ref variant: {body}")
 
         for msg in self.read_fileset_cdr(fileset_id=fileset, filters=[as_filter(path)]):
-            cache_chunks(msg.ref)
+            if encrypted:
+                cache_chunks_encrypted(msg.ref)
+            else:
+                cache_chunks_unencrypted(msg.ref)
 
         for file_name in unused_chunks:
             file = resolver.cache.joinpath(file_name)
