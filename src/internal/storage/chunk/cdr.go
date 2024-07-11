@@ -15,8 +15,8 @@ func (s *Storage) CDRFromDataRef(ctx context.Context, dataRef *DataRef, cache *l
 	client := NewClient(s.store, s.db, s.tracker, nil, s.pool).(*trackedClient)
 	defer client.Close()
 	key := string(dataRef.Ref.Id)
-	url, ok := cache.Get(key)
-	if !ok {
+	url, isCached := cache.Get(key)
+	if !isCached {
 		path, err := client.GetPath(ctx, ID(dataRef.Ref.Id))
 		if err != nil {
 			return nil, err

@@ -232,7 +232,7 @@ func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server stor
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(taskParallelism)))
 	if err := s.readFileset(ctx, request, func(f fileset.File) error {
 		var refs []*cdr.Ref
-		refNum := len(f.Index().File.DataRefs)
+		numRefs := len(f.Index().File.DataRefs)
 		for i, dataRef := range f.Index().File.DataRefs {
 			i, dataRef := i, dataRef
 			if err := taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
@@ -242,7 +242,7 @@ func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server stor
 				}
 				return func() error {
 					refs = append(refs, ref)
-					if i == refNum-1 {
+					if i == numRefs-1 {
 						// TODO: Move to cdr package?
 						ref := chunk.CreateConcatRef(refs)
 						return server.Send(&storage.ReadFilesetCDRResponse{
@@ -256,7 +256,7 @@ func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server stor
 				return err
 			}
 		}
-		if refNum == 0 {
+		if numRefs == 0 {
 			return server.Send(&storage.ReadFilesetCDRResponse{
 				Path: f.Index().Path,
 				Ref:  &cdr.Ref{Body: &cdr.Ref_Concat{}},
