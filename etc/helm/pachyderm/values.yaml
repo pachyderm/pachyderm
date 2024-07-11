@@ -1235,6 +1235,7 @@ cloudsqlAuthProxy:
   podLabels: {}
   # resources specifies the resource request and limits.
   resources: {}
+  # connect to the private IP of the Cloud SQL instance.
   privateIp: false
   #  requests:
   #    # The proxy's memory use scales linearly with the number of active
