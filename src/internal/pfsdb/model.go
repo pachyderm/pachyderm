@@ -143,6 +143,14 @@ type CommitRow struct {
 	CreatedAtUpdatedAt
 }
 
+func (c *CommitRow) Finished() *timestamppb.Timestamp {
+	return pbutil.TimeToTimestamppb(c.FinishedTime)
+}
+
+func (c *CommitRow) Finishing() *timestamppb.Timestamp {
+	return pbutil.TimeToTimestamppb(c.FinishingTime)
+}
+
 func (c *CommitRow) ToCommit(ctx context.Context, extCtx sqlx.ExtContext) (*Commit, error) {
 	if c == nil {
 		return nil, nil
@@ -156,21 +164,21 @@ func (c *CommitRow) ToCommit(ctx context.Context, extCtx sqlx.ExtContext) (*Comm
 	if c.Repo.ID != 0 && c.Repo.BranchesNames == "" {
 		repo, err := getRepo(ctx, extCtx, c.Repo.ID)
 		if err != nil {
-			return nil, errors.Wrap(err, "get commit from database row: get repo")
+			return nil, errors.Wrap(err, "to commit")
 		}
 		c.Repo = *repo
 	}
 	parent, children, err := getCommitRelativeRows(ctx, extCtx, c.ID)
 	if err != nil {
-		return nil, errors.Wrap(err, "get commit from database row")
+		return nil, errors.Wrap(err, "to commit")
 	}
 	subvenance, err := getSubvenantCommitRows(ctx, extCtx, c.ID, WithMaxDepth(1))
 	if err != nil {
-		return nil, errors.Wrap(err, "get commit from database row")
+		return nil, errors.Wrap(err, "to commit")
 	}
 	provenance, err := getProvenantCommitRows(ctx, extCtx, c.ID, WithMaxDepth(1))
 	if err != nil {
-		return nil, errors.Wrap(err, "get commit from database row")
+		return nil, errors.Wrap(err, "to commit")
 	}
 	commit.Children = children
 	commit.Parent = parent

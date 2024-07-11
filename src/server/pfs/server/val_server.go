@@ -125,12 +125,8 @@ func (a *validatedAPIServer) ForgetCommit(ctx context.Context, req *pfs.ForgetCo
 		if err != nil {
 			return errors.Wrap(err, "pick commits")
 		}
-		for _, childCommit := range c.ChildCommits {
-			childCommitInfo, err := pfsdb.GetCommitByKey(ctx, txnCtx.SqlTx, childCommit)
-			if err != nil {
-				return errors.Wrap(err, "get commit by key")
-			}
-			if childCommitInfo.Finished == nil {
+		for _, childCommit := range c.Children {
+			if childCommit.Finished() == nil {
 				return errors.New("direct descendants must be closed")
 			}
 		}

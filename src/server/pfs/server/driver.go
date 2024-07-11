@@ -639,7 +639,6 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 				commit = inspectCommitResp.Parent.Pb()
 				return nil
 			}
-			commit = nil
 			return nil
 		}, logFields...); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

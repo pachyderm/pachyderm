@@ -216,14 +216,14 @@ func (c *Commit) Finished() *timestamppb.Timestamp {
 	if c.CommitRow == nil {
 		return nil
 	}
-	return pbutil.TimeToTimestamppb(c.FinishedTime)
+	return c.CommitRow.Finished()
 }
 
 func (c *Commit) Finishing() *timestamppb.Timestamp {
 	if c.CommitRow == nil {
 		return nil
 	}
-	return pbutil.TimeToTimestamppb(c.FinishingTime)
+	return c.CommitRow.Finishing()
 }
 
 // CommitNotFoundError is returned by GetCommit() when a commit is not found in postgres.
@@ -462,6 +462,7 @@ func createCommitChildren(ctx context.Context, tx *pachsql.Tx, parentCommit Comm
 	return nil
 }
 
+// DeleteCommit deletes Commit with CommitID id from pfs.commits. It also repoints commit's parent and children.
 func DeleteCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) error {
 	parent, children, err := getCommitRelativeRows(ctx, tx, id)
 	if err != nil {
@@ -672,8 +673,8 @@ func forEachCommitAncestorUntilRoot(ctx context.Context, tx *pachsql.Tx, startId
 	}
 }
 
-// UpsertCommit will attempt to insert a commit and its ancestry relationships.
-// If the commit already exists, it will update its description.
+// UpsertCommit will attempt to insert a commit. It does not update parents or children.
+// @deprecated: Use UpdateCommit instead.
 func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) (CommitID, error) {
 	existingCommit, err := getCommitRowByCommitKey(ctx, tx, commitInfo.Commit)
 	if err != nil {
@@ -726,7 +727,7 @@ func UpdateCommitBranch(ctx context.Context, tx *pachsql.Tx, commitID CommitID, 
 	return nil
 }
 
-// UpdateCommit overwrites an existing commit entry as well as the corresponding ancestry entries.
+// UpdateCommit overwrites an existing commit entry. It does not update ancestry information.
 func UpdateCommit(ctx context.Context, tx *pachsql.Tx, commit *Commit) error {
 	var err error
 	if commit.ID == 0 {
@@ -742,7 +743,7 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, commit *Commit) error {
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "update commmit: rows affected")
+		return errors.Wrap(err, "update commit: rows affected")
 	}
 	if rowsAffected == 0 {
 		_, err := GetRepoInfoByName(ctx, tx, commit.Repo.Project.Name, commit.Repo.Name, commit.Repo.Type)

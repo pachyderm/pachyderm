@@ -200,7 +200,7 @@ func rowToCommits(ctx context.Context, ext sqlx.ExtContext, rows []*CommitRow) (
 	for _, row := range rows {
 		commit, err := row.ToCommit(ctx, ext)
 		if err != nil {
-			return nil, errors.Wrap(err, "get commit with id provenance")
+			return nil, errors.Wrap(err, "row to commits")
 		}
 		commits = append(commits, commit)
 	}

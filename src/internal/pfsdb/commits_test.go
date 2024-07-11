@@ -414,7 +414,6 @@ func TestListCommit(t *testing.T) {
 			checkOutput(ctx, t, iter, expectedInfos)
 		})
 	})
-	fmt.Println("hello")
 }
 
 func TestListCommitsFilter(t *testing.T) {

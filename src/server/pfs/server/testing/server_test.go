@@ -6354,12 +6354,12 @@ func TestTrigger(t *testing.T) {
 		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
-		// Ensure that the trigger branch remains unchanged after another minute (no new commmit).
+		// Ensure that the trigger branch remains unchanged after another minute (no new commit).
 		time.Sleep(sleepDur)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
-		// Ensure that the trigger still works after another commmit.
+		// Ensure that the trigger still works after another commit.
 		require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
@@ -7565,7 +7565,6 @@ func TestWalkFileInvalid(t *testing.T) {
 	}))
 }
 
-<<<<<<< HEAD
 func gcOption(c *pachconfig.Configuration) {
 	c.PachdSpecificConfiguration.StorageGCPeriod = 5
 	c.PachdSpecificConfiguration.StorageChunkGCPeriod = 5
