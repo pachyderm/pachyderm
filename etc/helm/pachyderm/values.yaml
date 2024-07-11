@@ -1235,6 +1235,7 @@ cloudsqlAuthProxy:
   podLabels: {}
   # resources specifies the resource request and limits.
   resources: {}
+  privateIp: false
   #  requests:
   #    # The proxy's memory use scales linearly with the number of active
   #    # connections. Fewer open connections will use less memory. Adjust

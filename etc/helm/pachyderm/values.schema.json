@@ -40,6 +40,9 @@
                 "priorityClassName": {
                     "type": "string"
                 },
+                "privateIp": {
+                    "type": "boolean"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -215,9 +218,6 @@
                         "cpuImage": {
                             "type": "string"
                         },
-                        "gpuImage": {
-                            "type": "string"
-                        },
                         "kubeScheduler": {
                             "type": "string"
                         },
@@ -237,6 +237,9 @@
                 },
                 "enterpriseEdition": {
                     "type": "boolean"
+                },
+                "gpuImage": {
+                    "type": "string"
                 },
                 "imagePullSecretName": {
                     "type": "string"
@@ -290,10 +293,13 @@
                         "clientSecretName": {
                             "type": "string"
                         },
+                        "displayNameAttributeName": {
+                            "type": "string"
+                        },
                         "enabled": {
                             "type": "boolean"
                         },
-                        "groupsClaimName": {
+                        "groupsAttributeName": {
                             "type": "string"
                         },
                         "idpRecipientUrl": {
@@ -326,6 +332,9 @@
                     "properties": {
                         "forcePullImage": {
                             "type": "boolean"
+                        },
+                        "startupHook": {
+                            "type": "string"
                         }
                     }
                 },
