@@ -255,6 +255,18 @@ func createFileset(ctx context.Context, c storage.FilesetClient, num, size int) 
 				return "", nil, err
 			}
 		}
+		if size == 0 {
+			if err := cfc.Send(&storage.CreateFilesetRequest{
+				Modification: &storage.CreateFilesetRequest_AppendFile{
+					AppendFile: &storage.AppendFile{
+						Path: tf.path,
+						Data: wrapperspb.Bytes([]byte{}),
+					},
+				},
+			}); err != nil {
+				return "", nil, err
+			}
+		}
 		testFiles = append(testFiles, tf)
 	}
 	response, err := cfc.CloseAndRecv()
@@ -329,8 +341,8 @@ func TestReadFilesetCDR(t *testing.T) {
 		size int
 	}{
 		// TODO: Implement signed url caching, then enable these tests.
-		//{"0B", 1000000, 0},
-		//{"1KB", 100000, units.KB},
+		{"0B", 1000000, 0},
+		{"1KB", 100000, units.KB},
 		{"100KB", 1000, 100 * units.KB},
 		{"10MB", 10, 10 * units.MB},
 		{"100MB", 1, 100 * units.MB},

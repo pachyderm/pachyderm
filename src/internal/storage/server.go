@@ -10,6 +10,10 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
+	"golang.org/x/sync/semaphore"
+
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/pachyderm/pachyderm/v2/src/cdr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -30,9 +34,10 @@ import (
 )
 
 const (
-	ChunkPrefix = "chunk/"
-	defaultTTL  = client.DefaultTTL
-	maxTTL      = 30 * time.Minute
+	ChunkPrefix     = "chunk/"
+	defaultTTL      = client.DefaultTTL
+	maxTTL          = 30 * time.Minute
+	taskParallelism = 10
 )
 
 type Env struct {
@@ -220,23 +225,48 @@ func (w *writer) Write(data []byte) (int, error) {
 
 func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server storage.Fileset_ReadFilesetCDRServer) error {
 	ctx := server.Context()
-	// TODO: Use task chain here.
-	return s.readFileset(ctx, request, func(f fileset.File) error {
+	cache, err := lru.New[string, string](128)
+	if err != nil {
+		panic(err)
+	}
+	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(taskParallelism)))
+	if err := s.readFileset(ctx, request, func(f fileset.File) error {
 		var refs []*cdr.Ref
-		for _, dr := range f.Index().File.DataRefs {
-			ref, err := s.Chunks.CDRFromDataRef(ctx, dr)
-			if err != nil {
+		refNum := len(f.Index().File.DataRefs)
+		for i, dataRef := range f.Index().File.DataRefs {
+			i, dataRef := i, dataRef
+			if err := taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
+				ref, err := s.Chunks.CDRFromDataRef(ctx, dataRef, cache)
+				if err != nil {
+					return nil, err
+				}
+				return func() error {
+					refs = append(refs, ref)
+					if i == refNum-1 {
+						// TODO: Move to cdr package?
+						ref := chunk.CreateConcatRef(refs)
+						return server.Send(&storage.ReadFilesetCDRResponse{
+							Path: f.Index().Path,
+							Ref:  ref,
+						})
+					}
+					return nil
+				}, nil
+			}); err != nil {
 				return err
 			}
-			refs = append(refs, ref)
 		}
-		// TODO: Move to cdr package?
-		ref := chunk.CreateConcatRef(refs)
-		return server.Send(&storage.ReadFilesetCDRResponse{
-			Path: f.Index().Path,
-			Ref:  ref,
-		})
-	})
+		if refNum == 0 {
+			return server.Send(&storage.ReadFilesetCDRResponse{
+				Path: f.Index().Path,
+				Ref:  &cdr.Ref{Body: &cdr.Ref_Concat{}},
+			})
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return taskChain.Wait()
 }
 
 // TODO: We should be able to use this and potentially others directly in PFS.
