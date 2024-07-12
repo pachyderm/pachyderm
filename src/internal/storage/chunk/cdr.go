@@ -2,24 +2,31 @@ package chunk
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/pachyderm/pachyderm/v2/src/cdr"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"gocloud.dev/blob"
 	"golang.org/x/crypto/chacha20"
 )
 
-func (s *Storage) CDRFromDataRef(ctx context.Context, dataRef *DataRef) (*cdr.Ref, error) {
+func (s *Storage) CDRFromDataRef(ctx context.Context, dataRef *DataRef, cache *lru.Cache[string, string]) (*cdr.Ref, error) {
 	client := NewClient(s.store, s.db, s.tracker, nil, s.pool).(*trackedClient)
 	defer client.Close()
-	path, err := client.GetPath(ctx, ID(dataRef.Ref.Id))
-	if err != nil {
-		return nil, err
-	}
-	url, err := s.bucket.SignedURL(ctx, path, &blob.SignedURLOptions{Expiry: 24 * time.Hour})
-	if err != nil {
-		return nil, errors.EnsureStack(err)
+	key := string(dataRef.Ref.Id)
+	url, isCached := cache.Get(key)
+	if !isCached {
+		path, err := client.GetPath(ctx, ID(dataRef.Ref.Id))
+		if err != nil {
+			return nil, err
+		}
+		u, err := s.bucket.SignedURL(ctx, path, &blob.SignedURLOptions{Expiry: 24 * time.Hour})
+		if err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		url = u
+		cache.Add(key, url)
 	}
 	ref := createHTTPRef(url, nil)
 	ref = createContentHashRef(ref, dataRef.Ref.Id)
