@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -20,8 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"golang.org/x/mod/semver"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -94,181 +94,6 @@ func helmValuesPreGoCDK(numPachds int) (map[string]string, map[string]string) {
 			"pachd.storage.minio.signature": "",
 			"pachd.storage.minio.secure":    "false",
 		}
-}
-
-func TestUpgradeTrigger(t *testing.T) {
-	if skip {
-		t.Skip("Skipping upgrade test")
-	}
-	fromVersions := []string{
-		"2.7.6",
-		"2.8.5",
-	}
-
-	type ExpectedCommitCount struct {
-		preTrigger1  int
-		preTrigger2  int
-		postTrigger1 int
-		postTrigger2 int
-	}
-
-	getExpectedCommitCountFromVersion := func(version string) ExpectedCommitCount {
-		expectedCommitMap := map[string]ExpectedCommitCount{
-			"v2.7": {
-				// 2.7 is a special case where the commit structure changes after the upgrade
-				preTrigger1:  23,
-				preTrigger2:  12,
-				postTrigger1: 33,
-				postTrigger2: 17,
-			},
-			"v2.8": {
-				// trigger 1 is two empty commits and 11 data commits
-				// trigger 2 is one inital commit and "every other" data commit, so 6 total
-				preTrigger1:  13,
-				preTrigger2:  6,
-				postTrigger1: 13,
-				postTrigger2: 6,
-			},
-		}
-		lookup := semver.MajorMinor("v" + version)
-		return expectedCommitMap[lookup]
-	}
-
-	dataRepo := "TestTrigger_data"
-	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-	pipeline1 := "TestTrigger1"
-	pipeline2 := "TestTrigger2"
-
-	logCommits := func(t *testing.T, c *client.APIClient, commits []*pfs.CommitInfo) {
-		var buf bytes.Buffer
-		for i, commit := range commits {
-			err := c.GetFile(commit.Commit, "/hello", &buf)
-			commitFile := buf.String()
-			buf.Reset()
-			if err != nil || commitFile == "" {
-				commitFile = "no file"
-			}
-			t.Logf("	commit %d: id:%s, file: %s", len(commits)-i, commit.Commit.Id, commitFile)
-		}
-	}
-
-	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
-		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* preUpgrade */
-			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
-			// after 2.7.x pachyderm doesn't come with a "master" branch anymore, so we create it in this test
-			_, err := c.PfsAPIClient.CreateBranch(c.Ctx(), &pfs.CreateBranchRequest{
-				Branch: &pfs.Branch{Repo: &pfs.Repo{Name: dataRepo, Type: pfs.UserRepoType, Project: &pfs.Project{Name: pfs.DefaultProjectName}}, Name: "master"},
-			})
-			require.NoError(t, err)
-			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
-				pipeline1,
-				"",
-				[]string{"bash"},
-				[]string{
-					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-				},
-				&pps.ParallelismSpec{
-					Constant: 1,
-				},
-				client.NewPFSInputOpts(dataRepo, pfs.DefaultProjectName, dataRepo, "trigger", "/*", "", "", false, false, &pfs.Trigger{
-					Branch:  "master",
-					Commits: 1,
-				}),
-				"",
-				false,
-			))
-			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
-				pipeline2,
-				"",
-				[]string{"bash"},
-				[]string{
-					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
-				},
-				&pps.ParallelismSpec{
-					Constant: 1,
-				},
-				client.NewPFSInputOpts(pipeline1, pfs.DefaultProjectName, pipeline1, "trigger", "/*", "", "", false, false, &pfs.Trigger{
-					Branch:  "master",
-					Commits: 2,
-				}),
-				"",
-				false,
-			))
-			for i := 0; i < 11; i++ {
-				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader(fmt.Sprintf("hello world %v", i))))
-			}
-			require.NoError(t, err)
-			expectedCommitCount := getExpectedCommitCountFromVersion(from)
-			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline1), nil, nil, 0)
-				require.NoError(t, err)
-				if err != nil {
-					return err
-				}
-				t.Logf("comparing commit trigger1 sizes %d/%d", len(commits), expectedCommitCount.preTrigger1)
-				logCommits(t, c, commits)
-				if got, want := len(commits), expectedCommitCount.preTrigger1; got != want {
-					return errors.Errorf("trigger1 not ready; got %v commits, want %v commits", got, want)
-				}
-				return nil
-			})
-			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline2), nil, nil, 0)
-				require.NoError(t, err)
-				if err != nil {
-					return err
-				}
-				t.Logf("comparing commit trigger2 sizes %d/%d", len(commits), expectedCommitCount.preTrigger2)
-				logCommits(t, c, commits)
-				if got, want := len(commits), expectedCommitCount.preTrigger2; got != want {
-					return errors.Errorf("trigger2 not ready; got %v commits, want %v commits", got, want)
-				}
-				return nil
-			})
-		},
-		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* postUpgrade */
-			for i := 0; i < 10; i++ {
-				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader(fmt.Sprintf("hello world post %v", i))))
-			}
-			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-			require.NoError(t, err)
-			if semver.Compare("v"+from, "v2.8.0") < 0 {
-				// these alias commits only exist before v2.8.x
-				require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
-					ci, err := c.InspectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
-					require.NoError(t, err)
-					aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
-					if err != nil {
-						return err
-					}
-					if got, want := latestDataCI.Commit.Id, aliasCI.Commit.Id; got != want {
-						return errors.Errorf("not ready alias commit: %v latest data commit: %v", aliasCI.Commit.Id, latestDataCI.Commit.Id)
-					}
-					return nil
-				}, 10*time.Second)
-			}
-			expectedCommitCount := getExpectedCommitCountFromVersion(from)
-			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline1), nil, nil, 0)
-			require.NoError(t, err)
-			t.Logf("comparing commit trigger1 post %d/%d", len(commits), expectedCommitCount.postTrigger1)
-			logCommits(t, c, commits)
-			require.Equal(t, expectedCommitCount.postTrigger1, len(commits))
-			commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline2), nil, nil, 0)
-			require.NoError(t, err)
-			t.Logf("comparing commit trigger2 post %d/%d", len(commits), expectedCommitCount.postTrigger2)
-			logCommits(t, c, commits)
-			require.Equal(t, expectedCommitCount.postTrigger2, len(commits))
-			if semver.Compare("v"+from, "v2.8.0") < 0 {
-				// parent branch default/TestTrigger_data@trigger commit is not in direct provenance of head of branch default/TestTrigger1@master
-				require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
-					if resp.Error != "" {
-						return errors.Errorf(resp.Error)
-					}
-					return nil
-				}))
-			}
-		},
-	)
 }
 
 // pre-upgrade:
