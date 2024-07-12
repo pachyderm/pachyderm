@@ -53,7 +53,9 @@ func UpsertPipeline(ctx context.Context, tx *pachsql.Tx, pi *pps.PipelineInfo) e
 		)
 		for i := 0; i < fds.Len(); i++ {
 			var fd = fds.Get(i)
-			o.Set(fd, p.Get(fd))
+			if p.Has(fd) {
+				o.Set(fd, p.Get(fd))
+			}
 		}
 		return nil
 	}), "upserting pipeline")
