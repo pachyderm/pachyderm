@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "ppsdb",
     srcs = [
+        "pipelines.go",
         "ppsdb.go",
         "ppsdb.pb.go",
         "ppsdb.pb.validate.go",
@@ -14,10 +15,12 @@ go_library(
         "//src/internal/collection",
         "//src/internal/errors",
         "//src/internal/pachsql",
+        "//src/internal/pfsdb",
         "//src/internal/uuid",
         "//src/pfs",
         "//src/pps",
         "//src/protoextensions",
+        "@com_github_jmoiron_sqlx//:sqlx",
         "@org_golang_google_protobuf//proto",
         "@org_golang_google_protobuf//reflect/protoreflect",
         "@org_golang_google_protobuf//runtime/protoimpl",

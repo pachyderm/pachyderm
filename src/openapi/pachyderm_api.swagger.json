@@ -6311,6 +6311,17 @@
       "default": "PIPELINT_TYPE_UNKNOWN",
       "description": "The pipeline type is stored here so that we can internally know the type of\nthe pipeline without loading the spec from PFS."
     },
+    "PipelinePickerPipelineName": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2ProjectPicker"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
     "RepoPickerRepoName": {
       "type": "object",
       "properties": {
@@ -8544,6 +8555,10 @@
         "cluster": {
           "$ref": "#/definitions/metadataClusterPicker",
           "description": "cluster targets the cluster's metadata."
+        },
+        "pipeline": {
+          "$ref": "#/definitions/pps_v2PipelinePicker",
+          "description": "pipeline targets a pipeline."
         },
         "replace": {
           "$ref": "#/definitions/EditReplace",
@@ -11601,6 +11616,12 @@
         "effectiveSpecJson": {
           "type": "string",
           "description": "The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults."
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       },
       "description": "PipelineInfo is proto for each pipeline that Pachd stores in the\ndatabase. It tracks the state of the pipeline, and points to its metadata in\nPFS (and, by pointing to a PFS commit, de facto tracks the pipeline's\nversion).  Any information about the pipeline _not_ stored in the database is\nin the Details object, which requires fetching the spec from PFS or other\npotentially expensive operations."
@@ -11692,7 +11713,8 @@
           "type": "boolean"
         },
         "metadata": {
-          "$ref": "#/definitions/pps_v2Metadata"
+          "$ref": "#/definitions/pps_v2Metadata",
+          "title": "Kubernetes metadata"
         },
         "reprocessSpec": {
           "type": "string"
@@ -11751,6 +11773,14 @@
         "RECENT"
       ],
       "default": "RECENT"
+    },
+    "pps_v2PipelinePicker": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/PipelinePickerPipelineName"
+        }
+      }
     },
     "pps_v2PipelineState": {
       "type": "string",

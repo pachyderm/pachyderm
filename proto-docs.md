@@ -538,8 +538,11 @@
     - [Pipeline](#pps_v2-Pipeline)
     - [PipelineInfo](#pps_v2-PipelineInfo)
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
+    - [PipelineInfo.MetadataEntry](#pps_v2-PipelineInfo-MetadataEntry)
     - [PipelineInfos](#pps_v2-PipelineInfos)
     - [PipelinePage](#pps_v2-PipelinePage)
+    - [PipelinePicker](#pps_v2-PipelinePicker)
+    - [PipelinePicker.PipelineName](#pps_v2-PipelinePicker-PipelineName)
     - [PipelinesSummary](#pps_v2-PipelinesSummary)
     - [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest)
     - [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse)
@@ -5018,6 +5021,7 @@ Edit represents editing one piece of metadata.
 | branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  | branch targets a branch&#39;s metadata. |
 | repo | [pfs_v2.RepoPicker](#pfs_v2-RepoPicker) |  | repo targets a repo&#39;s metadata. |
 | cluster | [ClusterPicker](#metadata-ClusterPicker) |  | cluster targets the cluster&#39;s metadata. |
+| pipeline | [pps_v2.PipelinePicker](#pps_v2-PipelinePicker) |  | pipeline targets a pipeline. |
 | replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
 | add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
 | edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |
@@ -8715,6 +8719,7 @@ potentially expensive operations.
 | details | [PipelineInfo.Details](#pps_v2-PipelineInfo-Details) |  |  |
 | user_spec_json | [string](#string) |  | The user-submitted pipeline spec in JSON format. |
 | effective_spec_json | [string](#string) |  | The effective spec used to create the pipeline. Created by merging the user spec into the cluster defaults. |
+| metadata | [PipelineInfo.MetadataEntry](#pps_v2-PipelineInfo-MetadataEntry) | repeated |  |
 
 
 
@@ -8755,7 +8760,7 @@ potentially expensive operations.
 | pod_spec | [string](#string) |  |  |
 | pod_patch | [string](#string) |  |  |
 | s3_out | [bool](#bool) |  |  |
-| metadata | [Metadata](#pps_v2-Metadata) |  |  |
+| metadata | [Metadata](#pps_v2-Metadata) |  | Kubernetes metadata |
 | reprocess_spec | [string](#string) |  |  |
 | unclaimed_tasks | [int64](#int64) |  |  |
 | worker_rc | [string](#string) |  |  |
@@ -8765,6 +8770,22 @@ potentially expensive operations.
 | determined | [Determined](#pps_v2-Determined) |  |  |
 | maximum_expected_uptime | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | workers_started_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelineInfo-MetadataEntry"></a>
+
+### PipelineInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -8797,6 +8818,37 @@ potentially expensive operations.
 | order | [PipelinePage.Ordering](#pps_v2-PipelinePage-Ordering) |  |  |
 | page_size | [int64](#int64) |  |  |
 | page_index | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelinePicker"></a>
+
+### PipelinePicker
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [PipelinePicker.PipelineName](#pps_v2-PipelinePicker-PipelineName) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelinePicker-PipelineName"></a>
+
+### PipelinePicker.PipelineName
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  |  |
+| name | [string](#string) |  |  |
 
 
 

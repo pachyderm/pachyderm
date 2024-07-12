@@ -378,6 +378,7 @@ export type PipelineInfo = {
   details?: PipelineInfoDetails
   userSpecJson?: string
   effectiveSpecJson?: string
+  metadata?: {[key: string]: string}
 }
 
 export type PipelineInfos = {
@@ -780,6 +781,18 @@ export type PipelinesSummary = {
   failedPipelines?: string
   unhealthyPipelines?: string
 }
+
+export type PipelinePickerPipelineName = {
+  project?: Pfs_v2Pfs.ProjectPicker
+  name?: string
+}
+
+
+type BasePipelinePicker = {
+}
+
+export type PipelinePicker = BasePipelinePicker
+  & OneOf<{ name: PipelinePickerPipelineName }>
 
 export class API {
   static InspectJob(req: InspectJobRequest, initReq?: fm.InitReq): Promise<JobInfo> {

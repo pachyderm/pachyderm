@@ -493,6 +493,41 @@ func TestEditMetadata(t *testing.T) {
 				pachctl config update context --project project
 				pachctl create repo test
 				echo 'hi' | pachctl put file test@master:/hi.txt
+				pachctl create pipeline -f - <<EOF
+				{
+				  "pipeline": {
+				    "project": {"name": "project"},
+				    "name": "test-pipeline"
+				  },
+				  "transform": {
+				    "cmd": [
+					"sh", "-c", "ls -R /pfs > /pfs/out/output.txt"
+				    ]
+				  },
+				  "input": {
+				    "cross": [
+				      {
+				        "pfs": {
+				          "repo": "test",
+				          "glob": "/",
+				          "name": "a"
+				        }
+				      },
+				      {
+				        "pfs": {
+				          "repo": "test",
+				          "glob": "/",
+				          "name": "b"
+				        }
+				      }
+				    ]
+				  },
+				  "resource_requests": {
+				    "cpu": 0.5
+				  },
+				  "autoscaling": false
+				}
+				EOF
 
 				pachctl edit metadata commit project/test@master add myproject=project \
 						      commit default/test@master add myproject=default \
@@ -502,7 +537,8 @@ func TestEditMetadata(t *testing.T) {
 						      branch test@master add branchimplied=true \
 						      repo default/test add myrepoproject=default \
 						      repo project/test add myrepoproject=project \
-						      repo test add repoimplied=true
+						      repo test add repoimplied=true \
+						      pipeline project/test-pipeline add foo=bar
 				pachctl inspect commit test@master --raw --project=default |
 					match '"myproject":[[:space:]]+"default"'
 				pachctl inspect commit test@master --raw --project=project |
@@ -518,6 +554,8 @@ func TestEditMetadata(t *testing.T) {
 				pachctl inspect repo test --raw --project=project |
 					match '"repoimplied":[[:space:]]+"true"' |
 					match '"myrepoproject":[[:space:]]+"project"'
+				pachctl inspect pipeline test-pipeline --raw --project=project |
+					match '"foo":[[:space:]]+"bar"'
 			`,
 		},
 	}

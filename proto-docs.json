@@ -10787,6 +10787,18 @@
               }
             },
             {
+              "name": "pipeline",
+              "description": "pipeline targets a pipeline.",
+              "label": "",
+              "type": "PipelinePicker",
+              "longType": "pps_v2.PipelinePicker",
+              "fullType": "pps_v2.PipelinePicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": ""
+            },
+            {
               "name": "replace",
               "description": "replace replaces a target's metadata with a new metadata mapping.",
               "label": "",
@@ -21838,6 +21850,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "PipelineInfo.MetadataEntry",
+              "fullType": "pps_v2.PipelineInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -22165,7 +22189,7 @@
             },
             {
               "name": "metadata",
-              "description": "",
+              "description": "Kubernetes metadata",
               "label": "",
               "type": "Metadata",
               "longType": "Metadata",
@@ -22286,6 +22310,42 @@
           ]
         },
         {
+          "name": "MetadataEntry",
+          "longName": "PipelineInfo.MetadataEntry",
+          "fullName": "pps_v2.PipelineInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "PipelineInfos",
           "longName": "PipelineInfos",
           "fullName": "pps_v2.PipelineInfos",
@@ -22350,6 +22410,66 @@
               "type": "int64",
               "longType": "int64",
               "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelinePicker",
+          "longName": "PipelinePicker",
+          "fullName": "pps_v2.PipelinePicker",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "PipelineName",
+              "longType": "PipelinePicker.PipelineName",
+              "fullType": "pps_v2.PipelinePicker.PipelineName",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelineName",
+          "longName": "PipelinePicker.PipelineName",
+          "fullName": "pps_v2.PipelinePicker.PipelineName",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "ProjectPicker",
+              "longType": "pfs_v2.ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",

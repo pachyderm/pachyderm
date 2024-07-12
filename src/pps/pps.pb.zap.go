@@ -496,6 +496,12 @@ func (x *PipelineInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddObject("details", x.Details)
 	enc.AddString("user_spec_json", x.UserSpecJson)
 	enc.AddString("effective_spec_json", x.EffectiveSpecJson)
+	enc.AddObject("metadata", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for k, v := range x.Metadata {
+			enc.AddString(fmt.Sprintf("%v", k), v)
+		}
+		return nil
+	}))
 	return nil
 }
 
@@ -1332,5 +1338,22 @@ func (x *PipelinesSummary) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt64("paused_pipelines", x.PausedPipelines)
 	enc.AddInt64("failed_pipelines", x.FailedPipelines)
 	enc.AddInt64("unhealthy_pipelines", x.UnhealthyPipelines)
+	return nil
+}
+
+func (x *PipelinePicker) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("name", x.GetName())
+	return nil
+}
+
+func (x *PipelinePicker_PipelineName) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	enc.AddString("name", x.Name)
 	return nil
 }

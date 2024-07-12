@@ -563,6 +563,9 @@ class PipelineInfo(betterproto.Message):
     details: "PipelineInfoDetails" = betterproto.message_field(12)
     user_spec_json: str = betterproto.string_field(13)
     effective_spec_json: str = betterproto.string_field(14)
+    metadata: Dict[str, str] = betterproto.map_field(
+        15, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
 
 
 @dataclass(eq=False, repr=False)
@@ -1353,6 +1356,17 @@ class PipelinesSummary(betterproto.Message):
 
     unhealthy_pipelines: int = betterproto.int64_field(5)
     """count of pipelines with a failed latest job"""
+
+
+@dataclass(eq=False, repr=False)
+class PipelinePicker(betterproto.Message):
+    name: "PipelinePickerPipelineName" = betterproto.message_field(1, group="picker")
+
+
+@dataclass(eq=False, repr=False)
+class PipelinePickerPipelineName(betterproto.Message):
+    project: "_pfs__.ProjectPicker" = betterproto.message_field(1)
+    name: str = betterproto.string_field(2)
 
 
 class ApiStub:

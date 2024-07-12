@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 )
@@ -51,7 +51,7 @@ const (
 )
 
 type postgresWatcher struct {
-	db       *pachsql.DB
+	db       sqlx.ExtContext
 	listener PostgresListener
 	c        chan *watch.Event
 	buf      chan *postgresEvent // buffer for messages before the initial table list is complete
@@ -68,7 +68,7 @@ type postgresWatcher struct {
 }
 
 func newPostgresWatcher(
-	db *pachsql.DB,
+	db sqlx.ExtContext,
 	listener PostgresListener,
 	channel string,
 	template proto.Message,
@@ -284,7 +284,7 @@ func parsePostgresEvent(payload string) *postgresEvent {
 	return result
 }
 
-func (pe *postgresEvent) WatchEvent(ctx context.Context, db *pachsql.DB, template proto.Message) *watch.Event {
+func (pe *postgresEvent) WatchEvent(ctx context.Context, db sqlx.ExtContext, template proto.Message) *watch.Event {
 	if pe.err != nil {
 		return &watch.Event{Err: pe.err, Type: watch.EventError}
 	}
@@ -294,7 +294,7 @@ func (pe *postgresEvent) WatchEvent(ctx context.Context, db *pachsql.DB, templat
 	}
 	if pe.protoData == nil && pe.storedID != "" {
 		// The proto data was too large to fit in the payload, read it from a temporary location.
-		if err := db.QueryRowContext(ctx, "select proto from collections.large_notifications where id = $1", pe.storedID).Scan(&pe.protoData); err != nil {
+		if err := db.QueryRowxContext(ctx, "select proto from collections.large_notifications where id = $1", pe.storedID).Scan(&pe.protoData); err != nil {
 			// If the row is gone, this watcher is lagging too much, error it out
 			return &watch.Event{Err: errors.Wrap(err, "failed to read notification data from large_notifications table, watcher latency may be too high"), Type: watch.EventError}
 		}

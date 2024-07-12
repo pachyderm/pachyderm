@@ -4485,6 +4485,8 @@ func (m *PipelineInfo) validate(all bool) error {
 
 	// no validation rules for EffectiveSpecJson
 
+	// no validation rules for Metadata
+
 	if len(errors) > 0 {
 		return PipelineInfoMultiError(errors)
 	}
@@ -13957,6 +13959,152 @@ var _ interface {
 	ErrorName() string
 } = PipelinesSummaryValidationError{}
 
+// Validate checks the field values on PipelinePicker with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *PipelinePicker) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PipelinePicker with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in PipelinePickerMultiError,
+// or nil if none found.
+func (m *PipelinePicker) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PipelinePicker) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	switch v := m.Picker.(type) {
+	case *PipelinePicker_Name:
+		if v == nil {
+			err := PipelinePickerValidationError{
+				field:  "Picker",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetName()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, PipelinePickerValidationError{
+						field:  "Name",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, PipelinePickerValidationError{
+						field:  "Name",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetName()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return PipelinePickerValidationError{
+					field:  "Name",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
+
+	if len(errors) > 0 {
+		return PipelinePickerMultiError(errors)
+	}
+
+	return nil
+}
+
+// PipelinePickerMultiError is an error wrapping multiple validation errors
+// returned by PipelinePicker.ValidateAll() if the designated constraints
+// aren't met.
+type PipelinePickerMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PipelinePickerMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PipelinePickerMultiError) AllErrors() []error { return m }
+
+// PipelinePickerValidationError is the validation error returned by
+// PipelinePicker.Validate if the designated constraints aren't met.
+type PipelinePickerValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e PipelinePickerValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e PipelinePickerValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e PipelinePickerValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e PipelinePickerValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e PipelinePickerValidationError) ErrorName() string { return "PipelinePickerValidationError" }
+
+// Error satisfies the builtin error interface
+func (e PipelinePickerValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sPipelinePicker.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = PipelinePickerValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = PipelinePickerValidationError{}
+
 // Validate checks the field values on JobInfo_Details with the rules defined
 // in the proto definition for this message. If any rules are violated, the
 // first error encountered is returned, or nil if there are no violations.
@@ -15352,3 +15500,137 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ListDatumRequest_FilterValidationError{}
+
+// Validate checks the field values on PipelinePicker_PipelineName with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *PipelinePicker_PipelineName) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PipelinePicker_PipelineName with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// PipelinePicker_PipelineNameMultiError, or nil if none found.
+func (m *PipelinePicker_PipelineName) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PipelinePicker_PipelineName) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetProject()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, PipelinePicker_PipelineNameValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, PipelinePicker_PipelineNameValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetProject()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return PipelinePicker_PipelineNameValidationError{
+				field:  "Project",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for Name
+
+	if len(errors) > 0 {
+		return PipelinePicker_PipelineNameMultiError(errors)
+	}
+
+	return nil
+}
+
+// PipelinePicker_PipelineNameMultiError is an error wrapping multiple
+// validation errors returned by PipelinePicker_PipelineName.ValidateAll() if
+// the designated constraints aren't met.
+type PipelinePicker_PipelineNameMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PipelinePicker_PipelineNameMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PipelinePicker_PipelineNameMultiError) AllErrors() []error { return m }
+
+// PipelinePicker_PipelineNameValidationError is the validation error returned
+// by PipelinePicker_PipelineName.Validate if the designated constraints
+// aren't met.
+type PipelinePicker_PipelineNameValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e PipelinePicker_PipelineNameValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e PipelinePicker_PipelineNameValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e PipelinePicker_PipelineNameValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e PipelinePicker_PipelineNameValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e PipelinePicker_PipelineNameValidationError) ErrorName() string {
+	return "PipelinePicker_PipelineNameValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e PipelinePicker_PipelineNameValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sPipelinePicker_PipelineName.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = PipelinePicker_PipelineNameValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = PipelinePicker_PipelineNameValidationError{}
