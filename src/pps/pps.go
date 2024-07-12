@@ -88,7 +88,7 @@ func (p *PipelinePicker) UnmarshalText(b []byte) error {
 	default:
 		return errors.New("invalid repo picker: too many slashes")
 	}
-	rnp := &PipelinePicker_RepoName{
+	rnp := &PipelinePicker_PipelineName{
 		Project: &pfs.ProjectPicker{},
 		Name:    string(repo),
 	}

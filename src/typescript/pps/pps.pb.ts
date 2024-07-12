@@ -782,7 +782,7 @@ export type PipelinesSummary = {
   unhealthyPipelines?: string
 }
 
-export type PipelinePickerRepoName = {
+export type PipelinePickerPipelineName = {
   project?: Pfs_v2Pfs.ProjectPicker
   name?: string
 }
@@ -792,7 +792,7 @@ type BasePipelinePicker = {
 }
 
 export type PipelinePicker = BasePipelinePicker
-  & OneOf<{ name: PipelinePickerRepoName }>
+  & OneOf<{ name: PipelinePickerPipelineName }>
 
 export class API {
   static InspectJob(req: InspectJobRequest, initReq?: fm.InitReq): Promise<JobInfo> {

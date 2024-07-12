@@ -21,7 +21,7 @@ func TestPipelinePicker_UnmarshalTest(t *testing.T) {
 			input: "default/images",
 			want: &pps.PipelinePicker{
 				Picker: &pps.PipelinePicker_Name{
-					Name: &pps.PipelinePicker_RepoName{
+					Name: &pps.PipelinePicker_PipelineName{
 						Project: &pfs.ProjectPicker{
 							Picker: &pfs.ProjectPicker_Name{
 								Name: "default",
@@ -37,7 +37,7 @@ func TestPipelinePicker_UnmarshalTest(t *testing.T) {
 			input: "images",
 			want: &pps.PipelinePicker{
 				Picker: &pps.PipelinePicker_Name{
-					Name: &pps.PipelinePicker_RepoName{
+					Name: &pps.PipelinePicker_PipelineName{
 						Name:    "images",
 						Project: &pfs.ProjectPicker{},
 					},

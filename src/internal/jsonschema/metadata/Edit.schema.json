@@ -361,7 +361,7 @@
         "pps_v2.PipelinePicker": {
             "properties": {
                 "name": {
-                    "$ref": "#/definitions/pps_v2.PipelinePicker.RepoName",
+                    "$ref": "#/definitions/pps_v2.PipelinePicker.PipelineName",
                     "additionalProperties": false
                 }
             },
@@ -377,7 +377,7 @@
             "title": "PipelinePicker is used to select a single pipeline.  It is a pfs.RepoPicker\n where the repo type defaults to \"spec.\"",
             "description": "PipelinePicker is used to select a single pipeline.  It is a pfs.RepoPicker where the repo type defaults to \"spec.\""
         },
-        "pps_v2.PipelinePicker.RepoName": {
+        "pps_v2.PipelinePicker.PipelineName": {
             "properties": {
                 "project": {
                     "$ref": "#/definitions/pfs_v2.ProjectPicker",
@@ -389,7 +389,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Repo Name"
+            "title": "Pipeline Name"
         }
     }
 }

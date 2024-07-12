@@ -542,7 +542,7 @@
     - [PipelineInfos](#pps_v2-PipelineInfos)
     - [PipelinePage](#pps_v2-PipelinePage)
     - [PipelinePicker](#pps_v2-PipelinePicker)
-    - [PipelinePicker.RepoName](#pps_v2-PipelinePicker-RepoName)
+    - [PipelinePicker.PipelineName](#pps_v2-PipelinePicker-PipelineName)
     - [PipelinesSummary](#pps_v2-PipelinesSummary)
     - [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest)
     - [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse)
@@ -8832,16 +8832,16 @@ potentially expensive operations.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| name | [PipelinePicker.RepoName](#pps_v2-PipelinePicker-RepoName) |  |  |
+| name | [PipelinePicker.PipelineName](#pps_v2-PipelinePicker-PipelineName) |  |  |
 
 
 
 
 
 
-<a name="pps_v2-PipelinePicker-RepoName"></a>
+<a name="pps_v2-PipelinePicker-PipelineName"></a>
 
-### PipelinePicker.RepoName
+### PipelinePicker.PipelineName
 
 
 

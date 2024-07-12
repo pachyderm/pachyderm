@@ -1349,7 +1349,7 @@ func (x *PipelinePicker) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *PipelinePicker_RepoName) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *PipelinePicker_PipelineName) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}

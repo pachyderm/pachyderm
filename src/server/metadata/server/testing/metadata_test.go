@@ -120,7 +120,7 @@ func TestEditMetadata(t *testing.T) {
 		}
 		pipelinePicker = &pps.PipelinePicker{
 			Picker: &pps.PipelinePicker_Name{
-				Name: &pps.PipelinePicker_RepoName{
+				Name: &pps.PipelinePicker_PipelineName{
 					Project: projectPicker,
 					Name:    "test-pipeline",
 				},

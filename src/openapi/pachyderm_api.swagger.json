@@ -6311,6 +6311,32 @@
       "default": "PIPELINT_TYPE_UNKNOWN",
       "description": "The pipeline type is stored here so that we can internally know the type of\nthe pipeline without loading the spec from PFS."
     },
+    "PipelinePickerPipelineName": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2ProjectPicker"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "RepoPickerRepoName": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2ProjectPicker"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "type is optional. If omitted, the default type is 'user'."
+        }
+      }
+    },
     "SQLDatabaseEgressFileFormat": {
       "type": "object",
       "properties": {
@@ -9730,25 +9756,10 @@
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/definitions/pfs_v2RepoPickerRepoName"
+          "$ref": "#/definitions/RepoPickerRepoName"
         }
       },
       "description": "Repo defines mutually exclusive pickers that resolve to a single repository.\nCurrently, the only way to pick a repo is by composing a repo name and type with a project.\nIf the type is omitted, the 'user' type will be used as a default.\nPicker messages should only be used as request parameters."
-    },
-    "pfs_v2RepoPickerRepoName": {
-      "type": "object",
-      "properties": {
-        "project": {
-          "$ref": "#/definitions/pfs_v2ProjectPicker"
-        },
-        "name": {
-          "type": "string"
-        },
-        "type": {
-          "type": "string",
-          "description": "type is optional. If omitted, the default type is 'user'."
-        }
-      }
     },
     "pfs_v2ReposSummary": {
       "type": "object",
@@ -11767,18 +11778,7 @@
       "type": "object",
       "properties": {
         "name": {
-          "$ref": "#/definitions/pps_v2PipelinePickerRepoName"
-        }
-      }
-    },
-    "pps_v2PipelinePickerRepoName": {
-      "type": "object",
-      "properties": {
-        "project": {
-          "$ref": "#/definitions/pfs_v2ProjectPicker"
-        },
-        "name": {
-          "type": "string"
+          "$ref": "#/definitions/PipelinePickerPipelineName"
         }
       }
     },

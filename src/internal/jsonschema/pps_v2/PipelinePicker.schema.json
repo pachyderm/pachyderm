@@ -5,7 +5,7 @@
         "PipelinePicker": {
             "properties": {
                 "name": {
-                    "$ref": "#/definitions/pps_v2.PipelinePicker.RepoName",
+                    "$ref": "#/definitions/pps_v2.PipelinePicker.PipelineName",
                     "additionalProperties": false
                 }
             },
@@ -39,7 +39,7 @@
             "title": "Project Picker",
             "description": "ProjectPicker defines mutually exclusive pickers that resolve to a single project. Currently, the only way to pick a project is by using a project name. Picker messages should only be used as request parameters."
         },
-        "pps_v2.PipelinePicker.RepoName": {
+        "pps_v2.PipelinePicker.PipelineName": {
             "properties": {
                 "project": {
                     "$ref": "#/definitions/pfs_v2.ProjectPicker",
@@ -51,7 +51,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Repo Name"
+            "title": "Pipeline Name"
         }
     }
 }

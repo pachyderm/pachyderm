@@ -1360,11 +1360,11 @@ class PipelinesSummary(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class PipelinePicker(betterproto.Message):
-    name: "PipelinePickerRepoName" = betterproto.message_field(1, group="picker")
+    name: "PipelinePickerPipelineName" = betterproto.message_field(1, group="picker")
 
 
 @dataclass(eq=False, repr=False)
-class PipelinePickerRepoName(betterproto.Message):
+class PipelinePickerPipelineName(betterproto.Message):
     project: "_pfs__.ProjectPicker" = betterproto.message_field(1)
     name: str = betterproto.string_field(2)
 

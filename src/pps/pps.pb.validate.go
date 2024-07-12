@@ -15501,22 +15501,22 @@ var _ interface {
 	ErrorName() string
 } = ListDatumRequest_FilterValidationError{}
 
-// Validate checks the field values on PipelinePicker_RepoName with the rules
-// defined in the proto definition for this message. If any rules are
+// Validate checks the field values on PipelinePicker_PipelineName with the
+// rules defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
-func (m *PipelinePicker_RepoName) Validate() error {
+func (m *PipelinePicker_PipelineName) Validate() error {
 	return m.validate(false)
 }
 
-// ValidateAll checks the field values on PipelinePicker_RepoName with the
+// ValidateAll checks the field values on PipelinePicker_PipelineName with the
 // rules defined in the proto definition for this message. If any rules are
 // violated, the result is a list of violation errors wrapped in
-// PipelinePicker_RepoNameMultiError, or nil if none found.
-func (m *PipelinePicker_RepoName) ValidateAll() error {
+// PipelinePicker_PipelineNameMultiError, or nil if none found.
+func (m *PipelinePicker_PipelineName) ValidateAll() error {
 	return m.validate(true)
 }
 
-func (m *PipelinePicker_RepoName) validate(all bool) error {
+func (m *PipelinePicker_PipelineName) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
@@ -15527,7 +15527,7 @@ func (m *PipelinePicker_RepoName) validate(all bool) error {
 		switch v := interface{}(m.GetProject()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, PipelinePicker_RepoNameValidationError{
+				errors = append(errors, PipelinePicker_PipelineNameValidationError{
 					field:  "Project",
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -15535,7 +15535,7 @@ func (m *PipelinePicker_RepoName) validate(all bool) error {
 			}
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
-				errors = append(errors, PipelinePicker_RepoNameValidationError{
+				errors = append(errors, PipelinePicker_PipelineNameValidationError{
 					field:  "Project",
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -15544,7 +15544,7 @@ func (m *PipelinePicker_RepoName) validate(all bool) error {
 		}
 	} else if v, ok := interface{}(m.GetProject()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return PipelinePicker_RepoNameValidationError{
+			return PipelinePicker_PipelineNameValidationError{
 				field:  "Project",
 				reason: "embedded message failed validation",
 				cause:  err,
@@ -15555,19 +15555,19 @@ func (m *PipelinePicker_RepoName) validate(all bool) error {
 	// no validation rules for Name
 
 	if len(errors) > 0 {
-		return PipelinePicker_RepoNameMultiError(errors)
+		return PipelinePicker_PipelineNameMultiError(errors)
 	}
 
 	return nil
 }
 
-// PipelinePicker_RepoNameMultiError is an error wrapping multiple validation
-// errors returned by PipelinePicker_RepoName.ValidateAll() if the designated
-// constraints aren't met.
-type PipelinePicker_RepoNameMultiError []error
+// PipelinePicker_PipelineNameMultiError is an error wrapping multiple
+// validation errors returned by PipelinePicker_PipelineName.ValidateAll() if
+// the designated constraints aren't met.
+type PipelinePicker_PipelineNameMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
-func (m PipelinePicker_RepoNameMultiError) Error() string {
+func (m PipelinePicker_PipelineNameMultiError) Error() string {
 	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
@@ -15576,11 +15576,12 @@ func (m PipelinePicker_RepoNameMultiError) Error() string {
 }
 
 // AllErrors returns a list of validation violation errors.
-func (m PipelinePicker_RepoNameMultiError) AllErrors() []error { return m }
+func (m PipelinePicker_PipelineNameMultiError) AllErrors() []error { return m }
 
-// PipelinePicker_RepoNameValidationError is the validation error returned by
-// PipelinePicker_RepoName.Validate if the designated constraints aren't met.
-type PipelinePicker_RepoNameValidationError struct {
+// PipelinePicker_PipelineNameValidationError is the validation error returned
+// by PipelinePicker_PipelineName.Validate if the designated constraints
+// aren't met.
+type PipelinePicker_PipelineNameValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -15588,24 +15589,24 @@ type PipelinePicker_RepoNameValidationError struct {
 }
 
 // Field function returns field value.
-func (e PipelinePicker_RepoNameValidationError) Field() string { return e.field }
+func (e PipelinePicker_PipelineNameValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e PipelinePicker_RepoNameValidationError) Reason() string { return e.reason }
+func (e PipelinePicker_PipelineNameValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e PipelinePicker_RepoNameValidationError) Cause() error { return e.cause }
+func (e PipelinePicker_PipelineNameValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e PipelinePicker_RepoNameValidationError) Key() bool { return e.key }
+func (e PipelinePicker_PipelineNameValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e PipelinePicker_RepoNameValidationError) ErrorName() string {
-	return "PipelinePicker_RepoNameValidationError"
+func (e PipelinePicker_PipelineNameValidationError) ErrorName() string {
+	return "PipelinePicker_PipelineNameValidationError"
 }
 
 // Error satisfies the builtin error interface
-func (e PipelinePicker_RepoNameValidationError) Error() string {
+func (e PipelinePicker_PipelineNameValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -15617,14 +15618,14 @@ func (e PipelinePicker_RepoNameValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sPipelinePicker_RepoName.%s: %s%s",
+		"invalid %sPipelinePicker_PipelineName.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = PipelinePicker_RepoNameValidationError{}
+var _ error = PipelinePicker_PipelineNameValidationError{}
 
 var _ interface {
 	Field() string
@@ -15632,4 +15633,4 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = PipelinePicker_RepoNameValidationError{}
+} = PipelinePicker_PipelineNameValidationError{}
