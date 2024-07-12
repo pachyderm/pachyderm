@@ -107,7 +107,7 @@ require (
 	golang.org/x/text v0.16.0
 	golang.org/x/vuln v1.1.2
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240624140628-dc46fd24d27d
-	google.golang.org/grpc v1.64.0
+	google.golang.org/grpc v1.64.1
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.2
@@ -118,11 +118,6 @@ require (
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/kind v0.22.0
 	sigs.k8s.io/yaml v1.4.0
-)
-
-require (
-	golang.org/x/telemetry v0.0.0-20240522233618-39ace7a40ae7 // indirect
-	golang.org/x/tools v0.22.0 // indirect
 )
 
 require (
@@ -253,7 +248,7 @@ require (
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.3.3 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgtype v1.14.0 // indirect
 	github.com/jackc/puddle v1.3.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
@@ -350,7 +345,9 @@ require (
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030 // indirect
+	golang.org/x/telemetry v0.0.0-20240522233618-39ace7a40ae7 // indirect
 	golang.org/x/time v0.5.0 // indirect
+	golang.org/x/tools v0.22.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/api v0.183.0 // indirect
 	google.golang.org/genproto v0.0.0-20240624140628-dc46fd24d27d // indirect

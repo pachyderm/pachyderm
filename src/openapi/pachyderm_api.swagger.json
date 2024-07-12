@@ -10079,11 +10079,16 @@
           "type": "string",
           "description": "context is a bearer token used when calling from within a running Job."
         },
-        "spec": {
-          "$ref": "#/definitions/protobufAny"
+        "program": {
+          "type": "string",
+          "description": "program is a fileset handle."
         },
         "input": {
-          "$ref": "#/definitions/pjsQueueElement"
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "input is a list of fileset handles."
         },
         "cacheRead": {
           "type": "boolean"
@@ -10189,17 +10194,19 @@
           "$ref": "#/definitions/pjsJobState",
           "description": "state is the Job's state.\nSee JobState for a description of the possible states."
         },
-        "spec": {
-          "$ref": "#/definitions/protobufAny",
-          "description": "spec is the code specification for the Job."
+        "program": {
+          "type": "string",
+          "description": "program is the fileset that contains the code specification for the Job."
         },
         "input": {
-          "$ref": "#/definitions/pjsQueueElement",
-          "description": "input is the input data for the Job."
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "input is the input fileset handles for the Job."
         },
-        "output": {
-          "$ref": "#/definitions/pjsQueueElement",
-          "title": "output is produced by a successfully completing Job"
+        "success": {
+          "$ref": "#/definitions/pjsJobInfoSuccess"
         },
         "error": {
           "$ref": "#/definitions/pjsJobErrorCode",
@@ -10216,6 +10223,19 @@
         }
       },
       "title": "JobInfoDetails is more detailed information about a Job.\nIt contains a superset of the information in JobInfo"
+    },
+    "pjsJobInfoSuccess": {
+      "type": "object",
+      "properties": {
+        "output": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "output is a list of fileset handles produced by a successful Job."
+        }
+      },
+      "description": "Success is produced by a successfully completing Job."
     },
     "pjsJobState": {
       "type": "string",
@@ -10282,9 +10302,8 @@
           "$ref": "#/definitions/pjsQueue",
           "description": "queue is set to start processing from a Queue."
         },
-        "output": {
-          "$ref": "#/definitions/pjsQueueElement",
-          "description": "output is set by the client to complete the Job successfully."
+        "success": {
+          "$ref": "#/definitions/pjsProcessQueueRequestSuccess"
         },
         "failed": {
           "type": "boolean",
@@ -10292,6 +10311,19 @@
         }
       },
       "description": "Queue Messages\nProcessQueueRequest is the client -\u003e server message for the bi-di ProcessQueue RPC."
+    },
+    "pjsProcessQueueRequestSuccess": {
+      "type": "object",
+      "properties": {
+        "output": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "output is a list of fileset handles produced by a successful Job."
+        }
+      },
+      "description": "Success is set by the client to complete the Job successfully."
     },
     "pjsProcessQueueResponse": {
       "type": "object",
@@ -10301,7 +10333,10 @@
           "description": "context is a bearer token used to act on behalf of the Job in other RPCs.\nThe server issues this token to the client, and the client should use it when performing Job RPCs."
         },
         "input": {
-          "$ref": "#/definitions/pjsQueueElement",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
           "description": "input is the input data for a Job.\nThe server sends this to ask the client to compute the output."
         }
       },
@@ -10316,24 +10351,6 @@
         }
       },
       "description": "Queue uniquely identifies a Queue\nQueue will be nil to identify no Queue, or to indicate unset."
-    },
-    "pjsQueueElement": {
-      "type": "object",
-      "properties": {
-        "data": {
-          "type": "string",
-          "format": "byte",
-          "title": "data is opaque data used as the input and output of Jobs"
-        },
-        "filesets": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs.\nAny of the filesets referenced here will be persisted for as long as this element is in a Queue.\nNew handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary."
-        }
-      },
-      "description": "QueueElement is a single element in a Queue."
     },
     "pjsQueueInfo": {
       "type": "object",
@@ -10906,6 +10923,13 @@
         "projectDefaultsJson": {
           "type": "string",
           "description": "A JSON-encoded ProjectDefaults message, this is the verbatim input passed\nto SetProjectDefaults."
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -12457,6 +12481,23 @@
         }
       }
     },
+    "storageCopyFile": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "src": {
+          "type": "string",
+          "description": "Src is the source path of the file or directory."
+        },
+        "dst": {
+          "type": "string",
+          "description": "Dst is the destination path of the file or directory.\nIf dst is unset, src will be used as the destination path."
+        }
+      },
+      "title": "CopyFile copies a file or directory from the specified fileset with the\nspecified path. If a file or directory with the specified path doesn't\nexist in the specified fileset, the copy will be a no-op.\nTODO: Append?"
+    },
     "storageCreateFilesetRequest": {
       "type": "object",
       "properties": {
@@ -12465,6 +12506,9 @@
         },
         "deleteFile": {
           "$ref": "#/definitions/storageDeleteFile"
+        },
+        "copyFile": {
+          "$ref": "#/definitions/storageCopyFile"
         }
       },
       "description": "A CreateFilesetRequest corresponds to a single file modification.\nSupported file modifications are append and delete.\nA put / overwrite file modification can be performed by a delete followed by an\nappend.\n TODO: Decide how to handle datums."

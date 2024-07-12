@@ -1302,6 +1302,9 @@ class GetProjectDefaultsResponse(betterproto.Message):
     to SetProjectDefaults.
     """
 
+    created_by: str = betterproto.string_field(2)
+    created_at: datetime = betterproto.message_field(3)
+
 
 @dataclass(eq=False, repr=False)
 class SetProjectDefaultsRequest(betterproto.Message):

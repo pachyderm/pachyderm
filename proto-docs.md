@@ -457,15 +457,16 @@
     - [InspectQueueResponse](#pjs-InspectQueueResponse)
     - [Job](#pjs-Job)
     - [JobInfo](#pjs-JobInfo)
+    - [JobInfo.Success](#pjs-JobInfo-Success)
     - [JobInfoDetails](#pjs-JobInfoDetails)
     - [ListJobRequest](#pjs-ListJobRequest)
     - [ListJobResponse](#pjs-ListJobResponse)
     - [ListQueueRequest](#pjs-ListQueueRequest)
     - [ListQueueResponse](#pjs-ListQueueResponse)
     - [ProcessQueueRequest](#pjs-ProcessQueueRequest)
+    - [ProcessQueueRequest.Success](#pjs-ProcessQueueRequest-Success)
     - [ProcessQueueResponse](#pjs-ProcessQueueResponse)
     - [Queue](#pjs-Queue)
-    - [QueueElement](#pjs-QueueElement)
     - [QueueInfo](#pjs-QueueInfo)
     - [QueueInfoDetails](#pjs-QueueInfoDetails)
     - [WalkJobRequest](#pjs-WalkJobRequest)
@@ -694,6 +695,7 @@
     - [AppendFile](#storage-AppendFile)
     - [ComposeFilesetRequest](#storage-ComposeFilesetRequest)
     - [ComposeFilesetResponse](#storage-ComposeFilesetResponse)
+    - [CopyFile](#storage-CopyFile)
     - [CreateFilesetRequest](#storage-CreateFilesetRequest)
     - [CreateFilesetResponse](#storage-CreateFilesetResponse)
     - [DeleteFile](#storage-DeleteFile)
@@ -3914,6 +3916,8 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| created_by | [string](#string) |  |  |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | json | [string](#string) |  |  |
 
 
@@ -7201,8 +7205,8 @@ These are the different places where a commit may be originated from
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
-| spec | [google.protobuf.Any](#google-protobuf-Any) |  |  |
-| input | [QueueElement](#pjs-QueueElement) |  |  |
+| program | [string](#string) |  | program is a fileset handle. |
+| input | [string](#string) | repeated | input is a list of fileset handles. |
 | cache_read | [bool](#bool) |  |  |
 | cache_write | [bool](#bool) |  |  |
 
@@ -7340,10 +7344,25 @@ JobInfo describes a Job
 | job | [Job](#pjs-Job) |  | Job is the Job&#39;s identity |
 | parent_job | [Job](#pjs-Job) |  | parent_job is the Job&#39;s parent if it exists. |
 | state | [JobState](#pjs-JobState) |  | state is the Job&#39;s state. See JobState for a description of the possible states. |
-| spec | [google.protobuf.Any](#google-protobuf-Any) |  | spec is the code specification for the Job. |
-| input | [QueueElement](#pjs-QueueElement) |  | input is the input data for the Job. |
-| output | [QueueElement](#pjs-QueueElement) |  | output is produced by a successfully completing Job |
+| program | [string](#string) |  | program is the fileset that contains the code specification for the Job. |
+| input | [string](#string) | repeated | input is the input fileset handles for the Job. |
+| success | [JobInfo.Success](#pjs-JobInfo-Success) |  |  |
 | error | [JobErrorCode](#pjs-JobErrorCode) |  | error is set when the Job is unable to complete successfully |
+
+
+
+
+
+
+<a name="pjs-JobInfo-Success"></a>
+
+### JobInfo.Success
+Success is produced by a successfully completing Job.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| output | [string](#string) | repeated | output is a list of fileset handles produced by a successful Job. |
 
 
 
@@ -7442,8 +7461,23 @@ ProcessQueueRequest is the client -&gt; server message for the bi-di ProcessQueu
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | queue | [Queue](#pjs-Queue) |  | queue is set to start processing from a Queue. |
-| output | [QueueElement](#pjs-QueueElement) |  | output is set by the client to complete the Job successfully. |
+| success | [ProcessQueueRequest.Success](#pjs-ProcessQueueRequest-Success) |  |  |
 | failed | [bool](#bool) |  | failed is set by the client to fail the Job. The Job will transition to state DONE with code FAILED. |
+
+
+
+
+
+
+<a name="pjs-ProcessQueueRequest-Success"></a>
+
+### ProcessQueueRequest.Success
+Success is set by the client to complete the Job successfully.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| output | [string](#string) | repeated | output is a list of fileset handles produced by a successful Job. |
 
 
 
@@ -7459,7 +7493,7 @@ ProcessQueueResposne is the server -&gt; client message for the bi-di ProcessQue
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | context | [string](#string) |  | context is a bearer token used to act on behalf of the Job in other RPCs. The server issues this token to the client, and the client should use it when performing Job RPCs. |
-| input | [QueueElement](#pjs-QueueElement) |  | input is the input data for a Job. The server sends this to ask the client to compute the output. |
+| input | [string](#string) | repeated | input is the input data for a Job. The server sends this to ask the client to compute the output. |
 
 
 
@@ -7476,22 +7510,6 @@ Queue will be nil to identify no Queue, or to indicate unset.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | id | [bytes](#bytes) |  |  |
-
-
-
-
-
-
-<a name="pjs-QueueElement"></a>
-
-### QueueElement
-QueueElement is a single element in a Queue.
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| data | [bytes](#bytes) |  | data is opaque data used as the input and output of Jobs |
-| filesets | [string](#string) | repeated | filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs. Any of the filesets referenced here will be persisted for as long as this element is in a Queue. New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary. |
 
 
 
@@ -8152,6 +8170,8 @@ Delete more than one pipeline.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | project_defaults_json | [string](#string) |  | A JSON-encoded ProjectDefaults message, this is the verbatim input passed to SetProjectDefaults. |
+| created_by | [string](#string) |  |  |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 
 
 
@@ -11118,6 +11138,26 @@ a file with the specified path doesn&#39;t exist, it will be created.
 
 
 
+<a name="storage-CopyFile"></a>
+
+### CopyFile
+CopyFile copies a file or directory from the specified fileset with the
+specified path. If a file or directory with the specified path doesn&#39;t
+exist in the specified fileset, the copy will be a no-op.
+TODO: Append?
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| src | [string](#string) |  | Src is the source path of the file or directory. |
+| dst | [string](#string) |  | Dst is the destination path of the file or directory. If dst is unset, src will be used as the destination path. |
+
+
+
+
+
+
 <a name="storage-CreateFilesetRequest"></a>
 
 ### CreateFilesetRequest
@@ -11132,6 +11172,7 @@ append.
 | ----- | ---- | ----- | ----------- |
 | append_file | [AppendFile](#storage-AppendFile) |  |  |
 | delete_file | [DeleteFile](#storage-DeleteFile) |  |  |
+| copy_file | [CopyFile](#storage-CopyFile) |  |  |
 
 
 

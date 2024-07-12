@@ -8084,6 +8084,30 @@
           "extensions": [],
           "fields": [
             {
+              "name": "created_by",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "created_at",
+              "description": "",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
               "name": "json",
               "description": "",
               "label": "",
@@ -16815,12 +16839,12 @@
               "defaultValue": ""
             },
             {
-              "name": "spec",
-              "description": "",
+              "name": "program",
+              "description": "program is a fileset handle.",
               "label": "",
-              "type": "Any",
-              "longType": "google.protobuf.Any",
-              "fullType": "google.protobuf.Any",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -16828,11 +16852,11 @@
             },
             {
               "name": "input",
-              "description": "",
-              "label": "",
-              "type": "QueueElement",
-              "longType": "QueueElement",
-              "fullType": "pjs.QueueElement",
+              "description": "input is a list of fileset handles.",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -17114,12 +17138,12 @@
               "defaultValue": ""
             },
             {
-              "name": "spec",
-              "description": "spec is the code specification for the Job.",
+              "name": "program",
+              "description": "program is the fileset that contains the code specification for the Job.",
               "label": "",
-              "type": "Any",
-              "longType": "google.protobuf.Any",
-              "fullType": "google.protobuf.Any",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -17127,23 +17151,23 @@
             },
             {
               "name": "input",
-              "description": "input is the input data for the Job.",
-              "label": "",
-              "type": "QueueElement",
-              "longType": "QueueElement",
-              "fullType": "pjs.QueueElement",
+              "description": "input is the input fileset handles for the Job.",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
             },
             {
-              "name": "output",
-              "description": "output is produced by a successfully completing Job",
+              "name": "success",
+              "description": "",
               "label": "",
-              "type": "QueueElement",
-              "longType": "QueueElement",
-              "fullType": "pjs.QueueElement",
+              "type": "Success",
+              "longType": "JobInfo.Success",
+              "fullType": "pjs.JobInfo.Success",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "result",
@@ -17159,6 +17183,30 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "result",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Success",
+          "longName": "JobInfo.Success",
+          "fullName": "pjs.JobInfo.Success",
+          "description": "Success is produced by a successfully completing Job.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "output",
+              "description": "output is a list of fileset handles produced by a successful Job.",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
               "defaultValue": ""
             }
           ]
@@ -17353,12 +17401,12 @@
               "defaultValue": ""
             },
             {
-              "name": "output",
-              "description": "output is set by the client to complete the Job successfully.",
+              "name": "success",
+              "description": "",
               "label": "",
-              "type": "QueueElement",
-              "longType": "QueueElement",
-              "fullType": "pjs.QueueElement",
+              "type": "Success",
+              "longType": "ProcessQueueRequest.Success",
+              "fullType": "pjs.ProcessQueueRequest.Success",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "result",
@@ -17374,6 +17422,30 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "result",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Success",
+          "longName": "ProcessQueueRequest.Success",
+          "fullName": "pjs.ProcessQueueRequest.Success",
+          "description": "Success is set by the client to complete the Job successfully.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "output",
+              "description": "output is a list of fileset handles produced by a successful Job.",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
               "defaultValue": ""
             }
           ]
@@ -17403,10 +17475,10 @@
             {
               "name": "input",
               "description": "input is the input data for a Job.\nThe server sends this to ask the client to compute the output.",
-              "label": "",
-              "type": "QueueElement",
-              "longType": "QueueElement",
-              "fullType": "pjs.QueueElement",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -17431,42 +17503,6 @@
               "type": "bytes",
               "longType": "bytes",
               "fullType": "bytes",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            }
-          ]
-        },
-        {
-          "name": "QueueElement",
-          "longName": "QueueElement",
-          "fullName": "pjs.QueueElement",
-          "description": "QueueElement is a single element in a Queue.",
-          "hasExtensions": false,
-          "hasFields": true,
-          "hasOneofs": false,
-          "extensions": [],
-          "fields": [
-            {
-              "name": "data",
-              "description": "data is opaque data used as the input and output of Jobs",
-              "label": "",
-              "type": "bytes",
-              "longType": "bytes",
-              "fullType": "bytes",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "filesets",
-              "description": "filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs.\nAny of the filesets referenced here will be persisted for as long as this element is in a Queue.\nNew handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary.",
-              "label": "repeated",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -19711,6 +19747,30 @@
               "type": "string",
               "longType": "string",
               "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "created_by",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "created_at",
+              "description": "",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -29805,6 +29865,54 @@
           ]
         },
         {
+          "name": "CopyFile",
+          "longName": "CopyFile",
+          "fullName": "storage.CopyFile",
+          "description": "CopyFile copies a file or directory from the specified fileset with the\nspecified path. If a file or directory with the specified path doesn't\nexist in the specified fileset, the copy will be a no-op.\nTODO: Append?",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "src",
+              "description": "Src is the source path of the file or directory.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "dst",
+              "description": "Dst is the destination path of the file or directory.\nIf dst is unset, src will be used as the destination path.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "CreateFilesetRequest",
           "longName": "CreateFilesetRequest",
           "fullName": "storage.CreateFilesetRequest",
@@ -29833,6 +29941,18 @@
               "type": "DeleteFile",
               "longType": "DeleteFile",
               "fullType": "storage.DeleteFile",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "modification",
+              "defaultValue": ""
+            },
+            {
+              "name": "copy_file",
+              "description": "",
+              "label": "",
+              "type": "CopyFile",
+              "longType": "CopyFile",
+              "fullType": "storage.CopyFile",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "modification",

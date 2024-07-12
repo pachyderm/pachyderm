@@ -17,6 +17,8 @@ go_library(
         "//src/internal/log",
         "//src/internal/pachconfig",
         "//src/internal/pachsql",
+        "//src/internal/pfsfile",
+        "//src/internal/protoutil",
         "//src/internal/storage/chunk",
         "//src/internal/storage/fileset",
         "//src/internal/storage/fileset/index",

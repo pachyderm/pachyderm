@@ -749,6 +749,8 @@ export type GetProjectDefaultsRequest = {
 
 export type GetProjectDefaultsResponse = {
   projectDefaultsJson?: string
+  createdBy?: string
+  createdAt?: GoogleProtobufTimestamp.Timestamp
 }
 
 export type SetProjectDefaultsRequest = {
