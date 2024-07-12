@@ -232,13 +232,13 @@ func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server stor
 	}
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(taskParallelism)))
 	if err := s.readFileset(ctx, request, func(f fileset.File) error {
-		var refs []*cdr.Ref
 		if len(f.Index().File.DataRefs) == 0 {
 			return server.Send(&storage.ReadFilesetCDRResponse{
 				Path: f.Index().Path,
 				Ref:  &cdr.Ref{Body: &cdr.Ref_Concat{}},
 			})
 		}
+		var refs []*cdr.Ref
 		for i, dataRef := range f.Index().File.DataRefs {
 			i, dataRef := i, dataRef
 			if err := taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
