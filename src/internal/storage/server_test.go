@@ -243,24 +243,22 @@ func createFileset(ctx context.Context, c storage.FilesetClient, num, size int) 
 			path: fmt.Sprintf("/%0"+strconv.Itoa(padding)+"v", i),
 			data: randutil.Bytes(random, size),
 		}
+		if err := cfc.Send(&storage.CreateFilesetRequest{
+			Modification: &storage.CreateFilesetRequest_AppendFile{
+				AppendFile: &storage.AppendFile{
+					Path: tf.path,
+					Data: wrapperspb.Bytes([]byte{}),
+				},
+			},
+		}); err != nil {
+			return "", nil, err
+		}
 		for _, c := range chunk(tf.data) {
 			if err := cfc.Send(&storage.CreateFilesetRequest{
 				Modification: &storage.CreateFilesetRequest_AppendFile{
 					AppendFile: &storage.AppendFile{
 						Path: tf.path,
 						Data: wrapperspb.Bytes(c),
-					},
-				},
-			}); err != nil {
-				return "", nil, err
-			}
-		}
-		if size == 0 {
-			if err := cfc.Send(&storage.CreateFilesetRequest{
-				Modification: &storage.CreateFilesetRequest_AppendFile{
-					AppendFile: &storage.AppendFile{
-						Path: tf.path,
-						Data: wrapperspb.Bytes([]byte{}),
 					},
 				},
 			}); err != nil {

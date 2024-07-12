@@ -38,6 +38,7 @@ const (
 	defaultTTL      = client.DefaultTTL
 	maxTTL          = 30 * time.Minute
 	taskParallelism = 10
+	cacheSize       = 128
 )
 
 type Env struct {
@@ -225,14 +226,19 @@ func (w *writer) Write(data []byte) (int, error) {
 
 func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server storage.Fileset_ReadFilesetCDRServer) error {
 	ctx := server.Context()
-	cache, err := lru.New[string, string](128)
+	cache, err := lru.New[string, string](cacheSize)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(taskParallelism)))
 	if err := s.readFileset(ctx, request, func(f fileset.File) error {
 		var refs []*cdr.Ref
-		numRefs := len(f.Index().File.DataRefs)
+		if len(f.Index().File.DataRefs) == 0 {
+			return server.Send(&storage.ReadFilesetCDRResponse{
+				Path: f.Index().Path,
+				Ref:  &cdr.Ref{Body: &cdr.Ref_Concat{}},
+			})
+		}
 		for i, dataRef := range f.Index().File.DataRefs {
 			i, dataRef := i, dataRef
 			if err := taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
@@ -242,7 +248,7 @@ func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server stor
 				}
 				return func() error {
 					refs = append(refs, ref)
-					if i == numRefs-1 {
+					if i == len(f.Index().File.DataRefs)-1 {
 						// TODO: Move to cdr package?
 						ref := chunk.CreateConcatRef(refs)
 						return server.Send(&storage.ReadFilesetCDRResponse{
@@ -255,12 +261,6 @@ func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server stor
 			}); err != nil {
 				return err
 			}
-		}
-		if numRefs == 0 {
-			return server.Send(&storage.ReadFilesetCDRResponse{
-				Path: f.Index().Path,
-				Ref:  &cdr.Ref{Body: &cdr.Ref_Concat{}},
-			})
 		}
 		return nil
 	}); err != nil {
