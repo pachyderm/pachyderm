@@ -2,14 +2,12 @@ package logs
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/base64"
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -20,6 +18,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -541,12 +540,8 @@ func (a *adapter) addLevelFilter(l logs.LogLevel) {
 	}
 }
 
-type severityMessage struct {
-	Severity string `json:"severity"`
-}
-
-func (s severityMessage) asLogLevel() logs.LogLevel {
-	switch s.Severity {
+func stringAsLogLevel(s string) logs.LogLevel {
+	switch s {
 	case "debug":
 		return logs.LogLevel_LOG_LEVEL_DEBUG
 	case "info":
@@ -561,7 +556,8 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 	if entry == nil {
 		return false, nil
 	}
-	entry.Line = strings.TrimSpace(entry.Line)
+	var obj map[string]any
+	entry.Line, obj = lokiutil.RepairLine(entry.Line)
 	msg := &logs.LogMessage{
 		Verbatim: &logs.VerbatimLogMessage{
 			Line:      []byte(entry.Line),
@@ -569,37 +565,40 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 		},
 		Object: new(structpb.Struct),
 	}
-	var severity severityMessage
-	if strings.HasPrefix(entry.Line, "{") && strings.HasSuffix(entry.Line, "}") {
-		// Try to extract the severity for filtering.  This JSON parser does not care about
-		// duplicate fields, validity as a structpb.Struct message, etc.
-		if err := json.Unmarshal([]byte(entry.Line), &severity); err != nil {
-			log.Debug(ctx, "failed to unmarshal json into severity message", zap.Error(err))
-		}
 
-		// Try a stricter parse to get the rest of the fields.  This will fail on duplicate
-		// fields (which Zap allows), etc.
-		if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
-			log.Debug(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
-			msg.Object.Fields = map[string]*structpb.Value{
-				"#error": structpb.NewStringValue(err.Error()),
-			}
-		} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
-			if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
-				msg.NativeTimestamp = timestamppb.New(t)
+	severity := logs.LogLevel_LOG_LEVEL_ERROR
+	if obj != nil {
+		if v, ok := obj["severity"]; ok {
+			if s, ok := v.(string); ok {
+				severity = stringAsLogLevel(s)
 			}
 		}
-
-		// Build a legacy pps.LogMessage.
-		msg.PpsLogMessage = new(pps.LogMessage)
-		m := protojson.UnmarshalOptions{
-			AllowPartial:   true,
-			DiscardUnknown: true,
+		var err error
+		msg.Object, err = structpb.NewStruct(obj)
+		if err != nil {
+			msg.Object = &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"#error": structpb.NewStringValue(err.Error()),
+				},
+			}
 		}
-		if err := m.Unmarshal([]byte(entry.Line), msg.PpsLogMessage); err != nil {
-			msg.PpsLogMessage = nil
-		} else if msg.PpsLogMessage.Ts != nil {
-			msg.NativeTimestamp = msg.PpsLogMessage.Ts
+		if v, ok := obj["time"]; ok {
+			if sv, ok := v.(string); ok {
+				if t, err := time.Parse(time.RFC3339Nano, sv); err == nil {
+					msg.NativeTimestamp = timestamppb.New(t)
+				}
+			}
+		}
+		if v, ok := obj["ts"]; ok {
+			if sv, ok := v.(string); ok {
+				if t, err := time.Parse(time.RFC3339Nano, sv); err == nil {
+					msg.NativeTimestamp = timestamppb.New(t)
+				}
+			}
+		}
+		msg.PpsLogMessage = objectToLogMessage(obj)
+		if msg.PpsLogMessage.GetTs() == nil {
+			msg.PpsLogMessage.Ts = msg.NativeTimestamp
 		}
 	}
 	if msg.Object == nil || msg.Object.Fields == nil {
@@ -612,10 +611,10 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 		msg.Object = nil
 	}
 
-	if a.level == logs.LogLevel_LOG_LEVEL_INFO && severity.asLogLevel() < logs.LogLevel_LOG_LEVEL_INFO {
+	if a.level == logs.LogLevel_LOG_LEVEL_INFO && severity < logs.LogLevel_LOG_LEVEL_INFO {
 		return false, nil
 	}
-	if a.level == logs.LogLevel_LOG_LEVEL_ERROR && severity.asLogLevel() < logs.LogLevel_LOG_LEVEL_ERROR {
+	if a.level == logs.LogLevel_LOG_LEVEL_ERROR && severity < logs.LogLevel_LOG_LEVEL_ERROR {
 		return false, nil
 	}
 	if a.pass != nil && !a.pass(map[string]string(labels), msg) {
@@ -629,4 +628,47 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 		return false, errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
 	return true, nil
+}
+
+func extract[T any](obj map[string]any, dst *T, key string) {
+	if raw, ok := obj[key]; ok {
+		if v, ok := raw.(T); ok {
+			*dst = v
+		}
+	}
+}
+
+func objectToLogMessage(obj map[string]any) *pps.LogMessage {
+	result := new(pps.LogMessage)
+	extract(obj, &result.ProjectName, "projectName")
+	extract(obj, &result.PipelineName, "pipelineName")
+	extract(obj, &result.JobId, "jobId")
+	extract(obj, &result.WorkerId, "workerId")
+	extract(obj, &result.DatumId, "datumId")
+	extract(obj, &result.Master, "master")
+	extract(obj, &result.User, "user")
+	extract(obj, &result.Message, "message")
+
+	var ts string
+	extract(obj, &ts, "ts")
+	if t, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+		result.Ts = timestamppb.New(t)
+	}
+
+	var dataList []any
+	extract(obj, &dataList, "data")
+	for _, v := range dataList {
+		data, ok := v.(map[string]any)
+		if !ok {
+			continue
+		}
+		file := new(pps.InputFile)
+		var hashString string
+		extract(data, &hashString, "hash")
+		file.Hash, _ = base64.StdEncoding.DecodeString(hashString)
+		extract(data, &file.Path, "path")
+		result.Data = append(result.Data, file)
+	}
+
+	return result
 }
