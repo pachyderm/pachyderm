@@ -118,12 +118,12 @@ const DAG: React.FC<DagProps> = ({
           </linearGradient>
           <path id="topRoundedButton" d={TOP_ROUNDED_BUTTON_PATH} />
           <path id="bottomRoundedButton" d={BOTTOM_ROUNDED_BUTTON_PATH} />
-          <clipPath id="topRoundedButtonOnly">
+          <mask id="topRoundedButtonOnly">
             <use xlinkHref="#topRoundedButton" />
-          </clipPath>
-          <clipPath id="bottomRoundedButtonOnly">
+          </mask>
+          <mask id="bottomRoundedButtonOnly">
             <use xlinkHref="#bottomRoundedButton" />
-          </clipPath>
+          </mask>
           <path id="repoMask" d={REPO_GRADIENT_MASK} />
           <path id="connectedEgressMask" d={CONNECTED_EGRESS_GRADIENT_MASK} />
           <path id="pipelineMask" d={PIPELINE_GRADIENT_MASK} />
