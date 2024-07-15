@@ -1648,56 +1648,56 @@ jobs:
           path: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/
       - codecov/upload:
           file: /home/circleci/out/execroot/_main/bazel-out/_coverage/_coverage_report.dat
-
+  # ----- Console -----
   components-storybook-release:
     docker:
       - image: cimg/node:20.11.0
     steps:
       - checkout
       - run: sudo npm install -g netlify-cli@14.4.0
-      - run: .circleci/scripts/upload-storybook.sh
+      - run: .circleci/scripts/upload-storybook.sh # TODO
 
   lint-frontend:
     executor: small-node
     steps:
       - checkout
-      - run: cd frontend && npm ci
-      - run: cd frontend && npm run lint:js:no-fix
-      - run: cd frontend && npm run lint:css:no-fix
+      - run: cd ./console/frontend && npm ci
+      - run: cd ./console/frontend && npm run lint:js:no-fix
+      - run: cd ./console/frontend && npm run lint:css:no-fix
   lint-backend:
     executor: small-node
     steps:
       - checkout
-      - run: cd backend && npm ci
-      - run: cd backend && npm run lint:no-fix
+      - run: cd ./console/backend && npm ci
+      - run: cd ./console/backend && npm run lint:no-fix
   lint-cypress:
     executor: small-node
     steps:
       - checkout
-      - run: npm ci --prefix cypress
-      - run: npm run lint --prefix cypress
+      - run: npm ci --prefix ./console/cypress
+      - run: npm run lint --prefix ./console/cypress
   test-backend:
     executor: xlarge-node
     steps:
       - checkout
       - node-install-frontend-backend
-      - run: npm run test --prefix backend -- --coverage
+      - run: npm run test --prefix ./console/backend -- --coverage
       - codecov/upload:
-          file: ./backend/coverage/lcov.info
+          file: ./console/backend/coverage/lcov.info
   test-frontend-components:
     executor: xlarge-node
     steps:
       - checkout
       - node-install-frontend-backend
-      - run: npm run test:components --prefix frontend
+      - run: npm run test:components --prefix ./console/frontend
   test-frontend-react:
     executor: xlarge-node
     steps:
       - checkout
       - node-install-frontend-backend
-      - run: npm run test:frontend --prefix frontend -- --coverage
+      - run: npm run test:frontend --prefix ./console/frontend -- --coverage
       - codecov/upload:
-          file: ./frontend/src/coverage/lcov.info
+          file: ./console/frontend/src/coverage/lcov.info
   build:
     resource_class: small
     docker:
@@ -1815,8 +1815,7 @@ jobs:
   #     - test-docker-e2e-enterprise-edition:
   #         requires:
   #           - docker-manifest
-
-
+  # ----- Console -----
 workflows:
   functional-tests:
     when: << pipeline.parameters.run-core-jobs >>
@@ -2496,16 +2495,17 @@ commands:
             chmod +x ./bazel
             sudo mv ./bazel /home/circleci/bin/bazel
 
+  # ----- Console -----
   node-install-all:
     steps:
       - run:
           name: Npm install project root, frontend and backend
-          command: npm ci && npm ci --prefix ./backend && npm ci --prefix ./frontend
+          command: npm ci && npm ci --prefix ./console/backend && npm ci --prefix ./console/frontend
   node-install-frontend-backend:
     steps:
       - run:
           name: Npm install frontend and backend
-          command: npm ci --prefix ./backend && npm ci --prefix ./frontend
+          command: npm ci --prefix ./console/backend && npm ci --prefix ./console/frontend
   install-pachyderm-dependencies:
     steps:
       - run:
@@ -2534,3 +2534,4 @@ commands:
       - run:
           name: Activate Pachyderm Enterprise
           command: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+  # ----- Console -----
