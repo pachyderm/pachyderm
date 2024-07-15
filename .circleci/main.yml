@@ -1795,26 +1795,26 @@ jobs:
             git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
             git push origin ${NIGHTLY}
 
-  docker-build:
-    # when:
-    #   and:
-    #     - not: << pipeline.parameters.run_nightly_tag >>
-    jobs:
-      - docker-build:
-          matrix:
-            parameters:
-              resource_class:
-                - large
-                - arm.large
-      - docker-manifest:
-          requires:
-            - docker-build
-      - test-docker-e2e-community-edition:
-          requires:
-            - docker-manifest
-      - test-docker-e2e-enterprise-edition:
-          requires:
-            - docker-manifest
+  # docker-build:
+  #   # when:
+  #   #   and:
+  #   #     - not: << pipeline.parameters.run_nightly_tag >>
+  #   jobs:
+  #     - docker-build:
+  #         matrix:
+  #           parameters:
+  #             resource_class:
+  #               - large
+  #               - arm.large
+  #     - docker-manifest:
+  #         requires:
+  #           - docker-build
+  #     - test-docker-e2e-community-edition:
+  #         requires:
+  #           - docker-manifest
+  #     - test-docker-e2e-enterprise-edition:
+  #         requires:
+  #           - docker-manifest
 
 
 workflows:
@@ -2285,7 +2285,7 @@ workflows:
       - test-backend
       - test-frontend-components
       - test-frontend-react
-      - docker-build
+      # - docker-build
 
   storybook-release:
     # when:
