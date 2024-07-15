@@ -34,7 +34,7 @@ func GetPipeline(ctx context.Context, tx *pachsql.Tx, projectName, pipelineName 
 		return Pipeline{}, errors.Wrapf(err, "pipeline was not inspected: couldn't find up to date spec for pipeline %q", pipelineName)
 	}
 	var pi = new(pps.PipelineInfo)
-	if err := Pipelines(tx, nil).ReadOnly().Get(ctx, c.Commit, pi); err != nil {
+	if err := Pipelines(tx, nil).ReadOnly().Get(ctx, c.Pb(), pi); err != nil {
 		return Pipeline{}, errors.Wrapf(err, "could not read pipeline %s %v", pipelineName)
 	}
 	return Pipeline{pi}, nil
