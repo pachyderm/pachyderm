@@ -1657,26 +1657,26 @@ jobs:
       - run: sudo npm install -g netlify-cli@14.4.0
       - run: .circleci/scripts/upload-storybook.sh # TODO
 
-  lint-frontend:
+  console-lint-frontend:
     executor: small-node
     steps:
       - checkout
       - run: cd ./console/frontend && npm ci
       - run: cd ./console/frontend && npm run lint:js:no-fix
       - run: cd ./console/frontend && npm run lint:css:no-fix
-  lint-backend:
+  console-lint-backend:
     executor: small-node
     steps:
       - checkout
       - run: cd ./console/backend && npm ci
       - run: cd ./console/backend && npm run lint:no-fix
-  lint-cypress:
+  console-lint-cypress:
     executor: small-node
     steps:
       - checkout
       - run: npm ci --prefix ./console/cypress
       - run: npm run lint --prefix ./console/cypress
-  test-backend:
+  console-test-backend:
     executor: xlarge-node
     steps:
       - checkout
@@ -1684,13 +1684,13 @@ jobs:
       - run: npm run test --prefix ./console/backend -- --coverage
       - codecov/upload:
           file: ./console/backend/coverage/lcov.info
-  test-frontend-components:
+  console-test-frontend-components:
     executor: xlarge-node
     steps:
       - checkout
       - node-install-frontend-backend
       - run: npm run test:components --prefix ./console/frontend
-  test-frontend-react:
+  console-test-frontend-react:
     executor: xlarge-node
     steps:
       - checkout
@@ -1698,7 +1698,7 @@ jobs:
       - run: npm run test:frontend --prefix ./console/frontend -- --coverage
       - codecov/upload:
           file: ./console/frontend/src/coverage/lcov.info
-  build:
+  console-build:
     resource_class: small
     docker:
       - image: cimg/node:20.11.0
@@ -1706,7 +1706,7 @@ jobs:
       - checkout
       - node-install-all
       - run: cd console && make build
-  docker-build:
+  console-docker-build:
     parameters:
       resource_class:
         type: string
@@ -1726,7 +1726,7 @@ jobs:
           key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
           paths:
             - /tmp/docker-cache
-  docker-manifest:
+  console-docker-manifest:
     machine:
       image: default
     steps:
@@ -1736,7 +1736,7 @@ jobs:
           command: |
             make circle-docker-manifest
 
-  test-docker-e2e-community-edition:
+  console-test-docker-e2e-community-edition:
     resource_class: xlarge
     parallelism: 3
     machine:
@@ -1755,7 +1755,7 @@ jobs:
           path: /tmp/cypress-videos
       - store_artifacts:
           path: /tmp/cypress-debug
-  test-docker-e2e-enterprise-edition:
+  console-test-docker-e2e-enterprise-edition:
     resource_class: xlarge
     parallelism: 3
     machine:
@@ -1773,7 +1773,7 @@ jobs:
       - store_artifacts:
           path: /tmp/cypress-videos
 
-  create-nightly-tag:
+  console-create-nightly-tag:
     docker:
       - image: cimg/base:stable
     steps:
@@ -1795,7 +1795,7 @@ jobs:
             git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
             git push origin ${NIGHTLY}
 
-  # docker-build:
+  # console-docker-build:
   #   # when:
   #   #   and:
   #   #     - not: << pipeline.parameters.run_nightly_tag >>
@@ -2277,14 +2277,14 @@ workflows:
     #         equal: [scheduled_pipeline, << pipeline.trigger_source >>]
     #     - not: << pipeline.parameters.run_nightly_tag >>
     jobs:
-      - lint-backend
-      - lint-frontend
-      - lint-cypress
-      - build
-      - test-backend
-      - test-frontend-components
-      - test-frontend-react
-      # - docker-build
+      - console-lint-backend
+      - console-lint-frontend
+      - console-lint-cypress
+      - console-build
+      - console-test-backend
+      - console-test-frontend-components
+      - console-test-frontend-react
+      # - console-docker-build
 
   storybook-release:
     # when:
