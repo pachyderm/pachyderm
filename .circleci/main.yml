@@ -2500,7 +2500,7 @@ commands:
     steps:
       - run:
           name: Npm install project root, frontend and backend
-          command: npm ci && npm ci --prefix ./console/backend && npm ci --prefix ./console/frontend
+          command: npm ci --prefix ./console && npm ci --prefix ./console/backend && npm ci --prefix ./console/frontend
   node-install-frontend-backend:
     steps:
       - run:
