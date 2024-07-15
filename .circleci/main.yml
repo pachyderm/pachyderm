@@ -2254,11 +2254,11 @@ workflows:
             - aws-prerelease-testing
 
   test:
-    when:
-      and:
-        - not:
-            equal: [scheduled_pipeline, << pipeline.trigger_source >>]
-        - not: << pipeline.parameters.run_nightly_tag >>
+    # when:
+    #   and:
+    #     - not:
+    #         equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+    #     - not: << pipeline.parameters.run_nightly_tag >>
     jobs:
       - lint-backend
       - lint-frontend
@@ -2269,24 +2269,24 @@ workflows:
       - test-frontend-react
 
   storybook-release:
-    when:
-      and:
-        - not: << pipeline.parameters.run_nightly_tag >>
+    # when:
+    #   and:
+    #     - not: << pipeline.parameters.run_nightly_tag >>
     jobs:
       - components-storybook-release:
           filters:
             branches:
               only: master
 
-  create-nightly-tag:
-    when: << pipeline.parameters.run_nightly_tag >>
-    jobs:
-      - create-nightly-tag
+  # create-nightly-tag:
+  #   when: << pipeline.parameters.run_nightly_tag >>
+  #   jobs:
+  #     - create-nightly-tag
 
   docker-build:
-    when:
-      and:
-        - not: << pipeline.parameters.run_nightly_tag >>
+    # when:
+    #   and:
+    #     - not: << pipeline.parameters.run_nightly_tag >>
     jobs:
       - docker-build:
           matrix:
