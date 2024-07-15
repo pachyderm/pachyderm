@@ -6757,13 +6757,41 @@ func TestMetaRepoContents(t *testing.T) {
 	require.Equal(t, "/bar", fileName)
 }
 
+// This can be handy to call when troubleshooting a failed test.
+//
+//nolint:unused
+func dump(t *testing.T, c *client.APIClient) {
+	filter := &debug.Filter{
+		Filter: &debug.Filter_Database{Database: true},
+	}
+	buf := &bytes.Buffer{}
+	time.Sleep(5 * time.Second) // give some time for the stats collector to run.
+	require.NoError(t, c.Dump(filter, 100, buf), "dumping database files should succeed")
+	gr, err := gzip.NewReader(buf)
+	require.NoError(t, err)
+
+	require.NoError(t, tarutil.Iterate(gr, func(f tarutil.File) error {
+		fileContents := &bytes.Buffer{}
+		if err := f.Content(fileContents); err != nil {
+			return errors.EnsureStack(err)
+		}
+		hdr, err := f.Header()
+		require.NoError(t, err, "getting database tar file header should succeed")
+		if strings.HasPrefix(hdr.Name, "database/tables/pfs/") {
+			fmt.Println(hdr.Name)
+			fmt.Println(fileContents.String())
+		}
+		return nil
+	}))
+}
+
 func TestCronPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.SkipLokiOption)
 	t.Run("SimpleCron", func(t *testing.T) {
 		defer func() {
 			require.NoError(t, c.DeleteAll(c.Ctx()))
@@ -6998,6 +7026,31 @@ func TestCronPipeline(t *testing.T) {
 				// We expect to see four commits, despite the schedule being every minute, and the timeout 120 seconds
 				// We expect each of the commits to have just a single file in this case
 				// We check four so that we can make sure the scheduled cron is not messed up by the run crons
+
+				// my branch has these extra children commits:
+				/*
+					{"int_id":22,"repo_id":1,"commit_id":"default/cron7-e244d4963f3c_time.user@7ba4805e501e4b6c8b0516245d31b257","origin":"USER","branch_id":2}
+					{"int_id":23,"repo_id":2,"commit_id":"default/cron7-e244d4963f3c.user@7ba4805e501e4b6c8b0516245d31b257","origin":"AUTO","branch_id":3}
+					{"int_id":24,"repo_id":4,"commit_id":"default/cron7-e244d4963f3c.meta@7ba4805e501e4b6c8b0516245d31b257","origin":"AUTO","branch_id":4}
+					{"int_id":25,"repo_id":12,"commit_id":"default/cron8-207200cab66b.meta@7ba4805e501e4b6c8b0516245d31b257","origin":"AUTO","branch_id":10}
+					{"int_id":26,"repo_id":10,"commit_id":"default/cron8-207200cab66b.user@7ba4805e501e4b6c8b0516245d31b257","origin":"AUTO","branch_id":9}
+
+					extras:
+
+					{"int_id":29,"repo_id":1,"commit_id":"default/cron7-e244d4963f3c_time.user@c5229218ecd04d819829a62f1ba794a8","origin":"USER","branch_id":2}
+					{"int_id":30,"repo_id":2,"commit_id":"default/cron7-e244d4963f3c.user@c5229218ecd04d819829a62f1ba794a8","origin":"AUTO","branch_id":3}
+					{"int_id":31,"repo_id":4,"commit_id":"default/cron7-e244d4963f3c.meta@c5229218ecd04d819829a62f1ba794a8","origin":"AUTO","branch_id":4}
+					{"int_id":32,"repo_id":12,"commit_id":"default/cron8-207200cab66b.meta@c5229218ecd04d819829a62f1ba794a8","origin":"AUTO","branch_id":10}
+					{"int_id":33,"repo_id":10,"commit_id":"default/cron8-207200cab66b.user@c5229218ecd04d819829a62f1ba794a8","origin":"AUTO","branch_id":9}
+
+
+						{"child":29,"parent":22}
+						{"child":30,"parent":23}
+						{"child":31,"parent":24}
+						{"child":32,"parent":25}
+						{"child":33,"parent":26}
+				*/
+
 				countBreakFunc := newCountBreakFunc(nCronticks + 1)
 				require.NoError(t, c.WithCtx(ctx).SubscribeCommit(client.NewRepo(pfs.DefaultProjectName, repo), "master", ci.Commit.Id, pfs.CommitState_STARTED, func(ci *pfs.CommitInfo) error {
 					return countBreakFunc(func() error {
@@ -7005,6 +7058,7 @@ func TestCronPipeline(t *testing.T) {
 						require.NoError(t, err)
 						files, err := c.ListFileAll(ci.Commit, "/")
 						require.NoError(t, err)
+						//fmt.Println(ci.Commit.Key(), files)
 						require.Equal(t, 1, len(files))
 						return nil
 					})
@@ -7012,6 +7066,8 @@ func TestCronPipeline(t *testing.T) {
 				return nil
 			})
 		}))
+		time.Sleep(1)
+		dump(t, c)
 	})
 	t.Run("RunCronCross", func(t *testing.T) {
 		defer func() {

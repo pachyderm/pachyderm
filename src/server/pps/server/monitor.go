@@ -297,6 +297,7 @@ func cronTick(pachClient *client.APIClient, now time.Time, cron *pps.CronInput) 
 				}
 			}
 			file := now.Format(time.RFC3339)
+			log.Info(pachClient.Ctx(), "cron tick", zap.String("repo", cron.Repo), zap.String("tick", file))
 			if err := m.PutFile(file, bytes.NewReader(nil)); err != nil {
 				return errors.Wrapf(err, "PutFile(%s)", file)
 			}
