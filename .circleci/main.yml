@@ -1780,7 +1780,7 @@ jobs:
       - checkout
       - add_ssh_keys:
           fingerprints:
-            - '21:6b:bd:d2:06:57:1f:fa:79:33:e3:dd:1a:63:5e:ed'
+            - "21:6b:bd:d2:06:57:1f:fa:79:33:e3:dd:1a:63:5e:ed"
       - run:
           name: setup pachydermbuildbot git
           command: |
@@ -1795,8 +1795,26 @@ jobs:
             git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
             git push origin ${NIGHTLY}
 
-
-
+  docker-build:
+    # when:
+    #   and:
+    #     - not: << pipeline.parameters.run_nightly_tag >>
+    jobs:
+      - docker-build:
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
+      - docker-manifest:
+          requires:
+            - docker-build
+      - test-docker-e2e-community-edition:
+          requires:
+            - docker-manifest
+      - test-docker-e2e-enterprise-edition:
+          requires:
+            - docker-manifest
 
 
 workflows:
@@ -2253,7 +2271,7 @@ workflows:
           requires:
             - aws-prerelease-testing
 
-  test:
+  console:
     # when:
     #   and:
     #     - not:
@@ -2267,6 +2285,7 @@ workflows:
       - test-backend
       - test-frontend-components
       - test-frontend-react
+      - docker-build
 
   storybook-release:
     # when:
@@ -2283,39 +2302,19 @@ workflows:
   #   jobs:
   #     - create-nightly-tag
 
-  docker-build:
-    # when:
-    #   and:
-    #     - not: << pipeline.parameters.run_nightly_tag >>
-    jobs:
-      - docker-build:
-          matrix:
-            parameters:
-              resource_class:
-                - large
-                - arm.large
-      - docker-manifest:
-          requires:
-            - docker-build
-      - test-docker-e2e-community-edition:
-          requires:
-            - docker-manifest
-      - test-docker-e2e-enterprise-edition:
-          requires:
-            - docker-manifest
-  docker-release:
-    jobs:
-      - docker-build:
-          filters: *only-release-tags
-          matrix:
-            parameters:
-              resource_class:
-                - large
-                - arm.large
-      - docker-manifest:
-          filters: *only-release-tags
-          requires:
-            - docker-build
+  # docker-release:
+  #   jobs:
+  #     - docker-build:
+  #         filters: *only-release-tags
+  #         matrix:
+  #           parameters:
+  #             resource_class:
+  #               - large
+  #               - arm.large
+  #     - docker-manifest:
+  #         filters: *only-release-tags
+  #         requires:
+  #           - docker-build
 
 commands:
   install-helm:
