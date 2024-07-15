@@ -84,7 +84,9 @@ class ApiStub(_GeneratedApiStub):
             # By removing the leading "/", we convert the path from absolute
             #   to relative from the repo root.
             file_path = msg.path.removeprefix("/")
-            destination.joinpath(file_path).write_bytes(content)
+            destination_file = destination.joinpath(file_path)
+            destination_file.parent.mkdir(parents=True, exist_ok=True)
+            destination_file.write_bytes(content)
 
     def fetch_chunks(
         self,
@@ -146,7 +148,7 @@ class ApiStub(_GeneratedApiStub):
                 return cache_chunks(body.inner)
             elif isinstance(body, Concat):
                 for inner_ref in body.refs:
-                    return cache_chunks(inner_ref)
+                    cache_chunks(inner_ref)
             else:
                 raise ValueError(f"unsupported Ref variant: {body}")
 

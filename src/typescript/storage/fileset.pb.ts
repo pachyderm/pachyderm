@@ -26,12 +26,18 @@ export type DeleteFile = {
   path?: string
 }
 
+export type CopyFile = {
+  filesetId?: string
+  src?: string
+  dst?: string
+}
+
 
 type BaseCreateFilesetRequest = {
 }
 
 export type CreateFilesetRequest = BaseCreateFilesetRequest
-  & OneOf<{ appendFile: AppendFile; deleteFile: DeleteFile }>
+  & OneOf<{ appendFile: AppendFile; deleteFile: DeleteFile; copyFile: CopyFile }>
 
 export type CreateFilesetResponse = {
   filesetId?: string

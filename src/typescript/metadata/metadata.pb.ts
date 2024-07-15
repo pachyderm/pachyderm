@@ -6,6 +6,7 @@
 
 import * as fm from "../fetch.pb"
 import * as Pfs_v2Pfs from "../pfs/pfs.pb"
+import * as Pps_v2Pps from "../pps/pps.pb"
 
 type Absent<T, K extends keyof T> = { [k in Exclude<keyof T, K>]?: undefined };
 type OneOf<T> =
@@ -41,7 +42,7 @@ type BaseEdit = {
 }
 
 export type Edit = BaseEdit
-  & OneOf<{ project: Pfs_v2Pfs.ProjectPicker; commit: Pfs_v2Pfs.CommitPicker; branch: Pfs_v2Pfs.BranchPicker; repo: Pfs_v2Pfs.RepoPicker; cluster: ClusterPicker }>
+  & OneOf<{ project: Pfs_v2Pfs.ProjectPicker; commit: Pfs_v2Pfs.CommitPicker; branch: Pfs_v2Pfs.BranchPicker; repo: Pfs_v2Pfs.RepoPicker; cluster: ClusterPicker; pipeline: Pps_v2Pps.PipelinePicker }>
   & OneOf<{ replace: EditReplace; addKey: EditAddKey; editKey: EditEditKey; deleteKey: EditDeleteKey }>
 
 export type EditMetadataRequest = {

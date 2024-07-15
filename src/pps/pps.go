@@ -1,9 +1,12 @@
 package pps
 
 import (
+	"bytes"
 	"fmt"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	pfs "github.com/pachyderm/pachyderm/v2/src/pfs"
 	"go.uber.org/zap"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -69,4 +72,36 @@ func DataField(data []*InputFile) zap.Field {
 		return zap.Skip()
 	}
 	return zap.Objects("data", data)
+}
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (p *PipelinePicker) UnmarshalText(b []byte) error {
+	parts := bytes.SplitN(b, []byte{'/'}, 2)
+	var project, repo []byte
+	switch len(parts) {
+	case 0:
+		return errors.New("invalid repo picker: empty")
+	case 1:
+		project, repo = nil, parts[0]
+	case 2:
+		project, repo = parts[0], parts[1]
+	default:
+		return errors.New("invalid repo picker: too many slashes")
+	}
+	rnp := &PipelinePicker_PipelineName{
+		Project: &pfs.ProjectPicker{},
+		Name:    string(repo),
+	}
+	p.Picker = &PipelinePicker_Name{
+		Name: rnp,
+	}
+	if project != nil {
+		if err := rnp.Project.UnmarshalText(project); err != nil {
+			return errors.Wrapf(err, "unmarshal project %s", project)
+		}
+	}
+	if err := p.ValidateAll(); err != nil {
+		return err
+	}
+	return nil
 }

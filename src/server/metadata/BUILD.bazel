@@ -10,6 +10,7 @@ go_library(
         "//src/internal/coredb",
         "//src/internal/errors",
         "//src/internal/pfsdb",
+        "//src/internal/ppsdb",
         "//src/internal/transactionenv/txncontext",
         "//src/metadata",
         "//src/pfs",

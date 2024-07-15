@@ -66,6 +66,9 @@ const (
 	// OutputCommitIDEnv is an env var that is added to the environment of user
 	// pipelined code and indicates the id of the output commit.
 	OutputCommitIDEnv = "PACH_OUTPUT_COMMIT_ID"
+	// FilesetIDEnv is an env var that is added to the environment of user
+	// pipelined code and indicates the id of the input datum fileset.
+	FilesetIDEnv = "FILESET_ID"
 	// DatumIDEnv is an env var that is added to the environment of user
 	// pipelined code and indicates the id of the datum.
 	DatumIDEnv = "PACH_DATUM_ID"

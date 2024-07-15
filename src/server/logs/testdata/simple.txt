@@ -970,8 +970,8 @@
 {"severity":"error","time":"2024-05-01T00:00:00.000000968Z","message":"968"}
 {"severity":"debug","time":"2024-05-01T00:00:00.000000969Z","message":"969"}
 {"severity":"info","time":"2024-05-01T00:00:00.00000097Z","message":"970"}
-{"severity":"error","time":"2024-05-01T00:00:00.000000971Z","message":"971"}
-{"severity":"debug","time":"2024-05-01T00:00:00.000000972Z","message":"972"}
+2024-05-01T00:00:00.000000971Z stdout F {"severity":"error","time":"2024-05-01T00:00:00.000000971Z","message":"971"}
+{"log":"{\"severity\":\"debug\",\"time\":\"2024-05-01T00:00:00.000000972Z\",\"message\":\"972\"}"}
 {"severity":"info","time":"2024-05-01T00:00:00.000000973Z","message":"973"}
 {"severity":"error","time":"2024-05-01T00:00:00.000000974Z","message":"974"}
 {"severity":"debug","time":"2024-05-01T00:00:00.000000975Z","message":"975"}

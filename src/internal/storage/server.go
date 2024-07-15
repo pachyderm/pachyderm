@@ -7,9 +7,16 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"io"
+	"path"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/taskchain"
+	"golang.org/x/sync/semaphore"
+
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/pachyderm/pachyderm/v2/src/cdr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -17,6 +24,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
@@ -30,9 +39,11 @@ import (
 )
 
 const (
-	ChunkPrefix = "chunk/"
-	defaultTTL  = client.DefaultTTL
-	maxTTL      = 30 * time.Minute
+	ChunkPrefix     = "chunk/"
+	defaultTTL      = client.DefaultTTL
+	maxTTL          = 30 * time.Minute
+	taskParallelism = 10
+	cacheSize       = 128
 )
 
 type Env struct {
@@ -96,7 +107,6 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 	return res, errors.EnsureStack(err)
 }
 
-// TODO: Copy file.
 func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error {
 	ctx := server.Context()
 	var id *fileset.ID
@@ -123,6 +133,10 @@ func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error
 				if err := uw.Delete(ctx, mod.DeleteFile.Path, ""); err != nil {
 					return err
 				}
+			case *storage.CreateFilesetRequest_CopyFile:
+				if err := s.copyFile(ctx, uw, mod.CopyFile); err != nil {
+					return err
+				}
 			}
 		}
 		id, err = uw.Close(ctx)
@@ -133,6 +147,35 @@ func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error
 	return server.SendAndClose(&storage.CreateFilesetResponse{
 		FilesetId: id.HexString(),
 	})
+}
+
+func (s *Server) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, msg *storage.CopyFile) error {
+	id, err := fileset.ParseID(msg.FilesetId)
+	if err != nil {
+		return err
+	}
+	fs, err := s.Filesets.Open(ctx, []fileset.ID{*id})
+	if err != nil {
+		return err
+	}
+	srcPath := pfsfile.CleanPath(msg.Src)
+	dstPath := srcPath
+	if msg.Dst != "" {
+		dstPath = pfsfile.CleanPath(msg.Dst)
+	}
+	fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
+		return idx.Path == srcPath || strings.HasPrefix(idx.Path, fileset.Clean(srcPath, true))
+	})
+	fs = fileset.NewIndexMapper(fs, func(idx *index.Index) *index.Index {
+		idx = protoutil.Clone(idx)
+		relPath, err := filepath.Rel(srcPath, idx.Path)
+		if err != nil {
+			panic(err)
+		}
+		idx.Path = path.Join(dstPath, relPath)
+		return idx
+	})
+	return uw.Copy(ctx, fs, "", false, index.WithPrefix(srcPath))
 }
 
 // TODO: Add file filter error types.
@@ -220,23 +263,47 @@ func (w *writer) Write(data []byte) (int, error) {
 
 func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server storage.Fileset_ReadFilesetCDRServer) error {
 	ctx := server.Context()
-	// TODO: Use task chain here.
-	return s.readFileset(ctx, request, func(f fileset.File) error {
+	cache, err := lru.New[string, string](cacheSize)
+	if err != nil {
+		return err
+	}
+	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(taskParallelism)))
+	if err := s.readFileset(ctx, request, func(f fileset.File) error {
+		if len(f.Index().File.DataRefs) == 0 {
+			return server.Send(&storage.ReadFilesetCDRResponse{
+				Path: f.Index().Path,
+				Ref:  &cdr.Ref{Body: &cdr.Ref_Concat{}},
+			})
+		}
 		var refs []*cdr.Ref
-		for _, dr := range f.Index().File.DataRefs {
-			ref, err := s.Chunks.CDRFromDataRef(ctx, dr)
-			if err != nil {
+		for i, dataRef := range f.Index().File.DataRefs {
+			i, dataRef := i, dataRef
+			if err := taskChain.CreateTask(func(ctx context.Context) (func() error, error) {
+				ref, err := s.Chunks.CDRFromDataRef(ctx, dataRef, cache)
+				if err != nil {
+					return nil, err
+				}
+				return func() error {
+					refs = append(refs, ref)
+					if i == len(f.Index().File.DataRefs)-1 {
+						// TODO: Move to cdr package?
+						ref := chunk.CreateConcatRef(refs)
+						return server.Send(&storage.ReadFilesetCDRResponse{
+							Path: f.Index().Path,
+							Ref:  ref,
+						})
+					}
+					return nil
+				}, nil
+			}); err != nil {
 				return err
 			}
-			refs = append(refs, ref)
 		}
-		// TODO: Move to cdr package?
-		ref := chunk.CreateConcatRef(refs)
-		return server.Send(&storage.ReadFilesetCDRResponse{
-			Path: f.Index().Path,
-			Ref:  ref,
-		})
-	})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return taskChain.Wait()
 }
 
 // TODO: We should be able to use this and potentially others directly in PFS.
