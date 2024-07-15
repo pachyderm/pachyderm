@@ -1,0 +1,56 @@
+.tabsHeader,
+.title {
+  padding: 0 1.5625rem 0 1.375rem;
+}
+
+.title {
+  padding-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.tabsHeader {
+  display: flex;
+  position: sticky;
+  top: 0rem;
+  background-color: var(--white);
+  padding-top: 1rem;
+  z-index: var(--z-index-sticky-header);
+  overflow-x: auto;
+  white-space: nowrap;
+  align-items: center;
+}
+
+.tabsHeader::-webkit-scrollbar {
+  height: 0.1rem;
+}
+
+.tabsHeader::-webkit-scrollbar-track {
+  background: var(--background-grey);
+}
+
+.tabsHeader::-webkit-scrollbar-thumb {
+  background: var(--border-grey);
+  border-radius: 20px;
+}
+
+.tabsHeader::-webkit-scrollbar-thumb:hover {
+  background: var(--dropshadow-grey);
+}
+
+.description {
+  margin-top: -1rem;
+  margin-bottom: 1rem;
+}
+
+.sidebarContent {
+  overflow-y: scroll;
+  padding-bottom: 4rem;
+}
+
+.paddingUnset {
+  padding-top: unset;
+}
+
+.emptyState {
+  margin-top: 2rem;
+}

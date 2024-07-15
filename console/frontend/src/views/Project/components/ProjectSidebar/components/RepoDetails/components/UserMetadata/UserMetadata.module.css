@@ -1,0 +1,21 @@
+.base {
+  margin-bottom: 1rem;
+}
+
+.topRow {
+  display: inline-flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.captionText {
+  display: block;
+  margin-bottom: 0.5rem;
+  margin-left: 0.5rem;
+}
+
+.tableCell {
+  background-color: var(--white) !important;
+  border-top: none;
+}

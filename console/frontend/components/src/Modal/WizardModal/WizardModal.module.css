@@ -1,0 +1,32 @@
+.dots {
+  width: calc(100% - 1.5rem);
+  position: absolute;
+  text-align: center;
+  bottom: -2.5rem;
+  margin: 0;
+}
+
+.dot {
+  font-size: 0.6875rem;
+  color: var(--dropshadow-grey);
+  margin: 0.5rem;
+}
+
+.dot.active {
+  color: var(--white);
+}
+
+.footer {
+  border-top: 1px solid var(--grey-20);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  height: 5.625rem;
+  padding: 1rem;
+}
+
+/* TODO: Avoid using the > * shortcut */
+.footer > * {
+  margin: 0;
+}

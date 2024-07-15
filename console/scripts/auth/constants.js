@@ -1,0 +1,10 @@
+const LOCAL_PACHD_ADDRESS = process.env.PACHD_ADDRESS || 'localhost:30650'; // Depreciating
+const COMMAND_SEPARATOR_CHAR_SIZE = 100;
+const COMMAND_SEPARATOR = '='.repeat(COMMAND_SEPARATOR_CHAR_SIZE);
+const ENABLE_KEY_TO_CONTINUE = false;
+
+module.exports = {
+  LOCAL_PACHD_ADDRESS,
+  COMMAND_SEPARATOR,
+  ENABLE_KEY_TO_CONTINUE,
+};

@@ -1,0 +1,32 @@
+.base {
+  border-bottom: none;
+  padding: 3rem 2rem 1rem;
+  max-width: 34.25rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.base.withStatus {
+  padding-top: 0.5rem;
+}
+
+.base.error {
+  padding-top: 1.25rem;
+}
+
+.group {
+  width: 100%;
+}
+
+.checkmark {
+  height: 1.2rem;
+}
+
+.spinner {
+  color: var(--success-green);
+}
+
+.small {
+  max-width: 26rem;
+}

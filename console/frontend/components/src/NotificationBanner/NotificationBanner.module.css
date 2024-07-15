@@ -1,0 +1,49 @@
+@keyframes slideIn {
+  0% {
+    transform: translateY(-5rem);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.base {
+  border-radius: 3px;
+  background-color: #ffffff;
+  box-shadow: 1px 1px 5px 0 var(--border-grey);
+  position: fixed;
+  align-self: center;
+  top: 2.25rem;
+  display: flex;
+  animation: slideIn 0.25s ease-in;
+  z-index: var(--z-index-notification-banner);
+}
+
+.text {
+  margin: auto;
+  white-space: nowrap;
+  padding: 0.625rem 1.25rem;
+}
+
+.icon {
+  width: 2rem;
+  border-radius: 3px 0 0 3px;
+  background-color: var(--success-green);
+  display: flex;
+}
+
+.iconError {
+  background-color: var(--error-red);
+}
+
+.svg {
+  margin: auto;
+}
+
+.exclamation {
+  margin: auto;
+}
+
+.icon path:last-of-type {
+  fill: var(--white);
+}

@@ -1,0 +1,35 @@
+.base {
+  display: block;
+}
+
+.menu,
+.base {
+  width: 17rem;
+  max-height: 20rem;
+}
+
+.dropdownFilterButton {
+  background-color: var(--white);
+  border: solid 1px var(--border-grey);
+  border-radius: 3px;
+}
+
+.search {
+  display: inline-flex;
+  width: 100%;
+  padding: 0.25rem 1rem;
+}
+
+.input {
+  flex: 1;
+  margin-left: 0.5rem;
+  border: none;
+}
+
+.input:focus {
+  outline: none;
+}
+
+.searchIcon {
+  margin: 0.5rem 0rem;
+}

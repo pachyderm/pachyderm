@@ -1,0 +1,15 @@
+name: Pull Request Stats
+
+on:
+  schedule:
+    - cron:  '55 16 * * 1'
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run PR reviewer stats
+        uses: pachyderm/pr-stats@main
+        with:
+          slack-channel: '#eng-pach-console'
+          slack-webhook: 'https://hooks.slack.com/services/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'

@@ -1,0 +1,36 @@
+.base {
+  position: relative;
+  margin-right: auto;
+  flex-grow: 1;
+}
+
+.dropdown {
+  width: 100%;
+  position: absolute;
+  max-width: 23.75rem;
+  opacity: 0;
+  visibility: hidden;
+  z-index: var(--z-index-dropdown-menu);
+  border: 1px solid var(--border-grey);
+  border-radius: 0px 0px 3px 3px;
+  background-color: var(--white);
+  box-shadow: 2px 2px 8px 0px rgba(14, 14, 15, 0.15);
+}
+
+.dropdown > div:not(:first-child) {
+  border-top: 1px solid var(--border-grey);
+}
+
+.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.globalIdFilter {
+  margin: 1rem;
+}
+
+.globalIdFilter > svg {
+  margin-right: 0.5rem;
+  margin-bottom: 0.25rem;
+}

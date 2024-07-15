@@ -1,0 +1,66 @@
+.base {
+  position: relative;
+  width: 100%;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  color: var(--pachyderm-black);
+  padding: 0.5rem 1rem;
+  width: 100%;
+  transition: background-color 0.2s;
+}
+
+.item > div {
+  display: inline-flex;
+  align-items: center;
+}
+
+.item > div * {
+  line-height: 1rem;
+}
+
+.item.minimized {
+  padding: 0.5rem 1rem;
+}
+
+.item:not(.minimized) {
+  overflow-x: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.item:active,
+.base > button.item:not(:disabled):hover,
+.item:hover {
+  background-color: var(--hover-grey);
+  text-decoration: none;
+}
+
+.item:active,
+.base > button.item:not(:disabled):hover,
+.item:not(:disabled):hover,
+.item:not(:disabled):focus {
+  color: var(--pachyderm-black);
+}
+
+.item[aria-current] {
+  box-shadow: inset 0.25rem 0 0 var(--banner-green);
+  background-color: var(--cyan-10);
+}
+
+.icon svg > * {
+  fill: var(--pachyderm-black);
+}
+
+.disabled,
+.disabled svg {
+  pointer-events: none;
+  color: var(--grey-4);
+}
+
+.disabled:hover {
+  color: var(--grey-4);
+}

@@ -1,0 +1,29 @@
+.base {
+  display: block;
+}
+
+.menu,
+.base {
+  width: 100%;
+  max-height: 20rem;
+}
+
+.search {
+  display: inline-flex;
+  width: 100%;
+  padding: 0.25rem 1rem;
+}
+
+.input {
+  flex: 1;
+  margin-left: 0.5rem;
+  border: none;
+}
+
+.input:focus {
+  outline: none;
+}
+
+.searchIcon {
+  margin: 0.5rem 0rem;
+}

@@ -1,0 +1,26 @@
+.base {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 3rem;
+  border-bottom: 1px solid var(--border-grey);
+  padding: 0 1rem;
+}
+
+.link {
+  color: var(--default-purple);
+}
+
+.link:hover {
+  color: var(--hover-purple);
+}
+
+.path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.path span {
+  padding-right: 0.5rem;
+}

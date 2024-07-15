@@ -1,0 +1,21 @@
+.responsiveContent {
+  display: none;
+}
+
+@container sidebarActionGroup (max-width: 330px) {
+  .responsiveContent {
+    display: inline;
+  }
+  .fullContent {
+    display: none;
+  }
+}
+
+@container sidebarSingleAction (max-width: 160px) {
+  .responsiveContent {
+    display: inline;
+  }
+  .fullContent {
+    display: none;
+  }
+}

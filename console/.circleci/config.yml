@@ -1,0 +1,288 @@
+version: 2.1
+
+aliases:
+  - &only-release-tags
+    branches:
+      ignore: /.*/
+    tags:
+      only: /^\d+\.\d+\.\d+(-[a-z\d\-.]+)?$/
+
+orbs:
+  codecov: codecov/codecov@1.1.0
+  browser-tools: circleci/browser-tools@1.2.3
+  gh: circleci/github-cli@2.1.1
+
+parameters:
+  working-pachyderm-version:
+    type: string
+    default: '2.6.0'
+  run_nightly_tag:
+    type: boolean
+    default: false
+
+executors:
+  small-node:
+    resource_class: small
+    docker:
+      - image: cimg/node:20.11.0
+  medium-node:
+    resource_class: medium
+    docker:
+      - image: cimg/node:20.11.0
+  xlarge-node:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:20.11.0
+
+commands:
+  node-install-all:
+    steps:
+      - run:
+          name: Npm install project root, frontend and backend
+          command: npm ci && npm ci --prefix ./backend && npm ci --prefix ./frontend
+  node-install-frontend-backend:
+    steps:
+      - run:
+          name: Npm install frontend and backend
+          command: npm ci --prefix ./backend && npm ci --prefix ./frontend
+  install-pachyderm-dependencies:
+    steps:
+      - run:
+          name: Install Pachyderm Dependencies
+          command: |
+            etc/testing/circle/install.sh
+            etc/testing/circle/start-kind.sh
+  run-pachyderm-with-console:
+    steps:
+      - gh/setup:
+          version: 2.20.2
+      - install-pachyderm-dependencies
+      - run:
+          name: Deploy Pachyderm With Console (Proxy)
+          command: etc/testing/circle/deploy-pachyderm-with-console.sh
+  run-pachyderm-with-console-enterprise:
+    steps:
+      - gh/setup:
+          version: 2.20.2
+      - install-pachyderm-dependencies
+      - run:
+          name: Deploy Pachyderm EE (Proxy)
+          command: etc/testing/circle/deploy-pachyderm-with-console-and-enterprise.sh
+  activate-pachyderm-enterprise:
+    steps:
+      - run:
+          name: Activate Pachyderm Enterprise
+          command: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+
+jobs:
+  components-storybook-release:
+    docker:
+      - image: cimg/node:20.11.0
+    steps:
+      - checkout
+      - run: sudo npm install -g netlify-cli@14.4.0
+      - run: .circleci/scripts/upload-storybook.sh
+
+  lint-frontend:
+    executor: small-node
+    steps:
+      - checkout
+      - run: cd frontend && npm ci
+      - run: cd frontend && npm run lint:js:no-fix
+      - run: cd frontend && npm run lint:css:no-fix
+  lint-backend:
+    executor: small-node
+    steps:
+      - checkout
+      - run: cd backend && npm ci
+      - run: cd backend && npm run lint:no-fix
+  lint-cypress:
+    executor: small-node
+    steps:
+      - checkout
+      - run: npm ci --prefix cypress
+      - run: npm run lint --prefix cypress
+  test-backend:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node-install-frontend-backend
+      - run: npm run test --prefix backend -- --coverage
+      - codecov/upload:
+          file: ./backend/coverage/lcov.info
+  test-frontend-components:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node-install-frontend-backend
+      - run: npm run test:components --prefix frontend
+  test-frontend-react:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node-install-frontend-backend
+      - run: npm run test:frontend --prefix frontend -- --coverage
+      - codecov/upload:
+          file: ./frontend/src/coverage/lcov.info
+  build:
+    resource_class: small
+    docker:
+      - image: cimg/node:20.11.0
+    steps:
+      - checkout
+      - node-install-all
+      - run: make build
+  docker-build:
+    parameters:
+      resource_class:
+        type: string
+    resource_class: << parameters.resource_class >>
+    machine:
+      image: default
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+      - run:
+          name: Build application Docker image
+          command: |
+            make circle-docker-build
+      - save_cache:
+          key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+          paths:
+            - /tmp/docker-cache
+  docker-manifest:
+    machine:
+      image: default
+    steps:
+      - checkout
+      - run:
+          name: Create Multiarch Manifest
+          command: |
+            make circle-docker-manifest
+
+  test-docker-e2e-community-edition:
+    resource_class: xlarge
+    parallelism: 3
+    machine:
+      image: default
+    steps:
+      - checkout
+      - run: npm ci
+      - run-pachyderm-with-console
+      - run: touch .env.development.local
+      - run:
+          name: Run Community Edition Cypress tests against built console image
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build-e2e
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
+      - store_artifacts:
+          path: /tmp/cypress-debug
+  test-docker-e2e-enterprise-edition:
+    resource_class: xlarge
+    parallelism: 3
+    machine:
+      image: default
+    steps:
+      - checkout
+      - run: npm ci
+      - run-pachyderm-with-console-enterprise
+      - run: touch .env.development.local
+      - run:
+          name: Run Enterprise Edition Cypress tests against built console image
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build-auth
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
+
+  create-nightly-tag:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - '21:6b:bd:d2:06:57:1f:fa:79:33:e3:dd:1a:63:5e:ed'
+      - run:
+          name: setup pachydermbuildbot git
+          command: |
+            git config --global user.email "buildbot@pachyderm.io"
+            git config --global user.name "pachydermbuildbot"
+      - run:
+          name: create nightly tag
+          command: |
+            TIMESTAMP=$(date +'%Y%m%d')
+            WORKINGVERSION=<< pipeline.parameters.working-pachyderm-version >>
+            NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
+            git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
+            git push origin ${NIGHTLY}
+
+workflows:
+  version: 2
+  test:
+    when:
+      and:
+        - not:
+            equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+        - not: << pipeline.parameters.run_nightly_tag >>
+    jobs:
+      - lint-backend
+      - lint-frontend
+      - lint-cypress
+      - build
+      - test-backend
+      - test-frontend-components
+      - test-frontend-react
+
+  storybook-release:
+    when:
+      and:
+        - not: << pipeline.parameters.run_nightly_tag >>
+    jobs:
+      - components-storybook-release:
+          filters:
+            branches:
+              only: master
+
+  create-nightly-tag:
+    when: << pipeline.parameters.run_nightly_tag >>
+    jobs:
+      - create-nightly-tag
+
+  docker-build:
+    when:
+      and:
+        - not: << pipeline.parameters.run_nightly_tag >>
+    jobs:
+      - docker-build:
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
+      - docker-manifest:
+          requires:
+            - docker-build
+      - test-docker-e2e-community-edition:
+          requires:
+            - docker-manifest
+      - test-docker-e2e-enterprise-edition:
+          requires:
+            - docker-manifest
+  docker-release:
+    jobs:
+      - docker-build:
+          filters: *only-release-tags
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
+      - docker-manifest:
+          filters: *only-release-tags
+          requires:
+            - docker-build

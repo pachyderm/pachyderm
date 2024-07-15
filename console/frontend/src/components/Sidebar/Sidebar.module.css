@@ -1,0 +1,103 @@
+.container {
+  overflow: hidden;
+}
+
+.base {
+  background-color: var(--white);
+  width: 100%;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  border-left: solid 1px var(--line-grey);
+  pointer-events: all;
+}
+
+.base.resizeable {
+  max-width: 19rem;
+}
+
+.fixed {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  max-width: none;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition:
+    width 0.1s ease-out,
+    transform 0.1s ease-out;
+}
+
+.fixed.open {
+  transform: scaleX(1);
+}
+
+.overlay {
+  position: fixed;
+  width: 100%;
+  background-color: var(--border-grey);
+  opacity: 0;
+  top: var(--header-height);
+  left: 0;
+  bottom: 0;
+  transition: opacity 0.1s;
+  pointer-events: all;
+}
+
+.overlay.open {
+  opacity: 0.3;
+}
+
+.sideBarToolbar {
+  display: flex;
+  padding: 1rem;
+  align-items: center;
+  width: 100%;
+}
+
+.dragBar {
+  height: 100%;
+  width: 0.35rem;
+  position: absolute;
+  left: -0.35rem;
+  z-index: 1;
+}
+
+.dragBar:hover {
+  background-color: var(--line-grey);
+  cursor: ew-resize;
+}
+
+.dragBar.active {
+  background-color: var(--hover-grey);
+  pointer-events: none;
+  user-select: none;
+}
+
+.resizable {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.resizable.active {
+  cursor: ew-resize;
+  pointer-events: all;
+}
+
+.flex {
+  flex: 1;
+}
+
+.actionsGroup {
+  flex: 1;
+  z-index: var(--z-index-dropdown-menu);
+  container-name: sidebarActionGroup;
+  container-type: inline-size;
+}

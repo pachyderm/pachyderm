@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "selector-class-pattern": [
+      "^(cm-)?[a-z][a-zA-Z0-9]+$",
+      {"resolveNestedSelectors": true, "severity": "warning"}
+    ],
+    "selector-pseudo-class-no-unknown": [
+      true,
+      {
+        "ignorePseudoClasses": ["global"]
+      }
+    ],
+    "no-descending-specificity": null,
+    "property-no-unknown": [true, {"ignoreProperties": ["composes"]}]
+  },
+  "extends": ["stylelint-config-recommended", "stylelint-prettier/recommended"]
+}

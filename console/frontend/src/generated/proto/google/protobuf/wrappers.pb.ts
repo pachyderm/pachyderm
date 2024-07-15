@@ -1,0 +1,9 @@
+export type DoubleValue = number | undefined;
+export type FloatValue = number | undefined;
+export type Int64Value = string | undefined;
+export type UInt64Value = string | undefined;
+export type Int32Value = number | undefined;
+export type UInt32Value = number | undefined;
+export type BoolValue = boolean | undefined;
+export type StringValue = string | undefined;
+export type BytesValue = Uint8Array | undefined;

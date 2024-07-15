@@ -1,0 +1,66 @@
+.underline {
+  width: 100%;
+  border-bottom: 1px solid white;
+}
+
+.input {
+  margin-top: 0.1rem;
+  padding-left: 2rem;
+  max-width: 21.5rem;
+  width: 100%;
+  text-overflow: ellipsis;
+  border: unset;
+  color: var(--white);
+  background-color: transparent;
+}
+
+.inputWrapper {
+  margin-top: 0.25rem;
+  padding: 0.5rem 1rem 1rem 1rem;
+  border-radius: 3px 3px 0px 0px;
+  max-width: 23.75rem;
+  height: 3.5rem;
+}
+
+.input::placeholder {
+  color: var(--white);
+}
+
+.backgroundGrey9 {
+  background-color: var(--grey-9);
+}
+
+.input:focus,
+.input:active {
+  width: 100%;
+  outline: none;
+  border-color: var(--border-grey);
+  background-color: var(--grey-9);
+}
+
+.open {
+  border-radius: 3px 3px 0px 0px;
+}
+
+.open.input {
+  max-width: 20.5rem;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 1.45rem;
+  top: 1rem;
+  z-index: 2;
+}
+
+.button {
+  border: none;
+  background: none;
+  position: relative;
+  left: calc(100% - 1.5rem);
+  top: -1.8rem;
+}
+
+.button:focus:not([class$='focus-visible']) {
+  outline: none;
+}

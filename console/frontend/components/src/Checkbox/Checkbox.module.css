@@ -1,0 +1,49 @@
+.base {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.input {
+  position: absolute;
+  opacity: 0;
+
+  /* Match the sizing from the SVG */
+  width: 20px;
+  height: 20px;
+
+  cursor: pointer;
+}
+
+.checkboxContainer {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+input:not(:disabled):hover + * > svg {
+  color: var(--hover-plum);
+}
+
+input:not(:disabled):focus-visible + * > svg {
+  outline: 2px solid var(--focus-state);
+}
+
+.label {
+  margin-left: 0.416rem;
+}
+
+label:not([data-disabled='true']):hover .label {
+  color: var(--hover-plum);
+}
+
+.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.input:disabled {
+  cursor: not-allowed;
+}

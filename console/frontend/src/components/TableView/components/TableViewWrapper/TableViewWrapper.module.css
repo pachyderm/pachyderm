@@ -1,0 +1,15 @@
+.base {
+  --tableview-header-offset: 13.5rem;
+  max-height: calc(100vh - var(--tableview-header-offset));
+  overflow-y: scroll;
+  padding-bottom: 18rem;
+}
+
+.hasPager {
+  --header-with-pager-offset: 16.5rem;
+  max-height: calc(100vh - var(--header-with-pager-offset));
+}
+
+.base::-webkit-scrollbar {
+  display: none;
+}

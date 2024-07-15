@@ -1,0 +1,8 @@
+.markdownPreview {
+  background-color: var(--white);
+  border: solid 1px var(--border-grey);
+  border-radius: 5px;
+  height: calc(100vh - 275px);
+  margin: 2rem auto;
+  max-width: 1000px;
+}

@@ -1,0 +1,33 @@
+.base {
+  border-radius: 1rem;
+  padding: 0 0.25rem;
+  padding-right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.base a {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.icon {
+  margin-right: 0.5rem;
+}
+
+.black {
+  color: var(--pachyderm-black);
+  border: solid 1px var(--border-grey);
+}
+
+.green {
+  color: var(--icon-green);
+  border: solid 1px var(--cyan-30);
+}
+
+.red {
+  color: var(--pachyderm-red);
+  border: solid 1px var(--pachyderm-red);
+}

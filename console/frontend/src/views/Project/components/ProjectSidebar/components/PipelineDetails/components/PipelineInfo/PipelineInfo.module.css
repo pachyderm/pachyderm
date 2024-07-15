@@ -1,0 +1,9 @@
+.base {
+  padding: 1.5625rem;
+  padding-bottom: 0rem;
+  margin-top: -1.25rem;
+}
+
+.input {
+  max-height: 21.875rem;
+}

@@ -1,0 +1,7 @@
+.base {
+  padding-top: 0.75rem;
+}
+
+.base:focus:not([class$='focus-visible']) {
+  outline: none;
+}

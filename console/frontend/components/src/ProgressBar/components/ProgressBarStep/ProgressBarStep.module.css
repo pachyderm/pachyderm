@@ -1,0 +1,136 @@
+@keyframes colorCircle {
+  to {
+    border: 1px solid var(--success-green);
+    background-color: var(--success-green);
+  }
+}
+
+.base {
+  position: relative;
+  width: 100%;
+}
+
+.button:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.base:last-of-type::after {
+  display: none;
+}
+
+.button {
+  cursor: default;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  border: none;
+  background: none;
+  color: var(--dropshadow-grey);
+  width: 100%;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.visited > .button {
+  color: var(--pachyderm-black);
+}
+
+.visited > .button:hover {
+  pointer-events: all;
+  color: var(--success-green);
+  cursor: pointer;
+}
+
+.iconWrapper {
+  z-index: 2;
+  display: contents;
+}
+
+.vertical > .button > .iconWrapper {
+  display: block;
+}
+
+.circle {
+  background: var(--background-grey);
+  border: 1.5px solid var(--dropshadow-grey);
+  color: var(--background-grey);
+  height: 0.8rem;
+  width: 0.8rem;
+  z-index: 2;
+}
+
+.base::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  width: calc(100% - 6px);
+  left: calc(50% + 6px);
+  height: 2px;
+  transition: all 1s linear;
+  background: linear-gradient(
+    to right,
+    var(--success-green) 50%,
+    var(--dropshadow-grey) 50%
+  );
+  background-size: 200% 100%;
+  background-position: right bottom;
+  border-radius: 5px;
+  z-index: 1;
+}
+
+.visited > .button .circle {
+  animation: colorCircle 0.5s 1s forwards;
+}
+
+.base.visited.nextStepVisited::after {
+  pointer-events: none;
+  background-position: left bottom;
+  z-index: 1;
+}
+
+.checkmark {
+  vertical-align: unset;
+  z-index: 2;
+}
+
+.base.vertical.visited.nextStepVisited::after {
+  pointer-events: none;
+  background-position: left top;
+  z-index: 1;
+}
+
+.base.vertical > .button {
+  display: flex;
+  width: unset;
+  flex-direction: row;
+  white-space: normal;
+  align-items: baseline;
+  text-align: left;
+}
+
+.base.vertical::after {
+  top: 14px;
+  left: 11.25px;
+  width: 2px;
+  height: calc(100% - 8px);
+  background: linear-gradient(
+    0deg,
+    var(--dropshadow-grey) 50%,
+    var(--success-green) 50%
+  );
+  background-size: 100% 200%;
+  background-position: right bottom;
+}
+
+.vertical > .button .circle {
+  margin-right: 1rem;
+}
+
+.vertical > .button .checkmark {
+  margin-left: -0.3rem;
+}
+
+.vertical {
+  padding-bottom: 2rem;
+}

@@ -1,0 +1,37 @@
+.base {
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+}
+
+.margin {
+  margin-left: 1.563rem;
+  margin-right: 0.938rem;
+}
+
+.noResults {
+  padding: 1.25rem 0 1.25rem 1.25rem;
+}
+
+.smallPaddingLeft {
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+}
+
+.resultsContainer {
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+.loadingContainer {
+  height: 5rem;
+}
+
+.unorderedList {
+  list-style: none;
+  margin: unset;
+  padding-left: unset;
+}

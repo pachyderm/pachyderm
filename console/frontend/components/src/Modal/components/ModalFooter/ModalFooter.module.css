@@ -1,0 +1,21 @@
+.base {
+  border-top: 1px solid var(--grey-20);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-height: 4rem;
+  align-items: center;
+  padding: 0;
+}
+
+/* TODO: Avoid using the > * shortcut */
+.base > * {
+  margin: 0;
+}
+
+.footerContent {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  padding-left: 1rem;
+}

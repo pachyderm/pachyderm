@@ -1,0 +1,124 @@
+.base {
+  position: relative;
+  border-right: 1px solid var(--placeholder-grey);
+  padding-right: 1rem;
+}
+
+.buttonContent {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-left: 0 !important;
+}
+
+.idAppliedOrFocused {
+  background-color: var(--global-id-button-grey);
+}
+
+.dropdownBase {
+  position: absolute;
+  max-height: calc(100vh - 5rem);
+  display: flex;
+  flex-direction: column;
+  width: 37rem;
+  right: -3.75rem;
+  top: 3rem;
+  z-index: var(--z-index-global-filter);
+  border: 1px solid var(--border-grey);
+  border-radius: 3px;
+  background-color: var(--white);
+  box-shadow: 2px 2px 8px 0px rgba(14, 14, 15, 0.15);
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.25rem 0.5rem;
+}
+
+.clearFilterButton {
+  margin-top: 0.5rem;
+}
+
+.input {
+  flex-grow: 1;
+}
+
+.chipWrapper {
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.chipContainer {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.infoText {
+  display: block;
+  font-family: Montserrat, sans-serif;
+  color: var(--pachyderm-black);
+  padding: 0.25rem 0.5rem 0.5rem 0.5rem;
+  border-bottom: solid 1px var(--line-grey);
+}
+
+.warningText {
+  font-family: Montserrat, sans-serif;
+  color: var(--pachyderm-black);
+  padding: 0.25rem 0.5rem 0.5rem 0.5rem;
+}
+
+.datetimeWrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.submitButton {
+  margin-top: 1rem;
+  display: block;
+  width: 6rem;
+  white-space: nowrap;
+  margin-left: calc(100% - 6rem);
+}
+
+.checkMarkSVG {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.listContainer {
+  padding: unset;
+  margin: unset;
+  margin-top: 0.5rem;
+  height: 100%;
+  overflow-y: auto;
+  max-height: 24.4rem;
+}
+
+.emptyState {
+  height: 17rem;
+}
+
+.center {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+@media (--small-viewport) {
+  .hideAtSmall {
+    display: none;
+  }
+}
+
+@media (--medium-viewport) {
+  .hideAtMedium {
+    display: none;
+  }
+}

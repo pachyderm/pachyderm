@@ -1,0 +1,15 @@
+# Ignore everything
+*
+
+# Allow files and directories
+!./frontend
+!./backend
+!./.env.production
+!./Makefile
+
+# Ignore unnecessary files inside allowed directories
+# This should go after the allowed directories
+**/node_modules
+./frontend/build
+./backend/dist
+

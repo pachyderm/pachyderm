@@ -1,0 +1,4 @@
+.base {
+  border-top: solid 1px var(--border-grey);
+  padding-top: 15rem;
+}

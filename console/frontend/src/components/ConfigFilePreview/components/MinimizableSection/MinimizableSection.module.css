@@ -1,0 +1,20 @@
+.header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.header:hover {
+  background-color: var(--hover-grey);
+}
+
+.minimized {
+  height: 0;
+  overflow: hidden;
+}
+
+.chevron {
+  position: absolute;
+  left: -1.25rem;
+}

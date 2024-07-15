@@ -1,0 +1,50 @@
+.base {
+  cursor: pointer;
+  user-select: none;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2rem;
+  width: 100%;
+  padding-left: 1rem;
+  padding-right: 1.5rem;
+}
+
+.highlighted {
+  background-color: var(--cyan-10);
+}
+
+.selected {
+  background-color: var(--cyan-10);
+  border-left: 0.25rem solid var(--cyan);
+  padding-left: 0.75rem;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+
+  min-width: 0;
+}
+
+.leftText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leftIcon {
+  padding-left: 0.5rem;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+}
+
+.caption {
+  max-width: 3.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

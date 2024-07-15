@@ -1,0 +1,25 @@
+.base {
+  padding: 1rem 0 1rem 0.5rem;
+  border-bottom: 1px solid var(--border-grey);
+}
+
+.dropdownButton {
+  margin-bottom: 0.75rem;
+}
+
+.dropdownMenu {
+  width: 11.25rem;
+  z-index: var(--z-index-dropdown-menu);
+}
+
+.heading {
+  padding-bottom: 1rem;
+}
+
+.group {
+  padding: 0.5rem 1rem;
+}
+
+.divider {
+  border-bottom: 1px solid var(--border-grey);
+}

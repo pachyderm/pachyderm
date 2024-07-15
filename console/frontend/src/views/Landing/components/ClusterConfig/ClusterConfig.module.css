@@ -1,0 +1,20 @@
+.view {
+  padding: 0;
+}
+
+.titleBar {
+  display: inline-flex;
+  align-items: center;
+  border-bottom: solid 1px var(--border-grey);
+  padding: 1rem;
+}
+
+.editor {
+  margin-top: 1rem;
+  padding: 0 2rem;
+}
+
+.codePreview {
+  margin-top: 0;
+  max-width: 80rem;
+}

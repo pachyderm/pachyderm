@@ -1,0 +1,133 @@
+rect.node {
+  fill: var(--white);
+  stroke-width: 2px;
+  paint-order: stroke;
+  filter: url('#node-dropshadow');
+}
+
+rect.node.noShadow {
+  filter: none;
+}
+
+rect.node.detailedError {
+  stroke: var(--error-red);
+}
+
+.connectedBorder {
+  fill: transparent;
+  stroke-width: 2px;
+  stroke: var(--border-grey);
+  stroke-dasharray: 0.25rem;
+  paint-order: stroke;
+}
+
+.greenGradient {
+  /* this value is defiend in DAGView.tsx */
+  fill: url(#green-gradient);
+}
+
+.greyGradient {
+  /* this value is defiend in DAGView.tsx */
+  fill: url(#grey-gradient);
+}
+
+.purpleGradient {
+  /* this value is defiend in DAGView.tsx */
+  fill: url(#purple-gradient);
+}
+
+.hideDetails {
+  opacity: 0.3;
+}
+
+.pipelineInternalBorder {
+  fill: transparent;
+  stroke-width: 1px;
+  stroke: var(--border-grey);
+  paint-order: stroke;
+}
+
+.pipelineInternalBorder.simplified {
+  stroke: none;
+}
+
+.pipelineButtonsBackground {
+  fill: var(--white);
+}
+
+.tooltipWrapper {
+  cursor: default;
+}
+
+.pipelineCronIcon {
+  fill: var(--default-purple);
+}
+
+.checkmarkSvg {
+  fill: var(--success-green);
+}
+
+/* STATUS BUTTONS */
+
+.statusGroup * {
+  user-select: none;
+}
+
+.statusGroup .subLabel {
+  font-size: '12px';
+  font-weight: '400';
+  text-anchor: 'start';
+  dominant-baseline: 'middle';
+  font-family: Montserrat, sans-serif;
+  fill: '#666';
+  user-select: none;
+}
+
+.statusGroup .statusRect {
+  fill: var(--white);
+  paint-order: stroke;
+}
+
+.statusGroup.interactive.access:hover .statusRect {
+  cursor: pointer;
+  stroke: var(--hover-purple);
+  stroke-width: 2px;
+  filter: url('#node-dropshadow');
+}
+
+.statusGroup.interactive:not(.access):hover {
+  cursor: not-allowed;
+}
+
+.statusGroup .errorText {
+  fill: var(--pachyderm-red);
+}
+
+.statusGroup .successText {
+  fill: var(--green);
+}
+
+/* SIMPLIFIED LARGE DAG */
+
+.pipelineSimplifiedBox.node {
+  fill: var(--green);
+  stroke-width: 0;
+  opacity: 0.3;
+}
+
+.pipelineSimplifiedBoxError.node {
+  fill: var(--error-red);
+  stroke-width: 0;
+  opacity: 0.3;
+}
+
+.egressSimplifiedBox {
+  fill: var(--green);
+  stroke-width: 0;
+  opacity: 0.3;
+}
+
+.simplifiedInput.node {
+  fill: url(#green-gradient);
+  opacity: 0.3;
+}
