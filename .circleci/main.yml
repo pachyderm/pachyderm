@@ -1648,7 +1648,7 @@ jobs:
           path: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/
       - codecov/upload:
           file: /home/circleci/out/execroot/_main/bazel-out/_coverage/_coverage_report.dat
-  # ----- Console -----
+  # vvvvv Console vvvvv
   components-storybook-release:
     docker:
       - image: cimg/node:20.11.0
@@ -1705,7 +1705,7 @@ jobs:
     steps:
       - checkout
       - node-install-all
-      - run: make build
+      - run: cd console && make build
   docker-build:
     parameters:
       resource_class:
@@ -1815,7 +1815,7 @@ jobs:
   #     - test-docker-e2e-enterprise-edition:
   #         requires:
   #           - docker-manifest
-  # ----- Console -----
+  # ^^^^^ Console ^^^^^
 workflows:
   functional-tests:
     when: << pipeline.parameters.run-core-jobs >>
@@ -2495,7 +2495,7 @@ commands:
             chmod +x ./bazel
             sudo mv ./bazel /home/circleci/bin/bazel
 
-  # ----- Console -----
+  # vvvvv Console vvvvv
   node-install-all:
     steps:
       - run:
@@ -2534,4 +2534,4 @@ commands:
       - run:
           name: Activate Pachyderm Enterprise
           command: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
-  # ----- Console -----
+  # ^^^^^ Console ^^^^^
