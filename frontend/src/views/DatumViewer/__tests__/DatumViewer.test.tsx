@@ -90,7 +90,7 @@ describe('Datum Viewer', () => {
       );
       render(<PipelineDatumViewer />);
 
-      await click(await screen.findByTestId('SidePanel__closeModal'));
+      await click(await screen.findByTestId('Panel__closeModal'));
 
       await waitFor(() =>
         expect(window.location.pathname).toBe(
@@ -119,7 +119,7 @@ describe('Datum Viewer', () => {
 
       render(<JobDatumViewer />);
 
-      await click(await screen.findByTestId('SidePanel__closeModal'));
+      await click(await screen.findByTestId('Panel__closeModal'));
 
       await waitFor(() =>
         expect(window.location.pathname).toBe('/project/default/jobs/subjobs'),

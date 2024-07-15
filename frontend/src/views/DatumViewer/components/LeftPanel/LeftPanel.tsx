@@ -25,12 +25,16 @@ import styles from './LeftPanel.module.css';
 
 type LeftPanelProps = {
   job?: JobInfo;
+  isOpen: boolean;
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
-const LeftPanel: React.FC<LeftPanelProps> = ({job}) => {
+const LeftPanel: React.FC<LeftPanelProps> = ({job, isOpen, setIsOpen}) => {
   const {isExpanded, setIsExpanded, jobs, loading, formCtx} = useLeftPanel();
   return (
     <FullPagePanelModal.LeftPanel
+      isOpen={isOpen}
+      setIsOpen={setIsOpen}
       isExpanded={isExpanded}
       setIsExpanded={setIsExpanded}
     >

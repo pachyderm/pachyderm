@@ -10,3 +10,12 @@
     display: none;
   }
 }
+
+@container sidebarSingleAction (max-width: 160px) {
+  .responsiveContent {
+    display: inline;
+  }
+  .fullContent {
+    display: none;
+  }
+}

@@ -11,9 +11,3 @@
     margin-left 0.1s ease-out;
   overflow-y: hidden;
 }
-
-@media (--medium-viewport) {
-  .base {
-    margin-left: 4rem;
-  }
-}

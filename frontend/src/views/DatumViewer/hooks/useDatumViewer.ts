@@ -1,4 +1,4 @@
-import {useCallback} from 'react';
+import {useCallback, useState} from 'react';
 import {useHistory} from 'react-router';
 
 import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
@@ -8,6 +8,7 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useModal} from '@pachyderm/components';
 
 const useDatumViewer = (onCloseRoute: string) => {
+  const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const {closeModal, isOpen} = useModal(true);
   const {projectId, pipelineId, jobId, datumId} = useUrlState();
   const {updateSearchParamsAndGo} = useUrlQueryState();
@@ -43,6 +44,8 @@ const useDatumViewer = (onCloseRoute: string) => {
     jobLoading,
     error,
     isServiceOrSpout,
+    leftPanelOpen,
+    setLeftPanelOpen,
   };
 };
 

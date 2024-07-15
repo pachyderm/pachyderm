@@ -5,7 +5,7 @@ import PipelineActionsMenu from '@dash-frontend/components/PipelineActionsMenu';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import PipelineInfo from '@dash-frontend/views/Project/components/ProjectSidebar/components/PipelineDetails/components/PipelineInfo';
-import {FullPagePanelModal} from '@pachyderm/components';
+import {FullPageResizablePanelModal, Group} from '@pachyderm/components';
 
 import {pipelineRoute, useSelectedRunRoute} from '../Project/utils/routes';
 
@@ -19,34 +19,71 @@ type DatumViewerProps = {
   onCloseRoute: string;
 };
 const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
-  const {isOpen, onClose, pipelineId, jobId, datumId, job, isServiceOrSpout} =
-    useDatumViewer(onCloseRoute);
+  const {
+    isOpen,
+    onClose,
+    pipelineId,
+    jobId,
+    datumId,
+    job,
+    isServiceOrSpout,
+    leftPanelOpen,
+    setLeftPanelOpen,
+  } = useDatumViewer(onCloseRoute);
+
+  const rightPanelProps = {
+    defaultSize: 25,
+    minSize: 25,
+    showClose: true,
+    onClose,
+    headerContent: (
+      <Group spacing={8} className={styles.actionsGroup}>
+        <PipelineActionsMenu pipelineId={pipelineId} />
+      </Group>
+    ),
+    'data-testid': 'SidePanel__right',
+  };
+
   return (
     <>
       {isOpen && (
-        <FullPagePanelModal
+        <FullPageResizablePanelModal
           show={isOpen}
           onHide={onClose}
-          hideLeftPanel={isServiceOrSpout}
+          autoSaveId="DatumViewer"
         >
           {isServiceOrSpout && (
             <>
-              <MiddleSection key={jobId} />
-              <FullPagePanelModal.RightPanel
-                headerContent={<PipelineActionsMenu pipelineId={pipelineId} />}
-              >
+              <FullPageResizablePanelModal.Body defaultSize={50} minSize={40}>
+                <MiddleSection key={jobId} />
+              </FullPageResizablePanelModal.Body>
+              <FullPageResizablePanelModal.PanelResizeHandle />
+              <FullPageResizablePanelModal.Panel {...rightPanelProps}>
                 <PipelineInfo />
-              </FullPagePanelModal.RightPanel>
+              </FullPageResizablePanelModal.Panel>
             </>
           )}
 
           {!isServiceOrSpout && (
             <>
-              <LeftPanel job={job} />
-              <MiddleSection key={`${jobId}-${datumId}`} />
-              <FullPagePanelModal.RightPanel
-                headerContent={<PipelineActionsMenu pipelineId={pipelineId} />}
+              <LeftPanel
+                job={job}
+                setIsOpen={setLeftPanelOpen}
+                isOpen={leftPanelOpen}
+              />
+              <FullPageResizablePanelModal.Body
+                defaultSize={50}
+                minSize={40}
+                className={
+                  leftPanelOpen
+                    ? styles.middleSectionLeftPanelOpen
+                    : styles.middleSection
+                }
               >
+                <MiddleSection key={`${jobId}-${datumId}`} />
+              </FullPageResizablePanelModal.Body>
+              <FullPageResizablePanelModal.PanelResizeHandle />
+              <FullPageResizablePanelModal.Panel {...rightPanelProps}>
                 {datumId ? (
                   <DatumDetails className={styles.overflowYScroll} />
                 ) : (
@@ -55,10 +92,10 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
                     className={styles.overflowYScroll}
                   />
                 )}
-              </FullPagePanelModal.RightPanel>
+              </FullPageResizablePanelModal.Panel>
             </>
           )}
-        </FullPagePanelModal>
+        </FullPageResizablePanelModal>
       )}
     </>
   );

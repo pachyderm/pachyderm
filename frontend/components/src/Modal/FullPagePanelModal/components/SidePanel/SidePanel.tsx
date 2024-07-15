@@ -1,5 +1,5 @@
 import classNames from 'classnames';
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef} from 'react';
 
 import {
   Button,
@@ -17,19 +17,21 @@ export interface SidePanelProps {
   headerContent?: React.ReactNode;
   type: 'left' | 'right';
   open?: boolean;
+  isOpen: boolean;
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isExpanded?: boolean;
   setIsExpanded?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 const SidePanel: React.FC<SidePanelProps> = ({
   type = 'right',
-  open = true,
+  isOpen,
+  setIsOpen,
   isExpanded = false,
   setIsExpanded,
   children,
   headerContent,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isOpen, setIsOpen] = useState(open);
   const {onHide, setLeftOpen, setRightOpen} = usePanelModal();
 
   const isLeft = type === 'left';
@@ -116,14 +118,16 @@ const SidePanel: React.FC<SidePanelProps> = ({
 
 export const LeftPanel: React.FC<{
   children?: React.ReactNode;
-  open?: boolean;
+  isOpen: boolean;
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   isExpanded?: boolean;
   setIsExpanded?: React.Dispatch<React.SetStateAction<boolean>>;
-}> = ({open, isExpanded, setIsExpanded, children}) => {
+}> = ({isOpen, setIsOpen, isExpanded, setIsExpanded, children}) => {
   return (
     <SidePanel
       type="left"
-      open={open}
+      isOpen={isOpen}
+      setIsOpen={setIsOpen}
       isExpanded={isExpanded}
       setIsExpanded={setIsExpanded}
     >
@@ -135,10 +139,16 @@ export const LeftPanel: React.FC<{
 export const RightPanel: React.FC<{
   children?: React.ReactNode;
   headerContent?: React.ReactNode;
-  open?: boolean;
-}> = ({open, children, headerContent}) => {
+  isOpen: boolean;
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}> = ({isOpen, setIsOpen, children, headerContent}) => {
   return (
-    <SidePanel type="right" open={open} headerContent={headerContent}>
+    <SidePanel
+      type="right"
+      isOpen={isOpen}
+      setIsOpen={setIsOpen}
+      headerContent={headerContent}
+    >
       {children}
     </SidePanel>
   );

@@ -7,7 +7,7 @@ import {
 import isEqual from 'lodash/isEqual';
 import {rest} from 'msw';
 import {setupServer} from 'msw/node';
-import React from 'react';
+import React, {useState} from 'react';
 
 import {Empty} from '@dash-frontend/api/googleTypes';
 import {
@@ -45,7 +45,8 @@ describe('Datum Viewer Left Panel', () => {
   const server = setupServer();
 
   const LeftPanel = withContextProviders(() => {
-    return <LeftPanelComponent />;
+    const [isOpen, setIsOpen] = useState(true);
+    return <LeftPanelComponent isOpen={isOpen} setIsOpen={setIsOpen} />;
   });
 
   beforeAll(() => server.listen());

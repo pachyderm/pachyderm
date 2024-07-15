@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {FullPagePanelModal, IdText} from '@pachyderm/components';
+import {IdText} from '@pachyderm/components';
 
 import DatumHeaderBreadcrumbs from './components/DatumHeaderBreadcrumbs';
 import LogsViewer from './components/LogsViewer';
@@ -38,7 +38,7 @@ const MiddleSection = () => {
   } = useLogsViewer(isSkippedDatum, startTime, jobId);
 
   return (
-    <FullPagePanelModal.Body>
+    <>
       <div className={styles.base}>
         {!isServiceOrSpout && <DatumHeaderBreadcrumbs jobId={jobId} />}
         <div className={styles.header} data-testid="MiddleSection__title">
@@ -77,7 +77,7 @@ const MiddleSection = () => {
           />
         )}
       </div>
-    </FullPagePanelModal.Body>
+    </>
   );
 };
 

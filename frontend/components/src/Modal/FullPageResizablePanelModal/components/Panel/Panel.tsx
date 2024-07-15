@@ -24,7 +24,7 @@ const ModalPanel = ({
     <Panel className={styles.panel} {...props}>
       {showClose && (
         <div className={classNames(showClose && styles.rightHeading)}>
-          {headerContent}
+          <div className={styles.headingContent}>{headerContent}</div>
 
           <Button
             data-testid="Panel__closeModal"

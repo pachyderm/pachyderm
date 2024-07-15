@@ -7,6 +7,10 @@
   padding: 0 1rem;
 }
 
+.headingContent {
+  flex: 1;
+}
+
 .children {
   height: 100%;
   overflow-y: hidden;
