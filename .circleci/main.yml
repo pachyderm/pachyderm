@@ -1713,8 +1713,12 @@ jobs:
     resource_class: << parameters.resource_class >>
     machine:
       image: default
+    working_directory: ~/project/console
     steps:
-      - checkout
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
       - restore_cache:
           keys:
             - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
@@ -2284,7 +2288,7 @@ workflows:
       - console-test-backend
       - console-test-frontend-components
       - console-test-frontend-react
-      # - console-docker-build
+      - console-docker-build
 
   storybook-release:
     # when:
