@@ -2268,11 +2268,11 @@ workflows:
       - console-test-frontend-components
       - console-test-frontend-react
       - console-docker-build:
-        matrix:
-          parameters:
-            resource_class:
-              - large
-              - arm.large
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
         # when:
         #   and:
         #     - not: << pipeline.parameters.run_nightly_tag >>
