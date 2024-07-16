@@ -438,6 +438,7 @@ message PipelineInfo {
     ParallelismSpec parallelism_spec = 3;
     Egress egress = 4;
     google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 39;
 
     string recent_error = 6;
 

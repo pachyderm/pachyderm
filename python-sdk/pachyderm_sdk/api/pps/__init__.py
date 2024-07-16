@@ -581,6 +581,7 @@ class PipelineInfoDetails(betterproto.Message):
     parallelism_spec: "ParallelismSpec" = betterproto.message_field(3)
     egress: "Egress" = betterproto.message_field(4)
     created_at: datetime = betterproto.message_field(5)
+    updated_at: datetime = betterproto.message_field(39)
     recent_error: str = betterproto.string_field(6)
     workers_requested: int = betterproto.int64_field(7)
     workers_available: int = betterproto.int64_field(8)

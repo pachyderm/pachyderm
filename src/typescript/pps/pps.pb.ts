@@ -331,6 +331,7 @@ export type PipelineInfoDetails = {
   parallelismSpec?: ParallelismSpec
   egress?: Egress
   createdAt?: GoogleProtobufTimestamp.Timestamp
+  updatedAt?: GoogleProtobufTimestamp.Timestamp
   recentError?: string
   workersRequested?: string
   workersAvailable?: string
