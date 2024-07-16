@@ -121,6 +121,7 @@ func TestUpsertPipeline(t *testing.T) {
 			},
 			Id: uuid.NewWithoutDashes(),
 		},
+		Details: &pps.PipelineInfo_Details{},
 	}
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		err := pfsdb.UpsertProject(ctx, tx, &pfs.ProjectInfo{Project: expectedInfo.Pipeline.Project})
