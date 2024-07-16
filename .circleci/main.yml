@@ -1749,14 +1749,20 @@ jobs:
     parallelism: 3
     machine:
       image: default
+    working_directory: ~/project/console
     steps:
-      - checkout
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
       - run: npm ci
-      - run-pachyderm-with-console
+      - install-bazel
+      # - run-pachyderm-with-console
       - run: touch .env.development.local
+      - run: echo 'y' | pachctl auth deactivate
       - run:
           name: Run Community Edition Cypress tests against built console image
-          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build-e2e
+          command: CI=true npm run cypress:ci-build-e2e
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:
@@ -2280,6 +2286,12 @@ workflows:
       - console-docker-manifest:
             requires:
               - console-docker-build
+      - console-test-docker-e2e-community-edition:
+            # requires:
+            #   - console-docker-manifest
+      # - console-test-docker-e2e-enterprise-edition:
+      #       requires:
+      #         - console-docker-manifest
         # when:
         #   and:
         #     - not: << pipeline.parameters.run_nightly_tag >>
@@ -2541,4 +2553,42 @@ commands:
       - run:
           name: Activate Pachyderm Enterprise
           command: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
+
+
+  install-console-e2e-deps:
+    steps:
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install kubectl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install
+      - run:
+          name: Install pachctl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/server/cmd/pachctl:install
+      - run:
+          name: Setup k8s cluster
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100 --test-namespaces=1
+      - run:
+          name: Install pachd with auth
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --namespace=test-namespace-1 -v
+            mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
+      - run:
+          name: Watch pachd with auth logs
+          command: kubectl logs --namespace=test-namespace-1 -l suite=pachyderm -f
+          background: true
+      - run:
+          name: Install pachd without auth
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push -v
+      - run:
+          name: Watch pachd without auth logs
+          command: kubectl logs --namespace=default -l suite=pachyderm -f
+          background: true
+
   # ^^^^^ Console ^^^^^
