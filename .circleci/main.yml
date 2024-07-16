@@ -1757,6 +1757,7 @@ jobs:
           at: .
       - run: npm ci
       - install-bazel
+      - install-console-e2e-deps
       # - run-pachyderm-with-console
       - run: touch .env.development.local
       - run: echo 'y' | pachctl auth deactivate
