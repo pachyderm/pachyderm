@@ -77,7 +77,8 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 		CleanupAfter: true, // this cluster is likely to not be re-used
 	}
 	valueOverrides["pachd.replicas"] = "1"
-	valueOverrides["determined.initialUserPassword"] = "Password1"
+	detUserPassword := "Password1"
+	valueOverrides["determined.initialUserPassword"] = detUserPassword
 	opts.ValueOverrides = valueOverrides
 	t.Logf("Determined installing in namespace %s", ns)
 	ctx := pctx.TestContext(t)
@@ -93,7 +94,7 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	dc, cf, err := det.NewClient(ctx, detUrl.String(), false)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, cf()) }()
-	token, err := det.MintToken(ctx, dc, "admin", "")
+	token, err := det.MintToken(ctx, dc, "admin", detUserPassword)
 	require.NoError(t, err)
 	ctx = det.WithToken(ctx, token)
 	repoName := "images"
