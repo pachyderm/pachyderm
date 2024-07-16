@@ -34,6 +34,8 @@ func TestDeterminedUserSync(t *testing.T) {
 	}
 	valueOverrides := make(map[string]string)
 	maps.Copy(valueOverrides, globalValueOverrides)
+	detUserPassword := "Password1"
+	valueOverrides["determined.initialUserPassword"] = detUserPassword
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
 	minikubetestenv.PutNamespace(t, ns)
@@ -49,7 +51,7 @@ func TestDeterminedUserSync(t *testing.T) {
 	dc, cf, err := det.NewClient(ctx, detUrl.String(), false)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, cf()) }()
-	token, err := det.MintToken(ctx, dc, "admin", "")
+	token, err := det.MintToken(ctx, dc, "admin", detUserPassword)
 	require.NoError(t, err)
 	ctx = det.WithToken(ctx, token)
 	previous, err := det.GetUsers(ctx, dc)
