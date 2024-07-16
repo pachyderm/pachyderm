@@ -1798,27 +1798,6 @@ jobs:
             NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
             git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
             git push origin ${NIGHTLY}
-
-  console-docker-build:
-    # when:
-    #   and:
-    #     - not: << pipeline.parameters.run_nightly_tag >>
-    jobs:
-      - console-docker-build:
-          matrix:
-            parameters:
-              resource_class:
-                - large
-                - arm.large
-      # - docker-manifest:
-      #     requires:
-      #       - console-docker-build
-      # - test-docker-e2e-community-edition:
-      #     requires:
-      #       - docker-manifest
-      # - test-docker-e2e-enterprise-edition:
-      #     requires:
-      #       - docker-manifest
   # ^^^^^ Console ^^^^^
 workflows:
   functional-tests:
@@ -2288,7 +2267,24 @@ workflows:
       - console-test-backend
       - console-test-frontend-components
       - console-test-frontend-react
-      - console-docker-build
+      - console-docker-build:
+        matrix:
+          parameters:
+            resource_class:
+              - large
+              - arm.large
+        # when:
+        #   and:
+        #     - not: << pipeline.parameters.run_nightly_tag >>
+        # - docker-manifest:
+        #     requires:
+        #       - console-docker-build
+        # - test-docker-e2e-community-edition:
+        #     requires:
+        #       - docker-manifest
+        # - test-docker-e2e-enterprise-edition:
+        #     requires:
+        #       - docker-manifest
 
   storybook-release:
     # when:
