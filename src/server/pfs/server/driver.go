@@ -1900,6 +1900,9 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	if propagate {
 		return txnCtx.PropagateBranch(branchHandle)
 	}
+	if err := txnCtx.CheckBranches(branchHandle.Repo); err != nil {
+		return errors.Wrap(err, "check branches")
+	}
 	return nil
 }
 

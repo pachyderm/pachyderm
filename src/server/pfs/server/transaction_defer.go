@@ -56,3 +56,50 @@ func (t *Propagater) Run(ctx context.Context) error {
 	}
 	return t.d.propagateBranches(ctx, t.txnCtx, branches)
 }
+
+type RepoChecker struct {
+	d      *driver
+	txnCtx *txncontext.TransactionContext
+	repos  []*pfs.Repo
+}
+
+func (a *apiServer) NewRepoChecker(txnCtx *txncontext.TransactionContext) txncontext.PfsBranchChecker {
+	return &RepoChecker{
+		d:      a.driver,
+		txnCtx: txnCtx,
+		repos:  []*pfs.Repo{},
+	}
+}
+
+func (t *RepoChecker) CheckBranches(repo *pfs.Repo) error {
+	if repo == nil {
+		return errors.New("cannot propagate nil repo")
+	}
+	t.repos = append(t.repos, repo)
+	return nil
+}
+
+func (t *RepoChecker) Run(ctx context.Context) error {
+	for _, repo := range t.repos {
+		if err := t.d.listBranchInTransaction(ctx, t.txnCtx, repo, false, func(bi *pfs.BranchInfo) error {
+			head, err := pfsdb.GetCommitByKey(ctx, t.txnCtx.SqlTx, bi.Head)
+			if err != nil {
+				return errors.Wrap(err, "get commit by key")
+			}
+			// the branch head should not be a forgotten commit; only a finished commit can be forgotten
+			if head.Finished != nil {
+				_, err := t.d.commitStore.GetTotalFileSetTx(t.txnCtx.SqlTx, head)
+				if err != nil {
+					// a finished commit that has no total file set is forgotten
+					if errors.Is(err, errNoTotalFileSet) {
+						return errors.New("the branch head cannot be a forgotten commit")
+					}
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}

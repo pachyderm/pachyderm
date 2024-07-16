@@ -27,7 +27,8 @@ type TransactionContext struct {
 	// Timestamp is the canonical timestamp to be used for writes in this transaction.
 	Timestamp *timestamppb.Timestamp
 	// PfsPropagater applies commits at the end of the transaction.
-	PfsPropagater PfsPropagater
+	PfsPropagater    PfsPropagater
+	PfsBranchChecker PfsBranchChecker
 	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
 	PpsPropagater PpsPropagater
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
@@ -112,6 +113,10 @@ func (t *TransactionContext) PropagateBranch(branch *pfs.Branch) error {
 	return errors.EnsureStack(t.PfsPropagater.PropagateBranch(branch))
 }
 
+func (t *TransactionContext) CheckBranches(repo *pfs.Repo) error {
+	return errors.EnsureStack(t.PfsBranchChecker.CheckBranches(repo))
+}
+
 // DeleteBranch removes a branch from the list of branches to propagate, if
 // it is present.
 func (t *TransactionContext) DeleteBranch(branch *pfs.Branch) {
@@ -123,6 +128,11 @@ func (t *TransactionContext) DeleteBranch(branch *pfs.Branch) {
 func (t *TransactionContext) Finish(ctx context.Context) error {
 	if t.PfsPropagater != nil {
 		if err := t.PfsPropagater.Run(ctx); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+	if t.PfsBranchChecker != nil {
+		if err := t.PfsBranchChecker.Run(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -149,6 +159,13 @@ func (t *TransactionContext) Finish(ctx context.Context) error {
 type PfsPropagater interface {
 	PropagateBranch(branch *pfs.Branch) error
 	DeleteBranch(branch *pfs.Branch)
+	Run(context.Context) error
+}
+
+// PfsBranchChecker is the interface that PFS implements to check branches
+// at the end of a transaction. It is defined here to avoid a circular dependency.
+type PfsBranchChecker interface {
+	CheckBranches(repo *pfs.Repo) error
 	Run(context.Context) error
 }
 
