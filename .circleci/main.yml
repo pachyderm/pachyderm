@@ -1763,7 +1763,7 @@ jobs:
       # - run: echo 'y' | pachctl auth deactivate
       - run:
           name: Run Community Edition Cypress tests against built console image
-          command: CI=true npm run cypress:ci-build-e2e
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build-e2e
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:
