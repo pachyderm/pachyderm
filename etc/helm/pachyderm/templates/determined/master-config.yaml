@@ -1,6 +1,6 @@
 {{- if .Values.determined.enabled }}
 {{- if empty (lookup "v1" "Service" .Release.Namespace (printf "determined-db-service-%s" .Release.Name)) }}
-  {{- $initialPassword := coalesce .Values.initialUserPassword .Values.defaultPassword | required "An initial password for admin and determined users is required!" }}
+  {{- $initialPassword := coalesce .Values.determined.initialUserPassword .Values.determined.defaultPassword | required "An initial password for admin and determined users is required!" }}
   {{- if not (gt (len $initialPassword) 7) }}
     {{- fail "initialUserPassword must have at least 8 characters" }}
   {{- end }}
@@ -74,7 +74,7 @@ stringData:
       {{- end }}
 
     security:
-      {{- if $initialPassword := coalesce .Values.initialUserPassword .Values.defaultPassword }}
+      {{- if $initialPassword := coalesce .Values.determined.initialUserPassword .Values.determined.defaultPassword }}
       initial_user_password: {{ quote $initialPassword }}
       {{- end }}
       {{- if .Values.determined.tlsSecret }}
@@ -212,8 +212,8 @@ stringData:
       {{- if .Values.determined.taskContainerDefaults.startupHook }}
       startup_hook: {{ .Values.determined.taskContainerDefaults.startupHook | quote}}
       {{- end }}
-      {{- if .Values.taskContainerDefaults.checkpointGcPodSpec }}
-      checkpoint_gc_pod_spec: {{ .Values.taskContainerDefaults.checkpointGcPodSpec | toJson }}
+      {{- if .Values.determined.taskContainerDefaults.checkpointGcPodSpec }}
+      checkpoint_gc_pod_spec: {{ .Values.determined.taskContainerDefaults.checkpointGcPodSpec | toJson }}
       {{- end }}
       {{- if .Values.determined.taskContainerDefaults.logPolicies }}
       log_policies:
@@ -299,13 +299,13 @@ stringData:
       {{- end }}
       {{- end }}
     {{- end}}
-    {{- if .Values.retentionPolicy }}
+    {{- if .Values.determined.retentionPolicy }}
     retention_policy:
-      {{- if .Values.retentionPolicy.logRetentionDays }}
-      log_retention_days: {{ .Values.retentionPolicy.logRetentionDays }}
+      {{- if .Values.determined.retentionPolicy.logRetentionDays }}
+      log_retention_days: {{ .Values.determined.retentionPolicy.logRetentionDays }}
       {{- end }}
-      {{- if .Values.retentionPolicy.schedule }}
-      schedule: {{ .Values.retentionPolicy.schedule | quote }}
+      {{- if .Values.determined.retentionPolicy.schedule }}
+      schedule: {{ .Values.determined.retentionPolicy.schedule | quote }}
       {{- end }}
     {{- end }}
   {{- if .Values.determined.logging }}
