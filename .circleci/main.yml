@@ -2286,7 +2286,7 @@ workflows:
       - console-docker-manifest:
             requires:
               - console-docker-build
-      - console-test-docker-e2e-community-edition:
+      - console-test-docker-e2e-community-edition
             # requires:
             #   - console-docker-manifest
       # - console-test-docker-e2e-enterprise-edition:
