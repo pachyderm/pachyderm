@@ -67,7 +67,7 @@ circle-docker-build:
 	docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --cache-from=type=local,src=/tmp/docker-cache --build-arg DOCKER_TAG=$(DOCKER_TAG) --cache-to=type=local,dest=/tmp/docker-cache --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) .
 
 circle-docker-manifest:
-	echo "$(DOCKERHUB_PASS)" | docker login -u "$(DOCKERHUB_USERNAME)" --password-stdin
+	echo "$(DOCKER_PWD)" | docker login -u pachydermbuildbot --password-stdin
 	docker manifest create pachyderm/haberdashery:$(DOCKER_TAG) docker.io/pachyderm/haberdashery:$(DOCKER_TAG)-amd64 docker.io/pachyderm/haberdashery:$(DOCKER_TAG)-arm64
 	docker manifest push pachyderm/haberdashery:$(DOCKER_TAG)
 

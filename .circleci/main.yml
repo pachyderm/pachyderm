@@ -1733,8 +1733,12 @@ jobs:
   console-docker-manifest:
     machine:
       image: default
+    working_directory: ~/project/console
     steps:
-      - checkout
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
       - run:
           name: Create Multiarch Manifest
           command: |
@@ -2273,6 +2277,9 @@ workflows:
               resource_class:
                 - large
                 - arm.large
+      - console-docker-manifest:
+            requires:
+              - console-docker-build
         # when:
         #   and:
         #     - not: << pipeline.parameters.run_nightly_tag >>
