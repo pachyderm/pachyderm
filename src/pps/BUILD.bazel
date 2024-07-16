@@ -45,8 +45,17 @@ go_library(
 go_test(
     name = "pps_test",
     size = "small",
-    srcs = ["filter_test.go"],
-    deps = [":pps"],
+    srcs = [
+        "filter_test.go",
+        "pps_test.go",
+    ],
+    deps = [
+        ":pps",
+        "//src/internal/require",
+        "//src/pfs",
+        "@com_github_google_go_cmp//cmp",
+        "@org_golang_google_protobuf//testing/protocmp",
+    ],
 )
 
 filegroup(

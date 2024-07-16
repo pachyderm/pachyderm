@@ -1699,6 +1699,9 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			flagSet := cmd.Flags()
 			switch {
 			case flagSet.Changed("cluster"):
+				if raw {
+					return errors.New("raw cluster defaults not yet implemented")
+				}
 				resp, err := client.PpsAPIClient.GetClusterDefaults(client.Ctx(), &pps.GetClusterDefaultsRequest{})
 				if err != nil {
 					return errors.Wrap(err, "could not get cluster defaults")
@@ -1710,6 +1713,14 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				if err != nil {
 					return errors.Wrap(err, "could not get project defaults")
 				}
+				if raw {
+					b, err := protojson.Marshal(resp)
+					if err != nil {
+						return errors.Wrap(err, "could not marshal project defaults response")
+					}
+					fmt.Println(string(b))
+					return nil
+				}
 				fmt.Println(resp.ProjectDefaultsJson)
 				return nil
 			default:
@@ -1719,6 +1730,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	}
 	inspectDefaults.Flags().BoolVar(&cluster, "cluster", false, "Inspect cluster defaults.")
 	inspectDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
+	inspectDefaults.Flags().BoolVar(&raw, "raw", false, "Display raw defaults and metadata.")
 	commands = append(commands, cmdutil.CreateAliases(inspectDefaults, "inspect defaults", "default"))
 
 	var pathname string

@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -112,8 +113,61 @@ func TestEditMetadata(t *testing.T) {
 		},
 	}
 
+	var (
+		pipeline = &pps.Pipeline{
+			Project: project,
+			Name:    "test-pipeline",
+		}
+		pipelinePicker = &pps.PipelinePicker{
+			Picker: &pps.PipelinePicker_Name{
+				Name: &pps.PipelinePicker_PipelineName{
+					Project: projectPicker,
+					Name:    "test-pipeline",
+				},
+			},
+		}
+	)
+	if _, err := root.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: `{
+  "pipeline": {
+    "project": {"name": "foo"},
+    "name": "test-pipeline"
+  },
+  "transform": {
+    "cmd": [
+	"sh", "-c", "ls -R /pfs > /pfs/out/output.txt"
+    ]
+  },
+  "input": {
+    "cross": [
+      {
+        "pfs": {
+          "repo": "test",
+          "glob": "/",
+          "name": "a"
+        }
+      },
+      {
+        "pfs": {
+          "repo": "test",
+          "glob": "/",
+          "name": "b"
+        }
+      }
+    ]
+  },
+  "resource_requests": {
+    "cpu": 0.5
+  },
+  "autoscaling": false
+}`,
+	}); err != nil {
+		t.Fatalf("create pipeline foo/test-pipeline: %v", err)
+	}
+
 	// Grant auth permissions.
 	require.NoError(t, root.ModifyRepoRoleBinding(ctx, "foo", "test", "robot:alice", []string{auth.RepoWriterRole}))
+	require.NoError(t, root.ModifyRepoRoleBinding(ctx, "foo", "test-pipeline", "robot:alice", []string{auth.RepoWriterRole}))
 
 	// Tests follow.
 	t.Run("project", func(t *testing.T) {
@@ -251,6 +305,36 @@ func TestEditMetadata(t *testing.T) {
 		}
 	})
 
+	t.Run("pipeline", func(t *testing.T) {
+		if _, err := root.MetadataClient.EditMetadata(ctx, &metadata.EditMetadataRequest{
+			Edits: []*metadata.Edit{
+				{
+					Target: &metadata.Edit_Pipeline{
+						Pipeline: pipelinePicker,
+					},
+					Op: &metadata.Edit_AddKey_{
+						AddKey: &metadata.Edit_AddKey{
+							Key:   "key",
+							Value: "value",
+						},
+					},
+				},
+			},
+		}); err != nil {
+			t.Errorf("edit metadata: %v", err)
+		}
+		want := map[string]string{"key": "value"}
+		got, err := root.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{
+			Pipeline: pipeline,
+		})
+		if err != nil {
+			t.Errorf("inspect repo: %v", err)
+		}
+		if diff := cmp.Diff(want, got.GetMetadata()); diff != "" {
+			t.Errorf("repo default/test (-want +got):\n%s", diff)
+		}
+	})
+
 	t.Run("multi_success", func(t *testing.T) {
 		op := &metadata.Edit_EditKey_{
 			EditKey: &metadata.Edit_EditKey{
@@ -372,6 +456,12 @@ func TestEditMetadata(t *testing.T) {
 					},
 					Op: op,
 				},
+				{
+					Target: &metadata.Edit_Pipeline{
+						Pipeline: pipelinePicker,
+					},
+					Op: op,
+				},
 			},
 		})
 		if err != nil {
@@ -421,6 +511,21 @@ func TestEditMetadata(t *testing.T) {
 			`/edit #3: check permissions on repo.*robot:mallory is not authorized/`,
 		}
 		require.NoDiff(t, want, strings.Split(err.Error(), "\n"), []cmp.Option{cmputil.RegexpStrings()})
+
+		_, err = mallory.MetadataClient.EditMetadata(mallory.Ctx(), &metadata.EditMetadataRequest{
+			Edits: []*metadata.Edit{
+				{
+					Target: &metadata.Edit_Pipeline{
+						Pipeline: pipelinePicker,
+					},
+					Op: op,
+				},
+			},
+		})
+		if err == nil {
+			t.Error("unexpected success")
+		}
+		require.ErrorContains(t, err, `rpc error: code = PermissionDenied`)
 	})
 
 	t.Run("cluster", func(t *testing.T) {

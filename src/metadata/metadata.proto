@@ -4,6 +4,7 @@ package metadata;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/metadata";
 
 import "pfs/pfs.proto";
+import "pps/pps.proto";
 
 import "protoextensions/validate.proto";
 
@@ -26,6 +27,8 @@ message Edit {
     pfs_v2.RepoPicker repo = 4 [(validate.rules).message.required = true];
     // cluster targets the cluster's metadata.
     ClusterPicker cluster = 5 [(validate.rules).message.required = true];
+    // pipeline targets a pipeline.
+    pps_v2.PipelinePicker pipeline = 6;
   }
 
   // Replace is an operation that replaces metadata.

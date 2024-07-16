@@ -44,6 +44,7 @@ import (
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -11562,6 +11563,67 @@ func TestDatumBatching(t *testing.T) {
 		request := createPipelineRequest(pipeline, script)
 		checkState(request, pps.JobState_JOB_SUCCESS)
 	})
+}
+
+func TestDatumFileset(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+	ctx := pctx.TestContext(t)
+
+	project := pfs.DefaultProjectName
+	repo := tu.UniqueString("TestDatumFileset_data")
+	require.NoError(t, c.CreateRepo(project, repo))
+
+	pipeline := tu.UniqueString("TestDatumFileset")
+	require.NoError(t, c.CreatePipeline(
+		project,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{"touch /pfs/out/$FILESET_ID"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(project, repo, "/*"),
+		"",
+		false,
+	))
+
+	commit, err := c.StartCommit(project, repo, "master")
+	require.NoError(t, err)
+	numFiles := 10
+	var paths []string
+	for i := 0; i < numFiles; i++ {
+		path := fmt.Sprintf("/dir/file-%02d", i)
+		require.NoError(t, c.PutFile(commit, path, strings.NewReader(path)))
+		paths = append(paths, path)
+	}
+	require.NoError(t, c.FinishCommit(project, repo, "", commit.Id))
+	_, err = c.WaitCommitSetAll(commit.Id)
+	require.NoError(t, err)
+	outputCommit := client.NewCommit(project, pipeline, "", commit.Id)
+	fileInfos, err := c.ListFileAll(outputCommit, "")
+	require.NoError(t, err)
+
+	request := &storage.ReadFilesetRequest{FilesetId: strings.TrimLeft(fileInfos[0].File.Path, "/")}
+	rfc, err := c.FilesetClient.ReadFileset(ctx, request)
+	require.NoError(t, err)
+	for {
+		msg, err := rfc.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		require.True(t, len(paths) > 0)
+		path := paths[0]
+		require.True(t, strings.HasSuffix(msg.Path, path))
+		require.True(t, bytes.Equal([]byte(path), msg.Data.Value))
+		paths = paths[1:]
+	}
+	require.Equal(t, 0, len(paths))
 }
 
 func TestJQFilterInfiniteLoop(t *testing.T) {

@@ -14,7 +14,10 @@ import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
 
-from .. import pfs as _pfs__
+from .. import (
+    pfs as _pfs__,
+    pps as _pps__,
+)
 
 
 if TYPE_CHECKING:
@@ -50,6 +53,9 @@ class Edit(betterproto.Message):
 
     cluster: "ClusterPicker" = betterproto.message_field(5, group="target")
     """cluster targets the cluster's metadata."""
+
+    pipeline: "_pps__.PipelinePicker" = betterproto.message_field(6, group="target")
+    """pipeline targets a pipeline."""
 
     replace: "EditReplace" = betterproto.message_field(10, group="op")
     """replace replaces a target's metadata with a new metadata mapping."""

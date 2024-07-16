@@ -48,6 +48,25 @@ class DeleteFile(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class CopyFile(betterproto.Message):
+    """
+    CopyFile copies a file or directory from the specified fileset with the
+    specified path. If a file or directory with the specified path doesn't
+    exist in the specified fileset, the copy will be a no-op. TODO: Append?
+    """
+
+    fileset_id: str = betterproto.string_field(1)
+    src: str = betterproto.string_field(2)
+    """Src is the source path of the file or directory."""
+
+    dst: str = betterproto.string_field(3)
+    """
+    Dst is the destination path of the file or directory. If dst is unset, src
+    will be used as the destination path.
+    """
+
+
+@dataclass(eq=False, repr=False)
 class CreateFilesetRequest(betterproto.Message):
     """
     A CreateFilesetRequest corresponds to a single file modification. Supported
@@ -58,6 +77,7 @@ class CreateFilesetRequest(betterproto.Message):
 
     append_file: "AppendFile" = betterproto.message_field(1, group="modification")
     delete_file: "DeleteFile" = betterproto.message_field(2, group="modification")
+    copy_file: "CopyFile" = betterproto.message_field(3, group="modification")
 
 
 @dataclass(eq=False, repr=False)
