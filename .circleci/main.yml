@@ -1760,7 +1760,7 @@ jobs:
       - install-console-e2e-deps
       # - run-pachyderm-with-console
       - run: touch .env.development.local
-      - run: echo 'y' | pachctl auth deactivate
+      # - run: echo 'y' | pachctl auth deactivate
       - run:
           name: Run Community Edition Cypress tests against built console image
           command: CI=true npm run cypress:ci-build-e2e
@@ -2577,19 +2577,19 @@ commands:
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --namespace=test-namespace-1 -v
             mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
-      - run:
-          name: Watch pachd with auth logs
-          command: kubectl logs --namespace=test-namespace-1 -l suite=pachyderm -f
-          background: true
+      # - run:
+      #     name: Watch pachd with auth logs
+      #     command: kubectl logs --namespace=test-namespace-1 -l suite=pachyderm -f
+      #     background: true
       - run:
           name: Install pachd without auth
           command: |
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             export XDG_CONFIG_HOME=${PWD}/../etc/testing/python-test-helm-values
             bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push -v
-      - run:
-          name: Watch pachd without auth logs
-          command: kubectl logs --namespace=default -l suite=pachyderm -f
-          background: true
+      # - run:
+      #     name: Watch pachd without auth logs
+      #     command: kubectl logs --namespace=default -l suite=pachyderm -f
+      #     background: true
 
   # ^^^^^ Console ^^^^^
