@@ -77,6 +77,7 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 		CleanupAfter: true, // this cluster is likely to not be re-used
 	}
 	valueOverrides["pachd.replicas"] = "1"
+	valueOverrides["determined.initialUserPassword"] = "Password1"
 	opts.ValueOverrides = valueOverrides
 	t.Logf("Determined installing in namespace %s", ns)
 	ctx := pctx.TestContext(t)
