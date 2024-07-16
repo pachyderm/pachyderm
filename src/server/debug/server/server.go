@@ -825,12 +825,7 @@ func (s *debugServer) collectProfile(ctx context.Context, dfs DumpFS, app *debug
 				errors.JoinInto(&retErr, errors.Wrapf(err, "close profile writer for pod %q; profile %q", pod.Name, profile))
 			}
 		}()
-		zr, err := gzip.NewReader(r)
-		if err != nil {
-			errors.JoinInto(&retErr, errors.Wrapf(err, "unzip profile for pod %q; container %q; profile %q", pod.Name, container, profile))
-		}
-		tr := tar.NewReader(zr)
-		_, err = io.Copy(w, tr)
+		_, err = io.Copy(w, r)
 		return errors.Wrap(err, "write profile")
 	}); err != nil {
 		return errors.Wrapf(err, "collect profile %q", profile)
