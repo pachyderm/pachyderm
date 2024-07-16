@@ -67,7 +67,7 @@ type TransactionServer interface {
 
 type PFSBackend interface {
 	NewPropagater(*txncontext.TransactionContext) txncontext.PfsPropagater
-	NewRepoChecker(txnCtx *txncontext.TransactionContext) txncontext.PfsBranchChecker
+	NewRepoChecker(*txncontext.TransactionContext) txncontext.PfsBranchChecker
 	CreateRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs.CreateRepoRequest) error
 	DeleteRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs.DeleteRepoRequest) (bool, error)
 
