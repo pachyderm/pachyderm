@@ -15,9 +15,11 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	at "github.com/pachyderm/pachyderm/v2/src/server/auth/server/testing"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -1144,4 +1146,69 @@ func TestCreatePipeline(t *testing.T) {
 	require.NotNil(t, ir.Details)
 	require.NotNil(t, ir.Details.UpdatedAt)
 	require.True(t, ir.Details.UpdatedAt.AsTime().After(ir.Details.CreatedAt.AsTime()))
+}
+
+func testCreatedBy(t testing.TB, c *client.APIClient, username string) {
+	repo := tu.UniqueString("input")
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	var pipelineTemplate = `{
+		"pipeline": {
+			"project": {
+				"name": "{{.ProjectName | js}}"
+			},
+			"name": "{{.PipelineName | js}}"
+		},
+		"transform": {
+			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": "{{.RepoName | js}}",
+				"glob": "/*",
+				"name": "in"
+			}
+		},
+		"datumTries": 4,
+		"autoscaling": false
+	}`
+	tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
+	require.NoError(t, err, "template must parse")
+	var buf bytes.Buffer
+	require.NoError(t, tmpl.Execute(&buf, struct {
+		ProjectName, PipelineName, RepoName string
+	}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
+	resp, err := c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: buf.String(),
+	})
+	require.NoError(t, err, "CreatePipelineV2 must succeed")
+	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
+	var req pps.CreatePipelineRequest
+	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
+	require.Equal(t, int64(4), req.DatumTries, "default and spec names map")
+	require.False(t, req.Autoscaling, "spec must override default")
+
+	ir, err := c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
+		Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
+		Details:  true,
+	})
+	require.NoError(t, err, "InspectPipeline")
+	require.NotNil(t, ir)
+	require.NotNil(t, ir.Details)
+	require.Equal(t, username, ir.Details.CreatedBy)
+}
+
+func TestCreatedBy(t *testing.T) {
+	t.Parallel()
+	c := at.EnvWithAuth(t).PachClient
+
+	t.Run("root", func(t *testing.T) {
+		testCreatedBy(t, tu.AuthenticateClient(t, c, auth.RootUser), "pach:root")
+	})
+
+	t.Run("user", func(t *testing.T) {
+		aliceName, alice := tu.RandomRobot(t, c, "alice")
+		testCreatedBy(t, alice, aliceName)
+	})
 }
