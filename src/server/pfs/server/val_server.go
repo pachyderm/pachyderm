@@ -141,7 +141,7 @@ func (a *validatedAPIServer) ForgetCommit(ctx context.Context, req *pfs.ForgetCo
 		if err != nil {
 			return errors.Wrap(err, "forget commit with transaction context")
 		}
-		if err := txnCtx.CheckBranches(c.Commit.Repo); err != nil {
+		if err := txnCtx.ValidateRepo(c.Commit.Repo); err != nil {
 			return errors.Wrap(err, "check branches")
 		}
 		resp = r

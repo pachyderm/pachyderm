@@ -28,7 +28,7 @@ type TransactionContext struct {
 	Timestamp *timestamppb.Timestamp
 	// PfsPropagater applies commits at the end of the transaction.
 	PfsPropagater    PfsPropagater
-	PfsBranchChecker PfsBranchChecker
+	PfsRepoValidator PfsRepoValidator
 	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
 	PpsPropagater PpsPropagater
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
@@ -113,8 +113,8 @@ func (t *TransactionContext) PropagateBranch(branch *pfs.Branch) error {
 	return errors.EnsureStack(t.PfsPropagater.PropagateBranch(branch))
 }
 
-func (t *TransactionContext) CheckBranches(repo *pfs.Repo) error {
-	return errors.EnsureStack(t.PfsBranchChecker.CheckBranches(repo))
+func (t *TransactionContext) ValidateRepo(repo *pfs.Repo) error {
+	return errors.EnsureStack(t.PfsRepoValidator.ValidateRepo(repo))
 }
 
 // DeleteBranch removes a branch from the list of branches to propagate, if
@@ -131,8 +131,8 @@ func (t *TransactionContext) Finish(ctx context.Context) error {
 			return errors.EnsureStack(err)
 		}
 	}
-	if t.PfsBranchChecker != nil {
-		if err := t.PfsBranchChecker.Run(ctx); err != nil {
+	if t.PfsRepoValidator != nil {
+		if err := t.PfsRepoValidator.Run(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -162,10 +162,10 @@ type PfsPropagater interface {
 	Run(context.Context) error
 }
 
-// PfsBranchChecker is the interface that PFS implements to check branches
+// PfsRepoValidator is the interface that PFS implements to check branches
 // at the end of a transaction. It is defined here to avoid a circular dependency.
-type PfsBranchChecker interface {
-	CheckBranches(repo *pfs.Repo) error
+type PfsRepoValidator interface {
+	ValidateRepo(repo *pfs.Repo) error
 	Run(context.Context) error
 }
 

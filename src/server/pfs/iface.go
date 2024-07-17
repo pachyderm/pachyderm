@@ -14,7 +14,7 @@ type APIServer interface {
 	pfs_client.APIServer
 
 	NewPropagater(*txncontext.TransactionContext) txncontext.PfsPropagater
-	NewRepoChecker(*txncontext.TransactionContext) txncontext.PfsBranchChecker
+	NewRepoChecker(*txncontext.TransactionContext) txncontext.PfsRepoValidator
 
 	CreateRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.CreateRepoRequest) error
 	InspectRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs_client.InspectRepoRequest) (*pfs_client.RepoInfo, error)
