@@ -1,7 +1,7 @@
 {
   "deployTarget": "custom",
   "console": {
-    "enabled": true
+    "enabled": false
   },
   "oidc": {
     "issuerURI": "http://pachd:30658/dex"
