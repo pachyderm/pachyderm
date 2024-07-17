@@ -6,6 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: determined-master-{{ .Release.Name }}
+    determined.ai/master-service: "true"
     release: {{ .Release.Name }}
 spec:
   ports:

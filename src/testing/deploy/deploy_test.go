@@ -37,6 +37,8 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		Determined:   true,
 		CleanupAfter: false,
 	}
+	detUserPassword := "Password1"
+	valueOverrides["determined.initialUserPassword"] = detUserPassword
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
 	// Test Install
