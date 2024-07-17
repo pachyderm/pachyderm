@@ -1160,7 +1160,7 @@ func testCreatedBy(t testing.TB, c *client.APIClient, username string) (string, 
 			"name": "{{.PipelineName | js}}"
 		},
 		"transform": {
-			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+			"cmd": ["cp", "-r", "/pfs/in", "/pfs/out"]
 		},
 		"input": {
 			"pfs": {
@@ -1215,26 +1215,26 @@ func TestCreatedBy(t *testing.T) {
 		// Updating the pipeline does not change CreatedBy.
 		c := tu.AuthenticateClient(t, c, auth.RootUser)
 		var pipelineTemplate = `{
-		"pipeline": {
-			"project": {
-				"name": "{{.ProjectName | js}}"
+			"pipeline": {
+				"project": {
+					"name": "{{.ProjectName | js}}"
+				},
+				"name": "{{.PipelineName | js}}"
 			},
-			"name": "{{.PipelineName | js}}"
-		},
-		"transform": {
-			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
-		},
-		"input": {
-			"pfs": {
-				"project": "default",
-				"repo": "{{.RepoName | js}}",
-				"glob": "/*",
-				"name": "in"
-			}
-		},
-		"datumTries": 3,
-		"autoscaling": false
-	}`
+			"transform": {
+				"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+			},
+			"input": {
+				"pfs": {
+					"project": "default",
+					"repo": "{{.RepoName | js}}",
+					"glob": "/*",
+					"name": "in"
+				}
+			},
+			"datumTries": 3,
+			"autoscaling": false
+		}`
 		tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
 		require.NoError(t, err, "template must parse")
 		var buf bytes.Buffer
