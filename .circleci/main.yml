@@ -1764,6 +1764,7 @@ jobs:
           command: |
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
+            unset ENT_ACT_CODE
             bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
       - run: touch .env.development.local
       - run:
