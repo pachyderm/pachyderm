@@ -14849,6 +14849,8 @@ func (m *PipelineInfo_Details) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for CreatedBy
+
 	// no validation rules for RecentError
 
 	// no validation rules for WorkersRequested

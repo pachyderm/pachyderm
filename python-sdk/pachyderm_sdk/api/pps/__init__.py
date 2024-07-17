@@ -582,6 +582,7 @@ class PipelineInfoDetails(betterproto.Message):
     egress: "Egress" = betterproto.message_field(4)
     created_at: datetime = betterproto.message_field(5)
     updated_at: datetime = betterproto.message_field(39)
+    created_by: str = betterproto.string_field(40)
     recent_error: str = betterproto.string_field(6)
     workers_requested: int = betterproto.int64_field(7)
     workers_available: int = betterproto.int64_field(8)

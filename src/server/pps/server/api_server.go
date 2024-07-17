@@ -2428,7 +2428,7 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *
 	return nil
 }
 
-func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
+func (a *apiServer) initializePipelineInfo(txnCtx *txncontext.TransactionContext, txn *pps.CreatePipelineTransaction, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
 	request := txn.CreatePipelineRequest
 	if err := a.validatePipelineRequest(request); err != nil {
 		return nil, err
@@ -2492,6 +2492,13 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 		if !request.Reprocess {
 			pipelineInfo.Details.Salt = oldPipelineInfo.Details.Salt
 		}
+		pipelineInfo.Details.CreatedBy = oldPipelineInfo.Details.CreatedBy
+	} else {
+		if whoAmI, err := txnCtx.WhoAmI(); err == nil {
+			pipelineInfo.Details.CreatedBy = whoAmI.GetUsername()
+		} else if !errors.Is(err, auth.ErrNotActivated) {
+			return nil, errors.Wrap(err, "could not get caller's username")
+		}
 	}
 
 	return pipelineInfo, nil
@@ -2516,7 +2523,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			Pipeline: request.Pipeline,
 		}
 	}
-	newPipelineInfo, err := a.initializePipelineInfo(txn, oldPipelineInfo)
+	newPipelineInfo, err := a.initializePipelineInfo(txnCtx, txn, oldPipelineInfo)
 	if err != nil {
 		return err
 	}

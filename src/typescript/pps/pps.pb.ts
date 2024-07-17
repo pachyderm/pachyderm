@@ -332,6 +332,7 @@ export type PipelineInfoDetails = {
   egress?: Egress
   createdAt?: GoogleProtobufTimestamp.Timestamp
   updatedAt?: GoogleProtobufTimestamp.Timestamp
+  createdBy?: string
   recentError?: string
   workersRequested?: string
   workersAvailable?: string

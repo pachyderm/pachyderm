@@ -8740,6 +8740,7 @@ potentially expensive operations.
 | egress | [Egress](#pps_v2-Egress) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| created_by | [string](#string) |  |  |
 | recent_error | [string](#string) |  |  |
 | workers_requested | [int64](#int64) |  |  |
 | workers_available | [int64](#int64) |  |  |

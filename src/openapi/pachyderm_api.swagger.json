@@ -11650,6 +11650,9 @@
           "type": "string",
           "format": "date-time"
         },
+        "createdBy": {
+          "type": "string"
+        },
         "recentError": {
           "type": "string"
         },
