@@ -178,9 +178,10 @@ class TestStorage:
             storage.CreateFilesetRequest(
                 append_file=storage.AppendFile(
                     path="/bigfile",
-                    data=os.urandom(15 * 1024 * 1024)  # Chunks should max at 20MB
+                    data=os.urandom(15 * 1024 * 1024),  # Chunks should max at 20MB
                 )
-            ) for _ in range(2)
+            )
+            for _ in range(2)
         )
         fileset_id = client.storage.create_fileset(request_iterator).fileset_id
 
