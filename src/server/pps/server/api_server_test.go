@@ -1148,7 +1148,7 @@ func TestCreatePipeline(t *testing.T) {
 	require.True(t, ir.Details.UpdatedAt.AsTime().After(ir.Details.CreatedAt.AsTime()))
 }
 
-func testCreatedBy(t testing.TB, c *client.APIClient, username string) {
+func testCreatedBy(t testing.TB, c *client.APIClient, username string) (string, string) {
 	repo := tu.UniqueString("input")
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
@@ -1197,6 +1197,7 @@ func testCreatedBy(t testing.TB, c *client.APIClient, username string) {
 	require.NotNil(t, ir)
 	require.NotNil(t, ir.Details)
 	require.Equal(t, username, ir.Details.CreatedBy)
+	return repo, pipeline
 }
 
 func TestCreatedBy(t *testing.T) {
@@ -1209,6 +1210,49 @@ func TestCreatedBy(t *testing.T) {
 
 	t.Run("user", func(t *testing.T) {
 		aliceName, alice := tu.RandomRobot(t, c, "alice")
-		testCreatedBy(t, alice, aliceName)
+		repo, pipeline := testCreatedBy(t, alice, aliceName)
+
+		// Updating the pipeline does not change CreatedBy.
+		c := tu.AuthenticateClient(t, c, auth.RootUser)
+		var pipelineTemplate = `{
+		"pipeline": {
+			"project": {
+				"name": "{{.ProjectName | js}}"
+			},
+			"name": "{{.PipelineName | js}}"
+		},
+		"transform": {
+			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": "{{.RepoName | js}}",
+				"glob": "/*",
+				"name": "in"
+			}
+		},
+		"datumTries": 3,
+		"autoscaling": false
+	}`
+		tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
+		require.NoError(t, err, "template must parse")
+		var buf bytes.Buffer
+		require.NoError(t, tmpl.Execute(&buf, struct {
+			ProjectName, PipelineName, RepoName string
+		}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
+		_, err = c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: buf.String(),
+			Update:                    true,
+		})
+		require.NoError(t, err, "CreatePipelineV2 must succeed")
+		ir, err := c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
+			Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
+			Details:  true,
+		})
+		require.NoError(t, err, "InspectPipeline")
+		require.NotNil(t, ir)
+		require.NotNil(t, ir.Details)
+		require.Equal(t, aliceName, ir.Details.CreatedBy)
 	})
 }
