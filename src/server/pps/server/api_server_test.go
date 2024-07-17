@@ -1152,12 +1152,13 @@ func testCreatedBy(t testing.TB, c *client.APIClient, username string) (string, 
 	repo := tu.UniqueString("input")
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
-	var pipelineTemplate = `{
+	resp, err := c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: fmt.Sprintf(`{
 		"pipeline": {
 			"project": {
-				"name": "{{.ProjectName | js}}"
+				"name": %q
 			},
-			"name": "{{.PipelineName | js}}"
+			"name": %q
 		},
 		"transform": {
 			"cmd": ["cp", "-r", "/pfs/in", "/pfs/out"]
@@ -1165,22 +1166,14 @@ func testCreatedBy(t testing.TB, c *client.APIClient, username string) (string, 
 		"input": {
 			"pfs": {
 				"project": "default",
-				"repo": "{{.RepoName | js}}",
+				"repo": %q,
 				"glob": "/*",
 				"name": "in"
 			}
 		},
 		"datumTries": 4,
 		"autoscaling": false
-	}`
-	tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
-	require.NoError(t, err, "template must parse")
-	var buf bytes.Buffer
-	require.NoError(t, tmpl.Execute(&buf, struct {
-		ProjectName, PipelineName, RepoName string
-	}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
-	resp, err := c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
-		CreatePipelineRequestJson: buf.String(),
+	}`, pfs.DefaultProjectName, pipeline, repo),
 	})
 	require.NoError(t, err, "CreatePipelineV2 must succeed")
 	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
@@ -1214,37 +1207,31 @@ func TestCreatedBy(t *testing.T) {
 
 		// Updating the pipeline does not change CreatedBy.
 		c := tu.AuthenticateClient(t, c, auth.RootUser)
-		var pipelineTemplate = `{
-			"pipeline": {
-				"project": {
-					"name": "{{.ProjectName | js}}"
+		_, err := c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: fmt.Sprintf(`{
+				"pipeline": {
+					"project": {
+						"name": %q
+					},
+					"name": %q
 				},
-				"name": "{{.PipelineName | js}}"
-			},
-			"transform": {
-				"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
-			},
-			"input": {
-				"pfs": {
-					"project": "default",
-					"repo": "{{.RepoName | js}}",
-					"glob": "/*",
-					"name": "in"
-				}
-			},
-			"datumTries": 3,
-			"autoscaling": false
-		}`
-		tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
-		require.NoError(t, err, "template must parse")
-		var buf bytes.Buffer
-		require.NoError(t, tmpl.Execute(&buf, struct {
-			ProjectName, PipelineName, RepoName string
-		}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
-		_, err = c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
-			CreatePipelineRequestJson: buf.String(),
-			Update:                    true,
+				"transform": {
+					"cmd": ["cp", "-r", "/pfs/in", "/pfs/out"]
+				},
+				"input": {
+					"pfs": {
+						"project": "default",
+						"repo": %q,
+						"glob": "/*",
+						"name": "in"
+					}
+				},
+				"datumTries": 3,
+				"autoscaling": false
+			}`, pfs.DefaultProjectName, pipeline, repo),
+			Update: true,
 		})
+
 		require.NoError(t, err, "CreatePipelineV2 must succeed")
 		ir, err := c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
 			Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
