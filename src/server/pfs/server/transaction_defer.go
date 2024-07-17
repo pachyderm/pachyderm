@@ -60,14 +60,14 @@ func (t *Propagater) Run(ctx context.Context) error {
 type RepoValidator struct {
 	d      *driver
 	txnCtx *txncontext.TransactionContext
-	repos  []*pfs.Repo
+	repos  map[string]*pfs.Repo
 }
 
 func (a *apiServer) NewRepoValidator(txnCtx *txncontext.TransactionContext) txncontext.PfsRepoValidator {
 	return &RepoValidator{
 		d:      a.driver,
 		txnCtx: txnCtx,
-		repos:  []*pfs.Repo{},
+		repos:  map[string]*pfs.Repo{},
 	}
 }
 
@@ -75,7 +75,7 @@ func (rc *RepoValidator) ValidateRepo(repo *pfs.Repo) error {
 	if repo == nil {
 		return errors.New("cannot check branches in an empty repo")
 	}
-	rc.repos = append(rc.repos, repo)
+	rc.repos[pfsdb.RepoKey(repo)] = repo
 	return nil
 }
 
