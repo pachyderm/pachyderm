@@ -12,8 +12,7 @@
       "lokiLogging": false,
       "resources": null,
       "rootToken": "",
-      "activateAuth": false,
-      "enterpriseLicenseKey": ""
+      "activateAuth": false
     }
   }
   
