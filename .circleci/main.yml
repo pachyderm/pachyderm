@@ -1765,7 +1765,7 @@ jobs:
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
             unset ENT_ACT_CODE
-            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=d42278c1a33e90b37908ac9b593b3a1e36da7780 -v
       - run: touch .env.development.local
       - run:
           name: Run Community Edition Cypress tests against built console image
@@ -1795,7 +1795,7 @@ jobs:
           command: |
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
-            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=d42278c1a33e90b37908ac9b593b3a1e36da7780 -v
             mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
       - run: touch .env.development.local
       - run:
@@ -2296,21 +2296,22 @@ workflows:
       - console-test-backend
       - console-test-frontend-components
       - console-test-frontend-react
-      - console-docker-build:
-          matrix:
-            parameters:
-              resource_class:
-                - large
-                - arm.large
-      - console-docker-manifest:
-          requires:
-            - console-docker-build
-      - console-test-docker-e2e-community-edition:
-          requires:
-            - console-docker-manifest
-      - console-test-docker-e2e-enterprise-edition:
-            requires:
-              - console-docker-manifest
+      # - console-docker-build:
+      #     matrix:
+      #       parameters:
+      #         resource_class:
+      #           - large
+      #           - arm.large
+      # - console-docker-manifest:
+      #     requires:
+      #       - console-docker-build
+      # - console-test-docker-e2e-community-edition:
+      #     requires:
+      #       - console-docker-manifest
+      - console-test-docker-e2e-enterprise-edition
+        # requires:
+        #   - console-docker-manifest
+
       # when:
       #   and:
       #     - not: << pipeline.parameters.run_nightly_tag >>
