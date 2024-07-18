@@ -123,6 +123,7 @@ func (c *Cluster) helmFlags(ctx context.Context, install *HelmConfig) ([]string,
 	// Configure enterprise.
 	if key := os.Getenv("ENT_ACT_CODE"); key != "" {
 		flags = append(flags, "--set", "pachd.enterpriseLicenseKey="+key)
+		flags = append(flags, "--set", "pachd.enterpriseSecret=enterpriseSecret")
 	} else {
 		log.Info(ctx, "not activating enterprise, as $ENT_ACT_CODE is unset")
 	}
