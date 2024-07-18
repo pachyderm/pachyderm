@@ -18823,19 +18823,7 @@
               "defaultValue": ""
             },
             {
-              "name": "when",
-              "description": "",
-              "label": "",
-              "type": "Timestamp",
-              "longType": "google.protobuf.Timestamp",
-              "fullType": "google.protobuf.Timestamp",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
-              "name": "creator",
+              "name": "created_by",
               "description": "",
               "label": "",
               "type": "string",

@@ -1287,8 +1287,7 @@ class CreatePipelineTransaction(betterproto.Message):
     create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(1)
     user_json: str = betterproto.string_field(2)
     effective_json: str = betterproto.string_field(3)
-    when: datetime = betterproto.message_field(4)
-    creator: str = betterproto.string_field(5)
+    created_by: str = betterproto.string_field(4)
 
 
 @dataclass(eq=False, repr=False)

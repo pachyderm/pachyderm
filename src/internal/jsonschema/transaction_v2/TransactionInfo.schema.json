@@ -641,11 +641,7 @@
                     "type": "string",
                     "description": "the effective spec: the result of merging the user JSON into the cluster defaults"
                 },
-                "when": {
-                    "type": "string",
-                    "format": "date-time"
-                },
-                "creator": {
+                "createdBy": {
                     "type": "string"
                 }
             },

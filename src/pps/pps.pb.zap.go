@@ -1248,8 +1248,7 @@ func (x *CreatePipelineTransaction) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	enc.AddObject("create_pipeline_request", x.CreatePipelineRequest)
 	enc.AddString("user_json", x.UserJson)
 	enc.AddString("effective_json", x.EffectiveJson)
-	protoextensions.AddTimestamp(enc, "when", x.When)
-	enc.AddString("creator", x.Creator)
+	enc.AddString("created_by", x.CreatedBy)
 	return nil
 }
 

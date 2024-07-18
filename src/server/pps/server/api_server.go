@@ -2376,8 +2376,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 			CreatePipelineRequest: effectiveSpec,
 			EffectiveJson:         effectiveSpecJSON,
 			UserJson:              req.CreatePipelineRequestJson,
-			When:                  timestamppb.Now(),
-			Creator:               wai.GetUsername(),
+			CreatedBy:             wai.GetUsername(),
 		}))
 	}); err != nil {
 		return "", err
@@ -2454,7 +2453,7 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 			OutputBranch:            request.OutputBranch,
 			Egress:                  request.Egress,
 			CreatedAt:               timestamppb.Now(),
-			UpdatedAt:               txn.When,
+			UpdatedAt:               timestamppb.Now(),
 			ResourceRequests:        request.ResourceRequests,
 			ResourceLimits:          request.ResourceLimits,
 			SidecarResourceLimits:   request.SidecarResourceLimits,
@@ -2500,8 +2499,8 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 		}
 		pipelineInfo.Details.CreatedBy = oldPipelineInfo.Details.CreatedBy
 	} else {
-		pipelineInfo.Details.CreatedBy = txn.Creator
-		pipelineInfo.Details.CreatedAt = txn.When
+		pipelineInfo.Details.CreatedBy = txn.CreatedBy
+		pipelineInfo.Details.CreatedAt = pipelineInfo.Details.UpdatedAt
 	}
 
 	return pipelineInfo, nil
