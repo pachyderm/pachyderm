@@ -2368,7 +2368,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 		}
 	}
 	wai, err := a.env.AuthServer.WhoAmI(ctx, &auth.WhoAmIRequest{})
-	if err != nil {
+	if err != nil && !errors.Is(err, auth.ErrNotActivated) {
 		return "", errors.Wrap(err, "WhoAmI")
 	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
@@ -2377,7 +2377,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 			EffectiveJson:         effectiveSpecJSON,
 			UserJson:              req.CreatePipelineRequestJson,
 			When:                  timestamppb.Now(),
-			Creator:               wai.Username,
+			Creator:               wai.GetUsername(),
 		}))
 	}); err != nil {
 		return "", err
