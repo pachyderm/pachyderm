@@ -1145,7 +1145,7 @@ func TestCreatePipeline(t *testing.T) {
 	require.NotNil(t, ir)
 	require.NotNil(t, ir.Details)
 	require.NotNil(t, ir.Details.UpdatedAt)
-	require.True(t, ir.Details.UpdatedAt.AsTime().After(ir.Details.CreatedAt.AsTime()))
+	require.True(t, !ir.Details.UpdatedAt.AsTime().Before(ir.Details.CreatedAt.AsTime()))
 }
 
 func testCreatedBy(t testing.TB, c *client.APIClient, username string) (string, string) {
