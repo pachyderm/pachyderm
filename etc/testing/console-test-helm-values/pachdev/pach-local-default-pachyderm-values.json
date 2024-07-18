@@ -1,17 +1,25 @@
 {
-    "deployTarget": "custom",
-    "console": {
-      "enabled": true
-    },
-    "oidc": {
-      "issuerURI": "http://pachd:30658/dex"
-    },
-    "pachd": {
-      "clusterDeploymentID": "enterprise",
-      "lokiDeploy": false,
-      "lokiLogging": false,
-      "resources": null,
-      "rootToken": "pizza"
-    }
+  "deployTarget": "custom",
+  "console": {
+    "enabled": true
+  },
+  "oidc": {
+    "issuerURI": "http://pachd:30658/dex",
+    "additionalClients": [
+      {
+        "id": "console-local",
+        "name": "console-local",
+        "secret": "123",
+        "redirect_uris": ["http://localhost:4000/oauth/callback/?inline=true"]
+      }
+    ]
+  },
+  "pachd": {
+    "clusterDeploymentID": "enterprise",
+    "lokiDeploy": false,
+    "lokiLogging": false,
+    "resources": null,
+    "rootToken": "pizza",
+    "additionalTrustedPeers": ["console-local"]
   }
-  
+}
