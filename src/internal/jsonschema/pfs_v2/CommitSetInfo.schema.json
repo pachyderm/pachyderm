@@ -121,6 +121,20 @@
                     },
                     "type": "object",
                     "description": "Metadata is user-applied annotations."
+                },
+                "createdBy": {
+                    "type": "string",
+                    "description": "The user that created this commit or caused this commit to be created."
+                },
+                "createdAt": {
+                    "type": "string",
+                    "description": "The time the commit was added to the database.",
+                    "format": "date-time"
+                },
+                "updatedAt": {
+                    "type": "string",
+                    "description": "The time this commit was most recently updated.",
+                    "format": "date-time"
                 }
             },
             "additionalProperties": false,

@@ -24,7 +24,7 @@ const (
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "PROJECT\tNAME\tCREATED\tSIZE (MASTER)\tACCESS_LEVEL\tDESCRIPTION\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "PROJECT\tREPO\tBRANCH\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tDESCRIPTION\t\n"
+	CommitHeader = "PROJECT\tREPO\tCOMMIT\tFINISHED\tSIZE\tORIGIN\tCREATOR\tDESCRIPTION\t\n"
 	// CommitSetHeader is the header for commitsets.
 	CommitSetHeader = "ID\tSUBCOMMITS\tPROGRESS\tCREATED\tMODIFIED\t\n"
 	// BranchHeader is the header for branches.
@@ -231,6 +231,11 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps boo
 		fmt.Fprintf(w, "%s\t", units.BytesSize(float64(commitInfo.Details.SizeBytes)))
 	}
 	fmt.Fprintf(w, "%v\t", commitInfo.Origin.Kind)
+	if creator := commitInfo.CreatedBy; creator != "" {
+		fmt.Fprintf(w, "%v\t", creator)
+	} else {
+		fmt.Fprint(w, "-\t")
+	}
 	fmt.Fprintf(w, "%s\t", commitInfo.Description)
 	fmt.Fprintln(w)
 }
