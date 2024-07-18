@@ -2434,7 +2434,7 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *
 	return nil
 }
 
-func (a *apiServer) initializePipelineInfo(txnCtx *txncontext.TransactionContext, txn *pps.CreatePipelineTransaction, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
+func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, oldPipelineInfo *pps.PipelineInfo) (*pps.PipelineInfo, error) {
 	request := txn.CreatePipelineRequest
 	if err := a.validatePipelineRequest(request); err != nil {
 		return nil, err
@@ -2526,7 +2526,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			Pipeline: request.Pipeline,
 		}
 	}
-	newPipelineInfo, err := a.initializePipelineInfo(txnCtx, txn, oldPipelineInfo)
+	newPipelineInfo, err := a.initializePipelineInfo(txn, oldPipelineInfo)
 	if err != nil {
 		return err
 	}
