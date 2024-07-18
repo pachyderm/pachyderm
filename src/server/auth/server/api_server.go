@@ -168,7 +168,7 @@ func (a *apiServer) ActivateAuthEverywhere(ctx context.Context, scopes []Activat
 				return errors.Wrap(err, "activate auth")
 			}
 			log.Debug(ctx, "auth already active; rotating root token")
-			_, err := a.rotateRootTokenInTransaction(txCtx,
+			_, err := a.rotateRootTokenInTransaction(ctx, txCtx,
 				&auth.RotateRootTokenRequest{
 					RootToken: rootToken,
 				})
@@ -541,7 +541,7 @@ func (a *apiServer) activateInTransaction(ctx context.Context, txCtx *txncontext
 	}); err != nil {
 		return nil, errors.Wrap(err, "add cluster role binding")
 	}
-	if err := a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(pachToken), auth.RootUser); err != nil {
+	if err := a.insertAuthTokenNoTTLInTransaction(ctx, txCtx, auth.HashToken(pachToken), auth.RootUser); err != nil {
 		return nil, errors.Wrap(err, "insert root token")
 	}
 	txCtx.AuthBeingActivated.Store(true)
@@ -556,7 +556,7 @@ func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTok
 	var resp *auth.RotateRootTokenResponse
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txCtx *txncontext.TransactionContext) error {
 		var err error
-		resp, err = a.rotateRootTokenInTransaction(txCtx, req)
+		resp, err = a.rotateRootTokenInTransaction(ctx, txCtx, req)
 		return err
 	}); err != nil {
 		return nil, err
@@ -564,10 +564,10 @@ func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTok
 	return resp, nil
 }
 
-func (a *apiServer) rotateRootTokenInTransaction(txCtx *txncontext.TransactionContext, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
+func (a *apiServer) rotateRootTokenInTransaction(ctx context.Context, txCtx *txncontext.TransactionContext, req *auth.RotateRootTokenRequest) (resp *auth.RotateRootTokenResponse, retErr error) {
 	var rootToken string
 	// First revoke root's existing auth token
-	if _, err := a.deleteAuthTokensForSubjectInTransaction(txCtx.SqlTx, auth.RootUser); err != nil {
+	if _, err := a.deleteAuthTokensForSubjectInTransaction(ctx, txCtx.SqlTx, auth.RootUser); err != nil {
 		return nil, err
 	}
 	// If the new token is in the request, use it.
@@ -576,7 +576,7 @@ func (a *apiServer) rotateRootTokenInTransaction(txCtx *txncontext.TransactionCo
 	if rootToken == "" {
 		rootToken = uuid.NewWithoutDashes()
 	}
-	if err := a.insertAuthTokenNoTTLInTransaction(txCtx, auth.HashToken(rootToken), auth.RootUser); err != nil {
+	if err := a.insertAuthTokenNoTTLInTransaction(ctx, txCtx, auth.HashToken(rootToken), auth.RootUser); err != nil {
 		return nil, err
 	}
 
@@ -1221,7 +1221,7 @@ func (a *apiServer) GetPipelineAuthTokenInTransaction(ctx context.Context, txnCt
 	}
 
 	token := uuid.NewWithoutDashes()
-	if err := a.insertAuthTokenNoTTLInTransaction(txnCtx, auth.HashToken(token), auth.PipelinePrefix+pipeline.String()); err != nil {
+	if err := a.insertAuthTokenNoTTLInTransaction(ctx, txnCtx, auth.HashToken(token), auth.PipelinePrefix+pipeline.String()); err != nil {
 		return "", errors.Wrapf(err, "error storing token")
 	} else {
 		return token, nil
@@ -1775,8 +1775,8 @@ func (a *apiServer) generateAndInsertAuthTokenNoTTL(ctx context.Context, subject
 // generates a token, and stores it's hash and supporting data in postgres
 func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subject string, ttlSeconds int64) error {
 	return dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
-			return errors.Wrapf(err, "ensuring %s is in auth.principals", subject)
+		if err := authdb.EnsurePrincipal(ctx, tx, subject); err != nil {
+			return errors.Wrapf(err, "ensure principal %v", subject)
 		}
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO auth.auth_tokens (token_hash, subject, expiration)
@@ -1793,16 +1793,16 @@ func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subje
 // TODO(acohen4): replace this function with what's implemented in postgres-integration once it lands
 func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
 	return a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		err := a.insertAuthTokenNoTTLInTransaction(txnCtx, tokenHash, subject)
+		err := a.insertAuthTokenNoTTLInTransaction(ctx, txnCtx, tokenHash, subject)
 		return err
 	})
 }
 
-func (a *apiServer) insertAuthTokenNoTTLInTransaction(txnCtx *txncontext.TransactionContext, tokenHash string, subject string) error {
-	if _, err := txnCtx.SqlTx.Exec(`INSERT INTO auth.principals (subject, first_seen) VALUES ($1, $2) ON CONFLICT DO NOTHING;`, subject, time.Now()); err != nil {
-		return errors.Wrapf(err, "ensuring %s is in auth.principals", subject)
+func (a *apiServer) insertAuthTokenNoTTLInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, tokenHash string, subject string) error {
+	if err := authdb.EnsurePrincipal(ctx, txnCtx.SqlTx, subject); err != nil {
+		return errors.Wrapf(err, "ensure principal %v", subject)
 	}
-	if _, err := txnCtx.SqlTx.Exec(
+	if _, err := txnCtx.SqlTx.ExecContext(ctx,
 		`INSERT INTO auth.auth_tokens (token_hash, subject)
 		VALUES ($1, $2)`, tokenHash, subject); err != nil {
 		if dbutil.IsUniqueViolation(err) {
@@ -1834,7 +1834,7 @@ func (a *apiServer) deleteAuthToken(sqlTx *pachsql.Tx, tokenHash string) (int64,
 
 func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject string) (n int64, retErr error) {
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		n, retErr = a.deleteAuthTokensForSubjectInTransaction(sqlTx, subject)
+		n, retErr = a.deleteAuthTokensForSubjectInTransaction(ctx, sqlTx, subject)
 		return retErr
 	}, dbutil.WithIsolationLevel(sql.LevelRepeatableRead)); err != nil {
 		return 0, errors.Wrap(err, "error deleting auth token for subject")
@@ -1842,8 +1842,8 @@ func (a *apiServer) deleteAuthTokensForSubject(ctx context.Context, subject stri
 	return n, retErr
 }
 
-func (a *apiServer) deleteAuthTokensForSubjectInTransaction(tx *pachsql.Tx, subject string) (int64, error) {
-	result, err := tx.Exec(`DELETE FROM auth.auth_tokens WHERE subject = $1`, subject)
+func (a *apiServer) deleteAuthTokensForSubjectInTransaction(ctx context.Context, tx *pachsql.Tx, subject string) (int64, error) {
+	result, err := tx.ExecContext(ctx, `DELETE FROM auth.auth_tokens WHERE subject = $1`, subject)
 	if err != nil {
 		return 0, errors.Wrap(err, "error deleting all auth tokens")
 	}
