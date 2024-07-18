@@ -7,12 +7,10 @@
       "issuerURI": "http://pachd:30658/dex"
     },
     "pachd": {
-      "clusterDeploymentID": "main",
+      "clusterDeploymentID": "enterprise",
       "lokiDeploy": false,
       "lokiLogging": false,
-      "resources": null,
-      "rootToken": "",
-      "activateAuth": false
+      "resources": null
     }
   }
   
