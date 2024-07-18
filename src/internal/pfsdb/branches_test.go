@@ -25,6 +25,8 @@ import (
 
 func compareBranchOpts() []cmp.Option {
 	return []cmp.Option{
+		protocmp.FilterField(new(pfs.BranchInfo), "created_at", cmp.Ignore()),
+		protocmp.FilterField(new(pfs.BranchInfo), "updated_at", cmp.Ignore()),
 		cmpopts.SortSlices(func(a, b *pfs.Branch) bool { return a.Key() < b.Key() }), // Note that this is before compareBranch because we need to sort first.
 		cmpopts.SortMaps(func(a, b pfsdb.BranchID) bool { return a < b }),
 		cmpopts.EquateEmpty(),

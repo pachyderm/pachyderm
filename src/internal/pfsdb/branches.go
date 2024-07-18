@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -35,6 +36,7 @@ const (
 			branch.created_at,
 			branch.updated_at,
 			branch.metadata,
+			branch.created_by,
 			repo.id as "repo.id",
 			repo.name as "repo.name",
 			repo.type as "repo.type",
@@ -720,7 +722,14 @@ func fetchBranchInfoByBranch(ctx context.Context, ext sqlx.ExtContext, branch *B
 	if branch == nil {
 		return nil, errors.Errorf("branch cannot be nil")
 	}
-	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb(), Metadata: branch.Metadata.Data}
+	branchInfo := &pfs.BranchInfo{
+		Branch:    branch.Pb(),
+		Head:      branch.Head.Pb(),
+		Metadata:  branch.Metadata.Data,
+		CreatedBy: branch.CreatedBy.String,
+		CreatedAt: timestamppb.New(branch.CreatedAt),
+		UpdatedAt: timestamppb.New(branch.UpdatedAt),
+	}
 	var err error
 	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, ext, branch.ID)
 	if err != nil {

@@ -24,3 +24,12 @@ func addCommitCreatedBy(ctx context.Context, env migrations.Env) error {
 	}
 	return nil
 }
+
+func addBranchCreatedBy(ctx context.Context, env migrations.Env) error {
+	ctx = pctx.Child(ctx, "addBranchCreatedBy")
+	tx := env.Tx
+	if _, err := tx.ExecContext(ctx, `ALTER TABLE pfs.branches ADD COLUMN created_by TEXT REFERENCES auth.principals(subject)`); err != nil {
+		return errors.Wrap(err, "add created_by column to pfs.branches")
+	}
+	return nil
+}
