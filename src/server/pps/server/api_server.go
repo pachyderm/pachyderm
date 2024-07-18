@@ -2448,6 +2448,7 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 			OutputBranch:            request.OutputBranch,
 			Egress:                  request.Egress,
 			CreatedAt:               timestamppb.Now(),
+			UpdatedAt:               timestamppb.Now(),
 			ResourceRequests:        request.ResourceRequests,
 			ResourceLimits:          request.ResourceLimits,
 			SidecarResourceLimits:   request.SidecarResourceLimits,
@@ -2638,6 +2639,9 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		return nil
 	}(); err != nil {
 		return err
+	}
+	if update {
+		newPipelineInfo.Details.UpdatedAt = timestamppb.New(time.Now())
 	}
 	// store the new PipelineInfo in the collection
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(ctx, newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
