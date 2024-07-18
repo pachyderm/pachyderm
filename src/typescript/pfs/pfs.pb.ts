@@ -201,6 +201,9 @@ export type CommitInfo = {
   sizeBytesUpperBound?: string
   details?: CommitInfoDetails
   metadata?: {[key: string]: string}
+  createdBy?: string
+  createdAt?: GoogleProtobufTimestamp.Timestamp
+  updatedAt?: GoogleProtobufTimestamp.Timestamp
 }
 
 export type CommitSet = {

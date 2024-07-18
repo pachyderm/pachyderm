@@ -82,6 +82,11 @@ func (t *TransactionContext) WhoAmI() (*auth.WhoAmIResponse, error) {
 	return &auth.WhoAmIResponse{Username: t.username}, nil
 }
 
+// Username returns the current user, returning the empty string if auth is disabled.
+func (t *TransactionContext) Username() string {
+	return t.username
+}
+
 // PropagateJobs notifies PPS that there are new commits in the transaction's
 // commitset that need jobs to be created at the end of the transaction
 // transaction (if all operations complete successfully).
