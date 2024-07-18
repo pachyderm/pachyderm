@@ -2452,7 +2452,6 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 			Input:                   request.Input,
 			OutputBranch:            request.OutputBranch,
 			Egress:                  request.Egress,
-			CreatedAt:               timestamppb.Now(),
 			UpdatedAt:               timestamppb.Now(),
 			ResourceRequests:        request.ResourceRequests,
 			ResourceLimits:          request.ResourceLimits,
@@ -2498,6 +2497,7 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 			pipelineInfo.Details.Salt = oldPipelineInfo.Details.Salt
 		}
 		pipelineInfo.Details.CreatedBy = oldPipelineInfo.Details.CreatedBy
+		pipelineInfo.Details.CreatedAt = oldPipelineInfo.Details.CreatedAt
 	} else {
 		pipelineInfo.Details.CreatedBy = txn.CreatedBy
 		pipelineInfo.Details.CreatedAt = pipelineInfo.Details.UpdatedAt
