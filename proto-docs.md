@@ -5281,7 +5281,10 @@ To set a user&#39;s auth scope for a resource, use the Pachyderm Auth API (in sr
 | subvenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | direct_provenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | trigger | [Trigger](#pfs_v2-Trigger) |  |  |
-| metadata | [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry) | repeated |  |
+| metadata | [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry) | repeated | Metadata on the branch. |
+| created_by | [string](#string) |  | The user that caused this branch to be created. |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | When the branch was added to the database. |
+| updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | When information about the branch was last modified (not necessarily when the data in this branch changed or anything like that). |
 
 
 
