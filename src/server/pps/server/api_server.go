@@ -2454,7 +2454,7 @@ func (a *apiServer) initializePipelineInfo(txnCtx *txncontext.TransactionContext
 			OutputBranch:            request.OutputBranch,
 			Egress:                  request.Egress,
 			CreatedAt:               timestamppb.Now(),
-			UpdatedAt:               timestamppb.Now(),
+			UpdatedAt:               txn.When,
 			ResourceRequests:        request.ResourceRequests,
 			ResourceLimits:          request.ResourceLimits,
 			SidecarResourceLimits:   request.SidecarResourceLimits,
@@ -2503,7 +2503,6 @@ func (a *apiServer) initializePipelineInfo(txnCtx *txncontext.TransactionContext
 		pipelineInfo.Details.CreatedBy = txn.Creator
 		pipelineInfo.Details.CreatedAt = txn.When
 	}
-	pipelineInfo.Details.UpdatedAt = txn.When
 
 	return pipelineInfo, nil
 }
