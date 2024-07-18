@@ -10627,6 +10627,9 @@
         "effectiveJson": {
           "type": "string",
           "title": "the effective spec: the result of merging the user JSON into the cluster defaults"
+        },
+        "createdBy": {
+          "type": "string"
         }
       }
     },
@@ -11678,6 +11681,9 @@
         "updatedAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "createdBy": {
+          "type": "string"
         },
         "recentError": {
           "type": "string"

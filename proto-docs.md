@@ -7833,6 +7833,7 @@ must cancel the stream when it no longer wants to receive datums.
 | create_pipeline_request | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) |  |  |
 | user_json | [string](#string) |  | the JSON the user originally submitted |
 | effective_json | [string](#string) |  | the effective spec: the result of merging the user JSON into the cluster defaults |
+| created_by | [string](#string) |  |  |
 
 
 
@@ -8746,6 +8747,7 @@ potentially expensive operations.
 | egress | [Egress](#pps_v2-Egress) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| created_by | [string](#string) |  |  |
 | recent_error | [string](#string) |  |  |
 | workers_requested | [int64](#int64) |  |  |
 | workers_available | [int64](#int64) |  |  |

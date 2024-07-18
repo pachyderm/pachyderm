@@ -12800,6 +12800,8 @@ func (m *CreatePipelineTransaction) validate(all bool) error {
 
 	// no validation rules for EffectiveJson
 
+	// no validation rules for CreatedBy
+
 	if len(errors) > 0 {
 		return CreatePipelineTransactionMultiError(errors)
 	}
@@ -14848,6 +14850,8 @@ func (m *PipelineInfo_Details) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for CreatedBy
 
 	// no validation rules for RecentError
 

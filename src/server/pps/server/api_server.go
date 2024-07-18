@@ -2367,11 +2367,16 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 			return "", errors.Wrap(err, "create det pipeline side effects")
 		}
 	}
+	wai, err := a.env.AuthServer.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	if err != nil && !errors.Is(err, auth.ErrNotActivated) {
+		return "", errors.Wrap(err, "WhoAmI")
+	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{
 			CreatePipelineRequest: effectiveSpec,
 			EffectiveJson:         effectiveSpecJSON,
 			UserJson:              req.CreatePipelineRequestJson,
+			CreatedBy:             wai.GetUsername(),
 		}))
 	}); err != nil {
 		return "", err
@@ -2492,6 +2497,10 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 		if !request.Reprocess {
 			pipelineInfo.Details.Salt = oldPipelineInfo.Details.Salt
 		}
+		pipelineInfo.Details.CreatedBy = oldPipelineInfo.Details.CreatedBy
+	} else {
+		pipelineInfo.Details.CreatedBy = txn.CreatedBy
+		pipelineInfo.Details.CreatedAt = pipelineInfo.Details.UpdatedAt
 	}
 
 	return pipelineInfo, nil
@@ -2639,9 +2648,6 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		return nil
 	}(); err != nil {
 		return err
-	}
-	if update {
-		newPipelineInfo.Details.UpdatedAt = timestamppb.New(time.Now())
 	}
 	// store the new PipelineInfo in the collection
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(ctx, newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
