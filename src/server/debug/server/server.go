@@ -50,6 +50,7 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -103,6 +104,8 @@ func NewDebugServer(env Env) debug.DebugServer {
 		logLevel:      log.LogLevel,
 		grpcLevel:     log.GRPCLevel,
 	}
+	// TODO: wrap this in distributed lock
+	go kubeEventTail(pctx.Background("kube-event-tail"), env.GetKubeClient().CoreV1(), env.Config.Namespace)
 	return s
 }
 
