@@ -1,11 +1,11 @@
 beforeEach(() => {
-  cy.exec('echo "pizza" | pachctl auth use-auth-token');
+  cy.exec('echo "iamroot" | pachctl auth use-auth-token');
   cy.deleteReposAndPipelines().logout();
 });
 
 after(() => {
   cy.visit('/');
-  cy.exec('echo "pizza" | pachctl auth use-auth-token');
+  cy.exec('echo "iamroot" | pachctl auth use-auth-token');
   cy.deleteReposAndPipelines();
 });
 
