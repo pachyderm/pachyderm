@@ -797,6 +797,10 @@ func (d *driver) linkParent(ctx context.Context, txnCtx *txncontext.TransactionC
 // in a pathological order (finishing later commits before earlier commits will result with us compacting
 // the earlier commits multiple times).
 func (d *driver) createCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) (pfsdb.CommitID, error) {
+	if newCommitInfo.Commit.Repo.Type == pfs.SpecRepoType {
+		log.Info(ctx, "create commit: start", zap.String("commitRepoType", pfs.SpecRepoType), zap.String("commit", newCommitInfo.Commit.Key()))
+	}
+	ctx = pctx.Child(ctx, "createCommit")
 	if err := d.linkParent(ctx, txnCtx, newCommitInfo, parent, needsFinishedParent); err != nil {
 		return 0, err
 	}
@@ -809,6 +813,9 @@ func (d *driver) createCommit(ctx context.Context, txnCtx *txncontext.Transactio
 			return 0, errors.Wrap(err, "create commit")
 		}
 		newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, b.BranchInfo.Head)
+	}
+	if newCommitInfo.Commit.Repo.Type == pfs.SpecRepoType {
+		log.Info(ctx, "create commit: before db", zap.String("commitRepoType", pfs.SpecRepoType), zap.String("commit", newCommitInfo.Commit.Key()))
 	}
 	commitID, err := pfsdb.CreateCommit(ctx, txnCtx.SqlTx, newCommitInfo)
 	if err != nil {
@@ -837,6 +844,7 @@ func (d *driver) startCommit(
 	branch *pfs.Branch,
 	description string,
 ) (*pfsdb.Commit, error) {
+	ctx = pctx.Child(ctx, "startCommit")
 	// Validate arguments:
 	if branch == nil || branch.Name == "" {
 		return nil, errors.Errorf("branch must be specified")
@@ -845,11 +853,17 @@ func (d *driver) startCommit(
 	if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branch.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	// New commit and commit
+	if branch.Repo.Type == pfs.SpecRepoType {
+		log.Info(ctx, "start commit", zap.String("repoType", pfs.SpecRepoType), zap.String("branch", branch.Key()))
+	}
+	// New commit and commitInfo.
 	newCommitInfo := newUserCommitInfo(txnCtx, branch)
 	newCommitInfo.Description = description
 	if err := ancestry.ValidateName(branch.Name); err != nil {
 		return nil, err
+	}
+	if newCommitInfo.Commit.Repo.Type == pfs.SpecRepoType {
+		log.Info(ctx, "start commit", zap.String("commitRepoType", pfs.SpecRepoType), zap.String("commit", newCommitInfo.Commit.Key()))
 	}
 	// Check if repo exists
 	_, err := pfsdb.GetRepoInfoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type)
@@ -981,6 +995,7 @@ func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionCon
 // commits arrive on 'branch', when 'branches's HEAD is deleted, or when
 // 'branches' are newly created (i.e. in CreatePipeline).
 func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branches []*pfs.Branch) error {
+	ctx = pctx.Child(ctx, "propagateBranch")
 	if len(branches) == 0 {
 		return nil
 	}
@@ -1514,7 +1529,7 @@ func (d *driver) subscribeCommit(
 				return nil
 			}
 			// We don't want to include the `from` commit itself
-			if !(seen[commit.Key] || (from != nil && from.Id == commit.Key)) {
+			if !(seen[commit.Key] || (from != nil && from.Key() == commit.Key)) {
 				// Wait for the commit to enter the right state
 				commit, err := d.inspectCommit(ctx, proto.Clone(commit.Pb()).(*pfs.Commit), state)
 				if err != nil {

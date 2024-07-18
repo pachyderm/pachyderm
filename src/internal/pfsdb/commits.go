@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"runtime/debug"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -201,7 +203,7 @@ func (c *Commit) PbInfo() *pfs.CommitInfo {
 		commitInfo.ParentCommit = c.Parent.Pb()
 	}
 	for _, c := range c.DirectSubvenance {
-		commitInfo.DirectSubvenance = append(commitInfo.DirectProvenance, c.Pb())
+		commitInfo.DirectSubvenance = append(commitInfo.DirectSubvenance, c.Pb())
 	}
 	for _, c := range c.DirectProvenance {
 		commitInfo.DirectProvenance = append(commitInfo.DirectProvenance, c.Pb())
@@ -320,6 +322,7 @@ func CommitsInRepoChannel(repoID RepoID) string {
 // it will attempt to create entries in the pfs.commit_ancestry table unless options are provided to skip
 // ancestry creation.
 func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) (CommitID, error) {
+	ctx = pctx.Child(ctx, "createCommit")
 	if err := validateCommitInfo(commitInfo); err != nil {
 		return 0, err
 	}
@@ -385,6 +388,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 			return 0, errors.Wrap(err, "linking children")
 		}
 	}
+	log.Info(ctx, "created commit", zap.String("commit", commitInfo.Commit.Key()), zap.String("stack", string(debug.Stack())))
 	return CommitID(lastInsertId), nil
 }
 
