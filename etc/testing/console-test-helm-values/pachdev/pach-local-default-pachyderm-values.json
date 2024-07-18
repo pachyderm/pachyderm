@@ -4,7 +4,7 @@
       "enabled": true
     },
     "oidc": {
-      "issuerURI": "http://localhost:30658"
+      "issuerURI": "http://pachd:30658/dex"
     },
     "pachd": {
       "clusterDeploymentID": "enterprise",
