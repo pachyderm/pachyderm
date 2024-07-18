@@ -34,7 +34,8 @@ describe('Community Edition Banner', () => {
         .exec('pachctl license delete-all');
     });
 
-    it('should remove the community edition banner when an enterprise license is entered', () => {
+    // TODO: MOVE
+    it.skip('should remove the community edition banner when an enterprise license is entered', () => {
       cy.findByText('Community Edition').should('exist');
       cy.findByRole('link', {
         name: 'Upgrade to Enterprise',

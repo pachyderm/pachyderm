@@ -10,7 +10,8 @@
       "clusterDeploymentID": "enterprise",
       "lokiDeploy": false,
       "lokiLogging": false,
-      "resources": null
+      "resources": null,
+      "rootToken": "pizza"
     }
   }
   
