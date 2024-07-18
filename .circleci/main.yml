@@ -2587,7 +2587,7 @@ commands:
       - run:
           name: Setup k8s cluster
           command: |
-            VM_IP="$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)"
+            VM_IP="$(hostname -I)"
             export VM_IP
             echo $VM_IP
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
