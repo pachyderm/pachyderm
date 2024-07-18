@@ -10598,6 +10598,13 @@
         "effectiveJson": {
           "type": "string",
           "title": "the effective spec: the result of merging the user JSON into the cluster defaults"
+        },
+        "when": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "creator": {
+          "type": "string"
         }
       }
     },

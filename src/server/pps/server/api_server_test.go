@@ -1243,3 +1243,54 @@ func TestCreatedBy(t *testing.T) {
 		require.Equal(t, aliceName, ir.Details.CreatedBy)
 	})
 }
+
+func TestCreatedByInTransaction(t *testing.T) {
+	t.Parallel()
+	c := at.EnvWithAuth(t).PachClient
+	aliceName, alice := tu.RandomRobot(t, c, "alice")
+	repo := tu.UniqueString("input")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, c.ModifyRepoRoleBinding(c.Ctx(), pfs.DefaultProjectName, repo, aliceName, []string{"repoReader"}), "ModifyRepoRoleBinding")
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err, "StartTransaction")
+	tc := c.WithTransaction(txn)
+	pipeline := tu.UniqueString("pipeline")
+	_, err = tc.PpsAPIClient.CreatePipelineV2(tc.Ctx(), &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: fmt.Sprintf(`{
+		"pipeline": {
+			"project": {
+				"name": %q
+			},
+			"name": %q
+		},
+		"transform": {
+			"cmd": ["cp", "-r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": %q,
+				"glob": "/*",
+				"name": "in"
+			}
+		},
+		"datumTries": 4,
+		"autoscaling": false
+	}`, pfs.DefaultProjectName, pipeline, repo),
+	})
+	require.NoError(t, err, "CreatePipelineV2")
+
+	ac := alice.WithTransaction(txn)
+	_, err = ac.FinishTransaction(txn)
+	require.NoError(t, err, "FinishTransaction")
+
+	ir, err := c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
+		Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
+		Details:  true,
+	})
+	require.NoError(t, err, "InspectPipeline")
+	require.NotNil(t, ir)
+	require.NotNil(t, ir.Details)
+	require.Equal(t, "pach:root", ir.Details.CreatedBy)
+}

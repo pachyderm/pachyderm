@@ -740,6 +740,8 @@ export type CreatePipelineTransaction = {
   createPipelineRequest?: CreatePipelineRequest
   userJson?: string
   effectiveJson?: string
+  when?: GoogleProtobufTimestamp.Timestamp
+  creator?: string
 }
 
 export type ProjectDefaults = {

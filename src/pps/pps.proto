@@ -1001,6 +1001,8 @@ message CreatePipelineTransaction {
   CreatePipelineRequest create_pipeline_request = 1;
   string user_json = 2; // the JSON the user originally submitted
   string effective_json = 3; // the effective spec: the result of merging the user JSON into the cluster defaults
+  google.protobuf.Timestamp when = 4;
+  string creator = 5;
 }
 
 message ProjectDefaults {
