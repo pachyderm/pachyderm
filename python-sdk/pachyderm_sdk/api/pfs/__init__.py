@@ -209,6 +209,19 @@ class BranchInfo(betterproto.Message):
     metadata: Dict[str, str] = betterproto.map_field(
         7, betterproto.TYPE_STRING, betterproto.TYPE_STRING
     )
+    """Metadata on the branch."""
+
+    created_by: str = betterproto.string_field(8)
+    """The user that caused this branch to be created."""
+
+    created_at: datetime = betterproto.message_field(9)
+    """When the branch was added to the database."""
+
+    updated_at: datetime = betterproto.message_field(10)
+    """
+    When information about the branch was last modified (not necessarily when
+    the data in this branch changed or anything like that).
+    """
 
 
 @dataclass(eq=False, repr=False)
