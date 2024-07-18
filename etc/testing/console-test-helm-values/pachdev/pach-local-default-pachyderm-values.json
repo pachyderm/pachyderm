@@ -1,7 +1,10 @@
 {
   "deployTarget": "custom",
   "console": {
-    "enabled": true
+    "enabled": true,
+    "config": {
+      "reactAppRuntimeIssuerURI": "http://localhost/oauth/callback/?inline=true"
+    }
   },
   "oidc": {
     "issuerURI": "http://pachd:30658/dex"
