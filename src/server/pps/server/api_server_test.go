@@ -1193,7 +1193,7 @@ func testCreatedBy(t testing.TB, c *client.APIClient, username string) (string, 
 	return repo, pipeline
 }
 
-func TestCreatedBy(t *testing.T) {
+func TestCreatedByAndAt(t *testing.T) {
 	t.Parallel()
 	c := at.EnvWithAuth(t).PachClient
 
@@ -1202,12 +1202,21 @@ func TestCreatedBy(t *testing.T) {
 	})
 
 	t.Run("user", func(t *testing.T) {
+
 		aliceName, alice := tu.RandomRobot(t, c, "alice")
 		repo, pipeline := testCreatedBy(t, alice, aliceName)
+		ir, err := c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
+			Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
+			Details:  true,
+		})
+		require.NoError(t, err, "InspectPipeline")
+		require.NotNil(t, ir)
+		require.NotNil(t, ir.Details)
+		createdAt := ir.Details.CreatedAt.AsTime()
 
 		// Updating the pipeline does not change CreatedBy.
 		c := tu.AuthenticateClient(t, c, auth.RootUser)
-		_, err := c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+		_, err = c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
 			CreatePipelineRequestJson: fmt.Sprintf(`{
 				"pipeline": {
 					"project": {
@@ -1233,7 +1242,7 @@ func TestCreatedBy(t *testing.T) {
 		})
 
 		require.NoError(t, err, "CreatePipelineV2 must succeed")
-		ir, err := c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
+		ir, err = c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
 			Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
 			Details:  true,
 		})
@@ -1241,6 +1250,7 @@ func TestCreatedBy(t *testing.T) {
 		require.NotNil(t, ir)
 		require.NotNil(t, ir.Details)
 		require.Equal(t, aliceName, ir.Details.CreatedBy)
+		require.Equal(t, createdAt, ir.Details.CreatedAt.AsTime())
 	})
 }
 
