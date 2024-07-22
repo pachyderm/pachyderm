@@ -2,7 +2,8 @@
 describe('Enterprise Features', () => {
 
   describe('Community Edition banner', () => {
-    beforeEach(() => {
+    before(() => {
+      cy.login();
       cy.visit('/');
     });
 
