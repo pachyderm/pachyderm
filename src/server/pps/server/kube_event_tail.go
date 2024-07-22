@@ -3,10 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
+	"path"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	v1 "k8s.io/api/core/v1"
@@ -15,10 +19,22 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func kubeEventTail(ctx context.Context, coreV1 corev1.CoreV1Interface, namespace string) {
-	lw := cache.NewListWatchFromClient(coreV1.RESTClient(), "events", namespace, fields.Everything())
-	r := cache.NewReflector(lw, &v1.Event{}, &s{ctx: ctx}, 0)
-	r.Run(ctx.Done())
+func kubeEventTail(ctx context.Context, coreV1 corev1.CoreV1Interface, namespace string, etcdPrefix string, etcdClient *etcd.Client) {
+	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
+		lock := dlock.NewDLock(etcdClient, path.Join(etcdPrefix, "pachd-debug-server"))
+		ctx, err := lock.Lock(ctx)
+		if err != nil {
+			return errors.Wrap(err, "locking pachw-controller lock")
+		}
+		defer errors.Invoke1(&retErr, lock.Unlock, ctx, "error unlocking")
+		lw := cache.NewListWatchFromClient(coreV1.RESTClient(), "events", namespace, fields.Everything())
+		r := cache.NewReflector(lw, &v1.Event{}, &s{ctx: ctx}, 0)
+		r.Run(ctx.Done())
+		return nil
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		log.Error(ctx, "error in pachw run; will retry", zap.Error(err), zap.Duration("retryAfter", d))
+		return nil
+	})
 }
 func (s *s) logEvent(e *v1.Event) {
 	if e == nil {
@@ -42,7 +58,7 @@ func (s *s) logEvent(e *v1.Event) {
 		})
 	}
 	log.Info(s.ctx, msg,
-		zap.Object("event", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		zap.Object("kube-event", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
 			var errs error
 			enc.AddString("namespace", e.ObjectMeta.Namespace)
 			enc.AddString("name", e.ObjectMeta.Name)
