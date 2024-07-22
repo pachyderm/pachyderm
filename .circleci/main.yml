@@ -1718,8 +1718,7 @@ jobs:
       image: default
     working_directory: ~/project/console
     steps:
-      - checkout:
-          path: ~/project
+      - checkout
       - attach_workspace:
           at: .
       - run:
