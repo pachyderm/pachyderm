@@ -1898,7 +1898,9 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
 	if propagate {
-		return txnCtx.PropagateBranch(branchHandle)
+		if err := txnCtx.PropagateBranch(branchHandle); err != nil {
+			return errors.Wrap(err, "propagate branch")
+		}
 	}
 	if err := txnCtx.ValidateRepo(branchHandle.Repo); err != nil {
 		return errors.Wrap(err, "check branches")
