@@ -63,6 +63,9 @@ parameters:
   run-label-studio-jobs:
     type: boolean
     default: false
+  run-console-jobs:
+    type: boolean
+    default: false
 
 executors:
   docker-go:
