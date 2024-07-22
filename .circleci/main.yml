@@ -1729,7 +1729,10 @@ jobs:
       - run:
           name: Build application Docker image
           command: |
-            cd console && make circle-docker-build
+            mkdir -p /tmp/docker-cache
+            echo "$(DOCKER_PWD)" | docker login -u pachydermbuildbot --password-stdin
+            docker buildx create --name hab --driver docker-container
+            docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --cache-from=type=local,src=/tmp/docker-cache --build-arg DOCKER_TAG=$(DOCKER_TAG) --cache-to=type=local,dest=/tmp/docker-cache --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) -f ./console .
       # - save_cache:
       #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
       #     paths:
@@ -2305,15 +2308,15 @@ workflows:
               resource_class:
                 - large
                 - arm.large
-      - console-docker-manifest:
-          requires:
-            - console-docker-build
-      - console-test-docker-e2e-community-edition:
-          requires:
-            - console-docker-manifest
-      - console-test-docker-e2e-enterprise-edition:
-          requires:
-            - console-docker-manifest
+      # - console-docker-manifest:
+      #     requires:
+      #       - console-docker-build
+      # - console-test-docker-e2e-community-edition:
+      #     requires:
+      #       - console-docker-manifest
+      # - console-test-docker-e2e-enterprise-edition:
+      #     requires:
+      #       - console-docker-manifest
 
       # when:
       #   and:

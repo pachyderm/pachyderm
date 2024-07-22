@@ -8,10 +8,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 ADD . .
-RUN ls
-RUN pwd
 
-RUN make docker-ci \
+RUN cd console \
+    && make docker-ci \
     && make build \
     && make clean-deps
 
