@@ -1719,7 +1719,7 @@ jobs:
     working_directory: ~/project/console
     steps:
       - checkout:
-          path: ~/project
+          path: ~/project/console
       - attach_workspace:
           at: .
       # - restore_cache:
