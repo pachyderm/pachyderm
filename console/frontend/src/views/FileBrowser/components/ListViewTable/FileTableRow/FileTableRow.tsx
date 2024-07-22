@@ -1,7 +1,7 @@
+import {FileInfo, FileType} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import capitalize from 'lodash/capitalize';
 import React, {useMemo} from 'react';
 
-import {FileInfo, FileType} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {useCommitDiff} from '@dash-frontend/hooks/useCommitDiff';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import formatBytes from '@dash-frontend/lib/formatBytes';

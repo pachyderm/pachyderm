@@ -1,10 +1,10 @@
+import {ProjectInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import classNames from 'classnames';
 import noop from 'lodash/noop';
 import React, {useEffect} from 'react';
 import {useHistory} from 'react-router';
 
 import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
-import {ProjectInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {
   Permission,
   ResourceType,

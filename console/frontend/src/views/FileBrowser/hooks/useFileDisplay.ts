@@ -1,7 +1,7 @@
+import {FileInfo, FileType} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {useMemo} from 'react';
 
 import {useFileDetails} from '@dash-frontend/components/CodePreview';
-import {FileInfo, FileType} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {useClipboardCopy} from '@pachyderm/components';

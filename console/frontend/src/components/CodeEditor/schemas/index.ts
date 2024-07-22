@@ -1,9 +1,8 @@
+import rawClusterDefaultsSchema from '@pachyderm/src/internal/jsonschema/pps_v2/ClusterDefaults.schema.json';
+import rawCreatePipelineRequestSchema from '@pachyderm/src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json';
+import rawProjectDefaultsSchema from '@pachyderm/src/internal/jsonschema/pps_v2/ProjectDefaults.schema.json';
 import {type JSONSchema7} from 'json-schema';
 import cloneDeep from 'lodash/cloneDeep';
-
-import {rawClusterDefaultsSchema} from './ClusterDefaults.schema.json';
-import {rawCreatePipelineRequestSchema} from './CreatePipelineRequest.schema.json';
-import {rawProjectDefaultsSchema} from './ProjectDefaults.schema.json';
 
 /** Type guard that narrows the type correctly. */
 function hasKey<T extends object>(

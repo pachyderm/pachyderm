@@ -1,6 +1,4 @@
 {
-  "eslint.workingDirectories": ["backend", "frontend"],
-
   "[javascript]": {
     "editor.tabSize": 2
   },

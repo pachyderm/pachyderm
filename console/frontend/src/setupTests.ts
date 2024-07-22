@@ -90,7 +90,7 @@ interface InitReq extends RequestInit {
   pathPrefix?: string;
 }
 
-jest.mock('./generated/proto/fetch.pb.ts', () => ({
+jest.mock('../../../src/typescript/fetch.pb.ts', () => ({
   async fetchStreamingRequest(path: string, callback?: any, init?: InitReq) {
     const {pathPrefix, ...req} = init || {};
     const url = pathPrefix ? `${pathPrefix}${path}` : path;

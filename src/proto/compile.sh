@@ -79,6 +79,10 @@ mkdir -p out/pachyderm/src/typescript
     --openapiv2_opt merge_file_name=pachyderm_api \
     "${PROTOS[@]}"
 
+echo -n "overwriting typescript/fetch.pb.ts..."
+cp "$(rlocation _main/src/proto/fetch_modified.pb.ts)" ./out/pachyderm/src/typescript/fetch.pb.ts
+echo "done."
+
 echo -n "gopatch..."
 "$(rlocation _main/src/proto/gopatch)" ./out/pachyderm/... ./out/github.com/pachyderm/pachyderm/v2/... -p="$(rlocation _main/src/proto/proto.patch)"
 echo "done."

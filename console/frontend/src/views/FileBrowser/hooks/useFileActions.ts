@@ -1,7 +1,7 @@
+import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {useState} from 'react';
 import {useHistory} from 'react-router';
 
-import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {useBranches} from '@dash-frontend/hooks/useBranches';
 import {usePipeline} from '@dash-frontend/hooks/usePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';

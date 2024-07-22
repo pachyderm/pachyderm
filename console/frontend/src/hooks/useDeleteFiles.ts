@@ -1,7 +1,7 @@
+import {ModifyFileRequest} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {useMutation} from '@tanstack/react-query';
 
 import {finishCommit, modifyFile, startCommit} from '@dash-frontend/api/pfs';
-import {ModifyFileRequest} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
 export type DeleteFilesRequest = {
   projectId: string;
