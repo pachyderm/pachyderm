@@ -1,6 +1,6 @@
+import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {useCallback, useEffect, useState} from 'react';
 
-import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import useArchiveDownload from '@dash-frontend/views/FileBrowser/hooks/useArchiveDownload';
 

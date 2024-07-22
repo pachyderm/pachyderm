@@ -1,6 +1,6 @@
+import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import React from 'react';
 
-import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {
   Table,
   Button,

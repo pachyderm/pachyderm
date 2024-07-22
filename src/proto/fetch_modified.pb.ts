@@ -1,7 +1,7 @@
 /* eslint-disable */
 // @ts-nocheck
 /*
-* This file is a generated Typescript file for GRPC Gateway, DO NOT MODIFY
+* This file is originally a generated Typescript file for GRPC Gateway, but had been modified to fit our needs for CONSOLE
 */
 
 /**

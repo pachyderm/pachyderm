@@ -1,6 +1,6 @@
+import {JobInfo, JobState} from '@dash-frontend/generated/proto/pps/pps.pb';
 import sortBy from 'lodash/sortBy';
 
-import {JobInfo, JobState} from '@dash-frontend/generated/proto/pps/pps.pb';
 import {
   getISOStringFromUnix,
   getUnixSecondsFromISOString,

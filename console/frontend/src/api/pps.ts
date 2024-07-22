@@ -1,5 +1,3 @@
-import isEqual from 'lodash/isEqual';
-
 import {
   JobInfo,
   ListJobRequest,
@@ -27,6 +25,8 @@ import {
   PipelinesSummaryRequest,
   RenderTemplateRequest,
 } from '@dash-frontend/generated/proto/pps/pps.pb';
+import isEqual from 'lodash/isEqual';
+
 import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
 import {InternalJobSet} from '@dash-frontend/lib/types';
 import {LOGS_PAGE_SIZE} from '@dash-frontend/views/DatumViewer/components/MiddleSection/components/LogsViewer/constants/logsViewersConstants';

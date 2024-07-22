@@ -1,4 +1,9 @@
 import {
+  BranchInfo,
+  FileType,
+  ListBranchRequest,
+} from '@dash-frontend/generated/proto/pfs/pfs.pb';
+import {
   render,
   screen,
   within,
@@ -10,11 +15,6 @@ import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {Empty} from '@dash-frontend/api/googleTypes';
-import {
-  BranchInfo,
-  FileType,
-  ListBranchRequest,
-} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {
   mockGetEnterpriseInfo,
   buildFile,

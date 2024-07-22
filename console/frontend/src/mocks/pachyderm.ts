@@ -1,8 +1,7 @@
+import rawClusterDefaultsSchema from '@pachyderm/src/internal/jsonschema/pps_v2/ClusterDefaults.schema.json';
+import rawCreatePipelineRequestSchema from '@pachyderm/src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json';
+import rawProjectDefaultsSchema from '@pachyderm/src/internal/jsonschema/pps_v2/ProjectDefaults.schema.json';
 import {rest} from 'msw';
-
-import {rawClusterDefaultsSchema} from '@dash-frontend/components/CodeEditor/schemas/ClusterDefaults.schema.json';
-import {rawCreatePipelineRequestSchema} from '@dash-frontend/components/CodeEditor/schemas/CreatePipelineRequest.schema.json';
-import {rawProjectDefaultsSchema} from '@dash-frontend/components/CodeEditor/schemas/ProjectDefaults.schema.json';
 
 export const mockClusterDefaultsSchema = rest.get(
   '/jsonschema/pps_v2/ClusterDefaults.schema.json',

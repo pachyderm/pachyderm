@@ -1,7 +1,7 @@
+import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import React from 'react';
 
 import Description from '@dash-frontend/components/Description';
-import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {getDownloadLink} from '@dash-frontend/lib/fileUtils';
 import formatBytes from '@dash-frontend/lib/formatBytes';
 import {

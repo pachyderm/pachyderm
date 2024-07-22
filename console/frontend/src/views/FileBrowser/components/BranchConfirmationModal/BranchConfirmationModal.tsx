@@ -1,7 +1,7 @@
+import {BranchInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import React from 'react';
 import {useForm} from 'react-hook-form';
 
-import {BranchInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {FormModal, Select} from '@pachyderm/components';
 
 import styles from './BranchConfirmationModal.module.css';
