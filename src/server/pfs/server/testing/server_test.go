@@ -7607,6 +7607,9 @@ func TestForgetRPC(t *testing.T) {
 	require.Equal(t, "get file set: the commit is forgotten", err.Error())
 	_, err = env.PFSServer.GetFileSet(ctx, &pfs.GetFileSetRequest{Commit: commitToForget, Type: pfs.GetFileSetRequest_DIFF})
 	require.Equal(t, "get file set: the commit is forgotten", err.Error())
+	var b bytes.Buffer
+	err = env.PachClient.GetFile(commitToForget, "file", &b)
+	require.Equal(t, "get file: the commit is forgotten", err.Error())
 }
 
 func TestForgetRPCOpenChild(t *testing.T) {

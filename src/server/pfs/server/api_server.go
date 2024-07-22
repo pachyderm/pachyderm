@@ -689,7 +689,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 		}
 		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
 		if err != nil {
-			return 0, err
+			return 0, errors.Wrap(err, "get file")
 		}
 		if err := checkSingleFile(ctx, src); err != nil {
 			return 0, err
