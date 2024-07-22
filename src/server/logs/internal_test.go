@@ -110,7 +110,7 @@ func Test_adapter_publish(t *testing.T) {
 				want: &logs.LogMessage{
 					Object: &structpb.Struct{
 						Fields: map[string]*structpb.Value{
-							"ts":       structpb.NewStringValue("0001-01-01T00:00:00Z"),
+							"time":     structpb.NewStringValue("0001-01-01T00:00:00Z"),
 							"message":  structpb.NewStringValue(""),
 							"severity": structpb.NewStringValue("info"),
 						},
@@ -128,7 +128,7 @@ func Test_adapter_publish(t *testing.T) {
 				want: &logs.LogMessage{
 					Object: &structpb.Struct{
 						Fields: map[string]*structpb.Value{
-							"ts":       structpb.NewStringValue("2024-04-16T21:33:01.362Z"),
+							"time":     structpb.NewStringValue("2024-04-16T21:33:01.362Z"),
 							"message":  structpb.NewStringValue("2024-04-16 21:33:01.362 UTC [1] LOG S-0x557bad51cc70: pachyderm/pachyderm@10.96.52.159:5432 closing because: server idle timeout (age=1350s)"),
 							"severity": structpb.NewStringValue("info"),
 						},

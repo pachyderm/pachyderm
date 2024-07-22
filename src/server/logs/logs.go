@@ -580,26 +580,28 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 			msg.Object = &structpb.Struct{
 				Fields: map[string]*structpb.Value{
 					"message":  structpb.NewStringValue(entry.Line),
-					"ts":       structpb.NewStringValue(entry.Timestamp.Format(time.RFC3339Nano)),
+					"time":     structpb.NewStringValue(entry.Timestamp.Format(time.RFC3339Nano)),
 					"severity": structpb.NewStringValue("error"),
 					"#error":   structpb.NewStringValue(err.Error()),
 				},
 			}
 			obj = map[string]any{
-				"message": entry.Line,
-				"ts":      entry.Timestamp,
+				"message":  entry.Line,
+				"time":     entry.Timestamp,
+				"severity": "error",
 			}
 		}
 	} else {
 		// Synthesize an object when the raw line doesn't parse as JSON.
 		msg.Object = &structpb.Struct{Fields: map[string]*structpb.Value{
 			"message":  structpb.NewStringValue(entry.Line),
-			"ts":       structpb.NewStringValue(entry.Timestamp.Format(time.RFC3339Nano)),
+			"time":     structpb.NewStringValue(entry.Timestamp.Format(time.RFC3339Nano)),
 			"severity": structpb.NewStringValue("info"),
 		}}
 		obj = map[string]any{
-			"message": entry.Line,
-			"ts":      entry.Timestamp,
+			"message":  entry.Line,
+			"time":     entry.Timestamp,
+			"severity": "info",
 		}
 	}
 
