@@ -352,3 +352,32 @@ func TestTimeIterator(t *testing.T) {
 		})
 	}
 }
+
+func TestForwardPagingNearCurrentTime_NoLogs(t *testing.T) {
+	ti := &TimeIterator{
+		Step: 365 * 24 * time.Hour,
+	}
+	for ti.Next() {
+	}
+	if got, want := ti.ForwardHint(), time.Now(); want.Sub(got) < 50*time.Second {
+		t.Errorf("ForwardHint shouldn't be so close to the current time:\n  got:   %v\n want: < %v", got.Format(time.RFC3339Nano), want.Add(-50*time.Second).Format(time.RFC3339Nano))
+	}
+}
+
+func TestForwardPagingNearCurrentTime_GotLogs(t *testing.T) {
+	ti := &TimeIterator{
+		Step: 365 * 24 * time.Hour,
+	}
+	x := time.Now()
+	time.Sleep(100 * time.Millisecond)
+	for ti.Next() {
+		start, end := ti.Interval()
+		if !x.Before(start) && !x.After(end) {
+			ti.ObserveLast(x)
+			break
+		}
+	}
+	if got, want := ti.ForwardHint(), x.Add(time.Nanosecond); want.Sub(got) != 0 {
+		t.Errorf("ForwardHint should be a guaranteed time:\n  now: %v\n  got: %v\n want: %v", time.Now().Format(time.RFC3339Nano), got.Format(time.RFC3339Nano), want.Format(time.RFC3339Nano))
+	}
+}
