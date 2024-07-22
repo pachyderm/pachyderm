@@ -161,8 +161,8 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		pipeline    string
 		job         string
 		datum       string
-		from        = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
-		to          = cmdutil.TimeFlag(time.Now())
+		from        cmdutil.TimeFlag
+		to          cmdutil.TimeFlag
 		offset      uint
 		pod         string
 		container   string
@@ -186,6 +186,8 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 
 			level := logs.LogLevel_LOG_LEVEL_UNSET
 			switch levelString {
+			case "":
+				// leave unset, but avoid warning message
 			case "debug":
 				level = logs.LogLevel_LOG_LEVEL_DEBUG
 			case "info":
@@ -209,9 +211,13 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				Level:        level,
 			}
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
-				From:   timestamppb.New(time.Time(from)),
-				Until:  timestamppb.New(time.Time(to)),
 				Offset: uint64(offset),
+			}
+			if t := time.Time(from); !t.IsZero() {
+				req.Filter.TimeRange.From = timestamppb.New(t)
+			}
+			if t := time.Time(to); !t.IsZero() {
+				req.Filter.TimeRange.Until = timestamppb.New(t)
 			}
 			switch {
 			case cmd.Flag("logql").Changed:

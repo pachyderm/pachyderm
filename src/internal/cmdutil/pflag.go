@@ -19,6 +19,9 @@ func (value *TimeFlag) String() string {
 // Set implements the pflag.Value interface.  It sets the value of the flag to
 // its parsed argument, if it is acceptable RFC 3339 (with optional nanoseconds) format.
 func (value *TimeFlag) Set(s string) error {
+	if s == "" {
+		*value = TimeFlag(time.Time{})
+	}
 	ts, err := time.Parse(time.RFC3339Nano, s)
 	if err != nil {
 		return errors.Wrapf(err, "invalid RFC3339 date: %s", s)
