@@ -7,7 +7,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	v1 "k8s.io/api/core/v1"
@@ -48,7 +47,7 @@ func (s *s) logEvent(e *v1.Event) {
 			enc.AddString("namespace", e.ObjectMeta.Namespace)
 			enc.AddString("name", e.ObjectMeta.Name)
 			if err := enc.AddObject("involvedObject", objRef(&e.InvolvedObject)); err != nil {
-				multierr.AppendInto(&errs, fmt.Errorf("marshal involvedObject: %w", err))
+				errors.JoinInto(&errs, fmt.Errorf("marshal involvedObject: %w", err))
 			}
 			if e.Reason != "" {
 				enc.AddString("reason", e.Reason)
@@ -84,7 +83,7 @@ func (s *s) logEvent(e *v1.Event) {
 			}
 			if e.Related != nil {
 				if err := enc.AddObject("related", objRef(e.Related)); err != nil {
-					multierr.AppendInto(&errs, fmt.Errorf("marshal related object: %w", err))
+					errors.JoinInto(&errs, fmt.Errorf("marshal related object: %w", err))
 				}
 			}
 			if rc := e.ReportingController; rc != "" {
