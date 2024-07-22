@@ -9,7 +9,6 @@ export const buildLog = (log: Partial<LogMessage>): LogMessage => {
     message: '',
     user: false,
     ts: undefined,
-    __typename: 'LogMessage',
   };
   return merge(defaultLog, log);
 };

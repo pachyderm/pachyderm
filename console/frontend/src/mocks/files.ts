@@ -11,9 +11,7 @@ import {
 } from '@dash-frontend/api/pfs';
 import {RequestError} from '@dash-frontend/api/utils/error';
 export const buildFile = (file: FileInfo) => {
-  const defaultFile: FileInfo = {
-    __typename: 'FileInfo',
-  };
+  const defaultFile: FileInfo = {};
 
   return merge(defaultFile, file);
 };

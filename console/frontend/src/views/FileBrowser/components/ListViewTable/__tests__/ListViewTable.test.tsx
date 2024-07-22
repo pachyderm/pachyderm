@@ -185,7 +185,7 @@ describe('List View Table', () => {
           async (req, res, ctx) => {
             const body = await req.text();
             const expected =
-              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"},"__typename":"Repo"},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"},"__typename":"Commit"}}\n' +
+              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"}}}\n' +
               '{"deleteFile":{"path":"/fruit.png"}}';
             if (body === expected) {
               return res(ctx.json({}));
@@ -216,7 +216,7 @@ describe('List View Table', () => {
           async (req, res, ctx) => {
             const body = await req.text();
             const expected =
-              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"},"__typename":"Repo"},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"},"__typename":"Commit"}}\n' +
+              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"}}}\n' +
               '{"deleteFile":{"path":"/fruit.png"}}\n' +
               '{"deleteFile":{"path":"/cats/"}}\n' +
               '{"deleteFile":{"path":"/liberty.png"}}';
