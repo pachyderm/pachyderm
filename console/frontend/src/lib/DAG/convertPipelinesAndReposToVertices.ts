@@ -28,7 +28,6 @@ import {
 } from './DAGhelpers';
 
 export type Vertex = {
-  __typename?: 'Vertex';
   access: boolean;
   createdAt?: number;
   id: string;

@@ -49,7 +49,6 @@ const mockMontageLastCommit = () =>
                 },
                 branch: {
                   name: 'master',
-                  __typename: 'Branch',
                 },
               },
               description: 'commit not finished',
@@ -80,7 +79,6 @@ const mockEdgesLastCommit = () =>
                 },
                 branch: {
                   name: 'master',
-                  __typename: 'Branch',
                 },
               },
               started: '2023-07-24T17:58:25Z',
@@ -110,7 +108,6 @@ const mockImagesLastCommit = () =>
                 },
                 branch: {
                   name: 'master',
-                  __typename: 'Branch',
                 },
               },
               started: '2023-07-24T17:58:25Z',

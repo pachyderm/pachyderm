@@ -9,14 +9,11 @@ const BRANCH_MASTER: BranchInfo = {
     repo: {
       name: 'images',
       type: undefined,
-      __typename: 'Repo',
     },
-    __typename: 'Branch',
   },
   head: {
     id: 'c43fffd650a24b40b7d9f1bf90fcfdbe',
   },
-  __typename: 'BranchInfo',
 };
 
 const BRANCH_NEW: BranchInfo = {
@@ -25,14 +22,11 @@ const BRANCH_NEW: BranchInfo = {
     repo: {
       name: 'images',
       type: undefined,
-      __typename: 'Repo',
     },
-    __typename: 'Branch',
   },
   head: {
     id: '4a83c74809664f899261baccdb47cd90',
   },
-  __typename: 'BranchInfo',
 };
 
 const BRANCH_SAMPLE: BranchInfo = {
@@ -41,14 +35,11 @@ const BRANCH_SAMPLE: BranchInfo = {
     repo: {
       name: 'images',
       type: undefined,
-      __typename: 'Repo',
     },
-    __typename: 'Branch',
   },
   head: {
     id: '4eb1aa567dab483f93a109db4641ee75',
   },
-  __typename: 'BranchInfo',
 };
 
 export const BRANCH_RENDER: BranchInfo = {
@@ -57,14 +48,11 @@ export const BRANCH_RENDER: BranchInfo = {
     repo: {
       name: 'images',
       type: undefined,
-      __typename: 'Repo',
     },
-    __typename: 'Branch',
   },
   head: {
     id: '252d1850a5fa484ca7320ce1091cf483',
   },
-  __typename: 'BranchInfo',
 };
 
 const BRANCH_RENDERTWO: BranchInfo = {
@@ -73,14 +61,11 @@ const BRANCH_RENDERTWO: BranchInfo = {
     repo: {
       name: 'images',
       type: undefined,
-      __typename: 'Repo',
     },
-    __typename: 'Branch',
   },
   head: {
     id: '252d1850a5fa484ca7320ce1091cf483',
   },
-  __typename: 'BranchInfo',
 };
 
 const BRANCH_TEST: BranchInfo = {
@@ -89,11 +74,8 @@ const BRANCH_TEST: BranchInfo = {
     repo: {
       name: 'images',
       type: undefined,
-      __typename: 'Repo',
     },
-    __typename: 'Branch',
   },
-  __typename: 'BranchInfo',
 };
 
 export const mockGetBranchesMasterOnly = () =>

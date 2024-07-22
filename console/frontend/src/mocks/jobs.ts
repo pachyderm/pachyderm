@@ -39,7 +39,6 @@ export const buildJob = (job: Partial<JobInfo> = {}): JobInfo => {
     finished: undefined,
     reason: undefined,
     outputCommit: undefined,
-    __typename: 'JobInfo',
   };
 
   return merge(defaultJob, job);

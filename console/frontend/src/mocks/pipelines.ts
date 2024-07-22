@@ -111,7 +111,6 @@ export const buildPipeline = (pipeline: PipelineInfo = {}): PipelineInfo => {
     type: PipelineInfoPipelineType.PIPELINE_TYPE_TRANSFORM,
     lastJobState: PipelineInfoJobState.JOB_CREATED,
     reason: undefined,
-    __typename: 'PipelineInfo',
   };
 
   return merge(defaultPipeline, pipeline);

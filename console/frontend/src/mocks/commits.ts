@@ -20,7 +20,6 @@ import generateId from '@dash-frontend/lib/generateId';
 
 export const buildCommit = (commit: CommitInfo) => {
   const defaultCommit: CommitInfo = {
-    __typename: 'CommitInfo',
     origin: {kind: OriginKind.USER},
     metadata: {metadataCommitKey: 'metadataCommitValue'},
   };
@@ -290,7 +289,6 @@ export const mockStartCommit = (id: string) =>
             project: {
               name: 'default',
             },
-            __typename: 'Repo',
           },
           id,
           branch: {
@@ -303,7 +301,6 @@ export const mockStartCommit = (id: string) =>
             },
             name: 'master',
           },
-          __typename: 'Commit',
         }),
       );
     },

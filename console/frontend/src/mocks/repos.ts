@@ -16,7 +16,6 @@ export const buildRepo = (repo: Partial<RepoInfo> = {}): RepoInfo => {
     branches: [
       {
         name: 'master',
-        __typename: 'Branch',
       },
     ],
     created: '2023-07-24T17:58:24.000Z',
@@ -31,9 +30,7 @@ export const buildRepo = (repo: Partial<RepoInfo> = {}): RepoInfo => {
     sizeBytesUpperBound: '14783',
     authInfo: {
       roles: ['clusterAdmin'],
-      __typename: 'AuthInfo',
     },
-    __typename: 'RepoInfo',
   };
 
   return merge(defaultRepo, repo);
@@ -50,7 +47,6 @@ const REPO_INFO_EDGES: RepoInfo = buildRepo({
   branches: [
     {
       name: 'master',
-      __typename: 'Branch',
     },
   ],
   created: '2023-07-24T17:58:25Z',
@@ -63,7 +59,6 @@ const REPO_INFO_IMAGES: RepoInfo = buildRepo({
   branches: [
     {
       name: 'master',
-      __typename: 'Branch',
     },
   ],
   created: '2023-07-24T17:58:24Z',
@@ -80,7 +75,6 @@ export const REPO_INFO_EMPTY: RepoInfo = buildRepo({
   sizeBytesUpperBound: '0',
   authInfo: {
     roles: ['clusterAdmin', 'repoOwner'],
-    __typename: 'AuthInfo',
   },
 });
 

@@ -608,7 +608,7 @@ describe('File Preview', () => {
           async (req, res, ctx) => {
             const body = await req.text();
             const expected =
-              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"},"__typename":"Repo"},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"},"__typename":"Commit"}}\n' +
+              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"}}}\n' +
               '{"deleteFile":{"path":"/image.png"}}';
             if (body === expected) {
               return res(ctx.json({}));
@@ -649,7 +649,7 @@ describe('File Preview', () => {
           async (req, res, ctx) => {
             const body = await req.text();
             const expected =
-              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"},"__typename":"Repo"},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"},"__typename":"Commit"}}\n' +
+              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"}}}\n' +
               '{"deleteFile":{"path":"/image.png"}}';
             if (body === expected) {
               return res(ctx.json({}));
