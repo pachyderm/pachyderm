@@ -2281,7 +2281,7 @@ workflows:
             - aws-prerelease-testing
 
   console:
-   when: << pipeline.parameters.run-console-jobs >>
+    when: << pipeline.parameters.run-console-jobs >>
     # when:
     #   and:
     #     - not:
