@@ -1126,6 +1126,7 @@ pachd:
     successThreshold: 1
     timeoutSeconds: 30
 
+# DEPRECATED as of 2.11
 kubeEventTail:
   # Deploys a lightweight app that watches kubernetes events and echos them to logs.
   enabled: true
