@@ -1755,7 +1755,6 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      # - run: unset ENT_ACT_CODE
       - run: npm ci
       - install-bazel
       - install-console-e2e-deps
@@ -1764,8 +1763,8 @@ jobs:
           command: |
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
-            unset ENT_ACT_CODE
-            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=d42278c1a33e90b37908ac9b593b3a1e36da7780 -v
+            unset ENT_ACT_CODE # deactivate enterprise and auth
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
       - run: touch .env.development.local
       - run:
           name: Run Community Edition Cypress tests against built console image
@@ -1795,7 +1794,7 @@ jobs:
           command: |
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
-            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=d42278c1a33e90b37908ac9b593b3a1e36da7780 -v
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
             mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
       - run: touch .env.development.local
       - run:
@@ -1805,7 +1804,6 @@ jobs:
           path: /tmp/cypress-screenshots
       - store_artifacts:
           path: /tmp/cypress-videos
-
   console-create-nightly-tag:
     docker:
       - image: cimg/base:stable
@@ -2296,21 +2294,21 @@ workflows:
       - console-test-backend
       - console-test-frontend-components
       - console-test-frontend-react
-      # - console-docker-build:
-      #     matrix:
-      #       parameters:
-      #         resource_class:
-      #           - large
-      #           - arm.large
-      # - console-docker-manifest:
-      #     requires:
-      #       - console-docker-build
-      # - console-test-docker-e2e-community-edition:
-      #     requires:
-      #       - console-docker-manifest
-      - console-test-docker-e2e-enterprise-edition
-        # requires:
-        #   - console-docker-manifest
+      - console-docker-build:
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
+      - console-docker-manifest:
+          requires:
+            - console-docker-build
+      - console-test-docker-e2e-community-edition:
+          requires:
+            - console-docker-manifest
+      - console-test-docker-e2e-enterprise-edition:
+          requires:
+            - console-docker-manifest
 
       # when:
       #   and:
@@ -2545,35 +2543,6 @@ commands:
       - run:
           name: Npm install frontend and backend
           command: npm ci --prefix ./console/backend && npm ci --prefix ./console/frontend
-  install-pachyderm-dependencies:
-    steps:
-      - run:
-          name: Install Pachyderm Dependencies
-          command: |
-            etc/testing/circle/install.sh
-            etc/testing/circle/start-kind.sh
-  run-pachyderm-with-console:
-    steps:
-      - gh/setup:
-          version: 2.20.2
-      - install-pachyderm-dependencies
-      - run:
-          name: Deploy Pachyderm With Console (Proxy)
-          command: etc/testing/circle/deploy-pachyderm-with-console.sh
-  run-pachyderm-with-console-enterprise:
-    steps:
-      - gh/setup:
-          version: 2.20.2
-      - install-pachyderm-dependencies
-      - run:
-          name: Deploy Pachyderm EE (Proxy)
-          command: etc/testing/circle/deploy-pachyderm-with-console-and-enterprise.sh
-  activate-pachyderm-enterprise:
-    steps:
-      - run:
-          name: Activate Pachyderm Enterprise
-          command: echo $PACHYDERM_ENTERPRISE_KEY | pachctl license activate
-
   install-console-e2e-deps:
     steps:
       - attach_workspace:
@@ -2589,19 +2558,4 @@ commands:
           command: |
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100 
-      # - run:
-      #     name: Install pachd with auth
-      #     command: |
-      #       export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
-      #       bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --namespace=test-namespace-1 -v --console=${$CIRCLE_SHA1}
-      #       mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
-      # - run:
-      #     name: Watch pachd with auth logs
-      #     command: kubectl logs --namespace=test-namespace-1 -l suite=pachyderm -f
-      #     background: true
-      # - run:
-      #     name: Watch pachd without auth logs
-      #     command: kubectl logs --namespace=default -l suite=pachyderm -f
-      #     background: true
-
   # ^^^^^ Console ^^^^^
