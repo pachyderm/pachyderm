@@ -1719,17 +1719,17 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      # - restore_cache:
-      #     keys:
-      #       - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+      - restore_cache:
+          keys:
+            - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
       - run:
           name: Build application Docker image
           command: |
             make circle-docker-build
-      # - save_cache:
-      #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
-      #     paths:
-      #       - /tmp/docker-cache
+      - save_cache:
+          key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+          paths:
+            - /tmp/docker-cache
   console-docker-manifest:
     machine:
       image: default
