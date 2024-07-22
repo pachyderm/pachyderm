@@ -562,6 +562,15 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 	var obj map[string]any
 	entry.Line, obj = lokiutil.RepairLine(entry.Line)
 
+	// If the line is not JSON, synthesize some.
+	if obj == nil {
+		obj = map[string]any{
+			"message":  entry.Line,
+			"time":     entry.Timestamp.Format(time.RFC3339Nano),
+			"severity": "info",
+		}
+	}
+
 	// Build the base object to return.
 	msg := &logs.LogMessage{
 		Verbatim: &logs.VerbatimLogMessage{
@@ -572,37 +581,19 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 		NativeTimestamp: timestamppb.New(entry.Timestamp),
 	}
 
-	if obj != nil {
-		// If there is JSON, convert it to a structpb.Struct, or synthesize something.
-		var err error
-		msg.Object, err = structpb.NewStruct(obj)
-		if err != nil {
-			msg.Object = &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"message":  structpb.NewStringValue(entry.Line),
-					"time":     structpb.NewStringValue(entry.Timestamp.Format(time.RFC3339Nano)),
-					"severity": structpb.NewStringValue("error"),
-					"#error":   structpb.NewStringValue(err.Error()),
-				},
-			}
-			obj = map[string]any{
-				"message":  entry.Line,
-				"time":     entry.Timestamp,
-				"severity": "error",
-			}
+	// If there is JSON, convert it to a structpb.Struct, or synthesize something.
+	var err error
+	msg.Object, err = structpb.NewStruct(obj)
+	if err != nil {
+		msg.Object = &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"message":  structpb.NewStringValue(entry.Line),
+				"time":     structpb.NewStringValue(entry.Timestamp.Format(time.RFC3339Nano)),
+				"severity": structpb.NewStringValue("error"),
+				"#error":   structpb.NewStringValue(err.Error()),
+			},
 		}
-	} else {
-		// Synthesize an object when the raw line doesn't parse as JSON.
-		msg.Object = &structpb.Struct{Fields: map[string]*structpb.Value{
-			"message":  structpb.NewStringValue(entry.Line),
-			"time":     structpb.NewStringValue(entry.Timestamp.Format(time.RFC3339Nano)),
-			"severity": structpb.NewStringValue("info"),
-		}}
-		obj = map[string]any{
-			"message":  entry.Line,
-			"time":     entry.Timestamp,
-			"severity": "info",
-		}
+		obj["severity"] = "error"
 	}
 
 	// Grab the severity from the log message, for filtering below.
