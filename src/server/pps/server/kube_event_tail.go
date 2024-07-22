@@ -21,10 +21,10 @@ import (
 
 func kubeEventTail(ctx context.Context, coreV1 corev1.CoreV1Interface, namespace string, etcdPrefix string, etcdClient *etcd.Client) {
 	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
-		lock := dlock.NewDLock(etcdClient, path.Join(etcdPrefix, "pachd-debug-server"))
+		lock := dlock.NewDLock(etcdClient, path.Join(etcdPrefix, "pachd-kube-events"))
 		ctx, err := lock.Lock(ctx)
 		if err != nil {
-			return errors.Wrap(err, "locking pachw-controller lock")
+			return errors.Wrap(err, "locking pachd-kube-events lock")
 		}
 		defer errors.Invoke1(&retErr, lock.Unlock, ctx, "error unlocking")
 		lw := cache.NewListWatchFromClient(coreV1.RESTClient(), "events", namespace, fields.Everything())
