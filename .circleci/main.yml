@@ -1716,11 +1716,8 @@ jobs:
     resource_class: << parameters.resource_class >>
     machine:
       image: default
-    working_directory: ~/project/console
     steps:
       - checkout
-      - attach_workspace:
-          at: .
       - run:
           name: pwd
           command: |
@@ -1732,7 +1729,7 @@ jobs:
       - run:
           name: Build application Docker image
           command: |
-            make circle-docker-build
+            cd console && make circle-docker-build
       # - save_cache:
       #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
       #     paths:
