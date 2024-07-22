@@ -3,11 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
-	"path"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	etcd "go.etcd.io/etcd/client/v3"
@@ -20,21 +17,21 @@ import (
 )
 
 func kubeEventTail(ctx context.Context, coreV1 corev1.CoreV1Interface, namespace string, etcdPrefix string, etcdClient *etcd.Client) {
-	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
-		lock := dlock.NewDLock(etcdClient, path.Join(etcdPrefix, "pachd-kube-events"))
-		ctx, err := lock.Lock(ctx)
-		if err != nil {
-			return errors.Wrap(err, "locking pachd-kube-events lock")
-		}
-		defer errors.Invoke1(&retErr, lock.Unlock, ctx, "error unlocking")
-		lw := cache.NewListWatchFromClient(coreV1.RESTClient(), "events", namespace, fields.Everything())
-		r := cache.NewReflector(lw, &v1.Event{}, &s{ctx: ctx}, 0)
-		r.Run(ctx.Done())
-		return nil
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		log.Error(ctx, "error in pachw run; will retry", zap.Error(err), zap.Duration("retryAfter", d))
-		return nil
-	})
+	// backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
+	// 	lock := dlock.NewDLock(etcdClient, path.Join(etcdPrefix, "pachd-kube-events"))
+	// 	ctx, err := lock.Lock(ctx)
+	// 	if err != nil {
+	// 		return errors.Wrap(err, "locking pachd-kube-events lock")
+	// 	}
+	// 	defer errors.Invoke1(&retErr, lock.Unlock, ctx, "error unlocking")
+	lw := cache.NewListWatchFromClient(coreV1.RESTClient(), "events", namespace, fields.Everything())
+	r := cache.NewReflector(lw, &v1.Event{}, &s{ctx: ctx}, 0)
+	r.Run(ctx.Done())
+	// 	return nil
+	// }, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+	// 	log.Error(ctx, "error in pachw run; will retry", zap.Error(err), zap.Duration("retryAfter", d))
+	// 	return nil
+	// })
 }
 func (s *s) logEvent(e *v1.Event) {
 	if e == nil {
