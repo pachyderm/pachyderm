@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -300,6 +301,17 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 
 				switch resp.ResponseType.(type) {
 				case *logs.GetLogsResponse_Log:
+					l := resp.GetLog()
+					if o := l.Object; o != nil {
+						b, err := (protojson.MarshalOptions{
+							Multiline: false,
+						}).Marshal(o)
+						if err == nil {
+							fmt.Println(string(b))
+							continue
+						}
+						// If error, just print the verbatim log entry instead.
+					}
 					fmt.Println(string(resp.GetLog().GetVerbatim().GetLine()))
 				case *logs.GetLogsResponse_PagingHint:
 					hint := resp.GetPagingHint()
