@@ -1719,9 +1719,14 @@ jobs:
     working_directory: ~/project/console
     steps:
       - checkout:
-          path: ~/project/console
+          path: ~/project
       - attach_workspace:
           at: .
+      - run:
+          name: pwd
+          command: |
+            ls -la
+            pwd
       # - restore_cache:
       #     keys:
       #       - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
