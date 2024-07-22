@@ -1719,17 +1719,17 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - restore_cache:
-          keys:
-            - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+      # - restore_cache:
+      #     keys:
+      #       - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
       - run:
           name: Build application Docker image
           command: |
             make circle-docker-build
-      - save_cache:
-          key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
-          paths:
-            - /tmp/docker-cache
+      # - save_cache:
+      #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+      #     paths:
+      #       - /tmp/docker-cache
   console-docker-manifest:
     machine:
       image: default
@@ -2531,8 +2531,6 @@ commands:
             wget -O ./bazel "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
             chmod +x ./bazel
             sudo mv ./bazel /home/circleci/bin/bazel
-
-  # vvvvv Console vvvvv
   node-install-all:
     steps:
       - run:
@@ -2557,5 +2555,4 @@ commands:
           name: Setup k8s cluster
           command: |
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
-            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100 
-  # ^^^^^ Console ^^^^^
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100
