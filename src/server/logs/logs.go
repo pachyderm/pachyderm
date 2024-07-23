@@ -668,7 +668,6 @@ func extract[T any](obj map[string]any, dst *T, key string) {
 	if raw, ok := obj[key]; ok {
 		if v, ok := raw.(T); ok {
 			*dst = v
-			return
 		}
 	}
 }
