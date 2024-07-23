@@ -20,8 +20,7 @@
     "generate-hooks": "graphql-codegen",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
-    "storybook:publish": "npm run storybook:build && netlify deploy --dir=storybook-static --prod",
-    "proto:types": "node ./scripts/download-types.js"
+    "storybook:publish": "npm run storybook:build && netlify deploy --dir=storybook-static --prod"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.9.0",
