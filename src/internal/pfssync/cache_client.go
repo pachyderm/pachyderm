@@ -35,6 +35,27 @@ func NewCacheClient(pachClient *client.APIClient, renewer *renew.StringSet) *Cac
 	return cc
 }
 
+func (cc *CacheClient) GetFileset(commit *pfs.Commit) (string, error) {
+	key := pfsdb.CommitKey(commit)
+	if c, ok := cc.get(key); ok {
+		return c.Id, nil
+	}
+	branch := ""
+	if commit.Branch != nil {
+		branch = commit.Branch.Name
+	}
+	id, err := cc.APIClient.GetFileSet(commit.Repo.Project.GetName(), commit.Repo.Name, branch, commit.Id)
+	if err != nil {
+		return "", err
+	}
+	if err := cc.renewer.Add(cc.APIClient.Ctx(), id); err != nil {
+		return "", err
+	}
+	commit = client.NewCommit(commit.Repo.Project.GetName(), client.FileSetsRepoName, "", id)
+	cc.put(key, commit)
+	return id, nil
+}
+
 func (cc *CacheClient) GetFileTAR(commit *pfs.Commit, path string) (io.ReadCloser, error) {
 	key := pfsdb.CommitKey(commit)
 	if c, ok := cc.get(key); ok {

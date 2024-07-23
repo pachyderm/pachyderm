@@ -3,6 +3,8 @@ syntax = "proto3";
 package pps_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/internal/ppsdb";
 
+import "google/protobuf/timestamp.proto";
+
 message ClusterDefaultsWrapper {
   reserved 1, 2;
   reserved "details_json", "effective_details_json";
@@ -10,5 +12,7 @@ message ClusterDefaultsWrapper {
 }
 
 message ProjectDefaultsWrapper {
+  string created_by = 1;
+  google.protobuf.Timestamp created_at = 2;
   string json = 3;
 }

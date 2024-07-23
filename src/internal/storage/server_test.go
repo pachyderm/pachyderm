@@ -243,6 +243,16 @@ func createFileset(ctx context.Context, c storage.FilesetClient, num, size int) 
 			path: fmt.Sprintf("/%0"+strconv.Itoa(padding)+"v", i),
 			data: randutil.Bytes(random, size),
 		}
+		if err := cfc.Send(&storage.CreateFilesetRequest{
+			Modification: &storage.CreateFilesetRequest_AppendFile{
+				AppendFile: &storage.AppendFile{
+					Path: tf.path,
+					Data: wrapperspb.Bytes([]byte{}),
+				},
+			},
+		}); err != nil {
+			return "", nil, err
+		}
 		for _, c := range chunk(tf.data) {
 			if err := cfc.Send(&storage.CreateFilesetRequest{
 				Modification: &storage.CreateFilesetRequest_AppendFile{
@@ -319,6 +329,49 @@ func checkFileset(ctx context.Context, t *testing.T, c storage.FilesetClient, re
 	require.Equal(t, 0, len(expected))
 }
 
+func TestCopy(t *testing.T) {
+	pachClient := pachd.NewTestPachd(t)
+	ctx := pachClient.Ctx()
+	c := pachClient.FilesetClient
+	baseId, testFiles, err := createFileset(ctx, c, 100, units.KB)
+	require.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		offset := rand.Intn(len(testFiles) - 1)
+		size := rand.Intn(len(testFiles)-offset) + 1
+		copyFiles := testFiles[offset : offset+size]
+		id, err := copyFileset(ctx, c, baseId, copyFiles)
+		require.NoError(t, err)
+		checkFileset(ctx, t, c, &storage.ReadFilesetRequest{FilesetId: id}, copyFiles)
+	}
+	id, err := copyFileset(ctx, c, baseId, []*testFile{{path: "/"}})
+	require.NoError(t, err)
+	checkFileset(ctx, t, c, &storage.ReadFilesetRequest{FilesetId: id}, testFiles)
+}
+
+func copyFileset(ctx context.Context, c storage.FilesetClient, filesetId string, files []*testFile) (string, error) {
+	cfc, err := c.CreateFileset(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, file := range files {
+		if err := cfc.Send(&storage.CreateFilesetRequest{
+			Modification: &storage.CreateFilesetRequest_CopyFile{
+				CopyFile: &storage.CopyFile{
+					FilesetId: filesetId,
+					Src:       file.path,
+				},
+			},
+		}); err != nil {
+			return "", err
+		}
+	}
+	response, err := cfc.CloseAndRecv()
+	if err != nil {
+		return "", err
+	}
+	return response.FilesetId, nil
+}
+
 func TestReadFilesetCDR(t *testing.T) {
 	pachClient := pachd.NewTestPachd(t)
 	ctx := pachClient.Ctx()
@@ -329,8 +382,8 @@ func TestReadFilesetCDR(t *testing.T) {
 		size int
 	}{
 		// TODO: Implement signed url caching, then enable these tests.
-		//{"0B", 1000000, 0},
-		//{"1KB", 100000, units.KB},
+		{"0B", 1000000, 0},
+		{"1KB", 100000, units.KB},
 		{"100KB", 1000, 100 * units.KB},
 		{"10MB", 10, 10 * units.MB},
 		{"100MB", 1, 100 * units.MB},

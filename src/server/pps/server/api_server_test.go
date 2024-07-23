@@ -15,9 +15,11 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	at "github.com/pachyderm/pachyderm/v2/src/server/auth/server/testing"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -1083,4 +1085,222 @@ func assertPipelineSequence(t *testing.T, names []string, pipelines []*pps.Pipel
 	for i, n := range names {
 		require.Equal(t, n, pipelines[i].Pipeline.Name)
 	}
+}
+
+// TestCreatePipeline tests pipeline creation.
+func TestCreatePipeline(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+
+	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
+	})
+	require.NoError(t, err, "SetClusterDefaults failed")
+
+	repo := "input"
+	pipeline := "pipeline"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	var pipelineTemplate = `{
+		"pipeline": {
+			"project": {
+				"name": "{{.ProjectName | js}}"
+			},
+			"name": "{{.PipelineName | js}}"
+		},
+		"transform": {
+			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": "{{.RepoName | js}}",
+				"glob": "/*",
+				"name": "in"
+			}
+		},
+		"datumTries": 4,
+		"autoscaling": false
+	}`
+	tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
+	require.NoError(t, err, "template must parse")
+	var buf bytes.Buffer
+	require.NoError(t, tmpl.Execute(&buf, struct {
+		ProjectName, PipelineName, RepoName string
+	}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
+	resp, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: buf.String(),
+	})
+	require.NoError(t, err, "CreatePipelineV2 must succeed")
+	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
+	var req pps.CreatePipelineRequest
+	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
+	require.Equal(t, int64(4), req.DatumTries, "default and spec names map")
+	require.False(t, req.Autoscaling, "spec must override default")
+
+	ir, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{
+		Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
+		Details:  true,
+	})
+	require.NoError(t, err, "InspectPipeline")
+	require.NotNil(t, ir)
+	require.NotNil(t, ir.Details)
+	require.NotNil(t, ir.Details.UpdatedAt)
+	require.True(t, !ir.Details.UpdatedAt.AsTime().Before(ir.Details.CreatedAt.AsTime()))
+}
+
+func testCreatedBy(t testing.TB, c *client.APIClient, username string) (string, string) {
+	repo := tu.UniqueString("input")
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	resp, err := c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: fmt.Sprintf(`{
+		"pipeline": {
+			"project": {
+				"name": %q
+			},
+			"name": %q
+		},
+		"transform": {
+			"cmd": ["cp", "-r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": %q,
+				"glob": "/*",
+				"name": "in"
+			}
+		},
+		"datumTries": 4,
+		"autoscaling": false
+	}`, pfs.DefaultProjectName, pipeline, repo),
+	})
+	require.NoError(t, err, "CreatePipelineV2 must succeed")
+	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
+	var req pps.CreatePipelineRequest
+	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
+	require.Equal(t, int64(4), req.DatumTries, "default and spec names map")
+	require.False(t, req.Autoscaling, "spec must override default")
+
+	ir, err := c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
+		Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
+		Details:  true,
+	})
+	require.NoError(t, err, "InspectPipeline")
+	require.NotNil(t, ir)
+	require.NotNil(t, ir.Details)
+	require.Equal(t, username, ir.Details.CreatedBy)
+	return repo, pipeline
+}
+
+func TestCreatedByAndAt(t *testing.T) {
+	t.Parallel()
+	c := at.EnvWithAuth(t).PachClient
+
+	t.Run("root", func(t *testing.T) {
+		testCreatedBy(t, tu.AuthenticateClient(t, c, auth.RootUser), "pach:root")
+	})
+
+	t.Run("user", func(t *testing.T) {
+
+		aliceName, alice := tu.RandomRobot(t, c, "alice")
+		repo, pipeline := testCreatedBy(t, alice, aliceName)
+		ir, err := c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
+			Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
+			Details:  true,
+		})
+		require.NoError(t, err, "InspectPipeline")
+		require.NotNil(t, ir)
+		require.NotNil(t, ir.Details)
+		createdAt := ir.Details.CreatedAt.AsTime()
+
+		// Updating the pipeline does not change CreatedBy.
+		c := tu.AuthenticateClient(t, c, auth.RootUser)
+		_, err = c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: fmt.Sprintf(`{
+				"pipeline": {
+					"project": {
+						"name": %q
+					},
+					"name": %q
+				},
+				"transform": {
+					"cmd": ["cp", "-r", "/pfs/in", "/pfs/out"]
+				},
+				"input": {
+					"pfs": {
+						"project": "default",
+						"repo": %q,
+						"glob": "/*",
+						"name": "in"
+					}
+				},
+				"datumTries": 3,
+				"autoscaling": false
+			}`, pfs.DefaultProjectName, pipeline, repo),
+			Update: true,
+		})
+
+		require.NoError(t, err, "CreatePipelineV2 must succeed")
+		ir, err = c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
+			Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
+			Details:  true,
+		})
+		require.NoError(t, err, "InspectPipeline")
+		require.NotNil(t, ir)
+		require.NotNil(t, ir.Details)
+		require.Equal(t, aliceName, ir.Details.CreatedBy)
+		require.Equal(t, createdAt, ir.Details.CreatedAt.AsTime())
+	})
+}
+
+func TestCreatedByInTransaction(t *testing.T) {
+	t.Parallel()
+	c := at.EnvWithAuth(t).PachClient
+	aliceName, alice := tu.RandomRobot(t, c, "alice")
+	repo := tu.UniqueString("input")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, c.ModifyRepoRoleBinding(c.Ctx(), pfs.DefaultProjectName, repo, aliceName, []string{"repoReader"}), "ModifyRepoRoleBinding")
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err, "StartTransaction")
+	tc := c.WithTransaction(txn)
+	pipeline := tu.UniqueString("pipeline")
+	_, err = tc.PpsAPIClient.CreatePipelineV2(tc.Ctx(), &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: fmt.Sprintf(`{
+		"pipeline": {
+			"project": {
+				"name": %q
+			},
+			"name": %q
+		},
+		"transform": {
+			"cmd": ["cp", "-r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": %q,
+				"glob": "/*",
+				"name": "in"
+			}
+		},
+		"datumTries": 4,
+		"autoscaling": false
+	}`, pfs.DefaultProjectName, pipeline, repo),
+	})
+	require.NoError(t, err, "CreatePipelineV2")
+
+	ac := alice.WithTransaction(txn)
+	_, err = ac.FinishTransaction(txn)
+	require.NoError(t, err, "FinishTransaction")
+
+	ir, err := c.PpsAPIClient.InspectPipeline(c.Ctx(), &pps.InspectPipelineRequest{
+		Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline},
+		Details:  true,
+	})
+	require.NoError(t, err, "InspectPipeline")
+	require.NotNil(t, ir)
+	require.NotNil(t, ir.Details)
+	require.Equal(t, "pach:root", ir.Details.CreatedBy)
 }

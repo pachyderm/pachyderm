@@ -7,6 +7,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/jmoiron/sqlx"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -90,7 +91,7 @@ func pipelineCommitKey(commit *pfs.Commit) (string, error) {
 }
 
 // Pipelines returns a PostgresCollection of pipelines
-func Pipelines(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+func Pipelines(db sqlx.ExtContext, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		pipelinesCollectionName,
 		db,
@@ -151,7 +152,7 @@ func JobKey(j *pps.Job) string {
 }
 
 // Jobs returns a PostgresCollection of Jobs
-func Jobs(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+func Jobs(db sqlx.ExtContext, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		jobsCollectionName,
 		db,

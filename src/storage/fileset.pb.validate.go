@@ -266,6 +266,111 @@ var _ interface {
 	ErrorName() string
 } = DeleteFileValidationError{}
 
+// Validate checks the field values on CopyFile with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *CopyFile) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CopyFile with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in CopyFileMultiError, or nil
+// if none found.
+func (m *CopyFile) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CopyFile) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for FilesetId
+
+	// no validation rules for Src
+
+	// no validation rules for Dst
+
+	if len(errors) > 0 {
+		return CopyFileMultiError(errors)
+	}
+
+	return nil
+}
+
+// CopyFileMultiError is an error wrapping multiple validation errors returned
+// by CopyFile.ValidateAll() if the designated constraints aren't met.
+type CopyFileMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CopyFileMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CopyFileMultiError) AllErrors() []error { return m }
+
+// CopyFileValidationError is the validation error returned by
+// CopyFile.Validate if the designated constraints aren't met.
+type CopyFileValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CopyFileValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CopyFileValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CopyFileValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CopyFileValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CopyFileValidationError) ErrorName() string { return "CopyFileValidationError" }
+
+// Error satisfies the builtin error interface
+func (e CopyFileValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCopyFile.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CopyFileValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CopyFileValidationError{}
+
 // Validate checks the field values on CreateFilesetRequest with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
@@ -365,6 +470,47 @@ func (m *CreateFilesetRequest) validate(all bool) error {
 			if err := v.Validate(); err != nil {
 				return CreateFilesetRequestValidationError{
 					field:  "DeleteFile",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *CreateFilesetRequest_CopyFile:
+		if v == nil {
+			err := CreateFilesetRequestValidationError{
+				field:  "Modification",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetCopyFile()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CreateFilesetRequestValidationError{
+						field:  "CopyFile",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CreateFilesetRequestValidationError{
+						field:  "CopyFile",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetCopyFile()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CreateFilesetRequestValidationError{
+					field:  "CopyFile",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}

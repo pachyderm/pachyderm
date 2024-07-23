@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/wcharczuk/go-chart"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
@@ -310,7 +311,19 @@ func (s *debugServer) fillApps(ctx context.Context, reqApps []*debug.App) error 
 	return nil
 }
 
-func (s *debugServer) DumpV2(request *debug.DumpV2Request, server debug.Debug_DumpV2Server) error {
+type lockedServer struct {
+	sync.Mutex
+	debug.Debug_DumpV2Server
+}
+
+func (s *lockedServer) Send(c *debug.DumpChunk) error {
+	s.Lock()
+	defer s.Unlock()
+	return s.Debug_DumpV2Server.Send(c)
+}
+
+func (s *debugServer) DumpV2(request *debug.DumpV2Request, originalServer debug.Debug_DumpV2Server) error {
+	server := &lockedServer{Debug_DumpV2Server: originalServer}
 	if request == nil {
 		return errors.New("nil debug.DumpV2Request")
 	}
@@ -633,15 +646,15 @@ func recordProgress(server debug.Debug_DumpV2Server, task string, total int) inc
 	if server == nil {
 		return func(ctx context.Context) {}
 	}
-	inc := 0
+	var inc atomic.Int64
 	return func(ctx context.Context) {
-		inc++
+		inc.Add(1)
 		if err := server.Send(
 			&debug.DumpChunk{
 				Chunk: &debug.DumpChunk_Progress{
 					Progress: &debug.DumpProgress{
 						Task:     task,
-						Progress: int64(inc),
+						Progress: inc.Load(),
 						Total:    int64(total),
 					},
 				},

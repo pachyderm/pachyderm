@@ -761,6 +761,12 @@
                 "effectiveSpecJson": {
                     "type": "string",
                     "description": "The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults."
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
                 }
             },
             "additionalProperties": false,
@@ -790,6 +796,13 @@
                 "createdAt": {
                     "type": "string",
                     "format": "date-time"
+                },
+                "updatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "createdBy": {
+                    "type": "string"
                 },
                 "recentError": {
                     "type": "string"
@@ -868,7 +881,8 @@
                 },
                 "metadata": {
                     "$ref": "#/definitions/pps_v2.Metadata",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "Kubernetes metadata"
                 },
                 "reprocessSpec": {
                     "type": "string"

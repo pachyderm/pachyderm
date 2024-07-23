@@ -34,6 +34,10 @@ enum JobErrorCode {
   CANCELED = 3;
 }
 
+// PJS associates fileset handles with the input and output of a Job.
+// All references Filesets will persist for as the associated Job is in a Queue.
+// New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary.
+
 // JobInfo describes a Job
 message JobInfo {
   // Job is the Job's identity
@@ -43,14 +47,19 @@ message JobInfo {
   // state is the Job's state.
   // See JobState for a description of the possible states.
   JobState state = 3;
-  // spec is the code specification for the Job.
-  google.protobuf.Any spec = 4;
-  // input is the input data for the Job.
-  QueueElement input = 5;
+  // program is the fileset that contains the code specification for the Job.
+  string program = 4;
+  // input is the input fileset handles for the Job.
+  repeated string input = 5;
+
+  // Success is produced by a successfully completing Job.
+  message Success {
+    // output is a list of fileset handles produced by a successful Job.
+    repeated string output = 1;
+  }
   // result is set when the Job enters the DONE state.
   oneof result {
-    // output is produced by a successfully completing Job
-    QueueElement output = 6;
+    Success success = 6;
     // error is set when the Job is unable to complete successfully
     JobErrorCode error = 7;
   }
@@ -82,16 +91,6 @@ message QueueInfoDetails {
   QueueInfo queue_info = 1;
   // size is the number of elements queued.
   int64 size = 2;
-}
-
-// QueueElement is a single element in a Queue.
-message QueueElement {
-  // data is opaque data used as the input and output of Jobs
-  bytes data = 1;
-  // filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs.
-  // Any of the filesets referenced here will be persisted for as long as this element is in a Queue.
-  // New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary.
-  repeated string filesets = 2;
 }
 
 service API {
@@ -145,8 +144,10 @@ service API {
 message CreateJobRequest {
   // context is a bearer token used when calling from within a running Job.
   string context = 1;
-  google.protobuf.Any spec = 2;
-  QueueElement input = 3;
+  // program is a fileset handle.
+  string program = 2;
+  // input is a list of fileset handles.
+  repeated string input = 3;
   bool cache_read = 4;
   bool cache_write = 5;
 }
@@ -214,11 +215,17 @@ message InspectJobResponse {
 message ProcessQueueRequest {
   // queue is set to start processing from a Queue.
   Queue queue = 1;
+
+  // Success is set by the client to complete the Job successfully.
+  message Success {
+    // output is a list of fileset handles produced by a successful Job.
+    repeated string output = 1;
+  }
+
   // result must be set for the Job's output to be defined.
   // If the result is not set, the Job will error with DISCONNECTED.
   oneof result {
-    // output is set by the client to complete the Job successfully.
-    QueueElement output = 2;
+    Success success = 2;
     // failed is set by the client to fail the Job.
     // The Job will transition to state DONE with code FAILED.
     bool failed = 3;
@@ -232,7 +239,7 @@ message ProcessQueueResponse {
   string context = 1;
   // input is the input data for a Job.
   // The server sends this to ask the client to compute the output.
-  QueueElement input = 2;
+  repeated string input = 2;
 }
 
 // TODO:

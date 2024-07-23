@@ -60,6 +60,7 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		log.Error(env.BackgroundContext, "Preflight checks are disabled. This is not recommended.")
 	}
 	go apiServer.master(env.BackgroundContext)
+	go kubeEventTail(pctx.Background("pps-kube-events"), env.KubeClient.CoreV1(), env.Config.Namespace, env.EtcdPrefix, env.EtcdClient)
 	return apiServer, nil
 }
 

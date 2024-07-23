@@ -36,6 +36,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -1476,5 +1477,21 @@ func TestRerunPipeline(t *testing.T) {
 		"project", projectName,
 		"pipeline", pipelineName,
 		"job", jobs[0].Job.GetId(),
+	).Run())
+}
+
+func TestProjectDefaultsMetadata(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	rootClient := tu.AuthenticatedPachClient(t, c, auth.RootUser)
+	projectName := tu.UniqueString("proj")
+	require.NoError(t, tu.PachctlBashCmd(t, rootClient, `
+		pachctl create project {{.projectName}}
+		echo '{"createPipelineRequest": {"autoscaling": true}}' | pachctl create defaults --project {{.projectName}}
+		pachctl inspect defaults --project {{.projectName}} --raw | jq -r .createdBy | match "pach:root"
+	`,
+		"projectName", projectName,
 	).Run())
 }

@@ -26,6 +26,16 @@ func (x *DeleteFile) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *CopyFile) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("fileset_id", x.FilesetId)
+	enc.AddString("src", x.Src)
+	enc.AddString("dst", x.Dst)
+	return nil
+}
+
 func (x *CreateFilesetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -39,6 +49,11 @@ func (x *CreateFilesetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		enc.AddObject("delete_file", obj)
 	} else {
 		enc.AddReflected("delete_file", x.GetDeleteFile())
+	}
+	if obj, ok := interface{}(x.GetCopyFile()).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("copy_file", obj)
+	} else {
+		enc.AddReflected("copy_file", x.GetCopyFile())
 	}
 	return nil
 }

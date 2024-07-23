@@ -664,7 +664,7 @@ func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *
 		},
 		StringData: map[string]string{
 			"determined-username": "admin",
-			"determined-password": "",
+			"determined-password": "Password1",
 		},
 	}, metav1.CreateOptions{})
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined login secret setup", err)
