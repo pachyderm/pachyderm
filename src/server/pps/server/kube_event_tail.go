@@ -35,16 +35,16 @@ func kubeEventTail(ctx context.Context, coreV1 corev1.CoreV1Interface, namespace
 		}
 		defer errors.Invoke1(&retErr, lock.Unlock, ctx, "error unlocking")
 		lw := cache.NewListWatchFromClient(coreV1.RESTClient(), "events", namespace, fields.Everything())
-		r := cache.NewReflector(lw, &v1.Event{}, &s{ctx: ctx}, 0)
+		r := cache.NewReflector(lw, &v1.Event{}, &eventStore{ctx: ctx}, 0)
 		r.Run(ctx.Done())
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		log.Error(ctx, "error in pachw run; will retry", zap.Error(err), zap.Duration("retryAfter", d))
+		log.Error(ctx, "error in kube event tail; will retry", zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
 	})
 }
 
-func (s *s) logEvent(e *v1.Event) {
+func (s *eventStore) logEvent(e *v1.Event) {
 	if e == nil {
 		return
 	}
@@ -127,13 +127,13 @@ func (s *s) logEvent(e *v1.Event) {
 	)
 }
 
-// s is a cache.Store that logs events as they are added.
-type s struct {
+// eventStore is a cache.Store that logs events as they are added.
+type eventStore struct {
 	ctx context.Context
 }
 
 // Add implements cache.Store.
-func (s *s) Add(obj interface{}) error {
+func (s *eventStore) Add(obj interface{}) error {
 	e, ok := obj.(*v1.Event)
 	if !ok {
 		return errors.New("non-event object received")
@@ -151,15 +151,15 @@ func (s *s) Add(obj interface{}) error {
 // started up, you'll also suppress events that are happening now but are updates to an event
 // resource that was created before the program started.  So some care is necessary, and is why the
 // feature currently doesn't exist.
-func (s *s) Update(obj interface{}) error {
+func (s *eventStore) Update(obj interface{}) error {
 	return s.Add(obj)
 }
 
 // Delete implements cache.Store.
-func (*s) Delete(obj interface{}) error { return nil }
+func (*eventStore) Delete(obj interface{}) error { return nil }
 
 // Replace implements cache.Store.
-func (s *s) Replace(objs []interface{}, unusedResourceVersion string) error {
+func (s *eventStore) Replace(objs []interface{}, unusedResourceVersion string) error {
 	var result error
 	for _, obj := range objs {
 		if err := s.Add(obj); err != nil {
@@ -170,12 +170,12 @@ func (s *s) Replace(objs []interface{}, unusedResourceVersion string) error {
 }
 
 // We only implement cache.Store for cache.Reflector, and cache.Reflector does not call List/Get methods.
-func (*s) Resync() error       { return nil }
-func (*s) List() []interface{} { return nil }
-func (*s) ListKeys() []string  { return nil }
-func (*s) Get(obj interface{}) (item interface{}, exists bool, err error) {
+func (*eventStore) Resync() error       { return nil }
+func (*eventStore) List() []interface{} { return nil }
+func (*eventStore) ListKeys() []string  { return nil }
+func (*eventStore) Get(obj interface{}) (item interface{}, exists bool, err error) {
 	return nil, false, errors.New("unimplemented")
 }
-func (*s) GetByKey(key string) (item interface{}, exists bool, err error) {
+func (*eventStore) GetByKey(key string) (item interface{}, exists bool, err error) {
 	return nil, false, errors.New("unimplemented")
 }
