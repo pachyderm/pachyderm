@@ -7580,56 +7580,36 @@ func TestForgetRPC(t *testing.T) {
 
 	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "out", "master", "")
 	require.NoError(t, err)
-	commit := commitInfo.Commit
+	commitToForget := commitInfo.Commit
 
-	require.NoError(t, env.PachClient.PutFile(commit, "file", strings.NewReader("foo")))
+	require.NoError(t, env.PachClient.PutFile(commitToForget, "file", strings.NewReader("foo")))
 	require.NoError(t, finishCommit(env.PachClient, "out", "master", ""))
 	require.NoError(t, finishCommit(env.PachClient, "in", "master", ""))
 
-	var chunkCount int64
-	db := env.ServiceEnv.GetDBClient()
-	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		err := db.QueryRow("select count(*) from storage.chunk_objects").Scan(&chunkCount)
-		require.NoError(t, err)
-		return nil
-	}))
-
-	// sanity check. There should be at least one chunk data
-	require.NotEqual(t, int64(0), chunkCount)
+	// we create another commit so that our commit to forget is not branch head
+	_, err = env.PachClient.StartCommit(pfs.DefaultProjectName, "in", "master")
+	require.NoError(t, err)
+	require.NoError(t, finishCommit(env.PachClient, "in", "master", ""))
+	require.NoError(t, finishCommit(env.PachClient, "out", "master", ""))
 
 	picker := pfs.CommitPicker{
 		Picker: &pfs.CommitPicker_Id{
 			Id: &pfs.CommitPicker_CommitByGlobalId{
 				Repo: repoPicker("out", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName)),
-				Id:   commit.Id,
+				Id:   commitToForget.Id,
 			},
 		},
 	}
 
 	_, err = env.PFSServer.ForgetCommit(ctx, &pfs.ForgetCommitRequest{Commit: &picker})
 	require.NoError(t, err)
-	// TTL for filesets in tracker_objects is 10 minutes. We use the following
-	// query to manually make all the filesets expired to save time.
-	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		// we expire filesets immediately
-		_, err := tx.Exec("UPDATE storage.tracker_objects SET expires_at = CURRENT_TIMESTAMP WHERE str_id LIKE 'fileset%'")
-		require.NoError(t, err)
-		// we expire chunks after 6 seconds
-		_, err = tx.Exec("UPDATE storage.tracker_objects SET expires_at = CURRENT_TIMESTAMP + INTERVAL '6 seconds' WHERE str_id LIKE 'chunk%'")
-		require.NoError(t, err)
-		return nil
-	}))
-	// we wait enough time to expire the trackers objects and let gc kick in
-	time.Sleep(21 * time.Second)
-
-	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		err := db.QueryRow("select count(*) from storage.chunk_objects").Scan(&chunkCount)
-		require.NoError(t, err)
-		return nil
-	}))
-
-	// the chunks data should be successfully dropped
-	require.Equal(t, int64(0), chunkCount)
+	_, err = env.PFSServer.GetFileSet(ctx, &pfs.GetFileSetRequest{Commit: commitToForget, Type: pfs.GetFileSetRequest_TOTAL})
+	require.Equal(t, "get file set: the commit is forgotten", err.Error())
+	_, err = env.PFSServer.GetFileSet(ctx, &pfs.GetFileSetRequest{Commit: commitToForget, Type: pfs.GetFileSetRequest_DIFF})
+	require.Equal(t, "get file set: the commit is forgotten", err.Error())
+	var b bytes.Buffer
+	err = env.PachClient.GetFile(commitToForget, "file", &b)
+	require.Equal(t, "get file: the commit is forgotten", err.Error())
 }
 
 func TestForgetRPCOpenChild(t *testing.T) {
@@ -7689,4 +7669,46 @@ func TestForgetRPCInputCommit(t *testing.T) {
 
 	_, err = env.PFSServer.ForgetCommit(ctx, &pfs.ForgetCommitRequest{Commit: &picker})
 	require.Equal(t, "Forget Commit: the commit to be forgotten must be in an output repo", err.Error())
+}
+
+func TestForgetRPCNoBranchHead(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, gcOption)
+
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "in"))
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
+	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
+
+	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "out", "master", "")
+	require.NoError(t, err)
+	commitToForget := commitInfo.Commit
+
+	require.NoError(t, env.PachClient.PutFile(commitToForget, "file", strings.NewReader("foo")))
+	require.NoError(t, finishCommit(env.PachClient, "out", "master", ""))
+	require.NoError(t, finishCommit(env.PachClient, "in", "master", ""))
+
+	picker := pfs.CommitPicker{
+		Picker: &pfs.CommitPicker_Id{
+			Id: &pfs.CommitPicker_CommitByGlobalId{
+				Repo: repoPicker("out", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName)),
+				Id:   commitToForget.Id,
+			},
+		},
+	}
+
+	_, err = env.PFSServer.ForgetCommit(ctx, &pfs.ForgetCommitRequest{Commit: &picker})
+	require.Equal(t, "Forget Commit: list branch in transaction: for each branch: the branch head cannot be a forgotten commit", err.Error())
+
+	// we create another commit so that our commit to forget is not branch head
+	_, err = env.PachClient.StartCommit(pfs.DefaultProjectName, "in", "master")
+	require.NoError(t, err)
+	require.NoError(t, finishCommit(env.PachClient, "in", "master", ""))
+	require.NoError(t, finishCommit(env.PachClient, "out", "master", ""))
+
+	_, err = env.PFSServer.ForgetCommit(ctx, &pfs.ForgetCommitRequest{Commit: &picker})
+	require.NoError(t, err)
+
+	// an error is raised when branch head is moved to a forgotten commit
+	err = env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "master", commitToForget.Id, []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")})
+	require.Equal(t, "list branch in transaction: for each branch: the branch head cannot be a forgotten commit", err.Error())
 }

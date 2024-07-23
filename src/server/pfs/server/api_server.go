@@ -689,7 +689,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, server pfs.API_GetFileS
 		}
 		src, err := a.driver.getFile(ctx, request.File, request.PathRange)
 		if err != nil {
-			return 0, err
+			return 0, errors.Wrap(err, "get file")
 		}
 		if err := checkSingleFile(ctx, src); err != nil {
 			return 0, err
@@ -857,6 +857,11 @@ func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) 
 	if err != nil {
 		return nil, errors.Wrap(err, "get file set")
 	}
+	// if the commit is forgotten, get diff fileset will not be executed
+	filesetID, err := a.driver.getFileSet(ctx, commit)
+	if err != nil {
+		return nil, errors.Wrap(err, "get file set")
+	}
 	if req.Type == pfs.GetFileSetRequest_DIFF {
 		diff, err := a.driver.commitStore.GetDiffFileSet(ctx, commit)
 		if err != nil {
@@ -865,10 +870,6 @@ func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) 
 		return &pfs.CreateFileSetResponse{
 			FileSetId: diff.HexString(),
 		}, nil
-	}
-	filesetID, err := a.driver.getFileSet(ctx, commit)
-	if err != nil {
-		return nil, err
 	}
 	return &pfs.CreateFileSetResponse{
 		FileSetId: filesetID.HexString(),
