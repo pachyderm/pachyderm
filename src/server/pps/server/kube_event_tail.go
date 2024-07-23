@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"reflect"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -20,6 +21,12 @@ import (
 )
 
 func kubeEventTail(ctx context.Context, coreV1 corev1.CoreV1Interface, namespace string, etcdPrefix string, etcdClient *etcd.Client) {
+	// kubernetes's fake ClientSet used in our unit tests doesn't support the RESTClient.
+	// in unit tests we don't run kube event tail.
+	if coreV1.RESTClient() == nil || reflect.ValueOf(coreV1.RESTClient()).IsNil() {
+		log.Info(ctx, "skip kube event tail. kubernetes client not fully configured.")
+		return
+	}
 	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 		lock := dlock.NewDLock(etcdClient, path.Join(etcdPrefix, "pachd-kube-events"))
 		ctx, err := lock.Lock(ctx)

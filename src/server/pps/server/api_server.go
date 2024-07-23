@@ -1341,7 +1341,7 @@ func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServ
 			return nil
 		}
 		var ok bool
-		if _, ok = obj["kube-event"]; !ok {
+		if _, ok = obj["kubeEvent"]; !ok {
 			return nil
 		}
 		return errors.EnsureStack(apiGetKubeEventsServer.Send(&pps.LokiLogMessage{
