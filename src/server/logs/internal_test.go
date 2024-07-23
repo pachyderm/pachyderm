@@ -108,6 +108,13 @@ func Test_adapter_publish(t *testing.T) {
 			"blank": {
 				entry: loki.Entry{},
 				want: &logs.LogMessage{
+					Object: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"time":     structpb.NewStringValue("0001-01-01T00:00:00Z"),
+							"message":  structpb.NewStringValue(""),
+							"severity": structpb.NewStringValue("info"),
+						},
+					},
 					Verbatim: &logs.VerbatimLogMessage{
 						Timestamp: timestamppb.New(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)),
 					},
@@ -115,12 +122,25 @@ func Test_adapter_publish(t *testing.T) {
 			},
 			"pgbouncer": {
 				entry: loki.Entry{
-					Line: `2024-04-16 21:33:01.362 UTC [1] LOG S-0x557bad51cc70: pachyderm/pachyderm@10.96.52.159:5432 closing because: server idle timeout (age=1350s)`,
+					Line:      `2024-04-16 21:33:01.362 UTC [1] LOG S-0x557bad51cc70: pachyderm/pachyderm@10.96.52.159:5432 closing because: server idle timeout (age=1350s)`,
+					Timestamp: time.Date(2024, 4, 16, 21, 33, 1, 362000000, time.UTC),
 				},
 				want: &logs.LogMessage{
+					Object: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"time":     structpb.NewStringValue("2024-04-16T21:33:01.362Z"),
+							"message":  structpb.NewStringValue("2024-04-16 21:33:01.362 UTC [1] LOG S-0x557bad51cc70: pachyderm/pachyderm@10.96.52.159:5432 closing because: server idle timeout (age=1350s)"),
+							"severity": structpb.NewStringValue("info"),
+						},
+					},
+					NativeTimestamp: timestamppb.New(time.Date(2024, 4, 16, 21, 33, 1, 362000000, time.UTC)),
 					Verbatim: &logs.VerbatimLogMessage{
 						Line:      []byte(`2024-04-16 21:33:01.362 UTC [1] LOG S-0x557bad51cc70: pachyderm/pachyderm@10.96.52.159:5432 closing because: server idle timeout (age=1350s)`),
-						Timestamp: timestamppb.New(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC)),
+						Timestamp: timestamppb.New(time.Date(2024, 4, 16, 21, 33, 1, 362000000, time.UTC)),
+					},
+					PpsLogMessage: &pps.LogMessage{
+						Ts:      timestamppb.New(time.Date(2024, 4, 16, 21, 33, 1, 362000000, time.UTC)),
+						Message: "2024-04-16 21:33:01.362 UTC [1] LOG S-0x557bad51cc70: pachyderm/pachyderm@10.96.52.159:5432 closing because: server idle timeout (age=1350s)",
 					},
 				},
 			},

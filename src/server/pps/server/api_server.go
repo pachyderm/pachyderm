@@ -4231,11 +4231,11 @@ func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSumm
 				return nil
 			}
 		}
-		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
+		if pi.State == pps.PipelineState_PIPELINE_FAILURE || pi.State == pps.PipelineState_PIPELINE_CRASHING {
 			summary.FailedPipelines++
 		} else if pi.State == pps.PipelineState_PIPELINE_PAUSED {
 			summary.PausedPipelines++
-		} else { // catch all includes crashing state
+		} else {
 			summary.ActivePipelines++
 		}
 		if err := a.getLatestJobState(ctx, pi); err != nil {
