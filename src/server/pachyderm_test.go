@@ -11685,23 +11685,37 @@ func TestPipelinesSummary(t *testing.T) {
 		if state == Crashing {
 			// Make pipeline crash
 			image = "fehowfpjoefw"
+			c.CreatePipeline(
+				project,
+				name,
+				image,
+				cmd,
+				nil, /* stdin */
+				nil, /* spec */
+				&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: repo, Glob: "/*", Name: "in"}},
+				"",    /* output */
+				false, /* update */
+			)
+		} else {
+			require.NoError(t, c.CreatePipeline(
+				project,
+				name,
+				image,
+				cmd,
+				nil, /* stdin */
+				nil, /* spec */
+				&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: repo, Glob: "/*", Name: "in"}},
+				"",    /* output */
+				false, /* update */
+			))
+
+			if state == Paused {
+				require.NoError(t, c.StopPipeline(project, name))
+			}
+			_, err := c.WaitCommit(project, name, "master", "")
+			require.NoError(t, err)
 		}
-		require.NoError(t, c.CreatePipeline(
-			project,
-			name,
-			image,
-			cmd,
-			nil, /* stdin */
-			nil, /* spec */
-			&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: repo, Glob: "/*", Name: "in"}},
-			"",    /* output */
-			false, /* update */
-		))
-		if state == Paused {
-			require.NoError(t, c.StopPipeline(project, name))
-		}
-		_, err := c.WaitCommit(project, name, "master", "")
-		require.NoError(t, err)
+
 	}
 	projects := []string{"a", "b"}
 	for _, prj := range projects {
