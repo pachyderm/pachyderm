@@ -44,6 +44,7 @@ import (
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -7883,6 +7884,7 @@ func TestService(t *testing.T) {
 		false,
 		8000,
 		31800,
+		"",
 		annotations,
 	))
 	time.Sleep(10 * time.Second)
@@ -8063,6 +8065,131 @@ func TestServiceEnvVars(t *testing.T) {
 		return nil
 	})
 	require.Equal(t, "custom-value", strings.TrimSpace(string(envValue)))
+}
+
+func TestServicePipelineUpdate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, ns := minikubetestenv.AcquireCluster(t)
+	aRepo := tu.UniqueString("A")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, aRepo))
+	bPipeline := tu.UniqueString("B")
+	aCommit, err := c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "master", ""))
+	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
+		bPipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep 5s",
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", aRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pfs.DefaultProjectName, aRepo, "/"),
+		"",
+		false,
+	))
+	pipeline := tu.UniqueString("pipelineservice")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{
+				Image: "trinitronx/python-simplehttpserver",
+				Cmd:   []string{"sh"},
+				Stdin: []string{
+					fmt.Sprintf("cd /pfs/%s", bPipeline),
+					"exec python -m SimpleHTTPServer 8000",
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:  client.NewPFSInput(pfs.DefaultProjectName, bPipeline, "/"),
+			Update: false,
+			Service: &pps.Service{
+				InternalPort: 8000,
+				ExternalPort: 31801,
+			},
+		})
+	require.NoError(t, err)
+	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
+	serviceAddr := func() string {
+		// Hack: detect if running inside the cluster by looking for this env var
+		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
+			// Outside cluster: Re-use external IP and external port defined above
+			host := c.GetAddress().Host
+			return net.JoinHostPort(host, "31801")
+		}
+		// Get k8s service corresponding to pachyderm service above--must access
+		// via internal cluster IP, but we don't know what that is
+		var address string
+		kubeClient := tu.GetKubeClient(t)
+		backoff.Retry(func() error { //nolint:errcheck
+			svcs, err := kubeClient.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
+			require.NoError(t, err)
+			for _, svc := range svcs.Items {
+				// Pachyderm actually generates two services for pipelineservice: one
+				// for pachyderm (a ClusterIP service) and one for the user container
+				// (a NodePort service, which is the one we want)
+				rightName := strings.Contains(svc.Name, "pipelineservice")
+				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
+				if !rightName || !rightType {
+					continue
+				}
+				host := svc.Spec.ClusterIP
+				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
+				address = net.JoinHostPort(host, port)
+				return nil
+			}
+			return errors.Errorf("no matching k8s service found")
+		}, backoff.NewTestingBackOff())
+		require.NotEqual(t, "", address)
+		return address
+	}()
+	getContents := func() string {
+		var value []byte
+		require.NoErrorWithinTRetryConstant(t, time.Minute, func() error {
+			httpC := http.Client{
+				Timeout: 3 * time.Second, // fail fast
+			}
+			resp, err := httpC.Get(fmt.Sprintf("http://%s/file", serviceAddr))
+			if err != nil {
+				// sleep => don't spam retries. Seems to make test less flaky
+				time.Sleep(time.Second)
+				return errors.EnsureStack(err)
+			}
+			if resp.StatusCode != 200 {
+				return errors.Errorf("GET returned %d", resp.StatusCode)
+			}
+			value, err = io.ReadAll(resp.Body)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			return nil
+		}, time.Second)
+		return string(value)
+	}
+	require.Equal(t, "foo", strings.TrimSpace(getContents()))
+
+	aCommit, err = c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("bar\n")))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "master", ""))
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		contents := strings.TrimSpace(getContents())
+		if contents != "bar" {
+			return errors.New("values not updated")
+		}
+		return nil
+	})
 }
 
 func TestDatumSetSpec(t *testing.T) {
@@ -11562,6 +11689,67 @@ func TestDatumBatching(t *testing.T) {
 		request := createPipelineRequest(pipeline, script)
 		checkState(request, pps.JobState_JOB_SUCCESS)
 	})
+}
+
+func TestDatumFileset(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+	ctx := pctx.TestContext(t)
+
+	project := pfs.DefaultProjectName
+	repo := tu.UniqueString("TestDatumFileset_data")
+	require.NoError(t, c.CreateRepo(project, repo))
+
+	pipeline := tu.UniqueString("TestDatumFileset")
+	require.NoError(t, c.CreatePipeline(
+		project,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{"touch /pfs/out/$FILESET_ID"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(project, repo, "/*"),
+		"",
+		false,
+	))
+
+	commit, err := c.StartCommit(project, repo, "master")
+	require.NoError(t, err)
+	numFiles := 10
+	var paths []string
+	for i := 0; i < numFiles; i++ {
+		path := fmt.Sprintf("/dir/file-%02d", i)
+		require.NoError(t, c.PutFile(commit, path, strings.NewReader(path)))
+		paths = append(paths, path)
+	}
+	require.NoError(t, c.FinishCommit(project, repo, "", commit.Id))
+	_, err = c.WaitCommitSetAll(commit.Id)
+	require.NoError(t, err)
+	outputCommit := client.NewCommit(project, pipeline, "", commit.Id)
+	fileInfos, err := c.ListFileAll(outputCommit, "")
+	require.NoError(t, err)
+
+	request := &storage.ReadFilesetRequest{FilesetId: strings.TrimLeft(fileInfos[0].File.Path, "/")}
+	rfc, err := c.FilesetClient.ReadFileset(ctx, request)
+	require.NoError(t, err)
+	for {
+		msg, err := rfc.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		require.True(t, len(paths) > 0)
+		path := paths[0]
+		require.True(t, strings.HasSuffix(msg.Path, path))
+		require.True(t, bytes.Equal([]byte(path), msg.Data.Value))
+		paths = paths[1:]
+	}
+	require.Equal(t, 0, len(paths))
 }
 
 func TestJQFilterInfiniteLoop(t *testing.T) {

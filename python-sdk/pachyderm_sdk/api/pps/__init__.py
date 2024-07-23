@@ -563,6 +563,9 @@ class PipelineInfo(betterproto.Message):
     details: "PipelineInfoDetails" = betterproto.message_field(12)
     user_spec_json: str = betterproto.string_field(13)
     effective_spec_json: str = betterproto.string_field(14)
+    metadata: Dict[str, str] = betterproto.map_field(
+        15, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
 
 
 @dataclass(eq=False, repr=False)
@@ -578,6 +581,8 @@ class PipelineInfoDetails(betterproto.Message):
     parallelism_spec: "ParallelismSpec" = betterproto.message_field(3)
     egress: "Egress" = betterproto.message_field(4)
     created_at: datetime = betterproto.message_field(5)
+    updated_at: datetime = betterproto.message_field(39)
+    created_by: str = betterproto.string_field(40)
     recent_error: str = betterproto.string_field(6)
     workers_requested: int = betterproto.int64_field(7)
     workers_available: int = betterproto.int64_field(8)
@@ -1282,6 +1287,7 @@ class CreatePipelineTransaction(betterproto.Message):
     create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(1)
     user_json: str = betterproto.string_field(2)
     effective_json: str = betterproto.string_field(3)
+    created_by: str = betterproto.string_field(4)
 
 
 @dataclass(eq=False, repr=False)
@@ -1353,6 +1359,17 @@ class PipelinesSummary(betterproto.Message):
 
     unhealthy_pipelines: int = betterproto.int64_field(5)
     """count of pipelines with a failed latest job"""
+
+
+@dataclass(eq=False, repr=False)
+class PipelinePicker(betterproto.Message):
+    name: "PipelinePickerPipelineName" = betterproto.message_field(1, group="picker")
+
+
+@dataclass(eq=False, repr=False)
+class PipelinePickerPipelineName(betterproto.Message):
+    project: "_pfs__.ProjectPicker" = betterproto.message_field(1)
+    name: str = betterproto.string_field(2)
 
 
 class ApiStub:

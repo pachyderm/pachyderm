@@ -49,7 +49,9 @@ func Test_adapter_publish(t *testing.T) {
 							"time": structpb.NewStringValue("2024-04-16T16:40:06.177970158Z"),
 						},
 					},
-					PpsLogMessage:   new(pps.LogMessage),
+					PpsLogMessage: &pps.LogMessage{
+						Ts: timestamppb.New(time.Date(2024, 04, 16, 16, 40, 6, 177970158, time.UTC)),
+					},
 					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 16, 40, 6, 177970158, time.UTC)),
 				},
 			},

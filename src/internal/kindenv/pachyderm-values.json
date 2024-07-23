@@ -14,7 +14,6 @@
   },
   "pachd": {
     "clusterDeploymentID": "dev",
-    "enterpriseSecret": "enterpriseSecret",
     "disableLogSampling": true,
     "logLevel": "debug",
     "sqlQueryLogs": true,

@@ -538,8 +538,11 @@
     - [Pipeline](#pps_v2-Pipeline)
     - [PipelineInfo](#pps_v2-PipelineInfo)
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
+    - [PipelineInfo.MetadataEntry](#pps_v2-PipelineInfo-MetadataEntry)
     - [PipelineInfos](#pps_v2-PipelineInfos)
     - [PipelinePage](#pps_v2-PipelinePage)
+    - [PipelinePicker](#pps_v2-PipelinePicker)
+    - [PipelinePicker.PipelineName](#pps_v2-PipelinePicker-PipelineName)
     - [PipelinesSummary](#pps_v2-PipelinesSummary)
     - [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest)
     - [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse)
@@ -695,6 +698,7 @@
     - [AppendFile](#storage-AppendFile)
     - [ComposeFilesetRequest](#storage-ComposeFilesetRequest)
     - [ComposeFilesetResponse](#storage-ComposeFilesetResponse)
+    - [CopyFile](#storage-CopyFile)
     - [CreateFilesetRequest](#storage-CreateFilesetRequest)
     - [CreateFilesetResponse](#storage-CreateFilesetResponse)
     - [DeleteFile](#storage-DeleteFile)
@@ -5017,6 +5021,7 @@ Edit represents editing one piece of metadata.
 | branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  | branch targets a branch&#39;s metadata. |
 | repo | [pfs_v2.RepoPicker](#pfs_v2-RepoPicker) |  | repo targets a repo&#39;s metadata. |
 | cluster | [ClusterPicker](#metadata-ClusterPicker) |  | cluster targets the cluster&#39;s metadata. |
+| pipeline | [pps_v2.PipelinePicker](#pps_v2-PipelinePicker) |  | pipeline targets a pipeline. |
 | replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
 | add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
 | edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |
@@ -5276,7 +5281,10 @@ To set a user&#39;s auth scope for a resource, use the Pachyderm Auth API (in sr
 | subvenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | direct_provenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | trigger | [Trigger](#pfs_v2-Trigger) |  |  |
-| metadata | [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry) | repeated |  |
+| metadata | [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry) | repeated | Metadata on the branch. |
+| created_by | [string](#string) |  | The user that caused this branch to be created. |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | When the branch was added to the database. |
+| updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | When information about the branch was last modified (not necessarily when the data in this branch changed or anything like that). |
 
 
 
@@ -5435,6 +5443,9 @@ CommitInfo is the main data structure representing a commit in postgres
 | size_bytes_upper_bound | [int64](#int64) |  |  |
 | details | [CommitInfo.Details](#pfs_v2-CommitInfo-Details) |  |  |
 | metadata | [CommitInfo.MetadataEntry](#pfs_v2-CommitInfo-MetadataEntry) | repeated | Metadata is user-applied annotations. |
+| created_by | [string](#string) |  | The user that created this commit or caused this commit to be created. |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | The time the commit was added to the database. |
+| updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | The time this commit was most recently updated. |
 
 
 
@@ -7822,6 +7833,7 @@ must cancel the stream when it no longer wants to receive datums.
 | create_pipeline_request | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) |  |  |
 | user_json | [string](#string) |  | the JSON the user originally submitted |
 | effective_json | [string](#string) |  | the effective spec: the result of merging the user JSON into the cluster defaults |
+| created_by | [string](#string) |  |  |
 
 
 
@@ -8714,6 +8726,7 @@ potentially expensive operations.
 | details | [PipelineInfo.Details](#pps_v2-PipelineInfo-Details) |  |  |
 | user_spec_json | [string](#string) |  | The user-submitted pipeline spec in JSON format. |
 | effective_spec_json | [string](#string) |  | The effective spec used to create the pipeline. Created by merging the user spec into the cluster defaults. |
+| metadata | [PipelineInfo.MetadataEntry](#pps_v2-PipelineInfo-MetadataEntry) | repeated |  |
 
 
 
@@ -8733,6 +8746,8 @@ potentially expensive operations.
 | parallelism_spec | [ParallelismSpec](#pps_v2-ParallelismSpec) |  |  |
 | egress | [Egress](#pps_v2-Egress) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| created_by | [string](#string) |  |  |
 | recent_error | [string](#string) |  |  |
 | workers_requested | [int64](#int64) |  |  |
 | workers_available | [int64](#int64) |  |  |
@@ -8754,7 +8769,7 @@ potentially expensive operations.
 | pod_spec | [string](#string) |  |  |
 | pod_patch | [string](#string) |  |  |
 | s3_out | [bool](#bool) |  |  |
-| metadata | [Metadata](#pps_v2-Metadata) |  |  |
+| metadata | [Metadata](#pps_v2-Metadata) |  | Kubernetes metadata |
 | reprocess_spec | [string](#string) |  |  |
 | unclaimed_tasks | [int64](#int64) |  |  |
 | worker_rc | [string](#string) |  |  |
@@ -8764,6 +8779,22 @@ potentially expensive operations.
 | determined | [Determined](#pps_v2-Determined) |  |  |
 | maximum_expected_uptime | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | workers_started_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelineInfo-MetadataEntry"></a>
+
+### PipelineInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -8796,6 +8827,37 @@ potentially expensive operations.
 | order | [PipelinePage.Ordering](#pps_v2-PipelinePage-Ordering) |  |  |
 | page_size | [int64](#int64) |  |  |
 | page_index | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelinePicker"></a>
+
+### PipelinePicker
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [PipelinePicker.PipelineName](#pps_v2-PipelinePicker-PipelineName) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelinePicker-PipelineName"></a>
+
+### PipelinePicker.PipelineName
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  |  |
+| name | [string](#string) |  |  |
 
 
 
@@ -11137,6 +11199,26 @@ a file with the specified path doesn&#39;t exist, it will be created.
 
 
 
+<a name="storage-CopyFile"></a>
+
+### CopyFile
+CopyFile copies a file or directory from the specified fileset with the
+specified path. If a file or directory with the specified path doesn&#39;t
+exist in the specified fileset, the copy will be a no-op.
+TODO: Append?
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| src | [string](#string) |  | Src is the source path of the file or directory. |
+| dst | [string](#string) |  | Dst is the destination path of the file or directory. If dst is unset, src will be used as the destination path. |
+
+
+
+
+
+
 <a name="storage-CreateFilesetRequest"></a>
 
 ### CreateFilesetRequest
@@ -11151,6 +11233,7 @@ append.
 | ----- | ---- | ----- | ----------- |
 | append_file | [AppendFile](#storage-AppendFile) |  |  |
 | delete_file | [DeleteFile](#storage-DeleteFile) |  |  |
+| copy_file | [CopyFile](#storage-CopyFile) |  |  |
 
 
 

@@ -10787,6 +10787,18 @@
               }
             },
             {
+              "name": "pipeline",
+              "description": "pipeline targets a pipeline.",
+              "label": "",
+              "type": "PipelinePicker",
+              "longType": "pps_v2.PipelinePicker",
+              "fullType": "pps_v2.PipelinePicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": ""
+            },
+            {
               "name": "replace",
               "description": "replace replaces a target's metadata with a new metadata mapping.",
               "label": "",
@@ -11633,12 +11645,48 @@
             },
             {
               "name": "metadata",
-              "description": "",
+              "description": "Metadata on the branch.",
               "label": "repeated",
               "type": "MetadataEntry",
               "longType": "BranchInfo.MetadataEntry",
               "fullType": "pfs_v2.BranchInfo.MetadataEntry",
               "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "created_by",
+              "description": "The user that caused this branch to be created.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "created_at",
+              "description": "When the branch was added to the database.",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "updated_at",
+              "description": "When information about the branch was last modified (not necessarily when the data in this\nbranch changed or anything like that).",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
@@ -12083,6 +12131,42 @@
               "longType": "CommitInfo.MetadataEntry",
               "fullType": "pfs_v2.CommitInfo.MetadataEntry",
               "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "created_by",
+              "description": "The user that created this commit or caused this commit to be created.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "created_at",
+              "description": "The time the commit was added to the database.",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "updated_at",
+              "description": "The time this commit was most recently updated.",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
@@ -18809,6 +18893,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "created_by",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -21838,6 +21934,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "PipelineInfo.MetadataEntry",
+              "fullType": "pps_v2.PipelineInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -21906,6 +22014,30 @@
               "type": "Timestamp",
               "longType": "google.protobuf.Timestamp",
               "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "updated_at",
+              "description": "",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "created_by",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -22165,7 +22297,7 @@
             },
             {
               "name": "metadata",
-              "description": "",
+              "description": "Kubernetes metadata",
               "label": "",
               "type": "Metadata",
               "longType": "Metadata",
@@ -22286,6 +22418,42 @@
           ]
         },
         {
+          "name": "MetadataEntry",
+          "longName": "PipelineInfo.MetadataEntry",
+          "fullName": "pps_v2.PipelineInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "PipelineInfos",
           "longName": "PipelineInfos",
           "fullName": "pps_v2.PipelineInfos",
@@ -22350,6 +22518,66 @@
               "type": "int64",
               "longType": "int64",
               "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelinePicker",
+          "longName": "PipelinePicker",
+          "fullName": "pps_v2.PipelinePicker",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "PipelineName",
+              "longType": "PipelinePicker.PipelineName",
+              "fullType": "pps_v2.PipelinePicker.PipelineName",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelineName",
+          "longName": "PipelinePicker.PipelineName",
+          "fullName": "pps_v2.PipelinePicker.PipelineName",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "ProjectPicker",
+              "longType": "pfs_v2.ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -29865,6 +30093,54 @@
           ]
         },
         {
+          "name": "CopyFile",
+          "longName": "CopyFile",
+          "fullName": "storage.CopyFile",
+          "description": "CopyFile copies a file or directory from the specified fileset with the\nspecified path. If a file or directory with the specified path doesn't\nexist in the specified fileset, the copy will be a no-op.\nTODO: Append?",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "src",
+              "description": "Src is the source path of the file or directory.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "dst",
+              "description": "Dst is the destination path of the file or directory.\nIf dst is unset, src will be used as the destination path.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "CreateFilesetRequest",
           "longName": "CreateFilesetRequest",
           "fullName": "storage.CreateFilesetRequest",
@@ -29893,6 +30169,18 @@
               "type": "DeleteFile",
               "longType": "DeleteFile",
               "fullType": "storage.DeleteFile",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "modification",
+              "defaultValue": ""
+            },
+            {
+              "name": "copy_file",
+              "description": "",
+              "label": "",
+              "type": "CopyFile",
+              "longType": "CopyFile",
+              "fullType": "storage.CopyFile",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "modification",

@@ -1334,7 +1334,16 @@ func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServ
 	if request.Since != nil {
 		since = time.Now().Add(-time.Duration(request.Since.Seconds) * time.Second)
 	}
-	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachyderm-kube-event-tail"}`, since, time.Time{}, false, func(t time.Time, line string) error {
+	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachd"}`, since, time.Time{}, false, func(t time.Time, line string) error {
+		var obj map[string]any
+		line, obj = lokiutil.RepairLine(line)
+		if obj == nil {
+			return nil
+		}
+		var ok bool
+		if _, ok = obj["kubeEvent"]; !ok {
+			return nil
+		}
 		return errors.EnsureStack(apiGetKubeEventsServer.Send(&pps.LokiLogMessage{
 			Message: strings.TrimSuffix(line, "\n"),
 		}))
@@ -2367,11 +2376,16 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 			return "", errors.Wrap(err, "create det pipeline side effects")
 		}
 	}
+	wai, err := a.env.AuthServer.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	if err != nil && !errors.Is(err, auth.ErrNotActivated) {
+		return "", errors.Wrap(err, "WhoAmI")
+	}
 	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{
 			CreatePipelineRequest: effectiveSpec,
 			EffectiveJson:         effectiveSpecJSON,
 			UserJson:              req.CreatePipelineRequestJson,
+			CreatedBy:             wai.GetUsername(),
 		}))
 	}); err != nil {
 		return "", err
@@ -2447,7 +2461,7 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 			Input:                   request.Input,
 			OutputBranch:            request.OutputBranch,
 			Egress:                  request.Egress,
-			CreatedAt:               timestamppb.Now(),
+			UpdatedAt:               timestamppb.Now(),
 			ResourceRequests:        request.ResourceRequests,
 			ResourceLimits:          request.ResourceLimits,
 			SidecarResourceLimits:   request.SidecarResourceLimits,
@@ -2491,6 +2505,11 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 		if !request.Reprocess {
 			pipelineInfo.Details.Salt = oldPipelineInfo.Details.Salt
 		}
+		pipelineInfo.Details.CreatedBy = oldPipelineInfo.Details.CreatedBy
+		pipelineInfo.Details.CreatedAt = oldPipelineInfo.Details.CreatedAt
+	} else {
+		pipelineInfo.Details.CreatedBy = txn.CreatedBy
+		pipelineInfo.Details.CreatedAt = pipelineInfo.Details.UpdatedAt
 	}
 
 	return pipelineInfo, nil

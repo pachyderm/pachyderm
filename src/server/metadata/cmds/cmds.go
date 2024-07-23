@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protopath"
@@ -170,6 +171,16 @@ func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.E
 			}
 		case "cluster":
 			edit.Target = &metadata.Edit_Cluster{}
+		case "pipeline":
+			var p pps.PipelinePicker
+			if err := p.UnmarshalText([]byte(picker)); err != nil {
+				errors.JoinInto(&errs, errors.Errorf("arg set %d: unable to parse repo picker %q", i, picker))
+				continue
+			}
+			fixupProjects(&p, defaultProject)
+			edit.Target = &metadata.Edit_Pipeline{
+				Pipeline: &p,
+			}
 		default:
 			errors.JoinInto(&errs, errors.Errorf("arg set %d: unknown object type %q", i, kind))
 			continue

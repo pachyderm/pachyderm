@@ -1,4 +1,21 @@
 {{- if .Values.determined.enabled }}
+{{- if empty (lookup "v1" "Service" .Release.Namespace (printf "determined-db-service-%s" .Release.Name)) }}
+  {{- $initialPassword := coalesce .Values.determined.initialUserPassword .Values.determined.defaultPassword | required "An initial password for admin and determined users is required!" }}
+  {{- if not (gt (len $initialPassword) 7) }}
+    {{- fail "initialUserPassword must have at least 8 characters" }}
+  {{- end }}
+  {{- if not (regexMatch "[A-Z]" $initialPassword) }}
+    {{- fail "initialUserPassword must include an uppercase letter" }}
+  {{- end }}
+  {{- if not (regexMatch "[a-z]" $initialPassword) }}
+    {{- fail "initialUserPassword must include a lowercase letter" }}
+  {{- end }}
+  {{- if not (regexMatch "[0-9]" $initialPassword) }}
+    {{- fail "initialUserPassword must include a number" }}
+  {{- end }}
+{{- end}}
+
+---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -57,8 +74,8 @@ stringData:
       {{- end }}
 
     security:
-      {{- if .Values.determined.initialUserPassword }}
-      initial_user_password: {{ coalesce .Values.determined.initialUserPassword .Values.determined.defaultPassword | quote }}
+      {{- if $initialPassword := coalesce .Values.determined.initialUserPassword .Values.determined.defaultPassword }}
+      initial_user_password: {{ quote $initialPassword }}
       {{- end }}
       {{- if .Values.determined.tlsSecret }}
       tls:
@@ -195,6 +212,9 @@ stringData:
       {{- if .Values.determined.taskContainerDefaults.startupHook }}
       startup_hook: {{ .Values.determined.taskContainerDefaults.startupHook | quote}}
       {{- end }}
+      {{- if .Values.determined.taskContainerDefaults.checkpointGcPodSpec }}
+      checkpoint_gc_pod_spec: {{ .Values.determined.taskContainerDefaults.checkpointGcPodSpec | toJson }}
+      {{- end }}
       {{- if .Values.determined.taskContainerDefaults.logPolicies }}
       log_policies:
         {{- toYaml .Values.determined.taskContainerDefaults.logPolicies | nindent 8}}
@@ -279,6 +299,15 @@ stringData:
       {{- end }}
       {{- end }}
     {{- end}}
+    {{- if .Values.determined.retentionPolicy }}
+    retention_policy:
+      {{- if .Values.determined.retentionPolicy.logRetentionDays }}
+      log_retention_days: {{ .Values.determined.retentionPolicy.logRetentionDays }}
+      {{- end }}
+      {{- if .Values.determined.retentionPolicy.schedule }}
+      schedule: {{ .Values.determined.retentionPolicy.schedule | quote }}
+      {{- end }}
+    {{- end }}
   {{- if .Values.determined.logging }}
   {{- if .Values.determined.logging.security }}
   {{- if .Values.determined.logging.security.tls }}

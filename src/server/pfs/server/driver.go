@@ -1034,9 +1034,10 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 			Id:     txnCtx.CommitSetID,
 		}
 		newCommitInfo := &pfs.CommitInfo{
-			Commit:  newCommit,
-			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-			Started: txnCtx.Timestamp,
+			Commit:    newCommit,
+			Origin:    &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+			Started:   txnCtx.Timestamp,
+			CreatedBy: txnCtx.Username(),
 		}
 		// enumerate the new commit's provenance
 		for _, b := range bi.DirectProvenance {
@@ -1783,15 +1784,17 @@ func (d *driver) validateDAGStructure(ctx context.Context, txnCtx *txncontext.Tr
 }
 
 func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) *pfs.CommitInfo {
+	log.Info(pctx.TODO(), "creating commit", zap.Stack("stack"), zap.String("username", txnCtx.Username()), zap.Stringer("branch", branch), zap.String("id", txnCtx.CommitSetID))
 	return &pfs.CommitInfo{
 		Commit: &pfs.Commit{
 			Branch: branch,
 			Repo:   branch.Repo,
 			Id:     txnCtx.CommitSetID,
 		},
-		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
-		Started: txnCtx.Timestamp,
-		Details: &pfs.CommitInfo_Details{},
+		Origin:    &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
+		Started:   txnCtx.Timestamp,
+		Details:   &pfs.CommitInfo_Details{},
+		CreatedBy: txnCtx.Username(),
 	}
 }
 
@@ -2098,9 +2101,10 @@ func (d *driver) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Transac
 	commitHandle := branch.NewCommit(txnCtx.CommitSetID)
 	commitHandle.Repo = branch.Repo
 	commitInfo := &pfs.CommitInfo{
-		Commit:  commitHandle,
-		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-		Started: txnCtx.Timestamp,
+		Commit:    commitHandle,
+		Origin:    &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Started:   txnCtx.Timestamp,
+		CreatedBy: txnCtx.Username(),
 	}
 	if closed {
 		commitInfo.Finishing = txnCtx.Timestamp

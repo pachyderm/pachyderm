@@ -29,6 +29,11 @@
                     "additionalProperties": false,
                     "description": "cluster targets the cluster's metadata."
                 },
+                "pipeline": {
+                    "$ref": "#/definitions/pps_v2.PipelinePicker",
+                    "additionalProperties": false,
+                    "description": "pipeline targets a pipeline."
+                },
                 "replace": {
                     "$ref": "#/definitions/metadata.Edit.Replace",
                     "additionalProperties": false,
@@ -76,6 +81,11 @@
                 {
                     "required": [
                         "cluster"
+                    ]
+                },
+                {
+                    "required": [
+                        "pipeline"
                     ]
                 },
                 {
@@ -347,6 +357,39 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Repo Name"
+        },
+        "pps_v2.PipelinePicker": {
+            "properties": {
+                "name": {
+                    "$ref": "#/definitions/pps_v2.PipelinePicker.PipelineName",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "PipelinePicker is used to select a single pipeline.  It is a pfs.RepoPicker\n where the repo type defaults to \"spec.\"",
+            "description": "PipelinePicker is used to select a single pipeline.  It is a pfs.RepoPicker where the repo type defaults to \"spec.\""
+        },
+        "pps_v2.PipelinePicker.PipelineName": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.ProjectPicker",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Name"
         }
     }
 }

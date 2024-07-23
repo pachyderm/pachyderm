@@ -17,6 +17,7 @@ go_test(
         "//src/internal/testutil",
         "//src/metadata",
         "//src/pfs",
+        "//src/pps",
         "@com_github_google_go_cmp//cmp",
         "@org_golang_google_protobuf//testing/protocmp",
     ],

@@ -438,6 +438,8 @@ message PipelineInfo {
     ParallelismSpec parallelism_spec = 3;
     Egress egress = 4;
     google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp updated_at = 39;
+    string created_by = 40;
 
     string recent_error = 6;
 
@@ -463,7 +465,7 @@ message PipelineInfo {
     string pod_spec = 26;
     string pod_patch = 27;
     bool s3_out = 28;
-    Metadata metadata = 29;
+    Metadata metadata = 29; // Kubernetes metadata
     string reprocess_spec = 30;
     int64 unclaimed_tasks = 31;
     string worker_rc = 32;
@@ -478,6 +480,7 @@ message PipelineInfo {
   reserved "details_json";
   string user_spec_json = 13; // The user-submitted pipeline spec in JSON format.
   string effective_spec_json = 14; // The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults.
+  map<string,string> metadata = 15;
 }
 
 message PipelineInfos {
@@ -998,6 +1001,7 @@ message CreatePipelineTransaction {
   CreatePipelineRequest create_pipeline_request = 1;
   string user_json = 2; // the JSON the user originally submitted
   string effective_json = 3; // the effective spec: the result of merging the user JSON into the cluster defaults
+  string created_by = 4;
 }
 
 message ProjectDefaults {
@@ -1050,6 +1054,19 @@ message PipelinesSummary {
   int64 failed_pipelines = 4;
   // count of pipelines with a failed latest job
   int64 unhealthy_pipelines = 5;
+}
+
+// PipelinePicker is used to select a single pipeline.  It is a pfs.RepoPicker
+// where the repo type defaults to "spec."
+
+message PipelinePicker {
+  message PipelineName {
+    pfs_v2.ProjectPicker project = 1;
+    string name = 2;
+  }
+  oneof picker {
+    PipelineName name = 1;
+  }
 }
 
 service API {

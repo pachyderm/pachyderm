@@ -106,7 +106,15 @@ message BranchInfo {
   repeated Branch subvenance = 4;
   repeated Branch direct_provenance = 5;
   Trigger trigger = 6;
+  // Metadata on the branch.
   map<string, string> metadata = 7;
+  // The user that caused this branch to be created.
+  string created_by = 8;
+  // When the branch was added to the database.
+  google.protobuf.Timestamp created_at = 9;
+  // When information about the branch was last modified (not necessarily when the data in this
+  // branch changed or anything like that).
+  google.protobuf.Timestamp updated_at = 10;
 }
 
 // Trigger defines the conditions under which a head is moved, and to which
@@ -210,6 +218,12 @@ message CommitInfo {
   Details details = 12;
   // Metadata is user-applied annotations.
   map<string, string> metadata = 14;
+  // The user that created this commit or caused this commit to be created.
+  string created_by = 16;
+  // The time the commit was added to the database.
+  google.protobuf.Timestamp created_at = 17;
+  // The time this commit was most recently updated.
+  google.protobuf.Timestamp updated_at = 18;
 }
 
 message CommitSet {

@@ -6311,6 +6311,17 @@
       "default": "PIPELINT_TYPE_UNKNOWN",
       "description": "The pipeline type is stored here so that we can internally know the type of\nthe pipeline without loading the spec from PFS."
     },
+    "PipelinePickerPipelineName": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2ProjectPicker"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
     "RepoPickerRepoName": {
       "type": "object",
       "properties": {
@@ -8545,6 +8556,10 @@
           "$ref": "#/definitions/metadataClusterPicker",
           "description": "cluster targets the cluster's metadata."
         },
+        "pipeline": {
+          "$ref": "#/definitions/pps_v2PipelinePicker",
+          "description": "pipeline targets a pipeline."
+        },
         "replace": {
           "$ref": "#/definitions/EditReplace",
           "description": "replace replaces a target's metadata with a new metadata mapping."
@@ -8685,7 +8700,22 @@
           "type": "object",
           "additionalProperties": {
             "type": "string"
-          }
+          },
+          "description": "Metadata on the branch."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The user that caused this branch to be created."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the branch was added to the database."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When information about the branch was last modified (not necessarily when the data in this\nbranch changed or anything like that)."
         }
       }
     },
@@ -8820,6 +8850,20 @@
             "type": "string"
           },
           "description": "Metadata is user-applied annotations."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The user that created this commit or caused this commit to be created."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The time the commit was added to the database."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The time this commit was most recently updated."
         }
       },
       "title": "CommitInfo is the main data structure representing a commit in postgres"
@@ -10583,6 +10627,9 @@
         "effectiveJson": {
           "type": "string",
           "title": "the effective spec: the result of merging the user JSON into the cluster defaults"
+        },
+        "createdBy": {
+          "type": "string"
         }
       }
     },
@@ -11601,6 +11648,12 @@
         "effectiveSpecJson": {
           "type": "string",
           "description": "The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults."
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       },
       "description": "PipelineInfo is proto for each pipeline that Pachd stores in the\ndatabase. It tracks the state of the pipeline, and points to its metadata in\nPFS (and, by pointing to a PFS commit, de facto tracks the pipeline's\nversion).  Any information about the pipeline _not_ stored in the database is\nin the Details object, which requires fetching the spec from PFS or other\npotentially expensive operations."
@@ -11624,6 +11677,13 @@
         "createdAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdBy": {
+          "type": "string"
         },
         "recentError": {
           "type": "string"
@@ -11692,7 +11752,8 @@
           "type": "boolean"
         },
         "metadata": {
-          "$ref": "#/definitions/pps_v2Metadata"
+          "$ref": "#/definitions/pps_v2Metadata",
+          "title": "Kubernetes metadata"
         },
         "reprocessSpec": {
           "type": "string"
@@ -11751,6 +11812,14 @@
         "RECENT"
       ],
       "default": "RECENT"
+    },
+    "pps_v2PipelinePicker": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/PipelinePickerPipelineName"
+        }
+      }
     },
     "pps_v2PipelineState": {
       "type": "string",
@@ -12481,6 +12550,23 @@
         }
       }
     },
+    "storageCopyFile": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "src": {
+          "type": "string",
+          "description": "Src is the source path of the file or directory."
+        },
+        "dst": {
+          "type": "string",
+          "description": "Dst is the destination path of the file or directory.\nIf dst is unset, src will be used as the destination path."
+        }
+      },
+      "title": "CopyFile copies a file or directory from the specified fileset with the\nspecified path. If a file or directory with the specified path doesn't\nexist in the specified fileset, the copy will be a no-op.\nTODO: Append?"
+    },
     "storageCreateFilesetRequest": {
       "type": "object",
       "properties": {
@@ -12489,6 +12575,9 @@
         },
         "deleteFile": {
           "$ref": "#/definitions/storageDeleteFile"
+        },
+        "copyFile": {
+          "$ref": "#/definitions/storageCopyFile"
         }
       },
       "description": "A CreateFilesetRequest corresponds to a single file modification.\nSupported file modifications are append and delete.\nA put / overwrite file modification can be performed by a delete followed by an\nappend.\n TODO: Decide how to handle datums."
