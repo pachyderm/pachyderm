@@ -18,6 +18,7 @@ rules:
   - pods
   - pods/log
   - endpoints
+  - events  
   verbs:
   - get
   - list

@@ -57,7 +57,7 @@ type KubeEvent struct {
 		Object   struct {
 			Name string `json:"name"`
 		} `json:"involvedObject"`
-	} `json:"event"`
+	} `json:"kubeEvent"`
 }
 
 func PrintKubeEvent(w io.Writer, event string) {

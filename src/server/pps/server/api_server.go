@@ -1334,7 +1334,16 @@ func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServ
 	if request.Since != nil {
 		since = time.Now().Add(-time.Duration(request.Since.Seconds) * time.Second)
 	}
-	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachyderm-kube-event-tail"}`, since, time.Time{}, false, func(t time.Time, line string) error {
+	return lokiutil.QueryRange(apiGetKubeEventsServer.Context(), loki, `{app="pachd"}`, since, time.Time{}, false, func(t time.Time, line string) error {
+		var obj map[string]any
+		line, obj = lokiutil.RepairLine(line)
+		if obj == nil {
+			return nil
+		}
+		var ok bool
+		if _, ok = obj["kubeEvent"]; !ok {
+			return nil
+		}
 		return errors.EnsureStack(apiGetKubeEventsServer.Send(&pps.LokiLogMessage{
 			Message: strings.TrimSuffix(line, "\n"),
 		}))
