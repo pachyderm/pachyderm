@@ -8,15 +8,18 @@ go_library(
     deps = [
         "//src/internal/client",
         "//src/internal/errors",
+        "//src/internal/log",
         "//src/internal/pctx",
         "//src/internal/pfssync",
         "//src/internal/ppsutil",
         "//src/internal/storage/renew",
         "//src/internal/uuid",
+        "//src/pfs",
         "//src/pps",
         "//src/server/worker/datum",
         "//src/server/worker/driver",
         "//src/server/worker/logs",
         "@org_golang_x_sync//errgroup",
+        "@org_uber_go_zap//:zap",
     ],
 )
