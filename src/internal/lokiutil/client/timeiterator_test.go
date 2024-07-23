@@ -364,17 +364,34 @@ func TestForwardPagingNearCurrentTime_NoLogs(t *testing.T) {
 	}
 }
 
-func TestForwardPagingNearCurrentTime_GotLogs(t *testing.T) {
+func TestForwardPagingNearCurrentTime_GotLogs_Limited(t *testing.T) {
 	ti := &TimeIterator{
 		Step: 365 * 24 * time.Hour,
 	}
-	x := time.Now()
-	time.Sleep(100 * time.Millisecond)
+	x := time.Now().Add(-100 * time.Millisecond)
 	for ti.Next() {
 		start, end := ti.Interval()
 		if !x.Before(start) && !x.After(end) {
 			ti.ObserveLast(x)
 			break
+		}
+	}
+	if got, want := ti.ForwardHint(), x.Add(time.Nanosecond); want.Sub(got) != 0 {
+		t.Errorf("ForwardHint should be a guaranteed time:\n  now: %v\n  got: %v\n want: %v", time.Now().Format(time.RFC3339Nano), got.Format(time.RFC3339Nano), want.Format(time.RFC3339Nano))
+	}
+}
+
+func TestForwardPagingNearCurrentTime_GotLogs(t *testing.T) {
+	ti := &TimeIterator{
+		Start: time.Now().Add(-5 * time.Minute),
+		End:   time.Now(),
+		Step:  20 * time.Second,
+	}
+	x := time.Now().Add(-30 * time.Second)
+	for ti.Next() {
+		start, end := ti.Interval()
+		if !x.Before(start) && !x.After(end) {
+			ti.ObserveLast(x)
 		}
 	}
 	if got, want := ti.ForwardHint(), x.Add(time.Nanosecond); want.Sub(got) != 0 {

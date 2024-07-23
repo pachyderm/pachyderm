@@ -26,6 +26,7 @@ type TimeIterator struct {
 	// If we observe a timestamp, the next paging hint can start here, even if this time is
 	// close to the current time.  Otherwise, we assume log ingestion delay prevents using the
 	// actual end time as the starting time for the next batch.
+	lastLog      time.Time
 	sawTimestamp bool
 }
 
@@ -117,6 +118,7 @@ func (ti *TimeIterator) Next() bool {
 	if ti.Step == 0 {
 		ti.Step = time.Nanosecond
 	}
+	ti.sawTimestamp = false
 	switch {
 	case ti.forward():
 		return ti.moveForward()
@@ -147,6 +149,7 @@ func (ti *TimeIterator) Interval() (start time.Time, end time.Time) {
 // truncated in favor of sticking to the limit, so we need to adjust where the next step starts.
 func (ti *TimeIterator) ObserveLast(t time.Time) {
 	ti.sawTimestamp = true
+	ti.lastLog = t
 	if ti.forward() {
 		ti.stepEnd = t.Add(time.Nanosecond)
 	} else {
@@ -162,7 +165,11 @@ const ingestionLag = time.Minute
 func (ti *TimeIterator) ForwardHint() (start time.Time) {
 	if ti.forward() {
 		if !ti.sawTimestamp && time.Since(ti.stepEnd) < ingestionLag {
-			return time.Now().Add(-ingestionLag)
+			proposed := time.Now().Add(-ingestionLag)
+			if ti.lastLog.After(proposed) {
+				return ti.lastLog.Add(time.Nanosecond)
+			}
+			return proposed
 		}
 		return ti.stepEnd
 	}
