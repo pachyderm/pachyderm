@@ -110,7 +110,7 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		if err != nil {
 			return err
 		}
-		log.Info(pachClient.Ctx(), "retrieved job commit")
+		logger.Logf("retrieved job commit")
 		if preCheckCancel != nil {
 			logger.Logf("canceling previous service's pre-check, new job ready")
 			preCheckCancel()

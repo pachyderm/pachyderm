@@ -8156,7 +8156,7 @@ func TestServicePipelineUpdate(t *testing.T) {
 	}()
 	getContents := func() string {
 		var value []byte
-		require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		require.NoErrorWithinTRetryConstant(t, time.Minute, func() error {
 			httpC := http.Client{
 				Timeout: 3 * time.Second, // fail fast
 			}
@@ -8174,7 +8174,7 @@ func TestServicePipelineUpdate(t *testing.T) {
 				return errors.EnsureStack(err)
 			}
 			return nil
-		})
+		}, time.Second)
 		return string(value)
 	}
 	require.Equal(t, "foo", strings.TrimSpace(getContents()))
