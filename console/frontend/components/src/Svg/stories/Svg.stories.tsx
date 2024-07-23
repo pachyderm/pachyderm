@@ -50,26 +50,11 @@ export const Pachyderm = () => {
         <SVGWrapper title="LogoElephant">
           <PachydermSVG.LogoElephant />
         </SVGWrapper>
-        <SVGWrapper title="DrawerElephantSVG">
-          <PachydermSVG.DrawerElephantSVG viewBox="0 0 235 298" />
-        </SVGWrapper>
-        <SVGWrapper title="ElephantCtaSVG">
-          <PachydermSVG.ElephantCtaSVG viewBox="0 0 500 625" />
-        </SVGWrapper>
         <SVGWrapper title="ElephantErrorState">
           <PachydermSVG.ElephantErrorState viewBox="0 0 1219 823" />
         </SVGWrapper>
         <SVGWrapper title="ElephantEmptyState">
           <PachydermSVG.ElephantEmptyState />
-        </SVGWrapper>
-        <SVGWrapper title="GenericErrorSVG">
-          <PachydermSVG.GenericErrorSVG viewBox="0 0 701 251" />
-        </SVGWrapper>
-        <SVGWrapper title="PachydermLogoBaseSVG">
-          <PachydermSVG.PachydermLogoBaseSVG width="451" height="97" />
-        </SVGWrapper>
-        <SVGWrapper title="PachydermLogoFooterSVG">
-          <PachydermSVG.PachydermLogoFooterSVG viewBox="0 0 100 170" />
         </SVGWrapper>
       </div>
     </div>
