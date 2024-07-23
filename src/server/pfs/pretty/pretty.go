@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"text/template"
+	"time"
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
@@ -28,7 +29,7 @@ const (
 	// CommitSetHeader is the header for commitsets.
 	CommitSetHeader = "ID\tSUBCOMMITS\tPROGRESS\tCREATED\tMODIFIED\t\n"
 	// BranchHeader is the header for branches.
-	BranchHeader = "BRANCH\tHEAD\tTRIGGER\t\n"
+	BranchHeader = "BRANCH\tHEAD\tTRIGGER\tCREATOR\tCREATED\t\n"
 	// ProjectHeader is the header for the projects.
 	ProjectHeader = "ACTIVE\tPROJECT\tCREATED\tDESCRIPTION\n"
 	// ProjectAuthHeader is the header for the projects with auth info attached.
@@ -135,6 +136,16 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	} else {
 		fmt.Fprintf(w, "-\t")
 	}
+	if cb := branchInfo.CreatedBy; cb != "" {
+		fmt.Fprintf(w, "%s\t", cb)
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
+	if t := branchInfo.CreatedAt; t != nil {
+		fmt.Fprintf(w, "%s\t", t.AsTime().In(time.Local).Format(time.RFC3339))
+	} else {
+		fmt.Fprintf(w, "-\t")
+	}
 	fmt.Fprintln(w)
 }
 
@@ -172,9 +183,11 @@ func PrintProjectInfo(w io.Writer, projectInfo *pfs.ProjectInfo, currentProject 
 func PrintDetailedBranchInfo(branchInfo *pfs.BranchInfo) error {
 	template, err := template.New("BranchInfo").Funcs(funcMap).Parse(
 		`Name: {{.Branch.Repo.Name}}@{{.Branch.Name}}{{if .Head}}
-Head Commit: {{ .Head.Branch.Repo.Name}}@{{.Head.Id}} {{end}}{{if .Provenance}}
+Head Commit: {{ .Head.Repo.Name}}@{{.Head.Id}} {{end}}{{if .Provenance}}
 Provenance: {{range .Provenance}}{{.Repo.Name}}@{{.Name}} {{end}}{{end}}{{if .Trigger}}
 Trigger: {{printTrigger .Trigger}} {{end}}
+{{ if .CreatedBy }}Created by: {{ .CreatedBy }}{{ end }}
+{{ if .CreatedAt }}Created at: {{ .CreatedAt | prettyTime }}{{ end }}
 `)
 	if err != nil {
 		return errors.EnsureStack(err)

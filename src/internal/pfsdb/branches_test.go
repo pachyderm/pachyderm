@@ -25,6 +25,8 @@ import (
 
 func compareBranchOpts() []cmp.Option {
 	return []cmp.Option{
+		protocmp.FilterField(new(pfs.BranchInfo), "created_at", cmp.Ignore()),
+		protocmp.FilterField(new(pfs.BranchInfo), "updated_at", cmp.Ignore()),
 		cmpopts.SortSlices(func(a, b *pfs.Branch) bool { return a.Key() < b.Key() }), // Note that this is before compareBranch because we need to sort first.
 		cmpopts.SortMaps(func(a, b pfsdb.BranchID) bool { return a < b }),
 		cmpopts.EquateEmpty(),
@@ -119,7 +121,8 @@ func TestBranchUpsert(t *testing.T) {
 					Repo: repoInfo.Repo,
 					Name: "master",
 				},
-				Head: commit1.CommitInfo.Commit,
+				Head:      commit1.CommitInfo.Commit,
+				CreatedBy: "the_tests",
 			}
 			id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
@@ -145,9 +148,18 @@ func TestBranchUpsert(t *testing.T) {
 			id3, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
 			require.Equal(t, id, id3, "UpsertBranch should keep id stable")
-			gotBranchInfo3, err := pfsdb.GetBranchInfo(ctx, tx, id2)
+			gotBranchInfo3, err := pfsdb.GetBranchInfo(ctx, tx, id3)
 			require.NoError(t, err)
 			require.NoDiff(t, branchInfo, gotBranchInfo3, compareBranchOpts())
+
+			// Attempt to change creator.
+			branchInfo.CreatedBy = ""
+			id4, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+			require.Equal(t, id, id4, "UpsertBranch should keep id stable")
+			gotBranchInfo4, err := pfsdb.GetBranchInfo(ctx, tx, id4)
+			require.NoError(t, err)
+			require.NoDiff(t, gotBranchInfo3, gotBranchInfo4, compareBranchOpts())
 		})
 	})
 }

@@ -157,11 +157,12 @@ func (commit *CommitRow) Pb() *pfs.Commit {
 
 // BranchRow is a row in the pfs.branches table.
 type BranchRow struct {
-	ID       BranchID              `db:"id"`
-	Head     CommitRow             `db:"head"`
-	Repo     RepoRow               `db:"repo"`
-	Name     string                `db:"name"`
-	Metadata pgjsontypes.StringMap `db:"metadata"`
+	ID        BranchID              `db:"id"`
+	Head      CommitRow             `db:"head"`
+	Repo      RepoRow               `db:"repo"`
+	Name      string                `db:"name"`
+	Metadata  pgjsontypes.StringMap `db:"metadata"`
+	CreatedBy sql.NullString        `db:"created_by"`
 	CreatedAtUpdatedAt
 }
 

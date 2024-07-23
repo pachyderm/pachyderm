@@ -881,7 +881,9 @@ func (d *driver) startCommit(
 		}
 		updateCommitBranchField = true // the branch field on the commit will have to be updated after the branch is created.
 	}
-	branchInfo := &pfs.BranchInfo{}
+	branchInfo := &pfs.BranchInfo{
+		CreatedBy: txnCtx.Username(),
+	}
 	if b != nil && b.BranchInfo != nil {
 		branchInfo = b.BranchInfo
 	}
@@ -1708,7 +1710,7 @@ func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.Transac
 			updateHead = head
 			newRepoCommits[p.Repo.Key()] = head
 		}
-		branchInfo := &pfs.BranchInfo{Branch: p, Head: head.CommitInfo.Commit}
+		branchInfo := &pfs.BranchInfo{Branch: p, Head: head.CommitInfo.Commit, CreatedBy: txnCtx.Username()}
 		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
 			return errors.Wrap(err, "upsert branch")
 		}
@@ -1854,7 +1856,9 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	if err != nil && !pfsdb.IsNotFoundError(err) {
 		return errors.Wrap(err, "create branch")
 	}
-	branchInfo := &pfs.BranchInfo{}
+	branchInfo := &pfs.BranchInfo{
+		CreatedBy: txnCtx.Username(),
+	}
 	if branch != nil {
 		branchInfo = branch.BranchInfo
 	}
