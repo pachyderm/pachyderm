@@ -171,6 +171,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		limit       uint
 		user        bool
 		levelString string
+		raw         bool
 	)
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): Remove references to “new” and unhide.
@@ -302,17 +303,19 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				switch resp.ResponseType.(type) {
 				case *logs.GetLogsResponse_Log:
 					l := resp.GetLog()
-					if o := l.Object; o != nil {
-						b, err := (protojson.MarshalOptions{
-							Multiline: false,
-						}).Marshal(o)
-						if err == nil {
-							fmt.Println(string(b))
-							continue
+					if raw {
+						if o := l.Object; o != nil {
+							b, err := (protojson.MarshalOptions{
+								Multiline: false,
+							}).Marshal(o)
+							if err == nil {
+								fmt.Println(string(b))
+								continue
+							}
+							// If error, just print the verbatim log entry instead.
 						}
-						// If error, just print the verbatim log entry instead.
 					}
-					fmt.Println(string(resp.GetLog().GetVerbatim().GetLine()))
+					fmt.Println(string(l.GetVerbatim().GetLine()))
 				case *logs.GetLogsResponse_PagingHint:
 					hint := resp.GetPagingHint()
 					if hint == nil {
@@ -342,6 +345,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().StringVar(&app, "app", app, "Return logs for all pods with a certain value for the label 'app'.")
 	logsCmd.Flags().BoolVar(&user, "user", false, "Only return logs from user code.")
 	logsCmd.Flags().StringVar(&levelString, "level", "", "If set, return only logs greater than or equal to this severity; debug, info, error.")
+	logsCmd.Flags().BoolVar(&raw, "raw", false, "If set, print JSON log objects.")
 	commands = append(commands, logsCmd)
 	return commands
 }
