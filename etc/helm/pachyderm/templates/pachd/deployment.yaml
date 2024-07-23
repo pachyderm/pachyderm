@@ -47,11 +47,14 @@ spec:
       {{- end }}
       {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
-      - command:
+      - name: pachd
+      {{- if not .Values.pachd.debugServerWithDlv }}
+        command:
         - /pachd
         args:
         - --mode
         - "$(MODE)"
+      {{ end }}
         env:
         {{- if ne .Values.deployTarget "LOCAL" }}
         - name: STORAGE_URL
@@ -460,7 +463,6 @@ spec:
               optional: true
         image: "{{ .Values.global.image.registry }}{{ .Values.pachd.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
         imagePullPolicy: {{ .Values.pachd.image.pullPolicy }}
-        name: pachd
         ports:
         - containerPort: 1600
           name: s3gateway-port
@@ -483,6 +485,11 @@ spec:
         - containerPort: 1659
           name: archive-port
           protocol: TCP
+        {{- if .Values.pachd.debugServerWithDlv }}
+        - containerPort: 40000
+          name: dlv
+          protocol: TCP
+        {{ end }}
         readinessProbe:
           exec:
             command:

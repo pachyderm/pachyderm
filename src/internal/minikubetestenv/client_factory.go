@@ -35,6 +35,7 @@ var (
 
 type acquireSettings struct {
 	skipLoki          bool
+	dlv               bool
 	tls               bool
 	enterpriseMember  bool
 	certPool          *x509.CertPool
@@ -63,6 +64,10 @@ func WithValueOverrides(v map[string]string) Option {
 	return func(as *acquireSettings) {
 		as.valueOverrides = v
 	}
+}
+
+var DlvOption Option = func(as *acquireSettings) {
+	as.dlv = true
 }
 
 var EnterpriseMemberOption Option = func(as *acquireSettings) {
@@ -98,6 +103,7 @@ func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 		PortOffset:         uint16(clusterIdx * 150),
 		UseLeftoverCluster: *useLeftoverClusters && !as.useNewCluster,
 		DisableLoki:        as.skipLoki,
+		Dlv:                as.dlv,
 		TLS:                as.tls,
 		CertPool:           as.certPool,
 		ValueOverrides:     as.valueOverrides,

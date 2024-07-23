@@ -1,0 +1,33 @@
+FROM golang:1.23-rc-alpine3.20 AS golang
+
+# Install the latest version of Delve
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
+FROM alpine:3.19.2
+
+RUN mkdir -p /tmp/to-copy/tmp && chmod -R 777 /tmp/to-copy 
+RUN apk add -U ca-certificates && update-ca-certificates
+RUN apk add curl
+RUN apk add bash
+RUN apk add net-tools
+
+MAINTAINER support@pachyderm.io
+
+LABEL name="Pachyderm" \
+      vendor="Pachyderm"
+
+
+COPY LICENSE /LICENSE
+COPY licenses /licenses
+COPY pachd /pachd
+COPY dex-assets /dex-assets
+COPY --from=golang /go/bin/dlv /
+
+USER 1000
+ENV HOME /root
+
+# Expose Delve's port.
+EXPOSE 40000
+
+# Start Delve
+CMD ./dlv --listen=:40000 --headless=true --accept-multiclient --continue --api-version=2 exec ./pachd

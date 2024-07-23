@@ -23,6 +23,13 @@ var (
 // cluster or from a test binary running on a machine with kubectl (it will
 // connect to the same cluster as kubectl)
 func GetKubeClient(t testing.TB) *kube.Clientset {
+	k, err := kube.NewForConfig(GetKubeConfig(t))
+	require.NoError(t, err)
+	return k
+}
+
+// GetKubeConfig is like GetKubeClient, but just returns the config.
+func GetKubeConfig(t testing.TB) *rest.Config {
 	var config *rest.Config
 	var err error
 	host := os.Getenv("KUBERNETES_SERVICE_HOST")
@@ -35,9 +42,7 @@ func GetKubeClient(t testing.TB) *kube.Clientset {
 		config, err = kubeConfig.ClientConfig()
 	}
 	require.NoError(t, err)
-	k, err := kube.NewForConfig(config)
-	require.NoError(t, err)
-	return k
+	return config
 }
 
 // DeletePipelineRC deletes the RC belonging to the pipeline 'pipeline'. This

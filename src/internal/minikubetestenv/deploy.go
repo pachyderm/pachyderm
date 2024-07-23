@@ -96,6 +96,10 @@ type DeployOpts struct {
 	CertPool           *x509.CertPool
 	ValuesFiles        []string
 	InstallPrometheus  bool
+	// Dlv is used in tandem with pachyderm images running a dlv wrapper. See `make docker-build-amd-debug`.
+	// This does not build pachyderm with a dlv wrapper for you. You have to do that yourself with the above
+	// make target.
+	Dlv bool
 }
 
 func getLocalImage() string {
@@ -149,6 +153,13 @@ func GetPachAddress(t testing.TB) *grpcutil.PachdAddress {
 }
 
 func exposedServiceType() string {
+	// When running with WSL + minikube, nodePorts don't work nicely. So minikube defaults to load balancers.
+	// The expected workflow is to run 'minikube tunnel' before running your integration test.
+	override := os.Getenv("PACHYDERM_SERVICE_TYPE_OVERRIDE")
+	switch override {
+	case "LoadBalancer", "NodePort":
+		return override
+	}
 	os := runtime.GOOS
 	serviceType := ""
 	switch os {
@@ -158,6 +169,14 @@ func exposedServiceType() string {
 		serviceType = "NodePort"
 	}
 	return serviceType
+}
+
+func withDlvOptions() *helm.Options {
+	return &helm.Options{
+		SetValues: map[string]string{
+			"pachd.debugServerWithDlv": "true",
+		},
+	}
 }
 
 func withoutLokiOptions(namespace string, port int) *helm.Options {
@@ -870,6 +889,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	} else {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
 	}
+	if opts.Dlv {
+		helmOpts = union(helmOpts, withDlvOptions())
+	}
 	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
 		helmOpts = union(helmOpts, withoutProxy(namespace))
 	}
@@ -967,7 +989,20 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		})
 	}
 	pClient := pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
+	pf := PortForward{}
+	if opts.Dlv {
+		pf = PortForward{
+			Config:     testutil.GetKubeConfig(t),
+			Clientset:  kubeClient,
+			ListenPort: 40000, DestinationPort: 40000,
+			Labels:    metav1.LabelSelector{MatchLabels: map[string]string{"app": "pachd"}},
+			Namespace: namespace,
+		}
+		_, err := pf.Start(ctx)
+		require.NoError(t, err)
+	}
 	t.Cleanup(func() {
+		pf.Stop()
 		collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
 	})
 	return pClient
@@ -976,7 +1011,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 // LeaseNamespace attempts to lock a namespace for exclusive use by a test. It creates a k8s lease that is cleaned up at the end of the test.
 // Calling LeaseNamespace will create the namespace if it doesn't exist. It returns true if Lease was acquired, false if not.
 // To block until a namespace lock can be acquired, retry for the desired amount of time. LeaseNamespace will force-acquire
-// the namespace lock after the the lease duration has passed.
+// the namespace lock after the lease duration has passed.
 func LeaseNamespace(t testing.TB, namespace string) bool {
 	kube := testutil.GetKubeClient(t)
 	lease, err := kube.CoordinationV1().

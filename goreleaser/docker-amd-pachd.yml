@@ -1,0 +1,50 @@
+dist: ../dist-pach/docker
+
+builds:
+    - id: pachd
+      main: ./src/server/cmd/pachd
+      binary: pachd
+      env:
+          - CGO_ENABLED=0
+      ldflags:
+          - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X
+            "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
+      goos:
+          - linux
+      goarch:
+          - amd64
+      gcflags:
+          - "all=-trimpath={{.Env.PWD}}"
+
+checksum:
+    disable: true
+
+changelog:
+    skip: true
+
+release:
+    disable: true
+
+dockers:
+    - image_templates:
+          - pachyderm/pachd
+          - pachyderm/pachd:local
+          - pachyderm/pachd-amd64
+          - pachyderm/pachd-amd64:local
+          - "pachyderm/pachd-amd64:{{ .Version }}"
+          - "pachyderm/pachd-amd64:{{ .FullCommit }}"
+      ids:
+          - pachd
+      goos: linux
+      goarch: amd64
+      skip_push: false
+      dockerfile: Dockerfile.pachd
+      extra_files:
+          - dex-assets
+          - LICENSE
+          - licenses
+      build_flag_templates:
+          - "--network=host"
+          - "--label=version={{.Version}}"
+          - "--label=release={{.Version}}"
+          - "--platform=linux/amd64"

@@ -946,6 +946,9 @@
                         }
                     }
                 },
+                "debugServerWithDlv": {
+                    "type": "boolean"
+                },
                 "defaultPipelineCPURequest": {
                     "type": "string"
                 },
