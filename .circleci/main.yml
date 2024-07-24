@@ -1715,9 +1715,9 @@ jobs:
       #     command: |
       #       ls -la
       #       pwd
-      - restore_cache:
-          keys:
-            - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
+      # - restore_cache:
+      #     keys:
+      #       - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1735,10 +1735,10 @@ jobs:
       #       TARGET_ARCH=amd64
       #       docker buildx create --name hab --driver docker-container
       #       docker buildx build --provenance false --builder hab --platform linux/${TARGET_ARCH} --cache-from=type=local,src=/tmp/docker-cache --build-arg DOCKER_TAG=$(DOCKER_TAG) --cache-to=type=local,dest=/tmp/docker-cache --push -t pachyderm/haberdashery:$(DOCKER_TAG)-${TARGET_ARCH} -f Dockerfile.console .
-      - save_cache:
-          key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
-          paths:
-            - /tmp/docker-cache
+      # - save_cache:
+      #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
+      #     paths:
+      #       - /tmp/docker-cache
   console-docker-manifest:
     machine:
       image: default
