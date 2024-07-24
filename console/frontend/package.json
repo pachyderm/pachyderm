@@ -17,10 +17,7 @@
     "test": "npm run test:components && npm run test:frontend",
     "test:frontend": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none npx dotenv-flow -p ../ -- npx jest --config ./src/jest.config.js --max-workers=6",
     "test:components": "NODE_ENV=test GRAPHQL_PORT=0 LOG_LEVEL=none dotenv-flow -p ../ -- jest --projects components --max-workers=6",
-    "generate-hooks": "graphql-codegen",
-    "storybook": "storybook dev -p 6006",
-    "storybook:build": "storybook build",
-    "storybook:publish": "npm run storybook:build && netlify deploy --dir=storybook-static --prod"
+    "generate-hooks": "graphql-codegen"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.9.0",
@@ -88,12 +85,6 @@
   },
   "devDependencies": {
     "@sentry/cli": "2.21.2",
-    "@storybook/addon-actions": "^8.1.6",
-    "@storybook/addon-controls": "^8.1.6",
-    "@storybook/addon-essentials": "^8.1.6",
-    "@storybook/addon-links": "^8.1.6",
-    "@storybook/react": "^8.1.10",
-    "@storybook/react-vite": "^8.1.6",
     "@svgr/rollup": "^8.1.0",
     "@swc/core": "^1.3.103",
     "@swc/jest": "^0.2.29",
@@ -158,7 +149,6 @@
     "rollup-plugin-visualizer": "^5.9.2",
     "serve": "14.2.0",
     "start-server-and-test": "2.0.3",
-    "storybook": "^8.1.6",
     "stylelint": "^16.2.1",
     "stylelint-config-recommended": "^14.0.0",
     "stylelint-prettier": "^5.0.0",
