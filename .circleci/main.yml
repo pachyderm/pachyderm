@@ -1652,14 +1652,6 @@ jobs:
       - codecov/upload:
           file: /home/circleci/out/execroot/_main/bazel-out/_coverage/_coverage_report.dat
   # vvvvv Console vvvvv
-  components-storybook-release:
-    docker:
-      - image: cimg/node:20.11.0
-    steps:
-      - checkout
-      - run: sudo npm install -g netlify-cli@14.4.0
-      - run: .circleci/scripts/upload-storybook.sh # TODO
-
   console-lint-frontend:
     executor: small-node
     steps:
@@ -1718,21 +1710,29 @@ jobs:
       image: default
     steps:
       - checkout
-      - run:
-          name: pwd
-          command: |
-            ls -la
-            pwd
+      # - run:
+      #     name: pwd
+      #     command: |
+      #       ls -la
+      #       pwd
       # - restore_cache:
       #     keys:
       #       - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+      - setup_remote_docker
       - run:
-          name: Build application Docker image
-          command: |
-            mkdir -p /tmp/docker-cache
-            echo "$(DOCKER_PWD)" | docker login -u pachydermbuildbot --password-stdin
-            docker buildx create --name hab --driver docker-container
-            docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --cache-from=type=local,src=/tmp/docker-cache --build-arg DOCKER_TAG=$(DOCKER_TAG) --cache-to=type=local,dest=/tmp/docker-cache --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) -f ./console .
+          name: docker login
+          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      # - run:
+      #     name: docker build
+      #     command: docker build -t pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 -f Dockerfile.datum-batching-test .
+      
+      # - run:
+      #     name: Build application Docker image
+      #     command: |
+      #       mkdir -p /tmp/docker-cache
+      #       echo "$(DOCKER_PWD)" | docker login -u pachydermbuildbot --password-stdin
+      #       docker buildx create --name hab --driver docker-container
+      #       docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --cache-from=type=local,src=/tmp/docker-cache --build-arg DOCKER_TAG=$(DOCKER_TAG) --cache-to=type=local,dest=/tmp/docker-cache --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) -f ./console .
       # - save_cache:
       #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
       #     paths:
@@ -2330,16 +2330,6 @@ workflows:
       # - test-docker-e2e-enterprise-edition:
       #     requires:
       #       - docker-manifest
-
-  storybook-release:
-    # when:
-    #   and:
-    #     - not: << pipeline.parameters.run_nightly_tag >>
-    jobs:
-      - components-storybook-release:
-          filters:
-            branches:
-              only: master
 
   # create-nightly-tag:
   #   when: << pipeline.parameters.run_nightly_tag >>
