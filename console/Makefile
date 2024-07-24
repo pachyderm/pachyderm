@@ -61,10 +61,10 @@ test:
 	npm test --prefix ./backend && npm test --prefix ./frontend
 
 circle-docker-build:
+	cd ..
 	mkdir -p /tmp/docker-cache
-	echo "$(DOCKER_PWD)" | docker login -u pachydermbuildbot --password-stdin
 	docker buildx create --name hab --driver docker-container
-	docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --cache-from=type=local,src=/tmp/docker-cache --build-arg DOCKER_TAG=$(DOCKER_TAG) --cache-to=type=local,dest=/tmp/docker-cache --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) .
+	docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --cache-from=type=local,src=/tmp/docker-cache --build-arg DOCKER_TAG=$(DOCKER_TAG) --cache-to=type=local,dest=/tmp/docker-cache --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) -f Dockerfile.console .
 
 circle-docker-manifest:
 	echo "$(DOCKER_PWD)" | docker login -u pachydermbuildbot --password-stdin
