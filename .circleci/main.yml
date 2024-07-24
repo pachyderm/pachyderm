@@ -1719,13 +1719,11 @@ jobs:
       - run:
           name: Build application Docker image
           command: |
-              docker buildx create --name hab --driver docker-container
-              docker buildx build --provenance false --builder hab --platform linux/amd64 --build-arg DOCKER_TAG=${CIRCLE_SHA1} --push -t pachyderm/haberdashery:${CIRCLE_SHA1}-amd64 -f Dockerfile.console .
+            docker build -t pachyderm/haberdashery:${CIRCLE_SHA1} -f Dockerfile.console .
       - run:
           name: Build application Docker image
           command: |
-            docker manifest create pachyderm/haberdashery:${CIRCLE_SHA1} docker.io/pachyderm/haberdashery:${CIRCLE_SHA1}-amd64  
-            docker manifest push pachyderm/haberdashery:${CIRCLE_SHA1}-amd64
+            docker push pachyderm/haberdashery:${CIRCLE_SHA1}
       # - save_cache:
       #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
       #     paths:
