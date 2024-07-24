@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y \
 
 ADD . .
 
-RUN make docker-ci \
+RUN cd console \
+    && make docker-ci \
     && make build \
     && make clean-deps
 
