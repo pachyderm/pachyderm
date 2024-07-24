@@ -6,8 +6,8 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import userEvent from '@testing-library/user-event';
 import {AuthConfig, HealthCheck} from 'plugins/mount/types';
 import Config from '../Config';
-import {ReadonlyJSONObject} from "@lumino/coreutils";
-import {ServerConnection} from "@jupyterlab/services";
+import {ReadonlyJSONObject} from '@lumino/coreutils';
+import {ServerConnection} from '@jupyterlab/services';
 jest.mock('../../../../../handler');
 
 describe('config screen', () => {
@@ -309,7 +309,6 @@ describe('config screen', () => {
 
       userEvent.type(input, 'grpc://test.com:31400');
       submit.click();
-      // await new Promise((r) => setTimeout(r, 2000));
       await findByText('Invalid address.');
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(1);
 
