@@ -1718,12 +1718,7 @@ jobs:
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           name: Build application Docker image
-          command: |
-            docker build -t pachyderm/haberdashery:${CIRCLE_SHA1} --build-arg DOCKER_TAG=${CIRCLE_SHA1} -f Dockerfile.console .
-      - run:
-          name: Build application Docker image
-          command: |
-            docker push pachyderm/haberdashery:${CIRCLE_SHA1}
+          command: make -C ./console circle-docker-build
       # - save_cache:
       #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
       #     paths:
@@ -1761,7 +1756,7 @@ jobs:
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
             unset ENT_ACT_CODE # deactivate enterprise and auth
-            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=c7027956459a7e1a04f6eccce6b59623e4738bac -v
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
       - run: touch .env.development.local
       - run:
           name: Run Community Edition Cypress tests against built console image
@@ -2292,20 +2287,20 @@ workflows:
       # - console-test-backend
       # - console-test-frontend-components
       # - console-test-frontend-react
-      # - console-docker-build:
-      #     matrix:
-      #       parameters:
-      #         resource_class:
-      #           - large
-      # - console-docker-manifest:
-      #     requires:
-      #       - console-docker-build
-      - console-test-docker-e2e-community-edition
-      #     requires:
-      #       - console-docker-manifest
-      # - console-test-docker-e2e-enterprise-edition:
-      #     requires:
-      #       - console-docker-manifest
+      - console-docker-build:
+          matrix:
+            parameters:
+              resource_class:
+                - large
+      - console-docker-manifest:
+          requires:
+            - console-docker-build
+      - console-test-docker-e2e-community-edition:
+          requires:
+            - console-docker-manifest
+      - console-test-docker-e2e-enterprise-edition:
+          requires:
+            - console-docker-manifest
 
       # when:
       #   and:
