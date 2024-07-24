@@ -1720,8 +1720,8 @@ jobs:
           name: Build application Docker image
           command: |
               DOCKER_TAG = $(CIRCLE_SHA1)
-            	cd .. && docker buildx create --name hab --driver docker-container
-	            cd .. && docker buildx build --provenance false --builder hab --platform linux/amd64 --build-arg DOCKER_TAG=${DOCKER_TAG} --push -t pachyderm/haberdashery:${DOCKER_TAG}-amd64 -f Dockerfile.console .
+              cd .. && docker buildx create --name hab --driver docker-container
+              cd .. && docker buildx build --provenance false --builder hab --platform linux/amd64 --build-arg DOCKER_TAG=${DOCKER_TAG} --push -t pachyderm/haberdashery:${DOCKER_TAG}-amd64 -f Dockerfile.console .
 
       # - save_cache:
       #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
