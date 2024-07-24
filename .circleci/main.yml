@@ -1719,7 +1719,7 @@ jobs:
       - run:
           name: Build application Docker image
           command: |
-            docker build -t pachyderm/haberdashery:${CIRCLE_SHA1} -f Dockerfile.console .
+            docker build -t pachyderm/haberdashery:${CIRCLE_SHA1} --build-arg DOCKER_TAG=${CIRCLE_SHA1} -f Dockerfile.console .
       - run:
           name: Build application Docker image
           command: |
@@ -2297,9 +2297,9 @@ workflows:
             parameters:
               resource_class:
                 - large
-      - console-docker-manifest:
-          requires:
-            - console-docker-build
+      # - console-docker-manifest:
+      #     requires:
+      #       - console-docker-build
       # - console-test-docker-e2e-community-edition:
       #     requires:
       #       - console-docker-manifest

@@ -14,7 +14,7 @@ RUN cd console \
     && make build \
     && make clean-deps
 
-WORKDIR /usr/src/app/backend
+WORKDIR /usr/src/app/console/backend
 
 # Needed to run npm start
 RUN npm i module-alias
@@ -39,5 +39,5 @@ RUN mkdir /home/appuser && \
     chown -R appuser:appuser /home/appuser
 USER appuser
 
-CMD ["npm", "start", "--prefix", "./backend"]
+CMD ["npm", "start", "--prefix", "./console/backend"]
 EXPOSE 4000
