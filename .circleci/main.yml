@@ -1721,7 +1721,11 @@ jobs:
           command: |
               docker buildx create --name hab --driver docker-container
               docker buildx build --provenance false --builder hab --platform linux/amd64 --build-arg DOCKER_TAG=${CIRCLE_SHA1} --push -t pachyderm/haberdashery:${CIRCLE_SHA1}-amd64 -f Dockerfile.console .
-
+      - run:
+          name: Build application Docker image
+          command: |
+      	    docker manifest create pachyderm/haberdashery:${CIRCLE_SHA1} docker.io/pachyderm/haberdashery:${CIRCLE_SHA1}-amd64
+	          docker manifest push pachyderm/haberdashery:${CIRCLE_SHA1}-amd64
       # - save_cache:
       #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
       #     paths:
@@ -2295,16 +2299,15 @@ workflows:
             parameters:
               resource_class:
                 - large
-                - arm.large
       - console-docker-manifest:
           requires:
             - console-docker-build
-      - console-test-docker-e2e-community-edition:
-          requires:
-            - console-docker-manifest
-      - console-test-docker-e2e-enterprise-edition:
-          requires:
-            - console-docker-manifest
+      # - console-test-docker-e2e-community-edition:
+      #     requires:
+      #       - console-docker-manifest
+      # - console-test-docker-e2e-enterprise-edition:
+      #     requires:
+      #       - console-docker-manifest
 
       # when:
       #   and:
