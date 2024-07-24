@@ -2292,6 +2292,7 @@ workflows:
             parameters:
               resource_class:
                 - large
+                - arm.large
       - console-docker-manifest:
           requires:
             - console-docker-build
