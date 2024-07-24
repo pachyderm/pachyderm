@@ -65,7 +65,6 @@ circle-docker-build:
 	cd .. && docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --build-arg DOCKER_TAG=$(DOCKER_TAG) --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) -f Dockerfile.console .
 
 circle-docker-manifest:
-	echo "$(DOCKER_PWD)" | docker login -u pachydermbuildbot --password-stdin
 	docker manifest create pachyderm/haberdashery:$(DOCKER_TAG) docker.io/pachyderm/haberdashery:$(DOCKER_TAG)-amd64 docker.io/pachyderm/haberdashery:$(DOCKER_TAG)-arm64
 	docker manifest push pachyderm/haberdashery:$(DOCKER_TAG)
 

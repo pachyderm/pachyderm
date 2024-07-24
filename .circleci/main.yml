@@ -1710,31 +1710,17 @@ jobs:
       image: default
     steps:
       - checkout
-      # - run:
-      #     name: pwd
-      #     command: |
-      #       ls -la
-      #       pwd
       # - restore_cache:
       #     keys:
       #       - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      # - run:
-      #     name: docker build
-      #     command: docker build -t pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 -f Dockerfile.datum-batching-test .
       - run:
           name: Build application Docker image
           command: |
             cd console 
             make circle-docker-build
-      # - run:
-      #     name: Build application Docker image
-      #     command: |
-      #       TARGET_ARCH=amd64
-      #       docker buildx create --name hab --driver docker-container
-      #       docker buildx build --provenance false --builder hab --platform linux/${TARGET_ARCH} --cache-from=type=local,src=/tmp/docker-cache --build-arg DOCKER_TAG=$(DOCKER_TAG) --cache-to=type=local,dest=/tmp/docker-cache --push -t pachyderm/haberdashery:$(DOCKER_TAG)-${TARGET_ARCH} -f Dockerfile.console .
       # - save_cache:
       #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
       #     paths:
@@ -1742,17 +1728,16 @@ jobs:
   console-docker-manifest:
     machine:
       image: default
-    working_directory: ~/project/console
     steps:
-      - checkout:
-          path: ~/project
-      - attach_workspace:
-          at: .
+      - checkout
+      - run:
+          name: docker login
+          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
           name: Create Multiarch Manifest
           command: |
+            cd console
             make circle-docker-manifest
-
   console-test-docker-e2e-community-edition:
     resource_class: xlarge
     parallelism: 3
@@ -2310,15 +2295,15 @@ workflows:
               resource_class:
                 - large
                 - arm.large
-      # - console-docker-manifest:
-      #     requires:
-      #       - console-docker-build
-      # - console-test-docker-e2e-community-edition:
-      #     requires:
-      #       - console-docker-manifest
-      # - console-test-docker-e2e-enterprise-edition:
-      #     requires:
-      #       - console-docker-manifest
+      - console-docker-manifest:
+          requires:
+            - console-docker-build
+      - console-test-docker-e2e-community-edition:
+          requires:
+            - console-docker-manifest
+      - console-test-docker-e2e-enterprise-edition:
+          requires:
+            - console-docker-manifest
 
       # when:
       #   and:
