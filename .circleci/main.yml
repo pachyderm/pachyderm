@@ -1724,8 +1724,8 @@ jobs:
       - run:
           name: Build application Docker image
           command: |
-      	    docker manifest create pachyderm/haberdashery:${CIRCLE_SHA1} docker.io/pachyderm/haberdashery:${CIRCLE_SHA1}-amd64
-	          docker manifest push pachyderm/haberdashery:${CIRCLE_SHA1}-amd64
+            docker manifest create pachyderm/haberdashery:${CIRCLE_SHA1} docker.io/pachyderm/haberdashery:${CIRCLE_SHA1}-amd64  
+            docker manifest push pachyderm/haberdashery:${CIRCLE_SHA1}-amd64
       # - save_cache:
       #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile.console" }}
       #     paths:
