@@ -75,18 +75,4 @@ e2e:
 
 e2e-auth: 
 	npm run cypress:local-auth
-
-install-pachyderm-port-forward: install-pachyderm
-	pachctl config import-kube local --overwrite
-	pachctl config set active-context local
-	pachctl port-forward
-
-install-pachyderm:
-	bash -x ./scripts/install-matching-pachyderm-version.sh
-
-install-pachyderm-proxy:
-	bash -x ./scripts/install-matching-pachyderm-version-proxy.sh
-	echo '{"pachd_address": "grpc://127.0.0.1:80"}' | pachctl config set context local --overwrite
-	pachctl config set active-context local
-	echo "Verify pachctl is working with: pachctl version"
-	echo "Set PACHD_ADDRESS=localhost:80 in your .env.development.local"
+	
