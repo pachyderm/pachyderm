@@ -1715,26 +1715,24 @@ jobs:
       #     command: |
       #       ls -la
       #       pwd
-      # - restore_cache:
-      #     keys:
-      #       - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+      - restore_cache:
+          keys:
+            - docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       # - run:
       #     name: docker build
       #     command: docker build -t pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 -f Dockerfile.datum-batching-test .
-    
-    
-      # - run:
-      #     name: Build application Docker image
-      #     command: |
-      #       docker buildx create --name hab --driver docker-container
+      - run:
+          name: Build application Docker image
+          command: |
+            docker buildx create --name hab --driver docker-container
       #       docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --cache-from=type=local,src=/tmp/docker-cache --build-arg DOCKER_TAG=$(DOCKER_TAG) --cache-to=type=local,dest=/tmp/docker-cache --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) -f ./console .
-      # - save_cache:
-      #     key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
-      #     paths:
-      #       - /tmp/docker-cache
+      - save_cache:
+          key: docker-cache-{{ arch }}-{{ .Branch }}-{{ checksum "Dockerfile" }}-{{ checksum "Makefile" }}
+          paths:
+            - /tmp/docker-cache
   console-docker-manifest:
     machine:
       image: default
