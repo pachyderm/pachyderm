@@ -6,6 +6,8 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import userEvent from '@testing-library/user-event';
 import {AuthConfig, HealthCheck} from 'plugins/mount/types';
 import Config from '../Config';
+import {ReadonlyJSONObject} from '@lumino/coreutils';
+import {ServerConnection} from '@jupyterlab/services';
 jest.mock('../../../../../handler');
 
 describe('config screen', () => {
@@ -281,9 +283,16 @@ describe('config screen', () => {
       };
 
       mockRequestAPI.requestAPI.mockImplementation(
-        mockedRequestAPI({
-          status: 'HEALTHY_INVALID_CLUSTER',
-        }),
+        (
+          _endPoint?: string,
+          method?: string,
+          body?: ReadonlyJSONObject | null,
+          namespace?: string,
+        ) => {
+          throw new ServerConnection.ResponseError(
+            new Response(null, {status: 400}),
+          );
+        },
       );
 
       const {getByTestId, findByText} = render(
