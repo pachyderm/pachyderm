@@ -1693,9 +1693,7 @@ jobs:
       - codecov/upload:
           file: ./console/frontend/src/coverage/lcov.info
   console-build:
-    resource_class: small
-    docker:
-      - image: cimg/node:20.11.0
+    executor: small-node
     steps:
       - checkout
       - node-install-all
@@ -2241,7 +2239,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - aws-prerelease-testing
-  console-regression-tests: 
+  console-regression-tests:
     when:
       or:
         - << pipeline.parameters.run-console-jobs >>
