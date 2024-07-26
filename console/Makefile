@@ -13,6 +13,7 @@ ifneq ($(filter aarch%,$(UNAME_P)),)
 	TARGET_ARCH = arm64
 endif
 
+# TODO: remove CIRCLE_TAG only use circle sha
 ifdef CIRCLE_TAG 
 	DOCKER_TAG = $(CIRCLE_TAG)
 else

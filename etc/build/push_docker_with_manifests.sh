@@ -27,3 +27,5 @@ for product in pachd worker pachctl; do
     docker manifest inspect "$REPO/$product:$VERSION"
     docker manifest push "$REPO/$product:$VERSION"
 done
+
+# TODO: add console
