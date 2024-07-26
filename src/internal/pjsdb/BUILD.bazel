@@ -1,0 +1,54 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pjsdb",
+    srcs = [
+        "errors.go",
+        "iterators.go",
+        "job_crud.go",
+        "job_iterator.go",
+        "pjsdb.go",
+        "queue_crud.go",
+        "queue_iterator.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pjsdb",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/storage/fileset",
+        "//src/internal/stream",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+        "@com_github_jmoiron_sqlx//:sqlx",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)
+
+go_test(
+    name = "pjsdb_test",
+    srcs = [
+        "job_crud_test.go",
+        "job_iterator_test.go",
+        "pjsdb_test.go",
+        "queue_crud_test.go",
+        "sanitize_test.go",
+    ],
+    deps = [
+        ":pjsdb",
+        "//src/internal/clusterstate",
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/migrations",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/storage/chunk",
+        "//src/internal/storage/fileset",
+        "//src/internal/storage/kv",
+        "//src/internal/storage/track",
+        "//src/internal/testetcd",
+    ],
+)
