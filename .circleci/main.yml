@@ -1417,10 +1417,9 @@ jobs:
             PACH_PYTHON_TEST_HOST="$(minikube ip)" \
             PACH_PYTHON_TEST_PORT="30080" \
             PACH_PYTHON_TEST_PORT_ENTERPRISE="30081" \
-            PYTHON_SDK_TESTING_IMAGE="pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1" \
             PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
             ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
-            PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
+            PYTHON_SDK_TESTING_IMAGE="pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1" \
             poetry run pytest -vvv pachyderm_sdk tests
   python-sdk-test-publish:
     executor: python

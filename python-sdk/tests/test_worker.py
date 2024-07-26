@@ -13,6 +13,7 @@ run `make test` from the python-sdk directory to build the image locally and
 run tests on it. The same Dockerfile is used to build the image in CI.
 """
 IMAGE_NAME = os.environ.get("PYTHON_SDK_TESTING_IMAGE")
+print(IMAGE_NAME)
 
 
 def generate_stdin(func: Callable[[], None]):
