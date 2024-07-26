@@ -13,7 +13,6 @@ run `make test` from the python-sdk directory to build the image locally and
 run tests on it. The same Dockerfile is used to build the image in CI.
 """
 IMAGE_NAME = os.environ.get("PYTHON_SDK_TESTING_IMAGE")
-print(IMAGE_NAME)
 
 
 def generate_stdin(func: Callable[[], None]):
@@ -38,7 +37,7 @@ def generate_stdin(func: Callable[[], None]):
     ]
 
 
-@pytest.mark.skipif(IMAGE_NAME=None, reason="Image not specified")
+@pytest.mark.skipif(not IMAGE_NAME, reason="Image not specified")
 def test_datum_batching(client: TestClient):
     """Test that exceptions within the user code is caught, reported to the
     worker binary, and iteration continues.
@@ -103,7 +102,7 @@ def test_datum_batching(client: TestClient):
             client.pps.delete_pipeline(pipeline=pipeline, force=True)
 
 
-@pytest.mark.skipif(IMAGE_NAME=None, reason="Image not specified")
+@pytest.mark.skipif(not IMAGE_NAME, reason="Image not specified")
 def test_datum_batching_errors(client: TestClient):
     """Test that exceptions within the user code is caught, reported to the
     worker binary, and iteration continues.
