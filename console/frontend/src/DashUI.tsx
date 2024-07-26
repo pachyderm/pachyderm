@@ -40,9 +40,6 @@ const DashUI: React.FC = () => {
           <ErrorBoundaryProvider>
             <AnalyticsProvider>
               <NotificationBannerProvider>
-
-
-                
                 <main id="main">
                   <Suspense fallback={<LoadingSkeleton />}>
                     <Switch>
