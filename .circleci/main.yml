@@ -2241,17 +2241,12 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - aws-prerelease-testing
-
-  console:
-    when: << pipeline.parameters.run-console-jobs >>
+  console-regression-tests: 
+    when:
+      or:
+        - << pipeline.parameters.run-console-jobs >>
+        - << pipeline.parameters.run-core-jobs >>
     jobs:
-      - console-lint-backend
-      - console-lint-frontend
-      - console-lint-cypress
-      - console-build
-      - console-test-backend
-      - console-test-frontend-components
-      - console-test-frontend-react
       - console-docker-build:
           matrix:
             parameters:
@@ -2267,6 +2262,16 @@ workflows:
       - console-test-docker-e2e-enterprise-edition:
           requires:
             - console-docker-manifest
+  console:
+    when: << pipeline.parameters.run-console-jobs >>
+    jobs:
+      - console-lint-backend
+      - console-lint-frontend
+      - console-lint-cypress
+      - console-build
+      - console-test-backend
+      - console-test-frontend-components
+      - console-test-frontend-react
 commands:
   install-helm:
     steps:
