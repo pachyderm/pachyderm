@@ -4,15 +4,18 @@ import (
 	"context"
 	"path/filepath"
 
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
@@ -86,6 +89,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 // wait for the previous callback to return before calling the callback again
 // with the latest job.
 func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger logs.TaggedLogger, cb func(context.Context, *pps.JobInfo) error) error {
+	var preCheckCancel func()
 	// These are used to cancel the existing service and wait for it to finish
 	var cancel func()
 	var eg *errgroup.Group
@@ -93,6 +97,40 @@ func forEachJob(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, lo
 		if ji.State == pps.JobState_JOB_FINISHING {
 			return nil // don't pick up a "finishing" job
 		}
+		// Only restart the job once all source commits are closed.
+		// Otherwise a job will start for the service pipeline while without its complete set of data.
+		ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(), &pfs.InspectCommitRequest{
+			Commit: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: ji.Job.Pipeline.Name, Type: "user", Project: ji.Job.Pipeline.Project,
+				},
+				Id: ji.Job.Id,
+			},
+		})
+		if err != nil {
+			return err
+		}
+		logger.Logf("retrieved job commit")
+		if preCheckCancel != nil {
+			logger.Logf("canceling previous service's pre-check, new job ready")
+			preCheckCancel()
+		}
+		var preCheckCtx context.Context
+		preCheckCtx, preCheckCancel = context.WithCancel(pachClient.Ctx())
+		for _, src := range ci.DirectProvenance {
+			log.Info(pachClient.Ctx(), "waiting on job's source commit to finish",
+				zap.String("job", ji.Job.String()),
+				zap.String("source_commit", src.String()))
+			if _, err := pachClient.PfsAPIClient.InspectCommit(preCheckCtx, &pfs.InspectCommitRequest{
+				Commit: src, Wait: pfs.CommitState_FINISHED,
+			}); err != nil {
+				if errors.Is(err, context.Canceled) {
+					return nil
+				}
+				return errors.Wrapf(err, "wait for provenant commit %q to finish", src.String())
+			}
+		}
+		preCheckCancel = nil
 		if cancel != nil {
 			logger.Logf("canceling previous service, new job ready")
 			cancel()

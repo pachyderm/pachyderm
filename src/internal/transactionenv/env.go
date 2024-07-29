@@ -67,6 +67,7 @@ type TransactionServer interface {
 
 type PFSBackend interface {
 	NewPropagater(*txncontext.TransactionContext) txncontext.PfsPropagater
+	NewRepoValidator(*txncontext.TransactionContext) txncontext.PfsRepoValidator
 	CreateRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs.CreateRepoRequest) error
 	DeleteRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs.DeleteRepoRequest) (bool, error)
 
@@ -335,6 +336,7 @@ func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *pachsql.Tx, cb 
 	}
 	if env.getPFS() != nil {
 		txnCtx.PfsPropagater = env.getPFS().NewPropagater(txnCtx)
+		txnCtx.PfsRepoValidator = env.getPFS().NewRepoValidator(txnCtx)
 	}
 	if env.getPPS() != nil {
 		txnCtx.PpsPropagater = env.getPPS().NewPropagater(txnCtx)

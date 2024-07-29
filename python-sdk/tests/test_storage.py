@@ -19,7 +19,7 @@ def fileset(client: TestClient) -> Tuple[str, Dict[str, bytes]]:
     -------
         (fileset_id, Dict[path, data])
     """
-    files = {f"/file{i}": os.urandom(1024) for i in range(10)}
+    files = {f"/{i}/file{i}": os.urandom(1024) for i in range(10)}
     request_iterator = (
         storage.CreateFilesetRequest(append_file=storage.AppendFile(path=file, data=data))
         for file, data in files.items()
@@ -143,8 +143,8 @@ class TestStorage:
         )
 
         # Assert
-        for file in destination.iterdir():
-            key = "/" + file.name
+        for file in (f for f in destination.rglob("**/*") if f.is_file()):
+            key = "/" + file.name[-1] + "/" + file.name
             assert file.read_bytes() == files[key]
 
     @staticmethod
@@ -169,3 +169,33 @@ class TestStorage:
                 fetch_missing_chunks=False,
                 http_host_replacement="localhost:9000",
             )
+
+    @staticmethod
+    def test_multichunk_file(client: TestClient, tmp_path: Path):
+        """Test that multiple chunks are retrieved for sufficiently large file."""
+        # Arrange
+        request_iterator = (
+            storage.CreateFilesetRequest(
+                append_file=storage.AppendFile(
+                    path="/bigfile",
+                    data=os.urandom(15 * 1024 * 1024),  # Chunks should max at 20MB
+                )
+            )
+            for _ in range(2)
+        )
+        fileset_id = client.storage.create_fileset(request_iterator).fileset_id
+
+        # Act
+        # This is hardcoded to replace the host of the presigned URL with
+        # localhost:9000. This test needs to be run simultaneously with:
+        #   - kubectl port-forward service/minio 9000:9000
+        client.storage.fetch_chunks(
+            fileset_id,
+            path="/",
+            cache_location=tmp_path,
+            http_host_replacement="localhost:9000",
+        )
+
+        # Assert
+
+        assert count(tmp_path.iterdir()) > 1

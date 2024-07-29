@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -556,70 +557,103 @@ func (a *adapter) publish(ctx context.Context, labels loki.LabelSet, entry *loki
 	if entry == nil {
 		return false, nil
 	}
+
+	// Fix some Loki configuration errors that would prevent parsing.
 	var obj map[string]any
 	entry.Line, obj = lokiutil.RepairLine(entry.Line)
+
+	// If the line is not JSON, synthesize some.
+	if obj == nil {
+		obj = map[string]any{
+			"message":  entry.Line,
+			"time":     entry.Timestamp.Format(time.RFC3339Nano),
+			"severity": "info",
+		}
+	}
+
+	// Build the base object to return.
 	msg := &logs.LogMessage{
 		Verbatim: &logs.VerbatimLogMessage{
 			Line:      []byte(entry.Line),
 			Timestamp: timestamppb.New(entry.Timestamp),
 		},
-		Object: new(structpb.Struct),
+		Object:          new(structpb.Struct),
+		NativeTimestamp: timestamppb.New(entry.Timestamp),
 	}
 
+	// If there is JSON, convert it to a structpb.Struct, or synthesize something.
+	var err error
+	msg.Object, err = structpb.NewStruct(obj)
+	if err != nil {
+		msg.Object = &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				"message":  structpb.NewStringValue(entry.Line),
+				"time":     structpb.NewStringValue(entry.Timestamp.Format(time.RFC3339Nano)),
+				"severity": structpb.NewStringValue("error"),
+				"#error":   structpb.NewStringValue(err.Error()),
+			},
+		}
+		obj["severity"] = "error"
+	}
+
+	// Grab the severity from the log message, for filtering below.
 	severity := logs.LogLevel_LOG_LEVEL_ERROR
-	if obj != nil {
-		if v, ok := obj["severity"]; ok {
-			if s, ok := v.(string); ok {
-				severity = stringAsLogLevel(s)
-			}
-		}
-		var err error
-		msg.Object, err = structpb.NewStruct(obj)
-		if err != nil {
-			msg.Object = &structpb.Struct{
-				Fields: map[string]*structpb.Value{
-					"#error": structpb.NewStringValue(err.Error()),
-				},
-			}
-		}
-		if v, ok := obj["time"]; ok {
-			if sv, ok := v.(string); ok {
-				if t, err := time.Parse(time.RFC3339Nano, sv); err == nil {
-					msg.NativeTimestamp = timestamppb.New(t)
-				}
-			}
-		}
-		if v, ok := obj["ts"]; ok {
-			if sv, ok := v.(string); ok {
-				if t, err := time.Parse(time.RFC3339Nano, sv); err == nil {
-					msg.NativeTimestamp = timestamppb.New(t)
-				}
-			}
-		}
-		msg.PpsLogMessage = objectToLogMessage(obj)
-		if msg.PpsLogMessage.GetTs() == nil {
-			msg.PpsLogMessage.Ts = msg.NativeTimestamp
+	if v, ok := obj["severity"]; ok {
+		if s, ok := v.(string); ok {
+			severity = stringAsLogLevel(s)
 		}
 	}
-	if msg.Object == nil || msg.Object.Fields == nil {
-		msg.Object = &structpb.Struct{Fields: make(map[string]*structpb.Value)}
-	}
+
+	// Add loki metadata to the object.
 	for k, v := range labels {
 		msg.Object.Fields["#"+k] = structpb.NewStringValue(v)
 	}
-	if len(msg.Object.AsMap()) == 0 {
-		msg.Object = nil
+
+	// Extract the native timestamp, if possible.
+	if v, ok := obj["time"]; ok {
+		if sv, ok := v.(string); ok {
+			if t, err := time.Parse(time.RFC3339Nano, sv); err == nil && !t.IsZero() {
+				msg.NativeTimestamp = timestamppb.New(t)
+			}
+		}
+	}
+	if v, ok := obj["ts"]; ok {
+		if sv, ok := v.(string); ok {
+			if t, err := time.Parse(time.RFC3339Nano, sv); err == nil && !t.IsZero() {
+				msg.NativeTimestamp = timestamppb.New(t)
+			}
+		}
+	}
+	if msg.NativeTimestamp == nil || msg.NativeTimestamp.AsTime().IsZero() {
+		msg.NativeTimestamp = nil
 	}
 
+	// Convert the object to a PPS log message for backwards compatibility.
+	msg.PpsLogMessage = objectToLogMessage(obj)
+	if msg.PpsLogMessage.GetTs() == nil && msg.NativeTimestamp != nil {
+		msg.PpsLogMessage.Ts = msg.NativeTimestamp
+	}
+	if proto.Equal(msg.PpsLogMessage, &pps.LogMessage{}) {
+		// If the PPS log message didn't capture any fields, remove it entirely.  This is
+		// rare; it will only happen for valid JSON objects that don't contain "ts" and
+		// "message".
+		msg.PpsLogMessage = nil
+	}
+
+	// Filter by log level, if requested.
 	if a.level == logs.LogLevel_LOG_LEVEL_INFO && severity < logs.LogLevel_LOG_LEVEL_INFO {
 		return false, nil
 	}
 	if a.level == logs.LogLevel_LOG_LEVEL_ERROR && severity < logs.LogLevel_LOG_LEVEL_ERROR {
 		return false, nil
 	}
+
+	// Run other filters.
 	if a.pass != nil && !a.pass(map[string]string(labels), msg) {
 		return false, nil
 	}
+
+	// Finally, write out the unfiltered line.
 	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
 		ResponseType: &logs.GetLogsResponse_Log{
 			Log: msg,

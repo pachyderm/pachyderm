@@ -8,8 +8,10 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -35,6 +37,7 @@ const (
 			branch.created_at,
 			branch.updated_at,
 			branch.metadata,
+			branch.created_by,
 			repo.id as "repo.id",
 			repo.name as "repo.name",
 			repo.type as "repo.type",
@@ -286,17 +289,28 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	if uuid.IsUUIDWithoutDashes(branchInfo.Branch.Name) {
 		return 0, errors.Errorf("branch name cannot be a UUID V4")
 	}
+	var createdBy sql.NullString
+	if cb := branchInfo.CreatedBy; cb != "" {
+		createdBy.String = cb
+		createdBy.Valid = true
+		if err := authdb.EnsurePrincipal(ctx, tx, cb); err != nil {
+			return 0, errors.Wrapf(err, "ensure principal %v", cb)
+		}
+	}
 	var branchID BranchID
 	// TODO stop matching on pfs.commits.commit_id, because that will eventually be deprecated.
 	// Instead, construct the commit_id based on existing project, repo, and commit_set_id fields.
+	//
+	// Note: on conflict, we don't touch created_by.
 	if err := tx.QueryRowContext(ctx,
 		`
-		INSERT INTO pfs.branches(repo_id, name, head, metadata)
+		INSERT INTO pfs.branches(repo_id, name, head, metadata, created_by)
 		VALUES (
 			(SELECT repo.id FROM pfs.repos repo JOIN core.projects project ON repo.project_id = project.id WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3),
 			$4,
 			(SELECT int_id FROM pfs.commits WHERE commit_id = $5),
-			$6
+			$6,
+			$7
 		)
 		ON CONFLICT (repo_id, name) DO UPDATE SET
 			head = EXCLUDED.head,
@@ -309,6 +323,7 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 		branchInfo.Branch.Name,
 		CommitKey(branchInfo.Head),
 		pgjsontypes.StringMap{Data: branchInfo.Metadata},
+		createdBy,
 	).Scan(&branchID); err != nil {
 		return 0, errors.Wrap(err, "could not create branch")
 	}
@@ -720,7 +735,14 @@ func fetchBranchInfoByBranch(ctx context.Context, ext sqlx.ExtContext, branch *B
 	if branch == nil {
 		return nil, errors.Errorf("branch cannot be nil")
 	}
-	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb(), Metadata: branch.Metadata.Data}
+	branchInfo := &pfs.BranchInfo{
+		Branch:    branch.Pb(),
+		Head:      branch.Head.Pb(),
+		Metadata:  branch.Metadata.Data,
+		CreatedBy: branch.CreatedBy.String,
+		CreatedAt: timestamppb.New(branch.CreatedAt),
+		UpdatedAt: timestamppb.New(branch.UpdatedAt),
+	}
 	var err error
 	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, ext, branch.ID)
 	if err != nil {

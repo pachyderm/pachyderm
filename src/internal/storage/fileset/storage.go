@@ -465,3 +465,17 @@ func (d *deleter) DeleteTx(tx *pachsql.Tx, oid string) error {
 	}
 	return d.store.DeleteTx(tx, *id)
 }
+
+type PinnedFileset ID
+
+// Pin clones a fileset, keeping it alive forever.
+/* 	TODO(Fahad): Replace cloning with a Pin that is a big int.
+	A pin will point to a fileset ID, where the ID is a stable hash of the root index.
+   	Fileset trees must be convergent in order to achieve this. */
+func (s *Storage) Pin(tx *pachsql.Tx, fs ID) (PinnedFileset, error) {
+	id, err := s.CloneTx(tx, fs, track.NoTTL)
+	if err != nil {
+		return PinnedFileset{}, errors.Wrap(err, "pin")
+	}
+	return PinnedFileset(*id), nil
+}

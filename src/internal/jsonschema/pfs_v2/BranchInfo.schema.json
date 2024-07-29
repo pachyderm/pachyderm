@@ -41,7 +41,22 @@
                     "additionalProperties": {
                         "type": "string"
                     },
-                    "type": "object"
+                    "type": "object",
+                    "description": "Metadata on the branch."
+                },
+                "createdBy": {
+                    "type": "string",
+                    "description": "The user that caused this branch to be created."
+                },
+                "createdAt": {
+                    "type": "string",
+                    "description": "When the branch was added to the database.",
+                    "format": "date-time"
+                },
+                "updatedAt": {
+                    "type": "string",
+                    "description": "When information about the branch was last modified (not necessarily when the data in this branch changed or anything like that).",
+                    "format": "date-time"
                 }
             },
             "additionalProperties": false,
