@@ -2096,19 +2096,19 @@ workflows:
             - sign-off
           filters: *only-release-tags
       - console-lint-backend:
-          filters: *only-release-tags      
+          filters: *only-release-tags
       - console-lint-frontend:
-          filters: *only-release-tags    
+          filters: *only-release-tags
       - console-lint-cypress:
-          filters: *only-release-tags   
+          filters: *only-release-tags
       - console-build:
-          filters: *only-release-tags   
+          filters: *only-release-tags
       - console-test-backend:
-          filters: *only-release-tags   
+          filters: *only-release-tags
       - console-test-frontend-components:
-          filters: *only-release-tags   
+          filters: *only-release-tags
       - console-test-frontend-react:
-          filters: *only-release-tags   
+          filters: *only-release-tags
       - console-docker-build:
           matrix:
             parameters:
@@ -2119,17 +2119,17 @@ workflows:
       - console-docker-manifest:
           requires:
             - console-docker-build
-          filters: *only-release-tags   
+          filters: *only-release-tags
       - console-test-docker-e2e-community-edition:
           requires:
             - console-docker-manifest
             - build-pachctl-bin
-          filters: *only-release-tags   
+          filters: *only-release-tags
       - console-test-docker-e2e-enterprise-edition:
           requires:
             - console-docker-manifest
             - build-pachctl-bin
-          filters: *only-release-tags   
+          filters: *only-release-tags
       - console-docker-push-tag:
           requires:
             - sign-off
