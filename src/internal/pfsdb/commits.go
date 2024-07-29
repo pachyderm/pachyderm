@@ -612,105 +612,79 @@ func forEachCommitAncestorUntilRoot(ctx context.Context, tx *pachsql.Tx, startId
 	}
 }
 
-// UpsertCommit will attempt to insert a commit and its ancestry relationships.
-// If the commit already exists, it will update its description.
-func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) (CommitID, error) {
-	existingCommit, err := getCommitRowByCommitKey(ctx, tx, commitInfo.Commit)
-	if err != nil {
-		if errors.As(err, &CommitNotFoundError{CommitID: CommitKey(commitInfo.Commit)}) {
-			return CreateCommit(ctx, tx, commitInfo, opts...)
-		}
-		return 0, errors.Wrap(err, "upserting commit")
+// UpdateCommitBranch updates a commit's branch related fields only.
+// This is a separate function to make it easier to audit updates to a commit's branch for the removal of the
+// branch related fields in the future.
+func UpdateCommitBranch(ctx context.Context, tx *pachsql.Tx, commitID CommitID, branchID BranchID) error {
+	query := `UPDATE pfs.commits SET branch_id=:branch_id WHERE int_id=:int_id;`
+	commitRow := &CommitRow{
+		ID: commitID,
+		BranchID: sql.NullInt64{
+			Valid: true,
+			Int64: int64(branchID),
+		},
 	}
-	return existingCommit.ID, UpdateCommit(ctx, tx, existingCommit.ID, commitInfo, opts...)
+	return errors.Wrap(update(ctx, tx, query, commitRow), "update commit branch")
 }
 
-// UpdateCommit overwrites an existing commit entry by CommitID as well as the corresponding ancestry entries.
-func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) error {
-	if err := validateCommitInfo(commitInfo); err != nil {
-		return err
+func FinishingCommit(ctx context.Context, tx *pachsql.Tx, commitID CommitID, finishingTime *timestamppb.Timestamp, error string) error {
+	query := `UPDATE pfs.commits SET finishing_time=:finishing_time, error=:error WHERE int_id=:int_id;`
+	commitRow := &CommitRow{
+		ID:            commitID,
+		FinishingTime: pbutil.SanitizeTimestampPb(finishingTime),
+		Error:         error,
 	}
-	opt := AncestryOpt{}
-	if len(opts) > 0 {
-		opt = opts[0]
+	return errors.Wrap(update(ctx, tx, query, commitRow), "finishing commit")
+}
+
+func FinishCommit(ctx context.Context, tx *pachsql.Tx, commitID CommitID, finishedTime *timestamppb.Timestamp, error string, details *pfs.CommitInfo_Details) error {
+	query := `UPDATE pfs.commits SET 
+			finished_time=:finished_time, 
+			error=:error, 
+			compacting_time_s=:compacting_time_s, 
+			validating_time_s=:validating_time_s, 
+			size=:size 
+		WHERE int_id=:int_id;`
+	commitRow := &CommitRow{
+		ID:             commitID,
+		FinishedTime:   pbutil.SanitizeTimestampPb(finishedTime),
+		CompactingTime: pbutil.DurationPbToBigInt(details.CompactingTime),
+		ValidatingTime: pbutil.DurationPbToBigInt(details.ValidatingTime),
+		Size:           details.SizeBytes,
+		Error:          error,
 	}
-	branchName := sql.NullString{String: "", Valid: false}
-	if commitInfo.Commit.Branch != nil {
-		branchName = sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true}
+	return errors.Wrap(update(ctx, tx, query, commitRow), "finish commit")
+}
+
+func UpdateCommitMetadata(ctx context.Context, tx *pachsql.Tx, commitID CommitID, metadata map[string]string) error {
+	query := `UPDATE pfs.commits SET metadata=:metadata WHERE int_id=:int_id;`
+	commitRow := &CommitRow{
+		ID:       commitID,
+		Metadata: pgjsontypes.StringMap{Data: metadata},
 	}
-	var createdBy sql.NullString
-	if creator := commitInfo.CreatedBy; creator != "" {
-		createdBy.String = creator
-		createdBy.Valid = true
-		if err := authdb.EnsurePrincipal(ctx, tx, creator); err != nil {
-			return errors.Wrapf(err, "ensure principal %v", creator)
-		}
+	return errors.Wrap(update(ctx, tx, query, commitRow), "update commit metadata")
+}
+
+func UpdateDescription(ctx context.Context, tx *pachsql.Tx, commitID CommitID, description string) error {
+	query := `UPDATE pfs.commits SET description=:description WHERE int_id=:int_id;`
+	commitRow := &CommitRow{
+		ID:          commitID,
+		Description: description,
 	}
-	update := CommitRow{
-		ID:          id,
-		CommitID:    CommitKey(commitInfo.Commit),
-		CommitSetID: commitInfo.Commit.Id,
-		Repo: RepoRow{
-			Name: commitInfo.Commit.Repo.Name,
-			Type: commitInfo.Commit.Repo.Type,
-			Project: ProjectRow{
-				Name: commitInfo.Commit.Repo.Project.Name,
-			},
-		},
-		BranchName:     branchName,
-		Origin:         commitInfo.Origin.Kind.String(),
-		StartTime:      pbutil.SanitizeTimestampPb(commitInfo.Started),
-		FinishingTime:  pbutil.SanitizeTimestampPb(commitInfo.Finishing),
-		FinishedTime:   pbutil.SanitizeTimestampPb(commitInfo.Finished),
-		Description:    commitInfo.Description,
-		CompactingTime: pbutil.DurationPbToBigInt(commitInfo.Details.CompactingTime),
-		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
-		Size:           commitInfo.Details.SizeBytes,
-		Error:          commitInfo.Error,
-		Metadata:       pgjsontypes.StringMap{Data: commitInfo.Metadata},
-		CreatedBy:      createdBy,
-	}
-	query := updateCommit
-	res, err := tx.NamedExecContext(ctx, query, update)
+	return errors.Wrap(update(ctx, tx, query, commitRow), "update description")
+}
+
+func update(ctx context.Context, tx *pachsql.Tx, query string, row *CommitRow) error {
+	res, err := tx.NamedExecContext(ctx, query, row)
 	if err != nil {
-		return errors.Wrap(err, "exec update commitInfo")
+		return errors.Wrap(err, "update commit")
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "rows affected")
+		return errors.Wrap(err, "update commit: rows affected")
 	}
 	if rowsAffected == 0 {
-		_, err := GetRepoByName(ctx, tx, commitInfo.Commit.Repo.Project.Name, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type)
-		if err != nil {
-			if errors.As(err, new(*RepoNotFoundError)) {
-				return errors.Join(err, &CommitNotFoundError{RowID: id})
-			}
-			return errors.Wrapf(err, "get repo for update commit with row id %v", id)
-		}
-		return &CommitNotFoundError{RowID: id}
-	}
-	if !opt.SkipParent {
-		_, err = tx.ExecContext(ctx, "DELETE FROM pfs.commit_ancestry WHERE child=$1;", id)
-		if err != nil {
-			return errors.Wrap(err, "delete commit parent")
-		}
-		if commitInfo.ParentCommit != nil {
-			if err := CreateCommitParent(ctx, tx, commitInfo.ParentCommit, id); err != nil {
-				return errors.Wrap(err, "linking parent")
-			}
-		}
-	}
-	if opt.SkipChildren {
-		return nil
-	}
-	_, err = tx.ExecContext(ctx, "DELETE FROM pfs.commit_ancestry WHERE parent=$1;", id)
-	if err != nil {
-		return errors.Wrap(err, "delete commit children")
-	}
-	if len(commitInfo.ChildCommits) != 0 {
-		if err := CreateCommitChildren(ctx, tx, id, commitInfo.ChildCommits); err != nil {
-			return errors.Wrap(err, "linking children")
-		}
+		return &CommitNotFoundError{RowID: row.ID}
 	}
 	return nil
 }
