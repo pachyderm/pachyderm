@@ -85,7 +85,7 @@ type DeployOpts struct {
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
 	PortOffset       uint16
-	DisableLoki      bool
+	EnableLoki       bool
 	EnterpriseMember bool
 	EnterpriseServer bool
 	Determined       bool
@@ -865,10 +865,10 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.Console {
 		helmOpts.SetValues["console.enabled"] = "true"
 	}
-	if opts.DisableLoki {
-		helmOpts = union(helmOpts, withoutLokiOptions(namespace, int(pachAddress.Port)))
-	} else {
+	if opts.EnableLoki {
 		helmOpts = union(helmOpts, withLokiOptions(namespace, int(pachAddress.Port)))
+	} else {
+		helmOpts = union(helmOpts, withoutLokiOptions(namespace, int(pachAddress.Port)))
 	}
 	if !(opts.Version == "" || strings.HasPrefix(opts.Version, "2.3")) {
 		helmOpts = union(helmOpts, withoutProxy(namespace))
@@ -888,7 +888,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 
 		waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
 
-		if !opts.DisableLoki {
+		if opts.EnableLoki {
 			waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
 		}
 		waitForPgbouncer(t, ctx, kubeClient, namespace)

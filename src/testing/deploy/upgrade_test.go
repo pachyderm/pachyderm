@@ -53,7 +53,6 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 				k,
 				&minikubetestenv.DeployOpts{
 					Version:            from,
-					DisableLoki:        true,
 					PortOffset:         portOffset,
 					UseLeftoverCluster: false,
 					ValueOverrides:     valuesOverridden,
