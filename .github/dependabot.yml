@@ -1,7 +1,7 @@
 version: 2
 updates:
   - package-ecosystem: "npm"
-    directory: "/"
+    directory: "/console"
     schedule:
       # The default is a random time every Monday, but
       # we prefer a fixed time on Tuesdays
@@ -17,7 +17,7 @@ updates:
       # Helium will fail to provision any dependabot PRs
       separator: "-"
   - package-ecosystem: "npm"
-    directory: "/backend"
+    directory: "/console/backend"
     schedule:
       interval: "weekly"
       day: "tuesday"
@@ -27,7 +27,7 @@ updates:
     pull-request-branch-name:
       separator: "-"
   - package-ecosystem: "npm"
-    directory: "/backend/src/proto"
+    directory: "/console/backend/src/proto"
     schedule:
       interval: "weekly"
       day: "tuesday"
@@ -37,7 +37,7 @@ updates:
     pull-request-branch-name:
       separator: "-"
   - package-ecosystem: "npm"
-    directory: "/frontend"
+    directory: "/console/frontend"
     schedule:
       interval: "weekly"
       day: "tuesday"
