@@ -61,13 +61,10 @@ test:
 	npm test --prefix ./backend && npm test --prefix ./frontend
 
 circle-docker-build:
-	mkdir -p /tmp/docker-cache
-	echo "$(DOCKERHUB_PASS)" | docker login -u "$(DOCKERHUB_USERNAME)" --password-stdin
-	docker buildx create --name hab --driver docker-container
-	docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --cache-from=type=local,src=/tmp/docker-cache --build-arg DOCKER_TAG=$(DOCKER_TAG) --cache-to=type=local,dest=/tmp/docker-cache --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) .
+	cd .. && docker buildx create --name hab --driver docker-container
+	cd .. && docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --build-arg DOCKER_TAG=$(DOCKER_TAG) --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) -f Dockerfile.console .
 
 circle-docker-manifest:
-	echo "$(DOCKERHUB_PASS)" | docker login -u "$(DOCKERHUB_USERNAME)" --password-stdin
 	docker manifest create pachyderm/haberdashery:$(DOCKER_TAG) docker.io/pachyderm/haberdashery:$(DOCKER_TAG)-amd64 docker.io/pachyderm/haberdashery:$(DOCKER_TAG)-arm64
 	docker manifest push pachyderm/haberdashery:$(DOCKER_TAG)
 
@@ -78,18 +75,4 @@ e2e:
 
 e2e-auth: 
 	npm run cypress:local-auth
-
-install-pachyderm-port-forward: install-pachyderm
-	pachctl config import-kube local --overwrite
-	pachctl config set active-context local
-	pachctl port-forward
-
-install-pachyderm:
-	bash -x ./scripts/install-matching-pachyderm-version.sh
-
-install-pachyderm-proxy:
-	bash -x ./scripts/install-matching-pachyderm-version-proxy.sh
-	echo '{"pachd_address": "grpc://127.0.0.1:80"}' | pachctl config set context local --overwrite
-	pachctl config set active-context local
-	echo "Verify pachctl is working with: pachctl version"
-	echo "Set PACHD_ADDRESS=localhost:80 in your .env.development.local"
+	
