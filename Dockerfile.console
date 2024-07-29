@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
 
 COPY console/ ./console/
 COPY src/typescript/ ./src/typescript/
-COPY src/internal/ ./src/internal/
+COPY src/internal/jsonschema/ ./src/internal/jsonschema/
 
 RUN cd console \
     && make docker-ci \
