@@ -1,4 +1,4 @@
-name: "size-limit"
+name: 'size-limit'
 on:
   pull_request:
     branches:
@@ -15,3 +15,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           skip_step: install
           build_script: size-limit:build
+          directory: console/
