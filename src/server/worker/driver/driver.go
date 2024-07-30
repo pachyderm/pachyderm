@@ -632,6 +632,9 @@ func (d *driver) inheritedEnvVars() []string {
 		"DET_MASTER",
 		"DET_USER",
 		"DET_PASS",
+		"PACHD_PEER_SERVICE_HOST",
+		"PACHD_PEER_SERVICE_PORT",
+		"PPS_WORKER_GRPC_PORT",
 	}
 	for k := range d.pipelineInfo.Details.Transform.Env {
 		results = append(results, k)
