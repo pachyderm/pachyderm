@@ -347,6 +347,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 				if err != nil {
 					errChan <- err
 					close(errChan)
+					return
 				}
 				err = driver.RunUserCode(cancelCtx, logger, env)
 				if err == nil {
