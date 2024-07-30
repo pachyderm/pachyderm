@@ -141,7 +141,7 @@
     "jest-fetch-mock": "^3.0.3",
     "jest-raw-loader": "^1.0.1",
     "msw": "^1.2.4",
-    "postcss-custom-media": "^8.0.2",
+    "postcss-custom-media": "^10.0.8",
     "postcss-flexbugs-fixes": "^5.0.2",
     "postcss-normalize": "^10.0.1",
     "postcss-preset-env": "^7.8.0",
