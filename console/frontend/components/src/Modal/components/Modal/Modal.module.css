@@ -1,0 +1,113 @@
+.modalBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--background-black);
+  opacity: 0.7;
+  z-index: var(--z-index-modal-overlay);
+}
+
+.modalBackdrop.isFullPage {
+  z-index: var(--z-index-full-page-modal-overlay);
+}
+
+.modalWrapper {
+  z-index: var(--z-index-modal);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  pointer-events: none;
+  outline: none;
+}
+
+.modalWrapper.isFullPage {
+  z-index: var(--z-index-full-page-modal);
+}
+
+.modalDialogDefault,
+.modalDialogLong,
+.modalDialogSmall {
+  top: 0;
+  max-width: 38.25rem;
+  margin: 1.75rem auto;
+  position: relative;
+  width: auto;
+  pointer-events: none;
+}
+
+.modalDialogSmall {
+  max-width: 30rem;
+}
+
+.modalDialogFullPage {
+  margin: 0;
+  max-width: 100%;
+  pointer-events: all;
+}
+
+.modalDialogFullPagePanel {
+  margin: 1rem 0.5rem 0 0.5rem;
+  max-width: 100%;
+  pointer-events: all;
+}
+
+.modalContentDefault,
+.modalContentLong,
+.modalContentSmall {
+  border-radius: 3px;
+  box-shadow: 0 0.125rem 1rem 0 rgba(0, 0, 0, 0.3);
+  border: none;
+  background-color: var(--white);
+  width: 38.25rem;
+  height: 40rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  background-clip: padding-box;
+  outline: none;
+}
+
+.modalContentLong {
+  height: 50rem;
+}
+
+.modalContentSmall {
+  width: 30rem;
+  height: 25rem;
+}
+
+.modalContentFullPage {
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  border: none;
+  background-color: var(--white);
+  border-radius: 0;
+}
+
+.modalContentFullPagePanel {
+  width: 100%;
+  height: calc(100vh - 1rem);
+  margin: 0;
+  border: none;
+
+  background-color: var(--grey-3);
+
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  margin: 0;
+  z-index: 1;
+}

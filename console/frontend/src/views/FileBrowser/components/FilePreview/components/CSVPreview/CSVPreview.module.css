@@ -1,0 +1,44 @@
+.base {
+  background-color: var(--white);
+  margin-top: 1rem;
+  border-top: solid 2px var(--line-grey);
+  overflow: auto;
+  white-space: nowrap;
+  margin-left: -1rem;
+}
+
+.base * {
+  font-family: Menlo, monospace;
+}
+
+.cell {
+  text-overflow: ellipsis;
+  text-align: right;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0.25rem;
+  padding-left: 1rem;
+  border-bottom: solid 1px var(--line-grey);
+}
+
+.header {
+  position: sticky;
+  text-align: left;
+  background-color: var(--background-blue);
+  border-bottom: solid 1px var(--line-grey);
+  top: 0;
+  z-index: 1;
+  max-height: 2rem;
+}
+
+.header .cell {
+  width: 10rem;
+  display: inline-block;
+  background-color: var(--background-blue);
+}
+
+.settingsHeader {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}

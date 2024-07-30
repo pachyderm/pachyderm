@@ -1,0 +1,3 @@
+proxy:
+  service:
+    type: NodePort

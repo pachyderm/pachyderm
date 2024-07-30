@@ -1,0 +1,150 @@
+.base {
+  height: 100%;
+  overflow-y: auto;
+  padding: 0;
+  padding-top: 1rem;
+  min-width: 16rem;
+  box-sizing: border-box;
+}
+
+.section {
+  border-bottom: 1px solid var(--line-grey);
+  padding: 0 1rem;
+}
+
+.stateHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.state {
+  padding-top: 1rem;
+  display: flex;
+  align-items: center;
+  padding-bottom: 1rem;
+}
+
+.stateText {
+  margin-left: 0.5rem;
+}
+
+.datumCard {
+  filter: drop-shadow(2px 2px 8px var(--border-grey));
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.datumsProcessing {
+  width: 100%;
+}
+
+.datumCardHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--white);
+  border-radius: 3px 3px 0 0;
+  padding: 0.5rem 1rem;
+}
+
+.datumCardRow {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.datumCardBody {
+  background-color: var(--grey-1);
+  border-radius: 0 0 3px 3px;
+  padding: 0.5rem 1rem;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.datumCardMetric {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 5.5rem;
+  padding: 0 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  transition: border-color 0.1s;
+  cursor: pointer;
+  color: var(--pachyderm-black);
+}
+
+.datumCardMetric:hover {
+  border-color: var(--hover-purple);
+}
+
+.arrow {
+  display: none;
+  transition: display 0.1s;
+}
+
+.datumCardMetric:hover .arrow {
+  color: var(--hover-purple);
+  display: inline;
+}
+
+.number {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metricLabel {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.inputSection {
+  margin-top: 1rem;
+}
+
+.input {
+  border: 1px solid var(--border-grey);
+  border-top: 0;
+  display: flex;
+  height: 2.5rem;
+  align-items: center;
+  padding: 0 1rem;
+  color: var(--black);
+  overflow: hidden;
+}
+
+.input:last-child {
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+
+.input:first-child {
+  border-top: 1px solid var(--border-grey);
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  margin-top: 0.5rem;
+}
+
+.inputIcon {
+  margin-right: 0.5rem;
+}
+
+.inputName {
+  flex: 1;
+  text-overflow: ellipsis;
+  white-space: pre-wrap;
+  overflow: hidden;
+}
+
+.detailedTooltip {
+  background-color: var(--grey-1);
+  border-radius: 1rem;
+  padding: 0.5rem 0.5rem;
+  box-sizing: border-box;
+}

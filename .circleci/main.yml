@@ -30,6 +30,7 @@ orbs:
   kubernetes: circleci/kubernetes@1.3.0
   aws-eks: circleci/aws-eks@2.2.0
   tools: gotest/tools@0.0.14
+  browser-tools: circleci/browser-tools@1.2.3
 
 parameters:
   machine_image:
@@ -62,6 +63,9 @@ parameters:
   run-label-studio-jobs:
     type: boolean
     default: false
+  run-console-jobs:
+    type: boolean
+    default: false
 
 executors:
   docker-go:
@@ -70,6 +74,18 @@ executors:
   python:
     docker:
       - image: cimg/python:3.10-node
+  small-node:
+    resource_class: small
+    docker:
+      - image: cimg/node:20.11.0
+  medium-node:
+    resource_class: medium
+    docker:
+      - image: cimg/node:20.11.0
+  xlarge-node:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:20.11.0
 
 jobs:
   static-go-checks:
@@ -1635,7 +1651,141 @@ jobs:
           path: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/
       - codecov/upload:
           file: /home/circleci/out/execroot/_main/bazel-out/_coverage/_coverage_report.dat
-
+  console-lint-frontend:
+    executor: small-node
+    steps:
+      - checkout
+      - run: cd ./console/frontend && npm ci
+      - run: cd ./console/frontend && npm run lint:js:no-fix
+      - run: cd ./console/frontend && npm run lint:css:no-fix
+  console-lint-backend:
+    executor: small-node
+    steps:
+      - checkout
+      - run: cd ./console/backend && npm ci
+      - run: cd ./console/backend && npm run lint:no-fix
+  console-lint-cypress:
+    executor: small-node
+    steps:
+      - checkout
+      - run: npm ci --prefix ./console/cypress
+      - run: npm run lint --prefix ./console/cypress
+  console-test-backend:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node-install-frontend-backend
+      - run: npm run test --prefix ./console/backend -- --coverage
+      - codecov/upload:
+          file: ./console/backend/coverage/lcov.info
+  console-test-frontend-components:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node-install-frontend-backend
+      - run: npm run test:components --prefix ./console/frontend
+  console-test-frontend-react:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node-install-frontend-backend
+      - run: npm run test:frontend --prefix ./console/frontend -- --coverage
+      - codecov/upload:
+          file: ./console/frontend/src/coverage/lcov.info
+  console-build:
+    executor: small-node
+    steps:
+      - checkout
+      - node-install-all
+      - run: cd console && make build
+  console-docker-build:
+    parameters:
+      resource_class:
+        type: string
+    resource_class: << parameters.resource_class >>
+    machine:
+      image: default
+    steps:
+      - checkout
+      - run:
+          name: docker login
+          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Build application Docker image
+          command: make -C ./console circle-docker-build
+  console-docker-manifest:
+    machine:
+      image: default
+    steps:
+      - checkout
+      - run:
+          name: docker login
+          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Create Multiarch Manifest
+          command: |
+            cd console
+            make circle-docker-manifest
+  console-test-docker-e2e-community-edition:
+    resource_class: xlarge
+    parallelism: 3
+    machine:
+      image: default
+    working_directory: ~/project/console
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - run: npm ci
+      - install-bazel
+      - install-console-e2e-deps
+      - run:
+          name: Install pachd without auth
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
+            unset ENT_ACT_CODE # deactivate enterprise and auth
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
+      - run: touch .env.development.local
+      - run:
+          name: Run Community Edition Cypress tests against built console image
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build-e2e
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
+      - store_artifacts:
+          path: /tmp/cypress-debug
+  console-test-docker-e2e-enterprise-edition:
+    resource_class: xlarge
+    parallelism: 3
+    machine:
+      image: default
+    working_directory: ~/project/console
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - run: npm ci
+      - install-bazel
+      - install-console-e2e-deps
+      - run:
+          name: Install pachd with auth
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
+            mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
+      - run: touch .env.development.local
+      - run:
+          name: Run Enterprise Edition Cypress tests against built console image
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build-auth
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
 workflows:
   functional-tests:
     when: << pipeline.parameters.run-core-jobs >>
@@ -2089,7 +2239,37 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - aws-prerelease-testing
-
+  console-regression-tests:
+    when:
+      or:
+        - << pipeline.parameters.run-console-jobs >>
+        - << pipeline.parameters.run-core-jobs >>
+    jobs:
+      - console-docker-build:
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
+      - console-docker-manifest:
+          requires:
+            - console-docker-build
+      - console-test-docker-e2e-community-edition:
+          requires:
+            - console-docker-manifest
+      - console-test-docker-e2e-enterprise-edition:
+          requires:
+            - console-docker-manifest
+  console:
+    when: << pipeline.parameters.run-console-jobs >>
+    jobs:
+      - console-lint-backend
+      - console-lint-frontend
+      - console-lint-cypress
+      - console-build
+      - console-test-backend
+      - console-test-frontend-components
+      - console-test-frontend-react
 commands:
   install-helm:
     steps:
@@ -2269,3 +2449,28 @@ commands:
             wget -O ./bazel "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
             chmod +x ./bazel
             sudo mv ./bazel /home/circleci/bin/bazel
+  node-install-all:
+    steps:
+      - run:
+          name: Npm install project root, frontend and backend
+          command: npm ci --prefix ./console && npm ci --prefix ./console/backend && npm ci --prefix ./console/frontend
+  node-install-frontend-backend:
+    steps:
+      - run:
+          name: Npm install frontend and backend
+          command: npm ci --prefix ./console/backend && npm ci --prefix ./console/frontend
+  install-console-e2e-deps:
+    steps:
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install kubectl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install
+      - run:
+          name: Install pachctl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/server/cmd/pachctl:install
+      - run:
+          name: Setup k8s cluster
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100

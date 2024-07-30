@@ -1,0 +1,65 @@
+.base {
+  background-color: var(--white);
+  padding: 2rem;
+  overflow-y: scroll;
+  border-top: solid 1px var(--border-grey);
+}
+
+.titleContent {
+  margin-left: 2rem;
+}
+
+.titleLine {
+  display: inline-flex;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.legend {
+  margin-top: 1rem;
+}
+
+.legendItem {
+  display: inline-block;
+  width: 15rem;
+  margin-right: 1rem;
+}
+
+.halfLegendItem {
+  display: inline-block;
+  width: 8rem;
+  margin-right: 1rem;
+}
+
+.legendBox,
+.failedBox,
+.inProgressBox {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.5rem;
+  display: inline-block;
+}
+
+.inProgressBox {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--black),
+    var(--black) 3px,
+    var(--white) 3px,
+    var(--white) 5px
+  );
+}
+
+.failedBox {
+  --patternSize: 4px;
+  background:
+    linear-gradient(135deg, var(--black) 25%, transparent 25%) -4px 0,
+    linear-gradient(-135deg, var(--black) 25%, transparent 25%) -4px 0,
+    linear-gradient(45deg, var(--black) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--black) 25%, transparent 25%);
+  background-size: 8px 8px;
+}
+
+.viewOptions {
+  margin-top: 1rem;
+}

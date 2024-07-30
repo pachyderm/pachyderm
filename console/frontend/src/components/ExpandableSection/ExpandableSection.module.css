@@ -1,0 +1,14 @@
+.base {
+  transition: all 0.5s;
+  overflow: hidden;
+  width: 100%;
+  padding: 0rem;
+  margin-top: -1px;
+  background-color: var(--white);
+}
+
+.expanded {
+  padding: 1rem 0rem;
+  margin-top: 0px;
+  overflow: visible;
+}

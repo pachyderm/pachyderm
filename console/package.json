@@ -1,0 +1,67 @@
+{
+  "name": "@pachyderm/haberdashery",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "cypress:ci-build-e2e": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config retries=2,video=true,baseUrl=http://localhost:80 --spec 'cypress/e2e/unauthenticated/**/*' --record --parallel --group e2e",
+    "cypress:ci-build-auth": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config retries=2,video=true,baseUrl=http://127.0.0.1:80 --spec 'cypress/e2e/authenticated/**/*' --record --parallel --group e2e-auth",
+    "cypress:local": "NODE_ENV=development dotenv-flow -- cypress open --e2e --config '{\"e2e\": {\"specPattern\": \"cypress/e2e/unauthenticated/**/*\"}}'",
+    "cypress:local-auth": "NODE_ENV=development dotenv-flow -- cypress open --e2e --config '{\"e2e\": {\"specPattern\": \"cypress/e2e/authenticated/**/*\"}}'",
+    "cypress:open": "NODE_ENV=test dotenv-flow -- cypress open --e2e",
+    "cypress:headless": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config video=false",
+    "e2e:local": "start-server-and-test start:e2e http-get://localhost:4000 cypress:local",
+    "setupAuth": "node setupAuth.js",
+    "setupAuth:local": "NODE_ENV=development dotenv-flow -- node setupAuth.js",
+    "start:e2e": "LOG_LEVEL=debug npm run start:dev --prefix ./backend & npm run start:e2e-test --prefix ./frontend",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "throughput:setup": "node ./api-throughput-test/projectSetup.js",
+    "throughput:test": "npm i --prefix ./api-throughput-test && npm run build --prefix ./api-throughput-test -- --env REST=true && NODE_ENV=development dotenv-flow -- k6 run ./api-throughput-test/build/rest.bundle.js",
+    "throughput:test:graphql": "npm i --prefix ./api-throughput-test && npm run build --prefix ./api-throughput-test && NODE_ENV=development dotenv-flow -- k6 run ./api-throughput-test/build/graphql.bundle.js",
+    "size-limit": "size-limit",
+    "size-limit:install": "npm install && npm install --prefix ./backend && npm install --prefix ./frontend",
+    "size-limit:build": "npm run size-limit:install && npm run build --prefix ./frontend"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@cypress/code-coverage": "3.12.39",
+    "@size-limit/file": "^11.1.2",
+    "@testing-library/cypress": "^10.0.1",
+    "cypress": "13.13.0",
+    "cypress-wait-until": "3.0.1",
+    "dotenv-flow": "4.1.0",
+    "dotenv-flow-cli": "1.1.1",
+    "envfile": "7.1.0",
+    "graphql": "16.8.1",
+    "jsonrepair": "^3.8.0",
+    "msw": "^1.2.4",
+    "size-limit": "^11.0.2",
+    "start-server-and-test": "2.0.4",
+    "typescript": "4.9.3"
+  },
+  "size-limit": [
+    {
+      "path": "frontend/build/**/index-*.js",
+      "name": "Entry"
+    },
+    {
+      "path": [
+        "frontend/build/**/vendor-xl-*.js"
+      ],
+      "name": "Vendor XL"
+    },
+    {
+      "path": [
+        "frontend/build/**/*.js",
+        "!frontend/build/**/index-*.js",
+        "!frontend/build/**/vendor-xl-*.js"
+      ],
+      "name": "Chunks"
+    },
+    {
+      "path": "frontend/build/**/*.js",
+      "name": "Everything"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+deployTarget: LOCAL
+proxy:
+  enabled: true
+  host: 127.0.0.1
+  service:
+    type: LoadBalancer
+console:
+  enabled: false
+  disableTelemetry: true
+  # Instead of using oidc.additionalClients, you can deploy console and enable these to setup auth.
+  # config:
+  #   oauthRedirectURI: http://localhost:4000/oauth/callback/?inline=true
+  #   oauthClientSecret: '123'
+pachd:
+  metrics:
+    enabled: false
+  additionalTrustedPeers:
+    - console-local
+  rootToken: 'pizza'
+oidc:
+  additionalClients:
+    - id: console-local
+      name: console-local
+      secret: '123'
+      redirect_uris:
+        - http://localhost:4000/oauth/callback/?inline=true

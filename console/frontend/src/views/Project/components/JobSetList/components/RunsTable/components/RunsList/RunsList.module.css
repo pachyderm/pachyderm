@@ -1,0 +1,7 @@
+.jobStates {
+  border-right: solid 1px var(--border-grey);
+  padding-right: 0.5rem;
+  margin-right: 0.5rem;
+  line-height: 1.5rem;
+  vertical-align: bottom;
+}

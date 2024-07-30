@@ -1,0 +1,15 @@
+{
+  "pipeline": {
+    "name": "cron"
+  },
+  "transform": {
+    "cmd": ["python"],
+    "image": "python:3.9.17"
+  },
+  "input": {
+    "cron": {
+      "name": "tick",
+      "spec": "@every 10h"
+    }
+  }
+}

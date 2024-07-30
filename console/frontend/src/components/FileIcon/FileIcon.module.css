@@ -1,0 +1,7 @@
+.base {
+  background-color: var(--background-blue);
+  border-radius: 0.125rem;
+  align-items: center;
+  justify-content: center;
+  display: flex;
+}

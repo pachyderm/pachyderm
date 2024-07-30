@@ -1,0 +1,51 @@
+.projectName {
+  color: var(--white);
+  margin-bottom: 0;
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
+  user-select: none;
+  max-width: 13.125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.projectName path:last-of-type {
+  fill: var(--white);
+}
+
+.projectNameLoader {
+  width: 10rem;
+  margin-bottom: 0;
+}
+
+.projectNameTooltip {
+  margin-top: 0.75rem;
+}
+
+.goBack {
+  border: none;
+}
+
+.errorName {
+  display: inline-flex;
+}
+
+.warningIcon {
+  margin-right: 0.5rem;
+}
+
+.base {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 1rem;
+}
+
+.left {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 1rem;
+}

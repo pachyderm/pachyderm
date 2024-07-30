@@ -1,0 +1,44 @@
+.commit {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.loadingDots {
+  margin-top: 4rem;
+}
+
+.commitListDetails {
+  display: flex;
+  justify-content: space-between;
+  flex-direction: row;
+  margin: 2rem 1rem 0.5rem 1rem;
+}
+
+.commit:nth-of-type(even) {
+  background-color: var(--background-blue-light);
+}
+
+.commitText {
+  color: var(--pachyderm-black);
+}
+
+.errorMessage {
+  padding: 2rem 1rem;
+  margin: 1rem;
+}
+
+.errorMessage > h5 {
+  margin-bottom: 1rem;
+}
+
+.errorIcon {
+  margin-left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 1rem;
+}
+
+.bottomContent {
+  display: inline-flex;
+  justify-content: space-between;
+}

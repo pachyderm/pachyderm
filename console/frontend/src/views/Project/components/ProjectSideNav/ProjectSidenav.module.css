@@ -1,0 +1,30 @@
+.base {
+  height: 100%;
+}
+
+.base nav {
+  height: 100%;
+}
+
+.base ul {
+  position: inherit;
+}
+
+.createDropdown {
+  padding: 0.5rem 1rem !important;
+  height: 2.25rem !important;
+}
+
+.createDropdown > div {
+  justify-content: left;
+}
+
+.createDropdown > div > span {
+  display: flex;
+  justify-content: space-between;
+}
+
+.createDropdown:hover {
+  background-color: var(--hover-grey);
+  box-shadow: none !important;
+}

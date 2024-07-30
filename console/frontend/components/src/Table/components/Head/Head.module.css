@@ -1,0 +1,20 @@
+.base th {
+  padding: 0 1rem;
+}
+
+.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.hasCheckbox th:first-of-type {
+  padding-left: 3rem;
+}
+
+.checkbox {
+  position: absolute;
+  margin-left: -2rem;
+  margin-top: 0.75rem;
+  z-index: var(--z-index-sticky-header);
+}

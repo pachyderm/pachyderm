@@ -1,0 +1,25 @@
+.link {
+  color: var(--default-purple);
+  display: inline-flex;
+  align-items: center;
+}
+
+.link:not([href]) {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.link:active,
+.link:hover,
+.link:focus {
+  color: var(--hover-purple);
+  text-decoration: none;
+}
+
+.link:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.small {
+  font-size: 0.75rem;
+}

@@ -1,0 +1,59 @@
+@keyframes shimmer {
+  from {
+    opacity: 0.2;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes waveShimmer {
+  0% {
+    background-position: -400px 0;
+  }
+
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.skeletonBodyText {
+  height: 0.875rem;
+  margin: 0.4375rem 0;
+  position: relative;
+}
+
+.disableShimmer {
+  animation: none;
+}
+
+.skeletonBodyText + .skeletonBodyText {
+  margin-top: 1.2rem;
+}
+
+.skeletonBodyText:last-child:not(:first-child) {
+  width: 80%;
+}
+
+.skeletonBodyText::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  border-radius: 3px;
+  background-color: var(--line-grey);
+  background-image: linear-gradient(
+    to right,
+    var(--line-grey) 0%,
+    var(--border-grey) 20%,
+    var(--line-grey) 40%,
+    var(--line-grey) 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 800px 100px;
+  animation: waveShimmer 1s linear 0s infinite normal forwards;
+}

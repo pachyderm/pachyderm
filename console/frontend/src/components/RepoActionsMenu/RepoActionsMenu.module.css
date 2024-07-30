@@ -1,0 +1,12 @@
+.responsiveContent {
+  display: none;
+}
+
+@container sidebarActionGroup (max-width: 320px) {
+  .responsiveContent {
+    display: inline;
+  }
+  .fullContent {
+    display: none;
+  }
+}

@@ -1,0 +1,59 @@
+.base,
+.loadingContainer {
+  filter: drop-shadow(2px 2px 8px var(--border-grey));
+  margin: 0 1rem;
+  border-radius: 3px;
+  background-color: var(--white);
+}
+
+.loadingContainer {
+  height: 11.25rem;
+}
+
+.commitCardHeader {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin: 0.5rem 1rem;
+  padding: 0.5rem 0;
+}
+
+.commitCardHeader:first-of-type {
+  border-bottom: solid 1px var(--border-grey);
+  justify-content: space-between;
+}
+
+.parentCommit {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.commitCardBody {
+  background-color: var(--grey-1);
+  padding: 0.5rem 1rem;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.commitCardMetric {
+  flex: 1;
+  padding-right: 2.5rem;
+  box-sizing: border-box;
+  min-width: 5.5rem;
+  margin: 0.5rem 0 1rem 0;
+}
+
+.deltaPositive {
+  color: var(--icon-green);
+}
+
+.deltaNegative {
+  color: var(--error-red);
+}
+
+.diffLoadingContainer {
+  height: 2rem;
+  width: 100%;
+}

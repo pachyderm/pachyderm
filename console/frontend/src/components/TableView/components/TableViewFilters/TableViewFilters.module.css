@@ -1,0 +1,24 @@
+.filterSection {
+  margin: 0rem 1rem;
+  display: inline-block;
+  vertical-align: top;
+}
+
+.filterSection label {
+  margin: 0rem;
+}
+
+.filterLabel {
+  margin-bottom: 0.5rem;
+}
+
+.chipGroup {
+  background-color: var(--white);
+  display: inline-flex;
+  justify-content: flex-end;
+  margin: 0;
+  padding-right: 1rem;
+  padding-bottom: 0.25rem;
+  width: 100%;
+  border-top: solid 1px var(--border-grey);
+}

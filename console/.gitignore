@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.env.*.local
+coverage/
+cypress/screenshots
+cypress/fixtures/example.json
+cypress/accessToken.txt
+cypress/accessToken_*.txt
+cypress/downloads/**
+
+test-dags/lots-of-datums/data
