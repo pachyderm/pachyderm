@@ -13,38 +13,12 @@ If you are on an M1 Mac, first run these commands or installation will fail:
 <!-- https://github.com/Automattic/node-canvas/issues/1733 -->
 
 ```bash
-brew install pkg-config cairo pango libpng jpeg giflib librsvg
+brew install pkg-config cairo pango libpng jpeg giflib librsvg pixman
 ```
 
-## Local Deploy
-
-You can run Console locally against either of the following:
-
-1. A mock backend with useful fixtures.
-1. A real Pachyderm cluster.
-
-When Console runs it will be live at `localhost:4000`.
-
-### Against the mock backend
-
-Note: Ensure you disable port-forwarding from a real pachyderm cluster.
-
-The following command will start the UI server, API server, and mock gRPC server all-in-one.
-
-```bash
-make launch-mock
-```
-
-To switch between mock accounts use our devtools in the JS console of the browser.
-
-```bash
-> devtools.setAccount('2'); // will switch your current account
-```
-
-### Against a real Pachyderm cluster
+### Running console locally
 
 1. [Deploy Pachyderm locally](./README_Pachyderm.md) in either Enterprise or Community Edition.
-1. Ensure Pachyderm is port-forwarded with `pachctl port-forward`
 1. Run the following command:
 
    ```bash
@@ -67,24 +41,11 @@ Inside of root the root Makefile, find the entry for bunyan. Change it to `npm e
 
 ## Testing
 
-### What tests do we have?
-
 Console frontend tests consist of:
 
-1. Jest unit tests against:
-
-   1. The mock backend.
-   1. A component library.
-
-1. Cypress E2E tests against:
-   1. A real Pachyderm cluster in EE (auth).
-   1. A real Pachyderm cluster in CE (unauth).
-   1. The mock backend (mock).
-
-Console backend tests consist of:
-
-1. Backend unit tests
-1. Backend integration tests
+- Jest frontend unit tests against mocked endpoints using MSW (mock service worker), and component library tests.
+- Cypress E2E tests against a real Pachyderm cluster in EE (with auth), and in CE (unauth).
+- Jest backend unit tests
 
 ### Running unit / integration tests
 
@@ -112,13 +73,12 @@ There are three distinct sets of tests. They run against:
 
 1. Community Edition.
 1. Enterprise Edition.
-1. The mock backend.
 
 Before running one of the above sets of tests you must configure your local pachyderm and console setup to match what the test is expecting to test against.
 
 **Otherwise, to run either of the authenticated (Enterprise)or unauthenticated (Community Edition) test suites:**
 
-1. [Run and port-forward a local Pachyderm cluster](./README_Pachyderm.md) in either Enterprise or Community Edition.
+1. [Run a local Pachyderm cluster](./README_Pachyderm.md) in either Enterprise or Community Edition.
 1. Run Console locally with `make launch-dev`.
 1. Use one of the following commands to start Cypress:
 
@@ -144,7 +104,7 @@ make e2e-auth
 make launch-prod
 ```
 
-This will start the production server at `localhost:3000`. Additionally, if you'd like to test the production UI/API against the mock gRPC & Auth server, you can run `npm run start:mock` from /backend and add a `.env.production.local` file that replicates the variables found in `.env.test`.
+This will start the production server at `localhost:3000`.
 
 ## Environment variables
 
@@ -222,3 +182,22 @@ npx --node-options=--inspect-brk jest
 This command will execute Jest and pause its execution until you attach a debugger. You can then use the debugger to inspect and debug your test code.
 
 You can attach the VSCode debugger by opening the command pallete and using `Debug: Attach to Node Process`.
+
+## How to add icons
+
+We typically export icons provided to us from the design team on Figma. The final SVG file should have one `svg` parent and one path child with no ids set, and `fill="currentcolor"` on the parent.
+
+1. Install this SVG export extension for Figma <https://www.figma.com/community/plugin/814345141907543603/SVG-Export>
+2. Set the default options "Use currentcolor as fill" and "Remove all fills" to true
+3. Export your icons and add them under the `SVG` component in this repo
+4. Update `index.ts` and `IconPreview.js` as appropriate.
+
+## Updating backend protobuf code
+
+1. Install [jq](https://stedolan.github.io/jq/download/)
+1. Update the pachyderm version in `version.json`
+1. Change directories to `backend/src/proto`
+1. Install with `npm i`
+1. Generate new protos with `npm run build:proto`
+
+**_Note: You may want to delete your `node_modules` folder generated in this step after building new protos_**

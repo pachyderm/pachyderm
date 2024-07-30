@@ -13,7 +13,6 @@
     "setupAuth": "node setupAuth.js",
     "setupAuth:local": "NODE_ENV=development dotenv-flow -- node setupAuth.js",
     "start:e2e": "LOG_LEVEL=debug npm run start:dev --prefix ./backend & npm run start:e2e-test --prefix ./frontend",
-    "start:mock": "LOG_LEVEL=debug npm run mock-and-start --prefix ./backend & npm run start:env-test  --prefix ./frontend",
     "test": "echo \"Error: no test specified\" && exit 1",
     "throughput:setup": "node ./api-throughput-test/projectSetup.js",
     "throughput:test": "npm i --prefix ./api-throughput-test && npm run build --prefix ./api-throughput-test -- --env REST=true && NODE_ENV=development dotenv-flow -- k6 run ./api-throughput-test/build/rest.bundle.js",

@@ -30,9 +30,6 @@ launch-dev:
 launch-prod:
 	npm run build --prefix ./frontend && npm run build --prefix ./backend && npm start --prefix ./backend
 
-launch-mock:
-	LOG_LEVEL=debug npm run mock-and-start --prefix ./backend & npm run start:env-test  --prefix ./frontend
-
 setup-auth:
 	npm run setupAuth:local
 
