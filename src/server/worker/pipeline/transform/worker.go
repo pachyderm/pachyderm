@@ -343,7 +343,12 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 			cancelCtx, cancel = pctx.WithCancel(ctx)
 			errChan = make(chan error, 1)
 			go func() {
-				err := driver.RunUserCode(cancelCtx, logger, nil)
+				env, err := status.NextDatum(ctx, errors.New("next datum in batch"))
+				if err != nil {
+					errChan <- err
+					close(errChan)
+				}
+				err = driver.RunUserCode(cancelCtx, logger, env)
 				if err == nil {
 					err = errors.New("user code exited prematurely")
 				}
