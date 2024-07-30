@@ -1,0 +1,22 @@
+.base {
+  min-height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  overflow-x: clip;
+}
+
+.base.hasSubheader {
+  display: block;
+  min-height: min-content;
+}
+
+.light {
+  background-color: var(--white);
+  border-bottom: 1px solid var(--line-grey);
+}
+
+.dark {
+  background-color: var(--background-black);
+}

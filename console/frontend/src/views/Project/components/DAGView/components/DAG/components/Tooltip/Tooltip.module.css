@@ -1,0 +1,37 @@
+.base {
+  pointer-events: none;
+}
+
+.base .text {
+  box-shadow: 0 1px 2px 0 var(--border-grey);
+  border-radius: 2px;
+  text-transform: capitalize;
+  background-color: var(--pachyderm-black);
+  color: var(--white);
+  padding: 0.75rem;
+  opacity: 0;
+  margin-left: 1rem;
+}
+
+.base .text.show {
+  opacity: 1;
+  -webkit-backface-visibility: visible;
+  backface-visibility: hidden;
+}
+
+.base .text.noCaps {
+  text-transform: none;
+}
+
+.base .text.hasArrow:after {
+  width: 20px;
+  height: 5px;
+  margin-left: -32px;
+  content: '';
+  display: block;
+  position: fixed;
+  bottom: 25px;
+  border-bottom: 4px solid transparent;
+  border-top: 4px solid transparent;
+  border-right: 5px solid var(--pachyderm-black);
+}

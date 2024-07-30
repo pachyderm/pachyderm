@@ -1,0 +1,22 @@
+.base {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  list-style: none;
+  margin: 0px;
+  padding: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.border {
+  border-top: solid 1px var(--line-grey);
+}
+
+.label {
+  margin-left: 1rem;
+}
+
+.base.noPadding {
+  padding: 0;
+}

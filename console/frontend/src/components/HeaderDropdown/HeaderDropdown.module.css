@@ -1,0 +1,18 @@
+.menu {
+  background-color: var(--background-black);
+  color: var(--white);
+  padding: 0.5rem 0rem;
+  min-width: 16rem;
+}
+
+.versions {
+  display: block;
+  margin: 0.75rem 1rem;
+  white-space: nowrap;
+}
+
+.copyright {
+  display: block;
+  margin: 0rem 1rem;
+  margin-top: 0.5rem;
+}

@@ -52,6 +52,7 @@ sh_binary(
     name = "compile_sh",
     srcs = ["compile.sh"],
     data = [
+        ":fetch_modified.pb.ts",
         ":gopatch_bin",
         ":proto.patch",
         ":protoc-gen-doc_bin",

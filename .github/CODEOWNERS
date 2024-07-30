@@ -27,3 +27,6 @@
 /src/server/license      @pachyderm/CORE
 /src/server/pps          @pachyderm/CORE
 /src/server/worker       @pachyderm/CORE
+
+# CONSOLE
+/console                 @pachyderm/FRON

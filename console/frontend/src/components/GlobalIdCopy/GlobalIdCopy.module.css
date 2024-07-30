@@ -1,0 +1,19 @@
+.base {
+  display: inline-flex;
+  white-space: pre-wrap;
+  line-break: anywhere;
+  align-items: center;
+  cursor: pointer;
+}
+
+.copyButton {
+  display: inline-flex;
+  margin-left: 0.5rem;
+}
+
+.copyCheckmark {
+  align-items: center;
+  height: 1.75rem;
+  margin: 2px 1rem;
+  width: calc(0.5rem + 2px);
+}

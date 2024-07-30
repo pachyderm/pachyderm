@@ -1,0 +1,31 @@
+.base {
+  transition: opacity 0.1s;
+  position: absolute;
+  pointer-events: none;
+  background-color: var(--background-grey);
+  border-radius: 3px;
+  width: 14rem;
+  border: solid 1px var(--border-grey);
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.tooltipLine {
+  display: inline-flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem;
+  color: var(--black);
+}
+
+.tooltipLine > * {
+  color: var(--black);
+}
+
+.tooltipText {
+  border-top: solid 1px var(--border-grey);
+  font-style: italic;
+  padding: 0.5rem;
+  width: 100%;
+  text-align: center;
+  display: block;
+}

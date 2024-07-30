@@ -1,0 +1,16 @@
+{
+  "pipeline": {
+    "name": "generate-datums"
+  },
+  "description": "generate lots of datums",
+  "transform": {
+    "cmd": ["node", "/index.js"],
+    "image": "peterpachyderm/datum:v2"
+  },
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "data"
+    }
+  }
+}

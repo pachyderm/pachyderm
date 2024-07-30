@@ -1,0 +1,128 @@
+.base td {
+  height: 2.5rem;
+  padding: 0 1rem;
+  white-space: nowrap;
+}
+
+.base:nth-of-type(4n - 2) td {
+  background-color: var(--white);
+}
+
+.base:nth-of-type(4n) td {
+  background-color: var(--background-blue-table);
+}
+
+.base > td:first-child {
+  padding-left: 1rem;
+}
+
+.base > td:last-child {
+  padding-right: 1rem;
+}
+
+.hasPrefixIcon > td:last-child {
+  border: none;
+}
+
+tr.hasPrefixIcon > td:first-of-type {
+  padding-left: 3rem;
+}
+
+.button {
+  cursor: pointer;
+}
+
+[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
+.dropdown {
+  right: 3.25rem;
+  top: 0rem;
+}
+
+.dropdown > * {
+  display: block;
+}
+
+.active td {
+  background-color: var(--background-blue);
+}
+
+.checkboxRow {
+  position: absolute;
+  pointer-events: none;
+}
+
+.checkbox {
+  position: absolute;
+  margin-left: 1rem;
+  margin-top: calc(9rem / 16);
+}
+
+.selected {
+  --top-border: inset 0 1px 0 0 var(--cyan);
+  --bottom-border: inset 0 -1px 0 0 var(--cyan);
+  --left-border: inset 1px 0 0 0 var(--cyan);
+  --right-border: inset -1px 0 0 0 var(--cyan);
+  --top-bottom-border: inset 0 1px 0 0 var(--cyan), inset 0 -1px 0 0 var(--cyan);
+  --left-bottom-border: inset 1px 0 0 0 var(--cyan),
+    inset 0 -1px 0 0 var(--cyan);
+  --right-bottom-border: inset -1px 0 0 0 var(--cyan),
+    inset 0 -1px 0 0 var(--cyan);
+  --left-top-border: inset 1px 0 0 0 var(--cyan), inset 0 1px 0 0 var(--cyan);
+  --right-top-border: inset -1px 0 0 0 var(--cyan), inset 0 1px 0 0 var(--cyan);
+  --left-top-bottom-border: inset 1px 0 0 0 var(--cyan),
+    inset 0 -1px 0 0 var(--cyan), inset 0 1px 0 0 var(--cyan);
+  --right-top-bottom-border: inset -1px 0 0 0 var(--cyan),
+    inset 0 -1px 0 0 var(--cyan), inset 0 1px 0 0 var(--cyan);
+}
+
+/* first selected row */
+.selected td {
+  box-shadow: var(--top-border);
+}
+.selected td:first-of-type {
+  box-shadow: var(--left-top-border);
+}
+.selected td:last-of-type {
+  box-shadow: var(--right-top-border);
+}
+
+/* inside selected row in a group */
+.selected + .checkboxRow + .selected td {
+  box-shadow: none;
+}
+.selected + .checkboxRow + .selected td:first-of-type {
+  box-shadow: var(--left-border);
+}
+.selected + .checkboxRow + .selected td:last-of-type {
+  box-shadow: var(--right-border);
+}
+
+/* unselected row after selected group */
+.selected + .checkboxRow + tr:not(.selected) td {
+  box-shadow: inset 0 1px 0 0 var(--cyan);
+}
+
+/* last possible selected row not in a group*/
+.selected:last-of-type td {
+  box-shadow: var(--top-bottom-border);
+}
+.selected:last-of-type td:first-of-type {
+  box-shadow: var(--left-top-bottom-border);
+}
+.selected:last-of-type td:last-of-type {
+  box-shadow: var(--right-top-bottom-border);
+}
+
+/* last possible selected row if part of a group*/
+.selected + .checkboxRow + .selected:last-of-type td {
+  box-shadow: var(--bottom-border);
+}
+.selected + .checkboxRow + .selected:last-of-type td:first-of-type {
+  box-shadow: var(--left-bottom-border);
+}
+.selected + .checkboxRow + .selected:last-of-type td:last-of-type {
+  box-shadow: var(--right-bottom-border);
+}

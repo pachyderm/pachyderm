@@ -1,0 +1,40 @@
+.base {
+  width: 100%;
+  display: inline-flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 3.5rem;
+  padding-left: 0.5rem;
+}
+
+.hasTopBorder {
+  border-top: solid 1px var(--border-grey);
+}
+
+.pages {
+  display: flex;
+  align-items: center;
+  height: 3.5rem;
+}
+
+.pageDropdown {
+  margin-left: 1rem;
+}
+
+.navigation {
+  display: flex;
+  align-items: center;
+}
+
+.navigationButtons {
+  height: 3.5rem;
+  margin: 0 1rem;
+}
+
+.pageCount {
+  border-right: solid 1px var(--border-grey);
+  padding-right: 1rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+}

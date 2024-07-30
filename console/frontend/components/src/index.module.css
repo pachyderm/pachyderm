@@ -1,0 +1,254 @@
+@import 'bootstrap-reboot.min.css';
+
+@font-face {
+  font-family: 'Montserrat';
+  src:
+    local('Montserrat'),
+    url('../../fonts/Montserrat-VariableFont_wght.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Public Sans';
+  src:
+    local('Public Sans'),
+    url('../../fonts/PublicSans-VariableFont_wght.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Menlo';
+  src:
+    local('Menlo'),
+    url('../../fonts/Menlo-Regular.ttf') format('truetype');
+}
+
+:root {
+  /* colors */
+  --pachyderm-black: #020408;
+  --background-black: #272728;
+  --selected-grey: #595959;
+  --placeholder-grey: #868686;
+  --icon-grey: #464952;
+  --dropshadow-grey: #c6c6c6;
+  --border-grey: #dbdbdb;
+  --line-grey: #e9e9e9;
+  --hover-grey: #f6f6f6;
+  --hover-dark-grey: ##e6e6e6;
+  --background-grey: #fafafa;
+  --white: #ffffff;
+  --global-id-button-grey: #666666;
+
+  --pachyderm-green: #5ba3b1;
+  --banner-green: #19caaa;
+  --success-green: #00dbb4;
+  --selected-green: #00a486;
+  --icon-green: #118873;
+  --background-blue: #ecf5f7;
+  --background-blue-light: #f7fbfb;
+  --background-blue-light-active: #bdd4e0;
+  --background-blue-table: #f0f6f8;
+  --hover-blue: #7e99a7;
+
+  --pachyderm-red: #bf444f;
+  --error-red: #e02020;
+  --highlight-yellow: #ffd256;
+  --pachyderm-yellow: #ff9600;
+  --pachyderm-coral: #df686c;
+  --pachyderm-orange: #ff9674;
+  --highlight-orange: #ffb474;
+  --background-pink: #f2e9e9;
+
+  --pachyderm-plum: #582f6b;
+  --disabled-plum: #6d5577;
+  --hover-plum: #781696;
+  --highlight-plum: #b620e0;
+  --disabled-button-plum: #886a95;
+
+  --chart-blue: #0187c2;
+  --chart-dark-green: #083d49;
+  --chart-light-green: #1fc7b7;
+  --chart-dark-blue: #0063a9;
+  --chart-light-blue: #49bddd;
+  --chart-hover-dark-green: #085566;
+  --chart-hover-light-green: #27d8c7;
+  --chart-hover-dark-blue: #0d75be;
+  --chart-hover-light-blue: #59d1f2;
+
+  --purple-viz-text-1: #b600ff;
+  --purple-viz-text-2: #a100e0;
+  --purple-viz-text-3: #8c00c2;
+  --purple-viz-text-4: #7800a4;
+  --purple-viz-text-5: #640088;
+  --purple-viz-text-6: #50006d;
+
+  /* NEW COLORS */
+  --cyan: #19caaa;
+  --cyan-2: #e5f7ff;
+  --cyan-6: #6fb3c3;
+  --cyan-7: #5ba3b1;
+  --cyan-10: #f0f6f8;
+  --cyan-30: #bdd4e0;
+
+  --dropshadow: rgba(28, 6, 48, 0.3);
+
+  --grey-1: #f9f9fa;
+  --grey-2: #fafafa;
+  --grey-3: #f1f1f1;
+  --grey-4: #a4a8ae;
+  --grey-5: #ebebeb;
+  --grey-7: #747475;
+  --grey-9: #414142;
+  --grey-10: #0e0e0f;
+  --grey-20: #dededf;
+
+  --plum-1: #f8f3f9;
+  --plum-2: #e1cfe5;
+  --plum-5: #926aa1;
+  --plum-7: #582f6b;
+
+  --green: #118873;
+
+  --black: #000000;
+
+  --focus-state: #007bff;
+  --default-purple: #62028f;
+  --hover-purple: #a114cc;
+  --disabled-purple: #a187ad;
+  --disabled-tertiary: #8c9198;
+
+  /* dag lines */
+  --dag-line-idle: #a4a8ae;
+  --dag-line-transferring: #9bd49d;
+  --dag-line-highlighted: #99caff;
+  --dag-line-animation: #007304;
+  --dag-line-hover: #020408;
+  --dag-line-hover-animation: #19caaa;
+
+  /* sizes */
+  --border-radius-bottom-level: 5px;
+  --border-radius-top-level: 10px;
+  --border-radius-mid-level: 8px;
+  --height-marketing-header: 7.5rem;
+  --height-marketing-header-compact: 4.688rem;
+  --height-marketing-banner: 3rem;
+  --padding-gutter-x: 15px;
+  --padding-view-x: 1.5rem;
+  --padding-view-x-sm: 1rem;
+  --width-partial: 65rem;
+  --width-screen-laptop: 1440px;
+  --width-screen-laptop-sm: 1024px;
+  --width-sidenav: 11.5rem;
+  --width-sidenav-collapsed: 3.5rem;
+  --z-index-sticky-header: 50;
+  --z-index-sidenav: 100;
+  --z-index-sheet: 102;
+  --z-index-application-banner: 101;
+  --z-index-modal-left-panel: 1051;
+  --z-index-notification-banner: 1052;
+  --z-index-dropdown-menu: 1053;
+  --z-index-global-filter: 1055;
+  --z-index-full-page-modal-overlay: 1058;
+  --z-index-full-page-modal: 1059;
+  --z-index-modal-overlay: 1060;
+  --z-index-modal: 1070;
+  --z-index-tooltip: 1080;
+
+  /*  font variables are deprecated in 3.0.0 and only used in hub */
+  --font-size-page-heading: 1.375rem;
+  --font-size-header: 1rem;
+  --font-size-body-medium: 0.75rem;
+  --font-size-body-large: 0.875rem;
+  --font-size-body-small: 0.6875rem;
+  --font-size-caption-small: 0.5625rem;
+  --font-family: Montserrat, sans-serif;
+
+  font-size: 16px;
+}
+
+@custom-media --extra-small-viewport (width < 375px);
+@custom-media --small-viewport (width < 768px);
+@custom-media --medium-viewport (width < 1024px);
+@custom-media --large-viewport (width >= 1024px);
+
+* {
+  font-family:
+    Public Sans,
+    sans-serif;
+  font-weight: 300;
+  font-size: 0.875rem;
+  line-height: 1.437rem;
+  letter-spacing: 0.2px;
+  margin: 0;
+}
+
+* b,
+strong {
+  font-weight: 600;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-grey);
+  border-radius: 10px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  color: var(--pachyderm-black);
+}
+
+h1 {
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 2.5rem;
+  line-height: 3.125rem;
+  letter-spacing: 0;
+}
+
+h2 {
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 1.875rem;
+  line-height: 2.5rem;
+  letter-spacing: 0;
+}
+
+h3 {
+  font-family: Montserrat, sans-serif;
+  font-weight: 600;
+  font-size: 1.625rem;
+  line-height: 2.25rem;
+  letter-spacing: 0;
+}
+
+h4 {
+  font-family: Montserrat, sans-serif;
+  font-weight: 800;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  letter-spacing: 0;
+}
+
+h5 {
+  font-family: Montserrat, sans-serif;
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.625rem;
+  letter-spacing: 0;
+}
+
+h6 {
+  font-family: Montserrat, sans-serif;
+  font-weight: 700;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  letter-spacing: 0;
+}
