@@ -881,7 +881,9 @@ func (d *driver) startCommit(
 		}
 		updateCommitBranchField = true // the branch field on the commit will have to be updated after the branch is created.
 	}
-	branchInfo := &pfs.BranchInfo{}
+	branchInfo := &pfs.BranchInfo{
+		CreatedBy: txnCtx.Username(),
+	}
 	if b != nil && b.BranchInfo != nil {
 		branchInfo = b.BranchInfo
 	}
@@ -1034,9 +1036,10 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 			Id:     txnCtx.CommitSetID,
 		}
 		newCommitInfo := &pfs.CommitInfo{
-			Commit:  newCommit,
-			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-			Started: txnCtx.Timestamp,
+			Commit:    newCommit,
+			Origin:    &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+			Started:   txnCtx.Timestamp,
+			CreatedBy: txnCtx.Username(),
 		}
 		// enumerate the new commit's provenance
 		for _, b := range bi.DirectProvenance {
@@ -1707,7 +1710,7 @@ func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.Transac
 			updateHead = head
 			newRepoCommits[p.Repo.Key()] = head
 		}
-		branchInfo := &pfs.BranchInfo{Branch: p, Head: head.CommitInfo.Commit}
+		branchInfo := &pfs.BranchInfo{Branch: p, Head: head.CommitInfo.Commit, CreatedBy: txnCtx.Username()}
 		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
 			return errors.Wrap(err, "upsert branch")
 		}
@@ -1783,15 +1786,17 @@ func (d *driver) validateDAGStructure(ctx context.Context, txnCtx *txncontext.Tr
 }
 
 func newUserCommitInfo(txnCtx *txncontext.TransactionContext, branch *pfs.Branch) *pfs.CommitInfo {
+	log.Info(pctx.TODO(), "creating commit", zap.Stack("stack"), zap.String("username", txnCtx.Username()), zap.Stringer("branch", branch), zap.String("id", txnCtx.CommitSetID))
 	return &pfs.CommitInfo{
 		Commit: &pfs.Commit{
 			Branch: branch,
 			Repo:   branch.Repo,
 			Id:     txnCtx.CommitSetID,
 		},
-		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
-		Started: txnCtx.Timestamp,
-		Details: &pfs.CommitInfo_Details{},
+		Origin:    &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
+		Started:   txnCtx.Timestamp,
+		Details:   &pfs.CommitInfo_Details{},
+		CreatedBy: txnCtx.Username(),
 	}
 }
 
@@ -1851,7 +1856,9 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	if err != nil && !pfsdb.IsNotFoundError(err) {
 		return errors.Wrap(err, "create branch")
 	}
-	branchInfo := &pfs.BranchInfo{}
+	branchInfo := &pfs.BranchInfo{
+		CreatedBy: txnCtx.Username(),
+	}
 	if branch != nil {
 		branchInfo = branch.BranchInfo
 	}
@@ -1898,7 +1905,12 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
 	if propagate {
-		return txnCtx.PropagateBranch(branchHandle)
+		if err := txnCtx.PropagateBranch(branchHandle); err != nil {
+			return errors.Wrap(err, "propagate branch")
+		}
+	}
+	if err := txnCtx.ValidateRepo(branchHandle.Repo); err != nil {
+		return errors.Wrap(err, "check branches")
 	}
 	return nil
 }
@@ -2098,9 +2110,10 @@ func (d *driver) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Transac
 	commitHandle := branch.NewCommit(txnCtx.CommitSetID)
 	commitHandle.Repo = branch.Repo
 	commitInfo := &pfs.CommitInfo{
-		Commit:  commitHandle,
-		Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
-		Started: txnCtx.Timestamp,
+		Commit:    commitHandle,
+		Origin:    &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Started:   txnCtx.Timestamp,
+		CreatedBy: txnCtx.Username(),
 	}
 	if closed {
 		commitInfo.Finishing = txnCtx.Timestamp

@@ -5281,7 +5281,10 @@ To set a user&#39;s auth scope for a resource, use the Pachyderm Auth API (in sr
 | subvenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | direct_provenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | trigger | [Trigger](#pfs_v2-Trigger) |  |  |
-| metadata | [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry) | repeated |  |
+| metadata | [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry) | repeated | Metadata on the branch. |
+| created_by | [string](#string) |  | The user that caused this branch to be created. |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | When the branch was added to the database. |
+| updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | When information about the branch was last modified (not necessarily when the data in this branch changed or anything like that). |
 
 
 
@@ -5440,6 +5443,9 @@ CommitInfo is the main data structure representing a commit in postgres
 | size_bytes_upper_bound | [int64](#int64) |  |  |
 | details | [CommitInfo.Details](#pfs_v2-CommitInfo-Details) |  |  |
 | metadata | [CommitInfo.MetadataEntry](#pfs_v2-CommitInfo-MetadataEntry) | repeated | Metadata is user-applied annotations. |
+| created_by | [string](#string) |  | The user that created this commit or caused this commit to be created. |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | The time the commit was added to the database. |
+| updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | The time this commit was most recently updated. |
 
 
 
@@ -7827,6 +7833,7 @@ must cancel the stream when it no longer wants to receive datums.
 | create_pipeline_request | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) |  |  |
 | user_json | [string](#string) |  | the JSON the user originally submitted |
 | effective_json | [string](#string) |  | the effective spec: the result of merging the user JSON into the cluster defaults |
+| created_by | [string](#string) |  |  |
 
 
 
@@ -8740,6 +8747,7 @@ potentially expensive operations.
 | egress | [Egress](#pps_v2-Egress) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| created_by | [string](#string) |  |  |
 | recent_error | [string](#string) |  |  |
 | workers_requested | [int64](#int64) |  |  |
 | workers_available | [int64](#int64) |  |  |

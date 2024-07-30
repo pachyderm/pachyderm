@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"io"
 	"math/rand"
 	"sort"
@@ -353,4 +355,28 @@ func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, ms
 		write(data[offset : offset+size])
 	}
 	require.True(t, bytes.Equal(stableHash, getHash()), msg)
+}
+
+func TestPin(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	storage := newTestStorage(ctx, t)
+	tF := testFile{path: "/", datum: "default", data: []byte("test")}
+	fs := writeFileSet(ctx, t, storage, []*testFile{&tF})
+	var pin PinnedFileset
+	var err error
+	require.NoError(t, dbutil.WithTx(ctx, storage.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
+		pin, err = storage.Pin(tx, fs)
+		require.NoError(t, err)
+		return nil
+	}))
+	pinFs, err := storage.Open(ctx, []ID{ID(pin)})
+	require.NoError(t, err)
+	// validate pinned fileset is the same.
+	var files []File
+	require.NoError(t, pinFs.Iterate(ctx, func(f File) error {
+		files = append(files, f)
+		return nil
+	}))
+	require.Len(t, files, 1)
+	checkFile(ctx, t, files[0], &tF)
 }

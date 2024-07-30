@@ -640,6 +640,9 @@
                 "effectiveJson": {
                     "type": "string",
                     "description": "the effective spec: the result of merging the user JSON into the cluster defaults"
+                },
+                "createdBy": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

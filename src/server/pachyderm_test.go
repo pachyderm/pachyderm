@@ -7884,6 +7884,7 @@ func TestService(t *testing.T) {
 		false,
 		8000,
 		31800,
+		"",
 		annotations,
 	))
 	time.Sleep(10 * time.Second)
@@ -8064,6 +8065,131 @@ func TestServiceEnvVars(t *testing.T) {
 		return nil
 	})
 	require.Equal(t, "custom-value", strings.TrimSpace(string(envValue)))
+}
+
+func TestServicePipelineUpdate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, ns := minikubetestenv.AcquireCluster(t)
+	aRepo := tu.UniqueString("A")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, aRepo))
+	bPipeline := tu.UniqueString("B")
+	aCommit, err := c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "master", ""))
+	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
+		bPipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep 5s",
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", aRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pfs.DefaultProjectName, aRepo, "/"),
+		"",
+		false,
+	))
+	pipeline := tu.UniqueString("pipelineservice")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{
+				Image: "trinitronx/python-simplehttpserver",
+				Cmd:   []string{"sh"},
+				Stdin: []string{
+					fmt.Sprintf("cd /pfs/%s", bPipeline),
+					"exec python -m SimpleHTTPServer 8000",
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:  client.NewPFSInput(pfs.DefaultProjectName, bPipeline, "/"),
+			Update: false,
+			Service: &pps.Service{
+				InternalPort: 8000,
+				ExternalPort: 31801,
+			},
+		})
+	require.NoError(t, err)
+	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
+	serviceAddr := func() string {
+		// Hack: detect if running inside the cluster by looking for this env var
+		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
+			// Outside cluster: Re-use external IP and external port defined above
+			host := c.GetAddress().Host
+			return net.JoinHostPort(host, "31801")
+		}
+		// Get k8s service corresponding to pachyderm service above--must access
+		// via internal cluster IP, but we don't know what that is
+		var address string
+		kubeClient := tu.GetKubeClient(t)
+		backoff.Retry(func() error { //nolint:errcheck
+			svcs, err := kubeClient.CoreV1().Services(ns).List(context.Background(), metav1.ListOptions{})
+			require.NoError(t, err)
+			for _, svc := range svcs.Items {
+				// Pachyderm actually generates two services for pipelineservice: one
+				// for pachyderm (a ClusterIP service) and one for the user container
+				// (a NodePort service, which is the one we want)
+				rightName := strings.Contains(svc.Name, "pipelineservice")
+				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
+				if !rightName || !rightType {
+					continue
+				}
+				host := svc.Spec.ClusterIP
+				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
+				address = net.JoinHostPort(host, port)
+				return nil
+			}
+			return errors.Errorf("no matching k8s service found")
+		}, backoff.NewTestingBackOff())
+		require.NotEqual(t, "", address)
+		return address
+	}()
+	getContents := func() string {
+		var value []byte
+		require.NoErrorWithinTRetryConstant(t, time.Minute, func() error {
+			httpC := http.Client{
+				Timeout: 3 * time.Second, // fail fast
+			}
+			resp, err := httpC.Get(fmt.Sprintf("http://%s/file", serviceAddr))
+			if err != nil {
+				// sleep => don't spam retries. Seems to make test less flaky
+				time.Sleep(time.Second)
+				return errors.EnsureStack(err)
+			}
+			if resp.StatusCode != 200 {
+				return errors.Errorf("GET returned %d", resp.StatusCode)
+			}
+			value, err = io.ReadAll(resp.Body)
+			if err != nil {
+				return errors.EnsureStack(err)
+			}
+			return nil
+		}, time.Second)
+		return string(value)
+	}
+	require.Equal(t, "foo", strings.TrimSpace(getContents()))
+
+	aCommit, err = c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(aCommit, "file", strings.NewReader("bar\n")))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "master", ""))
+	require.NoErrorWithinTRetry(t, time.Minute, func() error {
+		contents := strings.TrimSpace(getContents())
+		if contents != "bar" {
+			return errors.New("values not updated")
+		}
+		return nil
+	})
 }
 
 func TestDatumSetSpec(t *testing.T) {
@@ -11732,6 +11858,7 @@ func TestPipelinesSummary(t *testing.T) {
 		Unhealthy
 		Paused
 		Failed
+		Crashing
 	)
 	createPipeline := func(project, name string, state PipState) {
 		cmd := []string{"cp", "-r", "/pfs/in", "/pfs/out"}
@@ -11741,10 +11868,16 @@ func TestPipelinesSummary(t *testing.T) {
 		case Failed:
 			cmd = nil
 		}
+
+		image := ""
+		if state == Crashing {
+			// Make pipeline crash
+			image = "fehowfpjoefw"
+		}
 		require.NoError(t, c.CreatePipeline(
 			project,
 			name,
-			"", /* default image*/
+			image,
 			cmd,
 			nil, /* stdin */
 			nil, /* spec */
@@ -11755,14 +11888,16 @@ func TestPipelinesSummary(t *testing.T) {
 		if state == Paused {
 			require.NoError(t, c.StopPipeline(project, name))
 		}
-		_, err := c.WaitCommit(project, name, "master", "")
-		require.NoError(t, err)
+		if state != Crashing {
+			_, err := c.WaitCommit(project, name, "master", "")
+			require.NoError(t, err)
+		}
 	}
 	projects := []string{"a", "b"}
 	for _, prj := range projects {
 		require.NoError(t, c.CreateProject(prj))
 	}
-	pips := []string{"A", "B", "C", "D", "E"}
+	pips := []string{"A", "B", "C", "D", "E", "F"}
 	for _, prj := range projects {
 		for i, pip := range pips {
 			var state PipState = Active
@@ -11772,6 +11907,8 @@ func TestPipelinesSummary(t *testing.T) {
 				state = Paused
 			} else if i == 2 {
 				state = Failed
+			} else if i == 3 {
+				state = Crashing
 			}
 			createPipeline(prj, pip, state)
 		}
@@ -11804,7 +11941,7 @@ func TestPipelinesSummary(t *testing.T) {
 			require.Equal(t, project, resp.Summaries[i].Project.Name)
 			require.Equal(t, int64(3), resp.Summaries[i].ActivePipelines) // unhealthy pipelines are still active
 			require.Equal(t, int64(1), resp.Summaries[i].PausedPipelines)
-			require.Equal(t, int64(1), resp.Summaries[i].FailedPipelines)
+			require.Equal(t, int64(2), resp.Summaries[i].FailedPipelines)
 			require.Equal(t, int64(1), resp.Summaries[i].UnhealthyPipelines)
 		}
 	}

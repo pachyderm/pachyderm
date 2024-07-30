@@ -561,10 +561,8 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset
 	if commit.Finished != nil && commit.Error == "" {
 		id, err := d.commitStore.GetTotalFileSet(ctx, commit)
 		if err != nil {
-			// TODO: Need to handle this differently if we want to delete total
-			// file sets after a commit is finished (to save space for old commits).
 			if errors.Is(err, errNoTotalFileSet) {
-				return d.storage.Filesets.Compose(ctx, nil, defaultTTL)
+				return nil, errors.Errorf("the commit is forgotten")
 			}
 			return nil, errors.EnsureStack(err)
 		}

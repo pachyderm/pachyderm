@@ -134,35 +134,3 @@ You are good to dev now!
 
 Any time you want to stop and restart Pachyderm, run `minikube delete`. Minikube is not meant to be a production environment
 and does not handle being restarted well without a full wipe.
-
----
-
-# Deprecated sections
-
-## Setting up Auth
-
-### With Auth0 (Deprecated)
-
-1. Find the Auth0 console client ID and client secret in 1Password
-1. Find the user login for `e2e-testing@pachyderm.com` in 1Password
-1. Run `make setup-auth` and enter the values from 1Password when asked (they're written to .env.development.local so you shouldn't need to do this again)
-1. Generate an [enterprise key](https://enterprise-token-gen.pachyderm.io/dev) and activate your license with `pachctl license activate`. For Mac OS users, `echo '<your-enterprise-token-here>' | pachctl license activate`.
-
-### With Github (Deprecated)
-
-1. [Create a Github OAuth app](https://docs.github.com/en/developers/apps/creating-an-oauth-app). For local clusters, set your callback url to `http://localhost:30658/callback`. Make sure to save the secret key, you'll need it for the next step.
-1. Generate an [enterprise key](https://enterprise-token-gen.pachyderm.io/dev) and activate your license with `pachctl license activate`. For Mac OS users, `echo '<your-enterprise-token-here>' | pachctl license activate`.
-1. Run `AUTH_CLIENT=github make setup-auth`. This will walk you through the setup for your local cluster.
-1. (Optional) Use `pachctl auth login` to login via Github. If you opt not to do this, you will continue as the root user when creating resources.
-
-## Deploy locally without the Console pod (Port-Forward) (Deprecated)
-
-1. If you haven't already, start up minikube with `minikube start`
-1. Install pachyderm locally: `helm install pachyderm --set deployTarget=LOCAL --version 2.2.3 pachyderm/pachyderm --set pachd.metrics.enabled=false`
-1. Delete your existing pachctl config file: `rm ~/.pachyderm/config.json`
-1. If using Enterprise, [configure auth](#with-auth0-deprecated), otherwise, your Console deploy will stay in Community Edition.
-1. Run `pachctl port-forward`.
-
-## Optional makefile automation (Port-Forward) (Deprecated)
-
-1. After you have setup, you can optionally use the makefile command found in the root of the project `make install-pachyderm-port-forward` (or `make install-pachyderm`) to run the correct pachyderm version as specified by the `version.json` file.

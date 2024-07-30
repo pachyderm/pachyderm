@@ -1,10 +1,6 @@
 # Development Guide
 
 1. [Coding Standards](https://github.com/pachyderm/company/blob/master/handbook/frontend.md)
-1. [Writing PRs](#writing-prs)
-1. [Working with GraphQL](#working-with-graphql)
-1. [Working with the Components Library](#working-with-the-component-library)
-1. [Working with the node Pachyderm client](#working-with-the-node-pachyderm-client)
 
 ## Writing PRs
 
@@ -16,24 +12,3 @@ Your PRs should be concise and descriptive to the contents of your changeset. If
 - Provide screenshots as an easy glimpse into the contents of the PR if there are significant visual components, such as bringing in new UI elements.
 - Include any additional details required to be able to see and run the changeset. E.g. Any preliminary setup steps, necessary configurations, or helpful tips.
 - Include any details about changes external to the PR. E.g. A link to changes in CI, an example of a bot in action, or a link to a cloud console.
-
-### How to add icons
-
-We typically export icons provided to us from the design team on Figma. The final SVG file should have one `svg` parent and one path child with no ids set, and `fill="currentcolor"` on the parent.
-
-1. Install this SVG export extension for Figma <https://www.figma.com/community/plugin/814345141907543603/SVG-Export>
-2. Set the default options "Use currentcolor as fill" and "Remove all fills" to true
-3. Export your icons and add them under the `SVG` component in this repo
-4. Update `index.ts` and `IconPreview.js` as appropriate.
-
-## Working with the node Pachyderm client
-
-### Updating protobuf code
-
-1. Install [jq](https://stedolan.github.io/jq/download/)
-1. Update the pachyderm version in `version.json`
-1. Change directories to `backend/src/proto`
-1. Install with `npm i`
-1. Generate new protos with `npm run build:proto`
-
-**_Note: You may want to delete your `node_modules` folder generated in this step after building new protos_**

@@ -624,16 +624,24 @@ func (d *driver) UserCodeEnv(
 }
 
 func (d *driver) inheritedEnvVars() []string {
-	var results []string
+	results := []string{
+		"PATH",
+		"HOME",
+		"PACH_NAMESPACE",
+		"DET_MASTER_CERT_FILE",
+		"DET_MASTER",
+		"DET_USER",
+		"DET_PASS",
+		"PACHD_PEER_SERVICE_HOST",
+		"PACHD_PEER_SERVICE_PORT",
+		"PPS_WORKER_GRPC_PORT",
+	}
 	for k := range d.pipelineInfo.Details.Transform.Env {
 		results = append(results, k)
 	}
 	for _, s := range d.pipelineInfo.Details.Transform.Secrets {
 		results = append(results, s.EnvVar)
 	}
-	results = append(results, "PATH")
-	results = append(results, "HOME")
-	results = append(results, "PACH_NAMESPACE")
 	return results
 }
 

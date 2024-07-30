@@ -8700,7 +8700,22 @@
           "type": "object",
           "additionalProperties": {
             "type": "string"
-          }
+          },
+          "description": "Metadata on the branch."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The user that caused this branch to be created."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the branch was added to the database."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When information about the branch was last modified (not necessarily when the data in this\nbranch changed or anything like that)."
         }
       }
     },
@@ -8835,6 +8850,20 @@
             "type": "string"
           },
           "description": "Metadata is user-applied annotations."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The user that created this commit or caused this commit to be created."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The time the commit was added to the database."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The time this commit was most recently updated."
         }
       },
       "title": "CommitInfo is the main data structure representing a commit in postgres"
@@ -10598,6 +10627,9 @@
         "effectiveJson": {
           "type": "string",
           "title": "the effective spec: the result of merging the user JSON into the cluster defaults"
+        },
+        "createdBy": {
+          "type": "string"
         }
       }
     },
@@ -11649,6 +11681,9 @@
         "updatedAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "createdBy": {
+          "type": "string"
         },
         "recentError": {
           "type": "string"

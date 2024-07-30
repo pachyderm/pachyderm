@@ -78,6 +78,7 @@ go_test(
     shard_count = 8,
     tags = ["cpu:4"],
     deps = [
+        "//src/internal/dbutil",
         "//src/internal/dockertestenv",
         "//src/internal/errors",
         "//src/internal/miscutil",

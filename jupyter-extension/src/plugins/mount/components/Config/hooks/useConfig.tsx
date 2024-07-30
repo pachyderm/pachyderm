@@ -1,6 +1,7 @@
 import {requestAPI} from '../../../../../handler';
 import {useEffect, useState} from 'react';
 import {AuthConfig, HealthCheck, HealthCheckStatus} from 'plugins/mount/types';
+import {ServerConnection} from '@jupyterlab/services';
 
 export type useConfigResponse = {
   addressField: string;
@@ -53,26 +54,31 @@ export const useConfig = (
       const validAddressPattern = /^((grpc|grpcs|http|https|unix):\/\/)/;
 
       if (validAddressPattern.test(tmpAddress)) {
-        const response = await requestAPI<AuthConfig>(
-          'config',
-          'PUT',
-          serverCa
-            ? {
-                pachd_address: tmpAddress,
-                server_cas: serverCa,
-              }
-            : {pachd_address: tmpAddress},
-        );
-
-        if (status === 'HEALTHY_INVALID_CLUSTER') {
-          setErrorMessage('Invalid address.');
-        } else if (status === 'UNHEALTHY') {
-          setErrorMessage(
-            'An unexpected error occurred when attempting to set the address.',
+        try {
+          const response = await requestAPI<AuthConfig>(
+            'config',
+            'PUT',
+            serverCa
+              ? {
+                  pachd_address: tmpAddress,
+                  server_cas: serverCa,
+                }
+              : {pachd_address: tmpAddress},
           );
-        } else {
           updateConfig(response);
           setShouldShowAddressInput(false);
+        } catch (error) {
+          if (error instanceof ServerConnection.ResponseError) {
+            if (error.response.status === 400) {
+              // 400 == HEALTHCHECK_INVALID_CLUSTER
+              setErrorMessage('Invalid address.');
+            } else {
+              // 500 == HEALTHCHECK_UNHEALTHY
+              setErrorMessage(
+                'An unexpected error occurred when attempting to set the address.',
+              );
+            }
+          }
         }
       } else {
         setErrorMessage(

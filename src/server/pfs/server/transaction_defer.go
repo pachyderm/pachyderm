@@ -56,3 +56,51 @@ func (t *Propagater) Run(ctx context.Context) error {
 	}
 	return t.d.propagateBranches(ctx, t.txnCtx, branches)
 }
+
+type RepoValidator struct {
+	d      *driver
+	txnCtx *txncontext.TransactionContext
+	repos  map[string]*pfs.Repo
+}
+
+func (a *apiServer) NewRepoValidator(txnCtx *txncontext.TransactionContext) txncontext.PfsRepoValidator {
+	return &RepoValidator{
+		d:      a.driver,
+		txnCtx: txnCtx,
+		repos:  map[string]*pfs.Repo{},
+	}
+}
+
+func (rc *RepoValidator) ValidateRepo(repo *pfs.Repo) error {
+	if repo == nil {
+		return errors.New("cannot check branches in an empty repo")
+	}
+	rc.repos[pfsdb.RepoKey(repo)] = repo
+	return nil
+}
+
+func (rc *RepoValidator) Run(ctx context.Context) error {
+	for _, repo := range rc.repos {
+		if err := rc.d.listBranchInTransaction(ctx, rc.txnCtx, repo, false, func(bi *pfs.BranchInfo) error {
+			head, err := pfsdb.GetCommitByKey(ctx, rc.txnCtx.SqlTx, bi.Head)
+			if err != nil {
+				return errors.Wrap(err, "get commit by key")
+			}
+			// the branch head should not be a forgotten commit; only a finished commit can be forgotten
+			if head.Finished != nil && head.Error == "" {
+				_, err := rc.d.commitStore.GetTotalFileSetTx(rc.txnCtx.SqlTx, head)
+				if err != nil {
+					// a finished commit that has no total file set is forgotten
+					if errors.Is(err, errNoTotalFileSet) {
+						return errors.New("the branch head cannot be a forgotten commit")
+					}
+				}
+				return errors.Wrap(err, "get total file set")
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
