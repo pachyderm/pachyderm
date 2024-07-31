@@ -28,7 +28,7 @@
     "@cypress/code-coverage": "3.12.39",
     "@size-limit/file": "^11.1.2",
     "@testing-library/cypress": "^10.0.1",
-    "cypress": "13.13.0",
+    "cypress": "13.13.1",
     "cypress-wait-until": "3.0.1",
     "dotenv-flow": "4.1.0",
     "dotenv-flow-cli": "1.1.1",
