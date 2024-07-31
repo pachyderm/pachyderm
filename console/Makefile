@@ -13,12 +13,6 @@ ifneq ($(filter aarch%,$(UNAME_P)),)
 	TARGET_ARCH = arm64
 endif
 
-ifdef CIRCLE_TAG 
-	DOCKER_TAG = $(CIRCLE_TAG)
-else
-	DOCKER_TAG = $(CIRCLE_SHA1)
-endif
-
 .PHONY: launch-dev launch-prod setup-auth test install build ci prune-deps circle-docker-build circle-docker-manifest e2e
 
 bunyan:
@@ -59,11 +53,11 @@ test:
 
 circle-docker-build:
 	cd .. && docker buildx create --name hab --driver docker-container
-	cd .. && docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --build-arg DOCKER_TAG=$(DOCKER_TAG) --push -t pachyderm/haberdashery:$(DOCKER_TAG)-$(TARGET_ARCH) -f Dockerfile.console .
+	cd .. && docker buildx build --provenance false --builder hab --platform linux/$(TARGET_ARCH) --build-arg DOCKER_TAG=$(CIRCLE_SHA1) --push -t pachyderm/haberdashery:$(CIRCLE_SHA1)-$(TARGET_ARCH) -f Dockerfile.console .
 
 circle-docker-manifest:
-	docker manifest create pachyderm/haberdashery:$(DOCKER_TAG) docker.io/pachyderm/haberdashery:$(DOCKER_TAG)-amd64 docker.io/pachyderm/haberdashery:$(DOCKER_TAG)-arm64
-	docker manifest push pachyderm/haberdashery:$(DOCKER_TAG)
+	docker manifest create pachyderm/haberdashery:$(CIRCLE_SHA1) docker.io/pachyderm/haberdashery:$(CIRCLE_SHA1)-amd64 docker.io/pachyderm/haberdashery:$(CIRCLE_SHA1)-arm64
+	docker manifest push pachyderm/haberdashery:$(CIRCLE_SHA1)
 
 e2e-ce: e2e
 
