@@ -1,9 +1,9 @@
 dependencies:
 - name: postgresql
   repository: file://./dependencies/postgresql
-  version: 12.19.0
+  version: 13.15.0
 - name: loki-stack
   repository: https://grafana.github.io/helm-charts
   version: 2.8.1
-digest: sha256:3a2aa44a09b965964cfdfdfdf74141606a2fa8b7dfcf4df9a678974256f1ad06
-generated: "2024-07-30T11:57:37.707933167-04:00"
+digest: sha256:2688375d910af0f372dfe0ae46c3f2784f7482000ace5b5b04e9290fe9497ae3
+generated: "2024-07-31T14:45:55.490178771-04:00"

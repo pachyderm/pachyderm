@@ -56,7 +56,7 @@ sources:
 # TODO: Upstream this change
 dependencies:
   - name: postgresql
-    version: "12.19.0"
+    version: "13.15.0"
     repository: "file://./dependencies/postgresql"
     condition: postgresql.enabled
   - name: loki-stack
