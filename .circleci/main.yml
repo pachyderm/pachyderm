@@ -1197,61 +1197,6 @@ jobs:
                 echo "regular release."
                 gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/docker/pachyderm_*_linux_amd64.tar.gz ./dist-pach/docker/pachyderm_*linux_arm64.tar.gz --generate-notes
             fi
-  console-release-draft:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - add_ssh_keys:
-          fingerprints:
-            - "23:49:d3:11:ea:69:de:6f:c3:29:e3:09:ff:01:b1:f0"
-      - run:
-          name: setup pachydermbuildbot git
-          command: |
-            git config --global user.email "buildbot@pachyderm.io"
-            git config --global user.name "pachydermbuildbot"
-      - gh/setup:
-          version: 2.13.0
-      - run:
-          name: create github console release draft
-          command: |
-            if [[ $CIRCLE_TAG == *"alpha"* ]];
-              then
-                  echo "based on git tag assuming its a alpha release."
-                  parentBranch=master
-              else
-                  echo "using console's release branch for RCs and patch releases."
-                  parentBranch=$(echo ${CIRCLE_TAG:1} | cut -f -2 -d ".").x
-              fi
-            git clone https://github.com/pachyderm/haberdashery.git haberdashery
-            cd haberdashery
-            git fetch origin
-            git checkout -b release-${CIRCLE_TAG:1} origin/${parentBranch}
-            tmp=$(mktemp)
-            jq --arg val "${CIRCLE_TAG:1}-${CIRCLE_SHA1}" '.pachyderm = $val' version.json > "$tmp" && mv "$tmp" version.json
-            jq --arg val "${CIRCLE_SHA1}" '.pachReleaseCommit = $val' version.json > "$tmp" && mv "$tmp" version.json
-            jq --arg val "${CIRCLE_TAG:1}" '.pachctl = $val' version.json > "$tmp" && mv "$tmp" version.json
-            git add --all
-            git commit -m "bump pachyderm version"
-            git push origin release-${CIRCLE_TAG:1}
-            PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --reviewer pachydermbuildbot --repo pachyderm/haberdashery)
-            sleep 10 # give it a bit time for checks to attach
-            gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
-            gh pr merge ${PR} --rebase --admin --repo pachyderm/haberdashery
-            sleep 2 # give it quick sec to merge, make sure we get right state.
-            IS_MERGED=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
-            if [[ "${IS_MERGED}" != "MERGED" ]]; then
-              echo "review console PR ${PR} for failures. It did not merge."
-              exit 1
-            fi
-            sleep 2 # in case we create release to fast
-            if [[ $CIRCLE_TAG == *"-"* ]];
-              then
-                  echo "git tag has - assuming prerelease."
-                  gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --prerelease --repo pachyderm/haberdashery
-              else
-                  echo "regular release."
-                  gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --repo pachyderm/haberdashery
-              fi
   release-github:
     parameters:
       repo:
@@ -1272,30 +1217,6 @@ jobs:
           name: create github release
           command: |
             gh release edit << parameters.tag >> --draft=false --repo << parameters.repo >>
-      - when:
-          condition:
-            and:
-              - equal: ["pachyderm/haberdashery", << parameters.repo >>]
-          steps:
-            - setup_remote_docker:
-                docker_layer_caching: true
-                version: "20.10.12"
-            - run:
-                name: pachydermbuildbot docker login
-                command: |
-                  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-            - run:
-                name: check if console docker image released
-                command: |
-                  SECONDS=0
-                  while :; do
-                      docker pull pachyderm/haberdashery:<< parameters.tag >> 2>/dev/null && break
-                      if (( $SECONDS > 600 )); then
-                          printf 'Waited 10 minutes for console docker image to appear in the registry, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures or delays\n' >&2
-                          exit 1
-                      fi
-                      sleep 1
-                  done
   release-docker-hub:
     docker:
       - image: cimg/base:stable
@@ -1786,6 +1707,29 @@ jobs:
           path: /tmp/cypress-screenshots
       - store_artifacts:
           path: /tmp/cypress-videos
+  console-docker-push-tag:
+    machine:
+      image: default
+    steps:
+      - checkout
+      - run:
+          name: docker login
+          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: docker pull
+          command: |
+            docker pull pachyderm/haberdashery:$CIRCLE_SHA1-amd64
+            docker pull pachyderm/haberdashery:$CIRCLE_SHA1-arm64
+      - run:
+          name: Docker create manifest
+          command: |
+            docker manifest create pachyderm/haberdashery:${CIRCLE_TAG:1} docker.io/pachyderm/haberdashery:$CIRCLE_SHA1-amd64 docker.io/pachyderm/haberdashery:$CIRCLE_SHA1-arm64
+            docker manifest annotate "pachyderm/haberdashery:${CIRCLE_TAG:1}" "docker.io/pachyderm/haberdashery:$CIRCLE_SHA1-amd64" --arch amd64
+            docker manifest annotate "pachyderm/haberdashery:${CIRCLE_TAG:1}" "docker.io/pachyderm/haberdashery:$CIRCLE_SHA1-arm64" --arch arm64
+            docker manifest inspect pachyderm/haberdashery:${CIRCLE_TAG:1}
+      - run:
+          name: Docker push manifest
+          command: docker manifest push pachyderm/haberdashery:${CIRCLE_TAG:1}
 workflows:
   functional-tests:
     when: << pipeline.parameters.run-core-jobs >>
@@ -2090,13 +2034,6 @@ workflows:
           filters: *only-release-tags
           requires:
             - aws-testing
-      - console-release-draft:
-          filters: *only-release-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
       - sign-off:
           filters: *only-release-tags
           type: approval
@@ -2115,13 +2052,6 @@ workflows:
       #      - sign-off
       - release-github:
           name: github-release-pach-core
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - release-github:
-          name: github-release-console
-          repo: pachyderm/haberdashery
-          tag: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - sign-off
@@ -2163,6 +2093,39 @@ workflows:
             - test-python-sdk
             - python-sdk-test-publish
             - sign-off
+          filters: *only-release-tags
+      - console-test-backend:
+          filters: *only-release-tags
+      - console-test-frontend-components:
+          filters: *only-release-tags
+      - console-test-frontend-react:
+          filters: *only-release-tags
+      - console-docker-build:
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
+          filters: *only-release-tags
+      - console-docker-manifest:
+          requires:
+            - console-docker-build
+          filters: *only-release-tags
+      - console-test-docker-e2e-community-edition:
+          requires:
+            - console-docker-manifest
+            - build-pachctl-bin
+          filters: *only-release-tags
+      - console-test-docker-e2e-enterprise-edition:
+          requires:
+            - console-docker-manifest
+            - build-pachctl-bin
+          filters: *only-release-tags
+      - console-docker-push-tag:
+          requires:
+            - sign-off
+            - console-test-docker-e2e-community-edition
+            - console-test-docker-e2e-enterprise-edition
           filters: *only-release-tags
   nightly-release:
     jobs:
