@@ -338,12 +338,17 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 			}
 		}
 		defer stop()
+		jobInfo, err := driver.GetJobInfo(task.Job)
+		if err != nil {
+			return errors.Wrap(err, "error getting job info from task job")
+		}
+		env := driver.UserCodeEnv(logger.JobID(), task.OutputCommit, nil, jobInfo.GetAuthToken(), "")
 		start := func() error {
 			var cancelCtx context.Context
 			cancelCtx, cancel = pctx.WithCancel(ctx)
 			errChan = make(chan error, 1)
 			go func() {
-				err := driver.RunUserCode(cancelCtx, logger, nil)
+				err := driver.RunUserCode(cancelCtx, logger, env)
 				if err == nil {
 					err = errors.New("user code exited prematurely")
 				}
