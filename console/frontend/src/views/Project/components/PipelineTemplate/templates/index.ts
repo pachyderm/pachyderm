@@ -1,4 +1,5 @@
-// import EdgesTemplate from './edges.jsonnet?raw';
+import HuggingFaceDownloader from './huggingFaceDownloader.jsonnet?raw';
+import SnowflakeTemplate from './snowflake.jsonnet?raw';
 
 export interface TemplateArg {
   name: string;
@@ -17,6 +18,4 @@ export interface Template {
   metadata: TemplateMetadata;
   template: string;
 }
-
-//Import static templates with the '?raw' flag and add them here
-export const Templates: string[] = [];
+export const Templates: string[] = [SnowflakeTemplate, HuggingFaceDownloader];
