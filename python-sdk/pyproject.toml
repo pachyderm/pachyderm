@@ -36,7 +36,7 @@ urllib3 = {version="!=2.2.0,!=2.2.1"}  # CVE-2024-37891
 [tool.poetry.dev-dependencies]
 black = "^24.3.0"
 pdoc3 = "0.10.0"
-pandas = "2.0.3"
+pandas = "2.1.4"
 pytest = "^7.2.1"
 pytest-black-ng = "^0.4.1"
 
