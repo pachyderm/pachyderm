@@ -1,6 +1,7 @@
 node_modules/
 .DS_Store
 .vscode/*
+.vite/
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
@@ -13,4 +14,4 @@ cypress/accessToken.txt
 cypress/accessToken_*.txt
 cypress/downloads/**
 
-test-dags/lots-of-datums/data
+test-dags/lots-of-datums/data/
