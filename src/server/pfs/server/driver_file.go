@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"math"
 	"path"
 	"path/filepath"
@@ -641,6 +642,39 @@ func (d *driver) composeFileSet(ctx context.Context, ids []fileset.ID, ttl time.
 		return compactor.Compact(ctx, taskDoer, ids, ttl)
 	}
 	return d.storage.Filesets.Compose(ctx, ids, ttl)
+}
+
+func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
+	id, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if err := renewer.Add(ctx, *id); err != nil {
+		return nil, err
+	}
+	diffId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
+	if err != nil {
+		return nil, err
+	}
+	return diffId, errors.EnsureStack(d.commitStore.SetDiffFileSet(ctx, commit, *diffId))
+}
+
+func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
+	id, err := d.getFileSet(ctx, commit)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if err := renewer.Add(ctx, *id); err != nil {
+		return nil, err
+	}
+	totalId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
+	if err != nil {
+		return nil, err
+	}
+	if err := errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId)); err != nil {
+		return nil, err
+	}
+	return totalId, nil
 }
 
 func (d *driver) commitSizeUpperBound(ctx context.Context, commit *pfsdb.Commit) (int64, error) {
