@@ -1177,7 +1177,7 @@ postgresql:
   enabled: true
   image:
     repository: bitnami/postgresql
-    tag: "14.12.0"
+    tag: "15.7.0"
   fullnameOverride: postgres
   persistence:
     # Specify the storage class for the postgresql Persistent Volume (PV)
