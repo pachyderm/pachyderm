@@ -211,13 +211,9 @@ Returns dex's database name.
 Returns the db init script for setting up the dex database.
 */}}
 {{- define "postgresql.initdbScripts" -}}
-dex.sh: |
-  #!/bin/bash
-  set -e
-  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    CREATE DATABASE {{ include "postgresql.dexDbName" . }};
-    GRANT ALL PRIVILEGES ON DATABASE {{ include "postgresql.dexDbName" . }} TO "$POSTGRES_USER";
-  EOSQL
+dex.sql: |
+  CREATE DATABASE dex;
+  GRANT ALL PRIVILEGES ON DATABASE dex TO "$POSTGRES_USER";
 {{- end -}}
 
 {{/*
