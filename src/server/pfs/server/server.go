@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"time"
 
 	etcd "go.etcd.io/etcd/client/v3"
+	"gocloud.dev/blob"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -12,14 +14,20 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+)
 
-	"gocloud.dev/blob"
+const (
+	StorageTaskNamespace = "storage"
+	fileSetsRepo         = client.FileSetsRepoName
+	defaultTTL           = client.DefaultTTL
+	maxTTL               = 30 * time.Minute
 )
 
 type APIServer = *validatedAPIServer

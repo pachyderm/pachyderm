@@ -26,6 +26,29 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
+func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
+	diff, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	isCompacted, err := d.storage.Filesets.IsCompacted(ctx, *diff)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	if isCompacted {
+		return diff, nil
+	}
+	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
+		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Commit.Id, nil)
+		diff, err = d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+		return err
+	}); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return diff, nil
+}
+
 // TODO(acohen4): signature should accept a branch seperate from the commit
 func (d *driver) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
@@ -116,45 +139,6 @@ func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *
 		return nil, err
 	}
 	return id, nil
-}
-
-func (d *driver) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfs.CommitInfo, fileset.FileSet, error) {
-	if commitHandle.AccessRepo() == nil {
-		return nil, nil, errors.New("nil repo or branch.repo in commit")
-	}
-	if commitHandle.AccessRepo().Name == fileSetsRepo {
-		fsid, err := fileset.ParseID(commitHandle.Id)
-		if err != nil {
-			return nil, nil, err
-		}
-		fs, err := d.storage.Filesets.Open(ctx, []fileset.ID{*fsid})
-		if err != nil {
-			return nil, nil, err
-		}
-		return &pfs.CommitInfo{Commit: commitHandle}, fs, nil
-	}
-	if err := d.env.Auth.CheckRepoIsAuthorized(ctx, commitHandle.Repo, auth.Permission_REPO_READ); err != nil {
-		return nil, nil, errors.EnsureStack(err)
-	}
-	commit, err := d.inspectCommit(ctx, commitHandle, pfs.CommitState_STARTED)
-	if err != nil {
-		return nil, nil, err
-	}
-	if commit.Finishing != nil && commit.Finished == nil {
-		_, err := d.inspectCommitInfo(ctx, commitHandle, pfs.CommitState_FINISHED)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	id, err := d.getFileSet(ctx, commit)
-	if err != nil {
-		return nil, nil, err
-	}
-	fs, err := d.storage.Filesets.Open(ctx, []fileset.ID{*id})
-	if err != nil {
-		return nil, nil, err
-	}
-	return commit.CommitInfo, fs, nil
 }
 
 func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
