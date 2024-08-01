@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"math"
 	"path"
 	"path/filepath"
