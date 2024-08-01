@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"github.com/docker/go-units"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"sort"
 
 	"google.golang.org/protobuf/proto"
@@ -280,6 +282,52 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	if err := txnCtx.ValidateRepo(branchHandle.Repo); err != nil {
 		return errors.Wrap(err, "check branches")
+	}
+	return nil
+}
+
+// validateTrigger returns an error if a trigger is invalid
+func (d *driver) validateTrigger(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
+	if trigger == nil {
+		return nil
+	}
+	if trigger.Branch == "" {
+		return errors.Errorf("triggers must specify a branch to trigger on")
+	}
+	if err := ancestry.ValidateName(trigger.Branch); err != nil {
+		return err
+	}
+	if _, err := cronutil.ParseCronExpression(trigger.RateLimitSpec); trigger.RateLimitSpec != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger rate limit spec")
+	}
+	if _, err := units.FromHumanSize(trigger.Size); trigger.Size != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger size")
+	}
+	if trigger.Commits < 0 {
+		return errors.Errorf("can't trigger on a negative number of commits")
+	}
+	if _, err := cronutil.ParseCronExpression(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
+		return errors.Wrapf(err, "invalid trigger cron spec")
+	}
+
+	biMaps := make(map[string]*pfs.BranchInfo)
+	if err := d.listBranchInTransaction(ctx, txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
+		biMaps[bi.Branch.Name] = proto.Clone(bi).(*pfs.BranchInfo)
+		return nil
+	}); err != nil {
+		return err
+	}
+	b := trigger.Branch
+	for {
+		if b == branch.Name {
+			return errors.Errorf("triggers cannot form a loop")
+		}
+		bi, ok := biMaps[b]
+		if ok && bi.Trigger != nil {
+			b = bi.Trigger.Branch
+		} else {
+			break
+		}
 	}
 	return nil
 }
