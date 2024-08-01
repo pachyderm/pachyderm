@@ -81,10 +81,7 @@ func editInTx(ctx context.Context, tc *txncontext.TransactionContext, authServer
 		if err := editMetadata(edit, &c.CommitInfo.Metadata); err != nil {
 			return errors.Wrapf(err, "edit commit %q", c.GetCommit().Key())
 		}
-		if err := pfsdb.UpdateCommit(ctx, tc.SqlTx, c.ID, c.CommitInfo, pfsdb.AncestryOpt{
-			SkipChildren: true,
-			SkipParent:   true,
-		}); err != nil {
+		if err := pfsdb.UpdateCommitMetadata(ctx, tc.SqlTx, c.ID, c.CommitInfo.Metadata); err != nil {
 			return errors.Wrapf(err, "update commit %q", c.GetCommit().Key())
 		}
 	case *metadata.Edit_Branch:

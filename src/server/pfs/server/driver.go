@@ -901,13 +901,14 @@ func (d *driver) startCommit(
 	}
 	// Point 'branch' at the new commit
 	branchInfo.Head = newCommitInfo.Commit
-	if _, err = pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
+	branchID, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo)
+	if err != nil {
 		return nil, errors.Wrap(err, "start commit")
 	}
 	// update branch field after a new branch is created.
 	if updateCommitBranchField {
 		newCommitInfo.Commit.Branch = branchInfo.Branch
-		if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitID, newCommitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
+		if err := pfsdb.UpdateCommitBranch(ctx, txnCtx.SqlTx, commitID, branchID); err != nil {
 			return nil, errors.Wrap(err, "start commit: update branch field after new branch is created")
 		}
 	}
@@ -942,12 +943,11 @@ func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.Transactio
 		// otherwise, this either isn't a pipeline at all, or is a spout or service for which we should allow finishing
 	}
 	if description != "" {
-		commitInfo.Description = description
+		if err := pfsdb.UpdateDescription(ctx, txnCtx.SqlTx, commit.ID, description); err != nil {
+			return errors.Wrap(err, "finish commit")
+		}
 	}
-	commitInfo.Finishing = txnCtx.Timestamp
-	commitInfo.Error = commitError
-
-	return pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commit.ID, commitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true})
+	return pfsdb.FinishingCommit(ctx, txnCtx.SqlTx, commit.ID, txnCtx.Timestamp, commitError)
 }
 
 // NOTE: repoSize() is only calculated based on the "master" branch
@@ -1711,12 +1711,13 @@ func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.Transac
 			newRepoCommits[p.Repo.Key()] = head
 		}
 		branchInfo := &pfs.BranchInfo{Branch: p, Head: head.CommitInfo.Commit, CreatedBy: txnCtx.Username()}
-		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
+		branchID, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo)
+		if err != nil {
 			return errors.Wrap(err, "upsert branch")
 		}
 		// Now that the branch exists, add the branch_id to the head commit.
 		if updateHead != nil {
-			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, updateHead.ID, updateHead.CommitInfo); err != nil {
+			if err := pfsdb.UpdateCommitBranch(ctx, txnCtx.SqlTx, updateHead.ID, branchID); err != nil {
 				return errors.Wrap(err, "update commit")
 			}
 		}
@@ -1892,12 +1893,13 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	if trigger != nil && trigger.Branch != "" {
 		branchInfo.Trigger = trigger
 	}
-	if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
+	branchID, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo)
+	if err != nil {
 		return errors.Wrap(err, "create branch")
 	}
 	// need to update head commit's branch_id after the branch is created.
 	if updateHead != nil {
-		if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, updateHead.ID, updateHead.CommitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
+		if err := pfsdb.UpdateCommitBranch(ctx, txnCtx.SqlTx, updateHead.ID, branchID); err != nil {
 			return errors.Wrap(err, "create branch")
 		}
 	}

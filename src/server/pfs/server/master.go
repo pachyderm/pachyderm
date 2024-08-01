@@ -313,7 +313,7 @@ func (d *driver) finishRepoCommit(ctx context.Context, repo pfsdb.Repo, commit *
 			}
 			// Skip compaction / validation for errored commits.
 			if commitInfo.Error != "" {
-				return d.finalizeCommit(ctx, commit, "", nil, nil)
+				return d.finalizeCommit(ctx, commit, "", nil)
 			}
 			compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
 			taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commitHandle.Id, cache)
@@ -350,7 +350,7 @@ func (d *driver) finishRepoCommit(ctx context.Context, repo pfsdb.Repo, commit *
 				}
 				details.ValidatingTime = durationpb.New(time.Since(start))
 				// Finish the commit.
-				return d.finalizeCommit(ctx, commit, validationError, details, totalId)
+				return d.finalizeCommit(ctx, commit, validationError, details)
 			}), "finishing commit with renewer")
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			log.Error(ctx, "error finishing commit", zap.Error(err), zap.Duration("retryAfter", d))
@@ -392,29 +392,26 @@ func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, 
 	return totalId, nil
 }
 
-func (d *driver) finalizeCommit(ctx context.Context, commit *pfsdb.Commit, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
+func (d *driver) finalizeCommit(ctx context.Context, commit *pfsdb.Commit, validationError string, details *pfs.CommitInfo_Details) error {
 	return log.LogStep(ctx, "finalizeCommit", func(ctx context.Context) error {
 		return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-			commitInfo, err := pfsdb.GetCommitInfo(ctx, txnCtx.SqlTx, commit.ID)
-			if err != nil {
-				return errors.Wrap(err, "refresh commitInfo")
+			commit.Finished = txnCtx.Timestamp
+			if details == nil {
+				details = &pfs.CommitInfo_Details{SizeBytes: commit.SizeBytesUpperBound}
 			}
-			commitInfo.Finished = txnCtx.Timestamp
-			if details != nil {
-				commitInfo.SizeBytesUpperBound = details.SizeBytes
+			commit.SizeBytesUpperBound = details.SizeBytes
+			commit.Details = details
+			if commit.Error == "" {
+				commit.Error = validationError
 			}
-			if commitInfo.Error == "" {
-				commitInfo.Error = validationError
-			}
-			commitInfo.Details = details
-			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commit.ID, commitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
+			if err := pfsdb.FinishCommit(ctx, txnCtx.SqlTx, commit.ID, commit.Finished, commit.Error, commit.Details); err != nil {
 				return errors.Wrap(err, "finalize commit")
 			}
-			if commitInfo.Commit.Repo.Type == pfs.UserRepoType {
-				txnCtx.FinishJob(commitInfo)
+			if commit.Commit.Repo.Type == pfs.UserRepoType {
+				txnCtx.FinishJob(commit.CommitInfo)
 			}
-			if commitInfo.Error == "" {
-				return d.triggerCommit(ctx, txnCtx, commitInfo)
+			if commit.Error == "" {
+				return d.triggerCommit(ctx, txnCtx, commit.CommitInfo)
 			}
 			return nil
 		})
