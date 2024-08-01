@@ -1,0 +1,29 @@
+.singleLineLoading {
+  max-width: 8rem;
+}
+
+.singleLineLoading > div > div:first-child {
+  margin: 0.09375rem 0;
+}
+
+.term + .description {
+  margin-top: 0rem;
+}
+
+.description + .term {
+  margin-top: 0.937rem;
+}
+
+.skeleton {
+  margin: 0;
+  max-width: none;
+}
+
+.term {
+  display: flex;
+  align-items: center;
+}
+
+.term span:nth-child(2) {
+  margin-left: 0.25rem;
+}

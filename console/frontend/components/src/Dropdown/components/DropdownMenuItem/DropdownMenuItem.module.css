@@ -1,0 +1,44 @@
+.base {
+  color: var(--pachyderm-black);
+  border: none;
+  background-color: transparent;
+  padding: 0.5rem 1rem;
+  white-space: nowrap;
+  width: 100%;
+  text-align: left;
+}
+
+.tertiary {
+  background-color: var(--grey-9);
+  color: var(--white);
+}
+
+.base:hover,
+.base:focus {
+  background-color: var(--hover-grey);
+}
+
+.tertiary:hover,
+.tertiary:focus {
+  background-color: var(--disabled-tertiary);
+}
+
+.base:focus {
+  outline: none;
+}
+
+.base:disabled:not(.tertiary) {
+  opacity: 0.4;
+}
+
+.tertiary:disabled {
+  background-color: var(--disabled-tertiary);
+}
+
+.important:hover {
+  color: var(--error-red);
+}
+
+.topBorder {
+  border: solid 1px var(--border-grey);
+}

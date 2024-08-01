@@ -1,0 +1,22 @@
+.rightAligned {
+  text-align: right;
+}
+
+.stuck > * {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-left: solid 1px var(--border-grey);
+  padding: 0 0.5rem !important;
+}
+
+.sticky {
+  position: sticky;
+  width: 3rem;
+  right: -1px;
+  padding: 0 !important;
+}
+
+.isSelected > * {
+  box-shadow: inset -2px 0 0 0 var(--cyan);
+}

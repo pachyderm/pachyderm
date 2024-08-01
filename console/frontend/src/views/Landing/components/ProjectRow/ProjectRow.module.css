@@ -1,0 +1,70 @@
+.button {
+  white-space: nowrap;
+  z-index: 0;
+}
+
+.row {
+  height: 100%;
+  width: 100%;
+  position: relative;
+  background-color: var(--white);
+  padding: 1rem 1rem 1rem 2rem;
+  border-radius: 3px;
+  border-left: solid 6px var(--white);
+}
+
+.row::before {
+  content: '';
+  position: absolute;
+  margin-left: calc(-2rem - 6px);
+  top: 0rem;
+  width: calc(100% + 6px);
+  height: 100%;
+  box-shadow: 0px 1px 1px var(--border-grey);
+}
+
+.gap10 {
+  gap: 10px;
+}
+
+.gap64 {
+  gap: 64px;
+}
+
+.noShrink {
+  flex-shrink: 0;
+}
+
+.minHeight10 {
+  min-height: 10rem;
+}
+
+.rowHover:hover {
+  cursor: pointer;
+}
+
+.rowHover:hover::before {
+  box-shadow: 0px 2px 4px var(--border-grey);
+}
+
+/* stylelint-disable-next-line selector-class-pattern */
+.row.HEALTHYSelected {
+  border-left: solid 6px var(--banner-green);
+}
+
+/* stylelint-disable-next-line selector-class-pattern */
+.row.UNHEALTHYSelected {
+  border-left: solid 6px var(--error-red);
+}
+
+@media screen and (max-width: 1024px) {
+  .responsiveHide {
+    display: none !important;
+  }
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

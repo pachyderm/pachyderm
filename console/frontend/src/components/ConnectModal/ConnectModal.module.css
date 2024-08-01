@@ -1,0 +1,8 @@
+.descriptionList {
+  padding-left: 0;
+  list-style-position: inside;
+}
+
+.modal [class$='modal-content'] {
+  padding-bottom: 0rem;
+}

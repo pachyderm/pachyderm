@@ -1,0 +1,87 @@
+/* stylelint-disable selector-class-pattern */
+
+.base {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  line-height: 0.5;
+  --icon-shadow: #000000;
+  color: var(--pachyderm-black);
+}
+
+/* Colors */
+
+.black-hover:hover,
+.black {
+  color: var(--pachyderm-black);
+}
+
+.blue-hover:hover,
+.blue {
+  color: var(--chart-dark-blue);
+}
+
+.green-hover:hover,
+.green {
+  color: var(--icon-green);
+}
+
+.grey-hover:hover,
+.grey {
+  color: var(--grey-7);
+}
+
+.plum-hover:hover,
+.plum {
+  color: var(--pachyderm-plum);
+}
+
+.plum.disabled {
+  color: var(--disabled-plum);
+}
+
+.red-hover:hover,
+.red {
+  color: var(--pachyderm-red);
+}
+
+.white-hover:hover,
+.white {
+  color: var(--white);
+}
+
+.yellow-hover:hover,
+.yellow {
+  color: var(--pachyderm-yellow);
+}
+
+.inherit-hover:hover,
+.inherit {
+  color: inherit;
+}
+
+/* Highlights */
+
+.highlightGreen {
+  color: var(--banner-green);
+}
+
+.highlightOrange {
+  color: var(--highlight-orange);
+}
+
+/* Disabled */
+
+.disabled {
+  color: var(--grey-7);
+}
+
+/* Sizes */
+
+.small {
+  transform: scale(0.8);
+}
+
+.smaller {
+  transform: scale(0.6);
+}

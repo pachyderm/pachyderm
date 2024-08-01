@@ -1,0 +1,34 @@
+.base {
+  composes: base from '../../../Input/Input.module.css';
+  display: flex;
+  align-items: center;
+}
+
+.base:read-only {
+  color: var(--pachyderm-black);
+}
+
+.base.placeholder {
+  color: var(--placeholder-grey);
+}
+
+.base:hover {
+  cursor: pointer;
+}
+
+.open.base {
+  border-radius: 3px 3px 0 0;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  transition: transform 0.2s;
+  margin-right: 1rem;
+}
+
+.open .icon {
+  transform: rotate(180deg);
+  transform-origin: center center;
+}

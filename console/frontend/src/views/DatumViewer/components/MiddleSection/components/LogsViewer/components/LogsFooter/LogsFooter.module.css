@@ -1,0 +1,29 @@
+.base {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  border-top: 1px solid var(--border-grey);
+  padding-left: 1rem;
+  overflow: hidden;
+}
+
+.left {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.right {
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.divider {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--border-grey);
+  padding-right: 0.5rem;
+}

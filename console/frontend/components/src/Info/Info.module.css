@@ -1,0 +1,11 @@
+.info20 {
+  max-width: 20rem;
+}
+
+.info40 {
+  max-width: 40rem;
+}
+
+.info.disabled {
+  color: var(--placeholder-grey);
+}

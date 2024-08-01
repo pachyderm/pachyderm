@@ -1,0 +1,7 @@
+{
+  "proto": "289a1fdeac8a3127657ad46713eb6a8d87115dea",
+  "pachyderm": "2.11.0-alpha.5-727163b978af9568d258c8fec27ac02c31889ca1",
+  "pachReleaseCommit": "727163b978af9568d258c8fec27ac02c31889ca1",
+  "pachctl": "2.11.0-alpha.5",
+  "kind": "0.12.0"
+}

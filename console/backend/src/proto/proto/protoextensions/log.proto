@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package log;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/protoextensions";
+
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.FieldOptions {
+  bool mask = 50001;
+  bool half = 50002;
+}

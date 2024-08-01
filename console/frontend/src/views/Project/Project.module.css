@@ -1,0 +1,15 @@
+.view {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.listWrapper {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-rows: minmax(0, 1fr);
+  grid-auto-flow: column;
+  width: 100%;
+  position: relative;
+}

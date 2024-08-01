@@ -1,4 +1,5 @@
 {
+  "eslint.workingDirectories": ["console/backend", "console/frontend"],
   "go.inferGopath": false,
   "go.buildTags": "unit_test,k8s",
   "json.schemas": [

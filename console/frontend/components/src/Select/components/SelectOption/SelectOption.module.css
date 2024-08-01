@@ -1,0 +1,16 @@
+.base {
+  padding-left: 0.9375rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.base[aria-selected='true'] {
+  font-weight: 600;
+  color: var(--pachyderm-plum);
+}
+
+.base:hover,
+.base.active {
+  cursor: pointer;
+  background-color: var(--hover-grey);
+}

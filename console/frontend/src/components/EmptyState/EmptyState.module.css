@@ -1,0 +1,41 @@
+.base {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 2rem;
+}
+
+.message {
+  text-align: center;
+  max-width: 20rem;
+}
+
+.title {
+  display: inline-flex;
+  margin-top: 1rem;
+  max-width: 20rem;
+  text-align: center;
+}
+
+.title.noImage {
+  margin-top: 5rem;
+}
+
+.createRepoButton {
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.docsLink {
+  text-align: center;
+  margin-top: 0.75rem;
+  margin-left: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--default-purple);
+}
+
+.docsLink:hover {
+  color: var(--hover-purple);
+}

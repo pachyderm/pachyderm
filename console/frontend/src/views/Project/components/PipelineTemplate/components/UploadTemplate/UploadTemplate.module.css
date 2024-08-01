@@ -1,0 +1,30 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  width: 37.5rem;
+  min-height: 7.375rem;
+
+  gap: 1rem;
+  border-radius: 3px;
+  border: 1px solid var(--border-grey);
+  background: var(--white);
+  box-shadow: 2px 2px 8px var(--dropshadow-grey);
+}
+
+.selected {
+  padding-left: 0.813rem;
+  border: 1px solid var(--cyan);
+  border-left: 0.25rem solid var(--cyan);
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.status {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}

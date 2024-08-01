@@ -1,0 +1,24 @@
+.overflowYScroll {
+  overflow-y: scroll;
+}
+
+.actionsGroup {
+  flex: 1;
+  z-index: var(--z-index-dropdown-menu);
+  container-name: sidebarSingleAction;
+  container-type: inline-size;
+}
+
+.middleSection {
+  margin-left: 4rem;
+}
+
+.middleSectionLeftPanelOpen {
+  margin-left: 19.75rem;
+}
+
+@media (--medium-viewport) {
+  .middleSectionLeftPanelOpen {
+    margin-left: 4rem;
+  }
+}

@@ -1,0 +1,58 @@
+.view {
+  padding: 0;
+  overflow: hidden;
+}
+
+.topSection {
+  position: absolute;
+  display: inline-flex;
+  pointer-events: none;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1rem;
+  container-type: inline-size;
+  container-name: dag-view;
+}
+
+.canvasControls {
+  display: inline-flex;
+  align-items: center;
+  pointer-events: all;
+  margin-bottom: 0.125rem;
+  border-radius: 3px;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));
+  background-color: var(--white);
+}
+
+.rotateSvg {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.rotateSvg.flipped {
+  transform: scaleX(-1) rotate(90deg);
+}
+
+.tooltip {
+  white-space: pre-line;
+}
+
+.divider {
+  box-sizing: border-box;
+  height: 1.5rem;
+  border-right: 1px solid var(--line-grey);
+}
+
+.responsiveControls {
+  display: none;
+}
+
+@container dag-view (width < 800px) {
+  .responsiveControls {
+    display: inline;
+  }
+
+  .fullControls {
+    display: none;
+  }
+}
