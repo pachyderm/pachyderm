@@ -1,4 +1,4 @@
-package server
+package master
 
 import (
 	"context"

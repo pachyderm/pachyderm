@@ -28,6 +28,8 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/master"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/worker"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -146,7 +148,7 @@ func initTransactionServer(out *transaction.APIServer, env func() txn_server.Env
 	}
 }
 
-func initPFSAPIServer(out *pfs.APIServer, outMaster **pfs_server.Master, env func() pfs_server.Env) setupStep {
+func initPFSAPIServer(out *pfs.APIServer, outMaster **master.Master, env func() pfs_server.Env) setupStep {
 	return setupStep{
 		Name: "initPFSAPIServer",
 		Fn: func(ctx context.Context) error {
@@ -155,7 +157,7 @@ func initPFSAPIServer(out *pfs.APIServer, outMaster **pfs_server.Master, env fun
 				return errors.Wrap(err, "pfs api server")
 			}
 			*out = apiServer
-			master, err := pfs_server.NewMaster(ctx, env())
+			master, err := master.NewMaster(ctx, env())
 			if err != nil {
 				return errors.Wrap(err, "pfs master")
 			}
@@ -192,11 +194,11 @@ func initPPSAPIServer(out *pps.APIServer, env func() pps_server.Env) setupStep {
 	}
 }
 
-func initPFSWorker(out **pfs_server.Worker, config pachconfig.StorageConfiguration, env func() pfs_server.WorkerEnv) setupStep {
+func initPFSWorker(out **worker.Worker, config pachconfig.StorageConfiguration, env func() worker.Env) setupStep {
 	return setupStep{
 		Name: "initPFSWorker",
 		Fn: func(ctx context.Context) error {
-			w, err := pfs_server.NewWorker(ctx, env(), pfs_server.WorkerConfig{Storage: config})
+			w, err := worker.NewWorker(ctx, env(), worker.Config{Storage: config})
 			if err != nil {
 				return err
 			}

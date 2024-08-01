@@ -23,8 +23,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 )
 
-// openBucket handles connection to s3-compatible buckets, gcp buckets, and azure containers using the go-cdk library.
-func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (*blob.Bucket, error) {
+// OpenBucket handles connection to s3-compatible buckets, gcp buckets, and azure containers using the go-cdk library.
+func OpenBucket(ctx context.Context, url *obj.ObjectStoreURL) (*blob.Bucket, error) {
 	switch url.Scheme {
 	case "s3": // these environment variables should be ignored if not using s3.
 		if os.Getenv("CUSTOM_ENDPOINT") != "" {

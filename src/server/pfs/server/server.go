@@ -25,9 +25,10 @@ import (
 
 const (
 	StorageTaskNamespace = "storage"
-	fileSetsRepo         = client.FileSetsRepoName
-	defaultTTL           = client.DefaultTTL
-	maxTTL               = 30 * time.Minute
+	FilesetsRepo         = client.FileSetsRepoName
+	DefaultTTL           = client.DefaultTTL
+	MaxTTL               = 30 * time.Minute
+	URLTaskNamespace     = "url"
 )
 
 type APIServer = *validatedAPIServer

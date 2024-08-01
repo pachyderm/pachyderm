@@ -1,4 +1,4 @@
-package server
+package driver
 
 import (
 	"bufio"
@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsutil"
 
 	"google.golang.org/protobuf/proto"
 
@@ -17,10 +15,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
@@ -318,30 +318,30 @@ func fsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) err
 	return nil
 }
 
-// fsck verifies that pfs satisfies the following invariants:
+// Fsck verifies that pfs satisfies the following invariants:
 // 1. Branch provenance is transitive
 // 2. Head commit provenance has heads of branch's branch provenance
-func (d *driver) fsck(ctx context.Context, cb func(*pfs.FsckResponse) error) error {
+func (d *Driver) Fsck(ctx context.Context, cb func(*pfs.FsckResponse) error) error {
 	onError := func(err error) error { return cb(&pfs.FsckResponse{Error: err.Error()}) }
 
-	// TODO(global ids): no fixable fsck issues?
+	// TODO(global ids): no fixable Fsck issues?
 	// onFix := func(fix string) error { return cb(&pfs.FsckResponse{Fix: fix}) }
 
 	// collect all the info for the branches and commits in pfs
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfos := make(map[string]*pfs.RepoInfo)
-	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, d.Env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repo pfsdb.Repo) error {
 			repoInfos[repo.RepoInfo.Repo.Key()] = repo.RepoInfo
 			return nil
 		})
 		return errors.Wrap(err, "list repo iterator")
 	}, dbutil.WithReadOnly()); err != nil {
-		return errors.Wrap(err, "fsck: repos")
+		return errors.Wrap(err, "Fsck: repos")
 	}
 	for _, repo := range repoInfos {
-		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		if err := dbutil.WithTx(ctx, d.Env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 			commits, err := pfsdb.ListCommitInfoTxByFilter(ctx, tx, &pfs.Commit{Repo: repo.Repo})
 			if err != nil {
 				return errors.Wrap(err, "get commits by commits repo index")
@@ -394,10 +394,10 @@ func compare(s1, s2 stream.Stream) int {
 	return strings.Compare(idx1.Path, idx2.Path)
 }
 
-func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
+func (d *Driver) DetectZombie(ctx context.Context, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
 	log.Info(ctx, "checking for zombie data", log.Proto("outputCommit", outputCommit))
 	// generate fileset that groups output files by datum
-	id, err := d.createFileSet(ctx, func(w *fileset.UnorderedWriter) error {
+	id, err := d.CreateFileset(ctx, func(w *fileset.UnorderedWriter) error {
 		_, fs, err := d.openCommit(ctx, outputCommit)
 		if err != nil {
 			return err
@@ -413,11 +413,11 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		return err
 	}
 	// now merge with the meta commit to look for extra datums in the output commit
-	return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
+	return d.Storage.Filesets.WithRenewer(ctx, server.DefaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
 		if err := r.Add(ctx, *id); err != nil {
 			return err
 		}
-		datumsFS, err := d.storage.Filesets.Open(ctx, []fileset.ID{*id})
+		datumsFS, err := d.Storage.Filesets.Open(ctx, []fileset.ID{*id})
 		if err != nil {
 			return err
 		}

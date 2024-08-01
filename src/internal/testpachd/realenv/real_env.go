@@ -56,6 +56,8 @@ import (
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/master"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/worker"
 	ppsapi "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
@@ -229,14 +231,14 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	pfsEnv.EtcdPrefix = ""
 	realEnv.PFSServer, err = pfsserver.NewAPIServer(ctx, *pfsEnv)
 	require.NoError(t, err)
-	w, err := pfsserver.NewWorker(
+	w, err := worker.NewWorker(
 		ctx,
-		pfsserver.WorkerEnv{
+		worker.Env{
 			DB:          pfsEnv.DB,
 			Bucket:      pfsEnv.Bucket,
 			TaskService: pfsEnv.TaskService,
 		},
-		pfsserver.WorkerConfig{
+		worker.Config{
 			Storage: pfsEnv.StorageConfig,
 		},
 	)
@@ -247,7 +249,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		}
 	}()
 	realEnv.ServiceEnv.SetPfsServer(realEnv.PFSServer)
-	pfsMaster, err := pfsserver.NewMaster(ctx, *pfsEnv)
+	pfsMaster, err := master.NewMaster(ctx, *pfsEnv)
 	require.NoError(t, err)
 	go pfsMaster.Run(ctx) //nolint:errcheck
 

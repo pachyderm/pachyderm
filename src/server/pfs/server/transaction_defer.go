@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/driver"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -13,7 +14,7 @@ import (
 // a transaction.  The transactionenv package provides the interface for this
 // and will call the Run function at the end of a transaction.
 type Propagater struct {
-	d      *driver
+	d      *driver.driver
 	txnCtx *txncontext.TransactionContext
 
 	// Branches that were modified (new commits or head commit was moved to an old commit)
@@ -58,7 +59,7 @@ func (t *Propagater) Run(ctx context.Context) error {
 }
 
 type RepoValidator struct {
-	d      *driver
+	d      *driver.driver
 	txnCtx *txncontext.TransactionContext
 	repos  map[string]*pfs.Repo
 }
@@ -91,7 +92,7 @@ func (rc *RepoValidator) Run(ctx context.Context) error {
 				_, err := rc.d.commitStore.GetTotalFileSetTx(rc.txnCtx.SqlTx, head)
 				if err != nil {
 					// a finished commit that has no total file set is forgotten
-					if errors.Is(err, errNoTotalFileSet) {
+					if errors.Is(err, ErrNoTotalFileset) {
 						return errors.New("the branch head cannot be a forgotten commit")
 					}
 				}

@@ -1,4 +1,4 @@
-package server
+package driver
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 func getEgressPassword() (string, error) {
@@ -25,8 +26,8 @@ func getEgressPassword() (string, error) {
 	return password, nil
 }
 
-func (d *driver) copyToObjectStorage(ctx context.Context, taskService task.Service, file *pfs.File, destURL string) (*pfs.EgressResponse_ObjectStorageResult, error) {
-	bytesWritten, err := d.getFileURL(ctx, taskService, destURL, file, nil)
+func (d *Driver) CopyToObjectStorage(ctx context.Context, taskService task.Service, file *pfs.File, destURL string) (*pfs.EgressResponse_ObjectStorageResult, error) {
+	bytesWritten, err := d.GetFileURL(ctx, taskService, destURL, file, nil)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -35,7 +36,7 @@ func (d *driver) copyToObjectStorage(ctx context.Context, taskService task.Servi
 	return result, nil
 }
 
-func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pfs.SQLDatabaseEgress_FileFormat) (*pfs.EgressResponse_SQLDatabaseResult, error) {
+func CopyToSQLDB(ctx context.Context, src server.Source, destURL string, fileFormat *pfs.SQLDatabaseEgress_FileFormat) (*pfs.EgressResponse_SQLDatabaseResult, error) {
 	url, err := pachsql.ParseURL(destURL)
 	if err != nil {
 		return nil, errors.EnsureStack(err)

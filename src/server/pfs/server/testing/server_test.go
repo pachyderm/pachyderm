@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/driver"
 	"io"
 	"math/rand"
 	"os"
@@ -57,7 +58,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -6193,7 +6193,7 @@ func TestPutFileAtomic(t *testing.T) {
 
 func TestTestTopologicalSortCommits(t *testing.T) {
 	t.Run("Empty", func(t *testing.T) {
-		require.True(t, len(server.TopologicalSort([]*pfsdb.Commit{})) == 0)
+		require.True(t, len(driver.TopologicalSort([]*pfsdb.Commit{})) == 0)
 	})
 	t.Run("Fuzz", func(t *testing.T) {
 		// TODO: update gopls for generics
@@ -6243,7 +6243,7 @@ func TestTestTopologicalSortCommits(t *testing.T) {
 			cis[j], cis[k] = cis[k], cis[j]
 		}
 		// assert sort works
-		cis = server.TopologicalSort(cis)
+		cis = driver.TopologicalSort(cis)
 		for i, ci := range cis {
 			require.True(t, len(totalProvenance[ci.Commit.String()]) <= i)
 		}

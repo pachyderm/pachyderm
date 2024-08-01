@@ -1,4 +1,4 @@
-package server
+package driver
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-func (d *driver) hasProjectAccess(
+func (d *Driver) hasProjectAccess(
 	ctx context.Context,
 	txnCtx *txncontext.TransactionContext,
 	repoInfo *pfs.RepoInfo,
@@ -30,7 +30,7 @@ func (d *driver) hasProjectAccess(
 			return false, err
 		}
 		// Allow access if user has the right permissions at the individual Repo-level.
-		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, repoInfo.Repo, auth.Permission_REPO_READ); err != nil {
+		if err := d.Env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, repoInfo.Repo, auth.Permission_REPO_READ); err != nil {
 			if !errors.As(err, &auth.ErrNotAuthorized{}) {
 				return false, errors.Wrapf(err, "could not check user is authorized to list repo, problem with repo %s", repoInfo.Repo)
 			}
@@ -41,13 +41,13 @@ func (d *driver) hasProjectAccess(
 	return true, nil
 }
 
-func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
-	return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		return d.createProjectInTransaction(ctx, txnCtx, req)
+func (d *Driver) CreateProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
+	return d.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		return d.createProjectTx(ctx, txnCtx, req)
 	})
 }
 
-func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pfs.CreateProjectRequest) error {
+func (d *Driver) createProjectTx(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pfs.CreateProjectRequest) error {
 	if err := req.Project.ValidateName(); err != nil {
 		return errors.Wrapf(err, "invalid project name")
 	}
@@ -69,7 +69,7 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 	var username string
 	if whoAmI, err := txnCtx.WhoAmI(); err == nil {
 		username = whoAmI.GetUsername()
-		if err := d.env.Auth.CreateRoleBindingInTransaction(
+		if err := d.Env.Auth.CreateRoleBindingInTransaction(
 			ctx,
 			txnCtx,
 			whoAmI.Username,
@@ -95,9 +95,9 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 	return nil
 }
 
-func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
+func (d *Driver) InspectProject(ctx context.Context, project *pfs.Project) (*pfs.ProjectInfo, error) {
 	var pi *pfs.ProjectInfo
-	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, d.Env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
 		pi, err = pfsdb.GetProjectInfoByName(ctx, tx, pfsdb.ProjectKey(project))
 		if err != nil {
@@ -107,7 +107,7 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	}); err != nil {
 		return nil, errors.Wrapf(err, "error getting project %q", project)
 	}
-	resp, err := d.env.Auth.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: project.AuthResource()})
+	resp, err := d.Env.Auth.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: project.AuthResource()})
 	if err != nil {
 		if errors.Is(err, auth.ErrNotActivated) {
 			return pi, nil
@@ -119,12 +119,12 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
-func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
+func (d *Driver) ListProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	authIsActive := true
-	return errors.Wrap(d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+	return errors.Wrap(d.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return d.listProjectInTransaction(ctx, txnCtx, func(proj *pfs.ProjectInfo) error {
 			if authIsActive {
-				resp, err := d.env.Auth.GetPermissionsInTransaction(ctx, txnCtx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
+				resp, err := d.Env.Auth.GetPermissionsInTransaction(ctx, txnCtx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
 				if err != nil {
 					if errors.Is(err, auth.ErrNotActivated) {
 						// Avoid unnecessary subsequent Auth API calls.
@@ -141,22 +141,22 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 }
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
-func (d *driver) listProjectInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, cb func(*pfs.ProjectInfo) error) error {
+func (d *Driver) listProjectInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, cb func(*pfs.ProjectInfo) error) error {
 	return errors.Wrap(pfsdb.ForEachProject(ctx, txnCtx.SqlTx, func(project pfsdb.Project) error {
 		return cb(project.ProjectInfo)
 	}), "list projects in transaction")
 }
 
 // TODO: delete all repos and pipelines within project
-func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
+func (d *Driver) DeleteProject(ctx context.Context, txnCtx *txncontext.TransactionContext, project *pfs.Project, force bool) error {
 	if err := project.ValidateName(); err != nil {
 		return errors.Wrap(err, "invalid project name")
 	}
-	if err := d.env.Auth.CheckProjectIsAuthorizedInTransaction(ctx, txnCtx, project, auth.Permission_PROJECT_DELETE, auth.Permission_PROJECT_MODIFY_BINDINGS); err != nil {
+	if err := d.Env.Auth.CheckProjectIsAuthorizedInTransaction(ctx, txnCtx, project, auth.Permission_PROJECT_DELETE, auth.Permission_PROJECT_MODIFY_BINDINGS); err != nil {
 		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
 	}
 	var errs error
-	repos, err := d.listRepoInTransaction(ctx, txnCtx, false, "", []*pfs.Project{project}, nil)
+	repos, err := d.ListRepoTx(ctx, txnCtx, false, "", []*pfs.Project{project}, nil)
 	if err != nil {
 		return errors.Wrap(err, "list repos to determine if any still exist")
 	}
@@ -169,7 +169,7 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 	if err := pfsdb.DeleteProject(ctx, txnCtx.SqlTx, pfsdb.ProjectKey(project)); err != nil {
 		return errors.Wrapf(err, "delete project %q", project)
 	}
-	if err := d.env.Auth.DeleteRoleBindingInTransaction(ctx, txnCtx, project.AuthResource()); err != nil {
+	if err := d.Env.Auth.DeleteRoleBindingInTransaction(ctx, txnCtx, project.AuthResource()); err != nil {
 		if !errors.Is(err, auth.ErrNotActivated) {
 			return errors.Wrapf(err, "delete role binding for project %q", project)
 		}

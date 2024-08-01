@@ -18,6 +18,7 @@ import (
 	license_server "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pachw_server "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/worker"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 )
 
@@ -137,14 +138,14 @@ func StorageEnv(env serviceenv.ServiceEnv) (*storage.Env, error) {
 
 }
 
-func PFSWorkerEnv(env serviceenv.ServiceEnv) (*pfs_server.WorkerEnv, error) {
+func PFSWorkerEnv(env serviceenv.ServiceEnv) (*worker.Env, error) {
 	cfg := env.Config()
 	bucket, err := obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "pfs worker")
 	}
 	etcdPrefix := path.Join(cfg.EtcdPrefix, cfg.PFSEtcdPrefix)
-	return &pfs_server.WorkerEnv{
+	return &worker.Env{
 		Bucket:      bucket,
 		DB:          env.GetDBClient(),
 		TaskService: env.GetTaskService(etcdPrefix),

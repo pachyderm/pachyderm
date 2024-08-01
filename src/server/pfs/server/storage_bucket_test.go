@@ -69,7 +69,7 @@ func TestAmazonECS(t *testing.T) {
 func writeReadDelete(t *testing.T, url *obj.ObjectStoreURL) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
-	bucket, err := openBucket(ctx, url)
+	bucket, err := OpenBucket(ctx, url)
 	defer func() {
 		require.NoError(t, bucket.Close())
 	}()

@@ -1,8 +1,10 @@
-package server
+package driver
 
 import (
 	"bytes"
 	"context"
+	"fmt"
+
 	"os"
 	"path"
 	"testing"
@@ -14,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj/integrationtests"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 func TestSharding(t *testing.T) {
@@ -32,7 +35,7 @@ func TestSharding(t *testing.T) {
 	objStoreDir := randutil.UniqueString("url-coord-")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*300000)
 	defer cancel()
-	bucket, err := openBucket(ctx, url)
+	bucket, err := server.OpenBucket(ctx, url)
 	require.NoError(t, err, "should be able to open bucket")
 	defer func() {
 		require.NoError(t, bucket.Close())
@@ -48,11 +51,11 @@ func TestSharding(t *testing.T) {
 			require.NoError(t, bucket.Delete(ctx, path.Join(objStoreDir, file)), "should be able to delete file")
 		}
 	}()
-	var tasks []*PutFileURLTask
+	var tasks []*server.PutFileURLTask
 	defaultSizeThreshold, defaultNumObjectsThreshold = 3, 3
 	require.NoError(t, shardObjects(ctx, url.BucketString()+"/"+objStoreDir,
 		func(paths []string, startOffset, endOffset int64) error {
-			task := &PutFileURLTask{
+			task := &server.PutFileURLTask{
 				Paths:       paths,
 				StartOffset: startOffset,
 				EndOffset:   endOffset,
@@ -71,7 +74,7 @@ func TestSharding(t *testing.T) {
 	}
 }
 
-func processTasks(ctx context.Context, t *testing.T, tasks []*PutFileURLTask, bucket *blob.Bucket) map[string]string {
+func processTasks(ctx context.Context, t *testing.T, tasks []*server.PutFileURLTask, bucket *blob.Bucket) map[string]string {
 	verifiedFiles := make(map[string]string)
 	for _, task := range tasks {
 		startOffset := task.StartOffset
@@ -97,4 +100,23 @@ func processTasks(ctx context.Context, t *testing.T, tasks []*PutFileURLTask, bu
 		}
 	}
 	return verifiedFiles
+}
+
+func writeToObjStorage(ctx context.Context, t *testing.T, bucket *blob.Bucket, objName string, data ...string) {
+	exists, err := bucket.Exists(ctx, objName)
+	require.NoError(t, err, fmt.Sprintf("should be able to check if obj %s exists", objName))
+	require.Equal(t, false, exists)
+	w, err := bucket.NewWriter(ctx, objName, nil)
+	require.NoError(t, err, fmt.Sprintf("should be able to create writer for %s", objName))
+	defer func() {
+		if err := w.Close(); err != nil {
+			require.NoError(t, err, "should be able to close writer")
+		}
+	}()
+	objData := []byte(objName)
+	if len(data) != 0 {
+		objData = []byte(data[0])
+	}
+	_, err = w.Write(objData)
+	require.NoError(t, err, fmt.Sprintf("should be able to write to %s", objName))
 }

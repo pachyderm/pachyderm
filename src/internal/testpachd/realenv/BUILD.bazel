@@ -43,6 +43,8 @@ go_library(
         "//src/server/metadata/server",
         "//src/server/pfs",
         "//src/server/pfs/server",
+        "//src/server/pfs/server/master",
+        "//src/server/pfs/server/worker",
         "//src/server/pps",
         "//src/server/pps/server",
         "//src/server/proxy/server",

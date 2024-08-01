@@ -1,7 +1,8 @@
-package server
+package worker
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	"path/filepath"
 	"strings"
 	"time"
@@ -17,26 +18,23 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-)
-
-const (
-	URLTaskNamespace = "url"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/driver"
 )
 
 func (w *Worker) URLWorker(ctx context.Context) error {
 	ctx = auth.AsInternalUser(ctx, "pfs-url-worker")
-	taskSource := w.env.TaskService.NewSource(URLTaskNamespace)
+	taskSource := w.env.TaskService.NewSource(server.URLTaskNamespace)
 	return backoff.RetryUntilCancel(ctx, func() error {
 		err := taskSource.Iterate(ctx, func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
-			case input.MessageIs(&PutFileURLTask{}):
-				putFileURLTask, err := deserializePutFileURLTask(input)
+			case input.MessageIs(&server.PutFileURLTask{}):
+				putFileURLTask, err := DeserializePutFileURLTask(input)
 				if err != nil {
 					return nil, err
 				}
 				return w.processPutFileURLTask(ctx, putFileURLTask)
-			case input.MessageIs(&GetFileURLTask{}):
-				getFileURLTask, err := deserializeGetFileURLTask(input)
+			case input.MessageIs(&server.GetFileURLTask{}):
+				getFileURLTask, err := DeserializeGetFileURLTask(input)
 				if err != nil {
 					return nil, err
 				}
@@ -52,21 +50,21 @@ func (w *Worker) URLWorker(ctx context.Context) error {
 	})
 }
 
-func (w *Worker) processPutFileURLTask(ctx context.Context, task *PutFileURLTask) (_ *anypb.Any, retErr error) {
+func (w *Worker) processPutFileURLTask(ctx context.Context, task *server.PutFileURLTask) (_ *anypb.Any, retErr error) {
 	url, err := obj.ParseURL(task.URL)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	bucket, err := openBucket(ctx, url)
+	bucket, err := server.OpenBucket(ctx, url)
 	if err != nil {
 		return nil, err
 	}
 	defer errors.Close(&retErr, bucket, "close bucket")
 	prefix := strings.TrimPrefix(url.Object, "/")
-	result := &PutFileURLTaskResult{}
+	result := &server.PutFileURLTaskResult{}
 	if err := log.LogStep(ctx, "putFileURLTask", func(ctx context.Context) error {
-		return w.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-			id, err := withUnorderedWriter(ctx, w.storage, renewer, func(uw *fileset.UnorderedWriter) error {
+		return w.storage.Filesets.WithRenewer(ctx, server.DefaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+			id, err := driver.WithUnorderedWriter(ctx, w.storage, renewer, func(uw *fileset.UnorderedWriter) error {
 				startOffset := task.StartOffset
 				length := int64(-1) // -1 means to read until end of file.
 				for i, path := range task.Paths {
@@ -98,15 +96,15 @@ func (w *Worker) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	}); err != nil {
 		return nil, err
 	}
-	return serializePutFileURLTaskResult(result)
+	return SerializePutFileURLTaskResult(result)
 }
 
-func (w *Worker) processGetFileURLTask(ctx context.Context, task *GetFileURLTask) (_ *anypb.Any, retErr error) {
+func (w *Worker) processGetFileURLTask(ctx context.Context, task *server.GetFileURLTask) (_ *anypb.Any, retErr error) {
 	url, err := obj.ParseURL(task.URL)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	bucket, err := openBucket(ctx, url)
+	bucket, err := server.OpenBucket(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -141,45 +139,45 @@ func (w *Worker) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 	}); err != nil {
 		return nil, err
 	}
-	return serializeGetFileURLTaskResult(&GetFileURLTaskResult{})
+	return serializeGetFileURLTaskResult(&server.GetFileURLTaskResult{})
 }
 
-func serializePutFileURLTask(task *PutFileURLTask) (*anypb.Any, error) {
+func SerializePutFileURLTask(task *server.PutFileURLTask) (*anypb.Any, error) {
 	return anypb.New(task)
 }
 
-func deserializePutFileURLTask(taskAny *anypb.Any) (*PutFileURLTask, error) {
-	task := &PutFileURLTask{}
+func DeserializePutFileURLTask(taskAny *anypb.Any) (*server.PutFileURLTask, error) {
+	task := &server.PutFileURLTask{}
 	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializePutFileURLTaskResult(task *PutFileURLTaskResult) (*anypb.Any, error) {
+func SerializePutFileURLTaskResult(task *server.PutFileURLTaskResult) (*anypb.Any, error) {
 	return anypb.New(task)
 }
 
-func deserializePutFileURLTaskResult(taskAny *anypb.Any) (*PutFileURLTaskResult, error) {
-	task := &PutFileURLTaskResult{}
+func DeserializePutFileURLTaskResult(taskAny *anypb.Any) (*server.PutFileURLTaskResult, error) {
+	task := &server.PutFileURLTaskResult{}
 	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeGetFileURLTask(task *GetFileURLTask) (*anypb.Any, error) {
+func SerializeGetFileURLTask(task *server.GetFileURLTask) (*anypb.Any, error) {
 	return anypb.New(task)
 }
 
-func deserializeGetFileURLTask(taskAny *anypb.Any) (*GetFileURLTask, error) {
-	task := &GetFileURLTask{}
+func DeserializeGetFileURLTask(taskAny *anypb.Any) (*server.GetFileURLTask, error) {
+	task := &server.GetFileURLTask{}
 	if err := taskAny.UnmarshalTo(task); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
 }
 
-func serializeGetFileURLTaskResult(task *GetFileURLTaskResult) (*anypb.Any, error) {
+func serializeGetFileURLTaskResult(task *server.GetFileURLTaskResult) (*anypb.Any, error) {
 	return anypb.New(task)
 }

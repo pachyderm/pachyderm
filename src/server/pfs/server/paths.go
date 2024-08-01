@@ -8,7 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 )
 
-func globMatchFunction(glob string) (func(string) bool, error) {
+func GlobMatchFunction(glob string) (func(string) bool, error) {
 	g, err := globlib.Compile(glob, '/')
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -23,9 +23,9 @@ func globMatchFunction(glob string) (func(string) bool, error) {
 	}, nil
 }
 
-// pathIsChild determines if the path child is an immediate child of the path parent
+// PathIsChild determines if the path child is an immediate child of the path parent
 // it assumes cleaned paths
-func pathIsChild(parent, child string) bool {
+func PathIsChild(parent, child string) bool {
 	if !strings.HasPrefix(child, parent) {
 		return false
 	}

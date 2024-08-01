@@ -54,6 +54,8 @@ import (
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfsiface "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/master"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/worker"
 	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxy_server "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
@@ -210,11 +212,11 @@ type Full struct {
 	proxySrv      proxy.APIServer
 	logsSrv       logs.APIServer
 
-	pfsWorker   *pfs_server.Worker
+	pfsWorker   *worker.Worker
 	ppsWorker   *pps_server.Worker
 	debugWorker *debug_server.Worker
 
-	pfsMaster *pfs_server.Master
+	pfsMaster *master.Master
 }
 
 // NewFull sets up a new Full pachd and returns it.
@@ -475,9 +477,9 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 		},
 
 		// Workers
-		initPFSWorker(&pd.pfsWorker, config.StorageConfiguration, func() pfs_server.WorkerEnv {
+		initPFSWorker(&pd.pfsWorker, config.StorageConfiguration, func() worker.Env {
 			etcdPrefix := path.Join(config.EtcdPrefix, config.PFSEtcdPrefix)
-			return pfs_server.WorkerEnv{
+			return worker.Env{
 				DB:          env.DB,
 				Bucket:      env.Bucket,
 				TaskService: task.NewEtcdService(env.EtcdClient, etcdPrefix),

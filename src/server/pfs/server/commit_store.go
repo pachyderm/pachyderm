@@ -12,11 +12,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
-var errNoTotalFileSet = errors.Errorf("no total fileset")
+var ErrNoTotalFileset = errors.Errorf("no total fileset")
 
 const commitTrackerPrefix = "commit/"
 
-type commitStore interface {
+type CommitStore interface {
 	// AddFileSet appends a fileset to the diff.
 	AddFileSet(ctx context.Context, commit *pfsdb.Commit, filesetID fileset.ID) error
 	// AddFileSetTx is identical to AddFileSet except it runs in the provided transaction.
@@ -41,9 +41,9 @@ type commitStore interface {
 	DropFileSetsTx(tx *pachsql.Tx, commit *pfsdb.Commit) error
 }
 
-var _ commitStore = &postgresCommitStore{}
+var _ CommitStore = &postgresCommitStore{}
 
-// TODO: add deleter for the commitStore and stop making permanent filesets, keep the filesets
+// TODO: add deleter for the CommitStore and stop making permanent filesets, keep the filesets
 // around, by referencing them with commit-fileset objects.
 type postgresCommitStore struct {
 	db *pachsql.DB
@@ -51,7 +51,7 @@ type postgresCommitStore struct {
 	tr track.Tracker
 }
 
-func newPostgresCommitStore(db *pachsql.DB, tr track.Tracker, s *fileset.Storage) *postgresCommitStore {
+func NewPostgresCommitStore(db *pachsql.DB, tr track.Tracker, s *fileset.Storage) *postgresCommitStore {
 	return &postgresCommitStore{
 		db: db,
 		s:  s,
@@ -66,7 +66,7 @@ func (cs *postgresCommitStore) AddFileSet(ctx context.Context, commit *pfsdb.Com
 }
 
 func (cs *postgresCommitStore) AddFileSetTx(tx *pachsql.Tx, commit *pfsdb.Commit, id fileset.ID) error {
-	id2, err := cs.s.CloneTx(tx, id, defaultTTL)
+	id2, err := cs.s.CloneTx(tx, id, DefaultTTL)
 	if err != nil {
 		return err
 	}
@@ -105,9 +105,9 @@ func (cs *postgresCommitStore) GetTotalFileSetTx(tx *pachsql.Tx, commit *pfsdb.C
 		return nil, err
 	}
 	if id == nil {
-		return nil, errNoTotalFileSet
+		return nil, ErrNoTotalFileset
 	}
-	return cs.s.CloneTx(tx, *id, defaultTTL)
+	return cs.s.CloneTx(tx, *id, DefaultTTL)
 }
 
 func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
@@ -122,7 +122,7 @@ func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfsdb
 	}); err != nil {
 		return nil, err
 	}
-	return cs.s.Compose(ctx, ids, defaultTTL)
+	return cs.s.Compose(ctx, ids, DefaultTTL)
 }
 
 func (cs *postgresCommitStore) SetTotalFileSet(ctx context.Context, commit *pfsdb.Commit, id fileset.ID) error {

@@ -1,11 +1,10 @@
-package server
+package driver
 
 import (
 	"context"
-	"github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"sort"
 
+	"github.com/docker/go-units"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -14,12 +13,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
 // propagateBranches starts commits downstream of 'branches'
@@ -39,7 +40,7 @@ import (
 // starts downstream output commits (which trigger PPS jobs) when new input
 // commits arrive on 'branch', when 'branches's HEAD is deleted, or when
 // 'branches' are newly created (i.e. in CreatePipeline).
-func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branches []*pfs.Branch) error {
+func (d *Driver) propagateBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branches []*pfs.Branch) error {
 	if len(branches) == 0 {
 		return nil
 	}
@@ -133,7 +134,7 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 
 // fillNewBranches helps create the upstream branches on which a branch is provenant, if they don't exist.
 // TODO(provenance): consider removing this functionality
-func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch, provenance []*pfs.Branch) error {
+func (d *Driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch, provenance []*pfs.Branch) error {
 	branchHandle.Repo.EnsureProject()
 	newRepoCommits := make(map[string]*pfsdb.Commit)
 	for _, p := range provenance {
@@ -170,7 +171,7 @@ func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.Transac
 	return nil
 }
 
-// createBranch creates a new branch or updates an existing branch (must be one
+// CreateBranch creates a new branch or updates an existing branch (must be one
 // or the other). Most importantly, it sets 'branch.DirectProvenance' to
 // 'provenance' and then for all (downstream) branches, restores the invariant:
 //
@@ -180,7 +181,7 @@ func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.Transac
 // for 'branch' itself once 'b.Provenance' has been set.
 //
 // i.e. up to one branch in a repo can be present within a DAG
-func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch, commitHandle *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
+func (d *Driver) CreateBranch(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch, commitHandle *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
 	// Validate arguments
 	if branchHandle == nil {
 		return errors.New("branch cannot be nil")
@@ -195,7 +196,7 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 		return errors.New("a branch cannot have both provenance and a trigger")
 	}
 	var err error
-	if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branchHandle.Repo, auth.Permission_REPO_CREATE_BRANCH); err != nil {
+	if err := d.Env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branchHandle.Repo, auth.Permission_REPO_CREATE_BRANCH); err != nil {
 		return errors.EnsureStack(err)
 	}
 	// Validate request
@@ -213,7 +214,7 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	// if the user passed a commit to point this branch at, resolve it
 	if commitHandle != nil {
-		ci, err := d.resolveCommitInfo(ctx, txnCtx.SqlTx, commitHandle)
+		ci, err := d.ResolveCommitInfo(ctx, txnCtx.SqlTx, commitHandle)
 		if err != nil {
 			return errors.Wrapf(err, "unable to inspect %s", commitHandle)
 		}
@@ -287,7 +288,7 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 }
 
 // validateTrigger returns an error if a trigger is invalid
-func (d *driver) validateTrigger(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
+func (d *Driver) validateTrigger(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
 	if trigger == nil {
 		return nil
 	}
@@ -311,7 +312,7 @@ func (d *driver) validateTrigger(ctx context.Context, txnCtx *txncontext.Transac
 	}
 
 	biMaps := make(map[string]*pfs.BranchInfo)
-	if err := d.listBranchInTransaction(ctx, txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
+	if err := d.ListBranchTx(ctx, txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
 		biMaps[bi.Branch.Name] = proto.Clone(bi).(*pfs.BranchInfo)
 		return nil
 	}); err != nil {
@@ -335,21 +336,21 @@ func (d *driver) validateTrigger(ctx context.Context, txnCtx *txncontext.Transac
 // delete branches from most provenance to least, that way if one
 // branch is provenant on another (which is likely the case when
 // multiple repos are provided) we delete them in the right order.
-func (d *driver) deleteBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branchInfos []*pfs.BranchInfo, force bool) error {
+func (d *Driver) deleteBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branchInfos []*pfs.BranchInfo, force bool) error {
 	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) > len(branchInfos[j].Provenance) })
 	for _, bi := range branchInfos {
-		if err := d.deleteBranch(ctx, txnCtx, bi.Branch, force); err != nil {
+		if err := d.DeleteBranch(ctx, txnCtx, bi.Branch, force); err != nil {
 			return errors.Wrapf(err, "delete branch %s", bi.Branch)
 		}
 	}
 	return nil
 }
 
-func (d *driver) inspectBranch(ctx context.Context, branch *pfs.Branch) (*pfs.BranchInfo, error) {
+func (d *Driver) InspectBranch(ctx context.Context, branch *pfs.Branch) (*pfs.BranchInfo, error) {
 	branchInfo := &pfs.BranchInfo{}
-	if err := d.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+	if err := d.TxnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
-		branchInfo, err = d.inspectBranchInTransaction(ctx, txnCtx, branch)
+		branchInfo, err = d.InspectBranchTx(ctx, txnCtx, branch)
 		return err
 	}); err != nil {
 		if branch != nil && branch.Repo != nil && branch.Repo.Project != nil && pfsdb.IsNotFoundError(err) {
@@ -360,7 +361,7 @@ func (d *driver) inspectBranch(ctx context.Context, branch *pfs.Branch) (*pfs.Br
 	return branchInfo, nil
 }
 
-func (d *driver) inspectBranchInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
+func (d *Driver) InspectBranchTx(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
 	// Validate arguments
 	if branch == nil {
 		return nil, errors.New("branch cannot be nil")
@@ -386,8 +387,8 @@ func (d *driver) inspectBranchInTransaction(ctx context.Context, txnCtx *txncont
 	return result.BranchInfo, nil
 }
 
-func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.BranchInfo) error) error {
-	if _, err := d.env.Auth.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil && !auth.IsErrNotActivated(err) {
+func (d *Driver) ListBranch(ctx context.Context, reverse bool, cb func(*pfs.BranchInfo) error) error {
+	if _, err := d.Env.Auth.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil && !auth.IsErrNotActivated(err) {
 		return errors.EnsureStack(err)
 	} else if err == nil {
 		return errors.New("Cannot list branches from all repos with auth activated")
@@ -429,7 +430,7 @@ func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.Bran
 		{Column: pfsdb.BranchColumnCreatedAt, Order: order},
 		{Column: pfsdb.BranchColumnID, Order: order},
 	}
-	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, d.Env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		return pfsdb.ForEachBranch(ctx, tx, nil, listCallback, orderBys...)
 	}); err != nil {
 		return errors.Wrap(err, "list branches")
@@ -437,13 +438,13 @@ func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.Bran
 	return sendBis()
 }
 
-func (d *driver) listBranchInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, reverse bool, cb func(*pfs.BranchInfo) error) error {
+func (d *Driver) ListBranchTx(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, reverse bool, cb func(*pfs.BranchInfo) error) error {
 	// Validate arguments
 	if repo == nil {
 		return errors.New("repo cannot be nil")
 	}
 
-	if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+	if err := d.Env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
 		return errors.EnsureStack(err)
 	}
 	// Make sure that the repo exists
@@ -468,10 +469,10 @@ func (d *driver) listBranchInTransaction(ctx context.Context, txnCtx *txncontext
 	}, orderBys...), "list branch in transaction")
 }
 
-func (d *driver) listRepoBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.RepoInfo) ([]*pfs.BranchInfo, error) {
+func (d *Driver) listRepoBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.RepoInfo) ([]*pfs.BranchInfo, error) {
 	var bis []*pfs.BranchInfo
 	for _, branch := range repo.Branches {
-		bi, err := d.inspectBranchInTransaction(ctx, txnCtx, branch)
+		bi, err := d.InspectBranchTx(ctx, txnCtx, branch)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error inspecting branch %s", branch)
 		}
@@ -480,8 +481,8 @@ func (d *driver) listRepoBranches(ctx context.Context, txnCtx *txncontext.Transa
 	return bis, nil
 }
 
-func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch, force bool) error {
-	if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branchHandle.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
+func (d *Driver) DeleteBranch(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch, force bool) error {
+	if err := d.Env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branchHandle.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
 		return errors.EnsureStack(err)
 	}
 	branch, err := pfsdb.GetBranch(ctx, txnCtx.SqlTx, branchHandle)
@@ -491,7 +492,7 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branch, force)
 }
 
-func (d *driver) walkBranchProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkBranchProvenanceRequest,
+func (d *Driver) WalkBranchProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *server.WalkBranchProvenanceRequest,
 	startId pfsdb.BranchID, cb func(branchInfo *pfs.BranchInfo) error) error {
 	branches, err := pfsdb.GetProvenantBranches(ctx, txnCtx.SqlTx, startId,
 		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxBranches))
@@ -499,7 +500,7 @@ func (d *driver) walkBranchProvenanceTx(ctx context.Context, txnCtx *txncontext.
 		return errors.Wrap(err, "walk branch provenance in transaction")
 	}
 	for _, branch := range branches {
-		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+		if err := d.Env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := cb(branch.BranchInfo); err != nil {
@@ -509,7 +510,7 @@ func (d *driver) walkBranchProvenanceTx(ctx context.Context, txnCtx *txncontext.
 	return nil
 }
 
-func (d *driver) walkBranchSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkBranchSubvenanceRequest,
+func (d *Driver) WalkBranchSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *server.WalkBranchSubvenanceRequest,
 	startId pfsdb.BranchID, cb func(branchInfo *pfs.BranchInfo) error) error {
 	branches, err := pfsdb.GetSubvenantBranches(ctx, txnCtx.SqlTx, startId,
 		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxBranches))
@@ -517,7 +518,7 @@ func (d *driver) walkBranchSubvenanceTx(ctx context.Context, txnCtx *txncontext.
 		return errors.Wrap(err, "walk branch subvenance in transaction")
 	}
 	for _, branch := range branches {
-		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+		if err := d.Env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := cb(branch.BranchInfo); err != nil {
@@ -529,7 +530,7 @@ func (d *driver) walkBranchSubvenanceTx(ctx context.Context, txnCtx *txncontext.
 
 // for a DAG to be valid, it may not have a multiple branches from the same repo
 // reachable by traveling edges bidirectionally. The reason is that this would complicate resolving
-func (d *driver) validateDAGStructure(ctx context.Context, txnCtx *txncontext.TransactionContext, bs []*pfs.Branch) error {
+func (d *Driver) validateDAGStructure(ctx context.Context, txnCtx *txncontext.TransactionContext, bs []*pfs.Branch) error {
 	cache := make(map[string]*pfs.BranchInfo)
 	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
 		if bi, ok := cache[pfsdb.BranchKey(b)]; ok {

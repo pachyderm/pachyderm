@@ -1,4 +1,4 @@
-package server
+package driver
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -17,6 +16,7 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	etcd "go.etcd.io/etcd/client/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -26,44 +26,36 @@ func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
 }
 
-type driver struct {
-	env Env
+type Driver struct {
+	Env server.Env
 
-	// etcdClient and prefix write repo and other metadata to etcd
-	etcdClient *etcd.Client
-	txnEnv     *txnenv.TransactionEnv
-	prefix     string
+	// EtcdClient and Prefix write repo and other metadata to etcd
+	EtcdClient *etcd.Client
+	TxnEnv     *txnenv.TransactionEnv
+	Prefix     string
 
-	// collections
-	commits  col.PostgresCollection
-	branches col.PostgresCollection
-
-	storage     *storage.Server
-	commitStore commitStore
+	Storage     *storage.Server
+	CommitStore server.CommitStore
 
 	cache *fileset.Cache
 }
 
-func newDriver(ctx context.Context, env Env) (*driver, error) {
-	// test object storage.
+func NewDriver(ctx context.Context, env server.Env) (*Driver, error) {
+	// test object Storage.
 	if err := func() error {
-		ctx, cf := context.WithTimeout(pctx.Child(ctx, "newDriver"), 30*time.Second)
+		ctx, cf := context.WithTimeout(pctx.Child(ctx, "NewDriver"), 30*time.Second)
 		defer cf()
 		return obj.TestStorage(ctx, env.Bucket)
 	}(); err != nil {
 		return nil, err
 	}
-	commits := pfsdb.Commits(env.DB, env.Listener)
-	branches := pfsdb.Branches(env.DB, env.Listener)
 
-	// Setup driver struct.
-	d := &driver{
-		env:        env,
-		etcdClient: env.EtcdClient,
-		txnEnv:     env.TxnEnv,
-		prefix:     env.EtcdPrefix,
-		commits:    commits,
-		branches:   branches,
+	// Setup Driver struct.
+	d := &Driver{
+		Env:        env,
+		EtcdClient: env.EtcdClient,
+		TxnEnv:     env.TxnEnv,
+		Prefix:     env.EtcdPrefix,
 	}
 	storageEnv := storage.Env{
 		DB:     env.DB,
@@ -74,15 +66,15 @@ func newDriver(ctx context.Context, env Env) (*driver, error) {
 	if err != nil {
 		return nil, err
 	}
-	d.storage = storageSrv
-	d.commitStore = newPostgresCommitStore(env.DB, storageSrv.Tracker, storageSrv.Filesets)
+	d.Storage = storageSrv
+	d.CommitStore = server.NewPostgresCommitStore(env.DB, storageSrv.Tracker, storageSrv.Filesets)
 	// TODO: Make the cache max size configurable.
 	d.cache = fileset.NewCache(env.DB, storageSrv.Tracker, 10000)
 	return d, nil
 }
 
-func (d *driver) getPermissionsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]auth.Permission, []string, error) {
-	resp, err := d.env.Auth.GetPermissionsInTransaction(ctx, txnCtx, &auth.GetPermissionsRequest{Resource: repo.AuthResource()})
+func (d *Driver) getPermissionsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]auth.Permission, []string, error) {
+	resp, err := d.Env.Auth.GetPermissionsInTransaction(ctx, txnCtx, &auth.GetPermissionsRequest{Resource: repo.AuthResource()})
 	if err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
@@ -90,29 +82,29 @@ func (d *driver) getPermissionsInTransaction(ctx context.Context, txnCtx *txncon
 	return resp.Permissions, resp.Roles, nil
 }
 
-func (d *driver) deleteAll(ctx context.Context) error {
-	return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+func (d *Driver) DeleteAll(ctx context.Context) error {
+	return d.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		if _, err := d.deleteReposInTransaction(ctx, txnCtx, nil /* projects */, true /* force */); err != nil {
 			return errors.Wrap(err, "could not delete all repos")
 		}
 		if err := d.listProjectInTransaction(ctx, txnCtx, func(pi *pfs.ProjectInfo) error {
-			return errors.Wrapf(d.deleteProject(ctx, txnCtx, pi.Project, true /* force */), "delete project %q", pi.Project.String())
+			return errors.Wrapf(d.DeleteProject(ctx, txnCtx, pi.Project, true /* force */), "delete project %q", pi.Project.String())
 		}); err != nil {
 			return err
 		} // now that the cluster is empty, recreate the default project
-		return d.createProjectInTransaction(ctx, txnCtx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "default"}})
+		return d.createProjectTx(ctx, txnCtx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "default"}})
 	})
 }
 
-func (d *driver) putCache(ctx context.Context, key string, value *anypb.Any, fileSetIds []fileset.ID, tag string) error {
+func (d *Driver) PutCache(ctx context.Context, key string, value *anypb.Any, fileSetIds []fileset.ID, tag string) error {
 	return d.cache.Put(ctx, key, value, fileSetIds, tag)
 }
 
-func (d *driver) getCache(ctx context.Context, key string) (*anypb.Any, error) {
+func (d *Driver) GetCache(ctx context.Context, key string) (*anypb.Any, error) {
 	return d.cache.Get(ctx, key)
 }
 
-func (d *driver) clearCache(ctx context.Context, tagPrefix string) error {
+func (d *Driver) ClearCache(ctx context.Context, tagPrefix string) error {
 	return d.cache.Clear(ctx, tagPrefix)
 }
 

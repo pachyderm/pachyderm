@@ -53,6 +53,8 @@ import (
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pachw "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/master"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server/worker"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	transactionserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
@@ -454,10 +456,10 @@ func (b *builder) startPFSWorker(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	config := pfs_server.WorkerConfig{
+	config := worker.Config{
 		Storage: b.env.Config().StorageConfiguration,
 	}
-	w, err := pfs_server.NewWorker(ctx, *env, config)
+	w, err := worker.NewWorker(ctx, *env, config)
 	if err != nil {
 		return err
 	}
@@ -475,7 +477,7 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	m, err := pfs_server.NewMaster(ctx, *env)
+	m, err := master.NewMaster(ctx, *env)
 	if err != nil {
 		return err
 	}

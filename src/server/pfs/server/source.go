@@ -227,9 +227,9 @@ func (s *errOnEmpty) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset
 	return nil
 }
 
-type emptySource struct{}
+type EmptySource struct{}
 
-func (emptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
+func (EmptySource) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	return nil
 }
 

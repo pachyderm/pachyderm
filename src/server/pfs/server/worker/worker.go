@@ -1,9 +1,11 @@
-package server
+package worker
 
 import (
 	"context"
 
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -11,27 +13,27 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	"golang.org/x/sync/errgroup"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
-type WorkerEnv struct {
+type Env struct {
 	DB          *sqlx.DB
 	Bucket      *obj.Bucket
 	TaskService task.Service
 }
 
-type WorkerConfig struct {
+type Config struct {
 	Storage pachconfig.StorageConfiguration
 }
 
 type Worker struct {
-	env    WorkerEnv
-	config WorkerConfig
+	env    Env
+	config Config
 
 	storage *storage.Server
 }
 
-func NewWorker(ctx context.Context, env WorkerEnv, config WorkerConfig) (*Worker, error) {
+func NewWorker(ctx context.Context, env Env, config Config) (*Worker, error) {
 	ss, err := storage.New(ctx, storage.Env{
 		DB:     env.DB,
 		Bucket: env.Bucket,
@@ -54,7 +56,7 @@ func (w *Worker) Run(ctx context.Context) error {
 	defer log.Info(ctx, "exited worker")
 	eg.Go(func() error {
 		ctx := pctx.Child(ctx, "compactionWorker")
-		return compactionWorker(ctx, w.env.TaskService.NewSource(StorageTaskNamespace), w.storage.Filesets)
+		return server.CompactionWorker(ctx, w.env.TaskService.NewSource(server.StorageTaskNamespace), w.storage.Filesets)
 	})
 	eg.Go(func() error {
 		ctx := pctx.Child(ctx, "urlWorker")

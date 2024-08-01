@@ -17,25 +17,25 @@ import (
 )
 
 // TODO: Move fan-in configuration to fileset.Storage.
-type compactor struct {
+type Compactor struct {
 	storage  *fileset.Storage
 	maxFanIn int
 }
 
-func newCompactor(storage *fileset.Storage, maxFanIn int) *compactor {
-	return &compactor{
+func NewCompactor(storage *fileset.Storage, maxFanIn int) *Compactor {
+	return &Compactor{
 		storage:  storage,
 		maxFanIn: maxFanIn,
 	}
 }
 
-func (c *compactor) Compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
-	return c.storage.CompactLevelBased(ctx, ids, c.maxFanIn, defaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+func (c *Compactor) Compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+	return c.storage.CompactLevelBased(ctx, ids, c.maxFanIn, DefaultTTL, func(ctx context.Context, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 		return c.compact(ctx, taskDoer, ids, ttl)
 	})
 }
 
-func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
+func (c *Compactor) compact(ctx context.Context, taskDoer task.Doer, ids []fileset.ID, ttl time.Duration) (*fileset.ID, error) {
 	var tasks []*CompactTask
 	if err := log.LogStep(ctx, "shardFileSet", func(ctx context.Context) error {
 		var err error
@@ -65,7 +65,7 @@ func (c *compactor) compact(ctx context.Context, taskDoer task.Doer, ids []files
 	return id, nil
 }
 
-func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, ids []fileset.ID) ([]*CompactTask, error) {
+func (c *Compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, ids []fileset.ID) ([]*CompactTask, error) {
 	fs, err := c.storage.Open(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func (c *compactor) createCompactTasks(ctx context.Context, taskDoer task.Doer, 
 	return compactTasks, nil
 }
 
-func (c *compactor) processCompactTasks(ctx context.Context, taskDoer task.Doer, renewer *fileset.Renewer, tasks []*CompactTask) ([]fileset.ID, error) {
+func (c *Compactor) processCompactTasks(ctx context.Context, taskDoer task.Doer, renewer *fileset.Renewer, tasks []*CompactTask) ([]fileset.ID, error) {
 	inputs := make([]*anypb.Any, len(tasks))
 	for i, task := range tasks {
 		task := proto.Clone(task).(*CompactTask)
@@ -149,7 +149,7 @@ func (c *compactor) processCompactTasks(ctx context.Context, taskDoer task.Doer,
 	return results, nil
 }
 
-func (c *compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fileset.Renewer, ids []fileset.ID) (*fileset.ID, error) {
+func (c *Compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fileset.Renewer, ids []fileset.ID) (*fileset.ID, error) {
 	var serInputs []string
 	for _, id := range ids {
 		serInputs = append(serInputs, id.HexString())
@@ -178,7 +178,7 @@ func (c *compactor) concat(ctx context.Context, taskDoer task.Doer, renewer *fil
 	return id, nil
 }
 
-func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset.ID) (string, int64, error) {
+func (c *Compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset.ID) (string, int64, error) {
 	fs, err := c.storage.Open(ctx, []fileset.ID{id})
 	if err != nil {
 		return "", 0, err
@@ -228,7 +228,7 @@ func (c *compactor) Validate(ctx context.Context, taskDoer task.Doer, id fileset
 	return errStr, size, nil
 }
 
-func compactionWorker(ctx context.Context, taskSource task.Source, storage *fileset.Storage) error {
+func CompactionWorker(ctx context.Context, taskSource task.Source, storage *fileset.Storage) error {
 	log.Info(ctx, "running compaction worker")
 	return backoff.RetryUntilCancel(ctx, func() error {
 		err := taskSource.Iterate(ctx, func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
@@ -310,7 +310,7 @@ func processCompactTask(ctx context.Context, storage *fileset.Storage, task *Com
 			Lower: task.PathRange.Lower,
 			Upper: task.PathRange.Upper,
 		}
-		id, err := storage.Compact(ctx, ids, defaultTTL, index.WithRange(pathRange))
+		id, err := storage.Compact(ctx, ids, DefaultTTL, index.WithRange(pathRange))
 		if err != nil {
 			return err
 		}
@@ -329,7 +329,7 @@ func processConcatTask(ctx context.Context, storage *fileset.Storage, task *Conc
 		if err != nil {
 			return err
 		}
-		id, err := storage.Concat(ctx, ids, defaultTTL)
+		id, err := storage.Concat(ctx, ids, DefaultTTL)
 		if err != nil {
 			return err
 		}
