@@ -1,9 +1,5 @@
 import {group} from 'k6';
-import {
-  createGraphqlClient,
-  // sleep,
-  Operation,
-} from '../utils';
+import {createGraphqlClient, Operation} from '../utils/graphql'
 
 const DURATION = 10;
 const VUS = 1;
