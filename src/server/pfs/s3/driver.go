@@ -182,7 +182,7 @@ func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 		timestamps[pfsdb.RepoKey(repo.Repo)] = timestamp
 	}
 
-	for _, bucket := range a.namesMap {
+	for _, bucket := range d.namesMap {
 		timestamp, ok := timestamps[pfsdb.RepoKey(bucket.Commit.Repo)]
 		if !ok {
 			return errors.Errorf("worker s3gateway configuration includes repo %q, which does not exist", bucket.Commit.Repo)
@@ -197,7 +197,7 @@ func (d *WorkerDriver) listBuckets(pc *client.APIClient, r *http.Request, bucket
 }
 
 func (d *WorkerDriver) bucket(pc *client.APIClient, r *http.Request, name string) (*Bucket, error) {
-	bucket := a.namesMap[name]
+	bucket := d.namesMap[name]
 	if bucket == nil {
 		return &Bucket{
 			Name: name,
@@ -209,7 +209,7 @@ func (d *WorkerDriver) bucket(pc *client.APIClient, r *http.Request, name string
 func (d *WorkerDriver) bucketCapabilities(pc *client.APIClient, r *http.Request, bucket *Bucket) (bucketCapabilities, error) {
 	if bucket.Commit == nil {
 		return bucketCapabilities{}, s2.NoSuchBucketError(r)
-	} else if bucket == a.outputBucket {
+	} else if bucket == d.outputBucket {
 		return bucketCapabilities{
 			readable:         false,
 			writable:         true,

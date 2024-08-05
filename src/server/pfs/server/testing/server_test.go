@@ -4543,11 +4543,11 @@ func TestFindCommitsOpenCommit(t *testing.T) {
 	require.True(t, ok, "returned error must be a gRPC status")
 	var sawResourceInfo bool
 	for _, d := range s.Details() {
-		switch d := a.(type) {
+		switch d := d.(type) {
 		case *errdetails.ResourceInfo:
-			require.Equal(t, a.ResourceType, "pfs:commit")
-			require.Equal(t, a.ResourceName, commit1.Id)
-			require.Equal(t, a.Description, "commit not finished")
+			require.Equal(t, d.ResourceType, "pfs:commit")
+			require.Equal(t, d.ResourceName, commit1.Id)
+			require.Equal(t, d.Description, "commit not finished")
 			sawResourceInfo = true
 		}
 	}
