@@ -146,7 +146,7 @@ func (m *Master) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 				break
 			}
 			var err error
-			ci, err = m.driver.resolveCommitInfo(ctx, txnCtx.SqlTx, ci.ParentCommit)
+			ci, err = m.resolveCommitInfo(ctx, txnCtx.SqlTx, ci.ParentCommit)
 			if err != nil {
 				return false, err
 			}

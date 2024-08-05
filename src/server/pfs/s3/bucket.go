@@ -37,11 +37,11 @@ func (c *controller) GetLocation(r *http.Request, bucketName string) (string, er
 	defer log.Span(r.Context(), "GetLocation", zap.String("bucketName", bucketName))()
 
 	pc := c.requestClient(r)
-	bucket, err := c.driver.bucket(pc, r, bucketName)
+	bucket, err := c.bucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
 	}
-	_, err = c.driver.bucketCapabilities(pc, r, bucket)
+	_, err = c.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return "", err
 	}
@@ -61,11 +61,11 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 		return nil, invalidDelimiterError(r)
 	}
 
-	bucket, err := c.driver.bucket(pc, r, bucketName)
+	bucket, err := c.bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
-	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -142,13 +142,13 @@ func (c *controller) ListObjects(r *http.Request, bucketName, prefix, marker, de
 func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 	defer log.Span(r.Context(), "CreateBucket", zap.String("bucketName", bucketName))()
 
-	if !c.driver.canModifyBuckets() {
+	if !c.canModifyBuckets() {
 		return s2.NotImplementedError(r)
 	}
 
 	pc := c.requestClient(r)
 
-	bucket, err := c.driver.bucket(pc, r, bucketName)
+	bucket, err := c.bucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
@@ -188,13 +188,13 @@ func (c *controller) CreateBucket(r *http.Request, bucketName string) error {
 func (c *controller) DeleteBucket(r *http.Request, bucketName string) error {
 	defer log.Span(r.Context(), "DeleteBucket", zap.String("bucketName", bucketName))()
 
-	if !c.driver.canModifyBuckets() {
+	if !c.canModifyBuckets() {
 		return s2.NotImplementedError(r)
 	}
 
 	pc := c.requestClient(r)
 
-	bucket, err := c.driver.bucket(pc, r, bucketName)
+	bucket, err := c.bucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
@@ -258,11 +258,11 @@ func (c *controller) GetBucketVersioning(r *http.Request, bucketName string) (st
 
 	pc := c.requestClient(r)
 
-	bucket, err := c.driver.bucket(pc, r, bucketName)
+	bucket, err := c.bucket(pc, r, bucketName)
 	if err != nil {
 		return "", err
 	}
-	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return "", err
 	}
@@ -278,11 +278,11 @@ func (c *controller) SetBucketVersioning(r *http.Request, bucketName, status str
 
 	pc := c.requestClient(r)
 
-	bucket, err := c.driver.bucket(pc, r, bucketName)
+	bucket, err := c.bucket(pc, r, bucketName)
 	if err != nil {
 		return err
 	}
-	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return err
 	}

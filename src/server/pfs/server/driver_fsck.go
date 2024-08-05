@@ -321,7 +321,7 @@ func fsckCommits(commitInfos map[string]*pfs.CommitInfo, onError func(error) err
 // fsck verifies that pfs satisfies the following invariants:
 // 1. Branch provenance is transitive
 // 2. Head commit provenance has heads of branch's branch provenance
-func (d *driver) fsck(ctx context.Context, cb func(*pfs.FsckResponse) error) error {
+func (a *apiServer) fsck(ctx context.Context, cb func(*pfs.FsckResponse) error) error {
 	onError := func(err error) error { return cb(&pfs.FsckResponse{Error: err.Error()}) }
 
 	// TODO(global ids): no fixable fsck issues?
@@ -331,7 +331,7 @@ func (d *driver) fsck(ctx context.Context, cb func(*pfs.FsckResponse) error) err
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfos := make(map[string]*pfs.RepoInfo)
-	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repo pfsdb.Repo) error {
 			repoInfos[repo.RepoInfo.Repo.Key()] = repo.RepoInfo
 			return nil
@@ -341,7 +341,7 @@ func (d *driver) fsck(ctx context.Context, cb func(*pfs.FsckResponse) error) err
 		return errors.Wrap(err, "fsck: repos")
 	}
 	for _, repo := range repoInfos {
-		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 			commits, err := pfsdb.ListCommitInfoTxByFilter(ctx, tx, &pfs.Commit{Repo: repo.Repo})
 			if err != nil {
 				return errors.Wrap(err, "get commits by commits repo index")
@@ -394,11 +394,11 @@ func compare(s1, s2 stream.Stream) int {
 	return strings.Compare(idx1.Path, idx2.Path)
 }
 
-func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
+func (a *apiServer) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
 	log.Info(ctx, "checking for zombie data", log.Proto("outputCommit", outputCommit))
 	// generate fileset that groups output files by datum
-	id, err := d.createFileSet(ctx, func(w *fileset.UnorderedWriter) error {
-		_, fs, err := d.openCommit(ctx, outputCommit)
+	id, err := a.createFileSet(ctx, func(w *fileset.UnorderedWriter) error {
+		_, fs, err := a.openCommit(ctx, outputCommit)
 		if err != nil {
 			return err
 		}
@@ -413,15 +413,15 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		return err
 	}
 	// now merge with the meta commit to look for extra datums in the output commit
-	return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
+	return a.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
 		if err := r.Add(ctx, *id); err != nil {
 			return err
 		}
-		datumsFS, err := d.storage.Filesets.Open(ctx, []fileset.ID{*id})
+		datumsFS, err := a.storage.Filesets.Open(ctx, []fileset.ID{*id})
 		if err != nil {
 			return err
 		}
-		_, metaFS, err := d.openCommit(ctx, pfsutil.MetaCommit(outputCommit))
+		_, metaFS, err := a.openCommit(ctx, pfsutil.MetaCommit(outputCommit))
 		if err != nil {
 			return err
 		}

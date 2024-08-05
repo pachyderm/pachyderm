@@ -22,11 +22,11 @@ func (c *controller) GetObject(r *http.Request, bucketName, file, version string
 	pc := c.requestClient(r)
 	file = strings.TrimSuffix(file, "/")
 
-	bucket, err := c.driver.bucket(pc, r, bucketName)
+	bucket, err := c.bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
-	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -92,18 +92,18 @@ func (c *controller) CopyObject(r *http.Request, srcBucketName, srcFile string, 
 	pc := c.requestClient(r)
 	destFile = strings.TrimSuffix(destFile, "/")
 
-	srcBucket, err := c.driver.bucket(pc, r, srcBucketName)
+	srcBucket, err := c.bucket(pc, r, srcBucketName)
 	if err != nil {
 		return "", err
 	}
 	// srcBucket capabilities were already verified, since s2 will call
 	// `GetObject` under the hood before calling `CopyObject`
 
-	destBucket, err := c.driver.bucket(pc, r, destBucketName)
+	destBucket, err := c.bucket(pc, r, destBucketName)
 	if err != nil {
 		return "", err
 	}
-	destBucketCaps, err := c.driver.bucketCapabilities(pc, r, destBucket)
+	destBucketCaps, err := c.bucketCapabilities(pc, r, destBucket)
 	if err != nil {
 		return "", err
 	}
@@ -140,11 +140,11 @@ func (c *controller) PutObject(r *http.Request, bucketName, file string, reader 
 	pc := c.requestClient(r)
 	file = strings.TrimSuffix(file, "/")
 
-	bucket, err := c.driver.bucket(pc, r, bucketName)
+	bucket, err := c.bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
-	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
@@ -187,11 +187,11 @@ func (c *controller) DeleteObject(r *http.Request, bucketName, file, version str
 		return nil, s2.NotImplementedError(r)
 	}
 
-	bucket, err := c.driver.bucket(pc, r, bucketName)
+	bucket, err := c.bucket(pc, r, bucketName)
 	if err != nil {
 		return nil, err
 	}
-	bucketCaps, err := c.driver.bucketCapabilities(pc, r, bucket)
+	bucketCaps, err := c.bucketCapabilities(pc, r, bucket)
 	if err != nil {
 		return nil, err
 	}
