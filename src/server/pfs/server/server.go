@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"strings"
 	"time"
 
 	etcd "go.etcd.io/etcd/client/v3"
@@ -74,4 +76,18 @@ func NewAPIServer(ctx context.Context, env Env) (pfsserver.APIServer, error) {
 		return nil, err
 	}
 	return newValidatedAPIServer(a, env.Auth), nil
+}
+
+// IsPermissionError returns true if a given error is a permission error.
+func IsPermissionError(err error) bool {
+	return strings.Contains(err.Error(), "has already finished")
+}
+
+func (a *apiServer) getPermissionsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]auth.Permission, []string, error) {
+	resp, err := a.env.Auth.GetPermissionsInTransaction(ctx, txnCtx, &auth.GetPermissionsRequest{Resource: repo.AuthResource()})
+	if err != nil {
+		return nil, nil, errors.EnsureStack(err)
+	}
+
+	return resp.Permissions, resp.Roles, nil
 }

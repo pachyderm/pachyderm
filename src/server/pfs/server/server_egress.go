@@ -25,8 +25,8 @@ func getEgressPassword() (string, error) {
 	return password, nil
 }
 
-func (d *driver) copyToObjectStorage(ctx context.Context, taskService task.Service, file *pfs.File, destURL string) (*pfs.EgressResponse_ObjectStorageResult, error) {
-	bytesWritten, err := d.getFileURL(ctx, taskService, destURL, file, nil)
+func (a *apiServer) copyToObjectStorage(ctx context.Context, taskService task.Service, file *pfs.File, destURL string) (*pfs.EgressResponse_ObjectStorageResult, error) {
+	bytesWritten, err := a.getFileURL(ctx, taskService, destURL, file, nil)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}

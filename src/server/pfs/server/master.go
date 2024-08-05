@@ -3,13 +3,15 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"path"
 	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
@@ -18,15 +20,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 const (
@@ -35,18 +37,25 @@ const (
 
 type Master struct {
 	env Env
-
-	driver *driver
+	*apiServer
 }
 
 func NewMaster(ctx context.Context, env Env) (*Master, error) {
-	d, err := newDriver(ctx, env)
+	// test object storage.
+	if err := func() error {
+		ctx, cf := context.WithTimeout(pctx.Child(ctx, "newDriver"), 30*time.Second)
+		defer cf()
+		return obj.TestStorage(ctx, env.Bucket)
+	}(); err != nil {
+		return nil, err
+	}
+	a, err := newAPIServer(ctx, env)
 	if err != nil {
 		return nil, err
 	}
 	return &Master{
-		env:    env,
-		driver: d,
+		env:       env,
+		apiServer: a,
 	}, nil
 }
 
@@ -59,7 +68,7 @@ func (m *Master) Run(ctx context.Context) error {
 			log.Info(ctx, "Skipping Storage GC")
 		} else {
 			eg.Go(func() error {
-				lock := dlock.NewDLock(m.driver.etcdClient, path.Join(m.driver.prefix, masterLockPath, "storage-gc"))
+				lock := dlock.NewDLock(m.etcdClient, path.Join(m.prefix, masterLockPath, "storage-gc"))
 				log.Info(ctx, "Starting Storage GC", zap.Duration("period", trackerPeriod))
 				ctx, err := lock.Lock(ctx)
 				if err != nil {
@@ -70,7 +79,7 @@ func (m *Master) Run(ctx context.Context) error {
 						log.Error(ctx, "error unlocking in pfs master (storage gc)", zap.Error(err))
 					}
 				}()
-				gc := m.driver.storage.Filesets.NewGC(trackerPeriod)
+				gc := m.storage.Filesets.NewGC(trackerPeriod)
 				return gc.RunForever(pctx.Child(ctx, "storage-gc"))
 			})
 		}
@@ -79,7 +88,7 @@ func (m *Master) Run(ctx context.Context) error {
 			log.Info(ctx, "Skipping Chunk Storage GC")
 		} else {
 			eg.Go(func() error {
-				lock := dlock.NewDLock(m.driver.etcdClient, path.Join(m.driver.prefix, masterLockPath, "chunk-gc"))
+				lock := dlock.NewDLock(m.etcdClient, path.Join(m.prefix, masterLockPath, "chunk-gc"))
 				log.Info(ctx, "Starting Chunk Storage GC", zap.Duration("period", chunkPeriod))
 				ctx, err := lock.Lock(ctx)
 				if err != nil {
@@ -90,7 +99,7 @@ func (m *Master) Run(ctx context.Context) error {
 						log.Error(ctx, "error unlocking in pfs master (chunk gc)", zap.Error(err))
 					}
 				}()
-				gc := chunk.NewGC(m.driver.storage.Chunks, chunkPeriod)
+				gc := chunk.NewGC(m.storage.Chunks, chunkPeriod)
 				return gc.RunForever(pctx.Child(ctx, "chunk-gc"))
 			})
 		}
@@ -113,8 +122,8 @@ func (m *Master) watchRepos(ctx context.Context) error {
 			cancel()
 		}
 	}()
-	ringPrefix := path.Join(randutil.UniqueString(m.driver.prefix), masterLockPath, "ring")
-	return consistenthashing.WithRing(ctx, m.driver.etcdClient, ringPrefix,
+	ringPrefix := path.Join(randutil.UniqueString(m.prefix), masterLockPath, "ring")
+	return consistenthashing.WithRing(ctx, m.etcdClient, ringPrefix,
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
 			return pfsdb.WatchRepos(ctx, m.env.DB, m.env.Listener,
 				func(id pfsdb.RepoID, repoInfo *pfs.RepoInfo) error {
@@ -189,7 +198,7 @@ func (m *Master) manageBranches(ctx context.Context, repo pfsdb.Repo) error {
 			ct.cancel()
 		}
 	}()
-	return pfsdb.WatchBranchesInRepo(ctx, m.driver.env.DB, m.driver.env.Listener, repo.ID,
+	return pfsdb.WatchBranchesInRepo(ctx, m.env.DB, m.env.Listener, repo.ID,
 		func(id pfsdb.BranchID, branchInfo *pfs.BranchInfo) error {
 			return m.manageBranch(ctx, pfsdb.Branch{ID: id, BranchInfo: branchInfo}, cronTriggers)
 		},
@@ -233,7 +242,7 @@ func (m *Master) manageBranch(ctx context.Context, branch pfsdb.Branch, cronTrig
 }
 
 func (m *Master) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
-	branchInfo, err := m.driver.inspectBranch(ctx, branch)
+	branchInfo, err := m.inspectBranch(ctx, branch)
 	if err != nil {
 		return err
 	}
@@ -243,7 +252,7 @@ func (m *Master) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 	}
 	// Use the current head commit start time as the previous tick.
 	// This prevents the timer from restarting if the master restarts.
-	ci, err := m.driver.inspectCommitInfo(ctx, branchInfo.Head, pfs.CommitState_STARTED)
+	ci, err := m.inspectCommitInfo(ctx, branchInfo.Head, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -260,8 +269,8 @@ func (m *Master) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 		case <-ctx.Done():
 			return errors.EnsureStack(context.Cause(ctx))
 		}
-		if err := m.driver.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-			trigBI, err := m.driver.inspectBranchInTransaction(ctx, txnCtx, branchInfo.Branch.Repo.NewBranch(branchInfo.Trigger.Branch))
+		if err := m.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+			trigBI, err := m.inspectBranchInTransaction(ctx, txnCtx, branchInfo.Branch.Repo.NewBranch(branchInfo.Trigger.Branch))
 			if err != nil {
 				return err
 			}
@@ -279,7 +288,7 @@ func (m *Master) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 }
 
 func (m *Master) watchCommitsByRepo(ctx context.Context, repo pfsdb.Repo) error {
-	return pfsdb.WatchCommitsInRepo(ctx, m.driver.env.DB, m.driver.env.Listener, repo.ID,
+	return pfsdb.WatchCommitsInRepo(ctx, m.env.DB, m.env.Listener, repo.ID,
 		func(id pfsdb.CommitID, ci *pfs.CommitInfo) error {
 			return m.postProcessCommit(ctx, repo, &pfsdb.Commit{ID: id, CommitInfo: ci})
 		},
@@ -294,7 +303,7 @@ func (m *Master) postProcessCommit(ctx context.Context, repo pfsdb.Repo, commit 
 	if commit.Finishing == nil || commit.Finished != nil {
 		return nil
 	}
-	cache := m.driver.newCache(commit.Commit.Key())
+	cache := m.newCache(commit.Commit.Key())
 	defer func() {
 		if err := cache.clear(ctx); err != nil {
 			log.Error(ctx, "errored clearing compaction cache", zap.Error(err))
@@ -303,7 +312,7 @@ func (m *Master) postProcessCommit(ctx context.Context, repo pfsdb.Repo, commit 
 	return log.LogStep(ctx, "postProcessCommit", func(ctx context.Context) error {
 		return backoff.RetryUntilCancel(ctx, func() error {
 			// In the case where a commit is squashed between retries (commit not found), the master can return.
-			if _, err := m.driver.getCommit(ctx, commit.Commit); err != nil {
+			if _, err := m.getCommit(ctx, commit.Commit); err != nil {
 				if pfsserver.IsCommitNotFoundErr(err) {
 					return nil
 				}
@@ -322,9 +331,9 @@ func (m *Master) postProcessCommit(ctx context.Context, repo pfsdb.Repo, commit 
 }
 
 func (m *Master) compactAndValidateCommit(ctx context.Context, commit *pfsdb.Commit, cache *cache) error {
-	compactor := newCompactor(m.driver.storage.Filesets, m.driver.env.StorageConfig.StorageCompactionMaxFanIn)
-	taskDoer := m.driver.env.TaskService.NewDoer(StorageTaskNamespace, commit.Commit.Id, cache)
-	return errors.Wrap(m.driver.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+	compactor := newCompactor(m.storage.Filesets, m.env.StorageConfig.StorageCompactionMaxFanIn)
+	taskDoer := m.env.TaskService.NewDoer(StorageTaskNamespace, commit.Commit.Id, cache)
+	return errors.Wrap(m.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		resp, err := m.compactCommit(ctx, compactor, taskDoer, renewer, commit)
 		if err != nil {
 			return errors.Wrap(err, "post process commit")
@@ -351,13 +360,13 @@ func (m *Master) compactCommit(ctx context.Context, compactor *compactor, taskDo
 	// Compacting the diff before getting the total allows us to compose the
 	// total file set so that it includes the compacted diff.
 	if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
-		diffId, err = m.driver.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+		diffId, err = m.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
 		return err
 	}); err != nil {
 		return nil, errors.Wrap(err, "compact commit")
 	}
 	if err := log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
-		totalId, err = m.driver.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
+		totalId, err = m.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
 		return err
 	}); err != nil {
 		return nil, errors.Wrap(err, "compact commit")
@@ -390,7 +399,7 @@ func (m *Master) validateCommit(ctx context.Context, taskDoer task.Doer, totalId
 
 func (m *Master) finishCommit(ctx context.Context, commit *pfsdb.Commit, validationError string, details *pfs.CommitInfo_Details) error {
 	return log.LogStep(ctx, "finishCommit", func(ctx context.Context) error {
-		return m.driver.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		return m.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 			commit.Finished = txnCtx.Timestamp
 			if details == nil {
 				details = &pfs.CommitInfo_Details{SizeBytes: commit.SizeBytesUpperBound}

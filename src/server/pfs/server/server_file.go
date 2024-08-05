@@ -27,22 +27,22 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
-	diff, err := d.commitStore.GetDiffFileSet(ctx, commit)
+func (a *apiServer) getCompactedDiffFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
+	diff, err := a.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	isCompacted, err := d.storage.Filesets.IsCompacted(ctx, *diff)
+	isCompacted, err := a.storage.Filesets.IsCompacted(ctx, *diff)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	if isCompacted {
 		return diff, nil
 	}
-	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-		compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
-		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Commit.Id, nil)
-		diff, err = d.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+	if err := a.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+		compactor := newCompactor(a.storage.Filesets, a.env.StorageConfig.StorageCompactionMaxFanIn)
+		taskDoer := a.env.TaskService.NewDoer(StorageTaskNamespace, commit.Commit.Id, nil)
+		diff, err = a.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
 		return err
 	}); err != nil {
 		return nil, errors.EnsureStack(err)
@@ -51,8 +51,8 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfsdb.Comm
 }
 
 // TODO(acohen4): signature should accept a branch seperate from the commit
-func (d *driver) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
-	return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+func (a *apiServer) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
+	return a.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		// Store the originally-requested parameters because they will be overwritten by inspectCommitInfo
 		branch := proto.Clone(commitHandle.Branch).(*pfs.Branch)
 		commitID := commitHandle.Id
@@ -60,12 +60,12 @@ func (d *driver) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb fu
 			branch.Name = commitID
 			commitID = ""
 		}
-		commit, err := d.inspectCommit(ctx, commitHandle, pfs.CommitState_STARTED)
+		commit, err := a.inspectCommit(ctx, commitHandle, pfs.CommitState_STARTED)
 		if err != nil {
 			if !errutil.IsNotFoundError(err) || branch == nil || branch.Name == "" {
 				return err
 			}
-			return d.oneOffModifyFile(ctx, renewer, branch, cb)
+			return a.oneOffModifyFile(ctx, renewer, branch, cb)
 		}
 		if commit.Finishing != nil {
 			// The commit is already finished - if the commit was explicitly specified,
@@ -73,8 +73,8 @@ func (d *driver) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb fu
 			if commitID != "" {
 				return pfsserver.ErrCommitFinished{Commit: commit.Commit}
 			}
-			return d.oneOffModifyFile(ctx, renewer, branch, cb, fileset.WithParentID(func() (*fileset.ID, error) {
-				parentID, err := d.getFileSet(ctx, commit)
+			return a.oneOffModifyFile(ctx, renewer, branch, cb, fileset.WithParentID(func() (*fileset.ID, error) {
+				parentID, err := a.getFileSet(ctx, commit)
 				if err != nil {
 					return nil, err
 				}
@@ -84,31 +84,31 @@ func (d *driver) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb fu
 				return parentID, nil
 			}))
 		}
-		return d.withCommitUnorderedWriter(ctx, renewer, commit, cb)
+		return a.withCommitUnorderedWriter(ctx, renewer, commit, cb)
 	})
 }
 
-func (d *driver) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer, branch *pfs.Branch, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
-	id, err := withUnorderedWriter(ctx, d.storage, renewer, cb, opts...)
+func (a *apiServer) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer, branch *pfs.Branch, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
+	id, err := withUnorderedWriter(ctx, a.storage, renewer, cb, opts...)
 	if err != nil {
 		return err
 	}
-	return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		commit, err := d.startCommit(ctx, txnCtx, nil, branch, "")
+	return a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		commit, err := a.startCommit(ctx, txnCtx, nil, branch, "")
 		if err != nil {
 			return err
 		}
-		if err := d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
+		if err := a.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
 			return errors.EnsureStack(err)
 		}
-		return d.finishCommit(ctx, txnCtx, commit, "", "", false)
+		return a.finishCommit(ctx, txnCtx, commit, "", "", false)
 	})
 }
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
-func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, commit *pfsdb.Commit, cb func(*fileset.UnorderedWriter) error) error {
-	id, err := withUnorderedWriter(ctx, d.storage, renewer, cb, fileset.WithParentID(func() (*fileset.ID, error) {
-		parentID, err := d.getFileSet(ctx, commit)
+func (a *apiServer) withCommitUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, commit *pfsdb.Commit, cb func(*fileset.UnorderedWriter) error) error {
+	id, err := withUnorderedWriter(ctx, a.storage, renewer, cb, fileset.WithParentID(func() (*fileset.ID, error) {
+		parentID, err := a.getFileSet(ctx, commit)
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +120,7 @@ func (d *driver) withCommitUnorderedWriter(ctx context.Context, renewer *fileset
 	if err != nil {
 		return err
 	}
-	return errors.Wrap(d.commitStore.AddFileSet(ctx, commit, *id), "with commit unordered writer")
+	return errors.Wrap(a.commitStore.AddFileSet(ctx, commit, *id), "with commit unordered writer")
 }
 
 func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
@@ -142,8 +142,8 @@ func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *
 	return id, nil
 }
 
-func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
-	srcCommitInfo, err := d.inspectCommitInfo(ctx, src.Commit, pfs.CommitState_STARTED)
+func (a *apiServer) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
+	srcCommitInfo, err := a.inspectCommitInfo(ctx, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 		}
 		return path.Join(dstPath, relPath)
 	}
-	_, fs, err := d.openCommit(ctx, srcCommit)
+	_, fs, err := a.openCommit(ctx, srcCommit)
 	if err != nil {
 		return err
 	}
@@ -172,8 +172,8 @@ func (d *driver) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst 
 	return uw.Copy(ctx, fs, tag, appendFile, index.WithPrefix(srcPath), index.WithDatum(src.Datum))
 }
 
-func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.PathRange) (Source, error) {
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
+func (a *apiServer) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.PathRange) (Source, error) {
+	commitInfo, fs, err := a.openCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
 	}
@@ -195,14 +195,14 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.Pat
 		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 			return mf(idx.Path)
 		}, true)
-		return fileset.NewPrefetcher(d.storage.Filesets, fs, upper)
+		return fileset.NewPrefetcher(a.storage.Filesets, fs, upper)
 	}))
 	s := NewSource(commitInfo, fs, opts...)
 	return NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file}), nil
 }
 
-func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
+func (a *apiServer) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
+	commitInfo, fs, err := a.openCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
 	}
@@ -244,11 +244,11 @@ func validatePagination(number int64, reverse bool) error {
 	return nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
+func (a *apiServer) listFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) error {
 	if err := validatePagination(number, reverse); err != nil {
 		return err
 	}
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
+	commitInfo, fs, err := a.openCommit(ctx, file.Commit)
 	if err != nil {
 		return err
 	}
@@ -366,11 +366,11 @@ func (r *circularList) iterateReverse(cb func(*pfs.FileInfo) error) error {
 	return nil
 }
 
-func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) (retErr error) {
+func (a *apiServer) walkFile(ctx context.Context, file *pfs.File, paginationMarker *pfs.File, number int64, reverse bool, cb func(*pfs.FileInfo) error) (retErr error) {
 	if err := validatePagination(number, reverse); err != nil {
 		return err
 	}
-	commitInfo, fs, err := d.openCommit(ctx, file.Commit)
+	commitInfo, fs, err := a.openCommit(ctx, file.Commit)
 	if err != nil {
 		return err
 	}
@@ -430,8 +430,8 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, paginationMarker 
 	return err
 }
 
-func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, pathRange *pfs.PathRange, cb func(*pfs.FileInfo) error) error {
-	commitInfo, fs, err := d.openCommit(ctx, commit)
+func (a *apiServer) globFile(ctx context.Context, commit *pfs.Commit, glob string, pathRange *pfs.PathRange, cb func(*pfs.FileInfo) error) error {
+	commitInfo, fs, err := a.openCommit(ctx, commit)
 	if err != nil {
 		return err
 	}
@@ -461,19 +461,19 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 	return errors.EnsureStack(err)
 }
 
-func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb func(oldFi, newFi *pfs.FileInfo) error) error {
+func (a *apiServer) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb func(oldFi, newFi *pfs.FileInfo) error) error {
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := d.env.Auth.CheckRepoIsAuthorized(ctx, oldFile.Commit.Repo, auth.Permission_REPO_READ); err != nil {
+		if err := a.env.Auth.CheckRepoIsAuthorized(ctx, oldFile.Commit.Repo, auth.Permission_REPO_READ); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 	if newFile.Commit != nil {
-		if err := d.env.Auth.CheckRepoIsAuthorized(ctx, newFile.Commit.Repo, auth.Permission_REPO_READ); err != nil {
+		if err := a.env.Auth.CheckRepoIsAuthorized(ctx, newFile.Commit.Repo, auth.Permission_REPO_READ); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
-	newCommitInfo, err := d.inspectCommitInfo(ctx, newFile.Commit, pfs.CommitState_STARTED)
+	newCommitInfo, err := a.inspectCommitInfo(ctx, newFile.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -495,7 +495,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 	}
 	var old Source = emptySource{}
 	if oldCommit != nil {
-		oldCommitInfo, fs, err := d.openCommit(ctx, oldCommit)
+		oldCommitInfo, fs, err := a.openCommit(ctx, oldCommit)
 		if err != nil {
 			return err
 		}
@@ -510,7 +510,7 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 		}
 		old = NewSource(oldCommitInfo, fs, opts...)
 	}
-	newCommitInfo, fs, err := d.openCommit(ctx, newCommit)
+	newCommitInfo, fs, err := a.openCommit(ctx, newCommit)
 	if err != nil {
 		return err
 	}
@@ -529,11 +529,11 @@ func (d *driver) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb fu
 }
 
 // createFileSet creates a new temporary fileset and returns it.
-func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWriter) error) (*fileset.ID, error) {
+func (a *apiServer) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWriter) error) (*fileset.ID, error) {
 	var id *fileset.ID
-	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+	if err := a.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var err error
-		id, err = withUnorderedWriter(ctx, d.storage, renewer, cb)
+		id, err = withUnorderedWriter(ctx, a.storage, renewer, cb)
 		return err
 	}); err != nil {
 		return nil, err
@@ -541,10 +541,10 @@ func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWr
 	return id, nil
 }
 
-func (d *driver) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
+func (a *apiServer) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
 	// Get the total file set if the commit has been finished.
 	if commit.Finished != nil && commit.Error == "" {
-		id, err := d.commitStore.GetTotalFileSet(ctx, commit)
+		id, err := a.commitStore.GetTotalFileSet(ctx, commit)
 		if err != nil {
 			if errors.Is(err, errNoTotalFileSet) {
 				return nil, errors.Errorf("the commit is forgotten")
@@ -557,7 +557,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset
 	var ids []fileset.ID
 	baseCommitHandle := commit.ParentCommit
 	for baseCommitHandle != nil {
-		baseCommit, err := d.getCommit(ctx, baseCommitHandle)
+		baseCommit, err := a.getCommit(ctx, baseCommitHandle)
 		if err != nil {
 			return nil, err
 		}
@@ -569,7 +569,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset
 				}
 			}
 			// ¯\_(ツ)_/¯
-			baseId, err := d.getFileSet(ctx, baseCommit)
+			baseId, err := a.getFileSet(ctx, baseCommit)
 			if err != nil {
 				return nil, err
 			}
@@ -578,20 +578,20 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset
 		}
 		baseCommitHandle = baseCommit.ParentCommit
 	}
-	id, err := d.commitStore.GetDiffFileSet(ctx, commit)
+	id, err := a.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	ids = append(ids, *id)
-	return d.storage.Filesets.Compose(ctx, ids, defaultTTL)
+	return a.storage.Filesets.Compose(ctx, ids, defaultTTL)
 }
 
-func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles, sizeBytes int64) ([]*pfs.PathRange, error) {
-	fs, err := d.storage.Filesets.Open(ctx, []fileset.ID{fsid})
+func (a *apiServer) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles, sizeBytes int64) ([]*pfs.PathRange, error) {
+	fs, err := a.storage.Filesets.Open(ctx, []fileset.ID{fsid})
 	if err != nil {
 		return nil, err
 	}
-	shardConfig := d.storage.Filesets.ShardConfig()
+	shardConfig := a.storage.Filesets.ShardConfig()
 	if numFiles > 0 {
 		shardConfig.NumFiles = numFiles
 	}
@@ -612,8 +612,8 @@ func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles, si
 	return pathRanges, nil
 }
 
-func (d *driver) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, filesetID fileset.ID) error {
-	commit, err := d.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
+func (a *apiServer) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, filesetID fileset.ID) error {
+	commit, err := a.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -621,31 +621,31 @@ func (d *driver) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionC
 	if commit.Finishing != nil {
 		return pfsserver.ErrCommitFinished{Commit: commit.Commit}
 	}
-	return errors.Wrap(d.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, filesetID), "add file set")
+	return errors.Wrap(a.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, filesetID), "add file set")
 }
 
-func (d *driver) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Duration) error {
+func (a *apiServer) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Duration) error {
 	if ttl < time.Second {
 		return errors.Errorf("ttl (%d) must be at least one second", ttl)
 	}
 	if ttl > maxTTL {
 		return errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
 	}
-	_, err := d.storage.Filesets.SetTTL(ctx, id, ttl)
+	_, err := a.storage.Filesets.SetTTL(ctx, id, ttl)
 	return err
 }
 
-func (d *driver) composeFileSet(ctx context.Context, ids []fileset.ID, ttl time.Duration, compact bool) (*fileset.ID, error) {
+func (a *apiServer) composeFileSet(ctx context.Context, ids []fileset.ID, ttl time.Duration, compact bool) (*fileset.ID, error) {
 	if compact {
-		compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
-		taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, uuid.NewWithoutDashes(), nil)
+		compactor := newCompactor(a.storage.Filesets, a.env.StorageConfig.StorageCompactionMaxFanIn)
+		taskDoer := a.env.TaskService.NewDoer(StorageTaskNamespace, uuid.NewWithoutDashes(), nil)
 		return compactor.Compact(ctx, taskDoer, ids, ttl)
 	}
-	return d.storage.Filesets.Compose(ctx, ids, ttl)
+	return a.storage.Filesets.Compose(ctx, ids, ttl)
 }
 
-func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
-	id, err := d.commitStore.GetDiffFileSet(ctx, commit)
+func (a *apiServer) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
+	id, err := a.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -656,11 +656,11 @@ func (d *driver) compactDiffFileSet(ctx context.Context, compactor *compactor, d
 	if err != nil {
 		return nil, err
 	}
-	return diffId, errors.EnsureStack(d.commitStore.SetDiffFileSet(ctx, commit, *diffId))
+	return diffId, errors.EnsureStack(a.commitStore.SetDiffFileSet(ctx, commit, *diffId))
 }
 
-func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
-	id, err := d.getFileSet(ctx, commit)
+func (a *apiServer) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
+	id, err := a.getFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -671,18 +671,18 @@ func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, 
 	if err != nil {
 		return nil, err
 	}
-	if err := errors.EnsureStack(d.commitStore.SetTotalFileSet(ctx, commit, *totalId)); err != nil {
+	if err := errors.EnsureStack(a.commitStore.SetTotalFileSet(ctx, commit, *totalId)); err != nil {
 		return nil, err
 	}
 	return totalId, nil
 }
 
-func (d *driver) commitSizeUpperBound(ctx context.Context, commit *pfsdb.Commit) (int64, error) {
-	fsid, err := d.getFileSet(ctx, commit)
+func (a *apiServer) commitSizeUpperBound(ctx context.Context, commit *pfsdb.Commit) (int64, error) {
+	fsid, err := a.getFileSet(ctx, commit)
 	if err != nil {
 		return 0, err
 	}
-	return d.storage.Filesets.SizeUpperBound(ctx, *fsid)
+	return a.storage.Filesets.SizeUpperBound(ctx, *fsid)
 }
 
 func newFileNotFound(commitID string, path string) pacherr.ErrNotExist {
