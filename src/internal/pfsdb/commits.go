@@ -989,7 +989,7 @@ func ListCommitInfoTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.C
 }
 
 // Helper functions for watching commits.
-type commitUpsertHandler func(id CommitID, commitInfo *pfs.CommitInfo) error
+type commitUpsertHandler func(commit Commit) error
 type commitDeleteHandler func(id CommitID) error
 
 // WatchCommits creates a watcher and watches the pfs.commits table for changes.
@@ -1044,8 +1044,8 @@ func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.Postgr
 
 func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[Commit], events <-chan *postgres.Event, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
 	// Handle snapshot
-	if err := stream.ForEach[Commit](ctx, snapshot, func(commitWith Commit) error {
-		return onUpsert(commitWith.ID, commitWith.CommitInfo)
+	if err := stream.ForEach[Commit](ctx, snapshot, func(commit Commit) error {
+		return onUpsert(commit)
 	}); err != nil {
 		return err
 	}
@@ -1077,7 +1077,7 @@ func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[
 				}); err != nil {
 					return err
 				}
-				if err := onUpsert(id, commitInfo); err != nil {
+				if err := onUpsert(Commit{ID: id, CommitInfo: commitInfo}); err != nil {
 					return err
 				}
 			default:

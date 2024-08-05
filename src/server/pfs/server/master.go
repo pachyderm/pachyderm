@@ -289,8 +289,9 @@ func (m *Master) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 
 func (m *Master) watchCommitsByRepo(ctx context.Context, repo pfsdb.Repo) error {
 	return pfsdb.WatchCommitsInRepo(ctx, m.env.DB, m.env.Listener, repo.ID,
-		func(id pfsdb.CommitID, ci *pfs.CommitInfo) error {
-			return m.postProcessCommit(ctx, repo, &pfsdb.Commit{ID: id, CommitInfo: ci})
+		func(commit pfsdb.Commit) error {
+			c := commit
+			return m.postProcessCommit(ctx, repo, &c)
 		},
 		func(_ pfsdb.CommitID) error {
 			// Don't finish commits that are deleted.
