@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -1478,4 +1479,93 @@ func TestPipelineVersions(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, fmt.Sprintf("%d", i), pi.Details.Transform.Cmd[0])
 	}
+}
+
+// TestCreatePipelineErrorNoPipeline tests that sending a CreatePipeline requests to pachd with no
+// 'pipeline' field doesn't kill pachd
+func TestCreatePipelineErrorNoPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	// Create input repo
+	dataRepo := tu.UniqueString(t.Name() + "-data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	// Create pipeline w/ no pipeline field--make sure we get a response
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: nil,
+			Transform: &pps.Transform{
+				Cmd:   []string{"/bin/bash"},
+				Stdin: []string{`cat foo >/pfs/out/file`},
+			},
+			Input: client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		})
+	require.YesError(t, err)
+	require.Matches(t, "request.Pipeline", err.Error())
+}
+
+// TestCreatePipelineError tests that sending a CreatePipeline requests to pachd with no 'transform'
+// or 'pipeline' field doesn't kill pachd
+func TestCreatePipelineError(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	// Create input repo
+	dataRepo := tu.UniqueString(t.Name() + "-data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	// Create pipeline w/ no transform--make sure we get a response (& make sure
+	// it explains the problem)
+	pipeline := tu.UniqueString("no-transform-")
+	_, err := c.PpsAPIClient.CreatePipelineV2(
+		context.Background(),
+		&pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: fmt.Sprintf(`{"pipeline": {"project": {"name": %q}, "name": %q}, "transform": null, "input": {"pfs": {"project": %q, "repo": %q, "glob": %q}}}`, pfs.DefaultProjectName, pipeline, pfs.DefaultProjectName, dataRepo, "/*"),
+		})
+	require.YesError(t, err)
+	require.Matches(t, "transform", err.Error())
+}
+
+// TestCreatePipelineErrorNoCmd tests that sending a CreatePipeline request to
+// pachd with no 'transform.cmd' field doesn't kill pachd
+func TestCreatePipelineErrorNoCmd(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	// Create input data
+	dataRepo := tu.UniqueString(t.Name() + "-data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", ""), "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+
+	// create pipeline
+	pipeline := tu.UniqueString("no-cmd-")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{
+				Cmd:   nil,
+				Stdin: []string{`cat foo >/pfs/out/file`},
+			},
+			Input: client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+	time.Sleep(5 * time.Second) // give pipeline time to start
+
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_FAILURE {
+			return errors.Errorf("pipeline should be in state FAILURE, not: %s", pipelineInfo.State.String())
+		}
+		return nil
+	})
 }
