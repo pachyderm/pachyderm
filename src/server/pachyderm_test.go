@@ -6661,6 +6661,7 @@ func TestListJobTruncated(t *testing.T) {
 	require.NotNil(t, fullJobInfos[0].Details.Input)
 	require.Equal(t, pipeline, fullJobInfos[0].Job.Pipeline.Name)
 }
+
 func TestListJobSetPaged(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -7930,88 +7931,6 @@ func TestPipelineEmptyInput(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jis))
 	require.Equal(t, jis[0].State, pps.JobState_JOB_SUCCESS)
-}
-
-func TestCommitDescription(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	dataRepo := tu.UniqueString("TestCommitDescription")
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
-
-	// Test putting a message in StartCommit
-	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Branch:      client.NewBranch(pfs.DefaultProjectName, dataRepo, "master"),
-		Description: "test commit description in 'start commit'",
-	})
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
-	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id)
-	require.NoError(t, err)
-	require.Equal(t, "test commit description in 'start commit'", commitInfo.Description)
-	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
-
-	// Test putting a message in FinishCommit
-	commit, err = c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-		Commit:      commit,
-		Description: "test commit description in 'finish commit'",
-	})
-	require.NoError(t, err)
-	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", commit.Id)
-	require.NoError(t, err)
-	require.Equal(t, "test commit description in 'finish commit'", commitInfo.Description)
-	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
-
-	// Test overwriting a commit message
-	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
-		Branch:      client.NewBranch(pfs.DefaultProjectName, dataRepo, "master"),
-		Description: "test commit description in 'start commit'",
-	})
-	require.NoError(t, err)
-	_, err = c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-		Commit:      commit,
-		Description: "test commit description in 'finish commit' that overwrites",
-	})
-	require.NoError(t, err)
-	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id)
-	require.NoError(t, err)
-	require.Equal(t, "test commit description in 'finish commit' that overwrites", commitInfo.Description)
-	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
-}
-
-func TestPipelineDescription(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-
-	dataRepo := tu.UniqueString("TestPipelineDescription_data")
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
-
-	description := "pipeline description"
-	pipeline := tu.UniqueString("TestPipelineDescription")
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline:    client.NewPipeline(pfs.DefaultProjectName, pipeline),
-			Transform:   &pps.Transform{Cmd: []string{"true"}},
-			Description: description,
-			Input:       client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
-		})
-	require.NoError(t, err)
-	pi, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
-	require.NoError(t, err)
-	require.Equal(t, description, pi.Details.Description)
 }
 
 // TestCancelJob creates a long-running job and then kills it, testing

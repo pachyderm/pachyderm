@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -1409,10 +1410,6 @@ func BenchmarkCreateDatum(b *testing.B) {
 }
 
 func TestSelfReferentialPipeline(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
 	t.Parallel()
 	c := pachd.NewTestPachd(t)
 	pipeline := tu.UniqueString("pipeline")
@@ -1426,4 +1423,27 @@ func TestSelfReferentialPipeline(t *testing.T) {
 		"",
 		false,
 	))
+}
+
+func TestPipelineDescription(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	dataRepo := tu.UniqueString("TestPipelineDescription_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	description := "pipeline description"
+	pipeline := tu.UniqueString("TestPipelineDescription")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline:    client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform:   &pps.Transform{Cmd: []string{"true"}},
+			Description: description,
+			Input:       client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
+		})
+	require.NoError(t, err)
+	pi, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
+	require.NoError(t, err)
+	require.Equal(t, description, pi.Details.Description)
 }
