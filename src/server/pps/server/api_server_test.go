@@ -1407,3 +1407,23 @@ func BenchmarkCreateDatum(b *testing.B) {
 		})
 	}
 }
+
+func TestSelfReferentialPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+	pipeline := tu.UniqueString("pipeline")
+	require.YesError(t, c.CreatePipeline(pfs.DefaultProjectName,
+		pipeline,
+		"",
+		[]string{"true"},
+		nil,
+		nil,
+		client.NewPFSInput(pfs.DefaultProjectName, pipeline, "/"),
+		"",
+		false,
+	))
+}
