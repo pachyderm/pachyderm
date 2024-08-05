@@ -17,6 +17,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	at "github.com/pachyderm/pachyderm/v2/src/server/auth/server/testing"
@@ -1303,4 +1304,39 @@ func TestCreatedByInTransaction(t *testing.T) {
 	require.NotNil(t, ir)
 	require.NotNil(t, ir.Details)
 	require.Equal(t, "pach:root", ir.Details.CreatedBy)
+}
+
+func TestPipelineUniqueness(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	repo := tu.UniqueString("data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	pipelineName := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{""},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/"),
+		"",
+		false,
+	))
+	err := c.CreatePipeline(pfs.DefaultProjectName,
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{""},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/"),
+		"",
+		false,
+	)
+	require.YesError(t, err)
+	require.Matches(t, "pipeline .*? already exists", err.Error())
 }

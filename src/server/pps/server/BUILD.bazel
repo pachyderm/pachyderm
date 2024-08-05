@@ -138,6 +138,7 @@ go_test(
         "//src/internal/errors",
         "//src/internal/grpcutil",
         "//src/internal/pachconfig",
+        "//src/internal/pachd",
         "//src/internal/pctx",
         "//src/internal/ppsutil",
         "//src/internal/require",
