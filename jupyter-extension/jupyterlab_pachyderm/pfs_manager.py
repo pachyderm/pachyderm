@@ -83,7 +83,7 @@ def _get_file_model(
     with client.pfs.pfs_file(file=file) as pfs_file:
         value = pfs_file.readall()
 
-    if format == None:
+    if not format:
         try:
             decoded = value.decode(encoding="utf-8")
             format = "text"
@@ -305,7 +305,7 @@ class PFSManager(FileContentsManager):
             last_modified=created,
             content=content,
             mimetype=None,
-            format="json" if content else None,
+            format="json" if content is not None else None,
             writable=False,
             file_uri=None,
         )
@@ -328,7 +328,7 @@ class PFSManager(FileContentsManager):
 
         # Show an empty toplevel model if no branch is specified
         if self.mounted_commit is None:
-            return self._get_content_model("", "/", DEFAULT_DATETIME, None)
+            return self._get_content_model("", "/", DEFAULT_DATETIME, [] if content else None)
 
         mounted_branch_name = _default_commit_name(self.mounted_commit)
         mounted_branch_created = self._client.pfs.inspect_commit(

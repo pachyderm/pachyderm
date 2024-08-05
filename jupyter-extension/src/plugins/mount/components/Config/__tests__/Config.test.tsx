@@ -1,5 +1,5 @@
 import React from 'react';
-import {render, waitFor} from '@testing-library/react';
+import {act, render, screen, waitFor} from '@testing-library/react';
 
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
@@ -109,7 +109,9 @@ describe('config screen', () => {
         />,
       );
 
-      (await findByTestId('Config__logout')).click();
+      await act(async () => {
+        (await findByTestId('Config__logout')).click();
+      });
 
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
@@ -124,7 +126,7 @@ describe('config screen', () => {
         status: 'HEALTHY_LOGGED_IN',
       };
 
-      const {getByTestId} = render(
+      const {findByTestId} = render(
         <Config
           updateConfig={updateConfig}
           healthCheck={healthCheck}
@@ -133,12 +135,21 @@ describe('config screen', () => {
         />,
       );
 
-      await getByTestId('Config__pachdAddressUpdate').click();
-      expect(getByTestId('Config__mountConfigSubheading')).toHaveTextContent(
-        'Update Configuration',
-      );
-      await getByTestId('Config__pachdAddressCancel').click();
-      expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
+      expect(
+        await screen.findByTestId('Config__pachdAddressUpdate'),
+      ).toBeInTheDocument();
+      await act(async () => {
+        (await findByTestId('Config__pachdAddressUpdate')).click();
+      });
+      expect(
+        await screen.findByTestId('Config__mountConfigSubheading'),
+      ).toHaveTextContent('Update Configuration');
+      await act(async () => {
+        (await findByTestId('Config__pachdAddressCancel')).click();
+      });
+      expect(
+        await screen.findByTestId('Config__pachdAddress'),
+      ).toHaveTextContent(
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
     });
@@ -164,7 +175,9 @@ describe('config screen', () => {
         />,
       );
 
-      (await findByTestId('Config__login')).click();
+      await act(async () => {
+        (await findByTestId('Config__login')).click();
+      });
 
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
@@ -214,11 +227,15 @@ describe('config screen', () => {
         />,
       );
 
-      await getByTestId('Config__pachdAddressUpdate').click();
+      await act(async () => {
+        await getByTestId('Config__pachdAddressUpdate').click();
+      });
       expect(getByTestId('Config__mountConfigSubheading')).toHaveTextContent(
         'Update Configuration',
       );
-      await getByTestId('Config__pachdAddressCancel').click();
+      await act(async () => {
+        await getByTestId('Config__pachdAddressCancel').click();
+      });
       expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
@@ -248,7 +265,9 @@ describe('config screen', () => {
       expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
-      await getByTestId('Config__pachdAddressUpdate').click();
+      await act(async () => {
+        await getByTestId('Config__pachdAddressUpdate').click();
+      });
       expect(getByTestId('Config__mountConfigSubheading')).toHaveTextContent(
         'Update Configuration',
       );
@@ -257,7 +276,9 @@ describe('config screen', () => {
         input,
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
-      getByTestId('Config__pachdAddressSubmit').click();
+      await act(async () => {
+        await getByTestId('Config__pachdAddressSubmit').click();
+      });
 
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
@@ -308,37 +329,49 @@ describe('config screen', () => {
       const submit = getByTestId('Config__pachdAddressSubmit');
 
       userEvent.type(input, 'grpc://test.com:31400');
-      submit.click();
+      await act(async () => {
+        submit.click();
+      });
       await findByText('Invalid address.');
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(1);
 
       userEvent.clear(input);
       userEvent.type(input, 'grpcs://test.com:31400');
-      submit.click();
+      await act(async () => {
+        submit.click();
+      });
       await findByText('Invalid address.');
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(2);
 
       userEvent.clear(input);
       userEvent.type(input, 'http://test.com:31400');
-      submit.click();
+      await act(async () => {
+        submit.click();
+      });
       await findByText('Invalid address.');
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(3);
 
       userEvent.clear(input);
       userEvent.type(input, 'https://test.com:31400');
-      submit.click();
+      await act(async () => {
+        submit.click();
+      });
       await findByText('Invalid address.');
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(4);
 
       userEvent.clear(input);
       userEvent.type(input, 'unix://test.com:31400');
-      submit.click();
+      await act(async () => {
+        submit.click();
+      });
       await findByText('Invalid address.');
       expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(5);
 
       userEvent.clear(input);
       userEvent.type(input, 'www.test.com');
-      submit.click();
+      await act(async () => {
+        submit.click();
+      });
       await findByText(
         'Cluster address should start with grpc://, grpcs://, http://, https:// or unix://',
       );
@@ -366,7 +399,9 @@ describe('config screen', () => {
         />,
       );
 
-      getByTestId('Config__pachdAddressUpdate').click();
+      await act(async () => {
+        getByTestId('Config__pachdAddressUpdate').click();
+      });
       expect(getByTestId('Config__pachdAddressSubmit')).toBeDisabled();
 
       const input = getByTestId('Config__pachdAddressInput');
@@ -374,7 +409,9 @@ describe('config screen', () => {
         input,
         'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
       );
-      getByTestId('Config__pachdAddressSubmit').click();
+      await act(async () => {
+        getByTestId('Config__pachdAddressSubmit').click();
+      });
 
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
@@ -410,10 +447,14 @@ describe('config screen', () => {
         />,
       );
 
-      getByTestId('Config__pachdAddressUpdate').click();
+      await act(async () => {
+        getByTestId('Config__pachdAddressUpdate').click();
+      });
       expect(getByTestId('Config__pachdAddressSubmit')).toBeDisabled();
 
-      getByTestId('Config__advancedSettingsToggle').click();
+      await act(async () => {
+        getByTestId('Config__advancedSettingsToggle').click();
+      });
       const textArea = getByTestId('Config__serverCaInput');
       userEvent.type(textArea, '12345=');
 
@@ -424,7 +465,9 @@ describe('config screen', () => {
         input,
         'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
       );
-      getByTestId('Config__pachdAddressSubmit').click();
+      await act(async () => {
+        getByTestId('Config__pachdAddressSubmit').click();
+      });
 
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(

@@ -8,13 +8,7 @@ const ignoredErrors = [
 const ignoredWarnings = [
   // For some reason JupyterLab's own LabIcons from @jupyterlab/ui-components complain they are malformed. This issue is fixed in future versions
   // of the library, but for now can be safely ignored.
-  (msg) => msg.includes('SVG HTML was malformed for LabIcon instance.') && msg.includes('name: ui-components:caret-up'),
-  (msg) => msg.includes('SVG HTML was malformed for LabIcon instance.') && msg.includes('name: ui-components:caret-down'),
-  (msg) => msg.includes('SVG HTML was malformed for LabIcon instance.') && msg.includes('name: ui-components:caret-right'),
-  (msg) => msg.includes('SVG HTML was malformed for LabIcon instance.') && msg.includes('name: ui-components:caret-left'),
-  (msg) => msg.includes('SVG HTML was malformed for LabIcon instance.') && msg.includes('name: ui-components:close'),
-  (msg) => msg.includes('SVG HTML was malformed for LabIcon instance.') && msg.includes('name: ui-components:folder'),
-  (msg) => msg.includes('SVG HTML was malformed for LabIcon instance.') && msg.includes('name: ui-components:ellipses')
+  (msg) => msg.includes('SVG HTML was malformed for LabIcon instance.') && msg.includes('name: ui-components')
 ]
 
 failOnConsole({
