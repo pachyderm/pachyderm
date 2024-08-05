@@ -7,7 +7,6 @@ import (
 	units "github.com/docker/go-units"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -17,7 +16,7 @@ import (
 
 // triggerCommit is called when a commit is finished, it updates branches in
 // the repo if they trigger on the change
-func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
+func (m *Master) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	err := pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: commitInfo.Commit.Repo}, func(branch pfsdb.Branch) error {
 		branchInfos[branch.Branch.Key()] = branch.BranchInfo
@@ -61,7 +60,7 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 		if err != nil {
 			return nil, errors.Wrap(err, "trigger commit")
 		}
-		triggered, err := d.isTriggered(ctx, txnCtx, bi.Trigger, oldHead, newHead)
+		triggered, err := m.isTriggered(ctx, txnCtx, bi.Trigger, oldHead, newHead)
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +94,7 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 
 // isTriggered checks to see if a branch should be updated from oldHead to
 // newHead based on a trigger.
-func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
+func (m *Master) isTriggered(ctx context.Context, txnCtx *txncontext.TransactionContext, t *pfs.Trigger, oldHead, newHead *pfs.CommitInfo) (bool, error) {
 	result := t.All
 	merge := func(cond bool) {
 		if t.All {
@@ -147,7 +146,7 @@ func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 				break
 			}
 			var err error
-			ci, err = d.resolveCommitInfo(ctx, txnCtx.SqlTx, ci.ParentCommit)
+			ci, err = m.driver.resolveCommitInfo(ctx, txnCtx.SqlTx, ci.ParentCommit)
 			if err != nil {
 				return false, err
 			}
@@ -156,50 +155,4 @@ func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 		merge(commits == t.Commits)
 	}
 	return result, nil
-}
-
-// validateTrigger returns an error if a trigger is invalid
-func (d *driver) validateTrigger(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, trigger *pfs.Trigger) error {
-	if trigger == nil {
-		return nil
-	}
-	if trigger.Branch == "" {
-		return errors.Errorf("triggers must specify a branch to trigger on")
-	}
-	if err := ancestry.ValidateName(trigger.Branch); err != nil {
-		return err
-	}
-	if _, err := cronutil.ParseCronExpression(trigger.RateLimitSpec); trigger.RateLimitSpec != "" && err != nil {
-		return errors.Wrapf(err, "invalid trigger rate limit spec")
-	}
-	if _, err := units.FromHumanSize(trigger.Size); trigger.Size != "" && err != nil {
-		return errors.Wrapf(err, "invalid trigger size")
-	}
-	if trigger.Commits < 0 {
-		return errors.Errorf("can't trigger on a negative number of commits")
-	}
-	if _, err := cronutil.ParseCronExpression(trigger.CronSpec); trigger.CronSpec != "" && err != nil {
-		return errors.Wrapf(err, "invalid trigger cron spec")
-	}
-
-	biMaps := make(map[string]*pfs.BranchInfo)
-	if err := d.listBranchInTransaction(ctx, txnCtx, branch.Repo, false, func(bi *pfs.BranchInfo) error {
-		biMaps[bi.Branch.Name] = proto.Clone(bi).(*pfs.BranchInfo)
-		return nil
-	}); err != nil {
-		return err
-	}
-	b := trigger.Branch
-	for {
-		if b == branch.Name {
-			return errors.Errorf("triggers cannot form a loop")
-		}
-		bi, ok := biMaps[b]
-		if ok && bi.Trigger != nil {
-			b = bi.Trigger.Branch
-		} else {
-			break
-		}
-	}
-	return nil
 }
