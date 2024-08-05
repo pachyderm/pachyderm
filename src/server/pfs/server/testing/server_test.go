@@ -5049,7 +5049,7 @@ func TestSquashCommitSetMultipleChildrenSingleCommit(t *testing.T) {
 	require.NoError(t, err)
 	d, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "master2")
 	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, "repo", "", a.Id))
+	require.NoError(t, finishCommit(env.PachClient, "repo", "", d.Id))
 
 	// Create 'c'
 	c, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "master")
@@ -5088,7 +5088,7 @@ func TestSquashCommitSetMultipleChildrenSingleCommit(t *testing.T) {
 	require.NoError(t, err)
 	cInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", c.Id)
 	require.NoError(t, err)
-	dInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", a.Id)
+	dInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", d.Id)
 	require.NoError(t, err)
 
 	require.NotNil(t, aInfo.ParentCommit)
@@ -5191,7 +5191,7 @@ func TestSquashCommitSetMultiLevelChildrenSimple(t *testing.T) {
 	require.NoError(t, err)
 	cInfo, err = env.PachClient.InspectCommit(project, "repo", "", c.Id)
 	require.NoError(t, err)
-	dInfo, err := env.PachClient.InspectCommit(project, "repo", "", a.Id)
+	dInfo, err := env.PachClient.InspectCommit(project, "repo", "", d.Id)
 	require.NoError(t, err)
 	eInfo, err := env.PachClient.InspectCommit(project, "repo", "", e.Id)
 	require.NoError(t, err)
@@ -5216,7 +5216,7 @@ func TestSquashCommitSetMultiLevelChildrenSimple(t *testing.T) {
 	require.NoError(t, err)
 	cInfo, err = env.PachClient.InspectCommit(project, "repo", "", c.Id)
 	require.NoError(t, err)
-	dInfo, err = env.PachClient.InspectCommit(project, "repo", "", a.Id)
+	dInfo, err = env.PachClient.InspectCommit(project, "repo", "", d.Id)
 	require.NoError(t, err)
 	eInfo, err = env.PachClient.InspectCommit(project, "repo", "", e.Id)
 	require.NoError(t, err)
@@ -5340,7 +5340,7 @@ func TestSquashCommitSetMultiLevelChildrenComplex(t *testing.T) {
 	require.NoError(t, err)
 	cInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", cSquashMeToo.Id)
 	require.NoError(t, err)
-	dInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", a.Id)
+	dInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", d.Id)
 	require.NoError(t, err)
 	eInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", e.Id)
 	require.NoError(t, err)
@@ -5383,7 +5383,7 @@ func TestSquashCommitSetMultiLevelChildrenComplex(t *testing.T) {
 	// Re-read commit info to get new parents/children
 	aInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", a.Id)
 	require.NoError(t, err)
-	dInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", a.Id)
+	dInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", d.Id)
 	require.NoError(t, err)
 	eInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "", e.Id)
 	require.NoError(t, err)

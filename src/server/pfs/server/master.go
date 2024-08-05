@@ -3,13 +3,15 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"path"
 	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
@@ -18,15 +20,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
 const (
@@ -39,6 +41,14 @@ type Master struct {
 }
 
 func NewMaster(ctx context.Context, env Env) (*Master, error) {
+	// test object storage.
+	if err := func() error {
+		ctx, cf := context.WithTimeout(pctx.Child(ctx, "newDriver"), 30*time.Second)
+		defer cf()
+		return obj.TestStorage(ctx, env.Bucket)
+	}(); err != nil {
+		return nil, err
+	}
 	a, err := newAPIServer(ctx, env)
 	if err != nil {
 		return nil, err
