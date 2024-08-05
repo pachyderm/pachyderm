@@ -152,6 +152,7 @@ go_test(
         "//src/pfs",
         "//src/pps",
         "//src/server/auth/server/testing",
+        "//src/server/worker/datum",
         "@com_github_google_go_cmp//cmp",
         "@io_k8s_api//core/v1:core",
         "@io_k8s_apimachinery//pkg/api/resource",
