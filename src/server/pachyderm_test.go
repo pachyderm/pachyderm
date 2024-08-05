@@ -2965,32 +2965,6 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[3].State.String())
 }
 
-func TestManyFilesSingleCommit(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-	// create repos
-	dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
-	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-
-	numFiles := 20000
-	_, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.WithModifyFileClient(dataCommit, func(mfc client.ModifyFile) error {
-		for i := 0; i < numFiles; i++ {
-			require.NoError(t, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
-		}
-		return nil
-	}))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "master", ""))
-	fileInfos, err := c.ListFileAll(dataCommit, "")
-	require.NoError(t, err)
-	require.Equal(t, numFiles, len(fileInfos))
-}
-
 func TestManyFilesSingleOutputCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

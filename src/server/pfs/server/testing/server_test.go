@@ -7712,3 +7712,27 @@ func TestForgetRPCNoBranchHead(t *testing.T) {
 	err = env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "master", commitToForget.Id, []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")})
 	require.Equal(t, "list branch in transaction: for each branch: the branch head cannot be a forgotten commit", err.Error())
 }
+
+func TestManyFilesSingleCommit(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	// create repos
+	dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+
+	numFiles := 20000
+	_, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.WithModifyFileClient(dataCommit, func(mfc client.ModifyFile) error {
+		for i := 0; i < numFiles; i++ {
+			require.NoError(t, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
+		}
+		return nil
+	}))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "master", ""))
+	fileInfos, err := c.ListFileAll(dataCommit, "")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+}
