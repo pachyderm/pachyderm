@@ -131,6 +131,7 @@ go_test(
     pure = "on",
     deps = [
         "//src/auth",
+        "//src/internal/ancestry",
         "//src/internal/backoff",
         "//src/internal/client",
         "//src/internal/config",

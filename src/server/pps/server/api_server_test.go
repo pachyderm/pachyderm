@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -1446,4 +1447,35 @@ func TestPipelineDescription(t *testing.T) {
 	pi, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
 	require.NoError(t, err)
 	require.Equal(t, description, pi.Details.Description)
+}
+
+func TestPipelineVersions(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	dataRepo := tu.UniqueString("TestPipelineVersions_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	pipeline := tu.UniqueString("TestPipelineVersions")
+	nVersions := 5
+	for i := 0; i < nVersions; i++ {
+		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
+			pipeline,
+			"",
+			[]string{fmt.Sprintf("%d", i)}, // an obviously illegal command, but the pipeline will never run
+			nil,
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			"",
+			i != 0,
+		))
+	}
+
+	for i := 0; i < nVersions; i++ {
+		pi, err := c.InspectPipeline(pfs.DefaultProjectName, ancestry.Add(pipeline, nVersions-1-i), true)
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("%d", i), pi.Details.Transform.Cmd[0])
+	}
 }
