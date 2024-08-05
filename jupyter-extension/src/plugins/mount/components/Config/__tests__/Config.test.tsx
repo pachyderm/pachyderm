@@ -135,8 +135,6 @@ describe('config screen', () => {
         />,
       );
 
-      //console.log(await findByTestId('Config__pachdAddressUpdate'));
-
       expect(
         await screen.findByTestId('Config__pachdAddressUpdate'),
       ).toBeInTheDocument();
