@@ -845,9 +845,9 @@ jobs:
 
             python3 -m venv venv
             . venv/bin/activate
-            python -m pip install --upgrade pip
+            python -m pip install pip==24.0
 
-            pip install jupyterlab==3.2.2
+            pip install jupyterlab==4.0.11
             pip install `find dist/ -name \*.whl`
 
             # Install just what need to run cypress tests
