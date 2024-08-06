@@ -12,6 +12,7 @@ import (
 
 var (
 	//HashFn the hash function used by the pjsdb library for hashing job context tokens.
+	// Its exposed for ease-of-access. This also allows it to be overridden in testing.
 	HashFn = hashFn
 )
 
@@ -77,12 +78,12 @@ func RevokeJobContext(ctx context.Context, tx *pachsql.Tx, id JobID) error {
 	return nil
 }
 
-func generateToken() []byte {
+func generateToken() JobContextToken {
 	uuidv7, err := uuid.NewV7()
 	if err != nil {
 		panic(err) // the uuid generation can error if the random generator's mutex fails to unlock. Seems unlikely.
 	}
-	return []byte(uuidv7.String())
+	return JobContextToken(uuidv7.String())
 }
 
 func hashFn(b []byte) []byte {

@@ -56,6 +56,7 @@ func TestResolveJobContext(t *testing.T) {
 			jobCtx, err := pjsdb.CreateJobContext(d.ctx, d.tx, id)
 			require.NoError(t, err)
 			newId, err := pjsdb.ResolveJobContext(d.ctx, d.tx, jobCtx.Token)
+			require.NoError(t, err)
 			require.NoDiff(t, id, newId, nil)
 		})
 	})
