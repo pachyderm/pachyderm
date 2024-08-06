@@ -2,8 +2,8 @@ package pjsdb
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
-	"github.com/google/uuid"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
@@ -16,7 +16,14 @@ var (
 	HashFn = hashFn
 )
 
+// JobContextToken is a bearer token used throughout the PJS API to model a capabilities system that enables a PJS worker
+// to act on behalf of a job and scope down its view of the job system to that job's view.
 type JobContextToken []byte
+
+// String prints out a token's hash.
+func (j JobContextToken) String() string {
+	return string(HashFn(j))
+}
 
 type JobContext struct {
 	Token JobContextToken
@@ -44,6 +51,15 @@ func CreateJobContext(ctx context.Context, tx *pachsql.Tx, id JobID) (JobContext
 		return JobContext{}, ErrJobContextAlreadyExists
 	}
 	return jobCtx, nil
+}
+
+// JobContextTokenFromHex decodes the tokens that come through the API into JobContextToken objects.
+func JobContextTokenFromHex(hex string) (JobContextToken, error) {
+	token, err := pachhash.ParseHex([]byte(hex))
+	if err != nil {
+		return nil, errors.Wrap(err, "job context token from hash")
+	}
+	return token[:], nil
 }
 
 // ResolveJobContext takes a JobContext and returns the associated job. The PJS gRPC API requests contain JobContext
@@ -79,13 +95,15 @@ func RevokeJobContext(ctx context.Context, tx *pachsql.Tx, id JobID) error {
 }
 
 func generateToken() JobContextToken {
-	uuidv7, err := uuid.NewV7()
+	token := make([]byte, 32)
+	_, err := rand.Read(token)
 	if err != nil {
-		panic(err) // the uuid generation can error if the random generator's mutex fails to unlock. Seems unlikely.
+		panic(err) // the random generator can error if a mutex fails to unlock. Seems unlikely.
 	}
-	return JobContextToken(uuidv7.String())
+	return token
 }
 
 func hashFn(b []byte) []byte {
-	return []byte(pachhash.EncodeHash(b))
+	bHash := pachhash.Sum(b)
+	return bHash[:]
 }
