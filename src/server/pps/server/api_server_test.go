@@ -1865,3 +1865,77 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
 	require.Equal(t, inputB, pipelineInfo.Details.Input.Pfs.Repo)
 }
+
+func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
+	return &pps.CreatePipelineRequest{
+		Pipeline: client.NewPipeline(pfs.DefaultProjectName, name),
+		Transform: &pps.Transform{
+			Cmd: []string{"bash"},
+			Stdin: []string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
+			},
+		},
+		ParallelismSpec: &pps.ParallelismSpec{
+			Constant: 1,
+		},
+		Input: client.NewPFSInput(pfs.DefaultProjectName, input, "/*"),
+	}
+}
+
+func TestPipelineAncestry(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	dataRepo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	pipeline := tu.UniqueString("pipeline")
+	base := basicPipelineReq(pipeline, dataRepo)
+	base.Autoscaling = true
+
+	// create three versions of the pipeline differing only in the transform user field
+	for i := 1; i <= 3; i++ {
+		base.Transform.User = fmt.Sprintf("user:%d", i)
+		base.Update = i != 1
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), base)
+		require.NoError(t, err)
+	}
+
+	for i := 1; i <= 3; i++ {
+		info, err := c.InspectPipeline(pfs.DefaultProjectName, fmt.Sprintf("%s^%d", pipeline, 3-i), true)
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("user:%d", i), info.Details.Transform.User)
+	}
+
+	infos, err := c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(infos))
+	require.Equal(t, pipeline, infos[0].Pipeline.Name)
+	require.Equal(t, fmt.Sprintf("user:%d", 3), infos[0].Details.Transform.User)
+
+	checkInfos := func(infos []*pps.PipelineInfo) {
+		// make sure versions are sorted and have the correct details
+		for i, info := range infos {
+			require.Equal(t, 3-i, int(info.Version))
+			require.Equal(t, fmt.Sprintf("user:%d", 3-i), info.Details.Transform.User)
+		}
+	}
+
+	// get all pipelines
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, -1)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(infos))
+	checkInfos(infos)
+
+	// get all pipelines by asking for too many
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 3)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(infos))
+	checkInfos(infos)
+
+	// get only the later two pipelines
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 1)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(infos))
+	checkInfos(infos)
+}
