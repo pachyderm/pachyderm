@@ -450,14 +450,14 @@ func (a *apiServer) waitForFinishingOrFinished(ctx context.Context, commit *pfsd
 
 // resolveCommitWithAuth is like resolveCommit, but it does some pre-resolution checks like repo authorization.
 func (a *apiServer) resolveCommitWithAuth(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
-	if commitHandle.Repo.Name == fileSetsRepo {
+	if commitHandle.AccessRepo().Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commitHandle,
 			Description: "FileSet - Virtual Commit",
 			Finished:    &timestamppb.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
 		}
 		return &pfsdb.Commit{
-			ID:         0, // This doesn't seem like the right thing to do, but here we are.
+			ID:         0, // this doesn't seem like the right thing to do, but here we are.
 			CommitInfo: cinfo,
 			Revision:   0,
 		}, nil
@@ -578,38 +578,6 @@ func (a *apiServer) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commit
 			}
 			commitHandleCopy = cis[i%len(cis)].CommitInfo.ParentCommit
 		}
-	}
-	return commit, nil
-}
-
-// getCommit is like waitForCommit, without the blocking.
-// It does not add the size to the CommitInfo
-// TODO(acohen4): consider more an architecture where a commit is resolved at the API boundary
-func (a *apiServer) getCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
-	if commitHandle.AccessRepo().Name == fileSetsRepo {
-		cinfo := &pfs.CommitInfo{
-			Commit:      commitHandle,
-			Description: "FileSet - Virtual Commit",
-			Finished:    &timestamppb.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
-		}
-		return &pfsdb.Commit{
-			ID:         0, // this doesn't seem like the right thing to do, but here we are.
-			CommitInfo: cinfo,
-			Revision:   0,
-		}, nil
-	}
-	if commitHandle == nil {
-		return nil, errors.Errorf("cannot inspect nil commit")
-	}
-
-	// Check if the commit is a branch name
-	var commit *pfsdb.Commit
-	if err := a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		var err error
-		commit, err = a.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
-		return err
-	}); err != nil {
-		return nil, err
 	}
 	return commit, nil
 }

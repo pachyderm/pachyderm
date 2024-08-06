@@ -558,7 +558,7 @@ func (a *apiServer) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*file
 	var ids []fileset.ID
 	baseCommitHandle := commit.ParentCommit
 	for baseCommitHandle != nil {
-		baseCommit, err := a.getCommit(ctx, baseCommitHandle)
+		baseCommit, err := a.resolveCommitWithAuth(ctx, baseCommitHandle)
 		if err != nil {
 			return nil, err
 		}

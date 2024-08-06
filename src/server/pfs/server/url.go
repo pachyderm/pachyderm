@@ -178,7 +178,7 @@ func (a *apiServer) getFileURL(ctx context.Context, taskService task.Service, UR
 	if basePathRange == nil {
 		basePathRange = &pfs.PathRange{}
 	}
-	commit, err := a.getCommit(ctx, file.Commit)
+	commit, err := a.resolveCommitWithAuth(ctx, file.Commit)
 	if err != nil {
 		return 0, errors.Wrap(err, "get file url")
 	}

@@ -313,7 +313,7 @@ func (m *Master) postProcessCommit(ctx context.Context, repo pfsdb.Repo, commit 
 	return log.LogStep(ctx, "postProcessCommit", func(ctx context.Context) error {
 		return backoff.RetryUntilCancel(ctx, func() error {
 			// In the case where a commit is squashed between retries (commit not found), the master can return.
-			if _, err := m.getCommit(ctx, commit.Commit); err != nil {
+			if _, err := m.resolveCommitWithAuth(ctx, commit.Commit); err != nil {
 				if pfsserver.IsCommitNotFoundErr(err) {
 					return nil
 				}
