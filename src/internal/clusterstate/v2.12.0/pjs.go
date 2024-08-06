@@ -23,12 +23,17 @@ func createPJSSchema(ctx context.Context, env migrations.Env) error {
 				
 				program BYTEA NOT NULL,
 				program_hash BYTEA NOT NULL, -- the hash will be used to model the queues
+				context_hash BYTEA, -- the hash of the job context token
 				
 				error pjs.job_error_code,
 				
 				queued timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
 				processing timestamptz,
 				done timestamptz		
+		);
+		-- a reverse index will make the lookup using the job context faster.
+		CREATE INDEX ON pjs.jobs (
+			context_hash, id
 		);
 		CREATE TYPE pjs.fileset_types AS ENUM (
 			'input', 

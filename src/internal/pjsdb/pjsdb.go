@@ -26,6 +26,7 @@ type Job struct {
 	Inputs      []fileset.ID
 	Program     fileset.ID
 	ProgramHash []byte
+	ContextHash []byte
 	Outputs     []fileset.ID
 
 	Error string
@@ -43,6 +44,7 @@ type jobRow struct {
 
 	Program     []byte `db:"program"`
 	ProgramHash []byte `db:"program_hash"`
+	ContextHash []byte `db:"context_hash"`
 
 	Error sql.NullString `db:"error"`
 
@@ -72,6 +74,7 @@ func (r jobRecord) toJob() (Job, error) {
 		ID:          r.ID,
 		Parent:      JobID(r.Parent.Int64),
 		ProgramHash: r.ProgramHash,
+		ContextHash: r.ContextHash,
 		Error:       r.Error.String,
 		Queued:      r.Queued,
 		Processing:  r.Processing.Time,
