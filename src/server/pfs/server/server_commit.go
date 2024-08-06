@@ -394,13 +394,21 @@ func (a *apiServer) inspectCommit(ctx context.Context, commitHandle *pfs.Commit,
 		switch wait {
 		case pfs.CommitState_STARTED:
 		case pfs.CommitState_READY:
-			for _, c := range commit.DirectProvenance {
-				if _, err := a.inspectCommit(ctx, c, pfs.CommitState_FINISHED); err != nil {
+			for _, c := range commit.DirectProvenantIDs {
+				var provCommit *pfsdb.Commit
+				if err := a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+					var err error
+					provCommit, err = pfsdb.GetCommit(ctx, txnCtx.SqlTx, c)
+					return err
+				}); err != nil {
+					return nil, errors.Wrap(err, "inspect commit")
+				}
+				if _, err := a.waitForFinishingOrFinished(ctx, provCommit, pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}
 			}
 		case pfs.CommitState_FINISHING, pfs.CommitState_FINISHED:
-			return a.inspectProcessingCommits(ctx, commit, wait)
+			return a.waitForFinishingOrFinished(ctx, commit, wait)
 		}
 	}
 	return commit, nil
@@ -418,8 +426,8 @@ func (a *apiServer) inspectCommitInfo(ctx context.Context, commitHandle *pfs.Com
 	return commit.CommitInfo, nil
 }
 
-// inspectProcessingCommits waits for the commit to be FINISHING or FINISHED.
-func (a *apiServer) inspectProcessingCommits(ctx context.Context, commit *pfsdb.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
+// waitForFinishingOrFinished waits for the commit to be FINISHING or FINISHED.
+func (a *apiServer) waitForFinishingOrFinished(ctx context.Context, commit *pfsdb.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
 	// We only cancel the watcher if we detect the commit is the right state.
 	expectedErr := errors.New("commit is in the right state")
 	ctx, cancel := context.WithCancelCause(ctx)
