@@ -1817,3 +1817,51 @@ func TestMalformedPipeline(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "no input set", err.Error())
 }
+
+func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+	inputA := tu.UniqueString("A")
+	inputB := tu.UniqueString("B")
+	inputC := tu.UniqueString("C")
+	pipeline := tu.UniqueString("pipeline")
+
+	createPipeline := func(c *client.APIClient, input string, update bool) error {
+		return c.CreatePipeline(pfs.DefaultProjectName,
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(pfs.DefaultProjectName, input, "/*"),
+			"",
+			update,
+		)
+	}
+
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, inputA))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, inputB))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, inputC))
+	require.NoError(t, createPipeline(c, inputA, false))
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err)
+
+	require.NoError(t, createPipeline(c.WithTransaction(txn), inputB, true))
+	require.NoError(t, createPipeline(c, inputC, true))
+
+	_, err = c.FinishTransaction(txn)
+	require.NoError(t, err)
+	// make sure the final pipeline is the third version, with the input from in the transaction
+	pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), pipelineInfo.Version)
+	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
+	require.Equal(t, inputB, pipelineInfo.Details.Input.Pfs.Repo)
+}
