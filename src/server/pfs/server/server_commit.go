@@ -668,12 +668,12 @@ func (a *apiServer) listCommit(
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := a.inspectCommit(ctx, from, pfs.CommitState_STARTED); err != nil {
+		if _, err := a.resolveCommitWithAuth(ctx, from); err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		ci, err := a.inspectCommit(ctx, to, pfs.CommitState_STARTED)
+		ci, err := a.resolveCommitWithAuth(ctx, to)
 		if err != nil {
 			return err
 		}
@@ -853,7 +853,7 @@ func (a *apiServer) subscribeCommit(
 }
 
 func (a *apiServer) clearCommit(ctx context.Context, commitHandle *pfs.Commit) error {
-	commit, err := a.inspectCommit(ctx, commitHandle, pfs.CommitState_STARTED)
+	commit, err := a.resolveCommitWithAuth(ctx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -990,7 +990,7 @@ func (a *apiServer) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*
 	if err := a.env.Auth.CheckRepoIsAuthorized(ctx, commitHandle.Repo, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
-	commit, err := a.inspectCommit(ctx, commitHandle, pfs.CommitState_STARTED)
+	commit, err := a.resolveCommitWithAuth(ctx, commitHandle)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -848,7 +848,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
 			output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
-				c, err := a.inspectCommit(ctx, output, pfs.CommitState_STARTED)
+				c, err := a.resolveCommitWithAuth(ctx, output)
 				if err != nil {
 					return err
 				}

@@ -60,7 +60,7 @@ func (a *apiServer) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb
 			branch.Name = commitID
 			commitID = ""
 		}
-		commit, err := a.inspectCommit(ctx, commitHandle, pfs.CommitState_STARTED)
+		commit, err := a.resolveCommitWithAuth(ctx, commitHandle)
 		if err != nil {
 			if !errutil.IsNotFoundError(err) || branch == nil || branch.Name == "" {
 				return err
@@ -143,7 +143,7 @@ func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *
 }
 
 func (a *apiServer) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
-	srcC, err := a.inspectCommit(ctx, src.Commit, pfs.CommitState_STARTED)
+	srcC, err := a.resolveCommitWithAuth(ctx, src.Commit)
 	if err != nil {
 		return err
 	}
@@ -473,7 +473,7 @@ func (a *apiServer) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb
 			return errors.EnsureStack(err)
 		}
 	}
-	newC, err := a.inspectCommit(ctx, newFile.Commit, pfs.CommitState_STARTED)
+	newC, err := a.resolveCommitWithAuth(ctx, newFile.Commit)
 	if err != nil {
 		return err
 	}
