@@ -110,8 +110,8 @@ func (a *apiServer) inspectCommitSet(ctx context.Context, commitset *pfs.CommitS
 		return err
 	}
 	for _, uc := range unfinishedCommits {
-		// TODO: make a dedicated call just for the blocking part, inspectCommit is a little heavyweight?
-		c, err := a.inspectCommit(ctx, uc, pfs.CommitState_FINISHED)
+		// TODO: make a dedicated call just for the blocking part, waitForCommit is a little heavyweight?
+		c, err := a.waitForCommit(ctx, uc, pfs.CommitState_FINISHED)
 		if err != nil {
 			return err
 		}

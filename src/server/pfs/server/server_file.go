@@ -53,7 +53,7 @@ func (a *apiServer) getCompactedDiffFileSet(ctx context.Context, commit *pfsdb.C
 // TODO(acohen4): signature should accept a branch seperate from the commit
 func (a *apiServer) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	return a.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-		// Store the originally-requested parameters because they will be overwritten by inspectCommit
+		// Store the originally-requested parameters because they will be overwritten by waitForCommit
 		branch := proto.Clone(commitHandle.Branch).(*pfs.Branch)
 		commitID := commitHandle.Id
 		if branch != nil && branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {

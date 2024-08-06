@@ -320,7 +320,7 @@ func (a *apiServer) InspectCommitInTransaction(ctx context.Context, txnCtx *txnc
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
-	c, err := a.inspectCommit(ctx, request.Commit, request.Wait)
+	c, err := a.waitForCommit(ctx, request.Commit, request.Wait)
 	if err != nil {
 		return nil, err
 	}

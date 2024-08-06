@@ -386,7 +386,7 @@ func (a *apiServer) isPathModifiedInCommit(ctx context.Context, commit *pfsdb.Co
 	return found, nil
 }
 
-func (a *apiServer) inspectCommit(ctx context.Context, commitHandle *pfs.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
+func (a *apiServer) waitForCommit(ctx context.Context, commitHandle *pfs.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
 	commit, err := a.resolveCommitWithAuth(ctx, commitHandle)
 	if err != nil {
 		return nil, err
@@ -480,10 +480,10 @@ func (a *apiServer) resolveCommitWithAuth(ctx context.Context, commitHandle *pfs
 	return commit, nil
 }
 
-// resolveCommit contains the essential implementation of inspectCommit: it converts 'commit' (which may
+// resolveCommit contains the essential implementation of InspectCommit. it converts 'commit' (which may
 // be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
 // ID. It accepts a postgres transaction so that it can be used in a transaction
-// and avoids an inconsistent call to a.inspectCommit()
+// and avoids an inconsistent call to a.waitForCommit()
 func (a *apiServer) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
 	if commitHandle == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
@@ -582,7 +582,7 @@ func (a *apiServer) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commit
 	return commit, nil
 }
 
-// getCommit is like inspectCommit, without the blocking.
+// getCommit is like waitForCommit, without the blocking.
 // It does not add the size to the CommitInfo
 // TODO(acohen4): consider more an architecture where a commit is resolved at the API boundary
 func (a *apiServer) getCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
@@ -834,7 +834,7 @@ func (a *apiServer) subscribeCommit(
 			// We don't want to include the `from` commit itself
 			if !(seen[c.Commit.Id] || (from != nil && from.Id == c.Commit.Id)) {
 				// Wait for the commit to enter the right state
-				commit, err := a.inspectCommit(ctx, proto.Clone(c.Commit).(*pfs.Commit), state)
+				commit, err := a.waitForCommit(ctx, proto.Clone(c.Commit).(*pfs.Commit), state)
 				if err != nil {
 					return err
 				}
@@ -995,7 +995,7 @@ func (a *apiServer) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*
 		return nil, nil, err
 	}
 	if commit.Finishing != nil && commit.Finished == nil {
-		_, err := a.inspectCommit(ctx, commitHandle, pfs.CommitState_FINISHED)
+		_, err := a.waitForCommit(ctx, commitHandle, pfs.CommitState_FINISHED)
 		if err != nil {
 			return nil, nil, err
 		}
