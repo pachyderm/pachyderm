@@ -246,10 +246,11 @@ func (a *apiServer) linkParent(ctx context.Context, txnCtx *txncontext.Transacti
 	// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 	// happen if 'branch' is new and diverges from the existing branch in
 	// 'parent').
-	parentCommitInfo, err := a.resolveCommitInfo(ctx, txnCtx.SqlTx, parent)
+	parentCommit, err := a.resolveCommit(ctx, txnCtx.SqlTx, parent)
 	if err != nil {
 		return errors.Wrapf(err, "parent commit not found")
 	}
+	parentCommitInfo := parentCommit.CommitInfo
 	// fail if the parent commit has not been finished
 	if needsFinishedParent && parentCommitInfo.Finishing == nil {
 		return errors.Errorf("parent commit %s has not been finished", parentCommitInfo.Commit)
@@ -414,18 +415,6 @@ func (a *apiServer) inspectCommit(ctx context.Context, commitHandle *pfs.Commit,
 	return commit, nil
 }
 
-// inspectCommitInfo takes a Commit and returns the corresponding CommitInfo.
-//
-// As a side effect, this function also replaces the ID in the given commit
-// with a real commit ID.
-func (a *apiServer) inspectCommitInfo(ctx context.Context, commitHandle *pfs.Commit, wait pfs.CommitState) (*pfs.CommitInfo, error) {
-	commit, err := a.inspectCommit(ctx, commitHandle, wait)
-	if err != nil {
-		return nil, errors.Wrap(err, "inspect commitHandle")
-	}
-	return commit.CommitInfo, nil
-}
-
 // waitForFinishingOrFinished waits for the commit to be FINISHING or FINISHED.
 func (a *apiServer) waitForFinishingOrFinished(ctx context.Context, commit *pfsdb.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
 	// We only cancel the watcher if we detect the commit is the right state.
@@ -491,10 +480,10 @@ func (a *apiServer) resolveCommitWithAuth(ctx context.Context, commitHandle *pfs
 	return commit, nil
 }
 
-// resolveCommit contains the essential implementation of inspectCommitInfo: it converts 'commit' (which may
+// resolveCommit contains the essential implementation of inspectCommit: it converts 'commit' (which may
 // be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
 // ID. It accepts a postgres transaction so that it can be used in a transaction
-// and avoids an inconsistent call to a.inspectCommitInfo()
+// and avoids an inconsistent call to a.inspectCommit()
 func (a *apiServer) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
 	if commitHandle == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
@@ -593,21 +582,8 @@ func (a *apiServer) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commit
 	return commit, nil
 }
 
-// resolveCommitInfo contains the essential implementation of inspectCommitInfo: it converts 'commit' (which may
-// be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
-// ID. It accepts a postgres transaction so that it can be used in a transaction
-// and avoids an inconsistent call to a.inspectCommitInfo()
-func (a *apiServer) resolveCommitInfo(ctx context.Context, sqlTx *pachsql.Tx, commitHandle *pfs.Commit) (*pfs.CommitInfo, error) {
-	commit, err := a.resolveCommit(ctx, sqlTx, commitHandle)
-	if err != nil {
-		return nil, err
-	}
-	return commit.CommitInfo, nil
-}
-
-// getCommit is like inspectCommitInfo, without the blocking.
+// getCommit is like inspectCommit, without the blocking.
 // It does not add the size to the CommitInfo
-//
 // TODO(acohen4): consider more an architecture where a commit is resolved at the API boundary
 func (a *apiServer) getCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
 	if commitHandle.AccessRepo().Name == fileSetsRepo {
@@ -692,12 +668,12 @@ func (a *apiServer) listCommit(
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := a.inspectCommitInfo(ctx, from, pfs.CommitState_STARTED); err != nil {
+		if _, err := a.inspectCommit(ctx, from, pfs.CommitState_STARTED); err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		ci, err := a.inspectCommitInfo(ctx, to, pfs.CommitState_STARTED)
+		ci, err := a.inspectCommit(ctx, to, pfs.CommitState_STARTED)
 		if err != nil {
 			return err
 		}
@@ -858,10 +834,11 @@ func (a *apiServer) subscribeCommit(
 			// We don't want to include the `from` commit itself
 			if !(seen[c.Commit.Id] || (from != nil && from.Id == c.Commit.Id)) {
 				// Wait for the commit to enter the right state
-				commitInfo, err := a.inspectCommitInfo(ctx, proto.Clone(c.Commit).(*pfs.Commit), state)
+				commit, err := a.inspectCommit(ctx, proto.Clone(c.Commit).(*pfs.Commit), state)
 				if err != nil {
 					return err
 				}
+				commitInfo := commit.CommitInfo
 				if err := cb(commitInfo); err != nil {
 					return err
 				}
@@ -1018,7 +995,7 @@ func (a *apiServer) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*
 		return nil, nil, err
 	}
 	if commit.Finishing != nil && commit.Finished == nil {
-		_, err := a.inspectCommitInfo(ctx, commitHandle, pfs.CommitState_FINISHED)
+		_, err := a.inspectCommit(ctx, commitHandle, pfs.CommitState_FINISHED)
 		if err != nil {
 			return nil, nil, err
 		}

@@ -311,12 +311,20 @@ func (a *apiServer) forgetCommitTx(txnCtx *txncontext.TransactionContext, commit
 // excluded) except that it can run inside an existing postgres transaction.
 // This is not an RPC.
 func (a *apiServer) InspectCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	return a.resolveCommitInfo(ctx, txnCtx.SqlTx, request.Commit)
+	c, err := a.resolveCommit(ctx, txnCtx.SqlTx, request.Commit)
+	if err != nil {
+		return nil, err
+	}
+	return c.CommitInfo, nil
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
-	return a.inspectCommitInfo(ctx, request.Commit, request.Wait)
+	c, err := a.inspectCommit(ctx, request.Commit, request.Wait)
+	if err != nil {
+		return nil, err
+	}
+	return c.CommitInfo, nil
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
@@ -840,10 +848,11 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
 			output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
-				info, err := a.inspectCommitInfo(ctx, output, pfs.CommitState_STARTED)
+				c, err := a.inspectCommit(ctx, output, pfs.CommitState_STARTED)
 				if err != nil {
 					return err
 				}
+				info := c.CommitInfo
 				// we will be reading the whole file system, so unfinished commits would be very slow
 				if info.Error == "" && info.Finished != nil {
 					break

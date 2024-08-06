@@ -53,7 +53,7 @@ func (a *apiServer) getCompactedDiffFileSet(ctx context.Context, commit *pfsdb.C
 // TODO(acohen4): signature should accept a branch seperate from the commit
 func (a *apiServer) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	return a.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-		// Store the originally-requested parameters because they will be overwritten by inspectCommitInfo
+		// Store the originally-requested parameters because they will be overwritten by inspectCommit
 		branch := proto.Clone(commitHandle.Branch).(*pfs.Branch)
 		commitID := commitHandle.Id
 		if branch != nil && branch.Name == "" && !uuid.IsUUIDWithoutDashes(commitID) {
@@ -143,11 +143,11 @@ func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *
 }
 
 func (a *apiServer) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
-	srcCommitInfo, err := a.inspectCommitInfo(ctx, src.Commit, pfs.CommitState_STARTED)
+	srcC, err := a.inspectCommit(ctx, src.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
-	srcCommit := srcCommitInfo.Commit
+	srcCommit := srcC.Commit
 	srcPath := pfsfile.CleanPath(src.Path)
 	dstPath := pfsfile.CleanPath(dst)
 	pathTransform := func(x string) string {
@@ -473,10 +473,11 @@ func (a *apiServer) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb
 			return errors.EnsureStack(err)
 		}
 	}
-	newCommitInfo, err := a.inspectCommitInfo(ctx, newFile.Commit, pfs.CommitState_STARTED)
+	newC, err := a.inspectCommit(ctx, newFile.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
+	newCommitInfo := newC.CommitInfo
 	if oldFile == nil {
 		oldFile = &pfs.File{
 			Commit: newCommitInfo.ParentCommit,
