@@ -1112,17 +1112,8 @@ postgresql:
   # dependency in Chart.yaml
   enabled: true
   image:
-    repository: pachyderm/postgresql
-    tag: "13.3.0"
-  # DEPRECATED from pachyderm 2.1.5
-  initdbScripts:
-    dex.sh: |
-      #!/bin/bash
-      set -e
-      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-        CREATE DATABASE dex;
-        GRANT ALL PRIVILEGES ON DATABASE dex TO "$POSTGRES_USER";
-      EOSQL
+    repository: bitnami/postgresql
+    tag: "13.15.0"
   fullnameOverride: postgres
   persistence:
     # Specify the storage class for the postgresql Persistent Volume (PV)
