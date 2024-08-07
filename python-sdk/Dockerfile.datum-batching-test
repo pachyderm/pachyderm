@@ -1,4 +1,4 @@
-FROM python:3.8-slim
+FROM python:3.11-slim
 
 COPY dist dist
 RUN python3 -m pip install `find dist/ -name \*.whl`
