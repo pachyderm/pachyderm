@@ -67,7 +67,7 @@ func (a *apiServer) propagateBranches(ctx context.Context, txnCtx *txncontext.Tr
 	})
 	// add new commits, set their ancestry + provenance pointers, and advance branch heads
 	for _, bi := range propagatedBranches {
-		// TODO(acohen4): can we just make calls to addCommit() here?
+		// TODO(acohen4): can we just make calls to addCommitInfoToDB() here?
 		// Do not propagate an open commit onto spout output branches (which should
 		// only have a single provenance on a spec commit)
 		if len(bi.Provenance) == 1 && bi.Provenance[0].Repo.Type == pfs.SpecRepoType {
@@ -145,27 +145,35 @@ func (a *apiServer) fillNewBranches(ctx context.Context, txnCtx *txncontext.Tran
 			// Skip because the branch already exists.
 			continue
 		}
-		var updateHead *pfsdb.Commit
+		var newHead *pfsdb.Commit
 		head, ok := newRepoCommits[p.Repo.Key()]
 		if !ok {
 			head, err = a.makeEmptyCommit(ctx, txnCtx, p, nil, nil)
 			if err != nil {
 				return errors.Wrap(err, "create empty commit")
 			}
-			updateHead = head
+			newHead = head
 			newRepoCommits[p.Repo.Key()] = head
 		}
 		branchInfo := &pfs.BranchInfo{Branch: p, Head: head.CommitInfo.Commit, CreatedBy: txnCtx.Username()}
-		branchID, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo)
-		if err != nil {
-			return errors.Wrap(err, "upsert branch")
+		if err := upsertBranchAndSyncCommit(ctx, txnCtx.SqlTx, branchInfo, newHead.ID); err != nil {
+			return errors.Wrap(err, "fill new branches: upsert branch")
 		}
-		// Now that the branch exists, add the branch_id to the head commit.
-		if updateHead != nil {
-			if err := pfsdb.UpdateCommitBranch(ctx, txnCtx.SqlTx, updateHead.ID, branchID); err != nil {
-				return errors.Wrap(err, "update commit")
-			}
-		}
+	}
+	return nil
+}
+
+// upsertBranchAndSyncCommit upserts a branch but also updates the head commit's 'Branch' field if needed.
+// the reason why this exists is because, in our data model, a branch must have a head commit, but a commit is also dependent
+// on the branch name.
+// the 'Branch' field is targeted for deprecation, so this function should make it easy to find all the callers.
+func upsertBranchAndSyncCommit(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInfo, headID pfsdb.CommitID) error {
+	branchID, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+	if err != nil {
+		return errors.Wrap(err, "update head")
+	}
+	if headID != 0 {
+		return errors.Wrap(pfsdb.UpdateCommitBranch(ctx, tx, headID, branchID), "upsert branch and sync commit")
 	}
 	return nil
 }
@@ -245,7 +253,7 @@ func (a *apiServer) createBranch(ctx context.Context, txnCtx *txncontext.Transac
 		branchInfo.Head = commitHandle
 		propagate = true
 	}
-	var updateHead *pfsdb.Commit
+	newHead := pfsdb.CommitID(0)
 	// if we don't have a branch head, or the provenance has changed, add a new commit to the branch to capture the changed structure
 	// the one edge case here, is that it's undesirable to add a commit in the case where provenance is completely removed...
 	//
@@ -256,21 +264,14 @@ func (a *apiServer) createBranch(ctx context.Context, txnCtx *txncontext.Transac
 			return err
 		}
 		branchInfo.Head = c.CommitInfo.Commit
-		updateHead = c
+		newHead = c.ID
 		propagate = true
 	}
 	if trigger != nil && trigger.Branch != "" {
 		branchInfo.Trigger = trigger
 	}
-	branchID, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo)
-	if err != nil {
+	if err := upsertBranchAndSyncCommit(ctx, txnCtx.SqlTx, branchInfo, newHead); err != nil {
 		return errors.Wrap(err, "create branch")
-	}
-	// need to update head commit's branch_id after the branch is created.
-	if updateHead != nil {
-		if err := pfsdb.UpdateCommitBranch(ctx, txnCtx.SqlTx, updateHead.ID, branchID); err != nil {
-			return errors.Wrap(err, "create branch")
-		}
 	}
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its

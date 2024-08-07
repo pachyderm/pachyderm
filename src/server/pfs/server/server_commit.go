@@ -78,7 +78,7 @@ func (a *apiServer) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Tran
 		commitInfo.Finished = txnCtx.Timestamp
 		commitInfo.Details = &pfs.CommitInfo_Details{}
 	}
-	commitId, err := a.addCommit(ctx, txnCtx, commitInfo, parent, directProvenance, false /* needsFinishedParent */)
+	commitId, err := a.addCommitInfoToDB(ctx, txnCtx, commitInfo, parent, directProvenance, false /* needsFinishedParent */)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (a *apiServer) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Tran
 // NOTE: Requiring source commits to have finishing / finished parents ensures that the commits are not compacted
 // in a pathological order (finishing later commits before earlier commits will result with us compacting
 // the earlier commits multiple times).
-func (a *apiServer) addCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) (pfsdb.CommitID, error) {
+func (a *apiServer) addCommitInfoToDB(ctx context.Context, txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) (pfsdb.CommitID, error) {
 	if err := a.linkParent(ctx, txnCtx, newCommitInfo, parent, needsFinishedParent); err != nil {
 		return 0, err
 	}
@@ -144,68 +144,14 @@ func (a *apiServer) startCommit(
 	branch *pfs.Branch,
 	description string,
 ) (*pfsdb.Commit, error) {
-	// Validate arguments:
-	if branch == nil || branch.Name == "" {
-		return nil, errors.Errorf("branch must be specified")
+	if err := a.validateStartCommitArgs(ctx, txnCtx, branch); err != nil {
+		return nil, err
 	}
-	// Check that caller is authorized
-	if err := a.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branch.Repo, auth.Permission_REPO_WRITE); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	// New commit and commitInfo
 	newCommitInfo := newUserCommitInfo(txnCtx, branch)
 	newCommitInfo.Description = description
-	if err := ancestry.ValidateName(branch.Name); err != nil {
-		return nil, err
-	}
-	// Check if repo exists
-	_, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type)
+	commitID, branchInfo, err := a.createCommitOnBranch(ctx, txnCtx, newCommitInfo, parent, branch)
 	if err != nil {
-		if pfsdb.IsErrRepoNotFound(err) {
-			return nil, pfsserver.ErrRepoNotFound{Repo: branch.Repo}
-		}
-		return nil, errors.EnsureStack(err)
-	}
-	updateCommitBranchField := false
-	// update 'branch' (which must always be set) and set parent.ID (if 'parent'
-	// was not set)
-	b, err := pfsdb.GetBranch(ctx, txnCtx.SqlTx, branch)
-	if err != nil {
-		if !pfsdb.IsNotFoundError(err) {
-			return nil, errors.Wrap(err, "start commit")
-		}
-		updateCommitBranchField = true // the branch field on the commit will have to be updated after the branch is created.
-	}
-	branchInfo := &pfs.BranchInfo{
-		CreatedBy: txnCtx.Username(),
-	}
-	if b != nil && b.BranchInfo != nil {
-		branchInfo = b.BranchInfo
-	}
-	if branchInfo.Branch == nil {
-		// New branch
-		branchInfo.Branch = branch
-	}
-	// If the parent is unspecified, use the current head of the branch
-	if parent == nil {
-		parent = branchInfo.Head
-	}
-	commitID, err := a.addCommit(ctx, txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true)
-	if err != nil {
-		return nil, err
-	}
-	// Point 'branch' at the new commit
-	branchInfo.Head = newCommitInfo.Commit
-	branchID, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo)
-	if err != nil {
-		return nil, errors.Wrap(err, "start commit")
-	}
-	// update branch field after a new branch is created.
-	if updateCommitBranchField {
-		newCommitInfo.Commit.Branch = branchInfo.Branch
-		if err := pfsdb.UpdateCommitBranch(ctx, txnCtx.SqlTx, commitID, branchID); err != nil {
-			return nil, errors.Wrap(err, "start commit: update branch field after new branch is created")
-		}
+		return nil, errors.Wrap(err, "create commit")
 	}
 	// check if this is happening in a spout pipeline, and alias the spec commit
 	_, ok1 := os.LookupEnv(client.PPSPipelineNameEnv)
@@ -214,12 +160,82 @@ func (a *apiServer) startCommit(
 		// Otherwise, we don't allow user code to start commits on output branches
 		return nil, pfsserver.ErrCommitOnOutputBranch{Branch: branch}
 	}
-	// Defer propagation of the commit until the end of the transaction so we can
+	// Defer propagation of the commit until the end of the transaction, so we can
 	// batch downstream commits together if there are multiple changes.
 	if err := txnCtx.PropagateBranch(branch); err != nil {
 		return nil, err
 	}
 	return &pfsdb.Commit{ID: commitID, CommitInfo: newCommitInfo}, nil
+}
+
+func (a *apiServer) validateStartCommitArgs(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch) error {
+	// Validate arguments:
+	if branchHandle == nil || branchHandle.Name == "" {
+		return errors.Errorf("branch must be specified")
+	}
+	// Check that caller is authorized
+	if err := a.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branchHandle.Repo, auth.Permission_REPO_WRITE); err != nil {
+		return errors.EnsureStack(err)
+	}
+	// Check if repo exists
+	_, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, branchHandle.Repo.Project.Name, branchHandle.Repo.Name, branchHandle.Repo.Type)
+	if err != nil {
+		if pfsdb.IsErrRepoNotFound(err) {
+			return pfsserver.ErrRepoNotFound{Repo: branchHandle.Repo}
+		}
+		return errors.EnsureStack(err)
+	}
+	if err := ancestry.ValidateName(branchHandle.Name); err != nil {
+		return err
+	}
+	return nil
+}
+
+// createCommitOnBranch creates a commit and also creates a branch if needed.
+// it handles updating the commit's 'branch' field after the branch is resolved.
+func (a *apiServer) createCommitOnBranch(
+	ctx context.Context,
+	txnCtx *txncontext.TransactionContext,
+	newCommitInfo *pfs.CommitInfo,
+	parent *pfs.Commit,
+	branchHandle *pfs.Branch,
+) (pfsdb.CommitID, *pfs.BranchInfo, error) {
+	branchInfo, err := getOrDefaultBranchInfo(ctx, txnCtx, branchHandle)
+	if err != nil {
+		return 0, nil, errors.Wrap(err, "create commit")
+	}
+	// If the parent is unspecified, use the current head of the branch.
+	if parent == nil {
+		parent = branchInfo.Head
+	}
+	commitID, err := a.addCommitInfoToDB(ctx, txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true)
+	if err != nil {
+		return 0, nil, err
+	}
+	branchInfo.Head = newCommitInfo.Commit
+	if err := upsertBranchAndSyncCommit(ctx, txnCtx.SqlTx, branchInfo, commitID); err != nil {
+		return 0, nil, errors.Wrap(err, "create commit")
+	}
+	return commitID, branchInfo, nil
+}
+
+// getOrDefaultBranchInfo attempts to get the branchInfo from the database referenced by branchHandle.
+// the purpose of this function is to improve readability for apiServer.addCommitInfoToDB().
+func getOrDefaultBranchInfo(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch) (branchInfo *pfs.BranchInfo, err error) {
+	b, err := pfsdb.GetBranch(ctx, txnCtx.SqlTx, branchHandle)
+	if err != nil {
+		if !pfsdb.IsNotFoundError(err) {
+			return nil, errors.Wrap(err, "get or default branchHandle info")
+		}
+		branchInfo = &pfs.BranchInfo{
+			CreatedBy: txnCtx.Username(),
+			Branch:    branchHandle,
+		}
+	}
+	if b != nil && b.BranchInfo != nil { // The branch exists already in postgres.
+		branchInfo = b.BranchInfo
+	}
+	return branchInfo, nil
 }
 
 // Set child.ParentCommit (if 'parent' has been determined).
@@ -388,7 +404,6 @@ func (a *apiServer) inspectCommit(ctx context.Context, commitHandle *pfs.Commit,
 		}
 	}
 	return commit, nil
-
 }
 
 // inspectCommitInfo takes a Commit and returns the corresponding CommitInfo.
@@ -410,17 +425,17 @@ func (a *apiServer) inspectProcessingCommits(ctx context.Context, commit *pfsdb.
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	if err := pfsdb.WatchCommit(ctx, a.env.DB, a.env.Listener, commit.ID,
-		func(id pfsdb.CommitID, ci *pfs.CommitInfo) error {
+		func(c pfsdb.Commit) error {
 			switch wait {
 			case pfs.CommitState_FINISHING:
-				if ci.Finishing != nil {
-					commit.CommitInfo = ci
+				if c.Finishing != nil {
+					commit.CommitInfo = c.CommitInfo
 					cancel(expectedErr)
 					return nil
 				}
 			case pfs.CommitState_FINISHED:
-				if ci.Finished != nil {
-					commit.CommitInfo = ci
+				if c.Finished != nil {
+					commit.CommitInfo = c.CommitInfo
 					cancel(expectedErr)
 					return nil
 				}
@@ -823,19 +838,19 @@ func (a *apiServer) subscribeCommit(
 		return err
 	}
 	return pfsdb.WatchCommitsInRepo(ctx, a.env.DB, a.env.Listener, repoID,
-		func(id pfsdb.CommitID, commitInfo *pfs.CommitInfo) error { // onUpsert
+		func(c pfsdb.Commit) error { // onUpsert
 			// if branch is provided, make sure the commit was created on that branch
-			if branch != "" && commitInfo.Commit.Branch.Name != branch {
+			if branch != "" && c.Commit.Branch.Name != branch {
 				return nil
 			}
 			// If the origin of the commit doesn't match what we're interested in, skip it
-			if !passesCommitOriginFilter(commitInfo, all, originKind) {
+			if !passesCommitOriginFilter(c.CommitInfo, all, originKind) {
 				return nil
 			}
 			// We don't want to include the `from` commit itself
-			if !(seen[commitInfo.Commit.Id] || (from != nil && from.Id == commitInfo.Commit.Id)) {
+			if !(seen[c.Commit.Id] || (from != nil && from.Id == c.Commit.Id)) {
 				// Wait for the commit to enter the right state
-				commitInfo, err := a.inspectCommitInfo(ctx, proto.Clone(commitInfo.Commit).(*pfs.Commit), state)
+				commitInfo, err := a.inspectCommitInfo(ctx, proto.Clone(c.Commit).(*pfs.Commit), state)
 				if err != nil {
 					return err
 				}
