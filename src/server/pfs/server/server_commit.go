@@ -246,7 +246,7 @@ func (a *apiServer) linkParent(ctx context.Context, txnCtx *txncontext.Transacti
 	// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 	// happen if 'branch' is new and diverges from the existing branch in
 	// 'parent').
-	parentCommit, err := a.resolveCommit(ctx, txnCtx.SqlTx, parent)
+	parentCommit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, parent)
 	if err != nil {
 		return errors.Wrapf(err, "parent commit not found")
 	}
@@ -448,8 +448,41 @@ func (a *apiServer) waitForFinishingOrFinished(ctx context.Context, commit *pfsd
 	return commit, nil
 }
 
-// resolveCommitWithAuth is like resolveCommit, but it does some pre-resolution checks like repo authorization.
 func (a *apiServer) resolveCommitWithAuth(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
+	if err := a.env.Auth.CheckRepoIsAuthorized(ctx, commitHandle.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return a.resolveCommit(ctx, commitHandle)
+}
+
+// resolveCommit creates a transaction, then calls resolveCommitTx in that transaction.
+func (a *apiServer) resolveCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
+	// Resolve the commit in case it specifies a branch head or commit ancestry
+	var commit *pfsdb.Commit
+	if err := a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		var err error
+		commit, err = a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return commit, nil
+}
+
+// resolveCommitTx contains the essential implementation of InspectCommit. it converts 'commit' (which may
+// be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
+// ID. It accepts a postgres transaction so that it can be used in a transaction
+// and avoids an inconsistent call to a.waitForCommit()
+func (a *apiServer) resolveCommitTx(ctx context.Context, sqlTx *pachsql.Tx, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
+	if commitHandle == nil {
+		return nil, errors.Errorf("cannot resolve nil commit")
+	}
+	if commitHandle.Repo == nil {
+		return nil, errors.Errorf("cannot resolve commit with no repo")
+	}
+	if commitHandle.Id == "" && commitHandle.GetBranch().GetName() == "" {
+		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
+	}
 	if commitHandle.AccessRepo().Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commitHandle,
@@ -461,38 +494,6 @@ func (a *apiServer) resolveCommitWithAuth(ctx context.Context, commitHandle *pfs
 			CommitInfo: cinfo,
 			Revision:   0,
 		}, nil
-	}
-	if commitHandle == nil {
-		return nil, errors.Errorf("cannot inspect nil commit")
-	}
-	if err := a.env.Auth.CheckRepoIsAuthorized(ctx, commitHandle.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	// Resolve the commit in case it specifies a branch head or commit ancestry
-	var commit *pfsdb.Commit
-	if err := a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		var err error
-		commit, err = a.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return commit, nil
-}
-
-// resolveCommit contains the essential implementation of InspectCommit. it converts 'commit' (which may
-// be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
-// ID. It accepts a postgres transaction so that it can be used in a transaction
-// and avoids an inconsistent call to a.waitForCommit()
-func (a *apiServer) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
-	if commitHandle == nil {
-		return nil, errors.Errorf("cannot resolve nil commit")
-	}
-	if commitHandle.Repo == nil {
-		return nil, errors.Errorf("cannot resolve commit with no repo")
-	}
-	if commitHandle.Id == "" && commitHandle.GetBranch().GetName() == "" {
-		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
 	}
 	commitHandleCopy := proto.Clone(commitHandle).(*pfs.Commit) // back up user commit, for error reporting
 	// Extract any ancestor tokens from 'commit.ID' (i.e. ~, ^ and .)
@@ -832,7 +833,7 @@ func (a *apiServer) clearCommit(ctx context.Context, commitHandle *pfs.Commit) e
 }
 
 func (a *apiServer) squashCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, recursive bool) error {
-	commit, err := a.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
+	commit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -870,7 +871,7 @@ func (a *apiServer) squashCommit(ctx context.Context, txnCtx *txncontext.Transac
 }
 
 func (a *apiServer) dropCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, recursive bool) error {
-	commit, err := a.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
+	commit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -958,7 +959,7 @@ func (a *apiServer) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*
 	if err := a.env.Auth.CheckRepoIsAuthorized(ctx, commitHandle.Repo, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
-	commit, err := a.resolveCommitWithAuth(ctx, commitHandle)
+	commit, err := a.resolveCommit(ctx, commitHandle)
 	if err != nil {
 		return nil, nil, err
 	}

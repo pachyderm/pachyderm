@@ -1,8 +1,9 @@
 package server
 
 import (
+	"bytes"
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/task"
+	"io"
 	"math"
 	"path"
 	"path/filepath"
@@ -12,6 +13,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
@@ -21,10 +25,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func (a *apiServer) getCompactedDiffFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
@@ -60,7 +64,7 @@ func (a *apiServer) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb
 			branch.Name = commitID
 			commitID = ""
 		}
-		commit, err := a.resolveCommitWithAuth(ctx, commitHandle)
+		commit, err := a.resolveCommit(ctx, commitHandle)
 		if err != nil {
 			if !errutil.IsNotFoundError(err) || branch == nil || branch.Name == "" {
 				return err
@@ -105,6 +109,70 @@ func (a *apiServer) oneOffModifyFile(ctx context.Context, renewer *fileset.Renew
 	})
 }
 
+type modifyFileSource interface {
+	Recv() (*pfs.ModifyFileRequest, error)
+}
+
+// modifyFileFromSource reads from a modifyFileSource server until io.EOF and writes changes to an UnorderedWriter.
+// SetCommit messages will result in an error.
+func (a *apiServer) modifyFileFromSource(ctx context.Context, uw *fileset.UnorderedWriter, server modifyFileSource) (int64, error) {
+	var bytesRead int64
+	for {
+		msg, err := server.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return bytesRead, errors.EnsureStack(err)
+		}
+		switch mod := msg.Body.(type) {
+		case *pfs.ModifyFileRequest_AddFile:
+			var err error
+			var n int64
+			p := mod.AddFile.Path
+			t := mod.AddFile.Datum
+			switch src := mod.AddFile.Source.(type) {
+			case *pfs.AddFile_Raw:
+				n, err = putFileRaw(ctx, uw, p, t, src.Raw)
+			case *pfs.AddFile_Url:
+				n, err = putFileURL(ctx, a.env.TaskService, uw, p, t, src.Url)
+			default:
+				// need to write empty data to path
+				n, err = putFileRaw(ctx, uw, p, t, &wrapperspb.BytesValue{})
+			}
+			if err != nil {
+				return bytesRead, err
+			}
+			bytesRead += n
+		case *pfs.ModifyFileRequest_DeleteFile:
+			if err := deleteFile(ctx, uw, mod.DeleteFile); err != nil {
+				return bytesRead, err
+			}
+		case *pfs.ModifyFileRequest_CopyFile:
+			cf := mod.CopyFile
+			if err := a.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Datum); err != nil {
+				return bytesRead, err
+			}
+		case *pfs.ModifyFileRequest_SetCommit:
+			return bytesRead, errors.Errorf("cannot set commit")
+		default:
+			return bytesRead, errors.Errorf("unrecognized message type")
+		}
+	}
+	return bytesRead, nil
+}
+
+func putFileRaw(ctx context.Context, uw *fileset.UnorderedWriter, path, tag string, src *wrapperspb.BytesValue) (int64, error) {
+	if err := uw.Put(ctx, path, tag, true, bytes.NewReader(src.Value)); err != nil {
+		return 0, err
+	}
+	return int64(len(src.Value)), nil
+}
+
+func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
+	return uw.Delete(ctx, request.Path, request.Datum)
+}
+
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
 func (a *apiServer) withCommitUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, commit *pfsdb.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	id, err := withUnorderedWriter(ctx, a.storage, renewer, cb, fileset.WithParentID(func() (*fileset.ID, error) {
@@ -143,7 +211,7 @@ func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *
 }
 
 func (a *apiServer) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
-	srcC, err := a.resolveCommitWithAuth(ctx, src.Commit)
+	srcC, err := a.resolveCommit(ctx, src.Commit)
 	if err != nil {
 		return err
 	}
@@ -614,7 +682,7 @@ func (a *apiServer) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles,
 }
 
 func (a *apiServer) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, filesetID fileset.ID) error {
-	commit, err := a.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
+	commit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
 	}
