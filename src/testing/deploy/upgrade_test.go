@@ -89,6 +89,13 @@ func helmValuesPreGoCDK(numPachds int) (map[string]string, map[string]string) {
 			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
 			"pachd.storage.minio.id":       "minioadmin",
 			"pachd.storage.minio.secret":   "minioadmin",
+			// PostgreSQL does not support in-place version upgrades.  Use
+			// PostgreSQL 15 for tests.
+			"general.postgresql.postgresqlAuthType": "scram-sha-256",
+			"postgresql.image.repository":           "bitnami/postgresql",
+			"postgresql.image.tag":                  "15.7.0",
+			"pgbouncer.image.repository":            "bitnami/pgbouncer",
+			"pgbouncer.image.tag":                   "1.17.0",
 		},
 		map[string]string{
 			"pachd.storage.minio.signature": "",
