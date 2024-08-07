@@ -78,7 +78,7 @@ func (a *apiServer) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Tran
 		commitInfo.Finished = txnCtx.Timestamp
 		commitInfo.Details = &pfs.CommitInfo_Details{}
 	}
-	commitId, err := a.createCommit(ctx, txnCtx, commitInfo, parent, directProvenance, false /* needsFinishedParent */)
+	commitId, err := a.addCommitInfoToDB(ctx, txnCtx, commitInfo, parent, directProvenance, false /* needsFinishedParent */)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (a *apiServer) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Tran
 // NOTE: Requiring source commits to have finishing / finished parents ensures that the commits are not compacted
 // in a pathological order (finishing later commits before earlier commits will result with us compacting
 // the earlier commits multiple times).
-func (a *apiServer) createCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) (pfsdb.CommitID, error) {
+func (a *apiServer) addCommitInfoToDB(ctx context.Context, txnCtx *txncontext.TransactionContext, newCommitInfo *pfs.CommitInfo, parent *pfs.Commit, directProvenance []*pfs.Branch, needsFinishedParent bool) (pfsdb.CommitID, error) {
 	if err := a.linkParent(ctx, txnCtx, newCommitInfo, parent, needsFinishedParent); err != nil {
 		return 0, err
 	}
@@ -149,7 +149,7 @@ func (a *apiServer) startCommit(
 	}
 	newCommitInfo := newUserCommitInfo(txnCtx, branch)
 	newCommitInfo.Description = description
-	commitID, branchInfo, err := a.atomicCreateCommit(ctx, txnCtx, newCommitInfo, parent, branch)
+	commitID, branchInfo, err := a.createCommitOnBranch(ctx, txnCtx, newCommitInfo, parent, branch)
 	if err != nil {
 		return nil, errors.Wrap(err, "create commit")
 	}
@@ -191,9 +191,9 @@ func (a *apiServer) validateStartCommitArgs(ctx context.Context, txnCtx *txncont
 	return nil
 }
 
-// atomicCreateCommit creates a commit and also creates a branch if needed.
+// createCommitOnBranch creates a commit and also creates a branch if needed.
 // it handles updating the commit's 'branch' field after the branch is resolved.
-func (a *apiServer) atomicCreateCommit(
+func (a *apiServer) createCommitOnBranch(
 	ctx context.Context,
 	txnCtx *txncontext.TransactionContext,
 	newCommitInfo *pfs.CommitInfo,
@@ -208,19 +208,19 @@ func (a *apiServer) atomicCreateCommit(
 	if parent == nil {
 		parent = branchInfo.Head
 	}
-	commitID, err := a.createCommit(ctx, txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true)
+	commitID, err := a.addCommitInfoToDB(ctx, txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true)
 	if err != nil {
 		return 0, nil, err
 	}
 	branchInfo.Head = newCommitInfo.Commit
-	if err := atomicUpsertBranchAndCommitBranch(ctx, txnCtx.SqlTx, branchInfo, commitID); err != nil {
+	if err := upsertBranchAndSyncCommit(ctx, txnCtx.SqlTx, branchInfo, commitID); err != nil {
 		return 0, nil, errors.Wrap(err, "create commit")
 	}
 	return commitID, branchInfo, nil
 }
 
 // getOrDefaultBranchInfo attempts to get the branchInfo from the database referenced by branchHandle.
-// the purpose of this function is to improve readability for apiServer.createCommit().
+// the purpose of this function is to improve readability for apiServer.addCommitInfoToDB().
 func getOrDefaultBranchInfo(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch) (branchInfo *pfs.BranchInfo, err error) {
 	b, err := pfsdb.GetBranch(ctx, txnCtx.SqlTx, branchHandle)
 	if err != nil {

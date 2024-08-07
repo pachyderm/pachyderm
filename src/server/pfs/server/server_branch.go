@@ -67,7 +67,7 @@ func (a *apiServer) propagateBranches(ctx context.Context, txnCtx *txncontext.Tr
 	})
 	// add new commits, set their ancestry + provenance pointers, and advance branch heads
 	for _, bi := range propagatedBranches {
-		// TODO(acohen4): can we just make calls to createCommit() here?
+		// TODO(acohen4): can we just make calls to addCommitInfoToDB() here?
 		// Do not propagate an open commit onto spout output branches (which should
 		// only have a single provenance on a spec commit)
 		if len(bi.Provenance) == 1 && bi.Provenance[0].Repo.Type == pfs.SpecRepoType {
@@ -156,24 +156,24 @@ func (a *apiServer) fillNewBranches(ctx context.Context, txnCtx *txncontext.Tran
 			newRepoCommits[p.Repo.Key()] = head
 		}
 		branchInfo := &pfs.BranchInfo{Branch: p, Head: head.CommitInfo.Commit, CreatedBy: txnCtx.Username()}
-		if err := atomicUpsertBranchAndCommitBranch(ctx, txnCtx.SqlTx, branchInfo, newHead.ID); err != nil {
-			return errors.Wrap(err, "fill new branches")
+		if err := upsertBranchAndSyncCommit(ctx, txnCtx.SqlTx, branchInfo, newHead.ID); err != nil {
+			return errors.Wrap(err, "fill new branches: upsert branch")
 		}
 	}
 	return nil
 }
 
-// atomicUpsertBranchAndCommitBranch upserts a branch but also updates the head commit's 'Branch' field if needed.
+// upsertBranchAndSyncCommit upserts a branch but also updates the head commit's 'Branch' field if needed.
 // the reason why this exists is because, in our data model, a branch must have a head commit, but a commit is also dependent
 // on the branch name.
 // the 'Branch' field is targeted for deprecation, so this function should make it easy to find all the callers.
-func atomicUpsertBranchAndCommitBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInfo, headID pfsdb.CommitID) error {
+func upsertBranchAndSyncCommit(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInfo, headID pfsdb.CommitID) error {
 	branchID, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 	if err != nil {
 		return errors.Wrap(err, "update head")
 	}
 	if headID != 0 {
-		return errors.Wrap(pfsdb.UpdateCommitBranch(ctx, tx, headID, branchID), "atomic upsert branch and commit branch")
+		return errors.Wrap(pfsdb.UpdateCommitBranch(ctx, tx, headID, branchID), "upsert branch and sync commit")
 	}
 	return nil
 }
@@ -270,7 +270,7 @@ func (a *apiServer) createBranch(ctx context.Context, txnCtx *txncontext.Transac
 	if trigger != nil && trigger.Branch != "" {
 		branchInfo.Trigger = trigger
 	}
-	if err := atomicUpsertBranchAndCommitBranch(ctx, txnCtx.SqlTx, branchInfo, newHead); err != nil {
+	if err := upsertBranchAndSyncCommit(ctx, txnCtx.SqlTx, branchInfo, newHead); err != nil {
 		return errors.Wrap(err, "create branch")
 	}
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
