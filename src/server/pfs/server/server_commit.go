@@ -637,12 +637,12 @@ func (a *apiServer) listCommit(
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := a.resolveCommitWithAuth(ctx, from); err != nil {
+		if _, err := a.resolveCommit(ctx, from); err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		ci, err := a.resolveCommitWithAuth(ctx, to)
+		ci, err := a.resolveCommit(ctx, to)
 		if err != nil {
 			return err
 		}
@@ -822,7 +822,7 @@ func (a *apiServer) subscribeCommit(
 }
 
 func (a *apiServer) clearCommit(ctx context.Context, commitHandle *pfs.Commit) error {
-	commit, err := a.resolveCommitWithAuth(ctx, commitHandle)
+	commit, err := a.resolveCommit(ctx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -969,7 +969,7 @@ func (a *apiServer) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*
 			return nil, nil, err
 		}
 	}
-	id, err := a.getFileSet(ctx, commit)
+	id, err := a.getFileset(ctx, commit)
 	if err != nil {
 		return nil, nil, err
 	}

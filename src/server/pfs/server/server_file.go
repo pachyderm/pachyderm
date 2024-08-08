@@ -78,7 +78,7 @@ func (a *apiServer) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb
 				return pfsserver.ErrCommitFinished{Commit: commit.Commit}
 			}
 			return a.oneOffModifyFile(ctx, renewer, branch, cb, fileset.WithParentID(func() (*fileset.ID, error) {
-				parentID, err := a.getFileSet(ctx, commit)
+				parentID, err := a.getFileset(ctx, commit)
 				if err != nil {
 					return nil, err
 				}
@@ -176,7 +176,7 @@ func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.D
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
 func (a *apiServer) withCommitUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, commit *pfsdb.Commit, cb func(*fileset.UnorderedWriter) error) error {
 	id, err := withUnorderedWriter(ctx, a.storage, renewer, cb, fileset.WithParentID(func() (*fileset.ID, error) {
-		parentID, err := a.getFileSet(ctx, commit)
+		parentID, err := a.getFileset(ctx, commit)
 		if err != nil {
 			return nil, err
 		}
@@ -541,7 +541,7 @@ func (a *apiServer) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb
 			return errors.EnsureStack(err)
 		}
 	}
-	newC, err := a.resolveCommitWithAuth(ctx, newFile.Commit)
+	newC, err := a.resolveCommit(ctx, newFile.Commit)
 	if err != nil {
 		return err
 	}
@@ -610,7 +610,7 @@ func (a *apiServer) createFileSet(ctx context.Context, cb func(*fileset.Unordere
 	return id, nil
 }
 
-func (a *apiServer) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
+func (a *apiServer) getFileset(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
 	// Get the total file set if the commit has been finished.
 	if commit.Finished != nil && commit.Error == "" {
 		id, err := a.commitStore.GetTotalFileSet(ctx, commit)
@@ -626,7 +626,7 @@ func (a *apiServer) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*file
 	var ids []fileset.ID
 	baseCommitHandle := commit.ParentCommit
 	for baseCommitHandle != nil {
-		baseCommit, err := a.resolveCommitWithAuth(ctx, baseCommitHandle)
+		baseCommit, err := a.resolveCommit(ctx, baseCommitHandle)
 		if err != nil {
 			return nil, err
 		}
@@ -638,7 +638,7 @@ func (a *apiServer) getFileSet(ctx context.Context, commit *pfsdb.Commit) (*file
 				}
 			}
 			// ¯\_(ツ)_/¯
-			baseId, err := a.getFileSet(ctx, baseCommit)
+			baseId, err := a.getFileset(ctx, baseCommit)
 			if err != nil {
 				return nil, err
 			}
@@ -729,7 +729,7 @@ func (a *apiServer) compactDiffFileSet(ctx context.Context, compactor *compactor
 }
 
 func (a *apiServer) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
-	id, err := a.getFileSet(ctx, commit)
+	id, err := a.getFileset(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -747,7 +747,7 @@ func (a *apiServer) compactTotalFileSet(ctx context.Context, compactor *compacto
 }
 
 func (a *apiServer) commitSizeUpperBound(ctx context.Context, commit *pfsdb.Commit) (int64, error) {
-	fsid, err := a.getFileSet(ctx, commit)
+	fsid, err := a.getFileset(ctx, commit)
 	if err != nil {
 		return 0, err
 	}

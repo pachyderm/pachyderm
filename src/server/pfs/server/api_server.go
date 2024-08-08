@@ -819,12 +819,12 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	commit, err := a.resolveCommitWithAuth(ctx, req.Commit)
+	commit, err := a.resolveCommit(ctx, req.Commit)
 	if err != nil {
 		return nil, errors.Wrap(err, "get file set")
 	}
 	// if the commit is forgotten, get diff fileset will not be executed
-	filesetID, err := a.getFileSet(ctx, commit)
+	filesetID, err := a.getFileset(ctx, commit)
 	if err != nil {
 		return nil, errors.Wrap(err, "get file set")
 	}

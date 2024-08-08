@@ -252,7 +252,7 @@ func (m *Master) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 	}
 	// Use the current head commit start time as the previous tick.
 	// This prevents the timer from restarting if the master restarts.
-	ci, err := m.resolveCommitWithAuth(ctx, branchInfo.Head)
+	ci, err := m.resolveCommit(ctx, branchInfo.Head)
 	if err != nil {
 		return err
 	}
