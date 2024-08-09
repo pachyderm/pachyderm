@@ -1702,7 +1702,7 @@ func TestMalformedPipeline(t *testing.T) {
 		SpecCommit: &pfs.Commit{},
 	})
 	require.YesError(t, err)
-	require.Matches(t, "cannot resolve commit with no repo", err.Error())
+	require.ErrorContains(t, err, "cannot pick commit")
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline:   client.NewPipeline(pfs.DefaultProjectName, pipelineName),
@@ -1710,7 +1710,7 @@ func TestMalformedPipeline(t *testing.T) {
 		SpecCommit: &pfs.Commit{Branch: &pfs.Branch{}},
 	})
 	require.YesError(t, err)
-	require.Matches(t, "cannot resolve commit with no repo", err.Error())
+	require.ErrorContains(t, err, "cannot pick commit")
 
 	dataRepo := tu.UniqueString("TestMalformedPipeline_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))

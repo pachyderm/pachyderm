@@ -1206,11 +1206,11 @@ func pickCommitAncestorOf(ctx context.Context, ancestorOf *pfs.CommitPicker_Ance
 	offset := 0
 	commitPtr := startCommit.ID
 	if err := forEachCommitAncestorUntilRoot(ctx, tx, startCommit.ID, func(parentId, _ CommitID) error {
-		commitPtr = parentId
-		offset++
 		if uint32(offset) == ancestorOf.Offset {
 			return errutil.ErrBreak
 		}
+		commitPtr = parentId
+		offset++
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "picking commit")
@@ -1235,13 +1235,13 @@ func pickCommitBranchRoot(ctx context.Context, branchRoot *pfs.CommitPicker_Bran
 	if err != nil {
 		return nil, errors.Wrap(err, "picking commit")
 	}
-	ancestry := make([]CommitID, 0)
-	depthToRoot := 0
+	pathToRoot := []CommitID{headCommit.ID}
+	depthToRoot := 1
 	if err := forEachCommitAncestorUntilRoot(ctx, tx, headCommit.ID, func(parentId, _ CommitID) error {
+		pathToRoot = append(pathToRoot, parentId)
 		depthToRoot++
-		ancestry = append(ancestry, parentId)
-		if uint32(len(ancestry)) > branchRoot.Offset+1 { //+1 here handles case where offset is 0.
-			ancestry = ancestry[1:]
+		if uint32(len(pathToRoot)) > branchRoot.Offset+1 { //+1 here handles case where offset is 0.
+			pathToRoot = pathToRoot[1:] // this creates a 'sliding window'. If the window is full, drop the first item.
 		}
 		return nil
 	}); err != nil {
@@ -1251,15 +1251,15 @@ func pickCommitBranchRoot(ctx context.Context, branchRoot *pfs.CommitPicker_Bran
 		return nil, errors.Errorf("picking commit: invalid offset from branch root for head commit: %s, offset: %d, maximum depth: %d",
 			CommitKey(headCommit.Commit), branchRoot.Offset, depthToRoot)
 	}
-	if len(ancestry) == 0 {
+	if len(pathToRoot) == 0 {
 		return nil, errors.Errorf("picking commit: branch root not found for head commit: %s", CommitKey(headCommit.Commit))
 	}
-	commitInfo, err := GetCommitInfo(ctx, tx, ancestry[0])
+	commitInfo, err := GetCommitInfo(ctx, tx, pathToRoot[0])
 	if err != nil {
 		return nil, errors.Wrap(err, "picking commit")
 	}
 	commit := &Commit{
-		ID:         ancestry[0],
+		ID:         pathToRoot[0],
 		CommitInfo: commitInfo,
 	}
 	return commit, nil

@@ -221,7 +221,7 @@ func (a *apiServer) createBranch(ctx context.Context, txnCtx *txncontext.Transac
 	}
 	// if the user passed a commit to point this branch at, resolve it
 	if commitHandle != nil {
-		c, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
+		c, err := a.pickCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 		if err != nil {
 			return errors.Wrapf(err, "unable to inspect %s", commitHandle)
 		}

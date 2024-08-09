@@ -8,6 +8,7 @@ import (
 	"hash"
 	"regexp"
 	"strconv"
+	"strings"
 	"unicode"
 
 	"google.golang.org/protobuf/proto"
@@ -112,6 +113,9 @@ func (c *Commit) Key() string {
 	}
 	if c.Repo == nil {
 		return "<nil repo>@" + c.Id
+	}
+	if (c.Id == "" || strings.ContainsAny(c.Id, ".^")) && c.Branch != nil && c.Branch.Name != "" {
+		return c.Repo.Key() + "@" + c.Branch.Name + c.Id
 	}
 	return c.Repo.Key() + "@" + c.Id
 }
@@ -343,6 +347,38 @@ func onlyHex(p []byte) bool {
 	return true
 }
 
+type ancestryRegexp struct {
+	*regexp.Regexp
+	partMap map[string][]byte
+}
+
+func makeAncestryRegexp(ancestryPart []byte) (ancestryRegexp, error) {
+	// ?P<> syntax assigns each capture group a name.
+	re := regexp.MustCompile(`^(?P<dot>\.\d+)?((?P<carrots>\^+)|(?P<carrotWithNumbers>\^\d+)|(?P<tildes>~+)|(?P<tildeWithNumbers>~\d+))?$`)
+	if !re.Match(ancestryPart) {
+		return ancestryRegexp{}, errors.New("invalid Ancestry format")
+	}
+	parts := re.FindSubmatch(ancestryPart)
+	partMap := make(map[string][]byte) // a partMap is easier to work with.
+	partNames := re.SubexpNames()
+	for i, part := range parts {
+		partMap[partNames[i]] = part
+	}
+	ancestryRe := ancestryRegexp{
+		Regexp:  re,
+		partMap: partMap,
+	}
+	return ancestryRe, nil
+}
+
+const (
+	dot               = "dot"
+	carrots           = "carrots"
+	carrotWithNumbers = "carrotWithNumbers"
+	tildes            = "tildes"
+	tildeWithNumbers  = "tildeWithNumbers"
+)
+
 // counts the overall offset of branch root and ancestor of
 // also removes everything of the ancestry reference
 // this function also check following circumstances for ancestry reference:
@@ -354,31 +390,39 @@ func onlyHex(p []byte) bool {
 func countOffsetAndClean(b *[]byte, offset *uint32) error {
 	atIndex := bytes.IndexAny(*b, "@")
 	// first . ^ after @
-	firstIndex := bytes.IndexAny((*b)[atIndex+1:], "^.") + atIndex + 1
+	firstIndex := bytes.IndexAny((*b)[atIndex+1:], "~^.") + atIndex + 1
 	ancestryPart := (*b)[firstIndex:]
-	re := regexp.MustCompile(`^(\.\d+)?((\^+)|(\^\d+))?$`)
-	if !re.Match(ancestryPart) {
-		return errors.New("invalid Ancestry format")
+	re, err := makeAncestryRegexp(ancestryPart)
+	if err != nil {
+		return errors.Wrap(err, "count offset and clean")
 	}
-	parts := re.FindSubmatch(ancestryPart)
 	var branchRootOffset, ancestorOfOffset int
-	if len(parts[1]) > 0 {
-		num, err := strconv.Atoi(string(parts[1][1:]))
+	if len(re.partMap[dot]) > 0 {
+		num, err := strconv.Atoi(string(re.partMap[dot][1:]))
 		if err != nil {
 			return errors.New("invalid descendants format")
 		}
-		branchRootOffset = num
+		// in the syntax, branch.N is the N'th commit in sequence, rather than an offset.
+		// So, master.1 is the first commit.
+		branchRootOffset = num - 1
 	}
-	// part 4 is ancestorOf with number
-	if len(parts[4]) > 0 {
-		num, err := strconv.Atoi(string(parts[4][1:]))
+	switch {
+	case len(re.partMap[carrotWithNumbers]) > 0:
+		num, err := strconv.Atoi(string(re.partMap[carrotWithNumbers][1:]))
 		if err != nil {
 			return errors.New("invalid ancestor format")
 		}
 		ancestorOfOffset = num
-	} else {
-		// part 2 is ancestorOf; it's zero if it's empty
-		ancestorOfOffset = len(parts[2])
+	case len(re.partMap[tildeWithNumbers]) > 0:
+		num, err := strconv.Atoi(string(re.partMap[tildeWithNumbers][1:]))
+		if err != nil {
+			return errors.New("invalid ancestor format")
+		}
+		ancestorOfOffset = num
+	case len(re.partMap[carrots]) > 0:
+		ancestorOfOffset = len(re.partMap[carrots])
+	case len(re.partMap[tildes]) > 0:
+		ancestorOfOffset = len(re.partMap[tildes])
 	}
 	if ancestorOfOffset == 0 {
 		*offset = uint32(branchRootOffset)
@@ -386,8 +430,8 @@ func countOffsetAndClean(b *[]byte, offset *uint32) error {
 	if branchRootOffset == 0 {
 		*offset = uint32(ancestorOfOffset)
 	}
-	if branchRootOffset != 0 && ancestorOfOffset != 0 {
-		if ancestorOfOffset >= branchRootOffset {
+	if len(re.partMap[dot]) > 0 && ancestorOfOffset != 0 { // branchRootCould be 0 in the case of '.1'
+		if ancestorOfOffset >= branchRootOffset+1 {
 			return errors.New("there should be less ancestors than descendants")
 		}
 		*offset = uint32(branchRootOffset - ancestorOfOffset)
@@ -427,7 +471,7 @@ func (p *CommitPicker) UnmarshalText(b []byte) error {
 		}
 		return nil
 	}
-	if bytes.Contains(id, []byte{'^'}) {
+	if bytes.Contains(id, []byte{'^'}) || bytes.Contains(id, []byte{'~'}) {
 		var offset uint32
 		if err := countOffsetAndClean(&b, &offset); err != nil {
 			return errors.Wrapf(err, "calculate offset %s", b)

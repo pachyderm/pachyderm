@@ -1829,47 +1829,48 @@ func TestAncestrySyntax(t *testing.T) {
 
 	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master^")
 	require.NoError(t, err)
-	require.Equal(t, commit2, commitInfo.Commit)
+	require.NoDiff(t, commit2, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master~")
 	require.NoError(t, err)
-	require.Equal(t, commit2, commitInfo.Commit)
+	require.NoDiff(t, commit2, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master^1")
 	require.NoError(t, err)
-	require.Equal(t, commit2, commitInfo.Commit)
+	require.NoDiff(t, commit2, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master~1")
 	require.NoError(t, err)
-	require.Equal(t, commit2, commitInfo.Commit)
+	require.NoDiff(t, commit2, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master^^")
 	require.NoError(t, err)
-	require.Equal(t, commit1, commitInfo.Commit)
+	require.NoDiff(t, commit1, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master~~")
 	require.NoError(t, err)
-	require.Equal(t, commit1, commitInfo.Commit)
+	require.NoDiff(t, commit1, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master^2")
 	require.NoError(t, err)
-	require.Equal(t, commit1, commitInfo.Commit)
+	require.NoDiff(t, commit1, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master~2")
 	require.NoError(t, err)
-	require.Equal(t, commit1, commitInfo.Commit)
+	require.NoDiff(t, commit1, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master.1")
 	require.NoError(t, err)
-	require.Equal(t, commit1, commitInfo.Commit)
+	require.NoDiff(t, commit1, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master.2")
 	require.NoError(t, err)
-	require.Equal(t, commit2, commitInfo.Commit)
+	require.NoDiff(t, commit2, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
+	fmt.Println(commit1.Key(), commit2.Key(), commit3.Key())
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master.3")
 	require.NoError(t, err)
-	require.Equal(t, commit3, commitInfo.Commit)
+	require.NoDiff(t, commit3, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	_, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master^^^")
 	require.YesError(t, err)
@@ -1890,22 +1891,22 @@ func TestAncestrySyntax(t *testing.T) {
 
 	var buffer bytes.Buffer
 	require.NoError(t, env.PachClient.GetFile(client.NewCommit(pfs.DefaultProjectName, repo, "", ancestry.Add("master", 0)), "file", &buffer))
-	require.Equal(t, "3", buffer.String())
+	require.NoDiff(t, "3", buffer.String(), nil)
 	buffer.Reset()
 	require.NoError(t, env.PachClient.GetFile(client.NewCommit(pfs.DefaultProjectName, repo, "", ancestry.Add("master", 1)), "file", &buffer))
-	require.Equal(t, "2", buffer.String())
+	require.NoDiff(t, "2", buffer.String(), nil)
 	buffer.Reset()
 	require.NoError(t, env.PachClient.GetFile(client.NewCommit(pfs.DefaultProjectName, repo, "", ancestry.Add("master", 2)), "file", &buffer))
-	require.Equal(t, "1", buffer.String())
+	require.NoDiff(t, "1", buffer.String(), nil)
 	buffer.Reset()
 	require.NoError(t, env.PachClient.GetFile(client.NewCommit(pfs.DefaultProjectName, repo, "", ancestry.Add("master", -1)), "file", &buffer))
-	require.Equal(t, "1", buffer.String())
+	require.NoDiff(t, "1", buffer.String(), nil)
 	buffer.Reset()
 	require.NoError(t, env.PachClient.GetFile(client.NewCommit(pfs.DefaultProjectName, repo, "", ancestry.Add("master", -2)), "file", &buffer))
-	require.Equal(t, "2", buffer.String())
+	require.NoDiff(t, "2", buffer.String(), nil)
 	buffer.Reset()
 	require.NoError(t, env.PachClient.GetFile(client.NewCommit(pfs.DefaultProjectName, repo, "", ancestry.Add("master", -3)), "file", &buffer))
-	require.Equal(t, "3", buffer.String())
+	require.NoDiff(t, "3", buffer.String(), nil)
 
 	// Adding a bunch of commits to the head of the branch shouldn't change the forward references.
 	// (It will change backward references.)
@@ -1914,15 +1915,15 @@ func TestAncestrySyntax(t *testing.T) {
 	}
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master.1")
 	require.NoError(t, err)
-	require.Equal(t, commit1, commitInfo.Commit)
+	require.NoDiff(t, commit1, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master.2")
 	require.NoError(t, err)
-	require.Equal(t, commit2, commitInfo.Commit)
+	require.NoDiff(t, commit2, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 
 	commitInfo, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", "master.3")
 	require.NoError(t, err)
-	require.Equal(t, commit3, commitInfo.Commit)
+	require.NoDiff(t, commit3, commitInfo.Commit, []cmp.Option{protocmp.Transform()})
 }
 
 // Provenance implements the following DAG

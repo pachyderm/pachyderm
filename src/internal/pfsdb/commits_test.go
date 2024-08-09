@@ -493,11 +493,11 @@ func TestGetCommitAncestry(t *testing.T) {
 		for trees := 0; trees < 5; trees++ {
 			makeCommitTree(ctx, t, 5, db)
 		}
-		startId := pfsdb.CommitID(12)
+		startId := pfsdb.CommitID(10)
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 0)
 			require.NoError(t, err, "should be able to get ancestry")
-			expected := map[pfsdb.CommitID]pfsdb.CommitID{8: 7, 9: 8, 10: 9, 11: 10, 12: 11}
+			expected := map[pfsdb.CommitID]pfsdb.CommitID{7: 6, 8: 7, 9: 8, 10: 9}
 			if diff := cmp.Diff(expected, ancestry,
 				cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
 				t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)
@@ -528,7 +528,7 @@ func makeCommitTree(ctx context.Context, t *testing.T, depth int, db *pachsql.DB
 		_, err := pfsdb.CreateCommit(ctx, tx, rootCommit)
 		require.NoError(t, err, "should be able to create root commit")
 		parent := rootCommit
-		for i := 0; i < depth; i++ {
+		for i := 1; i < depth; i++ { //depth starts at 1.
 			child := testCommit(ctx, t, tx, testRepoName)
 			child.ParentCommit = parent.Commit
 			_, err := pfsdb.CreateCommit(ctx, tx, child)
@@ -685,7 +685,7 @@ func testPickCommitByBranchHead(t *testing.T) {
 
 func testPickCommitByBranchRoot(t *testing.T) {
 	t.Parallel()
-	offset := uint32(1002)
+	offset := uint32(10)
 	branchRootPicker := &pfs.CommitPicker{
 		Picker: &pfs.CommitPicker_BranchRoot_{
 			BranchRoot: &pfs.CommitPicker_BranchRoot{
@@ -696,11 +696,11 @@ func testPickCommitByBranchRoot(t *testing.T) {
 	}
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
-	depth := 1200
+	depth := 12
 	expected := &pfsdb.Commit{ID: pfsdb.CommitID(offset + 1)} // ID starts at 1.
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		makeCommitTree(ctx, t, depth, db)
-		commitInfo, err := pfsdb.GetCommitInfo(ctx, tx, pfsdb.CommitID(depth+1))
+		commitInfo, err := pfsdb.GetCommitInfo(ctx, tx, pfsdb.CommitID(depth))
 		require.NoError(t, err, "should be able to get commit")
 		branchInfo := &pfs.BranchInfo{
 			Branch: &pfs.Branch{
@@ -724,6 +724,11 @@ func testPickCommitByBranchRoot(t *testing.T) {
 		branchRootPicker.GetBranchRoot().Offset = uint32(depth + 1)
 		_, err = pfsdb.PickCommit(ctx, branchRootPicker, tx)
 		require.YesError(t, err, "should not be able to pick commit in invalid range")
+		// test offset == depth - 1. This should return the head
+		branchRootPicker.GetBranchRoot().Offset = uint32(depth)
+		got, err = pfsdb.PickCommit(ctx, branchRootPicker, tx)
+		require.NoError(t, err, "should be able to pick commit")
+		require.Equal(t, branchInfo.Head.Key(), got.Commit.Key())
 	})
 }
 
@@ -746,7 +751,7 @@ func testPickCommitByAncestor(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
 	depth := 20
-	headId := pfsdb.CommitID(depth + 1)
+	headId := pfsdb.CommitID(depth)
 	expected := &pfsdb.Commit{ID: headId - pfsdb.CommitID(offset)}
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		makeCommitTree(ctx, t, depth, db)
