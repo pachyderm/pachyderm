@@ -15,9 +15,3 @@ js_library(
     srcs = ["package.json"],
     visibility = ["//visibility:public"],
 )
-
-js_library(
-    name = "jest_config",
-    srcs = ["tests/newTest.js"],
-    visibility = ["//visibility:public"],
-)
