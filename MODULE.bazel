@@ -438,7 +438,7 @@ npm.npm_translate_lock(
     npm_package_lock = "//console/frontend:package-lock.json",
     verify_node_modules_ignored = "//:.bazelignore",
 )
-use_repo(npm, "npm_console_backend")
+use_repo(npm, "npm_console_backend", "npm_console_frontend")
 
 # Typescript
 rules_ts_ext = use_extension("@aspect_rules_ts//ts:extensions.bzl", "ext", dev_dependency = True)
