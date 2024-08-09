@@ -1,0 +1,38 @@
+{
+  "[javascript]": {
+    "editor.tabSize": 2
+  },
+  "[typescript]": {
+    "editor.tabSize": 2
+  },
+  "[javascriptreact]": {
+    "editor.tabSize": 2
+  },
+  "[typescriptreact]": {
+    "editor.tabSize": 2
+  },
+  "[json]": {
+    "editor.tabSize": 2
+  },
+  "[graphql]": {
+    "editor.tabSize": 2
+  },
+  "[css]": {
+    "editor.tabSize": 2
+  },
+  "editor.detectIndentation": false,
+  "editor.insertSpaces": true,
+
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  "css.validate": false,
+  "less.validate": false,
+  "scss.validate": false,
+
+  "json.schemas": [
+    {
+      "fileMatch": ["*.pipeline.json"],
+      "url": "https://raw.githubusercontent.com/pachyderm/pachyderm/master/src/internal/jsonschema/pps_v2/CreatePipelineRequest.schema.json"
+    }
+  ]
+}

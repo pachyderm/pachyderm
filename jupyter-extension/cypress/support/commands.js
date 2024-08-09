@@ -36,7 +36,7 @@ Cypress.Commands.add('isAppReady', () => {
   // Wait for the splash screen to disappear
   cy.get('[id="jupyterlab-splash"]').should('not.exist');
   // Wait for main content to load
-  cy.get('li.lm-TabBar-tab.p-TabBar-tab.lm-mod-current').should('exist');
+  cy.get('li.lm-TabBar-tab.lm-mod-current').should('exist');
 });
 
 Cypress.Commands.add('jupyterlabCommand', (command) => {

@@ -1,0 +1,40 @@
+.text {
+  margin-left: 1rem;
+}
+
+.dark .text {
+  color: var(--white);
+}
+
+.light .text {
+  color: var(--pachyderm-black);
+}
+
+.progressDot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 1rem;
+}
+
+.progressConnector {
+  display: inline-block;
+  width: 1rem;
+  height: 1px;
+  margin-bottom: calc((0.5rem - 1px) / 2);
+}
+
+.dark .progressDot,
+.dark .progressConnector {
+  background-color: var(--white);
+}
+
+.light .progressDot,
+.light .progressConnector {
+  background-color: var(--border-grey);
+}
+
+.light .progressMade,
+.dark .progressMade {
+  background-color: var(--success-green);
+}

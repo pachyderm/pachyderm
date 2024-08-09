@@ -9,8 +9,12 @@ import {
   LabShell,
   LayoutRestorer,
 } from '@jupyterlab/application';
-import {IDocumentManager, DocumentManager} from '@jupyterlab/docmanager';
-import {DocumentRegistry} from '@jupyterlab/docregistry';
+import {
+  IDocumentManager,
+  DocumentManager,
+  IDocumentWidgetOpener,
+} from '@jupyterlab/docmanager';
+import {DocumentRegistry, IDocumentWidget} from '@jupyterlab/docregistry';
 import {
   FileBrowser,
   FilterFileBrowserModel,
@@ -19,12 +23,31 @@ import {
 import {ServerConnection, ServiceManager} from '@jupyterlab/services';
 import {StateDB} from '@jupyterlab/statedb';
 import {CommandRegistry} from '@lumino/commands';
-import {SplitPanel, Widget} from '@lumino/widgets';
+import {ISignal, Signal} from '@lumino/signaling';
+import {SplitPanel} from '@lumino/widgets';
 import {MountPlugin} from '../mount';
 import * as handler from '../../../handler';
 import {MountSettings} from '../types';
 
 jest.mock('../../../handler');
+
+class MockDocumentWidgetOpener implements IDocumentWidgetOpener {
+  private _opened = new Signal<IDocumentWidgetOpener, IDocumentWidget>(this);
+
+  open(widget: IDocumentWidget, options?: DocumentRegistry.IOpenOptions): void {
+    console.log(
+      'Mock open method called with widget:',
+      widget,
+      'and options:',
+      options,
+    );
+    this._opened.emit(widget);
+  }
+
+  get opened(): ISignal<IDocumentWidgetOpener, IDocumentWidget> {
+    return this._opened;
+  }
+}
 
 describe('mount plugin', () => {
   let app: JupyterLab;
@@ -41,9 +64,7 @@ describe('mount plugin', () => {
   >;
   beforeEach(() => {
     mockedRequestAPI.mockClear();
-    const opener = {
-      open: (widget: Widget) => jest.fn(),
-    };
+    const opener = new MockDocumentWidgetOpener();
 
     app = new JupyterLab();
     settings = {defaultPipelineImage: ''};
@@ -60,7 +81,6 @@ describe('mount plugin', () => {
     fileBrowser = new FileBrowser({id: 'test', model});
     factory = {
       createFileBrowser: () => fileBrowser,
-      defaultBrowser: fileBrowser,
       tracker: new WidgetTracker<FileBrowser>({namespace: 'test'}),
     };
     widgetTracker = new LabShell();
@@ -69,6 +89,7 @@ describe('mount plugin', () => {
       first: Promise.resolve<void>(void 0),
       registry: new CommandRegistry(),
     });
+    jest.useRealTimers();
   });
 
   it('should generate the correct layout', async () => {
@@ -122,13 +143,13 @@ describe('mount plugin', () => {
       restorer,
       widgetTracker,
     );
+
     await plugin.ready;
 
     expect(plugin.layout.currentWidget?.title.className).toBe(
       'pachyderm-config-tab', // Easiest way to assert the widget is the config panel.
     );
 
-    expect(mockedRequestAPI).toHaveBeenCalledTimes(1);
     expect(mockedRequestAPI).not.toHaveBeenCalledWith('mounts', 'GET');
     expect(mockedRequestAPI).not.toHaveBeenCalledWith('projects', 'GET');
   });

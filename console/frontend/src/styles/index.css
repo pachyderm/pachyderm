@@ -1,0 +1,42 @@
+:root {
+  --header-height: 3.5rem;
+  --subheader-height: 2.375rem;
+  --sidebar-header-height: 12rem;
+  --job-sidebar-header-height: 9.3125rem;
+  --padding-view-y: 1.25rem;
+  --sidebar-width-sm: 19rem;
+  --sidebar-width-md: 24.5rem;
+  --sidebar-width-lg: 33.375rem;
+  --grey-7: #747475;
+  --plum-2: #e1cfe5;
+  --cyan-6: #6fb3c3;
+}
+
+.tooltip.show {
+  opacity: 1;
+}
+
+*,
+*::after,
+*::before {
+  box-sizing: inherit;
+}
+
+body {
+  color: var(--pachyderm-black);
+  box-sizing: border-box;
+  overflow-y: hidden;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background-grey);
+}
+
+body,
+div[id='root'],
+html,
+main {
+  height: 100%;
+}

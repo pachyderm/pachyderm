@@ -1,0 +1,23 @@
+.base {
+  composes: base from '../Checkbox/Checkbox.module.css';
+}
+
+.radioButtonContainer {
+  composes: checkboxContainer from '../Checkbox/Checkbox.module.css';
+
+  align-self: center;
+}
+
+.input {
+  composes: input from '../Checkbox/Checkbox.module.css';
+
+  top: 4px;
+}
+
+.label {
+  composes: label from '../Checkbox/Checkbox.module.css';
+}
+
+.disabled {
+  composes: disabled from '../Checkbox/Checkbox.module.css';
+}

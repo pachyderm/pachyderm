@@ -1,0 +1,16 @@
+{
+  "pipeline": {
+    "name": "lots-of-logs"
+  },
+  "description": "generate lots of logs",
+  "transform": {
+    "cmd": ["bash"],
+    "stdin": ["for (( i=0; i<=10000; i++)) do echo \"$i\"; done"]
+  },
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "data"
+    }
+  }
+}

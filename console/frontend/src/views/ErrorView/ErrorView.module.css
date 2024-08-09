@@ -1,0 +1,28 @@
+.base {
+  padding: 0 2rem;
+}
+
+.content {
+  width: 100%;
+  max-width: 60rem;
+  background-color: var(--white);
+  border: 1px solid var(--border-grey);
+  padding: 2rem;
+}
+
+.fullError {
+  max-width: 60rem;
+  margin-bottom: 3rem;
+  padding: 0.5rem;
+  width: 100%;
+}
+
+.elephantImage {
+  max-width: 25rem;
+}
+
+.backLink,
+.backLink:hover {
+  text-decoration: none;
+  color: var(--white);
+}

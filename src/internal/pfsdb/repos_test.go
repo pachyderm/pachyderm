@@ -139,13 +139,13 @@ func createCommitAndBranches(ctx context.Context, tx *pachsql.Tx, t *testing.T, 
 		commitInfo := &pfs.CommitInfo{Commit: commit,
 			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
 			Started: timestamppb.Now()}
-		_, err := pfsdb.UpsertCommit(ctx, tx, commitInfo)
+		commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 		require.NoError(t, err, "should be able to create commit")
 		branchInfo := &pfs.BranchInfo{Branch: branch, Head: commit}
-		_, err = pfsdb.UpsertBranch(ctx, tx, branchInfo)
+		branchID, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 		require.NoError(t, err, "should be able to create branch")
 		commitInfo.Commit.Branch = branch
-		_, err = pfsdb.UpsertCommit(ctx, tx, commitInfo)
+		err = pfsdb.UpdateCommitBranch(ctx, tx, commitID, branchID)
 		require.NoError(t, err, "should be able to update commit")
 	}
 }

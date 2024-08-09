@@ -174,11 +174,11 @@ func shardObjects(ctx context.Context, URL string, cb shardCallback) (retErr err
 	return nil
 }
 
-func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL string, file *pfs.File, basePathRange *pfs.PathRange) (int64, error) {
+func (a *apiServer) getFileURL(ctx context.Context, taskService task.Service, URL string, file *pfs.File, basePathRange *pfs.PathRange) (int64, error) {
 	if basePathRange == nil {
 		basePathRange = &pfs.PathRange{}
 	}
-	commit, err := d.getCommit(ctx, file.Commit)
+	commit, err := a.getCommit(ctx, file.Commit)
 	if err != nil {
 		return 0, errors.Wrap(err, "get file url")
 	}
@@ -192,8 +192,8 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 	})
 	var bytesWritten int64
 	eg.Go(func() error {
-		return d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-			fsID, err := d.getFileSet(ctx, commit)
+		return a.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+			fsID, err := a.getFileSet(ctx, commit)
 			if err != nil {
 				return err
 			}
@@ -202,7 +202,7 @@ func (d *driver) getFileURL(ctx context.Context, taskService task.Service, URL s
 			}
 			file := proto.Clone(file).(*pfs.File)
 			file.Commit = client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID.HexString())
-			src, err := d.getFile(ctx, file, basePathRange)
+			src, err := a.getFile(ctx, file, basePathRange)
 			if err != nil {
 				return err
 			}

@@ -1,0 +1,31 @@
+.base {
+  cursor: pointer;
+  color: var(--default-purple);
+  user-select: none;
+  display: inline-block;
+  white-space: nowrap;
+  box-shadow: none;
+  border: none;
+  background-color: inherit;
+  padding: 0;
+  margin: 0;
+  position: relative;
+}
+
+a + .base,
+.base + .base {
+  margin-left: 1.5rem;
+}
+
+.base:focus:not([class$='focus-visible']) {
+  outline: none;
+}
+
+.base:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.base:not(:disabled):hover {
+  color: var(--hover-purple);
+}

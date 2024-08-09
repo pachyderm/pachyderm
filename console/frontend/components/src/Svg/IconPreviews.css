@@ -1,0 +1,36 @@
+body {
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 2rem;
+}
+
+.svgContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.svgItem {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: center;
+  background-color: #f9f9f9;
+  overflow: hidden;
+}
+
+#pachyderm-svg-container {
+  display: flex;
+  width: 100%;
+  max-width: 1200px;
+}
+
+#pachyderm-svg-container .svgItem img {
+  margin-top: 4rem;
+  max-width: 15rem;
+  height: 12rem;
+}

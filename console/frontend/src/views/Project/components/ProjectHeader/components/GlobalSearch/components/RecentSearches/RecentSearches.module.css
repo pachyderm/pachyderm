@@ -1,0 +1,28 @@
+.base {
+  padding: 0.5rem 1rem 0.5rem 0.5rem;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  padding-left: 0.5rem;
+}
+
+.base .sectionHeader {
+  line-height: 0.75rem;
+}
+
+.jobsGroup {
+  margin-bottom: 0.625rem;
+}
+
+.searchHr {
+  margin-top: 0.625rem;
+  margin-bottom: 1.25rem;
+}
+
+.chip {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

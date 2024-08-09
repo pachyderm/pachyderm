@@ -9,12 +9,17 @@ import {
 } from '@jupyterlab/filebrowser';
 import {Clipboard, showErrorMessage} from '@jupyterlab/apputils';
 import {CommandRegistry} from '@lumino/commands';
-import {each} from '@lumino/algorithm';
 
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 import {requestAPI} from '../../handler';
 import {IPachydermModel} from './types';
+import {
+  folderIcon,
+  copyIcon,
+  linkIcon,
+  downloadIcon,
+} from '@jupyterlab/ui-components';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
@@ -65,7 +70,9 @@ const createCustomFileBrowser = (
   }
 
   try {
-    const widgets = browser.layout.widgets || [];
+    const widgets = browser.widgets[0].layout
+      ? Array.from(browser.widgets[0].layout)
+      : [];
     const breadCrumbs = widgets.find(
       (element) => element instanceof BreadCrumbs,
     );
@@ -85,34 +92,34 @@ const createCustomFileBrowser = (
       const commands = new CommandRegistry();
       commands.addCommand('file-open', {
         label: 'Open',
-        icon: 'fa fa-folder',
+        icon: folderIcon,
         mnemonic: 0,
         execute: () => {
-          each(browser.selectedItems(), (item) => {
+          for (const item of browser.selectedItems()) {
             manager.openOrReveal(item.path);
-          });
+          }
         },
       });
 
       commands.addCommand('copy-path', {
         label: 'Copy Path',
-        icon: 'fa fa-file',
+        icon: copyIcon,
         mnemonic: 0,
         execute: () => {
-          each(browser.selectedItems(), (item) => {
+          for (const item of browser.selectedItems()) {
             Clipboard.copyToSystem(
               item.path.replace(MOUNT_BROWSER_PREFIX + nameSuffix, '/pfs/'),
             );
-          });
+          }
         },
       });
 
       commands.addCommand('file-download', {
         label: 'Download',
-        icon: 'fa fa-download',
+        icon: downloadIcon,
         mnemonic: 0,
         execute: () => {
-          each(browser.selectedItems(), (item) => {
+          for (const item of browser.selectedItems()) {
             // Unfortunately, copying between drives is not implemented:
             // https://github.com/jupyterlab/jupyterlab/blob/main/packages/services/src/contents/index.ts#L916
             // so we need to perform this logic within our implementation of the extension
@@ -127,7 +134,7 @@ const createCustomFileBrowser = (
                 showErrorMessage('Download Error', e.response.statusText);
               },
             );
-          });
+          }
         },
       });
 
@@ -145,14 +152,14 @@ const createCustomFileBrowser = (
 
       commands.addCommand('open-determined', {
         label: 'Copy Pachyderm File URI',
-        icon: 'fa fa-link',
+        icon: linkIcon,
         mnemonic: 0,
         execute: () => {
           if (navigator.clipboard && window.isSecureContext) {
             let fileUris = '';
-            each(browser.selectedItems(), (item) => {
+            for (const item of browser.selectedItems()) {
               fileUris += `${(item as IPachydermModel).file_uri}\n`;
-            });
+            }
             navigator.clipboard.writeText(fileUris);
             app.commands.execute('apputils:notify', {
               message: 'Pachyderm File URI copied to clipboard.',
@@ -169,7 +176,7 @@ const createCustomFileBrowser = (
               },
             });
           } else {
-            each(browser.selectedItems(), (item) => {
+            for (let item of browser.selectedItems()) {
               item = item as IPachydermModel;
               app.commands.execute('apputils:notify', {
                 message: (item as IPachydermModel).file_uri,
@@ -185,7 +192,7 @@ const createCustomFileBrowser = (
                   ],
                 },
               });
-            });
+            }
             // Notifications have around a 400 character restriction. This should likely workaround the problem of too many urls overloading that limit
             app.commands.execute('apputils:notify', {
               message:

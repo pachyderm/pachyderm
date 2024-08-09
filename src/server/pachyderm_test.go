@@ -4657,8 +4657,8 @@ func testGetLogs(t *testing.T, useLoki bool) {
 
 	t.Parallel()
 	var opts []minikubetestenv.Option
-	if !useLoki {
-		opts = append(opts, minikubetestenv.SkipLokiOption)
+	if useLoki {
+		opts = append(opts, minikubetestenv.EnableLokiOption)
 	}
 	c, _ := minikubetestenv.AcquireCluster(t, opts...)
 	iter := c.GetLogs(pfs.DefaultProjectName, "", "", nil, "", false, false, 0)
@@ -4935,7 +4935,7 @@ func TestLokiLogs(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.EnableLokiOption)
 	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := tu.UniqueString("data")
@@ -10412,7 +10412,7 @@ func TestDebug(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.EnableLokiOption)
 	for _, projectName := range []string{pfs.DefaultProjectName, tu.UniqueString("project")} {
 		t.Run(projectName, func(t *testing.T) {
 			testDebug(t, c, projectName, tu.UniqueString("TestDebug_data"))

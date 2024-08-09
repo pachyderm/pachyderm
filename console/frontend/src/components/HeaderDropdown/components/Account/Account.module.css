@@ -1,0 +1,28 @@
+.base {
+  white-space: nowrap;
+  margin: 1rem;
+}
+
+.letter {
+  background-color: var(--black);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-around;
+  margin-right: 0.5rem;
+}
+
+.base h5 {
+  display: inline-block;
+  color: var(--white);
+}
+
+.loaderContainer {
+  width: 7.5rem;
+}
+
+.loader {
+  margin-bottom: 0;
+}

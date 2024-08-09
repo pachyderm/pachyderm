@@ -1,0 +1,2 @@
+backend/src/generated/* linguist-generated=true
+frontend/src/generated/* linguist-generated=true

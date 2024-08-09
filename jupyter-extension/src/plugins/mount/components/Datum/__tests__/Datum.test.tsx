@@ -1,5 +1,5 @@
 import React from 'react';
-import {render, waitFor} from '@testing-library/react';
+import {act, render, waitFor} from '@testing-library/react';
 import {ServerConnection} from '@jupyterlab/services';
 import userEvent from '@testing-library/user-event';
 import YAML from 'yaml';
@@ -95,20 +95,22 @@ describe('datum screen', () => {
       const input = await findByTestId('Datum__inputSpecInput');
       const submit = await findByTestId('Datum__loadDatums');
 
-      userEvent.type(input, '{"pfs": "a"}'.replace(/[{[]/g, '$&$&'));
-      expect(input).toHaveValue('{"pfs": "a"}');
-      await submit.click();
+      await act(async () => {
+        userEvent.type(input, '{"pfs": "a"}'.replace(/[{[]/g, '$&$&'));
+        expect(input).toHaveValue('{"pfs": "a"}');
+        await submit.click();
 
-      mockRequestAPI.requestAPI.mockImplementation(
-        mockedRequestAPI({
-          id: 'ilwe9nme9902ja039jf20snv',
-          idx: 1,
-          num_datums_received: 6,
-          all_datums_received: false,
-        }),
-      );
+        mockRequestAPI.requestAPI.mockImplementation(
+          mockedRequestAPI({
+            id: 'ilwe9nme9902ja039jf20snv',
+            idx: 1,
+            num_datums_received: 6,
+            all_datums_received: false,
+          }),
+        );
+      });
 
-      getByTestId('Datum__cyclerLeft');
+      await findByTestId('Datum__cyclerLeft');
       (await findByTestId('Datum__cyclerRight')).click();
 
       await waitFor(() => {
@@ -141,9 +143,11 @@ describe('datum screen', () => {
       const input = await findByTestId('Datum__inputSpecInput');
       const submit = await findByTestId('Datum__loadDatums');
 
-      userEvent.type(input, '{"pfs": "a"'.replace(/[{[]/g, '$&$&'));
-      expect(input).toHaveValue('{"pfs": "a"');
-      submit.click();
+      await act(async () => {
+        userEvent.type(input, '{"pfs": "a"'.replace(/[{[]/g, '$&$&'));
+        expect(input).toHaveValue('{"pfs": "a"');
+        submit.click();
+      });
 
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
         'Poorly formatted input spec',
@@ -169,9 +173,11 @@ describe('datum screen', () => {
       const input = await findByTestId('Datum__inputSpecInput');
       const submit = await findByTestId('Datum__loadDatums');
 
-      userEvent.type(input, '{"pfs": "fake_repo"}'.replace(/[{[]/g, '$&$&'));
-      expect(input).toHaveValue('{"pfs": "fake_repo"}');
-      submit.click();
+      await act(async () => {
+        userEvent.type(input, '{"pfs": "fake_repo"}'.replace(/[{[]/g, '$&$&'));
+        expect(input).toHaveValue('{"pfs": "fake_repo"}');
+        submit.click();
+      });
 
       expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
         'Bad data in input spec',
@@ -199,8 +205,9 @@ describe('datum screen', () => {
       expect(input).toHaveValue('{"pfs": "repo"}');
       submit.click();
 
-      expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
-        'This could take a few minutes...',
+      expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
+      expect(getByTestId('Datum__inputSpecInput')).not.toHaveAttribute(
+        'disabled',
       );
     });
 
@@ -219,12 +226,15 @@ describe('datum screen', () => {
       const input = await findByTestId('Datum__inputSpecInput');
       const submit = await findByTestId('Datum__loadDatums');
 
-      userEvent.type(input, YAML.stringify({pfs: 'repo'}));
-      expect(input).toHaveValue(YAML.stringify({pfs: 'repo'}));
-      submit.click();
+      await act(async () => {
+        userEvent.type(input, YAML.stringify({pfs: 'repo'}));
+        expect(input).toHaveValue(YAML.stringify({pfs: 'repo'}));
+        submit.click();
+      });
 
-      expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
-        'This could take a few minutes...',
+      expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
+      expect(getByTestId('Datum__inputSpecInput')).not.toHaveAttribute(
+        'disabled',
       );
     });
 
@@ -241,11 +251,14 @@ describe('datum screen', () => {
 
       const input = await findByTestId('Datum__inputSpecInput');
       const submit = await findByTestId('Datum__loadDatums');
-      userEvent.type(
-        input,
-        YAML.stringify({cross: [{pfs: 'repo'}, {pfs: 'repo'}]}),
-      );
-      submit.click();
+
+      await act(async () => {
+        userEvent.type(
+          input,
+          YAML.stringify({cross: [{pfs: 'repo'}, {pfs: 'repo'}]}),
+        );
+        submit.click();
+      });
 
       expect(executeCommand).toHaveBeenCalledWith('apputils:notify', {
         message: 'Datum order not guaranteed when loading datums.',

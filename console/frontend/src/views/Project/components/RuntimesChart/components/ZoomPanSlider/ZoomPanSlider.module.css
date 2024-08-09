@@ -1,0 +1,29 @@
+.base {
+  width: 100%;
+  height: 2rem;
+  display: inline-flex;
+  background-color: var(--grey-5);
+  border: solid 1px var(--border-grey);
+  border-radius: 3px;
+  position: relative;
+  margin-top: 1rem;
+}
+
+.handle {
+  cursor: ew-resize;
+  position: absolute;
+  width: 0.5rem;
+  height: calc(2rem - 2px);
+  background-color: white;
+  border-radius: 3px;
+  border-width: 8px 3px;
+  border-color: var(--black);
+  border-style: solid;
+}
+
+.range {
+  cursor: grab;
+  position: absolute;
+  height: calc(2rem - 2px);
+  background-color: var(--grey-1);
+}

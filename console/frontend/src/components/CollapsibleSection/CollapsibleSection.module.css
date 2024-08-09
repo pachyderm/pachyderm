@@ -1,0 +1,28 @@
+.boxShadow {
+  box-shadow: 1px 1px 4px 0 var(--dropshadow-grey);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  justify-content: space-between;
+  border-radius: 3px;
+  padding: 0.25rem 0.5rem;
+}
+
+.header:hover {
+  background-color: var(--hover-grey);
+}
+
+.content {
+  overflow-y: auto;
+}
+
+.minimized {
+  height: 0;
+  overflow: hidden;
+}

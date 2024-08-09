@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	ErrParentNotFound = errors.New("parent job not found")
+	ErrParentNotFound          = errors.New("parent job not found")
+	ErrJobContextAlreadyExists = errors.New("job context already exists")
 )
 
 type InvalidFilesetError struct {

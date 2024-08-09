@@ -1,0 +1,39 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.base {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.pageTitle {
+  padding: 1rem;
+  background-color: var(--white);
+}
+
+.tabsHeader {
+  padding-left: 1rem;
+  padding-top: 1rem;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  background-color: var(--white);
+}
+
+.filterInstructions {
+  margin: 0rem 1rem;
+  padding-left: 1rem;
+  border-left: solid 2px var(--border-grey);
+  height: 1.5rem;
+}
+
+.filterButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: right;
+  margin-right: 2rem;
+}

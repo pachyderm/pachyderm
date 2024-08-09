@@ -1,0 +1,21 @@
+.errorBox {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  background-color: var(--white);
+  border-radius: 3px;
+  border: solid 1px var(--border-grey);
+}
+
+.dagError {
+  margin-left: 0.5rem;
+}
+
+.titleError {
+  display: flex;
+  align-items: center;
+}
+
+.titleError h4 {
+  margin-left: 0.5rem;
+}

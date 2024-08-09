@@ -1,0 +1,18 @@
+.base {
+  text-align: left;
+  background-color: var(--white);
+  margin: 2rem;
+  border: solid 1px var(--border-grey);
+  border-radius: 0.4rem;
+  margin-left: 50%;
+  transform: translateX(-50%);
+  height: calc(100vh - 200px);
+  width: 100%;
+  max-width: 1000px;
+  overflow: hidden;
+}
+
+.base * {
+  font-family: Menlo, monospace;
+  line-height: 1.5rem;
+}
