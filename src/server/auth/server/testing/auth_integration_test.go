@@ -35,7 +35,7 @@ import (
 
 // works with global.postgresql.postgresqlAuthType: md5, which is default in values file.
 var defaultTestOptions = minikubetestenv.WithValueOverrides(map[string]string{
-	"global.postgresql.postgresqlPassword": "-strong-password!@#$%^&*(){}[]|\\:'<>?,./_+=0123A",
+	"global.postgresql.postgresqlPassword": "-strong-password!@#$%^&*(){}[]|\\:\"'<>?,./_+=0123A",
 })
 
 // TODO(Fahad): Potentially convert these to unit tests by using Jon's fake kube apiserver

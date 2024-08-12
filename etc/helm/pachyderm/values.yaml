@@ -1153,7 +1153,7 @@ pgbouncer:
   tolerations: []
   image:
     repository: bitnami/pgbouncer
-    tag: 1.17.0
+    tag: 1.23.1
   resources:
     {}
     #limits:
