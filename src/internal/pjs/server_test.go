@@ -2,6 +2,8 @@ package pjs
 
 import (
 	"context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
@@ -54,6 +56,18 @@ func TestInspectJob(t *testing.T) {
 		require.Equal(t, jobInfo.Program, programFileset)
 		require.Equal(t, len(jobInfo.Input), 1)
 		require.Equal(t, jobInfo.Input[0], inputFileset)
+	})
+	t.Run("invalid/inspect a non-existent job", func(t *testing.T) {
+		c, _ := setupTest(t)
+		ctx := pctx.TestContext(t)
+		_, err := c.InspectJob(ctx, &pjs.InspectJobRequest{
+			Job: &pjs.Job{
+				Id: 1,
+			},
+		})
+		require.YesError(t, err)
+		s := status.Convert(err)
+		require.Equal(t, codes.NotFound, s.Code())
 	})
 }
 

@@ -22,8 +22,7 @@ type apiServer struct {
 
 func newAPIServer(env Env) *apiServer {
 	return &apiServer{
-		env:    env,
-		txnEnv: env.TxnEnv,
+		env: env,
 	}
 }
 
@@ -32,23 +31,23 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	if request.Input == nil {
 		return nil, status.Errorf(codes.InvalidArgument, "missing data input")
 	}
-	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		program, err := fileset.ParseID(request.Program)
+	program, err := fileset.ParseID(request.Program)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	var inputs []fileset.PinnedFileset
+	for _, input := range request.Input {
+		inputID, err := fileset.ParseID(input)
 		if err != nil {
-			return errors.EnsureStack(err)
+			return nil, errors.EnsureStack(err)
 		}
-		var inputs []fileset.PinnedFileset
-		for _, input := range request.Input {
-			inputID, err := fileset.ParseID(input)
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			inputs = append(inputs, fileset.PinnedFileset(*inputID))
-		}
-		req := pjsdb.CreateJobRequest{
-			Program: fileset.PinnedFileset(*program),
-			Inputs:  inputs,
-		}
+		inputs = append(inputs, fileset.PinnedFileset(*inputID))
+	}
+	req := pjsdb.CreateJobRequest{
+		Program: fileset.PinnedFileset(*program),
+		Inputs:  inputs,
+	}
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		jobID, err := pjsdb.CreateJob(ctx, sqlTx, req)
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -66,6 +65,9 @@ func (a *apiServer) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) 
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		job, err := pjsdb.GetJob(ctx, sqlTx, pjsdb.JobID(req.Job.Id))
 		if err != nil {
+			if errors.As(err, &pjsdb.JobNotFoundError{}) {
+				return status.Errorf(codes.NotFound, "job %d not found", req.Job.Id)
+			}
 			return errors.EnsureStack(err)
 		}
 		jobInfo = pjs.JobInfo{

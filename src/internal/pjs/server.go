@@ -2,15 +2,11 @@ package pjs
 
 import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	pjsserver "github.com/pachyderm/pachyderm/v2/src/pjs"
 )
 
 type Env struct {
-	DB      *pachsql.DB
-	TxnEnv  *txnenv.TransactionEnv
-	Storage *storage.Server
+	DB *pachsql.DB
 }
 
 func NewAPIServer(env Env) pjsserver.APIServer {

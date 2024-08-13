@@ -25,7 +25,7 @@ func NewTestClient(t testing.TB, regFunc func(*grpc.Server)) *grpc.ClientConn {
 	eg.Go(func() error {
 		if err := gserv.Serve(listener); err != nil {
 			log.Error(ctx, "gRPC server exited", zap.Error(err))
-			return err
+			return errors.EnsureStack(err)
 		}
 		return nil
 	})
