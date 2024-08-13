@@ -1,3 +1,6 @@
 examples/
 jupyter-extension/venv
 .envrc
+console/node_modules
+console/backend/node_modules
+console/frontend/node_modules

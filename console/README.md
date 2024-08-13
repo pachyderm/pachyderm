@@ -15,6 +15,10 @@ If you are on an M1 Mac, first run these commands or installation will fail:
 ```bash
 brew install pkg-config cairo pango libpng jpeg giflib librsvg pixman
 ```
+or
+```bash
+port install pkgconfig cairo pango libpng jpeg giflib librsvg
+```
 
 ### Running console locally
 

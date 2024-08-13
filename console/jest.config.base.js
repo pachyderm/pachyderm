@@ -53,7 +53,7 @@ baseConfig.transform = baseConfig.transform ?? {};
 baseConfig.transform[`(${esModules}).+\\.js$`] = '@swc/jest';
 baseConfig.transformIgnorePatterns = baseConfig.transformIgnorePatterns ?? [];
 baseConfig.transformIgnorePatterns.push(
-  `[/\\\\]node_modules[/\\\\](?!${esModules}).+\\.(js|jsx|mjs|cjs|ts|tsx)$`,
+  `[/\\\\]node_modules[/\\\\](?!\\.pnpm|${esModules}).+\\.(js|jsx|mjs|cjs|ts|tsx)$`,
 );
 
 module.exports = baseConfig;
