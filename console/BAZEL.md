@@ -18,13 +18,13 @@ structure when built using `pnpm`.
 ### Node Modules
 The following command generates the `node_modules/` directory using bazel:
 ```
-bazel run @pnpm//:pnpm -- --dir $PWD install
+bazel run //:pnpm -- --dir $PWD install
 ```
 when run within the `backend/` and `frontend/` subdirectories.
 
 Once installed you can continue to run all commands through bazel using the
 format:
 ```
-bazel run @pnpm//:pnpm -- --dir $PWD <command>
+bazel run //:pnpm -- --dir $PWD <command>
 ```
 or you can use `npm`, if installed.

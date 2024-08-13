@@ -171,3 +171,9 @@ test_suite(
         "//src/proto:run_test",
     ],
 )
+
+# pnpm for running npm commands
+alias(
+    name = "pnpm",
+    actual = "@pnpm//:pnpm",
+)
