@@ -430,8 +430,12 @@ use_repo(pnpm, "pnpm")
 npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm", dev_dependency = True)
 npm.npm_translate_lock(
     name = "npm_console_backend",
-    #    pnpm_lock = "//console:pnpm-lock.yaml",
-    npm_package_lock = "//console/backend:package-lock.yaml",
+    npm_package_lock = "//console/backend:package-lock.json",
+    verify_node_modules_ignored = "//:.bazelignore",
+)
+npm.npm_translate_lock(
+    name = "npm_console_frontend",
+    npm_package_lock = "//console/frontend:package-lock.json",
     verify_node_modules_ignored = "//:.bazelignore",
 )
 use_repo(npm, "npm_console_backend")
