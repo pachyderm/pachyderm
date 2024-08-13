@@ -2,18 +2,17 @@ package pjs
 
 import (
 	"context"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-type Sum = pachhash.Output
 
 type apiServer struct {
 	pjs.UnimplementedAPIServer
@@ -28,15 +27,12 @@ func newAPIServer(env Env) *apiServer {
 	}
 }
 
-// TODO (Muyang): a driver.go might be needed
 func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest) (response *pjs.CreateJobResponse, retErr error) {
 	var ret pjs.CreateJobResponse
-	return &ret, nil
 	if request.Input == nil {
 		return nil, status.Errorf(codes.InvalidArgument, "missing data input")
 	}
-	// TODO (Muyang): is with write context the right way?
-	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		// TODO (Muyang): should I use parseFileset?
 		program, err := fileset.ParseID(request.Program)
 		if err != nil {
@@ -54,7 +50,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 			Program: fileset.PinnedFileset(*program),
 			Inputs:  inputs,
 		}
-		jobID, err := pjsdb.CreateJob(ctx, txnCtx.SqlTx, req)
+		jobID, err := pjsdb.CreateJob(ctx, sqlTx, req)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -68,8 +64,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 
 func (a *apiServer) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) (*pjs.InspectJobResponse, error) {
 	var jobInfo pjs.JobInfo
-	if err := a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		job, err := pjsdb.GetJob(ctx, txnCtx.SqlTx, pjsdb.JobID(req.Job.Id))
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		job, err := pjsdb.GetJob(ctx, sqlTx, pjsdb.JobID(req.Job.Id))
 		if err != nil {
 			return errors.EnsureStack(err)
 		}

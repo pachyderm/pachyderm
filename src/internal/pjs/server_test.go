@@ -2,6 +2,8 @@ package pjs
 
 import (
 	"context"
+	"testing"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
@@ -12,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	"testing"
 )
 
 func TestCreateJob(t *testing.T) {
@@ -20,6 +21,39 @@ func TestCreateJob(t *testing.T) {
 		c, fc := setupTest(t)
 		resp := createJob(t, c, fc)
 		t.Log(resp)
+	})
+}
+
+func TestInspectJob(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
+		c, fc := setupTest(t)
+		ctx := pctx.TestContext(t)
+		programFileset := createFileSet(t, fc, map[string][]byte{
+			"file/path": []byte(`!#/bin/bash; ls /input/;`),
+		})
+		inputFileset := createFileSet(t, fc, map[string][]byte{
+			"a.txt": []byte(`dummy input`),
+		})
+		createJobResp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
+			Program: programFileset,
+			Input:   []string{inputFileset},
+		})
+		require.NoError(t, err)
+		t.Log(createJobResp)
+		inspectJobResp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{
+			Job: createJobResp.Id,
+		})
+		require.NoError(t, err)
+		t.Log(inspectJobResp)
+		require.NotNil(t, inspectJobResp.Details)
+		require.NotNil(t, inspectJobResp.Details.JobInfo)
+		jobInfo := inspectJobResp.Details.JobInfo
+		require.Equal(t, jobInfo.Job.Id, createJobResp.Id.Id)
+		// the job is queued
+		require.Equal(t, int32(jobInfo.State), int32(1))
+		require.Equal(t, jobInfo.Program, programFileset)
+		require.Equal(t, len(jobInfo.Input), 1)
+		require.Equal(t, jobInfo.Input[0], inputFileset)
 	})
 }
 
@@ -60,7 +94,7 @@ func createJob(t *testing.T, c pjs.APIClient, fc storage.FilesetClient) *pjs.Cre
 		"file": []byte(`!#/bin/bash; ls /input/;`),
 	})
 	inputFileset := createFileSet(t, fc, map[string][]byte{
-		"a.txt": []byte(`dummy`),
+		"a.txt": []byte("dummy input"),
 	})
 	resp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
 		Program: programFileset,

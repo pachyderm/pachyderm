@@ -42,6 +42,7 @@ type jobRow struct {
 	Parent sql.NullInt64 `db:"parent"`
 
 	Program     []byte `db:"program"`
+	ProgramStr  string `db:"programStr"`
 	ProgramHash []byte `db:"program_hash"`
 
 	Error sql.NullString `db:"error"`
@@ -84,6 +85,11 @@ func (r jobRecord) toJob() (Job, error) {
 	if job.Outputs, err = parseFileset(r.Outputs); err != nil {
 		return Job{}, errors.Wrap(err, "to job")
 	}
+	program, err := parseFileset(r.ProgramStr)
+	if err != nil {
+		return Job{}, errors.Wrap(err, "to job")
+	}
+	job.Program = program[0]
 	return job, nil
 }
 

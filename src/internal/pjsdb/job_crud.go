@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 
@@ -26,11 +27,14 @@ const (
 				WHERE j.parent = c.id AND depth < 10000
 		)
 	`
+	// ARRAY_AGG(j.program) has no aggregation purpose; but in this way, we can get a program string in same format as inputs,
+	// outputs; then we can parse it using function parseFileset
 	selectJobRecordPrefix = `
 		SELECT 
 			j.*,
 			ARRAY_REMOVE(ARRAY_AGG(jf_input.fileset ORDER BY jf_input.array_position), NULL) as "inputs",
-			ARRAY_REMOVE(ARRAY_AGG(jf_output.fileset ORDER BY jf_output.array_position), NULL) as "outputs"
+			ARRAY_REMOVE(ARRAY_AGG(jf_output.fileset ORDER BY jf_output.array_position), NULL) as "outputs",
+			ARRAY_AGG(j.program) as "programStr"
 		FROM pjs.jobs j
 		LEFT JOIN pjs.job_filesets jf_input ON j.id = jf_input.job_id AND jf_input.fileset_type = 'input'
 		LEFT JOIN pjs.job_filesets jf_output ON j.id = jf_output.job_id AND jf_output.fileset_type = 'output'
