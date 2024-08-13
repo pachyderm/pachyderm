@@ -27,8 +27,6 @@ const (
 				WHERE j.parent = c.id AND depth < 10000
 		)
 	`
-	// ARRAY_AGG(j.program) has no aggregation purpose; but in this way, we can get a program string in same format as inputs,
-	// outputs; then we can parse it using function parseFileset
 	selectJobRecordPrefix = `
 		SELECT 
 			j.*,

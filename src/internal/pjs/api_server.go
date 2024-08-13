@@ -33,7 +33,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 		return nil, status.Errorf(codes.InvalidArgument, "missing data input")
 	}
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		// TODO (Muyang): should I use parseFileset?
 		program, err := fileset.ParseID(request.Program)
 		if err != nil {
 			return errors.EnsureStack(err)
