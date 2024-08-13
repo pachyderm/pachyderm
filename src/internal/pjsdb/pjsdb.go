@@ -42,7 +42,6 @@ type jobRow struct {
 	Parent sql.NullInt64 `db:"parent"`
 
 	Program     []byte `db:"program"`
-	ProgramStr  string `db:"programStr"`
 	ProgramHash []byte `db:"program_hash"`
 
 	Error sql.NullString `db:"error"`
@@ -85,11 +84,11 @@ func (r jobRecord) toJob() (Job, error) {
 	if job.Outputs, err = parseFileset(r.Outputs); err != nil {
 		return Job{}, errors.Wrap(err, "to job")
 	}
-	program, err := parseFileset(r.ProgramStr)
+	program, err := fileset.ParseID(string(r.Program))
 	if err != nil {
 		return Job{}, errors.Wrap(err, "to job")
 	}
-	job.Program = program[0]
+	job.Program = *program
 	return job, nil
 }
 
@@ -158,6 +157,11 @@ func withoutHexPrefix(fs string) string {
 	return strings.Trim(strings.Trim(fs, "\""), "\\x")
 }
 
+// the input filesets should be hex code of a string. Use this function
+// when the input string is read with functions like ARRAY_AGG. For example, if the fileset handle looks
+// like 2baa0ee71ba88021424dd01294baa2bd, you should use fileset.ParseID.
+// If handle looks like \\x6534666464623033383832343831643266643437636666303162306361373533
+// then use this function instead.
 func parseFileset(filesets string) ([]fileset.ID, error) {
 	var ids []fileset.ID
 	for _, fs := range inArrayAgg(filesets) {
