@@ -16,3 +16,4 @@ jobs:
           skip_step: install
           build_script: size-limit:build
           directory: console/
+          package_manager: npm
