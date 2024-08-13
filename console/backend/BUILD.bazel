@@ -1,0 +1,24 @@
+load("@npm_console_backend//:defs.bzl", "npm_link_all_packages")
+load("@aspect_rules_js//js:defs.bzl", "js_library")
+load("@aspect_rules_ts//ts:defs.bzl", "ts_config")
+
+npm_link_all_packages()
+
+ts_config(
+    name = "tsconfig",
+    src = "tsconfig.json",
+    visibility = ["//visibility:public"],
+)
+
+js_library(
+    name = "package_json",
+    srcs = ["package.json"],
+    visibility = ["//visibility:public"],
+#    deps = [":node_modules/eslint-config-react-app"],
+)
+
+js_library(
+    name = "jest_config",
+    srcs = ["tests/newTest.js"],
+    visibility = ["//visibility:public"],
+)
