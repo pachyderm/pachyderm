@@ -131,6 +131,7 @@ go_test(
     pure = "on",
     deps = [
         "//src/auth",
+        "//src/internal/ancestry",
         "//src/internal/backoff",
         "//src/internal/client",
         "//src/internal/config",
@@ -138,6 +139,7 @@ go_test(
         "//src/internal/errors",
         "//src/internal/grpcutil",
         "//src/internal/pachconfig",
+        "//src/internal/pachd",
         "//src/internal/pctx",
         "//src/internal/ppsutil",
         "//src/internal/require",
@@ -151,6 +153,7 @@ go_test(
         "//src/pfs",
         "//src/pps",
         "//src/server/auth/server/testing",
+        "//src/server/worker/datum",
         "@com_github_google_go_cmp//cmp",
         "@io_k8s_api//core/v1:core",
         "@io_k8s_apimachinery//pkg/api/resource",

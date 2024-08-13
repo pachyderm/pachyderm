@@ -57,6 +57,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
 
@@ -7711,4 +7712,83 @@ func TestForgetRPCNoBranchHead(t *testing.T) {
 	// an error is raised when branch head is moved to a forgotten commit
 	err = env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "master", commitToForget.Id, []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")})
 	require.Equal(t, "list branch in transaction: for each branch: the branch head cannot be a forgotten commit", err.Error())
+}
+
+func TestManyFilesSingleCommit(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	// create repos
+	dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+
+	numFiles := 20000
+	_, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.WithModifyFileClient(dataCommit, func(mfc client.ModifyFile) error {
+		for i := 0; i < numFiles; i++ {
+			require.NoError(t, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
+		}
+		return nil
+	}))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "master", ""))
+	fileInfos, err := c.ListFileAll(dataCommit, "")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+}
+
+func TestCommitDescription(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	dataRepo := tu.UniqueString("TestCommitDescription")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	// Test putting a message in StartCommit
+	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Branch:      client.NewBranch(pfs.DefaultProjectName, dataRepo, "master"),
+		Description: "test commit description in 'start commit'",
+	})
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id)
+	require.NoError(t, err)
+	require.Equal(t, "test commit description in 'start commit'", commitInfo.Description)
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
+
+	// Test putting a message in FinishCommit
+	commit, err = c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		Commit:      commit,
+		Description: "test commit description in 'finish commit'",
+	})
+	require.NoError(t, err)
+	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", commit.Id)
+	require.NoError(t, err)
+	require.Equal(t, "test commit description in 'finish commit'", commitInfo.Description)
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
+
+	// Test overwriting a commit message
+	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Branch:      client.NewBranch(pfs.DefaultProjectName, dataRepo, "master"),
+		Description: "test commit description in 'start commit'",
+	})
+	require.NoError(t, err)
+	_, err = c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		Commit:      commit,
+		Description: "test commit description in 'finish commit' that overwrites",
+	})
+	require.NoError(t, err)
+	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id)
+	require.NoError(t, err)
+	require.Equal(t, "test commit description in 'finish commit' that overwrites", commitInfo.Description)
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
 }

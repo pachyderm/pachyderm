@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -9,18 +10,23 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	at "github.com/pachyderm/pachyderm/v2/src/server/auth/server/testing"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -1303,4 +1309,633 @@ func TestCreatedByInTransaction(t *testing.T) {
 	require.NotNil(t, ir)
 	require.NotNil(t, ir.Details)
 	require.Equal(t, "pach:root", ir.Details.CreatedBy)
+}
+
+func TestPipelineUniqueness(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	repo := tu.UniqueString("data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	pipelineName := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{""},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/"),
+		"",
+		false,
+	))
+	err := c.CreatePipeline(pfs.DefaultProjectName,
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{""},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "/"),
+		"",
+		false,
+	)
+	require.YesError(t, err)
+	require.Matches(t, "pipeline .*? already exists", err.Error())
+}
+
+// Checks that "time to first datum" for CreateDatum is faster than ListDatum
+func BenchmarkCreateDatum(b *testing.B) {
+	c := pachd.NewTestPachd(b)
+	repo := tu.UniqueString("BenchmarkCreateDatum")
+	require.NoError(b, c.CreateRepo(pfs.DefaultProjectName, repo))
+
+	// Need multiple shards worth of files to see benefit of CreateDatum
+	// compared to ListDatum
+	numFiles := 5 * datum.ShardNumFiles
+	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(b, err)
+	require.NoError(b, c.WithModifyFileClient(commit, func(mfc client.ModifyFile) error {
+		for i := 0; i < numFiles; i++ {
+			require.NoError(b, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
+		}
+		return nil
+	}))
+	require.NoError(b, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
+
+	inputs := []struct {
+		name  string
+		input *pps.Input
+	}{
+		{"PFS", client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")},
+		{"Union", client.NewUnionInput(
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		)},
+		{"Cross", client.NewCrossInput(
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file-??"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file-???"),
+		)},
+		{"Join", client.NewJoinInput(
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-?*(??)0", "$1", "", false, false, nil),
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-?0(??)0", "$1", "", false, false, nil),
+		)},
+		// No entry for Group because CreateDatum's streaming can't improve
+		// time to first datum
+	}
+
+	for _, input := range inputs {
+		b.Run(input.name+"-ListDatum", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				req := &pps.ListDatumRequest{Input: input.input}
+				client, err := c.PpsAPIClient.ListDatum(c.Ctx(), req)
+				require.NoError(b, err)
+				_, err = client.Recv()
+				require.NoError(b, err)
+			}
+		})
+	}
+
+	for _, input := range inputs {
+		b.Run(input.name+"-CreateDatum", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				client, err := c.PpsAPIClient.CreateDatum(c.Ctx())
+				require.NoError(b, err)
+				req := &pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input.input}}}
+				require.NoError(b, client.Send(req))
+				_, err = client.Recv()
+				require.NoError(b, err)
+			}
+		})
+	}
+}
+
+func TestSelfReferentialPipeline(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+	pipeline := tu.UniqueString("pipeline")
+	require.YesError(t, c.CreatePipeline(pfs.DefaultProjectName,
+		pipeline,
+		"",
+		[]string{"true"},
+		nil,
+		nil,
+		client.NewPFSInput(pfs.DefaultProjectName, pipeline, "/"),
+		"",
+		false,
+	))
+}
+
+func TestPipelineDescription(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	dataRepo := tu.UniqueString("TestPipelineDescription_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	description := "pipeline description"
+	pipeline := tu.UniqueString("TestPipelineDescription")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline:    client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform:   &pps.Transform{Cmd: []string{"true"}},
+			Description: description,
+			Input:       client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
+		})
+	require.NoError(t, err)
+	pi, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
+	require.NoError(t, err)
+	require.Equal(t, description, pi.Details.Description)
+}
+
+func TestPipelineVersions(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	dataRepo := tu.UniqueString("TestPipelineVersions_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	pipeline := tu.UniqueString("TestPipelineVersions")
+	nVersions := 5
+	for i := 0; i < nVersions; i++ {
+		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
+			pipeline,
+			"",
+			[]string{fmt.Sprintf("%d", i)}, // an obviously illegal command, but the pipeline will never run
+			nil,
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+			"",
+			i != 0,
+		))
+	}
+
+	for i := 0; i < nVersions; i++ {
+		pi, err := c.InspectPipeline(pfs.DefaultProjectName, ancestry.Add(pipeline, nVersions-1-i), true)
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("%d", i), pi.Details.Transform.Cmd[0])
+	}
+}
+
+// TestCreatePipelineErrorNoPipeline tests that sending a CreatePipeline requests to pachd with no
+// 'pipeline' field doesn't kill pachd
+func TestCreatePipelineErrorNoPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	// Create input repo
+	dataRepo := tu.UniqueString(t.Name() + "-data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	// Create pipeline w/ no pipeline field--make sure we get a response
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: nil,
+			Transform: &pps.Transform{
+				Cmd:   []string{"/bin/bash"},
+				Stdin: []string{`cat foo >/pfs/out/file`},
+			},
+			Input: client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		})
+	require.YesError(t, err)
+	require.Matches(t, "request.Pipeline", err.Error())
+}
+
+// TestCreatePipelineError tests that sending a CreatePipeline requests to pachd with no 'transform'
+// or 'pipeline' field doesn't kill pachd
+func TestCreatePipelineError(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	// Create input repo
+	dataRepo := tu.UniqueString(t.Name() + "-data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	// Create pipeline w/ no transform--make sure we get a response (& make sure
+	// it explains the problem)
+	pipeline := tu.UniqueString("no-transform-")
+	_, err := c.PpsAPIClient.CreatePipelineV2(
+		context.Background(),
+		&pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: fmt.Sprintf(`{"pipeline": {"project": {"name": %q}, "name": %q}, "transform": null, "input": {"pfs": {"project": %q, "repo": %q, "glob": %q}}}`, pfs.DefaultProjectName, pipeline, pfs.DefaultProjectName, dataRepo, "/*"),
+		})
+	require.YesError(t, err)
+	require.Matches(t, "transform", err.Error())
+}
+
+// TestCreatePipelineErrorNoCmd tests that sending a CreatePipeline request to
+// pachd with no 'transform.cmd' field doesn't kill pachd
+func TestCreatePipelineErrorNoCmd(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	// Create input data
+	dataRepo := tu.UniqueString(t.Name() + "-data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", ""), "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+
+	// create pipeline
+	pipeline := tu.UniqueString("no-cmd-")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{
+				Cmd:   nil,
+				Stdin: []string{`cat foo >/pfs/out/file`},
+			},
+			Input: client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+	time.Sleep(5 * time.Second) // give pipeline time to start
+
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_FAILURE {
+			return errors.Errorf("pipeline should be in state FAILURE, not: %s", pipelineInfo.State.String())
+		}
+		return nil
+	})
+}
+
+func TestSecrets(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	b := []byte(
+		`{
+			"kind": "Secret",
+			"apiVersion": "v1",
+			"type":"Opaque",
+			"metadata": {
+				"name": "test-secret",
+				"creationTimestamp": null
+			},
+			"data": {
+				"mykey": "bXktdmFsdWU="
+			}
+		}`)
+	require.NoError(t, c.CreateSecret(b))
+
+	secretInfo, err := c.InspectSecret("test-secret")
+	secretInfo.CreationTimestamp = nil
+	require.NoError(t, err)
+	require.Equal(t, &pps.SecretInfo{
+		Secret: &pps.Secret{
+			Name: "test-secret",
+		},
+		Type:              "Opaque",
+		CreationTimestamp: nil,
+	}, secretInfo)
+
+	secretInfos, err := c.ListSecret()
+	require.NoError(t, err)
+	initialLength := len(secretInfos)
+
+	require.NoError(t, c.DeleteSecret("test-secret"))
+
+	secretInfos, err = c.ListSecret()
+	require.NoError(t, err)
+	require.Equal(t, initialLength-1, len(secretInfos))
+
+	_, err = c.InspectSecret("test-secret")
+	require.YesError(t, err)
+}
+
+// Test that an unauthenticated user can't call secrets APIS
+func TestSecretsUnauthenticated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	// Get an unauthenticated client
+	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption("root"))
+	c.SetAuthToken("")
+
+	b := []byte(
+		`{
+			"kind": "Secret",
+			"apiVersion": "v1",
+			"metadata": {
+				"name": "test-secret",
+				"creationTimestamp": null
+			},
+			"data": {
+				"mykey": "bXktdmFsdWU="
+			}
+		}`)
+
+	err := c.CreateSecret(b)
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+
+	_, err = c.InspectSecret("test-secret")
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+
+	_, err = c.ListSecret()
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+
+	err = c.DeleteSecret("test-secret")
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+}
+
+// Regression test to make sure that pipeline creation doesn't crash pachd due to missing fields
+func TestMalformedPipeline(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	pipelineName := tu.UniqueString("MalformedPipeline")
+
+	var err error
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "request.Pipeline cannot be nil", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: fmt.Sprintf(`{"pipeline": {"project": {"name": %q}, "name": %q}, "transform": null}`, pfs.DefaultProjectName, pipelineName)},
+	)
+	require.YesError(t, err)
+	require.Matches(t, "must specify a transform", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Service: &pps.Service{
+			Type: string(v1.ServiceTypeNodePort),
+		},
+		ParallelismSpec: &pps.ParallelismSpec{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "services can only be run with a constant parallelism of 1", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:   client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform:  &pps.Transform{},
+		SpecCommit: &pfs.Commit{},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "cannot resolve commit with no repo", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:   client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform:  &pps.Transform{},
+		SpecCommit: &pfs.Commit{Branch: &pfs.Branch{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "cannot resolve commit with no repo", err.Error())
+
+	dataRepo := tu.UniqueString("TestMalformedPipeline_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	require.NoError(t, c.PutFile(dataCommit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a name", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "data"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a repo", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Repo: dataRepo}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a glob", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     client.NewPFSInput(pfs.DefaultProjectName, "out", "/*"),
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input cannot be named out", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "out", Repo: dataRepo, Glob: "/*"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input cannot be named out", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Pfs: &pps.PFSInput{Name: "data", Repo: "dne", Glob: "/*"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "dne[^ ]* not found", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input: client.NewCrossInput(
+			client.NewPFSInput(pfs.DefaultProjectName, "foo", "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, "foo", "/*"),
+		),
+	})
+	require.YesError(t, err)
+	require.Matches(t, "name \"foo\" was used more than once", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Cron: &pps.CronInput{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "input must specify a name", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Cron: &pps.CronInput{Name: "cron"}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "Empty spec string", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Cross: []*pps.Input{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Union: []*pps.Input{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Input:     &pps.Input{Join: []*pps.Input{}},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "no input set", err.Error())
+}
+
+func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+	inputA := tu.UniqueString("A")
+	inputB := tu.UniqueString("B")
+	inputC := tu.UniqueString("C")
+	pipeline := tu.UniqueString("pipeline")
+
+	createPipeline := func(c *client.APIClient, input string, update bool) error {
+		return c.CreatePipeline(pfs.DefaultProjectName,
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(pfs.DefaultProjectName, input, "/*"),
+			"",
+			update,
+		)
+	}
+
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, inputA))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, inputB))
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, inputC))
+	require.NoError(t, createPipeline(c, inputA, false))
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err)
+
+	require.NoError(t, createPipeline(c.WithTransaction(txn), inputB, true))
+	require.NoError(t, createPipeline(c, inputC, true))
+
+	_, err = c.FinishTransaction(txn)
+	require.NoError(t, err)
+	// make sure the final pipeline is the third version, with the input from in the transaction
+	pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, true)
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), pipelineInfo.Version)
+	require.NotNil(t, pipelineInfo.Details.Input.Pfs)
+	require.Equal(t, inputB, pipelineInfo.Details.Input.Pfs.Repo)
+}
+
+func basicPipelineReq(name, input string) *pps.CreatePipelineRequest {
+	return &pps.CreatePipelineRequest{
+		Pipeline: client.NewPipeline(pfs.DefaultProjectName, name),
+		Transform: &pps.Transform{
+			Cmd: []string{"bash"},
+			Stdin: []string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
+			},
+		},
+		ParallelismSpec: &pps.ParallelismSpec{
+			Constant: 1,
+		},
+		Input: client.NewPFSInput(pfs.DefaultProjectName, input, "/*"),
+	}
+}
+
+func TestPipelineAncestry(t *testing.T) {
+	t.Parallel()
+	c := pachd.NewTestPachd(t)
+
+	dataRepo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+
+	pipeline := tu.UniqueString("pipeline")
+	base := basicPipelineReq(pipeline, dataRepo)
+	base.Autoscaling = true
+
+	// create three versions of the pipeline differing only in the transform user field
+	for i := 1; i <= 3; i++ {
+		base.Transform.User = fmt.Sprintf("user:%d", i)
+		base.Update = i != 1
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), base)
+		require.NoError(t, err)
+	}
+
+	for i := 1; i <= 3; i++ {
+		info, err := c.InspectPipeline(pfs.DefaultProjectName, fmt.Sprintf("%s^%d", pipeline, 3-i), true)
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("user:%d", i), info.Details.Transform.User)
+	}
+
+	infos, err := c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(infos))
+	require.Equal(t, pipeline, infos[0].Pipeline.Name)
+	require.Equal(t, fmt.Sprintf("user:%d", 3), infos[0].Details.Transform.User)
+
+	checkInfos := func(infos []*pps.PipelineInfo) {
+		// make sure versions are sorted and have the correct details
+		for i, info := range infos {
+			require.Equal(t, 3-i, int(info.Version))
+			require.Equal(t, fmt.Sprintf("user:%d", 3-i), info.Details.Transform.User)
+		}
+	}
+
+	// get all pipelines
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, -1)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(infos))
+	checkInfos(infos)
+
+	// get all pipelines by asking for too many
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 3)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(infos))
+	checkInfos(infos)
+
+	// get only the later two pipelines
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 1)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(infos))
+	checkInfos(infos)
 }
