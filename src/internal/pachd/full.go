@@ -5,7 +5,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"sync"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
@@ -53,6 +52,7 @@ import (
 	logs_server "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfsiface "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -209,6 +209,7 @@ type Full struct {
 	debugSrv      debug.DebugServer
 	proxySrv      proxy.APIServer
 	logsSrv       logs.APIServer
+	s3Srv         *s3.S3Server
 
 	pfsWorker   *pfs_server.Worker
 	ppsWorker   *pps_server.Worker
@@ -218,7 +219,6 @@ type Full struct {
 
 	pachClient      *client.APIClient
 	pachClientReady chan struct{}
-	pachClientOnce  sync.Once
 
 	kubeClient kubernetes.Interface
 }
@@ -481,6 +481,14 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 				if err != nil {
 					return errors.Wrap(err, "logs_server.NewAPIServer")
 				}
+				return nil
+			},
+		},
+		setupStep{
+			Name: "initS3Server",
+			Fn: func(ctx context.Context) error {
+				router := s3.Router(ctx, s3.NewMasterDriver(), pd.mustGetPachClient)
+				pd.s3Srv = s3.Server(ctx, 0, router)
 				return nil
 			},
 		},

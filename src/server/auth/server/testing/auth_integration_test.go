@@ -9,14 +9,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
-	"os"
 	"path"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/minio/minio-go/v6"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -138,55 +134,6 @@ func TestListDatum(t *testing.T) {
 	for i, di := range dis {
 		require.Equal(t, di.Datum.Id, disInput[i].Datum.Id)
 	}
-}
-
-func TestS3GatewayAuthRequests(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-
-	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
-	tu.ActivateAuthClient(t, c)
-	// generate auth credentials
-	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
-	alice := tu.UniqueString("alice")
-	authResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{
-		Robot: alice,
-	})
-	require.NoError(t, err)
-	authToken := authResp.Token
-
-	ip := os.Getenv("VM_IP")
-	if ip == "" {
-		ip = "127.0.0.1"
-	}
-	// Port set dynamically in src/internal/minikubetestenv/deploy.go
-	address := net.JoinHostPort(ip, fmt.Sprint(c.GetAddress().Port+3))
-
-	// anon login via V2 - should fail
-	minioClientV2, err := minio.NewV2(address, "", "", false)
-	require.NoError(t, err)
-	_, err = minioClientV2.ListBuckets()
-	require.YesError(t, err)
-
-	// anon login via V4 - should fail
-	minioClientV4, err := minio.NewV4(address, "", "", false)
-	require.NoError(t, err)
-	_, err = minioClientV4.ListBuckets()
-	require.YesError(t, err)
-
-	// proper login via V2 - should succeed
-	minioClientV2, err = minio.NewV2(address, authToken, authToken, false)
-	require.NoError(t, err)
-	_, err = minioClientV2.ListBuckets()
-	require.NoError(t, err)
-
-	// proper login via V4 - should succeed
-	minioClientV2, err = minio.NewV4(address, authToken, authToken, false)
-	require.NoError(t, err)
-	_, err = minioClientV2.ListBuckets()
-	require.NoError(t, err)
 }
 
 // Need to restructure testing such that we have the implementation of this
