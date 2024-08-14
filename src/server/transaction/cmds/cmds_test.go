@@ -1,5 +1,3 @@
-//go:build k8s
-
 package cmds
 
 import (
@@ -8,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -16,10 +14,8 @@ import (
 // TestTransaction runs a straightforward end-to-end test of starting, adding
 // to and finishing a transaction.
 func TestTransaction(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c := pachd.NewTestPachd(t)
+
 	repo := tu.UniqueString("TestTransaction-repo")
 	branch := tu.UniqueString("Test")
 	setup := tu.PachctlBashCmd(t, c, `
@@ -66,7 +62,7 @@ func requireTransactionDoesNotExist(t *testing.T, c *client.APIClient, txn strin
 }
 
 func TestDeleteActiveTransaction(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c := pachd.NewTestPachd(t)
 	// Start then delete a transaction
 	txn := startTransaction(t, c)
 	require.NoError(t, tu.PachctlBashCmd(t, c, "pachctl delete transaction").Run())
@@ -76,7 +72,7 @@ func TestDeleteActiveTransaction(t *testing.T) {
 }
 
 func TestDeleteInactiveTransaction(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c := pachd.NewTestPachd(t)
 	// Start, stop, then delete a transaction
 	txn := startTransaction(t, c)
 	require.NoError(t, tu.PachctlBashCmd(t, c, "pachctl stop transaction").Run())
