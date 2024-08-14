@@ -152,6 +152,7 @@ test_suite(
     name = "privileged_tests",
     tags = ["manual"],
     tests = [
+        "//src/server/pfs/cmds:cmds_integration_test",
         "//src/server/pfs/fuse:fuse_test",
     ],
 )

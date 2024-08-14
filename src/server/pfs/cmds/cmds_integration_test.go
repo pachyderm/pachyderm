@@ -1,5 +1,3 @@
-//go:build k8s
-
 package cmds
 
 import (
@@ -11,7 +9,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"golang.org/x/sync/errgroup"
@@ -21,11 +20,8 @@ import (
 // mounts the repos and adds a single file to each, and verifies that the
 // expected file appears in each.
 func TestMount(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
+	c := pachd.NewTestPachd(t)
 	// If the test has a deadline, cancel the context slightly before it in
 	// order to allow time for clean subprocess teardown.  Without this it
 	// is possible to leave filesystems mounted after test failure.
