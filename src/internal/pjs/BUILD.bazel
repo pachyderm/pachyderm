@@ -15,9 +15,7 @@ go_library(
         "//src/internal/grpcutil",
         "//src/internal/pachsql",
         "//src/internal/pjsdb",
-        "//src/internal/storage",
         "//src/internal/storage/fileset",
-        "//src/internal/transactionenv",
         "//src/pjs",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
@@ -39,6 +37,8 @@ go_test(
         "//src/internal/testetcd",
         "//src/pjs",
         "//src/storage",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
         "@org_golang_google_protobuf//types/known/wrapperspb",
     ],
 )
