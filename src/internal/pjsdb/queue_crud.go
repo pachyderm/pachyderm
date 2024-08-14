@@ -27,7 +27,6 @@ func ListQueues(ctx context.Context, db *pachsql.DB, req IterateQueuesRequest) (
 func DequeueAndProcess(ctx context.Context, tx *pachsql.Tx, programHash []byte) (JobID, error) {
 	ctx = pctx.Child(ctx, "dequeue and process")
 	var jobID JobID
-	// Todo(Muyang): handle the case where the program hash does not correspond to a queue/the queue is empty
 	if err := tx.QueryRowxContext(ctx, `
 		WITH updated AS (
 			SELECT id
