@@ -212,7 +212,7 @@ func initAuthServer(out *auth.APIServer, env func() authserver.Env) setupStep {
 		Fn: func(ctx context.Context) error {
 			apiServer, err := authserver.NewAuthServer(
 				env(),
-				false, false, false,
+				false, false, true,
 			)
 			if err != nil {
 				return err
