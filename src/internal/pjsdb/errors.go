@@ -38,3 +38,15 @@ func (err *JobNotFoundError) GRPCStatus() *status.Status {
 func (err *JobNotFoundError) Error() string {
 	return fmt.Sprintf("job not found (id=%d, program_hash=%v)", err.ID, err.ProgramHash)
 }
+
+type DequeueFromEmptyQueueError struct {
+	ID string
+}
+
+func (err *DequeueFromEmptyQueueError) GRPCStatus() *status.Status {
+	return status.New(codes.FailedPrecondition, err.Error())
+}
+
+func (err *DequeueFromEmptyQueueError) Error() string {
+	return fmt.Sprintf("cannot dequeue from an empty queue (queue_id=%s)", err.ID)
+}

@@ -52,8 +52,17 @@ func NewQueuesIterator(extCtx sqlx.ExtContext, req IterateQueuesRequest) *Queues
 				array_agg(j.id ORDER BY j.id ASC) AS "jobs",
 				array_agg(j.program ORDER BY j.id ASC) AS "programs",
 				count(j.id) AS "size"
-			  FROM queues JOIN pjs.jobs j ON j.program_hash = queues.program_hash
-			  GROUP BY queues.program_hash`
+			  FROM 
+				queues 
+			  JOIN 
+				pjs.jobs j 
+				ON j.program_hash = queues.program_hash
+              WHERE
+                j.processing IS NULL
+				AND j.done IS NULL
+				AND j.queued IS NOT NULL
+			  GROUP BY 
+				queues.program_hash`
 	query = extCtx.Rebind(query)
 	if req.PageSize == 0 {
 		req.PageSize = defaultPageSize
