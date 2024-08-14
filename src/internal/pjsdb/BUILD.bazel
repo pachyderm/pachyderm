@@ -23,7 +23,6 @@ go_library(
         "//src/internal/stream",
         "@com_github_google_go_cmp//cmp",
         "@com_github_google_go_cmp//cmp/cmpopts",
-        "@com_github_google_uuid//:uuid",
         "@com_github_jmoiron_sqlx//:sqlx",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",

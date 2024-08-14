@@ -2,11 +2,14 @@ package grpcutil
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"net"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -14,13 +17,17 @@ import (
 )
 
 func NewTestClient(t testing.TB, regFunc func(*grpc.Server)) *grpc.ClientConn {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	eg := errgroup.Group{}
 	gserv := grpc.NewServer()
 	listener := bufconn.Listen(1 << 20)
 	regFunc(gserv)
 	eg.Go(func() error {
-		return errors.EnsureStack(gserv.Serve(listener))
+		if err := gserv.Serve(listener); err != nil {
+			log.Error(ctx, "gRPC server exited", zap.Error(err))
+			return errors.EnsureStack(err)
+		}
+		return nil
 	})
 	gconn, err := grpc.DialContext(ctx, "", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { //nolint:staticcheck
 		res, err := listener.Dial()
@@ -28,7 +35,7 @@ func NewTestClient(t testing.TB, regFunc func(*grpc.Server)) *grpc.ClientConn {
 	}), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		gserv.GracefulStop()
+		gserv.Stop()
 		err := eg.Wait()
 		if errors.Is(err, grpc.ErrServerStopped) {
 			err = nil

@@ -87,6 +87,11 @@ func (r jobRecord) toJob() (Job, error) {
 	if job.Outputs, err = parseFileset(r.Outputs); err != nil {
 		return Job{}, errors.Wrap(err, "to job")
 	}
+	program, err := fileset.ParseID(string(r.Program))
+	if err != nil {
+		return Job{}, errors.Wrap(err, "to job")
+	}
+	job.Program = *program
 	return job, nil
 }
 
@@ -155,6 +160,11 @@ func withoutHexPrefix(fs string) string {
 	return strings.Trim(strings.Trim(fs, "\""), "\\x")
 }
 
+// the input filesets should be hex code of a string, in string format :)
+// Use this function when the input string is read with functions like ARRAY_AGG.
+// For example, if the fileset handle looks like e4fddb03882481d2fd47cff01b0ca753, you should use fileset.ParseID.
+// If handle looks like \\x6534666464623033383832343831643266643437636666303162306361373533
+// then use this function instead. The latter is the hex interpretation of the former.
 func parseFileset(filesets string) ([]fileset.ID, error) {
 	var ids []fileset.ID
 	for _, fs := range inArrayAgg(filesets) {

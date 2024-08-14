@@ -1,0 +1,44 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pjs",
+    srcs = [
+        "api_server.go",
+        "server.go",
+        "util.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pjs",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/grpcutil",
+        "//src/internal/pachsql",
+        "//src/internal/pjsdb",
+        "//src/internal/storage/fileset",
+        "//src/pjs",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)
+
+go_test(
+    name = "pjs_test",
+    srcs = ["server_test.go"],
+    embed = [":pjs"],
+    deps = [
+        "//src/internal/clusterstate",
+        "//src/internal/dockertestenv",
+        "//src/internal/migrations",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/storage",
+        "//src/internal/testetcd",
+        "//src/pjs",
+        "//src/storage",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//types/known/wrapperspb",
+    ],
+)
