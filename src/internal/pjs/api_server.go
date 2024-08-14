@@ -74,16 +74,19 @@ func (a *apiServer) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) 
 				Id: int64(job.Parent),
 			},
 			Program: job.Program.HexString(),
-			State:   pjs.JobState_QUEUED,
 		}
 		for _, filesetID := range job.Inputs {
 			jobInfo.Input = append(jobInfo.Input, filesetID.HexString())
 		}
-		if !job.Processing.IsZero() {
+		switch {
+		case !job.Queued.IsZero() && job.Processing.IsZero() && job.Done.IsZero():
+			jobInfo.State = pjs.JobState_QUEUED
+		case !job.Queued.IsZero() && !job.Processing.IsZero() && job.Done.IsZero():
 			jobInfo.State = pjs.JobState_PROCESSING
-		}
-		if !job.Done.IsZero() {
+		case !job.Queued.IsZero() && !job.Processing.IsZero() && !job.Done.IsZero():
 			jobInfo.State = pjs.JobState_DONE
+		default:
+			return errors.New("the job state is invalid")
 		}
 		if jobInfo.State == pjs.JobState_DONE {
 			if len(job.Outputs) != 0 {
