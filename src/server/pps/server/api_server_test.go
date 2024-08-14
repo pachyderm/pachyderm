@@ -1939,3 +1939,54 @@ func TestPipelineAncestry(t *testing.T) {
 	require.Equal(t, 2, len(infos))
 	checkInfos(infos)
 }
+
+func TestProjectDefaultsCreatedBy(t *testing.T) {
+	t.Parallel()
+	c := at.EnvWithAuth(t).PachClient
+
+	admin := tu.AuthenticateClient(t, c, auth.RootUser)
+	aliceName, alice := tu.RandomRobot(t, c, "alice")
+	adminProject := tu.UniqueString("adminProject")
+	require.NoError(t, admin.CreateProject(adminProject))
+	_, err := admin.PpsAPIClient.SetProjectDefaults(admin.Ctx(), &pps.SetProjectDefaultsRequest{
+		Project:             &pfs.Project{Name: adminProject},
+		ProjectDefaultsJson: `{"createPipelineRequest": {"autoscaling": true}}`,
+	})
+	require.NoError(t, err)
+	resp, err := admin.PpsAPIClient.GetProjectDefaults(c.Ctx(), &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: adminProject}})
+	require.NoError(t, err)
+	require.Equal(t, "pach:root", resp.CreatedBy)
+
+	aliceProject := tu.UniqueString("aliceProject")
+	require.NoError(t, alice.CreateProject(aliceProject))
+	_, err = alice.PpsAPIClient.SetProjectDefaults(alice.Ctx(), &pps.SetProjectDefaultsRequest{
+		Project:             &pfs.Project{Name: aliceProject},
+		ProjectDefaultsJson: `{"createPipelineRequest": {"autoscaling": true}}`,
+	})
+	require.NoError(t, err)
+	resp, err = alice.PpsAPIClient.GetProjectDefaults(c.Ctx(), &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: aliceProject}})
+	require.NoError(t, err)
+	require.Equal(t, aliceName, resp.CreatedBy)
+
+	pi, err := admin.InspectProject(adminProject)
+	require.NoError(t, err)
+	require.Equal(t, "pach:root", pi.CreatedBy)
+	pi, err = alice.InspectProject(aliceProject)
+	require.NoError(t, err)
+	require.Equal(t, aliceName, pi.CreatedBy)
+
+	pp, err := admin.ListProject()
+	require.NoError(t, err)
+	for _, p := range pp {
+		switch p.Project.Name {
+		case "default":
+			require.Equal(t, "", p.CreatedBy)
+		case adminProject:
+			require.Equal(t, "pach:root", p.CreatedBy)
+		case aliceProject:
+			require.Equal(t, aliceName, p.CreatedBy)
+		default:
+			t.Fatalf("unexpected project %v", p.Project)
+		}
+	}
+}
