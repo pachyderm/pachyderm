@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "testutil",
@@ -49,5 +49,15 @@ go_library(
         "@org_golang_google_protobuf//types/known/timestamppb",
         "@org_golang_x_oauth2//:oauth2",
         "@rules_go//go/tools/bazel:go_default_library",
+    ],
+)
+
+go_test(
+    name = "testutil_test",
+    srcs = ["pachctl_test.go"],
+    deps = [
+        ":testutil",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
     ],
 )
