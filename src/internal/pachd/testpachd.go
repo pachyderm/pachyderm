@@ -31,6 +31,7 @@ import (
 	etcdwal "go.etcd.io/etcd/server/v3/wal"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"k8s.io/client-go/kubernetes"
 )
 
 // TestPachdOptions allow a testpachd to be customized.
@@ -43,7 +44,7 @@ type TestPachdOption struct {
 	MutateFullOption func(fullOption *FullOption)
 }
 
-// NoLogToFileOption is an option that disable's NewTestPachd's default behavior of logging pachd
+// NoLogToFileOption is an option that disables NewTestPachd's default behavior of logging pachd
 // logs to a file.
 func NoLogToFileOption() TestPachdOption {
 	return TestPachdOption{noLogToFile: true}
@@ -61,6 +62,16 @@ func ActivateAuthOption(rootToken string) TestPachdOption {
 			config.AuthRootToken = rootToken
 			config.LicenseKey = os.Getenv("ENT_ACT_CODE")
 			config.EnterpriseSecret = "enterprisey"
+		},
+	}
+}
+
+// GetK8sClient is an option that calls the provided callback with the (fake) k8s client used by
+// pachd.
+func GetK8sClient(k *kubernetes.Interface) TestPachdOption {
+	return TestPachdOption{
+		MutatePachd: func(full *Full) {
+			*k = full.kubeClient
 		},
 	}
 }
@@ -140,7 +151,8 @@ func mutateContext(ctx context.Context, opts ...TestPachdOption) context.Context
 func newTestPachd(env Env, opts []TestPachdOption) *Full {
 	config := pachconfig.PachdFullConfiguration{
 		GlobalConfiguration: pachconfig.GlobalConfiguration{
-			PeerPort: netip.MustParseAddrPort(env.Listener.Addr().String()).Port(),
+			PeerPort:  netip.MustParseAddrPort(env.Listener.Addr().String()).Port(),
+			Namespace: "default",
 		},
 		PachdSpecificConfiguration: pachconfig.PachdSpecificConfiguration{
 			StorageConfiguration: pachconfig.StorageConfiguration{
