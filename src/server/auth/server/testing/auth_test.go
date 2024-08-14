@@ -2942,7 +2942,7 @@ func TestCreatedBy(t *testing.T) {
 
 func TestS3GatewayAuthRequests(t *testing.T) {
 	var address string
-	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken), pachd.WithS3Server(t, &address), pachd.NoLogToFileOption())
+	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken), pachd.WithS3Server(t, &address))
 	t.Logf("s3 gateway at %v", address)
 	alice := tu.UniqueString("alice")
 	authResp, err := c.GetRobotToken(c.Ctx(), &auth.GetRobotTokenRequest{
@@ -2974,4 +2974,47 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
 	require.NoError(t, err)
+}
+
+func TestListFileNils(t *testing.T) {
+	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
+	alice := tu.Robot(tu.UniqueString("alice"))
+	aliceClient := tu.AuthenticateClient(t, c, alice)
+	repo := "foo"
+	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
+	for _, test := range []*pfs.Commit{
+		nil,
+		{},
+		{Branch: &pfs.Branch{}},
+		{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo}}},
+		{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}}}},
+		{
+			Branch: &pfs.Branch{
+				Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
+				Name: "master",
+			},
+		},
+	} {
+		if err := aliceClient.ListFile(test, "/", func(fi *pfs.FileInfo) error {
+			t.Errorf("dead code ran")
+			return errors.New("should never get here")
+		}); err == nil {
+			t.Errorf("ListFile(nil, %q, …) succeeded where it should have failed", test)
+		}
+	}
+	// this used to cause a core dump
+	var commit *pfs.Commit = &pfs.Commit{
+		Branch: &pfs.Branch{
+			Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
+			Name: "master",
+		},
+		Id: "0123456789ab40123456789abcdef012",
+	}
+	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
+		return errors.New("should never get here")
+	}); err == nil {
+		t.Errorf("ListFile for a non-existent commit should always be an error")
+	} else if strings.Contains(err.Error(), "upstream connect error") {
+		t.Errorf("server error: %v", err)
+	}
 }
