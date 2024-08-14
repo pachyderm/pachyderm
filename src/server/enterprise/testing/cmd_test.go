@@ -42,7 +42,7 @@ func startEnterpriseCluster(ctx context.Context, t *testing.T) {
 		}
 		return nil
 	}, 5*time.Second)
-	_ = minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
+	_ = minikubetestenv.InstallRelease(t, ctx, "enterprise", k, &minikubetestenv.DeployOpts{
 		EnterpriseServer: true,
 		CleanupAfter:     false,
 		Enterprise:       false,
