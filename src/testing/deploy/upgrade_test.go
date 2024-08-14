@@ -57,6 +57,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 					UseLeftoverCluster: false,
 					ValueOverrides:     valuesOverridden,
 					ValuesStrOverrides: strValuesOverridden,
+					UseCurrentChart:    true,
 				}), from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, ctx, minikubetestenv.UpgradeRelease(t,
