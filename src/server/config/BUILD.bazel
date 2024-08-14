@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "config",
@@ -16,5 +16,16 @@ go_library(
         "@com_github_c_bata_go_prompt//:go-prompt",
         "@com_github_spf13_cobra//:cobra",
         "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)
+
+go_test(
+    name = "config_test",
+    srcs = ["cmds_test.go"],
+    embed = [":config"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/require",
+        "//src/internal/testutil",
     ],
 )
