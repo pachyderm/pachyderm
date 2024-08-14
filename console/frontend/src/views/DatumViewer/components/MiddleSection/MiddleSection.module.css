@@ -1,0 +1,18 @@
+.base {
+  height: calc(100vh - 2rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  margin-top: 1rem;
+  margin-left: 1rem;
+  margin-bottom: 2.25rem;
+}
+
+.tabs {
+  display: flex;
+  justify-content: space-between;
+  height: 2rem;
+  margin: 0 1rem;
+}

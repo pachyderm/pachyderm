@@ -209,6 +209,7 @@ workflows:
             ((.circleci|jupyter-extension)/.*) run-jupyter-jobs true
             ((.circleci|python-sdk)/.*) run-python-sdk-jobs true
             ((.circleci|label-studio)/.*) run-label-studio-jobs true
+            ((.circleci|console)/.*) run-console-jobs true
           base-revision: master # NOTE: This should be updated to reflect the base branch (ie. master, 2.3.x)
           config-path: .circleci/main.yml
       - setup: # Only run setup on tags, otherwise use path filtering

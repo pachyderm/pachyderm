@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "stylelint.vscode-stylelint",
+    "dbaeumer.vscode-eslint",
+    "kumar-harsh.graphql-for-vscode",
+    "zxh404.vscode-proto3",
+    "clinyong.vscode-css-modules",
+    "tlent.jest-snapshot-language-support",
+    "eamodio.gitlens",
+    "davidanson.vscode-markdownlint"
+  ]
+}

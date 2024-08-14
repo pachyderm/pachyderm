@@ -1,0 +1,48 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/console"
+    schedule:
+      # The default is a random time every Monday, but
+      # we prefer a fixed time on Tuesdays
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 1
+    pull-request-branch-name:
+      # Separate sections of the branch name with a hyphen
+      # for example, `dependabot-npm_and_foo-6.4.1`
+      # Reason: docker image tags can't contain slashes, so
+      # Helium will fail to provision any dependabot PRs
+      separator: "-"
+  - package-ecosystem: "npm"
+    directory: "/console/backend"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 1
+    pull-request-branch-name:
+      separator: "-"
+  - package-ecosystem: "npm"
+    directory: "/console/backend/src/proto"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 1
+    pull-request-branch-name:
+      separator: "-"
+  - package-ecosystem: "npm"
+    directory: "/console/frontend"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    open-pull-requests-limit: 1
+    pull-request-branch-name:
+      separator: "-"

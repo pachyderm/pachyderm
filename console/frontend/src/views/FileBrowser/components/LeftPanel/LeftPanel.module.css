@@ -1,0 +1,24 @@
+.base {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.select {
+  padding: 1rem;
+  width: 100%;
+}
+
+.search {
+  border-top: 1px solid var(--border-grey);
+  padding: 0.25rem;
+  width: 100%;
+}
+
+.tree {
+  border-top: 1px solid var(--border-grey);
+  margin-top: 0.5rem;
+  overflow: auto;
+  height: 100%;
+}

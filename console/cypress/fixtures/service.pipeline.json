@@ -1,0 +1,21 @@
+{
+  "pipeline": {
+    "name": "service"
+  },
+  "description": "Use 'minikube service list' to find the service address!",
+  "transform": {
+    "cmd": ["sh"],
+    "stdin": ["python -m http.server 8888"],
+    "image": "python:3.9.17"
+  },
+  "service": {
+    "externalPort": 30088,
+    "internalPort": 8888
+  },
+  "input": {
+    "pfs": {
+      "glob": "/",
+      "repo": "service-input"
+    }
+  }
+}

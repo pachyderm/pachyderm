@@ -1,0 +1,26 @@
+.row {
+  padding-left: 2rem;
+  background-color: var(--pachyderm-black);
+  display: flex;
+  align-items: flex-start;
+}
+
+.messageCol {
+  width: 100%;
+  white-space: pre-wrap;
+  line-break: anywhere;
+}
+
+.firstRow {
+  align-items: flex-end;
+}
+
+.mark {
+  background-color: var(--white);
+  color: var(--pachyderm-black);
+  padding: 0;
+}
+
+.rawText {
+  color: var(--white);
+}

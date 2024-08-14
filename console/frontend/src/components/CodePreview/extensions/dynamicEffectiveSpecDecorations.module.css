@@ -1,0 +1,11 @@
+.userAvatar {
+  position: absolute;
+  transform: scale(0.6);
+  left: -1.5em;
+}
+
+.tooltip {
+  width: 18.75rem;
+  white-space: normal;
+  word-break: normal;
+}

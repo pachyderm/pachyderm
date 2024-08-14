@@ -1,0 +1,12 @@
+.base {
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: 100%;
+  min-width: calc(18.75rem - 1px);
+}
+
+.expanded {
+  border-right: 1px solid var(--border-grey);
+}

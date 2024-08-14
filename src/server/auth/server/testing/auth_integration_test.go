@@ -277,7 +277,7 @@ func TestDebug(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
+	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions, minikubetestenv.EnableLokiOption)
 	tu.ActivateAuthClient(t, c)
 	for _, projectName := range []string{pfs.DefaultProjectName, tu.UniqueString("project")} {
 		t.Run(projectName, func(t *testing.T) {

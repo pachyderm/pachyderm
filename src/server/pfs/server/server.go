@@ -2,8 +2,12 @@ package server
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"strings"
+	"time"
 
 	etcd "go.etcd.io/etcd/client/v3"
+	"gocloud.dev/blob"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -12,14 +16,20 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+)
 
-	"gocloud.dev/blob"
+const (
+	StorageTaskNamespace = "storage"
+	fileSetsRepo         = client.FileSetsRepoName
+	defaultTTL           = client.DefaultTTL
+	maxTTL               = 30 * time.Minute
 )
 
 type APIServer = *validatedAPIServer
@@ -66,4 +76,18 @@ func NewAPIServer(ctx context.Context, env Env) (pfsserver.APIServer, error) {
 		return nil, err
 	}
 	return newValidatedAPIServer(a, env.Auth), nil
+}
+
+// IsPermissionError returns true if a given error is a permission error.
+func IsPermissionError(err error) bool {
+	return strings.Contains(err.Error(), "has already finished")
+}
+
+func (a *apiServer) getPermissionsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]auth.Permission, []string, error) {
+	resp, err := a.env.Auth.GetPermissionsInTransaction(ctx, txnCtx, &auth.GetPermissionsRequest{Resource: repo.AuthResource()})
+	if err != nil {
+		return nil, nil, errors.EnsureStack(err)
+	}
+
+	return resp.Permissions, resp.Roles, nil
 }

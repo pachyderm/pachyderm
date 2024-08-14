@@ -21,23 +21,23 @@ describe('examples plugin', () => {
     expect(appCommands[1]).toBe('jupyterlab-pachyderm:open-example-mount');
 
     const launcherItems = launcher.items();
-    expect(launcherItems.next()).toEqual({
+    expect(launcherItems.next().value).toEqual({
       category: 'Pachyderm Examples',
       command: 'jupyterlab-pachyderm:open-example-intro',
       rank: 1,
     });
-    expect(launcherItems.next()).toEqual({
+    expect(launcherItems.next().value).toEqual({
       category: 'Pachyderm Examples',
       command: 'jupyterlab-pachyderm:open-example-mount',
       rank: 2,
     });
-    expect(launcherItems.next()).toBeUndefined();
+    expect(launcherItems.next().value).toBeUndefined();
   });
 
   it('should not add example if the file is not found', async () => {
     fetchMock.mockReject();
     await examples.activate(app, launcher);
     expect(app.commands.listCommands()).toHaveLength(0);
-    expect(launcher.items().next()).toBeUndefined();
+    expect(launcher.items().next().value).toBeUndefined();
   });
 });

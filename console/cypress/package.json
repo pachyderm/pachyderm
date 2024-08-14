@@ -1,0 +1,20 @@
+{
+  "name": "@pachyderm/haberdashery",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "lint": "eslint '**/*.{js,ts}'",
+    "lint:fix": "eslint '**/*.{js,ts}' --fix"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.3.1",
+    "@typescript-eslint/eslint-plugin": "^5.60.0",
+    "@typescript-eslint/parser": "^5.60.0",
+    "eslint": "^8.42.0",
+    "eslint-plugin-cypress": "^2.13.3",
+    "eslint-plugin-no-only-tests": "^3.1.0"
+  }
+}

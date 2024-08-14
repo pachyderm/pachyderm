@@ -1,0 +1,35 @@
+.base {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 1rem 0.5rem 1rem;
+  width: 100%;
+  gap: 1rem;
+}
+
+.base:hover {
+  cursor: pointer;
+  background-color: var(--hover-grey);
+}
+
+.base > span {
+  color: var(--pachyderm-black);
+}
+
+.underline {
+  border-bottom: 1px solid var(--pachyderm-black);
+}
+
+.icons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.killed {
+  color: var(--pachyderm-red);
+}
+
+.underlineContainer {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

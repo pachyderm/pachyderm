@@ -9,19 +9,19 @@ import (
 )
 
 type cache struct {
-	driver *driver
-	tag    string
+	*apiServer
+	tag string
 }
 
-func (d *driver) newCache(tag string) *cache {
+func (a *apiServer) newCache(tag string) *cache {
 	return &cache{
-		driver: d,
-		tag:    tag,
+		apiServer: a,
+		tag:       tag,
 	}
 }
 
 func (c *cache) Get(ctx context.Context, key string) (*anypb.Any, error) {
-	output, err := c.driver.getCache(ctx, key)
+	output, err := c.getCache(ctx, key)
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +56,21 @@ func (c *cache) Put(ctx context.Context, key string, output *anypb.Any) error {
 		}
 		fsids = append(fsids, *fsid)
 	}
-	return c.driver.putCache(ctx, key, output, fsids, c.tag)
+	return c.putCache(ctx, key, output, fsids, c.tag)
 }
 
 func (c *cache) clear(ctx context.Context) error {
-	return c.driver.clearCache(ctx, c.tag)
+	return c.clearCache(ctx, c.tag)
+}
+
+func (a *apiServer) putCache(ctx context.Context, key string, value *anypb.Any, fileSetIds []fileset.ID, tag string) error {
+	return a.cache.Put(ctx, key, value, fileSetIds, tag)
+}
+
+func (a *apiServer) getCache(ctx context.Context, key string) (*anypb.Any, error) {
+	return a.cache.Get(ctx, key)
+}
+
+func (a *apiServer) clearCache(ctx context.Context, tagPrefix string) error {
+	return a.cache.Clear(ctx, tagPrefix)
 }

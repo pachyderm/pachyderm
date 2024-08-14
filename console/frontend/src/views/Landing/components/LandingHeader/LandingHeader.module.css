@@ -1,0 +1,26 @@
+a.logoLink {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.hpeLogoHeader {
+  font-weight: 700;
+  font-size: 16px;
+  margin-left: 0.75rem;
+  color: var(--white);
+  display: inline-block;
+}
+
+.hpeLogoSpan {
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.pachydermLogoHeader {
+  margin-left: 0.5rem;
+  height: 1.25rem;
+  width: 5.875rem;
+  color: var(--white);
+  display: inline-block;
+}

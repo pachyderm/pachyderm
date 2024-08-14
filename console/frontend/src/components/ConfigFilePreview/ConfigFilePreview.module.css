@@ -1,0 +1,22 @@
+.header {
+  display: flex;
+  justify-content: space-between;
+  height: 4rem;
+  align-items: center;
+  padding: 1rem;
+}
+
+.codeBody {
+  padding: 0 1rem;
+  overflow-y: auto;
+}
+
+.settings {
+  display: flex;
+  align-items: center;
+  cursor: default;
+}
+
+.fileCodePreview {
+  margin: 0 auto;
+}

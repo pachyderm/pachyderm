@@ -1,0 +1,22 @@
+.base {
+  display: block;
+  position: relative;
+}
+
+.listbox {
+  position: absolute;
+  display: none;
+  overflow-y: scroll;
+  left: 0;
+  width: 100%;
+  top: 100%;
+  z-index: 100;
+  border-radius: 0 0 3px 3px;
+  box-shadow: 1px 1px 4px 0 var(--dropshadow-grey);
+  background-color: #fff;
+  max-height: 11.375rem;
+}
+
+.open .listbox {
+  display: block;
+}

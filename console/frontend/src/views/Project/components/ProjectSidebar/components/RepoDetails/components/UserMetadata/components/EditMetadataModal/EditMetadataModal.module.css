@@ -1,0 +1,34 @@
+.tableField,
+.tableHeader {
+  background-color: var(--white) !important;
+  border-top: none;
+}
+
+.tableHeader {
+  padding: 0 !important;
+  box-shadow: inset 0 -1px 0 0 var(--border-grey);
+}
+
+.tableField {
+  padding: 0 !important;
+  height: auto !important;
+}
+
+.tableField > * {
+  display: inline-block;
+}
+
+.tableInput {
+  height: 2rem;
+  width: 11.25rem;
+  margin-top: 0.25rem;
+  margin-right: 0.25rem;
+}
+
+.tableField:nth-of-type(2) .tableInput {
+  width: 20rem;
+}
+
+.addNewButton {
+  margin-top: 0.5rem;
+}

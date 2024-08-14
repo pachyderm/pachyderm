@@ -1,0 +1,58 @@
+.borderBox {
+  border-radius: 3px;
+  padding: 0.5rem;
+  border: solid 1px var(--border-grey);
+  margin-bottom: 1rem;
+  container-type: inline-size;
+  container-name: border-box;
+}
+
+.row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.label {
+  text-align: left;
+}
+
+.label.full {
+  width: 100%;
+}
+
+.content {
+  text-align: right;
+}
+
+.content.full {
+  text-align: left;
+}
+
+.loading {
+  width: 100%;
+}
+
+.responsiveContent {
+  display: none;
+}
+
+@container border-box (max-width: 400px) {
+  .responsiveContent {
+    display: inline;
+  }
+
+  .fullContent {
+    display: none;
+  }
+}
+@container border-box (max-width: 250px) {
+  .label {
+    width: 100%;
+  }
+  .content {
+    text-align: left;
+  }
+}

@@ -13,7 +13,7 @@ import (
 // a transaction.  The transactionenv package provides the interface for this
 // and will call the Run function at the end of a transaction.
 type Propagater struct {
-	d      *driver
+	a      *apiServer
 	txnCtx *txncontext.TransactionContext
 
 	// Branches that were modified (new commits or head commit was moved to an old commit)
@@ -22,7 +22,7 @@ type Propagater struct {
 
 func (a *apiServer) NewPropagater(txnCtx *txncontext.TransactionContext) txncontext.PfsPropagater {
 	return &Propagater{
-		d:        a.driver,
+		a:        a,
 		txnCtx:   txnCtx,
 		branches: map[string]*pfs.Branch{},
 	}
@@ -51,21 +51,21 @@ func (t *Propagater) Run(ctx context.Context) error {
 	for _, branch := range t.branches {
 		branches = append(branches, branch)
 	}
-	if err := t.d.validateDAGStructure(ctx, t.txnCtx, branches); err != nil {
+	if err := t.a.validateDAGStructure(ctx, t.txnCtx, branches); err != nil {
 		return errors.Wrap(err, "validate DAG at end of transaction")
 	}
-	return t.d.propagateBranches(ctx, t.txnCtx, branches)
+	return t.a.propagateBranches(ctx, t.txnCtx, branches)
 }
 
 type RepoValidator struct {
-	d      *driver
+	a      *apiServer
 	txnCtx *txncontext.TransactionContext
 	repos  map[string]*pfs.Repo
 }
 
 func (a *apiServer) NewRepoValidator(txnCtx *txncontext.TransactionContext) txncontext.PfsRepoValidator {
 	return &RepoValidator{
-		d:      a.driver,
+		a:      a,
 		txnCtx: txnCtx,
 		repos:  map[string]*pfs.Repo{},
 	}
@@ -81,14 +81,14 @@ func (rc *RepoValidator) ValidateRepo(repo *pfs.Repo) error {
 
 func (rc *RepoValidator) Run(ctx context.Context) error {
 	for _, repo := range rc.repos {
-		if err := rc.d.listBranchInTransaction(ctx, rc.txnCtx, repo, false, func(bi *pfs.BranchInfo) error {
+		if err := rc.a.listBranchInTransaction(ctx, rc.txnCtx, repo, false, func(bi *pfs.BranchInfo) error {
 			head, err := pfsdb.GetCommitByKey(ctx, rc.txnCtx.SqlTx, bi.Head)
 			if err != nil {
 				return errors.Wrap(err, "get commit by key")
 			}
 			// the branch head should not be a forgotten commit; only a finished commit can be forgotten
 			if head.Finished != nil && head.Error == "" {
-				_, err := rc.d.commitStore.GetTotalFileSetTx(rc.txnCtx.SqlTx, head)
+				_, err := rc.a.commitStore.GetTotalFileSetTx(rc.txnCtx.SqlTx, head)
 				if err != nil {
 					// a finished commit that has no total file set is forgotten
 					if errors.Is(err, errNoTotalFileSet) {

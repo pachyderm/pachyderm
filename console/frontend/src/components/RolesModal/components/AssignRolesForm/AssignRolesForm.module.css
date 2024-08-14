@@ -1,0 +1,39 @@
+.base {
+  margin-bottom: 2rem;
+  width: 100%;
+  display: inline-flex;
+}
+
+.mainInput {
+  flex: 1;
+  width: 100%;
+  display: inline-flex;
+}
+
+.typeDropdown {
+  border: solid 1px var(--border-grey);
+  border-right: none;
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+
+.typeDropdown.allClusterUsers {
+  border: solid 1px var(--border-grey);
+  border-radius: 6px;
+  flex: 1;
+}
+
+.emailInput {
+  padding: 0rem 0.5rem;
+  border: solid 1px var(--border-grey);
+  border-left: none;
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+  flex: 1;
+}
+
+.status {
+  margin-top: -1.75rem;
+  height: 1rem;
+  margin-bottom: 0.75rem;
+}

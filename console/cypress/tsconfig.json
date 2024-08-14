@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": "../src",
+    "target": "es2020",
+    "lib": ["ES2020", "dom"],
+    "types": ["@testing-library/cypress", "cypress", "cypress-wait-until"],
+    "esModuleInterop": true
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}

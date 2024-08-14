@@ -1,0 +1,35 @@
+.base {
+  display: flex;
+  border-radius: 2.4px;
+  background-color: var(--background-blue);
+  padding: 0.5rem 0.5rem 1rem 1rem;
+  flex-direction: column;
+}
+
+.infoWrapper {
+  flex-grow: 1;
+}
+
+.info {
+  width: 100%;
+}
+
+.name {
+  color: var(--pachyderm-black);
+}
+
+.sizeGroup {
+  margin-top: 0.5rem;
+}
+
+.size {
+  color: var(--pachyderm-black);
+}
+
+.cancelButton {
+  align-self: flex-end;
+}
+
+.loading {
+  color: #0f1012;
+}

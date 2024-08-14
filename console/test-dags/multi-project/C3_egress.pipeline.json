@@ -1,0 +1,18 @@
+{
+  "pipeline": {"name": "egress"},
+  "description": "egress test",
+  "input": {
+    "pfs": {
+      "glob": "/",
+      "repo": "edges",
+      "project": "Multi-Project-C2"
+    }
+  },
+  "transform": {
+    "cmd": ["python3", "/edges.py"],
+    "image": "pachyderm/opencv:1.0"
+  },
+  "egress": {
+    "URL": "s3://bucket/dir"
+  }
+}

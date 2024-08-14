@@ -1,0 +1,9 @@
+.raw {
+  background-color: var(--pachyderm-black);
+  scrollbar-color: auto;
+}
+
+.raw::-webkit-scrollbar-thumb {
+  background: var(--line-grey);
+  border: solid 0.25rem var(--pachyderm-black);
+}

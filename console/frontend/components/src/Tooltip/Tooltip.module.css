@@ -1,0 +1,21 @@
+.base {
+  color: var(--background-grey);
+  padding: 0.5rem 1rem;
+  border-radius: 3px;
+  background-color: var(--pachyderm-black);
+  line-height: 1.375rem;
+  text-align: left;
+  z-index: var(--z-index-tooltip);
+  max-width: 18.75rem;
+  white-space: wrap;
+  /* don't let other components override margin */
+  margin: 0 !important;
+}
+
+.noWrap {
+  white-space: nowrap;
+}
+
+.element {
+  height: fit-content;
+}

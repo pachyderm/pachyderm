@@ -1,0 +1,28 @@
+.chipWrapper {
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.chipContainer {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.unsetLabelStyles {
+  margin-bottom: unset;
+  display: unset;
+}
+
+.noFailedJobsText {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-left: 0.5rem;
+}
+
+.filterButtonGroup {
+  display: flex;
+  gap: 0.25rem;
+}

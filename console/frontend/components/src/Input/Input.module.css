@@ -1,0 +1,48 @@
+.base {
+  border: 1px solid;
+  border-color: var(--border-grey);
+  border-radius: 3px;
+  transition: border-color 0.2s;
+  padding-left: 1rem;
+  background-color: var(--white);
+  width: 100%;
+  height: 2.875rem;
+}
+
+.base:not(.disabled):focus,
+.base:not(.disabled):active,
+.base:not(.disabled)[class$=':focus'] {
+  outline: none;
+  border-color: var(--pachyderm-plum);
+}
+
+.base:disabled,
+.base:read-only,
+.base::placeholder {
+  color: var(--placeholder-grey);
+}
+
+.base.clearable {
+  padding-right: 2.5rem;
+}
+
+.wrapper {
+  position: relative;
+}
+
+.button {
+  border: none;
+  background: none;
+  position: absolute;
+  right: 0.5rem;
+  top: calc((2.85rem - 20px) / 2);
+}
+
+.button > svg {
+  vertical-align: baseline;
+  transform: scale(0.75);
+}
+
+.button:focus:not([class$='focus-visible']) {
+  outline: none;
+}

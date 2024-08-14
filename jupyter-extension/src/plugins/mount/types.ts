@@ -140,7 +140,7 @@ export type PpsConfig = {
 
 export type PpsContext = {
   metadata: PpsMetadata | null;
-  notebookModel: Contents.IModel | null;
+  notebookModel: Omit<Contents.IModel, 'content'> | null;
 };
 
 export type CreatePipelineResponse = {

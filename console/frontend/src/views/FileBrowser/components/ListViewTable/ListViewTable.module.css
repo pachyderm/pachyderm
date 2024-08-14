@@ -1,0 +1,30 @@
+.tableBase {
+  overflow: auto;
+  max-height: calc(100vh - var(--header-height));
+}
+
+.headerButtons {
+  display: flex;
+  justify-content: flex-end;
+  margin-right: 1rem;
+}
+
+.scrolling {
+  flex: 1;
+  overflow: auto;
+  scrollbar-width: none;
+  padding-bottom: 18rem;
+}
+
+.scrolling::-webkit-scrollbar {
+  display: none;
+}
+
+.modalList {
+  list-style-type: none;
+  padding: 0;
+}
+
+.disabledButton {
+  pointer-events: none;
+}

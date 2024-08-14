@@ -41,7 +41,7 @@ describe('mount', () => {
     cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
     cy.get('#jupyterlab-pachyderm-browser-pfs').findByText('images').dblclick();
     cy.findAllByText('liberty.png').first().rightclick();
-    cy.get('ul.lm-Menu-content.p-Menu-content')
+    cy.get('ul.lm-Menu-content')
       .children()
       .should('have.length', 4)
       .first()

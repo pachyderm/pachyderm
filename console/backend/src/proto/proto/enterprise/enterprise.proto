@@ -1,0 +1,137 @@
+syntax = "proto3";
+
+package enterprise_v2;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/enterprise";
+
+import "google/protobuf/timestamp.proto";
+
+import "protoextensions/log.proto";
+
+// Enterprise data structures
+
+// LicenseRecord is the record we store in etcd for a Pachyderm enterprise
+// token that has been provided to a Pachyderm license server
+message LicenseRecord {
+  string activation_code = 1 [(log.half) = true];
+
+  google.protobuf.Timestamp expires = 2;
+}
+
+// EnterpriseConfig is the configuration we store for heartbeating
+// to the license server.
+message EnterpriseConfig {
+  // license_server is the address of the grpc license service
+  string license_server = 1;
+  // id is the unique identifier for this pachd, which is registered
+  // with the license service
+  string id = 2;
+  // secret is a shared secret between this pachd and the license service
+  string secret = 3;
+}
+
+// EnterpriseRecord is a protobuf we cache in etcd to store the
+// enterprise status.
+message EnterpriseRecord {
+  // license is the cached LicenseRecord retrieved from the most recent
+  // heartbeat to the license server.
+  LicenseRecord license = 1;
+
+  // last_heartbeat is the timestamp of the last successful heartbeat
+  // to the license server
+  google.protobuf.Timestamp last_heartbeat = 2;
+
+  // heartbeat_failed is set if the license is still valid, but
+  // the pachd is no longer registered with an enterprise server.
+  // This is the same as the expired state, where auth is locked
+  // but not disabled.
+  bool heartbeat_failed = 3;
+}
+
+enum State {
+  NONE = 0;
+  ACTIVE = 1;
+  EXPIRED = 2;
+  HEARTBEAT_FAILED = 3;
+}
+
+// TokenInfo contains information about the currently active enterprise token
+message TokenInfo {
+  // expires indicates when the current token expires (unset if there is no
+  // current token)
+  google.protobuf.Timestamp expires = 1;
+}
+
+//// Enterprise Activation API
+
+message ActivateRequest {
+  string license_server = 1;
+  string id = 2;
+  string secret = 3 [(log.half) = true];
+}
+message ActivateResponse {}
+
+message GetStateRequest {}
+
+message GetStateResponse {
+  State state = 1;
+  TokenInfo info = 2;
+
+  // activation_code will always be an empty string,
+  // call GetEnterpriseCode to get the activation code
+  string activation_code = 3 [(log.half) = true];
+}
+
+message GetActivationCodeRequest {}
+
+message GetActivationCodeResponse {
+  State state = 1;
+  TokenInfo info = 2;
+  string activation_code = 3 [(log.half) = true];
+}
+
+// Heartbeat in the enterprise service just triggers a heartbeat for
+// testing purposes. The RPC used to communicate with the license
+// service is defined in the license service.
+message HeartbeatRequest{}
+message HeartbeatResponse{}
+
+message DeactivateRequest{}
+message DeactivateResponse{}
+
+message PauseRequest{}
+message PauseResponse{}
+
+message UnpauseRequest{}
+message UnpauseResponse{}
+
+message PauseStatusRequest{}
+message PauseStatusResponse{
+  enum PauseStatus {
+    UNPAUSED = 0;
+    PARTIALLY_PAUSED = 1;
+    PAUSED = 2;
+  }
+  PauseStatus status = 1;
+}
+
+service API {
+  // Provide a Pachyderm enterprise token, enabling Pachyderm enterprise
+  // features, such as the Pachyderm Dashboard and Auth system
+  rpc Activate(ActivateRequest) returns (ActivateResponse) {}
+  rpc GetState(GetStateRequest) returns (GetStateResponse) {}
+  rpc GetActivationCode(GetActivationCodeRequest) returns (GetActivationCodeResponse) {}
+
+  // Heartbeat is used in testing to trigger a heartbeat on demand. Normally this happens
+  // on a timer.
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse) {}
+
+  // Deactivate removes a cluster's enterprise activation
+  // token and sets its enterprise state to NONE.
+  rpc Deactivate(DeactivateRequest) returns (DeactivateResponse) {}
+
+  // Pause pauses the cluster.
+  rpc Pause(PauseRequest) returns (PauseResponse) {}
+  // Unpause unpauses the cluser.
+  rpc Unpause(UnpauseRequest) returns (UnpauseResponse) {}
+  rpc PauseStatus(PauseStatusRequest) returns (PauseStatusResponse) {}
+}
