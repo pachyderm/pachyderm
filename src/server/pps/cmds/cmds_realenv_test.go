@@ -761,7 +761,7 @@ func TestProjectDefaultsMetadata(t *testing.T) {
 	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, rootClient, `
 		pachctl create project {{.projectName}}
 		echo '{"createPipelineRequest": {"autoscaling": true}}' | pachctl create defaults --project {{.projectName}}
-		pachctl inspect defaults --project {{.projectName}} --raw | jq -r .createdBy | match "pach:root"
+		pachctl inspect defaults --project {{.projectName}} --raw | match '"createdBy":"pach:root"'
 	`,
 		"projectName", projectName,
 	).Run())
