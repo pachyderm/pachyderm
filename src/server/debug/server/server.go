@@ -29,7 +29,9 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -549,7 +551,6 @@ func (s *debugServer) makeProfilesTask(server debug.Debug_DumpV2Server, apps []*
 						},
 					}
 				}
-
 				for _, pod := range app.Pods {
 					for _, c := range pod.Containers {
 						for _, profile := range profileArgs.Profiles {
@@ -813,7 +814,17 @@ func (s *debugServer) collectProfile(ctx context.Context, dfs DumpFS, app *debug
 			}
 			return errors.Wrap(writeProfile(ctx, dfs.WithPrefix(filepath.Join(appDir(app), "pods", pod.Name, container)), req.Profile), "write profile")
 		}
-		c, err := workerserver.NewClient(pod.Ip)
+		var portVar string
+		if container == "user" {
+			portVar = os.Getenv("PPS_WORKER_GRPC_PORT")
+		} else {
+			portVar = os.Getenv("PORT")
+		}
+		port, err := strconv.Atoi(portVar)
+		if err != nil {
+			return errors.Wrapf(err, "convert port variable to int for container %q", container)
+		}
+		c, err := newDebugClient(ctx, pod.Ip, port)
 		if err != nil {
 			return errors.Wrapf(err, "worker client for %q at %q", pod.Name, pod.Ip)
 		}
@@ -833,6 +844,17 @@ func (s *debugServer) collectProfile(ctx context.Context, dfs DumpFS, app *debug
 		return errors.Wrapf(err, "collect profile %q", profile)
 	}
 	return nil
+}
+
+func newDebugClient(ctx context.Context, address string, port int) (debug.DebugClient, error) {
+	defaultTimeout := time.Second * 5
+	ctx, _ = context.WithTimeout(ctx, defaultTimeout)
+	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),
+		append(client.DefaultDialOptions(), grpc.WithTransportCredentials(insecure.NewCredentials()))...)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return debug.NewDebugClient(conn), nil
 }
 
 func writeProfile(ctx context.Context, dfs DumpFS, profile *debug.Profile) (retErr error) {
@@ -857,12 +879,6 @@ func writeProfile(ctx context.Context, dfs DumpFS, profile *debug.Profile) (retE
 			return errors.Wrap(coverage.WriteMeta(w), "meta")
 		}); err != nil {
 			errors.JoinInto(&errs, err)
-		}
-		if errs == nil {
-			log.Debug(ctx, "clearing coverage counters")
-			if err := coverage.ClearCounters(); err != nil {
-				log.Debug(ctx, "problem clearing coverage counters", zap.Error(err))
-			}
 		}
 		if errs == nil {
 			log.Debug(ctx, "clearing coverage counters")
