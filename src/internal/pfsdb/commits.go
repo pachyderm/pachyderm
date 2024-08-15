@@ -717,6 +717,9 @@ func getCommitInfoFromCommitRow(ctx context.Context, extCtx sqlx.ExtContext, row
 	return info, nil
 }
 
+// getCommitFromCommitRow returns commits in different formats as needed by a caller. A common format is the 'CommitInfo' format.
+// additionally, it returns the related commit IDs. The goal is to eventually not return the CommitInfo and just return the related
+// IDs. Both types are returned to allow for callers to have more flexibility.
 func getCommitFromCommitRow(ctx context.Context, extCtx sqlx.ExtContext, row *CommitRow) (*pfs.CommitInfo, *relatedCommitIDs, error) {
 	var (
 		err                       error
@@ -761,13 +764,23 @@ func getCommitFromCommitRow(ctx context.Context, extCtx sqlx.ExtContext, row *Co
 	return commitInfo, relatedCommitIDs, err
 }
 
-func getCommitRelativesAndRows(ctx context.Context, extCtx sqlx.ExtContext, commitID CommitID) (*pfs.Commit, []*pfs.Commit, *CommitRow, []*CommitRow, error) {
-	parentCommit, parentRow, err := getCommitParent(ctx, extCtx, commitID)
+// getCommitRelativesAndRows returns parents and children in two different formats. Eventually, the goal is to only return
+// the rows rather than the pfs.Commit structures.
+func getCommitRelativesAndRows(
+	ctx context.Context,
+	extCtx sqlx.ExtContext,
+	commitID CommitID) (
+	parentCommit *pfs.Commit,
+	childCommits []*pfs.Commit,
+	parentRow *CommitRow,
+	childRows []*CommitRow,
+	err error) {
+	parentCommit, parentRow, err = getCommitParent(ctx, extCtx, commitID)
 	if err != nil && !errors.As(err, &ParentCommitNotFoundError{ChildRowID: commitID}) {
 		return nil, nil, nil, nil, errors.Wrap(err, "getting parent commit")
 		// if parent is missing, assume commit is root of a repo.
 	}
-	childCommits, childRows, err := getCommitChildren(ctx, extCtx, commitID)
+	childCommits, childRows, err = getCommitChildren(ctx, extCtx, commitID)
 	if err != nil && !errors.As(err, &ChildCommitNotFoundError{ParentRowID: commitID}) {
 		return nil, nil, nil, nil, errors.Wrap(err, "getting children commits")
 		// if children is missing, assume commit is HEAD of some branch.
