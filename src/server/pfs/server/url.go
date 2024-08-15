@@ -178,7 +178,7 @@ func (a *apiServer) getFileURL(ctx context.Context, taskService task.Service, UR
 	if basePathRange == nil {
 		basePathRange = &pfs.PathRange{}
 	}
-	commit, err := a.getCommit(ctx, file.Commit)
+	commit, err := a.resolveCommit(ctx, file.Commit)
 	if err != nil {
 		return 0, errors.Wrap(err, "get file url")
 	}
@@ -193,7 +193,7 @@ func (a *apiServer) getFileURL(ctx context.Context, taskService task.Service, UR
 	var bytesWritten int64
 	eg.Go(func() error {
 		return a.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-			fsID, err := a.getFileSet(ctx, commit)
+			fsID, err := a.getFileset(ctx, commit)
 			if err != nil {
 				return err
 			}

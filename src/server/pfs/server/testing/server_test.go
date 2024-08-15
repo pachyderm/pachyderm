@@ -4399,53 +4399,6 @@ func TestApplyWriteOrder(t *testing.T) {
 	require.Equal(t, 0, len(fileInfos))
 }
 
-func TestOverwrite(t *testing.T) {
-	// TODO(2.0 optional): Implement put file split.
-	t.Skip("Put file split not implemented in V2")
-	//		//  env := testpachd.NewRealEnv(t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	//
-	//	if testing.Short() {
-	//		t.Skip("Skipping integration tests in short mode")
-	//	}
-	//
-	//	repo := "test"
-	//	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName,repo))
-	//
-	//	// Write foo
-	//	_, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName,repo, "master")
-	//	require.NoError(t, err)
-	//	_, err = env.PachClient.PutFile(repo, "master", "file1", strings.NewReader("foo"))
-	//	require.NoError(t, err)
-	//	_, err = env.PachClient.PutFileSplit(repo, "master", "file2", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
-	//	require.NoError(t, err)
-	//	_, err = env.PachClient.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
-	//	require.NoError(t, err)
-	//	require.NoError(t, finishCommit(env.PachClient, repo, "master"))
-	//	_, err = env.PachClient.StartProjectCommit(pfs.DefaultProjectName,repo, "master")
-	//	require.NoError(t, err)
-	//	_, err = env.PachClient.PutFile(repo, "master", "file1", strings.NewReader("bar"))
-	//	require.NoError(t, err)
-	//	require.NoError(t, env.PachClient.PutFile(repo, "master", "file2", strings.NewReader("buzz")))
-	//	require.NoError(t, err)
-	//	_, err = env.PachClient.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, 0, true, strings.NewReader("0\n1\n2\n"))
-	//	require.NoError(t, err)
-	//	require.NoError(t, finishCommit(env.PachClient, repo, "master"))
-	//	var buffer bytes.Buffer
-	//	require.NoError(t, env.PachClient.GetFile(repo, "master", "file1", &buffer))
-	//	require.Equal(t, "bar", buffer.String())
-	//	buffer.Reset()
-	//	require.NoError(t, env.PachClient.GetFile(repo, "master", "file2", &buffer))
-	//	require.Equal(t, "buzz", buffer.String())
-	//	fileInfos, err := env.PachClient.ListFileAll(repo, "master", "file3")
-	//	require.NoError(t, err)
-	//	require.Equal(t, 3, len(fileInfos))
-	//	for i := 0; i < 3; i++ {
-	//		buffer.Reset()
-	//		require.NoError(t, env.PachClient.GetFile(repo, "master", fmt.Sprintf("file3/%016x", i), &buffer))
-	//		require.Equal(t, fmt.Sprintf("%d\n", i), buffer.String())
-	//	}
-}
-
 func TestFindCommits(t *testing.T) {
 	ctx, cf := context.WithTimeout(pctx.TestContext(t), time.Minute)
 	defer cf()

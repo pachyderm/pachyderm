@@ -2,7 +2,6 @@ package server
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
 	"io"
 	"time"
@@ -12,7 +11,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -282,7 +280,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) FinishCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
-		commit, err := a.resolveCommit(ctx, txnCtx.SqlTx, request.Commit)
+		commit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, request.Commit)
 		if err != nil {
 			return errors.Wrap(err, "finish commit in transaction")
 		}
@@ -311,12 +309,20 @@ func (a *apiServer) forgetCommitTx(txnCtx *txncontext.TransactionContext, commit
 // excluded) except that it can run inside an existing postgres transaction.
 // This is not an RPC.
 func (a *apiServer) InspectCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	return a.resolveCommitInfo(ctx, txnCtx.SqlTx, request.Commit)
+	c, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, request.Commit)
+	if err != nil {
+		return nil, err
+	}
+	return c.CommitInfo, nil
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
-	return a.inspectCommitInfo(ctx, request.Commit, request.Wait)
+	c, err := a.waitForCommit(ctx, request.Commit, request.Wait)
+	if err != nil {
+		return nil, err
+	}
+	return c.CommitInfo, nil
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
@@ -603,7 +609,7 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 	return metrics.ReportRequestWithThroughput(func() (int64, error) {
 		var bytesRead int64
 		if err := a.modifyFile(server.Context(), commit, func(uw *fileset.UnorderedWriter) error {
-			n, err := a.modifyFileHelper(server.Context(), uw, server)
+			n, err := a.modifyFileFromSource(server.Context(), uw, server)
 			if err != nil {
 				return err
 			}
@@ -614,70 +620,6 @@ func (a *apiServer) ModifyFile(server pfs.API_ModifyFileServer) (retErr error) {
 		}
 		return bytesRead, errors.EnsureStack(server.SendAndClose(&emptypb.Empty{}))
 	})
-}
-
-type modifyFileSource interface {
-	Recv() (*pfs.ModifyFileRequest, error)
-}
-
-// modifyFile reads from a modifyFileSource until io.EOF and writes changes to an UnorderedWriter.
-// SetCommit messages will result in an error.
-func (a *apiServer) modifyFileHelper(ctx context.Context, uw *fileset.UnorderedWriter, server modifyFileSource) (int64, error) {
-	var bytesRead int64
-	for {
-		msg, err := server.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return bytesRead, errors.EnsureStack(err)
-		}
-		switch mod := msg.Body.(type) {
-		case *pfs.ModifyFileRequest_AddFile:
-			var err error
-			var n int64
-			p := mod.AddFile.Path
-			t := mod.AddFile.Datum
-			switch src := mod.AddFile.Source.(type) {
-			case *pfs.AddFile_Raw:
-				n, err = putFileRaw(ctx, uw, p, t, src.Raw)
-			case *pfs.AddFile_Url:
-				n, err = putFileURL(ctx, a.env.TaskService, uw, p, t, src.Url)
-			default:
-				// need to write empty data to path
-				n, err = putFileRaw(ctx, uw, p, t, &wrapperspb.BytesValue{})
-			}
-			if err != nil {
-				return bytesRead, err
-			}
-			bytesRead += n
-		case *pfs.ModifyFileRequest_DeleteFile:
-			if err := deleteFile(ctx, uw, mod.DeleteFile); err != nil {
-				return bytesRead, err
-			}
-		case *pfs.ModifyFileRequest_CopyFile:
-			cf := mod.CopyFile
-			if err := a.copyFile(ctx, uw, cf.Dst, cf.Src, cf.Append, cf.Datum); err != nil {
-				return bytesRead, err
-			}
-		case *pfs.ModifyFileRequest_SetCommit:
-			return bytesRead, errors.Errorf("cannot set commit")
-		default:
-			return bytesRead, errors.Errorf("unrecognized message type")
-		}
-	}
-	return bytesRead, nil
-}
-
-func putFileRaw(ctx context.Context, uw *fileset.UnorderedWriter, path, tag string, src *wrapperspb.BytesValue) (int64, error) {
-	if err := uw.Put(ctx, path, tag, true, bytes.NewReader(src.Value)); err != nil {
-		return 0, err
-	}
-	return int64(len(src.Value)), nil
-}
-
-func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.DeleteFile) error {
-	return uw.Delete(ctx, request.Path, request.Datum)
 }
 
 // GetFileTAR implements the protobuf pfs.GetFileTAR RPC
@@ -840,10 +782,11 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
 			output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
-				info, err := a.inspectCommitInfo(ctx, output, pfs.CommitState_STARTED)
+				c, err := a.resolveCommit(ctx, output)
 				if err != nil {
 					return err
 				}
+				info := c.CommitInfo
 				// we will be reading the whole file system, so unfinished commits would be very slow
 				if info.Error == "" && info.Finished != nil {
 					break
@@ -864,7 +807,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 // CreateFileSet implements the pfs.CreateFileset RPC
 func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr error) {
 	fsID, err := a.createFileSet(server.Context(), func(uw *fileset.UnorderedWriter) error {
-		_, err := a.modifyFileHelper(server.Context(), uw, server)
+		_, err := a.modifyFileFromSource(server.Context(), uw, server)
 		return err
 	})
 	if err != nil {
@@ -876,12 +819,12 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	commit, err := a.getCommit(ctx, req.Commit)
+	commit, err := a.resolveCommit(ctx, req.Commit)
 	if err != nil {
 		return nil, errors.Wrap(err, "get file set")
 	}
 	// if the commit is forgotten, get diff fileset will not be executed
-	filesetID, err := a.getFileSet(ctx, commit)
+	filesetID, err := a.getFileset(ctx, commit)
 	if err != nil {
 		return nil, errors.Wrap(err, "get file set")
 	}

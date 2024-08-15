@@ -145,11 +145,11 @@ func (m *Master) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 			if oldHead.Commit.Id == ci.Commit.Id {
 				break
 			}
-			var err error
-			ci, err = m.resolveCommitInfo(ctx, txnCtx.SqlTx, ci.ParentCommit)
+			c, err := m.resolveCommitTx(ctx, txnCtx.SqlTx, ci.ParentCommit)
 			if err != nil {
 				return false, err
 			}
+			ci = c.CommitInfo
 			commits++
 		}
 		merge(commits == t.Commits)

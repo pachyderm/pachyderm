@@ -246,10 +246,11 @@ func (a *apiServer) linkParent(ctx context.Context, txnCtx *txncontext.Transacti
 	// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 	// happen if 'branch' is new and diverges from the existing branch in
 	// 'parent').
-	parentCommitInfo, err := a.resolveCommitInfo(ctx, txnCtx.SqlTx, parent)
+	parentCommit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, parent)
 	if err != nil {
 		return errors.Wrapf(err, "parent commit not found")
 	}
+	parentCommitInfo := parentCommit.CommitInfo
 	// fail if the parent commit has not been finished
 	if needsFinishedParent && parentCommitInfo.Finishing == nil {
 		return errors.Errorf("parent commit %s has not been finished", parentCommitInfo.Commit)
@@ -385,7 +386,7 @@ func (a *apiServer) isPathModifiedInCommit(ctx context.Context, commit *pfsdb.Co
 	return found, nil
 }
 
-func (a *apiServer) inspectCommit(ctx context.Context, commitHandle *pfs.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
+func (a *apiServer) waitForCommit(ctx context.Context, commitHandle *pfs.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
 	commit, err := a.resolveCommitWithAuth(ctx, commitHandle)
 	if err != nil {
 		return nil, err
@@ -394,32 +395,28 @@ func (a *apiServer) inspectCommit(ctx context.Context, commitHandle *pfs.Commit,
 		switch wait {
 		case pfs.CommitState_STARTED:
 		case pfs.CommitState_READY:
-			for _, c := range commit.DirectProvenance {
-				if _, err := a.inspectCommit(ctx, c, pfs.CommitState_FINISHED); err != nil {
+			for _, c := range commit.DirectProvenantIDs {
+				var provCommit *pfsdb.Commit
+				if err := a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+					var err error
+					provCommit, err = pfsdb.GetCommit(ctx, txnCtx.SqlTx, c)
+					return err
+				}); err != nil {
+					return nil, errors.Wrap(err, "inspect commit")
+				}
+				if _, err := a.waitForFinishingOrFinished(ctx, provCommit, pfs.CommitState_FINISHED); err != nil {
 					return nil, err
 				}
 			}
 		case pfs.CommitState_FINISHING, pfs.CommitState_FINISHED:
-			return a.inspectProcessingCommits(ctx, commit, wait)
+			return a.waitForFinishingOrFinished(ctx, commit, wait)
 		}
 	}
 	return commit, nil
 }
 
-// inspectCommitInfo takes a Commit and returns the corresponding CommitInfo.
-//
-// As a side effect, this function also replaces the ID in the given commit
-// with a real commit ID.
-func (a *apiServer) inspectCommitInfo(ctx context.Context, commitHandle *pfs.Commit, wait pfs.CommitState) (*pfs.CommitInfo, error) {
-	commit, err := a.inspectCommit(ctx, commitHandle, wait)
-	if err != nil {
-		return nil, errors.Wrap(err, "inspect commitHandle")
-	}
-	return commit.CommitInfo, nil
-}
-
-// inspectProcessingCommits waits for the commit to be FINISHING or FINISHED.
-func (a *apiServer) inspectProcessingCommits(ctx context.Context, commit *pfsdb.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
+// waitForFinishingOrFinished waits for the commit to be FINISHING or FINISHED.
+func (a *apiServer) waitForFinishingOrFinished(ctx context.Context, commit *pfsdb.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
 	// We only cancel the watcher if we detect the commit is the right state.
 	expectedErr := errors.New("commit is in the right state")
 	ctx, cancel := context.WithCancelCause(ctx)
@@ -451,31 +448,20 @@ func (a *apiServer) inspectProcessingCommits(ctx context.Context, commit *pfsdb.
 	return commit, nil
 }
 
-// resolveCommitWithAuth is like resolveCommit, but it does some pre-resolution checks like repo authorization.
 func (a *apiServer) resolveCommitWithAuth(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
-	if commitHandle.Repo.Name == fileSetsRepo {
-		cinfo := &pfs.CommitInfo{
-			Commit:      commitHandle,
-			Description: "FileSet - Virtual Commit",
-			Finished:    &timestamppb.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
-		}
-		return &pfsdb.Commit{
-			ID:         0, // This doesn't seem like the right thing to do, but here we are.
-			CommitInfo: cinfo,
-			Revision:   0,
-		}, nil
-	}
-	if commitHandle == nil {
-		return nil, errors.Errorf("cannot inspect nil commit")
-	}
 	if err := a.env.Auth.CheckRepoIsAuthorized(ctx, commitHandle.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	return a.resolveCommit(ctx, commitHandle)
+}
+
+// resolveCommit creates a transaction, then calls resolveCommitTx in that transaction.
+func (a *apiServer) resolveCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
 	// Resolve the commit in case it specifies a branch head or commit ancestry
 	var commit *pfsdb.Commit
 	if err := a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
-		commit, err = a.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
+		commit, err = a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 		return err
 	}); err != nil {
 		return nil, err
@@ -483,11 +469,11 @@ func (a *apiServer) resolveCommitWithAuth(ctx context.Context, commitHandle *pfs
 	return commit, nil
 }
 
-// resolveCommit contains the essential implementation of inspectCommitInfo: it converts 'commit' (which may
+// resolveCommitTx contains the essential implementation of InspectCommit. it converts 'commit' (which may
 // be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
 // ID. It accepts a postgres transaction so that it can be used in a transaction
-// and avoids an inconsistent call to a.inspectCommitInfo()
-func (a *apiServer) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
+// and avoids an inconsistent call to a.waitForCommit()
+func (a *apiServer) resolveCommitTx(ctx context.Context, sqlTx *pachsql.Tx, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
 	if commitHandle == nil {
 		return nil, errors.Errorf("cannot resolve nil commit")
 	}
@@ -496,6 +482,18 @@ func (a *apiServer) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commit
 	}
 	if commitHandle.Id == "" && commitHandle.GetBranch().GetName() == "" {
 		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
+	}
+	if commitHandle.AccessRepo().Name == fileSetsRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commitHandle,
+			Description: "FileSet - Virtual Commit",
+			Finished:    &timestamppb.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return &pfsdb.Commit{
+			ID:         0, // this doesn't seem like the right thing to do, but here we are.
+			CommitInfo: cinfo,
+			Revision:   0,
+		}, nil
 	}
 	commitHandleCopy := proto.Clone(commitHandle).(*pfs.Commit) // back up user commit, for error reporting
 	// Extract any ancestor tokens from 'commit.ID' (i.e. ~, ^ and .)
@@ -585,51 +583,6 @@ func (a *apiServer) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, commit
 	return commit, nil
 }
 
-// resolveCommitInfo contains the essential implementation of inspectCommitInfo: it converts 'commit' (which may
-// be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
-// ID. It accepts a postgres transaction so that it can be used in a transaction
-// and avoids an inconsistent call to a.inspectCommitInfo()
-func (a *apiServer) resolveCommitInfo(ctx context.Context, sqlTx *pachsql.Tx, commitHandle *pfs.Commit) (*pfs.CommitInfo, error) {
-	commit, err := a.resolveCommit(ctx, sqlTx, commitHandle)
-	if err != nil {
-		return nil, err
-	}
-	return commit.CommitInfo, nil
-}
-
-// getCommit is like inspectCommitInfo, without the blocking.
-// It does not add the size to the CommitInfo
-//
-// TODO(acohen4): consider more an architecture where a commit is resolved at the API boundary
-func (a *apiServer) getCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
-	if commitHandle.AccessRepo().Name == fileSetsRepo {
-		cinfo := &pfs.CommitInfo{
-			Commit:      commitHandle,
-			Description: "FileSet - Virtual Commit",
-			Finished:    &timestamppb.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
-		}
-		return &pfsdb.Commit{
-			ID:         0, // this doesn't seem like the right thing to do, but here we are.
-			CommitInfo: cinfo,
-			Revision:   0,
-		}, nil
-	}
-	if commitHandle == nil {
-		return nil, errors.Errorf("cannot inspect nil commit")
-	}
-
-	// Check if the commit is a branch name
-	var commit *pfsdb.Commit
-	if err := a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		var err error
-		commit, err = a.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return commit, nil
-}
-
 // passesCommitOriginFilter is a helper function for listCommit and
 // subscribeCommit to apply filtering to the returned commits.  By default
 // we allow users to request all the commits with
@@ -684,12 +637,12 @@ func (a *apiServer) listCommit(
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := a.inspectCommitInfo(ctx, from, pfs.CommitState_STARTED); err != nil {
+		if _, err := a.resolveCommit(ctx, from); err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		ci, err := a.inspectCommitInfo(ctx, to, pfs.CommitState_STARTED)
+		ci, err := a.resolveCommit(ctx, to)
 		if err != nil {
 			return err
 		}
@@ -850,10 +803,11 @@ func (a *apiServer) subscribeCommit(
 			// We don't want to include the `from` commit itself
 			if !(seen[c.Commit.Id] || (from != nil && from.Id == c.Commit.Id)) {
 				// Wait for the commit to enter the right state
-				commitInfo, err := a.inspectCommitInfo(ctx, proto.Clone(c.Commit).(*pfs.Commit), state)
+				commit, err := a.waitForCommit(ctx, proto.Clone(c.Commit).(*pfs.Commit), state)
 				if err != nil {
 					return err
 				}
+				commitInfo := commit.CommitInfo
 				if err := cb(commitInfo); err != nil {
 					return err
 				}
@@ -868,7 +822,7 @@ func (a *apiServer) subscribeCommit(
 }
 
 func (a *apiServer) clearCommit(ctx context.Context, commitHandle *pfs.Commit) error {
-	commit, err := a.inspectCommit(ctx, commitHandle, pfs.CommitState_STARTED)
+	commit, err := a.resolveCommit(ctx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -879,7 +833,7 @@ func (a *apiServer) clearCommit(ctx context.Context, commitHandle *pfs.Commit) e
 }
 
 func (a *apiServer) squashCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, recursive bool) error {
-	commit, err := a.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
+	commit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -917,7 +871,7 @@ func (a *apiServer) squashCommit(ctx context.Context, txnCtx *txncontext.Transac
 }
 
 func (a *apiServer) dropCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, recursive bool) error {
-	commit, err := a.resolveCommit(ctx, txnCtx.SqlTx, commitHandle)
+	commit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -1005,17 +959,17 @@ func (a *apiServer) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*
 	if err := a.env.Auth.CheckRepoIsAuthorized(ctx, commitHandle.Repo, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
-	commit, err := a.inspectCommit(ctx, commitHandle, pfs.CommitState_STARTED)
+	commit, err := a.resolveCommit(ctx, commitHandle)
 	if err != nil {
 		return nil, nil, err
 	}
 	if commit.Finishing != nil && commit.Finished == nil {
-		_, err := a.inspectCommitInfo(ctx, commitHandle, pfs.CommitState_FINISHED)
+		_, err := a.waitForCommit(ctx, commitHandle, pfs.CommitState_FINISHED)
 		if err != nil {
 			return nil, nil, err
 		}
 	}
-	id, err := a.getFileSet(ctx, commit)
+	id, err := a.getFileset(ctx, commit)
 	if err != nil {
 		return nil, nil, err
 	}
