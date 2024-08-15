@@ -133,6 +133,7 @@ go_test(
 
 go_test(
     name = "cmds_integration_test",
+    size = "small",
     srcs = ["cmds_integration_test.go"],
     embed = [":cmds"],
     tags = [

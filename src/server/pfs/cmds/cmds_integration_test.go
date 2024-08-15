@@ -46,6 +46,7 @@ func TestMount(t *testing.T) {
 		// if the indirection through subtests which always succeed but
 		// spawn goroutines which may fail is a bit confusing.
 		eg.Go(func() error {
+			t.Logf("mount %v", mntDirPath)
 			cmd, err := p.CommandTemplate(ctx, `
 					pachctl create project {{.projectName}}
 					pachctl create repo {{.repoName}} --project {{.projectName}}
@@ -60,11 +61,12 @@ func TestMount(t *testing.T) {
 			if err != nil {
 				return errors.Wrap(err, "could not create mount command")
 			}
+			cmd.Cmd.Stdout = os.Stderr
+			cmd.Cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
-				t.Log("stdout:", cmd.Stdout())
-				t.Log("stderr:", cmd.Stderr())
 				return errors.Wrap(err, "could not mount")
 			}
+			t.Logf("about to list files that should be in %v", mntDirPath)
 			if cmd, err = p.CommandTemplate(ctx, `
 					pachctl list files {{.repoName}}@master --project {{.projectName}} | grep {{.fileName}} > /dev/null || exit "could not find {{.fileName}}"
 					# check that only one file is present
@@ -77,22 +79,26 @@ func TestMount(t *testing.T) {
 				}); err != nil {
 				return errors.Wrap(err, "could not create validation command")
 			}
+			cmd.Cmd.Stdout = os.Stderr
+			cmd.Cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
-				t.Log("stdout:", cmd.Stdout())
-				t.Log("stderr:", cmd.Stderr())
 				return errors.Wrap(err, "could not validate")
 			}
 			return nil
 		})
 		eg.Go(func() error {
 			if err := backoff.Retry(func() error {
+				t.Logf("waiting for %v to be mounted", mntDirPath)
 				ff, err := os.ReadDir(mntDirPath)
 				if err != nil {
+					t.Logf("could not read %s: %v", mntDirPath, err)
 					return errors.Wrapf(err, "could not read %s", mntDirPath)
 				}
 				if len(ff) == 0 {
+					t.Logf("%s not yet mounted", mntDirPath)
 					return errors.Errorf("%s not yet mounted", mntDirPath)
 				}
+				t.Logf("%s mounted", mntDirPath)
 				return nil
 			}, backoff.NewExponentialBackOff()); err != nil {
 				return errors.Wrapf(err, "%q never mounted", mntDirPath)
@@ -109,9 +115,10 @@ func TestMount(t *testing.T) {
 			if err != nil {
 				return errors.Wrap(err, "could not create mutator")
 			}
+			cmd.Cmd.Stdout = os.Stderr
+			cmd.Cmd.Stderr = os.Stderr
+			t.Logf("unmount %v", mntDirPath)
 			if err := cmd.Run(); err != nil {
-				t.Log("stdout:", cmd.Stdout())
-				t.Log("stderr:", cmd.Stderr())
 				return errors.Wrap(err, "could not run mutator")
 			}
 			return nil
