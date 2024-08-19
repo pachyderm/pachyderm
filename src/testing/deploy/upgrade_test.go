@@ -314,7 +314,7 @@ func TestUpgradeLoad(t *testing.T) {
 	if skip {
 		t.Skip("Skipping upgrade test")
 	}
-	fromVersions := []string{"2.7.2", "2.8.0"}
+	fromVersions := []string{"2.8.10"}
 	dagSpec := `
 default-load-test-source-1:
 default-load-test-pipeline-1: default-load-test-source-1

@@ -1551,7 +1551,7 @@
                 "initdbScripts": {
                     "type": "object",
                     "properties": {
-                        "dex.sh": {
+                        "dex.sql": {
                             "type": "string"
                         }
                     }
