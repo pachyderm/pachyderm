@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -18,9 +19,11 @@ import (
 	minioCreds "github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"go.uber.org/zap"
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/s3blob"
 )
@@ -65,6 +68,12 @@ func ensureMinio(ctx context.Context, dclient docker.APIClient) error {
 		containerName = "pach_test_minio"
 		imageName     = "minio/minio"
 	)
+	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
+	if got, want := os.Getenv("SKIP_DOCKER_MINIO_CREATE"), "1"; got == want {
+		log.Info(ctx, "not attempting to create docker container; SKIP_DOCKER_MINIO_CREATE=1")
+		return nil
+	}
+
 	minioLock.Lock()
 	defer minioLock.Unlock()
 	return ensureContainer(ctx, dclient, containerName, containerSpec{
@@ -115,7 +124,9 @@ func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
 		S3ForcePathStyle: aws.Bool(true),
 	})
 	require.NoError(t, err)
-	bucket, err := s3blob.OpenBucket(ctx, sess, bucketName, nil)
+	sctx, done := log.SpanContext(ctx, "OpenBucket", zap.String("bucket", bucketName))
+	bucket, err := s3blob.OpenBucket(sctx, sess, bucketName, nil)
+	done(zap.Error(err))
 	require.NoError(t, err)
 	return bucket, obj.ObjectStoreURL{
 		Scheme: "minio",
@@ -157,7 +168,9 @@ func NewTestBucketCtx(ctx context.Context) (*blob.Bucket, string, func(ctx conte
 	if err != nil {
 		return nil, "", cleanupMinio, errors.Wrap(err, "session.NewSession")
 	}
-	bucket, err := s3blob.OpenBucket(ctx, sess, bucketName, nil)
+	sctx, done := log.SpanContext(ctx, "OpenBucket", zap.String("bucket", bucketName))
+	bucket, err := s3blob.OpenBucket(sctx, sess, bucketName, nil)
+	done(zap.Error(err))
 	if err != nil {
 		return nil, "", cleanupMinio, errors.Wrap(err, "s3blob.OpenBucket")
 	}
