@@ -94,6 +94,8 @@ func helmValuesPreGoCDK(numPachds int) (map[string]string, map[string]string) {
 			"general.postgresql.postgresqlAuthType": "scram-sha-256",
 			"postgresql.image.repository":           "bitnami/postgresql",
 			"postgresql.image.tag":                  "15.7.0",
+			"postgresql.initdbScripts.dex\\.sh":     "null",
+			"postgresql.initdbScripts.dex\\.sql":    `  CREATE DATABASE dex;\\n  GRANT ALL PRIVILEGES ON DATABASE dex TO \"$POSTGRES_USER\";"}`,
 			"pgbouncer.image.repository":            "bitnami/pgbouncer",
 			"pgbouncer.image.tag":                   "1.17.0",
 		},
