@@ -77,14 +77,15 @@ func ensureMinio(ctx context.Context, dclient docker.APIClient) error {
 	})
 }
 
-func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
-	t.Helper()
+func NewMinioClient(ctx context.Context) (*minio.Client, error) {
 	dclient := newDockerClient()
 	defer dclient.Close()
-	err := backoff.Retry(func() error {
+	if err := backoff.Retry(func() error {
 		return ensureMinio(ctx, dclient)
-	}, backoff.NewConstantBackOff(time.Second*3))
-	require.NoError(t, err)
+	}, backoff.NewConstantBackOff(time.Second*3)); err != nil {
+		return nil, errors.Wrap(err, "ensureMinio")
+	}
+
 	endpoint := getMinioEndpoint()
 	id := "minioadmin"
 	secret := "minioadmin"
@@ -92,8 +93,20 @@ func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
 		Creds:  minioCreds.NewStaticV4(id, secret, ""),
 		Secure: false,
 	})
+	if err != nil {
+		return nil, errors.Wrap(err, "minio.New")
+	}
+	return client, nil
+}
+
+func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
+	t.Helper()
+	client, err := NewMinioClient(ctx)
 	require.NoError(t, err)
 	bucketName := newTestMinioBucket(ctx, t, client)
+	endpoint := getMinioEndpoint()
+	id := "minioadmin"
+	secret := "minioadmin"
 	sess, err := session.NewSession(&aws.Config{
 		Region:           aws.String("dummy-region"),
 		Credentials:      credentials.NewStaticCredentials(id, secret, ""),
@@ -111,24 +124,13 @@ func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
 }
 
 func NewTestBucketCtx(ctx context.Context) (*blob.Bucket, string, func(ctx context.Context) error, error) {
-	dclient := newDockerClient()
-	defer dclient.Close()
-	if err := backoff.Retry(func() error {
-		return ensureMinio(ctx, dclient)
-	}, backoff.NewConstantBackOff(time.Second*3)); err != nil {
-		return nil, "", nil, errors.Wrap(err, "ensureMinio")
+	client, err := NewMinioClient(ctx)
+	if err != nil {
+		return nil, "", nil, errors.Wrap(err, "get minio client")
 	}
-
 	endpoint := getMinioEndpoint()
 	id := "minioadmin"
 	secret := "minioadmin"
-	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  minioCreds.NewStaticV4(id, secret, ""),
-		Secure: false,
-	})
-	if err != nil {
-		return nil, "", nil, errors.Wrap(err, "minio.New")
-	}
 	buf := make([]byte, 4)
 	if _, err := rand.Reader.Read(buf[:]); err != nil {
 		return nil, "", nil, errors.Wrap(err, "generate bucket name: Read")
