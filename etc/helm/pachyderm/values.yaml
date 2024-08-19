@@ -98,8 +98,8 @@ determined:
 
     # default images for CPU and GPU environments
 
-    cpuImage: "determinedai/environments:py-3.9-pytorch-1.12-tf-2.11-cpu-079eb6d"
-  gpuImage: "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-079eb6d"
+    cpuImage: "determinedai/pytorch-ngc:0.35.0"
+    gpuImage: "determinedai/pytorch-ngc:0.35.0"
 
   # Install Determined enterprise edition.
   enterpriseEdition: false
