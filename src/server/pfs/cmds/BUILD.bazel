@@ -107,6 +107,8 @@ go_library(
     }),
 )
 
+# gazelle:go_test file
+
 go_test(
     name = "cmds_test",
     size = "small",
@@ -126,5 +128,25 @@ go_test(
         "//src/internal/testutil",
         "//src/pfs",
         "//src/server/pfs/fuse",
+    ],
+)
+
+go_test(
+    name = "cmds_integration_test",
+    size = "small",
+    srcs = ["cmds_integration_test.go"],
+    embed = [":cmds"],
+    tags = [
+        "manual",
+        "no-sandbox",
+    ],  # fusermount cannot run in bazel test sandbox or docker
+    deps = [
+        "//src/internal/backoff",
+        "//src/internal/errors",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testutil",
+        "@org_golang_x_sync//errgroup",
     ],
 )

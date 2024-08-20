@@ -1511,6 +1511,7 @@ jobs:
           //src/testing/cmds/dockertestenv
       - run: |
           SKIP_DOCKER_POSTGRES_CREATE=1 \
+          SKIP_DOCKER_MINIO_CREATE=1 \
           DOCKER_MACHINE_NAME=172.17.0.1 \
           bazel \
           coverage \
@@ -1556,6 +1557,7 @@ jobs:
           docker run \
           -e ENT_ACT_CODE \
           -e SKIP_DOCKER_POSTGRES_CREATE=1 \
+          -e SKIP_DOCKER_MINIO_CREATE=1 \
           -e DOCKER_MACHINE_NAME=172.17.0.1 \
           -v /home/circleci/out:/home/circleci/out \
           -v /home/circleci/project:/home/circleci/project \

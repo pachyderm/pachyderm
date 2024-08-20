@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "cmds",
@@ -25,5 +25,24 @@ go_library(
         "@org_golang_x_text//feature/plural",
         "@org_golang_x_text//language",
         "@org_golang_x_text//message",
+    ],
+)
+
+go_test(
+    name = "cmds_test",
+    srcs = ["cmds_test.go"],
+    embed = [":cmds"],
+    shard_count = 4,
+    deps = [
+        "//src/auth",
+        "//src/internal/backoff",
+        "//src/internal/client",
+        "//src/internal/config",
+        "//src/internal/errors",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testutil",
+        "//src/pfs",
     ],
 )

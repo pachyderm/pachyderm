@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -18,9 +19,11 @@ import (
 	minioCreds "github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"go.uber.org/zap"
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/s3blob"
 )
@@ -65,6 +68,12 @@ func ensureMinio(ctx context.Context, dclient docker.APIClient) error {
 		containerName = "pach_test_minio"
 		imageName     = "minio/minio"
 	)
+	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
+	if got, want := os.Getenv("SKIP_DOCKER_MINIO_CREATE"), "1"; got == want {
+		log.Info(ctx, "not attempting to create docker container; SKIP_DOCKER_MINIO_CREATE=1")
+		return nil
+	}
+
 	minioLock.Lock()
 	defer minioLock.Unlock()
 	return ensureContainer(ctx, dclient, containerName, containerSpec{
@@ -77,46 +86,13 @@ func ensureMinio(ctx context.Context, dclient docker.APIClient) error {
 	})
 }
 
-func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
-	t.Helper()
-	dclient := newDockerClient()
-	defer dclient.Close()
-	err := backoff.Retry(func() error {
-		return ensureMinio(ctx, dclient)
-	}, backoff.NewConstantBackOff(time.Second*3))
-	require.NoError(t, err)
-	endpoint := getMinioEndpoint()
-	id := "minioadmin"
-	secret := "minioadmin"
-	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  minioCreds.NewStaticV4(id, secret, ""),
-		Secure: false,
-	})
-	require.NoError(t, err)
-	bucketName := newTestMinioBucket(ctx, t, client)
-	sess, err := session.NewSession(&aws.Config{
-		Region:           aws.String("dummy-region"),
-		Credentials:      credentials.NewStaticCredentials(id, secret, ""),
-		Endpoint:         aws.String(endpoint),
-		DisableSSL:       aws.Bool(true),
-		S3ForcePathStyle: aws.Bool(true),
-	})
-	require.NoError(t, err)
-	bucket, err := s3blob.OpenBucket(ctx, sess, bucketName, nil)
-	require.NoError(t, err)
-	return bucket, obj.ObjectStoreURL{
-		Scheme: "minio",
-		Bucket: fmt.Sprintf("%s/%s", endpoint, bucketName),
-	}.String()
-}
-
-func NewTestBucketCtx(ctx context.Context) (*blob.Bucket, string, func(ctx context.Context) error, error) {
+func NewMinioClient(ctx context.Context) (*minio.Client, error) {
 	dclient := newDockerClient()
 	defer dclient.Close()
 	if err := backoff.Retry(func() error {
 		return ensureMinio(ctx, dclient)
 	}, backoff.NewConstantBackOff(time.Second*3)); err != nil {
-		return nil, "", nil, errors.Wrap(err, "ensureMinio")
+		return nil, errors.Wrap(err, "ensureMinio")
 	}
 
 	endpoint := getMinioEndpoint()
@@ -127,8 +103,45 @@ func NewTestBucketCtx(ctx context.Context) (*blob.Bucket, string, func(ctx conte
 		Secure: false,
 	})
 	if err != nil {
-		return nil, "", nil, errors.Wrap(err, "minio.New")
+		return nil, errors.Wrap(err, "minio.New")
 	}
+	return client, nil
+}
+
+func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
+	t.Helper()
+	client, err := NewMinioClient(ctx)
+	require.NoError(t, err)
+	bucketName := newTestMinioBucket(ctx, t, client)
+	endpoint := getMinioEndpoint()
+	id := "minioadmin"
+	secret := "minioadmin"
+	sess, err := session.NewSession(&aws.Config{
+		Region:           aws.String("dummy-region"),
+		Credentials:      credentials.NewStaticCredentials(id, secret, ""),
+		Endpoint:         aws.String(endpoint),
+		DisableSSL:       aws.Bool(true),
+		S3ForcePathStyle: aws.Bool(true),
+	})
+	require.NoError(t, err)
+	sctx, done := log.SpanContext(ctx, "OpenBucket", zap.String("bucket", bucketName))
+	bucket, err := s3blob.OpenBucket(sctx, sess, bucketName, nil)
+	done(zap.Error(err))
+	require.NoError(t, err)
+	return bucket, obj.ObjectStoreURL{
+		Scheme: "minio",
+		Bucket: fmt.Sprintf("%s/%s", endpoint, bucketName),
+	}.String()
+}
+
+func NewTestBucketCtx(ctx context.Context) (*blob.Bucket, string, func(ctx context.Context) error, error) {
+	client, err := NewMinioClient(ctx)
+	if err != nil {
+		return nil, "", nil, errors.Wrap(err, "get minio client")
+	}
+	endpoint := getMinioEndpoint()
+	id := "minioadmin"
+	secret := "minioadmin"
 	buf := make([]byte, 4)
 	if _, err := rand.Reader.Read(buf[:]); err != nil {
 		return nil, "", nil, errors.Wrap(err, "generate bucket name: Read")
@@ -155,7 +168,9 @@ func NewTestBucketCtx(ctx context.Context) (*blob.Bucket, string, func(ctx conte
 	if err != nil {
 		return nil, "", cleanupMinio, errors.Wrap(err, "session.NewSession")
 	}
-	bucket, err := s3blob.OpenBucket(ctx, sess, bucketName, nil)
+	sctx, done := log.SpanContext(ctx, "OpenBucket", zap.String("bucket", bucketName))
+	bucket, err := s3blob.OpenBucket(sctx, sess, bucketName, nil)
+	done(zap.Error(err))
 	if err != nil {
 		return nil, "", cleanupMinio, errors.Wrap(err, "s3blob.OpenBucket")
 	}

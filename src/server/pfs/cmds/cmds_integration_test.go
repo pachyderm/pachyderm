@@ -1,5 +1,3 @@
-//go:build k8s
-
 package cmds
 
 import (
@@ -11,7 +9,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"golang.org/x/sync/errgroup"
@@ -21,11 +20,8 @@ import (
 // mounts the repos and adds a single file to each, and verifies that the
 // expected file appears in each.
 func TestMount(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
+	c := pachd.NewTestPachd(t)
 	// If the test has a deadline, cancel the context slightly before it in
 	// order to allow time for clean subprocess teardown.  Without this it
 	// is possible to leave filesystems mounted after test failure.
@@ -50,6 +46,7 @@ func TestMount(t *testing.T) {
 		// if the indirection through subtests which always succeed but
 		// spawn goroutines which may fail is a bit confusing.
 		eg.Go(func() error {
+			t.Logf("mount %v", mntDirPath)
 			cmd, err := p.CommandTemplate(ctx, `
 					pachctl create project {{.projectName}}
 					pachctl create repo {{.repoName}} --project {{.projectName}}
@@ -64,11 +61,12 @@ func TestMount(t *testing.T) {
 			if err != nil {
 				return errors.Wrap(err, "could not create mount command")
 			}
+			cmd.Cmd.Stdout = os.Stderr
+			cmd.Cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
-				t.Log("stdout:", cmd.Stdout())
-				t.Log("stderr:", cmd.Stderr())
 				return errors.Wrap(err, "could not mount")
 			}
+			t.Logf("about to list files that should be in %v", mntDirPath)
 			if cmd, err = p.CommandTemplate(ctx, `
 					pachctl list files {{.repoName}}@master --project {{.projectName}} | grep {{.fileName}} > /dev/null || exit "could not find {{.fileName}}"
 					# check that only one file is present
@@ -81,22 +79,26 @@ func TestMount(t *testing.T) {
 				}); err != nil {
 				return errors.Wrap(err, "could not create validation command")
 			}
+			cmd.Cmd.Stdout = os.Stderr
+			cmd.Cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
-				t.Log("stdout:", cmd.Stdout())
-				t.Log("stderr:", cmd.Stderr())
 				return errors.Wrap(err, "could not validate")
 			}
 			return nil
 		})
 		eg.Go(func() error {
 			if err := backoff.Retry(func() error {
+				t.Logf("waiting for %v to be mounted", mntDirPath)
 				ff, err := os.ReadDir(mntDirPath)
 				if err != nil {
+					t.Logf("could not read %s: %v", mntDirPath, err)
 					return errors.Wrapf(err, "could not read %s", mntDirPath)
 				}
 				if len(ff) == 0 {
+					t.Logf("%s not yet mounted", mntDirPath)
 					return errors.Errorf("%s not yet mounted", mntDirPath)
 				}
+				t.Logf("%s mounted", mntDirPath)
 				return nil
 			}, backoff.NewExponentialBackOff()); err != nil {
 				return errors.Wrapf(err, "%q never mounted", mntDirPath)
@@ -113,9 +115,10 @@ func TestMount(t *testing.T) {
 			if err != nil {
 				return errors.Wrap(err, "could not create mutator")
 			}
+			cmd.Cmd.Stdout = os.Stderr
+			cmd.Cmd.Stderr = os.Stderr
+			t.Logf("unmount %v", mntDirPath)
 			if err := cmd.Run(); err != nil {
-				t.Log("stdout:", cmd.Stdout())
-				t.Log("stderr:", cmd.Stderr())
 				return errors.Wrap(err, "could not run mutator")
 			}
 			return nil

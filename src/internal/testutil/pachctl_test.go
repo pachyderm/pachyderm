@@ -1,23 +1,18 @@
-//go:build k8s
-
 package testutil_test
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestPachctl(t *testing.T) {
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
+	c := pachd.NewTestPachd(t)
 
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
 	dirPath := t.TempDir()
 	configPath := filepath.Join(dirPath, "test-config.json")
 	p, err := testutil.NewPachctl(ctx, c, configPath)

@@ -158,6 +158,19 @@ func main() {
 			log.Info(ctx, "pachd ready; waiting for auth...")
 			pd.AwaitAuth(ctx)
 		}
+		for _, opt := range opts {
+			if opt.OnReady != nil {
+				if err := opt.OnReady(ctx, pd); err != nil {
+					log.Error(ctx, "problem running OnReady callback for option", zap.Error(err))
+					cancel()
+					errCh <- errors.Wrap(err, "run OnReady callback")
+				}
+			}
+			if opt.Cleanup != nil {
+				clean.AddCleanupCtx("option", opt.Cleanup)
+			}
+		}
+
 		// When ready, print the address on stdout.  This is so that non-Go tests can run
 		// testpachd as a subprocess and not have to reimplement health checking / auth
 		// readiness checking.  Once a line is printed, it's ready to go.

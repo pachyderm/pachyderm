@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"net/netip"
 	"net/url"
 	"os"
@@ -31,6 +32,7 @@ import (
 	etcdwal "go.etcd.io/etcd/server/v3/wal"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"k8s.io/client-go/kubernetes"
 )
 
 // TestPachdOptions allow a testpachd to be customized.
@@ -41,9 +43,11 @@ type TestPachdOption struct {
 	MutateConfig     func(config *pachconfig.PachdFullConfiguration)
 	MutatePachd      func(full *Full)
 	MutateFullOption func(fullOption *FullOption)
+	OnReady          func(ctx context.Context, full *Full) error
+	Cleanup          func(ctx context.Context) error
 }
 
-// NoLogToFileOption is an option that disable's NewTestPachd's default behavior of logging pachd
+// NoLogToFileOption is an option that disables NewTestPachd's default behavior of logging pachd
 // logs to a file.
 func NoLogToFileOption() TestPachdOption {
 	return TestPachdOption{noLogToFile: true}
@@ -61,6 +65,51 @@ func ActivateAuthOption(rootToken string) TestPachdOption {
 			config.AuthRootToken = rootToken
 			config.LicenseKey = os.Getenv("ENT_ACT_CODE")
 			config.EnterpriseSecret = "enterprisey"
+		},
+	}
+}
+
+// GetK8sClient is an option that sets k to the internal fake k8s client.  Mutations made to this
+// client will be visible to Pachyderm.
+func GetK8sClient(k *kubernetes.Interface) TestPachdOption {
+	return TestPachdOption{
+		MutatePachd: func(full *Full) {
+			*k = full.kubeClient
+		},
+	}
+}
+
+// WithS3Server runs the S3 gateway and sets the provided string pointer to its address.
+func WithS3Server(t *testing.T, addr *string) TestPachdOption {
+	l := testutil.Listen(t)
+	var server *http.Server
+	return TestPachdOption{
+		OnReady: func(ctx context.Context, full *Full) error {
+			full.s3Srv.Addr = l.Addr().String()
+			*addr = l.Addr().String()
+			server = full.s3Srv.Server
+			go full.s3Srv.Serve(l) //nolint:errcheck
+			log.Info(ctx, "waiting for s3 server to be ready", zap.String("addr", *addr))
+			for i := 0; i < 10; i++ {
+				req, err := http.NewRequestWithContext(ctx, "get", fmt.Sprintf("http://%v/", *addr), nil)
+				if err != nil {
+					return errors.Wrapf(err, "wait for s3: attempt %d", i)
+				}
+				if _, err := http.DefaultClient.Do(req); err == nil {
+					break
+				}
+				log.Debug(ctx, "s3 server not ready yet", zap.Error(err))
+				time.Sleep(100 * time.Millisecond)
+			}
+			return nil
+		},
+		Cleanup: func(ctx context.Context) error {
+			if server != nil {
+				if err := server.Close(); err != nil {
+					return errors.Wrap(err, "close s3 server")
+				}
+			}
+			return nil
 		},
 	}
 }
@@ -120,6 +169,20 @@ func NewTestPachd(t testing.TB, opts ...TestPachdOption) *client.APIClient {
 		}
 	}()
 	pd.AwaitAuth(ctx)
+	for _, opt := range opts {
+		if opt.OnReady != nil {
+			if err := opt.OnReady(ctx, pd); err != nil {
+				t.Fatalf("OnReady callback for option: %v", err)
+			}
+		}
+		if opt.Cleanup != nil {
+			t.Cleanup(func() {
+				if err := opt.Cleanup(ctx); err != nil {
+					t.Errorf("cleanup: %v", err)
+				}
+			})
+		}
+	}
 
 	// client setup
 	pachClient, err := pd.PachClient(ctx)
@@ -140,7 +203,8 @@ func mutateContext(ctx context.Context, opts ...TestPachdOption) context.Context
 func newTestPachd(env Env, opts []TestPachdOption) *Full {
 	config := pachconfig.PachdFullConfiguration{
 		GlobalConfiguration: pachconfig.GlobalConfiguration{
-			PeerPort: netip.MustParseAddrPort(env.Listener.Addr().String()).Port(),
+			PeerPort:  netip.MustParseAddrPort(env.Listener.Addr().String()).Port(),
+			Namespace: "default",
 		},
 		PachdSpecificConfiguration: pachconfig.PachdSpecificConfiguration{
 			StorageConfiguration: pachconfig.StorageConfiguration{

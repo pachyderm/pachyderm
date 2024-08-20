@@ -210,7 +210,7 @@ var spawnLock sync.Mutex
 func EnsureDBEnv(ctx context.Context) error {
 	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
 	if got, want := os.Getenv("SKIP_DOCKER_POSTGRES_CREATE"), "1"; got == want {
-		log.Info(ctx, "not attempting to create docker container; SKIP_DOCKER_POSTGRES_CREATE=1")
+		log.Info(ctx, "not attempting to create postgres + pgbouncer docker container; SKIP_DOCKER_POSTGRES_CREATE=1")
 		return nil
 	}
 

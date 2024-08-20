@@ -9,14 +9,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
-	"os"
 	"path"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/minio/minio-go/v6"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
@@ -138,55 +134,6 @@ func TestListDatum(t *testing.T) {
 	for i, di := range dis {
 		require.Equal(t, di.Datum.Id, disInput[i].Datum.Id)
 	}
-}
-
-func TestS3GatewayAuthRequests(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-
-	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
-	tu.ActivateAuthClient(t, c)
-	// generate auth credentials
-	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
-	alice := tu.UniqueString("alice")
-	authResp, err := adminClient.GetRobotToken(adminClient.Ctx(), &auth.GetRobotTokenRequest{
-		Robot: alice,
-	})
-	require.NoError(t, err)
-	authToken := authResp.Token
-
-	ip := os.Getenv("VM_IP")
-	if ip == "" {
-		ip = "127.0.0.1"
-	}
-	// Port set dynamically in src/internal/minikubetestenv/deploy.go
-	address := net.JoinHostPort(ip, fmt.Sprint(c.GetAddress().Port+3))
-
-	// anon login via V2 - should fail
-	minioClientV2, err := minio.NewV2(address, "", "", false)
-	require.NoError(t, err)
-	_, err = minioClientV2.ListBuckets()
-	require.YesError(t, err)
-
-	// anon login via V4 - should fail
-	minioClientV4, err := minio.NewV4(address, "", "", false)
-	require.NoError(t, err)
-	_, err = minioClientV4.ListBuckets()
-	require.YesError(t, err)
-
-	// proper login via V2 - should succeed
-	minioClientV2, err = minio.NewV2(address, authToken, authToken, false)
-	require.NoError(t, err)
-	_, err = minioClientV2.ListBuckets()
-	require.NoError(t, err)
-
-	// proper login via V4 - should succeed
-	minioClientV2, err = minio.NewV4(address, authToken, authToken, false)
-	require.NoError(t, err)
-	_, err = minioClientV2.ListBuckets()
-	require.NoError(t, err)
 }
 
 // Need to restructure testing such that we have the implementation of this
@@ -915,52 +862,4 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 	// Make sure DeleteAll() succeeds
 	require.NoError(t, aliceClient.DeleteAll(aliceClient.Ctx()))
-}
-
-func TestListFileNils(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
-	tu.ActivateAuthClient(t, c)
-	alice := tu.Robot(tu.UniqueString("alice"))
-	aliceClient := tu.AuthenticateClient(t, c, alice)
-	repo := "foo"
-	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
-	for _, test := range []*pfs.Commit{
-		nil,
-		{},
-		{Branch: &pfs.Branch{}},
-		{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo}}},
-		{Branch: &pfs.Branch{Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}}}},
-		{
-			Branch: &pfs.Branch{
-				Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
-				Name: "master",
-			},
-		},
-	} {
-		if err := aliceClient.ListFile(test, "/", func(fi *pfs.FileInfo) error {
-			t.Errorf("dead code ran")
-			return errors.New("should never get here")
-		}); err == nil {
-			t.Errorf("ListFile(nil, %q, …) succeeded where it should have failed", test)
-		}
-	}
-	// this used to cause a core dump
-	var commit *pfs.Commit = &pfs.Commit{
-		Branch: &pfs.Branch{
-			Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
-			Name: "master",
-		},
-		Id: "0123456789ab40123456789abcdef012",
-	}
-	if err := aliceClient.ListFile(commit, "/", func(fi *pfs.FileInfo) error {
-		return errors.New("should never get here")
-	}); err == nil {
-		t.Errorf("ListFile for a non-existent commit should always be an error")
-	} else if strings.Contains(err.Error(), "upstream connect error") {
-		t.Errorf("server error: %v", err)
-	}
 }

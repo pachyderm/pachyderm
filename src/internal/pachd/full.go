@@ -2,7 +2,6 @@ package pachd
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"path"
@@ -53,6 +52,7 @@ import (
 	logs_server "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfsiface "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -209,17 +209,28 @@ type Full struct {
 	debugSrv      debug.DebugServer
 	proxySrv      proxy.APIServer
 	logsSrv       logs.APIServer
+	s3Srv         *s3.S3Server
 
 	pfsWorker   *pfs_server.Worker
 	ppsWorker   *pps_server.Worker
 	debugWorker *debug_server.Worker
 
 	pfsMaster *pfs_server.Master
+
+	pachClient      *client.APIClient
+	pachClientReady chan struct{}
+
+	kubeClient kubernetes.Interface
 }
 
 // NewFull sets up a new Full pachd and returns it.
 func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption) *Full {
-	pd := &Full{env: env, config: config, authReady: make(chan struct{})}
+	pd := &Full{
+		env:             env,
+		config:          config,
+		authReady:       make(chan struct{}),
+		pachClientReady: make(chan struct{}),
+	}
 
 	pd.selfGRPC = newSelfGRPC(env.Listener, nil)
 	pd.healthSrv = health.NewServer()
@@ -237,7 +248,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 		TaskService: task.NewEtcdService(env.EtcdClient, config.PPSEtcdPrefix),
 	})
 
-	kubeClient := fake.NewSimpleClientset(env.K8sObjects...)
+	pd.kubeClient = fake.NewSimpleClientset(env.K8sObjects...)
 
 	desiredStateOverride := &clusterstate.DesiredClusterState
 	if opt != nil && opt.DesiredState != nil {
@@ -322,7 +333,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 				DB:                env.DB,
 				Listener:          pd.dbListener,
 				TxnEnv:            pd.txnEnv,
-				KubeClient:        kubeClient,
+				KubeClient:        pd.kubeClient,
 				EtcdClient:        env.EtcdClient,
 				EtcdPrefix:        path.Join(config.EtcdPrefix, config.PPSEtcdPrefix),
 				TaskService:       task.NewEtcdService(env.EtcdClient, path.Join(config.EtcdPrefix, config.PPSEtcdPrefix)),
@@ -383,7 +394,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 						EtcdPrefix: path.Join(config.EtcdPrefix, config.EnterpriseEtcdPrefix),
 						AuthServer: pd.authSrv.(auth_server.APIServer),
 						GetKubeClient: func() kubernetes.Interface {
-							return kubeClient
+							return pd.kubeClient
 						},
 						GetPachClient:     pd.mustGetPachClient,
 						Namespace:         "default",
@@ -434,7 +445,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 					Name:          "testpachd",
 					GetLokiClient: env.GetLokiClient,
 					GetKubeClient: func() kubernetes.Interface {
-						return kubeClient
+						return pd.kubeClient
 					},
 					GetDynamicKubeClient: func() dynamic.Interface {
 						return dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), env.K8sObjects...)
@@ -470,6 +481,14 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 				if err != nil {
 					return errors.Wrap(err, "logs_server.NewAPIServer")
 				}
+				return nil
+			},
+		},
+		setupStep{
+			Name: "initS3Server",
+			Fn: func(ctx context.Context) error {
+				router := s3.Router(ctx, s3.NewMasterDriver(), pd.mustGetPachClient)
+				pd.s3Srv = s3.Server(ctx, 0, router)
 				return nil
 			},
 		},
@@ -512,6 +531,26 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 		proxy.RegisterAPIServer(gs, pd.proxySrv)
 		version.RegisterAPIServer(gs, pd.version)
 	}))
+	pd.addBackground("connect", func(ctx context.Context) error {
+		addr, err := grpcutil.ParsePachdAddress("http://" + pd.env.Listener.Addr().String())
+		if err != nil {
+			return errors.Wrap(err, "parse pachd address")
+		}
+		c, err := client.NewFromPachdAddress(ctx, addr,
+			client.WithAdditionalUnaryClientInterceptors(
+				clientlog_interceptor.LogUnary,
+			),
+			client.WithAdditionalStreamClientInterceptors(
+				clientlog_interceptor.LogStream,
+			),
+		)
+		if err != nil {
+			return errors.Wrap(err, "NewPachdFromAddress")
+		}
+		pd.pachClient = c // shallow copy, to avoid getting auth token set in the next block
+		close(pd.pachClientReady)
+		return nil
+	})
 	pd.addBackground("bootstrap", func(ctx context.Context) error {
 		defer close(pd.authReady)
 		return errors.Join(
@@ -532,21 +571,8 @@ func bootstrapIfAble(ctx context.Context, x any) error {
 
 // PachClient returns a pach client that can talk to the server with root privileges.
 func (pd *Full) PachClient(ctx context.Context) (*client.APIClient, error) {
-	addr, err := grpcutil.ParsePachdAddress("http://" + pd.env.Listener.Addr().String())
-	if err != nil {
-		return nil, errors.Wrap(err, "parse pachd address")
-	}
-	c, err := client.NewFromPachdAddress(ctx, addr,
-		client.WithAdditionalUnaryClientInterceptors(
-			clientlog_interceptor.LogUnary,
-		),
-		client.WithAdditionalStreamClientInterceptors(
-			clientlog_interceptor.LogStream,
-		),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "NewPachdFromAddress")
-	}
+	<-pd.pachClientReady
+	c := pd.pachClient.WithCtx(ctx)
 	if t := pd.config.AuthRootToken; t != "" {
 		c.SetAuthToken(t)
 	}
@@ -555,22 +581,13 @@ func (pd *Full) PachClient(ctx context.Context) (*client.APIClient, error) {
 
 // mustGetPachClient returns an unauthenticated client for internal use by API servers.
 func (pd *Full) mustGetPachClient(ctx context.Context) *client.APIClient {
-	addr, err := grpcutil.ParsePachdAddress("http://" + pd.env.Listener.Addr().String())
-	if err != nil {
-		panic(fmt.Sprintf("parse pachd address: %v", err))
-	}
-	c, err := client.NewFromPachdAddress(ctx, addr,
-		client.WithAdditionalUnaryClientInterceptors(
-			clientlog_interceptor.LogUnary,
-		),
-		client.WithAdditionalStreamClientInterceptors(
-			clientlog_interceptor.LogStream,
-		),
-	)
-	if err != nil {
-		panic(fmt.Sprintf("NewFromPachdAddress: %v", err))
-	}
-	return c
+	<-pd.pachClientReady
+	// Note: this code used to panic when ctx was Done, but sometimes API servers try to get a
+	// pach client with a done context and are prepared for that error when they make an RPC,
+	// rather than from here.  We should refactor the GetPachClient interface used by API
+	// servers to return an error.  For that reason, we wait on pd.pachClientReady without the
+	// context, since we can't return an error if ctx is done and there is no pach client.
+	return pd.pachClient.WithCtx(ctx)
 }
 
 // AwaitAuth returns when auth is ready.  It must be called after Run() starts.

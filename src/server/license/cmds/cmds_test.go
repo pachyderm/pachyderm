@@ -10,19 +10,6 @@ import (
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
-func TestActivate(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t)
-	code := tu.GetTestEnterpriseCode(t)
-
-	require.NoError(t, tu.PachctlBashCmd(t, c, `echo {{.license}} | pachctl license activate --no-register`,
-		"license", code).Run())
-
-	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl license get-state | match ACTIVE`).Run())
-}
-
 func TestClusterCRUD(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

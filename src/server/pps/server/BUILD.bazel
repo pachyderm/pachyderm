@@ -129,6 +129,7 @@ go_test(
     ],
     embed = [":server"],
     pure = "on",
+    shard_count = 4,
     deps = [
         "//src/auth",
         "//src/internal/ancestry",
