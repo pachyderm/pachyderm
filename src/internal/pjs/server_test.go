@@ -74,7 +74,7 @@ func TestInspectJob(t *testing.T) {
 	})
 }
 
-func TestDo(t *testing.T) {
+func TestRunJob(t *testing.T) {
 	c, fc := setupTest(t)
 	ctx := pctx.TestContext(t)
 	programFileset := createFileSet(t, fc, map[string][]byte{
@@ -87,7 +87,7 @@ func TestDo(t *testing.T) {
 		Program: programFileset,
 		Input:   []string{inputFileset},
 	}
-	out, err := do(t, ctx, c, in, func(inputs []string) ([]string, error) {
+	out, err := runJob(t, ctx, c, in, func(inputs []string) ([]string, error) {
 		// todo(muyang)
 		// for now we do nothing here, simply return the input filesets
 
@@ -97,8 +97,8 @@ func TestDo(t *testing.T) {
 	require.Equal(t, in.Input, out.Output)
 }
 
-// do does work through PJS.
-func do(t *testing.T, ctx context.Context, s pjs.APIClient, in *pjs.CreateJobRequest, fn func(inputs []string) ([]string, error)) (*pjs.JobInfo_Success, error) {
+// runJob does work through PJS.
+func runJob(t *testing.T, ctx context.Context, s pjs.APIClient, in *pjs.CreateJobRequest, fn func(inputs []string) ([]string, error)) (*pjs.JobInfo_Success, error) {
 	jres, err := s.CreateJob(ctx, in)
 	require.NoError(t, err)
 	program, err := fileset.ParseID(in.Program)

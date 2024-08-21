@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -230,6 +230,45 @@ func DeleteJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 		return nil, errors.Wrap(err, "cancel job")
 	}
 	return ids, nil
+}
+
+// ErrorJob is called when job processing has an error. It updates job err code and
+// done timestamp in database.
+func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobErrorCode) error {
+	ctx = pctx.Child(ctx, "complete error")
+	_, err := tx.ExecContext(ctx, `
+		UPDATE pjs.jobs
+		SET done = CURRENT_TIMESTAMP, error = $1
+		WHERE id = $2
+	`, errCode, jobID)
+	if err != nil {
+		return errors.Wrapf(err, "complete error")
+	}
+	return nil
+}
+
+// CompleteJob is called when job processing without any error. It updates done timestamp
+// output filesets and in database.
+func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []string) error {
+	ctx = pctx.Child(ctx, "complete ok")
+	_, err := tx.ExecContext(ctx, `
+		UPDATE pjs.jobs
+		SET done = CURRENT_TIMESTAMP
+		WHERE id = $1
+	`, jobID)
+	if err != nil {
+		return errors.Wrapf(err, "complete ok: update state to done")
+	}
+	for pos, output := range outputs {
+		_, err := tx.ExecContext(ctx, `
+		INSERT INTO pjs.job_filesets 
+		(job_id, fileset_type, array_position, fileset) 
+		VALUES ($1, $2, $3, $4);`, jobID, "output", pos, []byte(output))
+		if err != nil {
+			return errors.Wrapf(err, "complete ok: insert output fileset")
+		}
+	}
+	return nil
 }
 
 // validateJobTree walks jobs from job 'id' and confirms that no parent job with processing or queued child jobs is done.

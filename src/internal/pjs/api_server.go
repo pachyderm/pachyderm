@@ -117,7 +117,7 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 	ctx := srv.Context()
 	req, err := srv.Recv()
 	if err != nil {
-		return errors.EnsureStack(err)
+		return errors.Wrap(err, "process queue")
 	}
 	if req.Queue == nil {
 		return status.Errorf(codes.InvalidArgument, "first message must pick Queue")
@@ -128,7 +128,7 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 		if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 			jid, err := pjsdb.DequeueAndProcess(ctx, sqlTx, req.Queue.Id)
 			if err != nil {
-				return errors.EnsureStack(err)
+				return errors.Wrap(err, "dequeue and process")
 			}
 			jobID = jid
 			return nil
@@ -138,12 +138,13 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
+			return err
 		}
 		var inputsID []fileset.ID
 		if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 			job, err := pjsdb.GetJob(ctx, sqlTx, jobID)
 			if err != nil {
-				return errors.EnsureStack(err)
+				return errors.Wrap(err, "get job")
 			}
 			inputsID = job.Inputs
 			return nil
@@ -154,50 +155,37 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 		for _, filesetID := range inputsID {
 			inputs = append(inputs, filesetID.HexString())
 		}
-		if err := func() error {
-			if err := srv.Send(&pjs.ProcessQueueResponse{
-				Context: "context is not implemented",
-				Input:   inputs,
-			}); err != nil {
-				return errors.EnsureStack(err)
-			}
-			req, err := srv.Recv()
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			if req.Result == nil {
-				return status.Errorf(codes.InvalidArgument, "expected Result. HAVE: %v", req)
-			}
-			if req.GetFailed() {
-				if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-					if err := pjsdb.CompleteError(ctx, sqlTx, jobID, pjs.JobErrorCode_FAILED); err != nil {
-						return errors.EnsureStack(err)
-					}
-					return nil
-				}); err != nil {
-					return err
-				}
-			} else if out := req.GetSuccess(); out != nil {
-				if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-					if err := pjsdb.CompleteOk(ctx, sqlTx, jobID, out.Output); err != nil {
-						return errors.EnsureStack(err)
-					}
-					return nil
-				}); err != nil {
-					return err
-				}
-			}
-			return nil
-		}(); err != nil {
-			if errTx := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-				if errDB := pjsdb.CompleteError(ctx, sqlTx, jobID, pjs.JobErrorCode_DISCONNECTED); errDB != nil {
-					return errors.EnsureStack(errors.Wrapf(errDB, "process queue: %v", err))
+		if err := srv.Send(&pjs.ProcessQueueResponse{
+			Context: "context is not implemented",
+			Input:   inputs,
+		}); err != nil {
+			return errors.Wrap(err, "send")
+		}
+		req, err := srv.Recv()
+		if err != nil {
+			return errors.Wrap(err, "receive")
+		}
+		if req.Result == nil {
+			return status.Errorf(codes.InvalidArgument, "expected Result. HAVE: %v", req)
+		}
+		if req.GetFailed() {
+			if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+				if err := pjsdb.ErrorJob(ctx, sqlTx, jobID, pjs.JobErrorCode_FAILED); err != nil {
+					return errors.Wrap(err, "error job")
 				}
 				return nil
-			}); errTx != nil {
-				return errTx
+			}); err != nil {
+				return err
 			}
-			return errors.EnsureStack(err)
+		} else if out := req.GetSuccess(); out != nil {
+			if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+				if err := pjsdb.CompleteJob(ctx, sqlTx, jobID, out.Output); err != nil {
+					return errors.Wrap(err, "complete job")
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
 	}
 }

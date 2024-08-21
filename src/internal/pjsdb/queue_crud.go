@@ -3,8 +3,6 @@ package pjsdb
 import (
 	"context"
 	"database/sql"
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -50,43 +48,4 @@ func DequeueAndProcess(ctx context.Context, tx *pachsql.Tx, programHash []byte) 
 		return 0, errors.Wrap(err, "dequeue and process")
 	}
 	return jobID, nil
-}
-
-// CompleteError is called when job processing has an error. It updates job err code and
-// done timestamp in database.
-func CompleteError(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobErrorCode) error {
-	ctx = pctx.Child(ctx, "complete error")
-	_, err := tx.ExecContext(ctx, `
-		UPDATE pjs.jobs
-		SET done = CURRENT_TIMESTAMP, error = $1
-		WHERE id = $2
-	`, errCode, jobID)
-	if err != nil {
-		return errors.Wrapf(err, "complete error")
-	}
-	return nil
-}
-
-// CompleteOk is called when job processing without any error. It updates done timestamp
-// output filesets and in database.
-func CompleteOk(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []string) error {
-	ctx = pctx.Child(ctx, "complete ok")
-	_, err := tx.ExecContext(ctx, `
-		UPDATE pjs.jobs
-		SET done = CURRENT_TIMESTAMP
-		WHERE id = $1
-	`, jobID)
-	if err != nil {
-		return errors.Wrapf(err, "complete ok: update state to done")
-	}
-	for pos, output := range outputs {
-		_, err := tx.ExecContext(ctx, `
-		INSERT INTO pjs.job_filesets 
-		(job_id, fileset_type, array_position, fileset) 
-		VALUES ($1, $2, $3, $4);`, jobID, "output", pos, []byte(output))
-		if err != nil {
-			return errors.Wrapf(err, "complete ok: insert output fileset")
-		}
-	}
-	return nil
 }
