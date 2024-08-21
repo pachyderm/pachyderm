@@ -163,6 +163,9 @@ nogo(
     ] + [
         # asasalint https://github.com/alingse/asasalint
         "//src/internal/analyzers/asasalint",
+    ] + [
+        # asciicheck https://github.com/tdakkota/asciicheck
+        "//src/internal/analyzers/asciicheck",
     ],
 )
 

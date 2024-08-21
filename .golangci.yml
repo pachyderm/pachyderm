@@ -17,11 +17,11 @@ linters:
         - errcheck # run by nogo (errcheck)
         - depguard # run by nogo (depguard)
         - asasalint # run by nogo (asasalint)
+        - unused # run by nogo (U1000)
+        - asciicheck # run by nogo
     enable:
         - nolintlint
         - gofmt
-        - unused
-        - asciicheck
         - bidichk
         - exhaustive
         - goprintffuncname

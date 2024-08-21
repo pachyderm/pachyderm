@@ -106,7 +106,7 @@ Lint checks we use:
 
 1. `govet`: `go tool vet`
 1. `SA*`: staticcheck, https://staticcheck.dev/docs/checks#SA
-1. `S*`: simple, code simplifications https://staticcheck.dev/docs/checks#S
+1. `S*`: simple (code simplifications), https://staticcheck.dev/docs/checks#S
 1. `ST*`: stylecheck, https://staticcheck.dev/docs/checks#ST
 1. `U1000`: unused, https://staticcheck.dev/docs/checks#U
 1. `ineffassign`: https://github.com/gordonklaus/ineffassign
@@ -114,6 +114,7 @@ Lint checks we use:
 1. `errcheck`: https://pkg.go.dev/github.com/kisielk/errcheck/errcheck
 1. `depguard`: https://github.com/OpenPeeDeeP/depguard/tree/v2
 1. `asasalint`: https://github.com/alingse/asasalint
+1. `asciicheck`: https://github.com/tdakkota/asciicheck
 
 Most linters are customized somewhere in the `//src/internal/analysis/...` hierarchy.
 `golangci-lint` used a YAML file; we mostly use pure Go to configure these linters now.
