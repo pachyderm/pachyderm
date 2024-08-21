@@ -2,9 +2,12 @@ package pjs
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -69,6 +72,119 @@ func TestInspectJob(t *testing.T) {
 		s := status.Convert(err)
 		require.Equal(t, codes.NotFound, s.Code())
 	})
+}
+
+func TestRunJob(t *testing.T) {
+	c, fc := setupTest(t)
+	ctx := pctx.TestContext(t)
+	programFileset := createFileSet(t, fc, map[string][]byte{
+		"file": []byte(`!#/bin/bash; ls /input/;`),
+	})
+	inputFileset := createFileSet(t, fc, map[string][]byte{
+		"a.txt": []byte("dummy input"),
+	})
+	in := &pjs.CreateJobRequest{
+		Program: programFileset,
+		Input:   []string{inputFileset},
+	}
+	out, err := runJob(t, ctx, c, in, func(inputs []string) ([]string, error) {
+		// todo(muyang)
+		// for now we do nothing here, simply return the input filesets
+
+		return inputs, nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, in.Input, out.Output)
+}
+
+// runJob does work through PJS.
+func runJob(t *testing.T, ctx context.Context, s pjs.APIClient, in *pjs.CreateJobRequest, fn func(inputs []string) ([]string, error)) (*pjs.JobInfo_Success, error) {
+	jres, err := s.CreateJob(ctx, in)
+	require.NoError(t, err)
+	program, err := fileset.ParseID(in.Program)
+	require.NoError(t, err)
+	programHash := []byte(program.HexString())
+	ctx, cf := context.WithCancel(ctx)
+	defer cf()
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		err := processQueue(ctx, s, programHash, fn)
+		if status.Code(err) == codes.Canceled {
+			err = nil
+		}
+		return err
+	})
+	var ret *pjs.JobInfo_Success
+	eg.Go(func() error {
+		jobInfo, err := await(ctx, s, jres.Id.Id)
+		if err != nil {
+			return err
+		}
+		ret = jobInfo.GetSuccess()
+		cf() // success, cancel the other gorountine
+		return nil
+	})
+	err = eg.Wait()
+	require.NoError(t, err)
+	return ret, nil
+}
+
+func processQueue(ctx context.Context, s pjs.APIClient, programHash []byte, fn func([]string) ([]string, error)) error {
+	ctx, cf := context.WithCancel(ctx)
+	defer cf()
+	pqc, err := s.ProcessQueue(ctx)
+	if err != nil {
+		return err
+	}
+	if err := pqc.Send(&pjs.ProcessQueueRequest{
+		Queue: &pjs.Queue{Id: programHash},
+	}); err != nil {
+		return err
+	}
+	for {
+		msg, err := pqc.Recv()
+		if err != nil {
+			return err
+		}
+		out, err := fn(msg.Input)
+		if err != nil {
+			if sendErr := pqc.Send(&pjs.ProcessQueueRequest{
+				Result: &pjs.ProcessQueueRequest_Failed{
+					Failed: true,
+				},
+			}); sendErr != nil {
+				return sendErr
+			}
+		} else {
+			// todo(muayng): if send returns an error, the ctx on the server side will be cancelled. Job cannot transit to
+			// Done state. Await will spin forever.
+			if err := pqc.Send(&pjs.ProcessQueueRequest{
+				Result: &pjs.ProcessQueueRequest_Success_{
+					Success: &pjs.ProcessQueueRequest_Success{
+						Output: out,
+					},
+				},
+			}); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// await blocks until a Job enters the DONE state
+func await(ctx context.Context, s pjs.APIClient, jid int64) (*pjs.JobInfo, error) {
+	for {
+		res, err := s.InspectJob(ctx, &pjs.InspectJobRequest{
+			Job: &pjs.Job{Id: jid},
+		})
+		if err != nil {
+			return nil, err
+		}
+		if res.Details.JobInfo.State == pjs.JobState_DONE {
+			return res.Details.JobInfo, nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func setupTest(t testing.TB) (pjs.APIClient, storage.FilesetClient) {

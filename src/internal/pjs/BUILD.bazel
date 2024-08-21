@@ -34,11 +34,13 @@ go_test(
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/storage",
+        "//src/internal/storage/fileset",
         "//src/internal/testetcd",
         "//src/pjs",
         "//src/storage",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
         "@org_golang_google_protobuf//types/known/wrapperspb",
+        "@org_golang_x_sync//errgroup",
     ],
 )
