@@ -115,9 +115,11 @@ Lint checks we use:
 1. `depguard`: https://github.com/OpenPeeDeeP/depguard/tree/v2
 1. `asasalint`: https://github.com/alingse/asasalint
 1. `asciicheck`: https://github.com/tdakkota/asciicheck
+1. `bidichk`: https://github.com/breml/bidichk
 
-Most linters are customized somewhere in the `//src/internal/analysis/...` hierarchy.
-`golangci-lint` used a YAML file; we mostly use pure Go to configure these linters now.
+Most linters are customized somewhere in the `//src/internal/analyzers/...` hierarchy.
+`golangci-lint` used a YAML file; we mostly use pure Go to configure these linters now, so check
+that directory for customization / override options.
 
 `nogo.json` contains some global excludes, so that dependencies and generated code aren't linted.
 

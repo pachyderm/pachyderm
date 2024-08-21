@@ -19,10 +19,10 @@ linters:
         - asasalint # run by nogo (asasalint)
         - unused # run by nogo (U1000)
         - asciicheck # run by nogo
+        - bidichk
     enable:
         - nolintlint
         - gofmt
-        - bidichk
         - exhaustive
         - goprintffuncname
         # - bodyclose CORE-1317

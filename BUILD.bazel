@@ -166,6 +166,9 @@ nogo(
     ] + [
         # asciicheck https://github.com/tdakkota/asciicheck
         "//src/internal/analyzers/asciicheck",
+    ] + [
+        # bidichk https://github.com/breml/bidichk
+        "//src/internal/analyzers/bidichk",
     ],
 )
 

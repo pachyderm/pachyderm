@@ -132,6 +132,8 @@ require github.com/alingse/asasalint v0.0.11
 
 require github.com/tdakkota/asciicheck v0.2.0
 
+require github.com/breml/bidichk v0.2.7
+
 require (
 	github.com/bazelbuild/bazel-gazelle v0.36.0
 	github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 // indirect
