@@ -148,14 +148,13 @@ func processQueue(ctx context.Context, s pjs.APIClient, programHash []byte, fn f
 		}
 		out, err := fn(msg.Input)
 		if err != nil {
-			pqc.Send(&pjs.ProcessQueueRequest{
+			return pqc.Send(&pjs.ProcessQueueRequest{
 				Result: &pjs.ProcessQueueRequest_Failed{
 					Failed: true,
 				},
 			})
-			return err
 		} else {
-			pqc.Send(&pjs.ProcessQueueRequest{
+			return pqc.Send(&pjs.ProcessQueueRequest{
 				Result: &pjs.ProcessQueueRequest_Success_{
 					Success: &pjs.ProcessQueueRequest_Success{
 						Output: out,
