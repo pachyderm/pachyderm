@@ -160,6 +160,9 @@ nogo(
     ] + [
         # depguard https://github.com/OpenPeeDeeP/depguard/tree/v2
         "//src/internal/analyzers/depguard",
+    ] + [
+        # asasalint https://github.com/alingse/asasalint
+        "//src/internal/analyzers/asasalint",
     ],
 )
 

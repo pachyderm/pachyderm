@@ -16,12 +16,12 @@ linters:
         - wrapcheck # run by nogo (wrapcheck)
         - errcheck # run by nogo (errcheck)
         - depguard # run by nogo (depguard)
+        - asasalint # run by nogo (asasalint)
     enable:
         - nolintlint
         - gofmt
         - unused
         - asciicheck
-        - asasalint
         - bidichk
         - exhaustive
         - goprintffuncname
