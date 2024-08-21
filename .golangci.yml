@@ -1,11 +1,13 @@
 run:
     timeout: 5m
-    skip-dirs:
-        - cached-deps
     build-tags:
         - k8s
         - unit_test
+issues:
+    exclude-dirs:
+        - cached-deps
 linters:
+    disable: staticcheck # run by nogo
     enable:
         - wrapcheck
         - nolintlint

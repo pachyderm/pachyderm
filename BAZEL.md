@@ -103,10 +103,10 @@ this after editing protos.
 ## Managing dependencies
 
 Our repository is compatible with the traditional `go` toolchain in addition to Bazel. If you add or
-remove dependencies, run `bazel run //:go mod tidy` to update go.mod and go.sum, and run
-`bazel run //:gazelle` to update BUILD files. Then run a build or test. Also consider running
-`bazel run :buildifier` to format the BUILD files. Sometimes the `buildozer` commands suggested by
-Gazelle lead to lint errors; buildifier will auto-fix them for you.
+remove dependencies, run `bazel run //:go mod tidy` to update go.mod and go.sum, `bazel mod tidy` to
+make bazel aware of the changes to go.mod and go.sum, and run `bazel run //:gazelle` to update BUILD
+files. Then run a build or test. Also consider running `bazel run :buildifier` to reformat the BUILD
+files.
 
 The `bazel-style-tests` in CircleCI ensure you did all of this correctly.
 
@@ -177,9 +177,7 @@ If you'd like to invoke the version of Go used for proto generation, run `bazel 
 If the build prints something like **You can use the following buildozer command to fix these
 issues:**, use `bazel run //:buildozer` to invoke
 [buildozer](https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md) as per the
-printed instructions. This mostly happens when Go modules are added or removed; `MODULE.bazel`
-contains a duplicate list of what's in `go.mod`, and the recommended `buildozer` command keeps them
-in sync. If you forget to run this, nothing will work, so it's unlikely that you'll forget.
+printed instructions.
 
 ## Binaries
 

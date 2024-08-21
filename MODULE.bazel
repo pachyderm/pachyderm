@@ -166,6 +166,7 @@ go_deps.module(
 )
 use_repo(
     go_deps,
+    "co_honnef_go_tools",
     "com_github_adrg_xdg",
     "com_github_alecthomas_jsonschema",
     "com_github_alecthomas_participle_v2",
@@ -284,6 +285,7 @@ use_repo(
     "org_golang_x_sys",
     "org_golang_x_term",
     "org_golang_x_text",
+    "org_golang_x_tools",
     "org_golang_x_vuln",
     "org_uber_go_atomic",
     "org_uber_go_automaxprocs",
