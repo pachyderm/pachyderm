@@ -32,7 +32,7 @@ or you can use `npm`, if installed.
 ### Tests
 The frontend and backend tests can be run, individually, with
 ```bash
-bazel test //console/frontend:backend_tests
+bazel test //console/backend:backend_tests
 bazel test //console/frontend:frontend_tests
 ```
 
