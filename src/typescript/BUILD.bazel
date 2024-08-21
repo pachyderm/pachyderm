@@ -1,0 +1,7 @@
+load("@aspect_rules_js//js:defs.bzl", "js_library")
+
+js_library(
+    name = "typescript_protos",
+    srcs = glob(["**/*.pb.ts"]),
+    visibility = ["//console/frontend:__pkg__"],
+)

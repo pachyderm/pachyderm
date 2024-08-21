@@ -1,8 +1,9 @@
+load("@aspect_rules_jest//jest:defs.bzl", "jest_test")
 load("@aspect_rules_js//js:defs.bzl", "js_library")
 load("@aspect_rules_ts//ts:defs.bzl", "ts_config")
 load("@npm_console_frontend//:defs.bzl", "npm_link_all_packages")
 
-npm_link_all_packages()
+npm_link_all_packages(name = "node_modules_frontend")
 
 ts_config(
     name = "tsconfig",
@@ -13,5 +14,42 @@ ts_config(
 js_library(
     name = "package_json",
     srcs = ["package.json"],
+    visibility = ["//visibility:public"],
+)
+
+jest_test(
+    name = "frontend_tests",
+    timeout = "moderate",
+    chdir = package_name(),
+    config = "src/jest.config.js",
+    data = glob(
+        [
+            "@types/google/protobuf/*.pb.ts",
+            "components/src/**/*.ts*",
+            "src/**/*.ts*",
+        ],
+        exclude = [
+            # Disables test which involves problematic "canvas" dependency.
+            "src/views/Project/components/PipelineList/components/PipelinesRuntimeChart/__tests__/PipelinesRuntimesChart.test.tsx",
+        ],
+    ) + [
+        "jest.svg.mock.js",
+        "node_modules_frontend",
+        "tsconfig.json",
+        "//console:jest_config_base",
+        "//src/internal/jsonschema:jsonschema_js",
+        "//src/typescript:typescript_protos",
+    ],
+    env = {
+        "NODE_ENV": "test",
+        "GRAPHQL_PORT": "0",
+        "LOG_LEVEL": "none",
+        "REACT_APP_RUNTIME_ISSUER_URI": "http://localhost/",  # from ../.env.test
+    },
+    fixed_args = [
+        "--rootDir",
+        "./src",
+    ],
+    node_modules = "node_modules_frontend",
     visibility = ["//visibility:public"],
 )

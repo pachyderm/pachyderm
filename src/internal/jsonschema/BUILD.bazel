@@ -1,3 +1,4 @@
+load("@aspect_rules_js//js:defs.bzl", "js_library")
 load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
@@ -543,4 +544,10 @@ go_library(
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/jsonschema",
     visibility = ["//src:__subpackages__"],
+)
+
+js_library(
+    name = "jsonschema_js",
+    srcs = glob(["**/*.schema.json"]),
+    visibility = ["//console/frontend:__pkg__"],
 )
