@@ -423,7 +423,10 @@ use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")
 
 # Node
 node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node", dev_dependency = True)
-node.toolchain(name="nodejs", node_version_from_nvmrc = "//console:.nvmrc")
+node.toolchain(
+    name = "nodejs",
+    node_version_from_nvmrc = "//console:.nvmrc",
+)
 use_repo(node, "nodejs")
 
 pnpm = use_extension("@aspect_rules_js//npm:extensions.bzl", "pnpm", dev_dependency = True)
