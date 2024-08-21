@@ -108,6 +108,7 @@ Lint checks we use:
 1. `SA*`: staticcheck, https://staticcheck.dev/docs/checks#SA
 1. `S*`: simple, code simplifications https://staticcheck.dev/docs/checks#S
 1. `ST*`: stylecheck, https://staticcheck.dev/docs/checks#ST
+1. `U1000`: unused, https://staticcheck.dev/docs/checks#U
 1. `ineffassign`: https://github.com/gordonklaus/ineffassign
 1. `wrapcheck`: https://github.com/tomarrell/wrapcheck
 1. `errcheck`: https://pkg.go.dev/github.com/kisielk/errcheck/errcheck
@@ -117,7 +118,7 @@ Lint checks we use:
 Most linters are customized somewhere in the `//src/internal/analysis/...` hierarchy.
 `golangci-lint` used a YAML file; we mostly use pure Go to configure these linters now.
 
-`//:nogo.json`
+`nogo.json` contains some global excludes, so that dependencies and generated code aren't linted.
 
 ## Write Python code
 

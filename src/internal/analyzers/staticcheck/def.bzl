@@ -144,7 +144,7 @@ ANALYZERS = [
     # "ST1021",
     # "ST1022", # docs
     "ST1023",
-    # "U1000",
+    "U1000",
 ]
 
 all_staticcheck_analyzers = [
