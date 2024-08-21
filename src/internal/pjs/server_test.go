@@ -148,19 +148,25 @@ func processQueue(ctx context.Context, s pjs.APIClient, programHash []byte, fn f
 		}
 		out, err := fn(msg.Input)
 		if err != nil {
-			return pqc.Send(&pjs.ProcessQueueRequest{
+			if sendErr := pqc.Send(&pjs.ProcessQueueRequest{
 				Result: &pjs.ProcessQueueRequest_Failed{
 					Failed: true,
 				},
-			})
+			}); sendErr != nil {
+				return sendErr
+			}
 		} else {
-			return pqc.Send(&pjs.ProcessQueueRequest{
+			// todo(muayng): if send returns an error, the ctx on the server side will be cancelled. Job cannot transit to
+			// Done state. Await will spin forever.
+			if err := pqc.Send(&pjs.ProcessQueueRequest{
 				Result: &pjs.ProcessQueueRequest_Success_{
 					Success: &pjs.ProcessQueueRequest_Success{
 						Output: out,
 					},
 				},
-			})
+			}); err != nil {
+				return err
+			}
 		}
 	}
 }
