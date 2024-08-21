@@ -28,5 +28,5 @@
 /src/server/pps          @pachyderm/CORE
 /src/server/worker       @pachyderm/CORE
 
-# CONSOLE
-/console                 @pachyderm/FRON
+# CONSOLE - unowned
+# /console                 @pachyderm/FRON
