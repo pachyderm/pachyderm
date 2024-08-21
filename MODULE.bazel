@@ -13,6 +13,7 @@ bazel_dep(name = "gazelle", version = "0.36.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
 bazel_dep(name = "rules_go", version = "0.48.1")
 bazel_dep(name = "rules_oci", version = "1.7.5")
+bazel_dep(name = "rules_nodejs", version = "6.1.1")
 bazel_dep(name = "rules_python", version = "0.32.2")
 bazel_dep(name = "rules_python_gazelle_plugin", version = "0.32.2")  # Same version as rules_python
 
@@ -421,6 +422,10 @@ pip.parse(
 use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")
 
 # Node
+node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node", dev_dependency = True)
+node.toolchain(name="nodejs", node_version_from_nvmrc = "//console:.nvmrc")
+use_repo(node, "nodejs")
+
 pnpm = use_extension("@aspect_rules_js//npm:extensions.bzl", "pnpm", dev_dependency = True)
 use_repo(pnpm, "pnpm")
 
