@@ -12,12 +12,12 @@ linters:
         - stylecheck # run by nogo (staticcheck)
         - gosimple # run by nogo (staticcheck)
         - govet # run by nogo (golang.org/x/tools)
+        - ineffassign # run by nogo (ineffassign)
     enable:
         - wrapcheck
         - nolintlint
         - gofmt
         - errcheck
-        - ineffassign
         - unused
         - asciicheck
         - asasalint

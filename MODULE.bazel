@@ -202,6 +202,7 @@ use_repo(
     "com_github_google_gofuzz",
     "com_github_google_shlex",
     "com_github_google_uuid",
+    "com_github_gordonklaus_ineffassign",
     "com_github_gorilla_mux",
     "com_github_grpc_ecosystem_go_grpc_middleware",
     "com_github_grpc_ecosystem_go_grpc_prometheus",
