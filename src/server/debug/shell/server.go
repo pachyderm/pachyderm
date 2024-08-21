@@ -122,7 +122,7 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 			if err != nil {
 				return err
 			}
-			defer contents.Close()
+			defer contents.Close() //nolint:errcheck
 			return cb(rel, contents)
 		}); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -137,12 +137,12 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 	gr, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer gr.Close()
+	defer gr.Close() //nolint:errcheck
 	tr := tar.NewReader(gr)
 	for {
 		hdr, err := tr.Next()

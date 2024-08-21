@@ -104,10 +104,13 @@ in the example output above is a bug and should be fixed, not ignored.)
 
 Lint checks we use:
 
-1. `govet`: govet errors that `go test` would fail compilation over.
+1. `govet`: `go tool vet`
 1. `SA*`: staticcheck, https://staticcheck.dev/docs/checks#SA
 1. `S*`: simple, code simplifications https://staticcheck.dev/docs/checks#S
 1. `ST*`: stylecheck, https://staticcheck.dev/docs/checks#ST
+1. `ineffassign`: https://github.com/gordonklaus/ineffassign
+1. `wrapcheck`: https://github.com/tomarrell/wrapcheck
+1. `errcheck`: https://pkg.go.dev/github.com/kisielk/errcheck/errcheck
 
 ## Write Python code
 

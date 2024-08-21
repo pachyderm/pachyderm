@@ -111,7 +111,7 @@ func reportAndFlushUserAction(action string, value interface{}) func() {
 			return
 		}
 		client := newSegmentClient()
-		defer client.Close()
+		defer client.Close() //nolint:errcheck
 		reportUserMetricsToSegment(client, cfg.UserId, "user", action, value, "")
 	}()
 	return func() {

@@ -221,6 +221,7 @@ use_repo(
     "com_github_jmoiron_sqlx",
     "com_github_json_iterator_go",
     "com_github_juju_ansiterm",
+    "com_github_kisielk_errcheck",
     "com_github_klauspost_compress",
     "com_github_lib_pq",
     "com_github_mattn_go_isatty",

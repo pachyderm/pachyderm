@@ -41,7 +41,7 @@ func SQLIngest(ctx context.Context, params SQLIngestParams) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck
 	if err := func() error {
 		ctx, cf := context.WithTimeout(ctx, 10*time.Second)
 		defer cf()
@@ -161,7 +161,7 @@ func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck
 	if err := func() error {
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
@@ -179,7 +179,7 @@ func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer w.Close()
+	defer w.Close() //nolint:errcheck
 	log.Info(ctx, "Running query", zap.String("query", params.Query))
 	rows, err := db.QueryContext(ctx, params.Query)
 	if err != nil {

@@ -55,7 +55,7 @@ func (w *dexWeb) idTokenHandler(next http.Handler) http.HandlerFunc {
 			return
 		}
 		for _, p := range ps {
-			defer p.close()
+			defer p.close() //nolint:errcheck
 			u := &user{name: token.Email}
 			if _, err := p.findUser(ctx, token.Email); err != nil {
 				if !errors.As(err, &errNotFound{}) {

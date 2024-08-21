@@ -88,7 +88,7 @@ func ensureMinio(ctx context.Context, dclient docker.APIClient) error {
 
 func NewMinioClient(ctx context.Context) (*minio.Client, error) {
 	dclient := newDockerClient()
-	defer dclient.Close()
+	defer dclient.Close() //nolint:errcheck
 	if err := backoff.Retry(func() error {
 		return ensureMinio(ctx, dclient)
 	}, backoff.NewConstantBackOff(time.Second*3)); err != nil {

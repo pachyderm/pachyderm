@@ -200,7 +200,9 @@ func TestFind(t *testing.T) {
 	}
 
 	for _, test := range testData {
-		os.Setenv("GOPATH", "/home/user/go")
+		if err := os.Setenv("GOPATH", "/home/user/go"); err != nil {
+			t.Fatalf("Setenv(GOPATH): %v", err)
+		}
 		t.Run(test.name, func(t *testing.T) {
 			got := find(test.home, test.path, "bin")
 			if diff := cmp.Diff(test.want, got); diff != "" {

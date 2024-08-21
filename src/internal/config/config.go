@@ -270,7 +270,7 @@ func (c *Config) write(path string) error {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer os.Remove(tmpfile.Name()) //nolint:errcheck
 
 	if _, err = tmpfile.Write(rawConfig); err != nil {
 		return errors.EnsureStack(err)

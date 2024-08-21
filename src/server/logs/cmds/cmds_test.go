@@ -50,13 +50,15 @@ func TestGetLogs_default_noauth(t *testing.T) {
 		t.Fatalf("could not create test Loki: %v", err)
 	}
 	for i := -99; i <= 0; i++ {
-		aloki.AddLog(ctx, &testloki.Log{
+		if err := aloki.AddLog(ctx, &testloki.Log{
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf("%v foo", i),
 			Labels: map[string]string{
 				"suite": "pachyderm",
 			},
-		})
+		}); err != nil {
+			t.Fatalf("add log %v: %v", i, err)
+		}
 	}
 	c := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
 		func(c *pachconfig.Configuration) {
@@ -84,13 +86,15 @@ func TestGetLogs_default_nonadmin(t *testing.T) {
 		t.Fatalf("could not create test Loki: %v", err)
 	}
 	for i := -99; i <= 0; i++ {
-		aloki.AddLog(ctx, &testloki.Log{
+		if err := aloki.AddLog(ctx, &testloki.Log{
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf("%v bar", i),
 			Labels: map[string]string{
 				"pod": "foo",
 			},
-		})
+		}); err != nil {
+			t.Fatalf("add log %v: %v", i, err)
+		}
 	}
 
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
@@ -131,13 +135,15 @@ func TestGetLogs_default_admin(t *testing.T) {
 		t.Fatalf("could not create test Loki: %v", err)
 	}
 	for i := -99; i <= 0; i++ {
-		aloki.AddLog(ctx, &testloki.Log{
+		if err := aloki.AddLog(ctx, &testloki.Log{
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf("%v baz", i),
 			Labels: map[string]string{
 				"suite": "pachyderm",
 			},
-		})
+		}); err != nil {
+			t.Fatalf("add log %v: %v", i, err)
+		}
 	}
 
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
@@ -167,7 +173,7 @@ func TestGetLogs_pipeline_noauth(t *testing.T) {
 		t.Fatalf("could not create test Loki: %v", err)
 	}
 	for i := -99; i <= 0; i++ {
-		aloki.AddLog(ctx, &testloki.Log{
+		if err := aloki.AddLog(ctx, &testloki.Log{
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf(`{"user":true, "message":"%d quux"}`, i),
 			Labels: map[string]string{
@@ -177,7 +183,9 @@ func TestGetLogs_pipeline_noauth(t *testing.T) {
 				"pipelineName":    "pipeline",
 				"container":       "user",
 			},
-		})
+		}); err != nil {
+			t.Fatalf("add log %v: %v", i, err)
+		}
 	}
 
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
@@ -236,7 +244,7 @@ func TestGetLogs_pipeline_user(t *testing.T) {
 		t.Fatalf("could not create test Loki: %v", err)
 	}
 	for i := -99; i <= 0; i++ {
-		aloki.AddLog(ctx, &testloki.Log{
+		if err := aloki.AddLog(ctx, &testloki.Log{
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf(`{"user":true, "message":"%d foo"}`, i),
 			Labels: map[string]string{
@@ -246,7 +254,9 @@ func TestGetLogs_pipeline_user(t *testing.T) {
 				"pipelineName":    "pipeline",
 				"container":       "user",
 			},
-		})
+		}); err != nil {
+			t.Fatalf("add log %v: %v", i, err)
+		}
 	}
 
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
@@ -317,7 +327,7 @@ func TestGetLogs_project_noauth(t *testing.T) {
 		t.Fatalf("could not create test Loki: %v", err)
 	}
 	for i := -99; i <= 0; i++ {
-		aloki.AddLog(ctx, &testloki.Log{
+		if err := aloki.AddLog(ctx, &testloki.Log{
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf(`{"user":true, "message":"%v %s"}`, i, t.Name()),
 			Labels: map[string]string{
@@ -327,7 +337,9 @@ func TestGetLogs_project_noauth(t *testing.T) {
 				"pipelineName":    "pipeline",
 				"container":       "user",
 			},
-		})
+		}); err != nil {
+			t.Fatalf("add log %v: %v", i, err)
+		}
 	}
 
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
@@ -387,7 +399,7 @@ func TestGetLogs_project_user(t *testing.T) {
 		t.Fatalf("could not create test Loki: %v", err)
 	}
 	for i := -99; i <= 0; i++ {
-		aloki.AddLog(ctx, &testloki.Log{
+		if err := aloki.AddLog(ctx, &testloki.Log{
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf(`{"user":true, "message":"%v %s"}`, i, t.Name()),
 			Labels: map[string]string{
@@ -397,7 +409,9 @@ func TestGetLogs_project_user(t *testing.T) {
 				"pipelineName":    "pipeline",
 				"container":       "user",
 			},
-		})
+		}); err != nil {
+			t.Fatalf("add log %v: %v", i, err)
+		}
 	}
 
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
@@ -470,7 +484,7 @@ func TestGetLogs_combination_error(t *testing.T) {
 		t.Fatalf("could not create test Loki: %v", err)
 	}
 	for i := -99; i <= 0; i++ {
-		aloki.AddLog(ctx, &testloki.Log{
+		if err := aloki.AddLog(ctx, &testloki.Log{
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf(`{"user":true, "message":"%v %s"}`, i, t.Name()),
 			Labels: map[string]string{
@@ -480,7 +494,9 @@ func TestGetLogs_combination_error(t *testing.T) {
 				"pipelineName":    "pipeline",
 				"container":       "user",
 			},
-		})
+		}); err != nil {
+			t.Fatalf("add log %v: %v", i, err)
+		}
 	}
 
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
@@ -549,7 +565,7 @@ func TestGetLogs_from_to(t *testing.T) {
 		t.Fatalf("could not create test Loki: %v", err)
 	}
 	for i := -99; i <= 0; i++ {
-		aloki.AddLog(ctx, &testloki.Log{
+		if err := aloki.AddLog(ctx, &testloki.Log{
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf(`{"user":true, "message":"%v foo"}`, i),
 			Labels: map[string]string{
@@ -559,7 +575,9 @@ func TestGetLogs_from_to(t *testing.T) {
 				"pipelineName":    "pipeline",
 				"container":       "user",
 			},
-		})
+		}); err != nil {
+			t.Fatalf("add log %v: %v", i, err)
+		}
 	}
 
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
@@ -592,7 +610,7 @@ func TestGetLogs_limit(t *testing.T) {
 		t.Fatalf("could not create test Loki: %v", err)
 	}
 	for i := -99; i <= 0; i++ {
-		aloki.AddLog(ctx, &testloki.Log{
+		if err := aloki.AddLog(ctx, &testloki.Log{
 			Time:    time.Now().Add(time.Duration(i) * time.Second),
 			Message: fmt.Sprintf(`{"user":true, "message":"%v foo"}`, i),
 			Labels: map[string]string{
@@ -602,7 +620,9 @@ func TestGetLogs_limit(t *testing.T) {
 				"pipelineName":    "pipeline",
 				"container":       "user",
 			},
-		})
+		}); err != nil {
+			t.Fatalf("add log %v: %v", i, err)
+		}
 	}
 
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,

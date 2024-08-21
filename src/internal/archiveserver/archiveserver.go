@@ -254,7 +254,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 			// Bail out with both errors; print both to the HTTP stream (sorry ZIP
 			// enjoyers), and return an error containing the text of each.
 			fmt.Fprintf(bw, "\n\ncreate @error.txt: %v\n\ncaused by: %v\n", zerr, resolveErr)
-			bw.Flush()
+			bw.Flush() //nolint:errcheck
 			return errors.Errorf("create @error.txt: %v; caused by %v", zerr, resolveErr)
 		}
 	}
@@ -262,7 +262,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 		if _, werr := fmt.Fprintf(w, "%v\n", resolveErr); werr != nil {
 			// See above; error handling the error.
 			fmt.Fprintf(bw, "\n\nwrite @error.txt: %v\n\ncaused by: %v\n", werr, resolveErr)
-			bw.Flush()
+			bw.Flush() //nolint:errcheck
 			return errors.Errorf("write @error.txt: %v; caused by %v", werr, resolveErr)
 		}
 
@@ -273,7 +273,7 @@ func (s *Server) downloadZip(ctx context.Context, rw http.ResponseWriter, pachCl
 		if _, werr := fmt.Fprintf(w, "%v\n", downloadErrs); werr != nil {
 			// Error handling the error, bail out.
 			fmt.Fprintf(bw, "\n\nwrite @error.txt: %v\n\ncaused by: %v\n", werr, downloadErrs)
-			bw.Flush()
+			bw.Flush() //nolint:errcheck
 			return errors.Errorf("write @error.txt: %v; cause by %v", werr, downloadErrs)
 		}
 		errors.JoinInto(&finalErr, errors.Wrap(downloadErrs, "download files (reported via @error.txt)"))

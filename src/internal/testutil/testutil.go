@@ -11,6 +11,6 @@ import (
 func Listen(t testing.TB) net.Listener {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	t.Cleanup(func() { l.Close() })
+	t.Cleanup(func() { l.Close() }) //nolint:errcheck
 	return l
 }

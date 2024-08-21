@@ -31,7 +31,7 @@ func getDockerHost() string {
 		return e
 	}
 	client := newDockerClient()
-	defer client.Close()
+	defer client.Close() //nolint:errcheck
 	host := client.DaemonHost()
 	u, err := url.Parse(host)
 	if err != nil {

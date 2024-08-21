@@ -14,10 +14,10 @@ linters:
         - govet # run by nogo (golang.org/x/tools)
         - ineffassign # run by nogo (ineffassign)
         - wrapcheck # run by nogo (wrapcheck)
+        - errcheck # run by nogo (errcheck)
     enable:
         - nolintlint
         - gofmt
-        - errcheck
         - unused
         - asciicheck
         - asasalint
@@ -29,11 +29,6 @@ linters:
         # - gocritic CORE-1318
         # - gosec CORE-1319
 linters-settings:
-    errcheck:
-        exclude-functions:
-            - (*database/sql.Tx).Rollback
-            - (*github.com/spf13/cobra.Command).MarkFlagCustom
-            - (*github.com/spf13/cobra.Command).Usage
     nolintlint:
         allow-unused: false
         allow-leading-space: false

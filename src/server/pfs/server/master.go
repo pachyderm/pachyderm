@@ -151,7 +151,7 @@ func (m *Master) watchRepos(ctx context.Context) error {
 
 func (m *Master) manageRepo(ctx context.Context, ring *consistenthashing.Ring, repo pfsdb.Repo, lockPrefix string) {
 	key := pfsdb.RepoKey(repo.RepoInfo.Repo)
-	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
+	backoff.RetryUntilCancel(ctx, func() (retErr error) {
 		ctx, cancel := pctx.WithCancel(ctx)
 		defer cancel()
 		var err error
@@ -181,7 +181,7 @@ func (m *Master) manageRepo(ctx context.Context, ring *consistenthashing.Ring, r
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		log.Error(ctx, "managing repo", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
-	})
+	}) //nolint:errcheck
 }
 
 type cronTrigger struct {
@@ -231,12 +231,12 @@ func (m *Master) manageBranch(ctx context.Context, branch pfsdb.Branch, cronTrig
 		spec:   branchInfo.Trigger.CronSpec,
 	}
 	go func() {
-		backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+		backoff.RetryUntilCancel(ctx, func() error {
 			return m.runCronTrigger(ctx, branchInfo.Branch)
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			log.Error(ctx, "error running cron trigger", zap.Uint64("branch id", uint64(branch.ID)), zap.String("branch", branchInfo.Branch.Key()), zap.Error(err), zap.Duration("retryAfter", d))
 			return nil
-		})
+		}) //nolint:errcheck
 	}()
 	return nil
 }

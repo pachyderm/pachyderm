@@ -198,7 +198,7 @@ func uploadResultsFile(path string, basePath string, resultsFolder string, mf cl
 	if err != nil {
 		return errors.Wrapf(err, "opening file %v", path)
 	}
-	defer resultsFile.Close()
+	defer resultsFile.Close() //nolint:errcheck
 	resultsPath := findDestinationPath(path, basePath, resultsFolder)
 	if err = mf.PutFile(resultsPath, resultsFile); err != nil {
 		return err

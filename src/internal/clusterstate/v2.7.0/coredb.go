@@ -90,7 +90,7 @@ func migrateProjects(ctx context.Context, tx *pachsql.Tx) error {
 	if err != nil {
 		return errors.Wrap(err, "preparing insert projects statement")
 	}
-	defer insertStmt.Close()
+	defer insertStmt.Close() //nolint:errcheck
 	projects, err := ListProjectsFromCollection(ctx, tx)
 	if err != nil {
 		return errors.Wrap(err, "listing projects from collection")

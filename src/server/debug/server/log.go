@@ -173,7 +173,7 @@ func propagateLogLevel(ctx context.Context, req *debug.SetLogLevelRequest, pod, 
 	if err != nil {
 		return nil, errors.Wrap(err, "dial")
 	}
-	defer cc.Close()
+	defer cc.Close() //nolint:errcheck
 	client := debug.NewDebugClient(cc)
 	res, err := client.SetLogLevel(propagateMetadata(ctx), req)
 	if err != nil {

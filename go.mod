@@ -124,6 +124,8 @@ require github.com/gordonklaus/ineffassign v0.1.0
 
 require github.com/tomarrell/wrapcheck/v2 v2.9.0
 
+require github.com/kisielk/errcheck v1.7.0
+
 require (
 	github.com/bazelbuild/bazel-gazelle v0.36.0
 	github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 // indirect

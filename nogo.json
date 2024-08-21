@@ -4,5 +4,12 @@
       "external/": "not our code",
       "[.]pb([.][a-z]+)?[.]go$": "generated"
     }
+  },
+  "errcheck": {
+    "exclude_files": {
+      "external/": "not our code",
+      "[.]pb([.][a-z]+)?[.]go$": "generated",
+      "testmain.go": "generated"
+    }
   }
 }

@@ -87,7 +87,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 	pipelineName := pipelineInfo.Pipeline.Name
 	log.Debug(ctx, "monitoring pipeline")
 	var eg errgroup.Group
-	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error { //nolint:errcheck
+	pps.VisitInput(pipelineInfo.Details.Input, func(in *pps.Input) error {
 		if in.Cron != nil {
 			eg.Go(func() error {
 				cctx := pctx.Child(ctx, "makeCronCommits")
@@ -98,7 +98,7 @@ func (pc *pipelineController) monitorPipeline(ctx context.Context, pipelineInfo 
 			})
 		}
 		return nil
-	})
+	}) //nolint:errcheck
 	if pipelineInfo.Details.Autoscaling {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
 		// standby when SubscribeCommit takes too long to return.

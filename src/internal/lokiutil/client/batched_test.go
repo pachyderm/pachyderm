@@ -54,7 +54,7 @@ func TestBatchedQueryRange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open testdata: %v", err)
 	}
-	defer fh.Close()
+	defer fh.Close() //nolint:errcheck
 	if err := testloki.AddLogFile(ctx, fh, l); err != nil {
 		t.Fatalf("add testdata: %v", err)
 	}

@@ -30,7 +30,7 @@ func TestListTables(t *testing.T) {
 func listTablesValidResponse(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer mockDB.Close() //nolint:errcheck
 	expected := []SchemaTable{
 		{SchemaName: collections, TableName: commits},
 		{SchemaName: pfs, TableName: commitDiffs},
@@ -49,7 +49,7 @@ func listTablesValidResponse(t *testing.T) {
 func listTablesUnexpectedResponse(t *testing.T) {
 	mockDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer mockDB.Close()
+	defer mockDB.Close() //nolint:errcheck
 	mockRows := sqlmock.NewRows([]string{"food"}).
 		AddRow("sushi").
 		AddRow("cheeseburger")

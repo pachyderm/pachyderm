@@ -160,7 +160,7 @@ func outputToFile(fileName string, pkgTests map[string][]string) error {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 	w := bufio.NewWriter(f)
 	for pkg, tests := range pkgTests {
 		for _, test := range tests {
