@@ -220,6 +220,7 @@ use_repo(
     "com_github_jackc_pgconn",
     "com_github_jackc_pgerrcode",
     "com_github_jackc_pgx_v4",
+    "com_github_jirfag_go_printf_func_name",
     "com_github_jmoiron_sqlx",
     "com_github_json_iterator_go",
     "com_github_juju_ansiterm",

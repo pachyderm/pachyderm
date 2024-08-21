@@ -169,6 +169,9 @@ nogo(
     ] + [
         # bidichk https://github.com/breml/bidichk
         "//src/internal/analyzers/bidichk",
+    ] + [
+        # goprintffuncname https://github.com/jirfag/go-printf-func-name
+        "//src/internal/analyzers/goprintffuncname",
     ],
 )
 

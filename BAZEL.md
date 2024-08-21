@@ -116,6 +116,7 @@ Lint checks we use:
 1. `asasalint`: https://github.com/alingse/asasalint
 1. `asciicheck`: https://github.com/tdakkota/asciicheck
 1. `bidichk`: https://github.com/breml/bidichk
+1. `goprintffuncname`: https://github.com/jirfag/go-printf-func-name
 
 Most linters are customized somewhere in the `//src/internal/analyzers/...` hierarchy.
 `golangci-lint` used a YAML file; we mostly use pure Go to configure these linters now, so check
