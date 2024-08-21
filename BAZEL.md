@@ -90,6 +90,25 @@ Writing Go code works like it always did. Your editor can understand the entire 
 any help. Whenever you add or delete files, or change dependencies, run `bazel run //:gazelle` to
 update the associated BUILD files for Bazel.
 
+## Lint Go code
+
+Go code is automatically linted as it's compiled. Errors will be reported during compilation like:
+
+    compilepkg: nogo: errors found by nogo during build-time code analysis:
+    src/internal/lokiutil/client/client_test.go:18:1: TestMain should call os.Exit to set exit code (SA3000)
+
+To ignore this error, add a `//nolint:SA3000` comment. The part after nolint:, `SA3000`, comes from
+the expression in parentheses at the end of the error message. Following the linter's advice is our
+policy, so nolint directives should be treated with great suspicion during code reviews. (The error
+in the example output above is a bug and should be fixed, not ignored.)
+
+Lint checks we use:
+
+1. `govet`: govet errors that `go test` would fail compilation over.
+1. `SA*`: staticcheck, https://staticcheck.dev/docs/checks#SA
+1. `S*`: simple, code simplifications https://staticcheck.dev/docs/checks#S
+1. `ST*`: stylecheck, https://staticcheck.dev/docs/checks#ST
+
 ## Write Python code
 
 For the Jupyter extension, see [jupyter-extension/BAZEL.md](jupyter-extensions/BAZEL.md).
@@ -104,7 +123,7 @@ this after editing protos.
 
 Our repository is compatible with the traditional `go` toolchain in addition to Bazel. If you add or
 remove dependencies, run `bazel run //:go mod tidy` to update go.mod and go.sum, `bazel mod tidy` to
-make bazel aware of the changes to go.mod and go.sum, and run `bazel run //:gazelle` to update BUILD
+make Bazel aware of the changes to go.mod and go.sum, and run `bazel run //:gazelle` to update BUILD
 files. Then run a build or test. Also consider running `bazel run :buildifier` to reformat the BUILD
 files.
 
@@ -162,9 +181,9 @@ Check that imports in Go sources match importpath attributes in deps.
 
 ### Buildifier
 
-If you edit BUILD files, run `bazel test //:buildifier_test` (potentially with `--test_output=all`)
-to see if you introduced any lint errors. If you did, run `bazel run //:buildifier` to auto-fix
-them. You can also install
+If you edit BUILD, .bzl, etc. files, run `bazel test //:buildifier_test` (potentially with
+`--test_output=all`) to see if you introduced any lint errors in them. If you did, run
+`bazel run //:buildifier` to auto-fix them. You can also install
 [buildifier](https://github.com/bazelbuild/buildtools/blob/master/buildifier/README.md) and have
 your editor run it on save for `*.bazel` files. Be aware that the lint rules change based on the
 dialect of Starlark (raw Starlark, BUILD.bazel, WORKSPACE, etc.), so your editor needs to tell
