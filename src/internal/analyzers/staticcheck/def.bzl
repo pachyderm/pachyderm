@@ -54,7 +54,7 @@ ANALYZERS = [
     "SA1016",
     "SA1017",
     "SA1018",
-    "SA1019",
+    # "SA1019", # deprecated stuff
     "SA1020",
     "SA1021",
     "SA1023",
@@ -136,15 +136,15 @@ ANALYZERS = [
     "ST1012",
     "ST1013",
     "ST1015",
-    "ST1016",
+    #"ST1016", # add back
     "ST1017",
     "ST1018",
-    "ST1019",
+    # "ST1019", # double import
     # "ST1020",
     # "ST1021",
-    "ST1022",
+    # "ST1022", # docs
     "ST1023",
-    "U1000",
+    # "U1000",
 ]
 
 all_staticcheck_analyzers = [

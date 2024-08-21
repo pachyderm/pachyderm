@@ -74,7 +74,7 @@ func run(ctx context.Context) error {
 		return errors.WithStack(fmt.Errorf("TEST_RESULTS needs to be populated to find the test results folder"))
 	}
 	if _, err := os.Stat(resultsFolder); os.IsNotExist(err) {
-		return errors.WithStack(fmt.Errorf("The test result folder at %v does not exist. Exiting early", resultsFolder))
+		return errors.WithStack(fmt.Errorf("the test result folder at %v does not exist. Exiting early", resultsFolder))
 	}
 	// connect and authenticate to pachyderm
 	pachClient, err := client.NewFromURIContext(context.Background(), pachdAddress)

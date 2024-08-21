@@ -219,7 +219,7 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 	jobInfo, ok := jobInfoPaths[strings.TrimSuffix(path, fileName)]
 	if !ok {
 		return errors.WithStack(fmt.Errorf(
-			"Failed to find job info for %v - file name %v - job infos %v ",
+			"failed to find job info for %v - file name %v - job infos %v ",
 			path,
 			filepath.Base(path),
 			jobInfoPaths,
