@@ -251,6 +251,7 @@ use_repo(
     "com_github_spf13_pflag",
     "com_github_stretchr_testify",
     "com_github_timewasted_go_accept_headers",
+    "com_github_tomarrell_wrapcheck_v2",
     "com_github_uber_jaeger_client_go",
     "com_github_vbauerster_mpb_v6",
     "com_github_wader_readline",

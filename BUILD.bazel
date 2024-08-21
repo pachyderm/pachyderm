@@ -151,6 +151,9 @@ nogo(
     ] + [
         # ineffassign https://github.com/gordonklaus/ineffassign
         "//src/internal/analyzers/ineffassign",
+    ] + [
+        # wrapcheck https://github.com/tomarrell/wrapcheck (using v2)
+        "//src/internal/analyzers/wrapcheck",
     ],
 )
 

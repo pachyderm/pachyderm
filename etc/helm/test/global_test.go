@@ -146,7 +146,7 @@ func GetEnvVarByName(envVars []v1.EnvVar, name string) (string, error) {
 			return v.Value, nil
 		}
 	}
-	return "", stderr.New("Not found")
+	return "", stderr.New("Not found") //nolint:wrapcheck
 }
 
 // GetContainerByName returns container or nil

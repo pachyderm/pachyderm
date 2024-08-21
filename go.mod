@@ -122,6 +122,8 @@ require (
 
 require github.com/gordonklaus/ineffassign v0.1.0
 
+require github.com/tomarrell/wrapcheck/v2 v2.9.0
+
 require (
 	github.com/bazelbuild/bazel-gazelle v0.36.0
 	github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 // indirect
@@ -303,7 +305,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/opencontainers/runc v1.1.12 // indirect
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
-	github.com/pelletier/go-toml v1.9.4 // indirect
+	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/term v1.1.0 // indirect

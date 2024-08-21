@@ -13,8 +13,8 @@ linters:
         - gosimple # run by nogo (staticcheck)
         - govet # run by nogo (golang.org/x/tools)
         - ineffassign # run by nogo (ineffassign)
+        - wrapcheck # run by nogo (wrapcheck)
     enable:
-        - wrapcheck
         - nolintlint
         - gofmt
         - errcheck
@@ -39,34 +39,6 @@ linters-settings:
         allow-leading-space: false
         require-explanation: false
         require-specific: true
-    wrapcheck:
-        ignoreSigs:
-            - github.com/pachyderm/pachyderm/v2/src/internal/errors.Errorf
-            - github.com/pachyderm/pachyderm/v2/src/internal/errors.New
-            - github.com/pachyderm/pachyderm/v2/src/internal/errors.Unwrap
-            - github.com/pachyderm/pachyderm/v2/src/internal/errors.EnsureStack
-            - github.com/pachyderm/pachyderm/v2/src/internal/errors.Join
-            - github.com/pachyderm/pachyderm/v2/src/internal/errors.JoinInto
-            - github.com/pachyderm/pachyderm/v2/src/internal/errors.Close
-            - github.com/pachyderm/pachyderm/v2/src/internal/errors.Invoke
-            - github.com/pachyderm/pachyderm/v2/src/internal/errors.Invoke1
-            - google.golang.org/grpc/status.Error
-            - google.golang.org/grpc/status.Errorf
-            - "(*google.golang.org/grpc/internal/status.Status).Err"
-            - google.golang.org/protobuf/types/known/anypb.New
-            - .Wrap(
-            - .Wrapf(
-            - .WithMessage(
-            - .WithMessagef(
-            - .WithStack(
-        ignorePackageGlobs:
-            # These are packages whose return values don't have to be wrapped, not packages where the
-            # linter isn't used.
-            - github.com/pachyderm/pachyderm/v2/src/*
-        ignoreInterfaceRegexps:
-            - ^fileset\.
-            - ^collection\.
-            - ^track\.
     gofmt:
         simplify: true
     exhaustive:
