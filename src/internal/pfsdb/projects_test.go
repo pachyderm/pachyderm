@@ -3,8 +3,9 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
-	"google.golang.org/protobuf/proto"
 	"testing"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -51,7 +52,7 @@ func TestCreateProject(t *testing.T) {
 	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.CreateProject(cbCtx, tx, createInfo)
 		require.YesError(t, err, "should not be able to create project again with same name")
-		require.True(t, (&pfsdb.ProjectAlreadyExistsError{testProj}).Is(err))
+		require.True(t, (&pfsdb.ProjectAlreadyExistsError{Name: testProj}).Is(err))
 		return nil
 	}), "double create should fail and result in rollback")
 }

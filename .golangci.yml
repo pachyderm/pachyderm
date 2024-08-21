@@ -8,12 +8,14 @@ issues:
         - cached-deps
 linters:
     disable:
-        - staticcheck # run by nogo
+        - staticcheck # run by nogo (staticcheck)
+        - stylecheck # run by nogo (staticcheck)
+        - gosimple # run by nogo (staticcheck)
+        - govet # run by nogo (golang.org/x/tools)
     enable:
         - wrapcheck
         - nolintlint
         - gofmt
-        - gosimple
         - errcheck
         - ineffassign
         - unused
