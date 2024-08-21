@@ -157,6 +157,9 @@ nogo(
     ] + [
         # errcheck https://pkg.go.dev/github.com/kisielk/errcheck/errcheck
         "//src/internal/analyzers/errcheck",
+    ] + [
+        # depguard https://github.com/OpenPeeDeeP/depguard/tree/v2
+        "//src/internal/analyzers/depguard",
     ],
 )
 

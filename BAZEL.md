@@ -111,6 +111,12 @@ Lint checks we use:
 1. `ineffassign`: https://github.com/gordonklaus/ineffassign
 1. `wrapcheck`: https://github.com/tomarrell/wrapcheck
 1. `errcheck`: https://pkg.go.dev/github.com/kisielk/errcheck/errcheck
+1. `depguard`: https://github.com/OpenPeeDeeP/depguard/tree/v2
+
+Most linters are customized somewhere in the `//src/internal/analysis/...` hierarchy.
+`golangci-lint` used a YAML file; we mostly use pure Go to configure these linters now.
+
+`//:nogo.json`
 
 ## Write Python code
 

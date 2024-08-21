@@ -15,6 +15,7 @@ linters:
         - ineffassign # run by nogo (ineffassign)
         - wrapcheck # run by nogo (wrapcheck)
         - errcheck # run by nogo (errcheck)
+        - depguard # run by nogo (depguard)
     enable:
         - nolintlint
         - gofmt
@@ -24,7 +25,6 @@ linters:
         - bidichk
         - exhaustive
         - goprintffuncname
-        - depguard
         # - bodyclose CORE-1317
         # - gocritic CORE-1318
         # - gosec CORE-1319
@@ -43,29 +43,3 @@ linters-settings:
         # Annotate your switch statement with //exhaustive:enforce to opt in.
         explicit-exhaustive-switch: true
         explicit-exhaustive-map: true
-    depguard:
-        rules:
-            main:
-                files:
-                    - "$all"
-                    - "!**/src/internal/log/*.go"
-                    - "!**/etc/**/*.go"
-                deny:
-                    - pkg: github.com/sirupsen/logrus
-                      desc: use the internal/log package
-                    - pkg: go.uber.org/multierr
-                      desc: "use the internal/errors package"
-                    - pkg: github.com/hashicorp/go-multierror
-                      desc: "use the internal/errors package"
-                    - pkg: github.com/gogo/protobuf/proto
-                      desc: "wrong proto package; use google.golang.org/protobuf/proto"
-                    - pkg: github.com/gogo/protobuf/types
-                      desc: "wrong proto package; use google.golang.org/protobuf/types/..."
-                    - pkg: github.com/gogo/protobuf/jsonpb
-                      desc: "wrong proto package; use google.golang.org/protobuf/encoding/protojson"
-                    - pkg: github.com/golang/protobuf/proto
-                      desc: "wrong proto package; use google.golang.org/protobuf/proto"
-                    - pkg: github.com/golang/protobuf/ptypes
-                      desc: "wrong proto package; use google.golang.org/protobuf/types/..."
-                    - pkg: github.com/golang/protobuf/jsonpb
-                      desc: "wrong proto package; use google.golang.org/protobuf/encoding/protojson"
