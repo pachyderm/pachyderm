@@ -62,7 +62,7 @@ func IsInvalidPathError(err error) bool {
 // IsNetRetryable returns true if the error is a temporary network error.
 func IsNetRetryable(err error) bool {
 	var netErr net.Error
-	return errors.As(err, &netErr) && netErr.Temporary() //nolint:staticcheck
+	return errors.As(err, &netErr) && netErr.Temporary() //nolint:SA1019
 }
 
 // IsDatabseDisconnect returns true if the error represents a database disconnect

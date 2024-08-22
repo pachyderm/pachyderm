@@ -126,7 +126,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 			})
 		}
 		var err error
-		cc, err = grpc.DialContext(ctx, p.Address, //nolint:staticcheck
+		cc, err = grpc.DialContext(ctx, p.Address, //nolint:SA1019
 			grpc.WithTransportCredentials(creds),
 			grpc.WithUnaryInterceptor(ci.LogUnary),
 			grpc.WithStreamInterceptor(ci.LogStream),

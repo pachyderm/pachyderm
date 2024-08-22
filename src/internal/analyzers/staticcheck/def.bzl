@@ -58,7 +58,7 @@ ANALYZERS = [
     "SA1016",
     "SA1017",
     "SA1018",
-    # "SA1019", # deprecated stuff
+    "SA1019",
     "SA1020",
     "SA1021",
     "SA1023",
@@ -130,9 +130,9 @@ ANALYZERS = [
     "SA9006",
     "SA9007",
     "SA9008",
-    # "ST1000",
+    # "ST1000", # package doc comments
     "ST1001",
-    # "ST1003",
+    # "ST1003", # "ID" instead of "Id"
     "ST1005",
     "ST1006",
     "ST1008",
@@ -140,13 +140,13 @@ ANALYZERS = [
     "ST1012",
     "ST1013",
     "ST1015",
-    #"ST1016", # add back
+    #"ST1016", # consistent receiver names
     "ST1017",
     "ST1018",
     # "ST1019", # double import
-    # "ST1020",
-    # "ST1021",
-    # "ST1022", # docs
+    # "ST1020", # function doc comments
+    # "ST1021", # type doc comments
+    # "ST1022", # var doc comments
     "ST1023",
     "U1000",
 ]

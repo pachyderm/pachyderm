@@ -3086,7 +3086,8 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	if request != nil && request.Pipeline != nil {
 		ensurePipelineProject(request.GetPipeline())
 	}
-	if request.All { //nolint:staticcheck
+	//nolint:SA1019
+	if request.All {
 		_, err := a.DeletePipelines(ctx, &pps.DeletePipelinesRequest{
 			KeepRepo: request.KeepRepo,
 		})

@@ -37,7 +37,7 @@ func NewClient(ctx context.Context, masterURL string, withTLS bool) (client det.
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "parsing determined url %q", masterURL)
 	}
-	conn, err := grpc.DialContext(ctx, determinedURL.Host, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary)) //nolint:staticcheck
+	conn, err := grpc.DialContext(ctx, determinedURL.Host, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary)) //nolint:SA1019
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "dialing determined at %q", determinedURL.Host)
 	}
