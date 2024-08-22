@@ -22,17 +22,9 @@ linters:
         - bidichk
         - goprintffuncname
         - exhaustive
-    enable:
-        - nolintlint
         - gofmt
+        - nolintlint
+    enable:
         # - bodyclose CORE-1317
         # - gocritic CORE-1318
         # - gosec CORE-1319
-linters-settings:
-    nolintlint:
-        allow-unused: false
-        allow-leading-space: false
-        require-explanation: false
-        require-specific: true
-    gofmt:
-        simplify: true
