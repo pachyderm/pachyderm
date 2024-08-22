@@ -1,0 +1,18 @@
+load("@aspect_rules_js//js:defs.bzl", "js_library")
+
+exports_files(
+    ["jest.config.base.js"],
+    ["//console/backend:__pkg__"],
+)
+
+js_library(
+    name = "jest_config_base",
+    srcs = [
+        ".env.test",
+        "jest.config.base.js",
+    ],
+    visibility = [
+        "//console/backend:__pkg__",
+        "//console/frontend:__pkg__",
+    ],
+)

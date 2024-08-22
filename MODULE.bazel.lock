@@ -8,12 +8,17 @@
     "https://bcr.bazel.build/modules/apple_support/1.5.0/MODULE.bazel": "50341a62efbc483e8a2a6aec30994a58749bd7b885e18dd96aa8c33031e558ef",
     "https://bcr.bazel.build/modules/apple_support/1.5.0/source.json": "eb98a7627c0bc486b57f598ad8da50f6625d974c8f723e9ea71bd39f709c9862",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/1.28.0/MODULE.bazel": "d793416e81c34d137d75ef84fe622df6c550826772a7f06e3b98a0d1c347fe1c",
+    "https://bcr.bazel.build/modules/aspect_bazel_lib/1.31.2/MODULE.bazel": "7bee702b4862612f29333590f4b658a5832d433d6f8e4395f090e8f4e85d442f",
+    "https://bcr.bazel.build/modules/aspect_bazel_lib/1.33.0/MODULE.bazel": "1b92e36c38ef8df5a4f9d421f6cc70f53c168511557846af7f841393026405df",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/1.36.0/MODULE.bazel": "710d3560d8891d209f7985f3e4223011c3fefed0cd4d23d3e7b77b0f8287ef64",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/1.38.1/MODULE.bazel": "17ae5bb970187e51c39a5ac21190279a58d7eeba83bc43e4165547cc0cf8de4a",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/1.40.2/MODULE.bazel": "94faac347405327a3bb58382da0f8be7e0f266a4ab2ee094aa34aada2720a672",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/1.42.3/MODULE.bazel": "e4529e12d8cd5b828e2b5960d07d3ec032541740d419d7d5b859cabbf5b056f9",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/MODULE.bazel": "1602c117f85b148a5e63550e3d2e40f9b36d769fb84ef5e32f07faaa347da22b",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/source.json": "b0c9135e82acb1893780901a39e53f4a3cb990e0ffc9422e37a80470a2d1f865",
+    "https://bcr.bazel.build/modules/aspect_rules_jest/0.21.0/MODULE.bazel": "5431b88e712171279364c5fa86cdb1b39bda240b05f2ed9a664e92fd93bb60dc",
+    "https://bcr.bazel.build/modules/aspect_rules_jest/0.21.0/source.json": "9846a587261dba87c998b02a8813475a9f297f43b67a464327c8c06e6be5f41e",
+    "https://bcr.bazel.build/modules/aspect_rules_js/1.31.0/MODULE.bazel": "15de32c321263f88c9fcef21c9ad5e9474c40d5bfc1fc6a7be0dd4af42d8eac9",
     "https://bcr.bazel.build/modules/aspect_rules_js/1.34.0/MODULE.bazel": "cbe059f9c11db239121a858c5586cbfbed56777eb089860553675b25085ab11a",
     "https://bcr.bazel.build/modules/aspect_rules_js/1.42.3/MODULE.bazel": "eeaa3093e9c5da7ff24482372b7900254874305b96b429ee9d7f546059ccdca0",
     "https://bcr.bazel.build/modules/aspect_rules_js/1.42.3/source.json": "0999eef9a1cb39274d9cfc7c911ff5ff82326acd720e714de07de42c68cbd786",
@@ -2697,7 +2702,7 @@
     "@@rules_nodejs~//nodejs:extensions.bzl%node": {
       "general": {
         "bzlTransitiveDigest": "ckY7ss/EX3a6xxkCmHpEMdXoQ/+PDis8xniQeDu9PKM=",
-        "usagesDigest": "hwMZfPj+mT0xrYKn0fweXxt3udO3LeZPG34vWL4PmiU=",
+        "usagesDigest": "XXkGbLmNmZv6mIlGv0j30Oiz2DaU3+IEzyAgstbPCM4=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2718,7 +2723,8 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.11.1",
+              "node_version": "18.20.2",
+              "node_version_from_nvmrc": "@@//console:.nvmrc",
               "platform": "linux_s390x"
             }
           },
@@ -2731,7 +2737,8 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.11.1",
+              "node_version": "18.20.2",
+              "node_version_from_nvmrc": "@@//console:.nvmrc",
               "platform": "windows_amd64"
             }
           },
@@ -2751,7 +2758,8 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.11.1",
+              "node_version": "18.20.2",
+              "node_version_from_nvmrc": "@@//console:.nvmrc",
               "platform": "linux_amd64"
             }
           },
@@ -2764,7 +2772,8 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.11.1",
+              "node_version": "18.20.2",
+              "node_version_from_nvmrc": "@@//console:.nvmrc",
               "platform": "linux_ppc64le"
             }
           },
@@ -2777,7 +2786,8 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.11.1",
+              "node_version": "18.20.2",
+              "node_version_from_nvmrc": "@@//console:.nvmrc",
               "platform": "darwin_amd64"
             }
           },
@@ -2790,7 +2800,8 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.11.1",
+              "node_version": "18.20.2",
+              "node_version_from_nvmrc": "@@//console:.nvmrc",
               "platform": "linux_arm64"
             }
           },
@@ -2810,7 +2821,8 @@
               "node_urls": [
                 "https://nodejs.org/dist/v{version}/{filename}"
               ],
-              "node_version": "20.11.1",
+              "node_version": "18.20.2",
+              "node_version_from_nvmrc": "@@//console:.nvmrc",
               "platform": "darwin_arm64"
             }
           }

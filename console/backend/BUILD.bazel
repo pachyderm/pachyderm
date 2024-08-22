@@ -1,8 +1,9 @@
+load("@aspect_rules_jest//jest:defs.bzl", "jest_test")
 load("@aspect_rules_js//js:defs.bzl", "js_library")
 load("@aspect_rules_ts//ts:defs.bzl", "ts_config")
 load("@npm_console_backend//:defs.bzl", "npm_link_all_packages")
 
-npm_link_all_packages()
+npm_link_all_packages(name = "node_modules_backend")
 
 ts_config(
     name = "tsconfig",
@@ -13,5 +14,23 @@ ts_config(
 js_library(
     name = "package_json",
     srcs = ["package.json"],
+    visibility = ["//visibility:public"],
+)
+
+jest_test(
+    name = "backend_tests",
+    chdir = "console/backend",
+    config = "jest.config.js",
+    data = glob(["src/**/*.ts"]) + [
+        "node_modules_backend",
+        "tsconfig.json",
+        "//console:jest_config_base",
+    ],
+    env = {
+        "NODE_ENV": "test",
+        "GRAPHQL_PORT": "0",
+        "LOG_LEVEL": "none",
+    },
+    node_modules = "node_modules_backend",
     visibility = ["//visibility:public"],
 )

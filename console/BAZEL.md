@@ -28,3 +28,25 @@ format:
 bazel run //:pnpm -- --dir $PWD <command>
 ```
 or you can use `npm`, if installed.
+
+### Tests
+The frontend and backend tests can be run, individually, with
+```bash
+bazel test //console/backend:backend_tests
+bazel test //console/frontend:frontend_tests
+```
+
+#### Frontend Test Notes
+Running the [PipelinesRuntimeChart tests](frontend/src/views/Project/components/PipelineList/components/PipelinesRuntimeChart/__tests__/PipelinesRuntimesChart.test.tsx")
+requires the [canvas](https://github.com/Automattic/node-canvas) module,
+which is problematic due to the fact that pre-built binaries are not published
+for ARM platforms. Getting this module built and installed using bazel is still
+not yet completed, so these tests are manually excluded from `bazel test`
+invocations and the `canvas` dependency is manually excluded from the pnpm lock
+file. To run these excluded tests locally, you must install the external
+dependencies listed at the top of this document, and then run the following
+commands from the `console/frontend` directory:
+```bash
+bazel run @nodejs//:npm -- --dir=$PWD install
+bazel run @nodejs//:npm -- --dir=$PWD test -- src/views/Project/components/PipelineList/components/PipelinesRuntimeChart/__tests__/PipelinesRuntimesChart.test.tsx
+```

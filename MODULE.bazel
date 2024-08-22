@@ -4,6 +4,7 @@ module(
 )
 
 bazel_dep(name = "aspect_bazel_lib", version = "2.5.3")  # Needed for arm64 jq and rules_oci/#425.
+bazel_dep(name = "aspect_rules_jest", version = "0.21.0")
 bazel_dep(name = "aspect_rules_js", version = "1.42.3")
 bazel_dep(name = "aspect_rules_ts", version = "2.4.2")
 bazel_dep(name = "circl", version = "1.3.7")
@@ -422,7 +423,11 @@ use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")
 
 # Node
 node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node", dev_dependency = True)
-node.toolchain(node_version = "20.11.1")
+node.toolchain(
+    name = "nodejs",
+    node_version_from_nvmrc = "//console:.nvmrc",
+)
+use_repo(node, "nodejs")
 
 pnpm = use_extension("@aspect_rules_js//npm:extensions.bzl", "pnpm", dev_dependency = True)
 use_repo(pnpm, "pnpm")
