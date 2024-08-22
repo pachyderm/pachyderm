@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "exhaustive",
+    srcs = ["exhaustive.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/analyzers/exhaustive",
+    visibility = ["//:__pkg__"],
+    deps = ["@com_github_nishanths_exhaustive//:exhaustive"],
+)

@@ -20,11 +20,11 @@ linters:
         - unused # run by nogo (U1000)
         - asciicheck # run by nogo
         - bidichk
+        - goprintffuncname
+        - exhaustive
     enable:
         - nolintlint
         - gofmt
-        - exhaustive
-        - goprintffuncname
         # - bodyclose CORE-1317
         # - gocritic CORE-1318
         # - gosec CORE-1319
@@ -36,10 +36,3 @@ linters-settings:
         require-specific: true
     gofmt:
         simplify: true
-    exhaustive:
-        default-signifies-exhaustive: true
-        # Right now, we only allow opting into the exhaustive check due to a lot of code that makes
-        # correct use of non-exhaustive switch statements.
-        # Annotate your switch statement with //exhaustive:enforce to opt in.
-        explicit-exhaustive-switch: true
-        explicit-exhaustive-map: true

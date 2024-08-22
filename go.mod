@@ -136,6 +136,8 @@ require github.com/breml/bidichk v0.2.7
 
 require github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af
 
+require github.com/nishanths/exhaustive v0.12.0
+
 require (
 	github.com/bazelbuild/bazel-gazelle v0.36.0
 	github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 // indirect

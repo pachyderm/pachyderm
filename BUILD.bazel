@@ -172,6 +172,9 @@ nogo(
     ] + [
         # goprintffuncname https://github.com/jirfag/go-printf-func-name
         "//src/internal/analyzers/goprintffuncname",
+    ] + [
+        # exhaustive https://pkg.go.dev/github.com/nishanths/exhaustive
+        "//src/internal/analyzers/exhaustive",
     ],
 )
 
