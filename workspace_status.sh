@@ -15,7 +15,7 @@ exact=$(git describe --exact-match 2>/dev/null | sed -e s/^v// | cut -d - -f 1 |
 echo "STABLE_APP_VERSION $exact"
 
 SHA256SUM="sha256sum"
-if command -v sha256sum &> /dev/null; then
+if command -v shasum &> /dev/null; then
     # Mac OS ships shasum instead of sha256sum.
     SHA256SUM="shasum -a 256"
 fi
