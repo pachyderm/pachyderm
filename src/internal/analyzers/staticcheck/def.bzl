@@ -1,3 +1,7 @@
+"""
+This file contains information about staticcheck's lint checks.
+"""
+
 # generated with:
 # for i in `bazel run @co_honnef_go_tools//cmd/staticcheck -- -list-checks | cut -d' ' -f 1`; do echo "$i,"; done
 ANALYZERS = [
