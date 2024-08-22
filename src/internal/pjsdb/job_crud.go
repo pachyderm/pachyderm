@@ -172,7 +172,7 @@ func CancelJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 }
 
 // WalkAlgorithm is an enumerator for walking algorithms.
-type WalkAlgorithm int
+type WalkAlgorithm int32
 
 const (
 	LevelOrder        = WalkAlgorithm(0)

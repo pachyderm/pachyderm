@@ -55,18 +55,18 @@ func TestDequeue(t *testing.T) {
 		withTx(t, ctx, db, s, func(d dependencies) {
 			dequeued++
 			// for now the program hash is also the program
-			jobID, err := pjsdb.DequeueAndProcess(ctx, d.tx, []byte(fileset.ID(prog1).HexString()))
+			resp, err := pjsdb.DequeueAndProcess(ctx, d.tx, []byte(fileset.ID(prog1).HexString()))
 			require.NoError(t, err)
 			// the job is dequeued in FIFO order
-			require.Equal(t, uint64(jobID), dequeued)
+			require.Equal(t, uint64(resp.ID), dequeued)
 			dequeued++
-			jobID, err = pjsdb.DequeueAndProcess(ctx, d.tx, []byte(fileset.ID(prog2).HexString()))
+			resp, err = pjsdb.DequeueAndProcess(ctx, d.tx, []byte(fileset.ID(prog2).HexString()))
 			require.NoError(t, err)
-			require.Equal(t, uint64(jobID), dequeued)
+			require.Equal(t, uint64(resp.ID), dequeued)
 			dequeued++
-			jobID, err = pjsdb.DequeueAndProcess(ctx, d.tx, []byte(fileset.ID(prog3).HexString()))
+			resp, err = pjsdb.DequeueAndProcess(ctx, d.tx, []byte(fileset.ID(prog3).HexString()))
 			require.NoError(t, err)
-			require.Equal(t, uint64(jobID), dequeued)
+			require.Equal(t, uint64(resp.ID), dequeued)
 		})
 		withTx(t, ctx, db, s, func(d dependencies) {
 			err := pjsdb.ForEachQueue(ctx, db, pjsdb.IterateQueuesRequest{}, func(queue pjsdb.Queue) error {
