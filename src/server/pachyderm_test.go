@@ -10587,3 +10587,69 @@ func TestPipelinesSummary(t *testing.T) {
 		}
 	}
 }
+
+func TestNoPostgresPassword(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := "input"
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err, "start input commit")
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()), "put dummy file")
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""), "finish input commit")
+
+	pipeline := "printenv"
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{
+				Image: tu.DefaultTransformImage,
+				Cmd:   []string{"bash"},
+				Stdin: []string{"printenv > /pfs/out/env"},
+				Env:   map[string]string{"FOO": "BAR"},
+			},
+			Input: client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		},
+	)
+	require.NoError(t, err, "create pipeline")
+
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	require.NoError(t, err, "inspect commit %v@master", pipeline)
+	commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err, "wait commitset %v", commitInfo.Commit.Id)
+
+	var output *pfs.CommitInfo
+	for _, info := range commitInfos {
+		if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, pipeline)) {
+			output = info
+			break
+		}
+	}
+	require.NotNil(t, output, "output should have been found")
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(output.Commit, "env", &buf), "fetch env from output commit")
+
+	var foo string
+	env := strings.Split(buf.String(), "\n")
+	for _, e := range env {
+		t.Logf("env: %q", e)
+		if len(e) == 0 {
+			continue
+		}
+
+		i := strings.IndexByte(e, '=')
+		if i < 1 {
+			t.Logf("missing = in %v", e)
+			continue
+		}
+		key := e[:i]
+		t.Logf("key: %v", key)
+		require.NotEqual(t, "POSTGRES_PASSWORD", key, "environ line %v should not start with POSTGRES_PASSWORD=")
+		if key == "FOO" {
+			foo = e
+		}
+	}
+	require.Equal(t, "FOO=BAR", foo, "FOO=BAR should be in there")
+}

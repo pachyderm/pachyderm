@@ -551,7 +551,13 @@ func (d *driver) UserCodeEnv(
 	pachToken string,
 	filesetId string,
 ) []string {
-	result := os.Environ()
+	var result []string
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "POSTGRES_PASSWORD=") {
+			continue
+		}
+		result = append(result, e)
+	}
 
 	for _, input := range inputs {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
