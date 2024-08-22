@@ -558,7 +558,6 @@ func (d *driver) UserCodeEnv(
 		}
 		result = append(result, e)
 	}
-
 	if len(inputs) > 0 {
 		for _, input := range inputs {
 			result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
@@ -572,7 +571,6 @@ func (d *driver) UserCodeEnv(
 		}
 		result = append(result, fmt.Sprintf("%s=%s", client.DatumIDEnv, common.DatumID(inputs)))
 	}
-
 	if jobID != "" {
 		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
 		pipeline := &pps.Pipeline{
