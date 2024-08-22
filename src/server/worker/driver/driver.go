@@ -569,7 +569,9 @@ func (d *driver) UserCodeEnv(
 			result = append(result, fmt.Sprintf("PACH_DATUM_%s_GROUP_BY=%s", input.Name, input.GroupBy))
 		}
 	}
-	result = append(result, fmt.Sprintf("%s=%s", client.DatumIDEnv, common.DatumID(inputs)))
+	if len(inputs) > 0 {
+		result = append(result, fmt.Sprintf("%s=%s", client.DatumIDEnv, common.DatumID(inputs)))
+	}
 
 	if jobID != "" {
 		result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
