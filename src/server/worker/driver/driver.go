@@ -552,12 +552,11 @@ func (d *driver) UserCodeEnv(
 	filesetId string,
 ) []string {
 	var result []string
-	for _, kv := range os.Environ() {
-		for _, k := range d.inheritedEnvVars() {
-			if strings.HasPrefix(kv, k+"=") {
-				result = append(result, kv)
-			}
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "POSTGRES_PASSWORD=") {
+			continue
 		}
+		result = append(result, e)
 	}
 	if len(inputs) > 0 {
 		for _, input := range inputs {
@@ -622,28 +621,6 @@ func (d *driver) UserCodeEnv(
 		result = append(result, fmt.Sprintf("%s=%s", client.FilesetIDEnv, filesetId))
 	}
 	return result
-}
-
-func (d *driver) inheritedEnvVars() []string {
-	results := []string{
-		"PATH",
-		"HOME",
-		"PACH_NAMESPACE",
-		"DET_MASTER_CERT_FILE",
-		"DET_MASTER",
-		"DET_USER",
-		"DET_PASS",
-		"PACHD_PEER_SERVICE_HOST",
-		"PACHD_PEER_SERVICE_PORT",
-		"PPS_WORKER_GRPC_PORT",
-	}
-	for k := range d.pipelineInfo.Details.Transform.Env {
-		results = append(results, k)
-	}
-	for _, s := range d.pipelineInfo.Details.Transform.Secrets {
-		results = append(results, s.EnvVar)
-	}
-	return results
 }
 
 func (d *driver) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
