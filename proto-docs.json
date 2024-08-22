@@ -16849,6 +16849,29 @@
               "description": "DONE means the job, and all of its descendants, are done."
             }
           ]
+        },
+        {
+          "name": "WalkAlgorithm",
+          "longName": "WalkAlgorithm",
+          "fullName": "pjs.WalkAlgorithm",
+          "description": "",
+          "values": [
+            {
+              "name": "LEVEL_ORDER",
+              "number": "0",
+              "description": "similar to BFS, but specifically for trees. Traverse nodes in height order."
+            },
+            {
+              "name": "PRE_ORDER",
+              "number": "1",
+              "description": "like DFS, but specifically for trees: visit root, recurse down subtrees."
+            },
+            {
+              "name": "MIRRORED_POST_ORDER",
+              "number": "2",
+              "description": "recurse down subtrees from right-to-left, then visit root.\nFor example, given this tree:\n1\n├── 2\n│   ├── 4\n│   └── 5\n└── 3\n├── 6\n└── 7\nthe mirrored post-order would return 7,6,3,5,4,2,1 whereas regular post-order would return 4,5,2,6,7,3,1\nMirrored post-order is much faster to calculate within a database than regular post-order."
+            }
+          ]
         }
       ],
       "extensions": [],
@@ -17695,6 +17718,18 @@
               "type": "Job",
               "longType": "Job",
               "fullType": "pjs.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "algorithm",
+              "description": "Defaults to 'LEVEL_ORDER'.",
+              "label": "",
+              "type": "WalkAlgorithm",
+              "longType": "WalkAlgorithm",
+              "fullType": "pjs.WalkAlgorithm",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",

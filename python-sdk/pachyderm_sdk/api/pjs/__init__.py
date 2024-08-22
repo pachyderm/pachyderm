@@ -57,6 +57,12 @@ class JobErrorCode(betterproto.Enum):
     """CANCELED means the job was canceled."""
 
 
+class WalkAlgorithm(betterproto.Enum):
+    LEVEL_ORDER = 0
+    PRE_ORDER = 1
+    MIRRORED_POST_ORDER = 2
+
+
 @dataclass(eq=False, repr=False)
 class Job(betterproto.Message):
     """
@@ -240,6 +246,9 @@ class WalkJobRequest(betterproto.Message):
     job is the job to start walking from.  If unset, the context Job is
     assumed.
     """
+
+    algorithm: "WalkAlgorithm" = betterproto.enum_field(3)
+    """Defaults to 'LEVEL_ORDER'."""
 
 
 @dataclass(eq=False, repr=False)
@@ -435,13 +444,14 @@ class ApiStub:
             yield response
 
     def walk_job(
-        self, *, context: str = "", job: "Job" = None
+        self, *, context: str = "", job: "Job" = None, algorithm: "WalkAlgorithm" = None
     ) -> Iterator["ListJobResponse"]:
 
         request = WalkJobRequest()
         request.context = context
         if job is not None:
             request.job = job
+        request.algorithm = algorithm
 
         for response in self.__rpc_walk_job(request):
             yield response

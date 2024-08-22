@@ -168,6 +168,7 @@ func (x *WalkJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddString("context", x.Context)
 	enc.AddObject("job", x.Job)
+	enc.AddString("algorithm", x.Algorithm.String())
 	return nil
 }
 
