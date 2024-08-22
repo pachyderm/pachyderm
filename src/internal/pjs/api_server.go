@@ -187,7 +187,7 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 		if err != nil {
 			return errors.Wrap(err, "walk job")
 		}
-	} else {
+	} else { //nolint:staticcheck
 		// TODO(PJS): do auth.
 	}
 	// TODO(PJS): remove this once auth is implemented.
