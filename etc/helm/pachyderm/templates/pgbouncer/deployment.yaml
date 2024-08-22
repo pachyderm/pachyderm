@@ -93,11 +93,8 @@ spec:
         name: pg-bouncer
         livenessProbe:
           failureThreshold: 5
-          exec:
-            command:
-              - "/bin/sh"
-              - "-c"
-              - PGPASSWORD=$POSTGRESQL_PASSWORD pg_isready -U $POSTGRESQL_USERNAME -h 127.0.0.1 -p $PGBOUNCER_PORT -d $POSTGRESQL_DATABASE
+          tcpSocket:
+            port: 5432
           periodSeconds: 30
           successThreshold: 1
           timeoutSeconds: 1

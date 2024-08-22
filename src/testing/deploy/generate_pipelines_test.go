@@ -447,6 +447,7 @@ func TestCreateDAGS(t *testing.T) {
 		UseLeftoverCluster: false,
 		ValueOverrides:     valuesOverridden,
 		ValuesStrOverrides: strValuesOverridden,
+		UseCurrentChart:    true,
 	}
 	k := testutil.GetKubeClient(t)
 	namespace, _ := minikubetestenv.ClaimCluster(t)

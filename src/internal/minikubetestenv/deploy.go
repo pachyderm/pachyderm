@@ -96,6 +96,7 @@ type DeployOpts struct {
 	CertPool           *x509.CertPool
 	ValuesFiles        []string
 	InstallPrometheus  bool
+	UseCurrentChart    bool // when Version is non-empty, use the in-branch chart rather than the official one
 }
 
 func getLocalImage() string {
@@ -818,7 +819,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	helmOpts := withBase(namespace)
 	if opts.Version != "" {
 		version = opts.Version
-		chartPath = helmChartPublishedPath
+		if !opts.UseCurrentChart {
+			chartPath = helmChartPublishedPath
+		}
 		helmOpts.Version = version
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}

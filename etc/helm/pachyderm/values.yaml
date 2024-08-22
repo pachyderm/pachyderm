@@ -22,7 +22,7 @@ global:
     # password is only required so that administrators can manually perform administrative tasks.
     postgresqlPostgresPassword: "insecure-root-password"
     # The auth type to use with postgres and pg-bouncer. md5 is the default
-    postgresqlAuthType: "md5"
+    postgresqlAuthType: "scram-sha-256"
     # If you want to supply the postgresql password in an existing secret, leave Password blank and
     # Supply the name of the existing secret in the namespace and the key in that secret with the password
     postgresqlExistingSecretName: ""
@@ -332,7 +332,7 @@ determined:
     # the Pachyderm notebook extension in det launched notebooks.
     startupHook: |
       if [ "$PACHD_ADDRESS" != "" ] && [ "$SKIP_PACHYDERM_INSTALL" != "true" ] && [ "$DET_TASK_TYPE" = "NOTEBOOK" ]; then
-          proxy_dns=$(echo $PACHD_ADDRESS | sed 's/grpc:\/\/pachd/pachyderm-proxy/' | sed 's/:30650//') 
+          proxy_dns=$(echo $PACHD_ADDRESS | sed 's/grpc:\/\/pachd/pachyderm-proxy/' | sed 's/:30650//')
           version=$(curl -skLX POST -H "Content-Type: application/json" $proxy_dns/api/versionpb_v2.API/GetVersion | sed -n 's/.*"major": *\([0-9]*\), *"minor": *\([0-9]*\), *"micro": *\([0-9]*\), *"additional": *"\([^"]*\)".*/\1.\2.\3\4/p')
           jupyterlab_version=$(echo $version | sed 's/-alpha\.\([0-9]*\)/a\1/;s/-rc\.\([0-9]*\)/rc\1/')
           pip install jupyterlab-pachyderm==$jupyterlab_version
@@ -1152,8 +1152,8 @@ pgbouncer:
   nodeSelector: {}
   tolerations: []
   image:
-    repository: pachyderm/pgbouncer
-    tag: 1.16.2
+    repository: bitnami/pgbouncer
+    tag: 1.23.1
   resources:
     {}
     #limits:
@@ -1176,17 +1176,8 @@ postgresql:
   # dependency in Chart.yaml
   enabled: true
   image:
-    repository: pachyderm/postgresql
-    tag: "13.3.0"
-  # DEPRECATED from pachyderm 2.1.5
-  initdbScripts:
-    dex.sh: |
-      #!/bin/bash
-      set -e
-      psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-        CREATE DATABASE dex;
-        GRANT ALL PRIVILEGES ON DATABASE dex TO "$POSTGRES_USER";
-      EOSQL
+    repository: bitnami/postgresql
+    tag: "15.7.0"
   fullnameOverride: postgres
   persistence:
     # Specify the storage class for the postgresql Persistent Volume (PV)

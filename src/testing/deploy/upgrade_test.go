@@ -57,6 +57,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 					UseLeftoverCluster: false,
 					ValueOverrides:     valuesOverridden,
 					ValuesStrOverrides: strValuesOverridden,
+					UseCurrentChart:    true,
 				}), from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, ctx, minikubetestenv.UpgradeRelease(t,
@@ -88,6 +89,15 @@ func helmValuesPreGoCDK(numPachds int) (map[string]string, map[string]string) {
 			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
 			"pachd.storage.minio.id":       "minioadmin",
 			"pachd.storage.minio.secret":   "minioadmin",
+			// PostgreSQL does not support in-place version upgrades.  Use
+			// PostgreSQL 15 for tests.
+			"general.postgresql.postgresqlAuthType": "scram-sha-256",
+			"postgresql.image.repository":           "bitnami/postgresql",
+			"postgresql.image.tag":                  "15.7.0",
+			"postgresql.initdbScripts.dex\\.sh":     "null",
+			"postgresql.initdbScripts.dex\\.sql":    `  CREATE DATABASE dex;\\n  GRANT ALL PRIVILEGES ON DATABASE dex TO \"$POSTGRES_USER\";"}`,
+			"pgbouncer.image.repository":            "bitnami/pgbouncer",
+			"pgbouncer.image.tag":                   "1.17.0",
 		},
 		map[string]string{
 			"pachd.storage.minio.signature": "",
@@ -304,7 +314,7 @@ func TestUpgradeLoad(t *testing.T) {
 	if skip {
 		t.Skip("Skipping upgrade test")
 	}
-	fromVersions := []string{"2.7.2", "2.8.0"}
+	fromVersions := []string{"2.8.10"}
 	dagSpec := `
 default-load-test-source-1:
 default-load-test-pipeline-1: default-load-test-source-1

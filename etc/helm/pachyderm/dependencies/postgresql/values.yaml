@@ -58,8 +58,8 @@ commonAnnotations: {}
 ##
 image:
   registry: docker.io
-  repository: pachyderm/postgresql
-  tag: 13.3.0
+  repository: bitnami/postgresql
+  tag: 15.7.0
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
   ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
@@ -483,7 +483,7 @@ persistence:
   ##
   annotations: {}
   ## @param persistence.labels Labels for the PVC
-  ## 
+  ##
   labels: {}
   ## @param persistence.selector Selector to match an existing Persistent Volume (this value is evaluated as a template)
   ## selector:
