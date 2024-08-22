@@ -559,17 +559,17 @@ func (d *driver) UserCodeEnv(
 		result = append(result, e)
 	}
 
-	for _, input := range inputs {
-		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
-		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.Id))
-		if input.JoinOn != "" {
-			result = append(result, fmt.Sprintf("PACH_DATUM_%s_JOIN_ON=%s", input.Name, input.JoinOn))
-		}
-		if input.GroupBy != "" {
-			result = append(result, fmt.Sprintf("PACH_DATUM_%s_GROUP_BY=%s", input.Name, input.GroupBy))
-		}
-	}
 	if len(inputs) > 0 {
+		for _, input := range inputs {
+			result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(d.InputDir(), input.Name, input.FileInfo.File.Path)))
+			result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.Id))
+			if input.JoinOn != "" {
+				result = append(result, fmt.Sprintf("PACH_DATUM_%s_JOIN_ON=%s", input.Name, input.JoinOn))
+			}
+			if input.GroupBy != "" {
+				result = append(result, fmt.Sprintf("PACH_DATUM_%s_GROUP_BY=%s", input.Name, input.GroupBy))
+			}
+		}
 		result = append(result, fmt.Sprintf("%s=%s", client.DatumIDEnv, common.DatumID(inputs)))
 	}
 
