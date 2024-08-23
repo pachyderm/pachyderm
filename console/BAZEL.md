@@ -37,7 +37,7 @@ bazel test //console/frontend:frontend_tests
 ```
 
 #### Frontend Test Notes
-Running the [PipelinesRuntimeChart tests](frontend/src/views/Project/components/PipelineList/components/PipelinesRuntimeChart/__tests__/PipelinesRuntimesChart.test.tsx")
+Running the [PipelinesRuntimeChart tests](frontend/src/views/Project/components/PipelineList/components/PipelinesRuntimeChart/__tests__/PipelinesRuntimesChart.test.tsx)
 requires the [canvas](https://github.com/Automattic/node-canvas) module,
 which is problematic due to the fact that pre-built binaries are not published
 for ARM platforms. Getting this module built and installed using bazel is still
@@ -50,3 +50,22 @@ commands from the `console/frontend` directory:
 bazel run @nodejs//:npm -- --dir=$PWD install
 bazel run @nodejs//:npm -- --dir=$PWD test -- src/views/Project/components/PipelineList/components/PipelinesRuntimeChart/__tests__/PipelinesRuntimesChart.test.tsx
 ```
+
+#### Cypress (e2e) Tests
+To run the cypress tests using the Bazel installed tooling, you must first have
+a running Pachyderm instance, this can be done using the bazel pachdev command:
+```bash
+bazel run //src/testing/pachdev -- push
+```
+Then from the `console/` directory, you can start console with the following:
+```bash
+bazel run @nodejs//:npm -- --dir=$PWD run start:e2e
+```
+and start the cypress e2e tests with 
+```bash
+bazel run @nodejs//:npm -- --dir=$PWD run cypress:local
+  --- or ---
+bazel run @nodejs//:npm -- --dir=$PWD run cypress:local-auth
+```
+These cypress commands starts the cypress application and from there you
+can run individual tests.
