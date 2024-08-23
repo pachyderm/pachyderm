@@ -15,7 +15,6 @@ go_library(
         "//src/internal/grpcutil",
         "//src/internal/log",
         "//src/internal/pachsql",
-        "//src/internal/pctx",
         "//src/internal/pjsdb",
         "//src/internal/storage/fileset",
         "//src/pjs",

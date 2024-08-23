@@ -7570,7 +7570,8 @@ It contains a superset of the information in QueueInfo.
 | ----- | ---- | ----- | ----------- |
 | context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
 | job | [Job](#pjs-Job) |  | job is the job to start walking from. If unset, the context Job is assumed. |
-| algorithm | [WalkAlgorithm](#pjs-WalkAlgorithm) |  | Defaults to &#39;LEVEL_ORDER&#39;. |
+| algorithm | [WalkAlgorithm](#pjs-WalkAlgorithm) |  | A sane client should default to &#39;LEVEL_ORDER&#39;. |
+| maxDepth | [uint64](#uint64) |  | The depth relative from the starting point to traverse to. A depth of 0 is interpreted as 10,000. A depth greater than 10,000 is capped at 10,000. |
 
 
 
@@ -7610,13 +7611,14 @@ It contains a superset of the information in QueueInfo.
 <a name="pjs-WalkAlgorithm"></a>
 
 ### WalkAlgorithm
-
+WalkAlgorithm is used by WalkJob to specify how it should walk through a tree.
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| LEVEL_ORDER | 0 | similar to BFS, but specifically for trees. Traverse nodes in height order. |
-| PRE_ORDER | 1 | like DFS, but specifically for trees: visit root, recurse down subtrees. |
-| MIRRORED_POST_ORDER | 2 | recurse down subtrees from right-to-left, then visit root. For example, given this tree: 1 ├── 2 │ ├── 4 │ └── 5 └── 3 ├── 6 └── 7 the mirrored post-order would return 7,6,3,5,4,2,1 whereas regular post-order would return 4,5,2,6,7,3,1 Mirrored post-order is much faster to calculate within a database than regular post-order. |
+| UNKNOWN | 0 |  |
+| LEVEL_ORDER | 1 | similar to BFS, but specifically for trees. Traverse nodes in height order. |
+| PRE_ORDER | 2 | like DFS, but specifically for trees: visit root, recurse down subtrees. |
+| MIRRORED_POST_ORDER | 3 | recurse down subtrees from right-to-left, then visit root. For example, given this tree: 1 ├── 2 │ ├── 4 │ └── 5 └── 3 ├── 6 └── 7 the mirrored post-order would return 7,6,3,5,4,2,1 whereas regular post-order would return 4,5,2,6,7,3,1 Mirrored post-order is much faster to calculate within a database than regular post-order. |
 
 
  

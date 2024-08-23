@@ -3,8 +3,8 @@ package pjs
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
 	"time"
 
@@ -100,7 +100,7 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 	ctx := srv.Context()
 	req, err := srv.Recv()
 	if err != nil {
-		return errors.Wrap(err, "process queue")
+		return errors.Wrap(err, "recieve")
 	}
 	if req.Queue == nil {
 		return status.Errorf(codes.InvalidArgument, "first message must pick Queue")
@@ -135,8 +135,8 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 			}
 			inputsID = job.Inputs
 			return nil
-		}); err != nil {
-			return err
+		}, dbutil.WithReadOnly()); err != nil {
+			return errors.Wrap(err, "with tx")
 		}
 		var inputs []string
 		for _, filesetID := range inputsID {
@@ -162,7 +162,7 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 				}
 				return nil
 			}); err != nil {
-				return err
+				return errors.Wrap(err, "with tx")
 			}
 		} else if out := req.GetSuccess(); out != nil {
 			if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
@@ -171,21 +171,22 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 				}
 				return nil
 			}); err != nil {
-				return err
+				return errors.Wrap(err, "with tx")
 			}
 		}
 	}
 }
 
 func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) (err error) {
-	ctx := pctx.Child(srv.Context(), "walkJob")
+	ctx, done := log.SpanContext(srv.Context(), "walkJob")
+	defer done(log.Errorp(&err))
 
 	// handle job context and request validation.
 	var id pjsdb.JobID
 	if req.Context != "" {
 		id, err = a.resolveJobCtx(ctx, req.Context)
 		if err != nil {
-			return errors.Wrap(err, "walk job")
+			return errors.Wrap(err, "resolve job ctx")
 		}
 	} else { //nolint:staticcheck
 		// TODO(PJS): do auth.
@@ -200,15 +201,15 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 	// walk and stream back results.
 	var jobs []pjsdb.Job
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		jobs, err = pjsdb.WalkJob(ctx, sqlTx, id, pjsdb.WalkAlgorithm(req.Algorithm.Number()))
+		jobs, err = pjsdb.WalkJob(ctx, sqlTx, id, pjsdb.WalkAlgorithm(req.Algorithm.Number()), req.MaxDepth)
+		return errors.Wrap(err, "walk job in pjsdb")
+	}, dbutil.WithReadOnly()); err != nil {
 		return errors.Wrap(err, "with tx")
-	}); err != nil {
-		return errors.Wrap(err, "walk job")
 	}
-	for _, job := range jobs {
+	for i, job := range jobs {
 		jobInfo, err := toJobInfo(job)
 		if err != nil {
-			return errors.Wrap(err, "walk job")
+			return errors.Wrap(err, fmt.Sprintf("to job info, iteration=%d/%d", i, len(jobs)))
 		}
 		resp := &pjs.ListJobResponse{
 			Id:   jobInfo.Job,
@@ -218,27 +219,26 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 			},
 		}
 		if err := srv.Send(resp); err != nil {
-			return errors.Wrap(err, "walk job")
+			return errors.Wrap(err, fmt.Sprintf("send, iteration=%d/%d", i, len(jobs)))
 		}
 	}
 	return nil
 }
 
 func (a *apiServer) resolveJobCtx(ctx context.Context, jobCtx string) (id pjsdb.JobID, err error) {
-	var jobCtxDecoded []byte
-	jobCtxDecoded, err = hex.DecodeString(jobCtx)
+	token, err := pjsdb.JobContextTokenFromString(jobCtx)
 	if err != nil {
-		return 0, errors.Wrap(err, "walk job")
+		return 0, errors.Wrap(err, "job context token from string")
 	}
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		id, err = pjsdb.ResolveJobContext(ctx, sqlTx, jobCtxDecoded)
+		id, err = pjsdb.ResolveJobContext(ctx, sqlTx, token)
 		if err != nil {
 			// TODO(PJS): handle NotFound with a special error type that returns the right proto error code.
-			return errors.Wrap(err, "with tx")
+			return errors.Wrap(err, "resolve job ctx in pjsdb")
 		}
 		return nil
-	}); err != nil {
-		return 0, errors.Wrap(err, "walk job")
+	}, dbutil.WithReadOnly()); err != nil {
+		return 0, errors.Wrap(err, "with tx")
 	}
 	return id, nil
 }
@@ -257,27 +257,22 @@ func toJobInfo(job pjsdb.Job) (*pjs.JobInfo, error) {
 		jobInfo.Input = append(jobInfo.Input, filesetID.HexString())
 	}
 	switch {
-	case !job.Queued.IsZero() && job.Processing.IsZero() && job.Done.IsZero():
-		jobInfo.State = pjs.JobState_QUEUED
-	case !job.Queued.IsZero() && !job.Processing.IsZero() && job.Done.IsZero():
-		jobInfo.State = pjs.JobState_PROCESSING
-	case !job.Queued.IsZero() && !job.Processing.IsZero() && !job.Done.IsZero():
+	case job.Done != time.Time{}:
 		jobInfo.State = pjs.JobState_DONE
-	default:
-		return nil, errors.New("the job state is invalid")
-	}
-	if jobInfo.State == pjs.JobState_DONE {
+		jobInfo.Result = &pjs.JobInfo_Error{
+			Error: pjs.JobErrorCode(pjs.JobErrorCode_value[job.Error]),
+		}
 		if len(job.Outputs) != 0 {
 			jobInfoSuccess := pjs.JobInfo_Success{}
 			for _, filesetID := range job.Outputs {
 				jobInfoSuccess.Output = append(jobInfoSuccess.Output, filesetID.HexString())
 			}
 			jobInfo.Result = &pjs.JobInfo_Success_{Success: &jobInfoSuccess}
-		} else {
-			jobInfo.Result = &pjs.JobInfo_Error{
-				Error: pjs.JobErrorCode(pjs.JobErrorCode_value[job.Error]),
-			}
 		}
+	case job.Processing != time.Time{}:
+		jobInfo.State = pjs.JobState_PROCESSING
+	default:
+		jobInfo.State = pjs.JobState_QUEUED
 	}
 	return jobInfo, nil
 }

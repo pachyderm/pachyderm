@@ -1948,6 +1948,8 @@ func (m *WalkJobRequest) validate(all bool) error {
 
 	// no validation rules for Algorithm
 
+	// no validation rules for MaxDepth
+
 	if len(errors) > 0 {
 		return WalkJobRequestMultiError(errors)
 	}

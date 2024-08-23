@@ -107,6 +107,8 @@ func TestWalkJob(t *testing.T) {
 	c, fc := setupTest(t)
 	ctx := pctx.TestContext(t)
 	depth := 3
+	fullBinaryJobTree(t, ctx, depth, c, fc)
+
 	expectedSize := int64(math.Pow(2, float64(depth)) - 1)
 	expected := make(map[int64][]int64)
 	for i := int64(1); i <= expectedSize; i++ {
@@ -120,11 +122,11 @@ func TestWalkJob(t *testing.T) {
 
 		}
 	}
-	fullBinaryJobTree(t, ctx, depth, c, fc)
 	walkC, err := c.WalkJob(ctx, &pjs.WalkJobRequest{
 		Job: &pjs.Job{
 			Id: 1,
 		},
+		Algorithm: pjs.WalkAlgorithm_LEVEL_ORDER,
 	})
 	require.NoError(t, err)
 	actual := make(map[int64][]int64)

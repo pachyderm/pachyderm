@@ -58,9 +58,15 @@ class JobErrorCode(betterproto.Enum):
 
 
 class WalkAlgorithm(betterproto.Enum):
-    LEVEL_ORDER = 0
-    PRE_ORDER = 1
-    MIRRORED_POST_ORDER = 2
+    """
+    WalkAlgorithm is used by WalkJob to specify how it should walk through a
+    tree.
+    """
+
+    UNKNOWN = 0
+    LEVEL_ORDER = 1
+    PRE_ORDER = 2
+    MIRRORED_POST_ORDER = 3
 
 
 @dataclass(eq=False, repr=False)
@@ -248,7 +254,13 @@ class WalkJobRequest(betterproto.Message):
     """
 
     algorithm: "WalkAlgorithm" = betterproto.enum_field(3)
-    """Defaults to 'LEVEL_ORDER'."""
+    """A sane client should default to 'LEVEL_ORDER'."""
+
+    max_depth: int = betterproto.uint64_field(4)
+    """
+    The depth relative from the starting point to traverse to. A depth of 0 is
+    interpreted as 10,000. A depth greater than 10,000 is capped at 10,000.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -444,7 +456,12 @@ class ApiStub:
             yield response
 
     def walk_job(
-        self, *, context: str = "", job: "Job" = None, algorithm: "WalkAlgorithm" = None
+        self,
+        *,
+        context: str = "",
+        job: "Job" = None,
+        algorithm: "WalkAlgorithm" = None,
+        max_depth: int = 0
     ) -> Iterator["ListJobResponse"]:
 
         request = WalkJobRequest()
@@ -452,6 +469,7 @@ class ApiStub:
         if job is not None:
             request.job = job
         request.algorithm = algorithm
+        request.max_depth = max_depth
 
         for response in self.__rpc_walk_job(request):
             yield response

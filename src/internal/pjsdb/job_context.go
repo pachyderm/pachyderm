@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
@@ -51,6 +52,11 @@ func CreateJobContext(ctx context.Context, tx *pachsql.Tx, id JobID) (JobContext
 		return JobContext{}, ErrJobContextAlreadyExists
 	}
 	return jobCtx, nil
+}
+
+// JobContextTokenFromString is a convience function that takes a string, encodes it to hex, and then returns a JobContextToken.
+func JobContextTokenFromString(token string) (JobContextToken, error) {
+	return JobContextTokenFromHex(hex.EncodeToString([]byte(token)))
 }
 
 // JobContextTokenFromHex decodes the tokens that come through the API into JobContextToken objects.
