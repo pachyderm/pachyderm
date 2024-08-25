@@ -7,6 +7,7 @@ metadata:
   labels:
     app: determined-master-{{ .Release.Name }}
     release: {{ .Release.Name }}
+    release-namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
@@ -37,9 +38,13 @@ spec:
         {{- end -}}
         image: {{ .Values.determined.imageRegistry }}/{{ $image }}:{{ $tag }}
         imagePullPolicy: "Always"
+        env:
+          - name: DET_RELEASE_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         {{- if .Values.determined.enterpriseEdition }}
         {{- if and .Values.determined.oidc .Values.determined.oidc.enabled }}
-        env:
           - name: DET_OIDC_CLIENT_SECRET
             valueFrom:
               secretKeyRef:
