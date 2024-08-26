@@ -19,13 +19,13 @@ metadata:
      release: {{ .Release.Name }}
 rules:
   - apiGroups: [""]
-    resources: ["pods", "pods/status", "pods/log", "configmaps"]
+    resources: ["pods", "pods/status", "pods/log", "configmaps", "namespaces", "resourcequotas"]
     verbs: ["create", "get", "list", "delete"]
   - apiGroups: [""]
     resources: ["services", "resourcequotas"]
     verbs: ["get", "list"]
   - apiGroups: [""]
-    resources: ["pods"]
+    resources: ["pods", "resourcequotas"]
     verbs: ["watch", "patch"]
   - apiGroups: [""]
     resources: ["events"]

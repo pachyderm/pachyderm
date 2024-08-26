@@ -63,7 +63,7 @@ global:
 
 determined:
   enabled: false
-  detVersion: "0.34.0"
+  detVersion: "0.35.0"
   # The image registry to be used to pull the Master image.
   # Determined OSS edition uses the determinedai repository in DockerHub.
   imageRegistry: determinedai
@@ -191,6 +191,7 @@ determined:
     autoProvisionUsers: false
     groupsAttributeName: ""
     displayNameAttributeName: ""
+    alwaysRedirect: false
 
   # scim (EE-only) enables System for Cross-domain Identity Management (SCIM) integration, which is
   # only available if enterpriseEdition is true. It allows administrators to easily and securely
@@ -331,7 +332,7 @@ determined:
     # Configure an inline script that will be executed as part of the task setup process that will install
     # the Pachyderm notebook extension in det launched notebooks.
     startupHook: |
-      if [ "$PACHD_ADDRESS" != "" ] && [ "$SKIP_PACHYDERM_INSTALL" != "true" ] && [ "$DET_TASK_TYPE" = "NOTEBOOK" ]; then
+      if [[ -n "$PACHD_ADDRESS" && "$SKIP_PACHYDERM_INSTALL" != "true" && "$DET_TASK_TYPE" == "NOTEBOOK" ]]; then
           proxy_dns=$(echo $PACHD_ADDRESS | sed 's/grpc:\/\/pachd/pachyderm-proxy/' | sed 's/:30650//') 
           version=$(curl -skLX POST -H "Content-Type: application/json" $proxy_dns/api/versionpb_v2.API/GetVersion | sed -n 's/.*"major": *\([0-9]*\), *"minor": *\([0-9]*\), *"micro": *\([0-9]*\), *"additional": *"\([^"]*\)".*/\1.\2.\3\4/p')
           jupyterlab_version=$(echo $version | sed 's/-alpha\.\([0-9]*\)/a\1/;s/-rc\.\([0-9]*\)/rc\1/')
@@ -426,14 +427,18 @@ determined:
   #   - resource_manager:
   #       type: kubernetes
   #       max_slots_per_pod: 1
-  #       name: determined-multirm-1
-  #       namespace: default
+  #       cluster_name: additional-cluster
+  #       default_namespace: default
   #       kubeconfig_secret_name: additionalrm
   #       kubeconfig_secret_value: config
   #       determined_master_ip: 10.11.12.13
   #       determined_master_port: 8080
   #     resource_pools:
   #       - pool_name: additional_pool
+  resourceManager:
+    # Specifies the namespace in a given Kubernetes compute cluster where all workload pods will be sent by default.
+    defaultNamespace:
+    clusterName:
 
 console:
   # enabled controls whether the console manifests are created or not.
