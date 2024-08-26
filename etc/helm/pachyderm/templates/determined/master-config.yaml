@@ -158,11 +158,14 @@ stringData:
 
     resource_manager:
       type: "kubernetes"
-      {{- if .Values.defaultNamespace }}
-      default_namespace: {{ .Values.defaultNamespace }}
+      {{- if $defaultNamespace := coalesce .Values.determined.resourceManager.defaultNamespace .Release.Namespace }}
+      default_namespace: {{ quote $defaultNamespace }}
+      {{- end }}
+      {{- if .Values.determined.resourceManager.clusterName }}
+      cluster_name: {{ .Values.determined.resourceManager.clusterName }}
       {{- end }}
       {{- if .Values.determined.enabled }}
-      max_slots_per_pod: {{ required "A valid Values.maxSlotsPerPod entry is required!" .Values.determined.maxSlotsPerPod }}
+      max_slots_per_pod: {{ required "A valid Values.determined.maxSlotsPerPod entry is required!" .Values.determined.maxSlotsPerPod }}
       {{- end }}
       master_service_name: determined-master-service-{{ .Release.Name }}
       {{- if .Values.determined.defaultScheduler}}

@@ -427,16 +427,18 @@ determined:
   #   - resource_manager:
   #       type: kubernetes
   #       max_slots_per_pod: 1
-  #       name: determined-multirm-1
+  #       cluster_name: additional-cluster
   #       default_namespace: default
   #       kubeconfig_secret_name: additionalrm
   #       kubeconfig_secret_value: config
   #       determined_master_ip: 10.11.12.13
   #       determined_master_port: 8080
   #     resource_pools:
-  #       - pool_name: additional_pool
-  # The default namespace to be referenced by each resource manager.
-  # defaultNamespace:
+  #       - pool_name: additional_pool 
+  resourceManager:
+    # Specifies the namespace in a given Kubernetes compute cluster where all workload pods will be sent by default.
+    defaultNamespace:
+    clusterName:
 
 console:
   # enabled controls whether the console manifests are created or not.

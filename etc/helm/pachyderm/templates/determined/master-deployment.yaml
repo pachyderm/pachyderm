@@ -17,6 +17,7 @@ spec:
     metadata:
       labels:
         app: determined-master-{{ .Release.Name }}
+        release-namespace: {{ .Release.Namespace }}
         determined-system: master
       annotations:
         # This is added so that the master deployment restarts when an upgrade occurs that

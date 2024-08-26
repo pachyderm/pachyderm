@@ -275,6 +275,9 @@
                 "oidc": {
                     "type": "object",
                     "properties": {
+                        "alwaysRedirect": {
+                            "type": "boolean"
+                        },
                         "authenticationClaim": {
                             "type": "string"
                         },
@@ -290,10 +293,13 @@
                         "clientSecretName": {
                             "type": "string"
                         },
+                        "displayNameAttributeName": {
+                            "type": "string"
+                        },
                         "enabled": {
                             "type": "boolean"
                         },
-                        "groupsClaimName": {
+                        "groupsAttributeName": {
                             "type": "string"
                         },
                         "idpRecipientUrl": {
@@ -307,6 +313,17 @@
                         },
                         "scimAuthenticationAttribute": {
                             "type": "string"
+                        }
+                    }
+                },
+                "resourceManager": {
+                    "type": "object",
+                    "properties": {
+                        "clusterName": {
+                            "type": "null"
+                        },
+                        "defaultNamespace": {
+                            "type": "null"
                         }
                     }
                 },
@@ -326,6 +343,9 @@
                     "properties": {
                         "forcePullImage": {
                             "type": "boolean"
+                        },
+                        "startupHook": {
+                            "type": "string"
                         }
                     }
                 },
