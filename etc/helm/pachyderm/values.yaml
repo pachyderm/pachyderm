@@ -434,7 +434,7 @@ determined:
   #       determined_master_ip: 10.11.12.13
   #       determined_master_port: 8080
   #     resource_pools:
-  #       - pool_name: additional_pool 
+  #       - pool_name: additional_pool
   resourceManager:
     # Specifies the namespace in a given Kubernetes compute cluster where all workload pods will be sent by default.
     defaultNamespace:
