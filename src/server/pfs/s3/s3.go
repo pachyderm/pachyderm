@@ -18,6 +18,8 @@ import (
 	"github.com/pachyderm/s2"
 )
 
+// Testing code owners
+
 // ClientFactory is a function called by s3g to create request-scoped
 // pachyderm clients
 type ClientFactory = func(ctx context.Context) *client.APIClient
