@@ -354,9 +354,9 @@ type ancestryRegexp struct {
 
 func makeAncestryRegexp(ancestryPart []byte) (ancestryRegexp, error) {
 	// ?P<> syntax assigns each capture group a name.
-	re := regexp.MustCompile(`^(?P<dot>\.\d+)?((?P<carrots>\^+)|(?P<carrotWithNumbers>\^\d+)|(?P<tildes>~+)|(?P<tildeWithNumbers>~\d+))?$`)
+	re := regexp.MustCompile(`^(?P<dot>\.\d+)?((?P<carets>\^+)|(?P<caretWithNumbers>\^\d+)|(?P<tildes>~+)|(?P<tildeWithNumbers>~\d+))?$`)
 	if !re.Match(ancestryPart) {
-		return ancestryRegexp{}, errors.New("invalid Ancestry format")
+		return ancestryRegexp{}, errors.New("invalid ancestry format")
 	}
 	parts := re.FindSubmatch(ancestryPart)
 	partMap := make(map[string][]byte) // a partMap is easier to work with.
@@ -372,17 +372,17 @@ func makeAncestryRegexp(ancestryPart []byte) (ancestryRegexp, error) {
 }
 
 const (
-	dot               = "dot"
-	carrots           = "carrots"
-	carrotWithNumbers = "carrotWithNumbers"
-	tildes            = "tildes"
-	tildeWithNumbers  = "tildeWithNumbers"
+	dot              = "dot"
+	carets           = "carets"
+	caretWithNumbers = "caretWithNumbers"
+	tildes           = "tildes"
+	tildeWithNumbers = "tildeWithNumbers"
 )
 
 // counts the overall offset of branch root and ancestor of
 // also removes everything of the ancestry reference
 // this function also check following circumstances for ancestry reference:
-// 1. ancestry reference should only contain "^" "." and digits
+// 1. ancestry reference should only contain "^", "~", ".", and digits
 // 2. If there is branch root ".", it should be the first operator; It also should be the only "."
 // 3. There should be a number right after "."
 // 4. If branch root and ancestor of are used together, the offset of branch root should >= offset of ancestor of
@@ -407,8 +407,8 @@ func countOffsetAndClean(b *[]byte, offset *uint32) error {
 		branchRootOffset = num - 1
 	}
 	switch {
-	case len(re.partMap[carrotWithNumbers]) > 0:
-		num, err := strconv.Atoi(string(re.partMap[carrotWithNumbers][1:]))
+	case len(re.partMap[caretWithNumbers]) > 0:
+		num, err := strconv.Atoi(string(re.partMap[caretWithNumbers][1:]))
 		if err != nil {
 			return errors.New("invalid ancestor format")
 		}
@@ -419,8 +419,8 @@ func countOffsetAndClean(b *[]byte, offset *uint32) error {
 			return errors.New("invalid ancestor format")
 		}
 		ancestorOfOffset = num
-	case len(re.partMap[carrots]) > 0:
-		ancestorOfOffset = len(re.partMap[carrots])
+	case len(re.partMap[carets]) > 0:
+		ancestorOfOffset = len(re.partMap[carets])
 	case len(re.partMap[tildes]) > 0:
 		ancestorOfOffset = len(re.partMap[tildes])
 	}

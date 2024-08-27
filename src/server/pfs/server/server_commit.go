@@ -481,6 +481,22 @@ func (a *apiServer) pickCommitTx(ctx context.Context, tx *pachsql.Tx, commitHand
 	if commitHandle.Id == "" && commitHandle.GetBranch().GetName() == "" {
 		return nil, errors.Errorf("pick commit tx: cannot pick commit with no ID or branch")
 	}
+	// The fileset repo '__filesets__' is a repo to associate commits with their filesets, creating 'virtual commits'.
+	// It is key that these virtual commits appear to be finished, otherwise parts of the system that want to read
+	// the virtual commits will fail.
+	// TODO: now that ReadFileset exists, we should deprecate this subsystem in favor of using that.
+	if commitHandle.AccessRepo().Name == fileSetsRepo {
+		cinfo := &pfs.CommitInfo{
+			Commit:      commitHandle,
+			Description: "FileSet - Virtual Commit",
+			Finished:    &timestamppb.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
+		}
+		return &pfsdb.Commit{
+			ID:         0, // the commit won't actually be retrieved.
+			CommitInfo: cinfo,
+			Revision:   0,
+		}, nil
+	}
 	picker := &pfs.CommitPicker{}
 	err := picker.UnmarshalText([]byte(commitHandle.Key()))
 	if err != nil {
