@@ -51,5 +51,8 @@ test:race --@rules_go//go/config:race
 # Set a tag for tests which can only run in a Bazel environment.
 common --define gotags=bazel
 
+# Recommended when using rules_js.
+startup --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1
+
 # local modifications should take priority
 try-import %workspace%/.bazelrc.local
