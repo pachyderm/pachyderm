@@ -30,6 +30,13 @@ export enum JobErrorCode {
   CANCELED = "CANCELED",
 }
 
+export enum WalkAlgorithm {
+  UNKNOWN = "UNKNOWN",
+  LEVEL_ORDER = "LEVEL_ORDER",
+  PRE_ORDER = "PRE_ORDER",
+  MIRRORED_POST_ORDER = "MIRRORED_POST_ORDER",
+}
+
 export type Job = {
   id?: string
 }
@@ -110,6 +117,8 @@ export type ListJobResponse = {
 export type WalkJobRequest = {
   context?: string
   job?: Job
+  algorithm?: WalkAlgorithm
+  maxDepth?: string
 }
 
 export type InspectJobRequest = {

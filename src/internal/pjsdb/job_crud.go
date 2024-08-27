@@ -14,17 +14,18 @@ import (
 )
 
 const (
+	maxDepth                  = 10_000
 	recursiveTraverseChildren = `
     	WITH RECURSIVE children(parent, id) AS (
 			-- basecase
-			    SELECT parent, id, 1 as "depth"
+			    SELECT parent, id, 1 as depth, ARRAY[id] AS path
 				FROM pjs.jobs
 				WHERE id = $1
 			UNION ALL
 			-- recursive case
-				SELECT c.id, j.id, c.depth+1
+				SELECT c.id, j.id, c.depth+1, c.path || j.id
 				FROM children c, pjs.jobs j
-				WHERE j.parent = c.id AND depth < 10000
+				WHERE j.parent = c.id AND depth <= $2
 		)
 	`
 	selectJobRecordPrefix = `
@@ -165,36 +166,103 @@ func CancelJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 	if err = sqlx.SelectContext(ctx, tx, &ids, recursiveTraverseChildren+`
 		UPDATE pjs.jobs SET done = CURRENT_TIMESTAMP, error = 'canceled' 
 		WHERE id IN (select id FROM children) AND done IS NULL 
-		RETURNING id;`, job.ID); err != nil {
+		RETURNING id;`, job.ID, maxDepth); err != nil {
 		return nil, errors.Wrap(err, "cancel job")
 	}
 	return ids, nil
 }
 
+// WalkAlgorithm is an enumerator for walking algorithms. It reflects pjs.WalkAlgorithm.
+// Unfortunately, pjs.WalkAlgorithm cannot be used otherwise it would introduce a circular
+// dependency.
+type WalkAlgorithm int32
+
+const (
+	Unknown WalkAlgorithm = iota
+	LevelOrder
+	PreOrder
+	MirroredPostOrder
+)
+
 // WalkJob walks from job 'id' down to all of its children.
-func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]Job, error) {
-	pctx.Child(ctx, "walkJob")
+func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID, algo WalkAlgorithm, depth uint64) ([]Job, error) {
+	pctx.Child(ctx, "walkJobPJSDB")
 	job, err := GetJob(ctx, tx, id)
 	if err != nil {
-		return nil, errors.Wrap(err, "walk job")
+		return nil, errors.Wrap(err, "get job")
 	}
-	records := make([]jobRecord, 0)
-	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
-		INNER JOIN children c ON j.id = c.id
-		GROUP BY j.id
-		ORDER BY MIN(depth) ASC;
-	`, job.ID); err != nil {
-		return nil, errors.Wrap(err, "walk job")
+	var records []jobRecord
+	var walker func(ctx context.Context, tx *pachsql.Tx, id JobID, maxDepth uint64) ([]jobRecord, error)
+	walkerName := ""
+	//exhaustive:enforce
+	switch algo {
+	case LevelOrder:
+		walker = walkLevelOrder
+		walkerName = "levelOrder"
+	case PreOrder:
+		walker = walkPreOrder
+		walkerName = "preOrder"
+	case MirroredPostOrder:
+		walker = walkMirroredPostOrder
+		walkerName = "mirroredPostOrder"
+	default:
+		return nil, errors.New("unknown walk algorithm is provided")
+	}
+	if depth == 0 || depth > 10_000 {
+		depth = maxDepth
+	}
+	records, err = walker(ctx, tx, job.ID, depth)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("walker (%s)", walkerName))
 	}
 	jobs := make([]Job, 0)
-	for _, record := range records {
+	for i, record := range records {
 		job, err := record.toJob()
 		if err != nil {
-			return nil, errors.Wrap(err, "walk job")
+			return nil, errors.Wrap(err, fmt.Sprintf("to job, iteration=%d/%d", i, len(records)))
 		}
 		jobs = append(jobs, job)
 	}
 	return jobs, nil
+}
+
+func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
+	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
+		INNER JOIN children c ON j.id = c.id
+		GROUP BY j.id
+		ORDER BY MIN(depth) ASC;
+	`, id, depth); err != nil {
+		return nil, errors.Wrap(err, "select context")
+	}
+	return records, nil
+}
+
+func walkPreOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
+	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
+		INNER JOIN children c ON j.id = c.id
+		GROUP BY j.id, c.path
+		ORDER BY c.path;
+	`, id, depth); err != nil {
+		return nil, errors.Wrap(err, "select context")
+	}
+	return records, nil
+}
+
+func walkMirroredPostOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
+	if err = sqlx.SelectContext(ctx, tx, &records,
+		recursiveTraverseChildren+`,
+		post_order AS (
+			SELECT id, ROW_NUMBER() OVER (ORDER BY path DESC) AS post_order
+			FROM children
+		)
+		`+selectJobRecordPrefix+`
+		JOIN post_order p ON p.id = j.id 
+		GROUP BY j.id, p.post_order
+		ORDER BY p.post_order;
+	`, id, depth); err != nil {
+		return nil, errors.Wrap(err, "select context")
+	}
+	return records, nil
 }
 
 // ListJobTxByFilter returns a list of Job objects matching the filter criteria in req.Filter.
@@ -226,7 +294,7 @@ func DeleteJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 	ids := make([]JobID, 0)
 	if err = sqlx.SelectContext(ctx, tx, &ids, recursiveTraverseChildren+`
 	DELETE FROM pjs.jobs WHERE id IN (SELECT id FROM children) AND done IS NOT NULL
-	RETURNING id;`, job.ID); err != nil {
+	RETURNING id;`, job.ID, maxDepth); err != nil {
 		return nil, errors.Wrap(err, "cancel job")
 	}
 	return ids, nil
@@ -283,7 +351,7 @@ func validateJobTree(ctx context.Context, tx *pachsql.Tx, id JobID) error {
 		SELECT j.id, j.parent FROM pjs.jobs j
 		INNER JOIN children c ON j.id = c.id
 		INNER JOIN pjs.jobs p ON j.parent = p.id
-		WHERE p.done IS NOT NULL AND j.done IS NULL;`, job.ID); err != nil {
+		WHERE p.done IS NOT NULL AND j.done IS NULL;`, job.ID, maxDepth); err != nil {
 		return errors.Wrap(err, "validateJobTree")
 	}
 	errs := make([]error, 0)

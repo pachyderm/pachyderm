@@ -12,6 +12,21 @@
                     "$ref": "#/definitions/pjs.Job",
                     "additionalProperties": false,
                     "description": "job is the job to start walking from.  If unset, the context Job is assumed."
+                },
+                "algorithm": {
+                    "enum": [
+                        "UNKNOWN",
+                        "LEVEL_ORDER",
+                        "PRE_ORDER",
+                        "MIRRORED_POST_ORDER"
+                    ],
+                    "type": "string",
+                    "title": "Walk Algorithm",
+                    "description": "WalkAlgorithm is used by WalkJob to specify how it should walk through a tree."
+                },
+                "maxDepth": {
+                    "type": "integer",
+                    "description": "The depth relative from the starting point to traverse to. A depth of 0 is interpreted as 10,000. A depth greater than 10,000 is capped at 10,000."
                 }
             },
             "additionalProperties": false,

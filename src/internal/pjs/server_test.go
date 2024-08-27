@@ -2,10 +2,14 @@ package pjs
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"io"
+	"k8s.io/apimachinery/pkg/util/rand"
+	"math"
 	"testing"
 	"time"
 
@@ -23,8 +27,9 @@ import (
 
 func TestCreateJob(t *testing.T) {
 	t.Run("valid/parent/nil", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
 		c, fc := setupTest(t)
-		resp := createJob(t, c, fc)
+		resp := createJob(t, ctx, c, fc)
 		t.Log(resp)
 	})
 }
@@ -87,28 +92,83 @@ func TestRunJob(t *testing.T) {
 		Program: programFileset,
 		Input:   []string{inputFileset},
 	}
-	out, err := runJob(t, ctx, c, in, func(inputs []string) ([]string, error) {
+
+	out, err := runJob(t, ctx, c, in, func(resp *pjs.ProcessQueueResponse) error {
 		// todo(muyang)
 		// for now we do nothing here, simply return the input filesets
-
-		return inputs, nil
+		resp.Input = in.Input
+		return nil
 	})
 	require.NoError(t, err)
 	require.Equal(t, in.Input, out.Output)
 }
 
-// runJob does work through PJS.
-func runJob(t *testing.T, ctx context.Context, s pjs.APIClient, in *pjs.CreateJobRequest, fn func(inputs []string) ([]string, error)) (*pjs.JobInfo_Success, error) {
-	jres, err := s.CreateJob(ctx, in)
+func TestWalkJob(t *testing.T) {
+	c, fc := setupTest(t)
+	ctx := pctx.TestContext(t)
+	depth := 3
+	fullBinaryJobTree(t, ctx, depth, c, fc)
+
+	expectedSize := int64(math.Pow(2, float64(depth)) - 1)
+	expected := make(map[int64][]int64)
+	for i := int64(1); i <= expectedSize; i++ {
+		left := 2 * i
+		if left <= expectedSize {
+			expected[i] = append(expected[i], left)
+		}
+		right := 2*i + 1
+		if right <= expectedSize {
+			expected[i] = append(expected[i], right)
+
+		}
+	}
+	walkC, err := c.WalkJob(ctx, &pjs.WalkJobRequest{
+		Job: &pjs.Job{
+			Id: 1,
+		},
+		Algorithm: pjs.WalkAlgorithm_LEVEL_ORDER,
+	})
 	require.NoError(t, err)
-	program, err := fileset.ParseID(in.Program)
+	actual := make(map[int64][]int64)
+	for {
+		resp, err := walkC.Recv()
+		if err != nil {
+			if errors.As(err, io.EOF) {
+				break
+			}
+			require.NoError(t, err)
+		}
+		parentJob := resp.Details.JobInfo.ParentJob
+		if parentJob != nil && parentJob.Id != 0 {
+			actual[parentJob.Id] = append(actual[parentJob.Id], resp.Id.Id)
+		}
+		require.NoError(t, err)
+	}
+	require.NoDiff(t, expected, actual, nil)
+}
+
+// runJob does work through PJS.
+func runJob(t *testing.T, ctx context.Context, c pjs.APIClient, in *pjs.CreateJobRequest,
+	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo_Success, error) {
+	jres, err := c.CreateJob(ctx, in)
+	require.NoError(t, err)
+	return runJobFrom(t, ctx, c, jres.Id.Id, in.Program, fn)
+}
+
+func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, from int64, programStr string,
+	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo_Success, error) {
+	program, err := fileset.ParseID(programStr)
 	require.NoError(t, err)
 	programHash := []byte(program.HexString())
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.Go(func() error {
-		err := processQueue(ctx, s, programHash, fn)
+		ctx, cf := context.WithCancel(ctx)
+		defer cf()
+		pqc, err := c.ProcessQueue(ctx)
+		require.NoError(t, err)
+		err = processQueue(pqc, programHash, fn)
 		if status.Code(err) == codes.Canceled {
 			err = nil
 		}
@@ -116,7 +176,7 @@ func runJob(t *testing.T, ctx context.Context, s pjs.APIClient, in *pjs.CreateJo
 	})
 	var ret *pjs.JobInfo_Success
 	eg.Go(func() error {
-		jobInfo, err := await(ctx, s, jres.Id.Id)
+		jobInfo, err := await(ctx, c, from)
 		if err != nil {
 			return err
 		}
@@ -129,13 +189,7 @@ func runJob(t *testing.T, ctx context.Context, s pjs.APIClient, in *pjs.CreateJo
 	return ret, nil
 }
 
-func processQueue(ctx context.Context, s pjs.APIClient, programHash []byte, fn func([]string) ([]string, error)) error {
-	ctx, cf := context.WithCancel(ctx)
-	defer cf()
-	pqc, err := s.ProcessQueue(ctx)
-	if err != nil {
-		return err
-	}
+func processQueue(pqc pjs.API_ProcessQueueClient, programHash []byte, fn func(resp *pjs.ProcessQueueResponse) error) error {
 	if err := pqc.Send(&pjs.ProcessQueueRequest{
 		Queue: &pjs.Queue{Id: programHash},
 	}); err != nil {
@@ -146,7 +200,7 @@ func processQueue(ctx context.Context, s pjs.APIClient, programHash []byte, fn f
 		if err != nil {
 			return err
 		}
-		out, err := fn(msg.Input)
+		err = fn(msg)
 		if err != nil {
 			if sendErr := pqc.Send(&pjs.ProcessQueueRequest{
 				Result: &pjs.ProcessQueueRequest_Failed{
@@ -161,7 +215,7 @@ func processQueue(ctx context.Context, s pjs.APIClient, programHash []byte, fn f
 			if err := pqc.Send(&pjs.ProcessQueueRequest{
 				Result: &pjs.ProcessQueueRequest_Success_{
 					Success: &pjs.ProcessQueueRequest_Success{
-						Output: out,
+						Output: msg.Input,
 					},
 				},
 			}); err != nil {
@@ -218,18 +272,68 @@ func createFileSet(t *testing.T, fc storage.FilesetClient, files map[string][]by
 	return resp.FilesetId
 }
 
-func createJob(t *testing.T, c pjs.APIClient, fc storage.FilesetClient) *pjs.CreateJobResponse {
-	ctx := pctx.TestContext(t)
+type createJobOpts func(req *pjs.CreateJobRequest)
+
+func createJob(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient,
+	opts ...createJobOpts) *pjs.CreateJobResponse {
 	programFileset := createFileSet(t, fc, map[string][]byte{
 		"file": []byte(`!#/bin/bash; ls /input/;`),
 	})
 	inputFileset := createFileSet(t, fc, map[string][]byte{
 		"a.txt": []byte("dummy input"),
 	})
-	resp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
+	req := &pjs.CreateJobRequest{
 		Program: programFileset,
 		Input:   []string{inputFileset},
-	})
+	}
+	for _, opt := range opts {
+		opt(req)
+	}
+	resp, err := c.CreateJob(ctx, req)
 	require.NoError(t, err)
 	return resp
+}
+
+func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.APIClient, fc storage.FilesetClient) {
+	if maxDepth == 0 {
+		return
+	}
+
+	// create node at depth == 1
+	program := createFileSet(t, fc, map[string][]byte{"program": []byte("foo")})
+	createResp := createJob(t, ctx, c, fc, func(req *pjs.CreateJobRequest) {
+		req.Program = program
+	})
+	var processResp *pjs.ProcessQueueResponse
+	_, err := runJobFrom(t, ctx, c, createResp.Id.Id, program, func(resp *pjs.ProcessQueueResponse) error {
+		processResp = resp
+		return nil
+	})
+	require.NoError(t, err)
+
+	parents := make([]*pjs.ProcessQueueResponse, 0)
+	parents = append(parents, processResp)
+
+	// create nodes at depth > 1
+	for depth := 2; depth <= maxDepth; depth++ {
+		newParents := make([]*pjs.ProcessQueueResponse, 0)
+		for _, p := range parents {
+			createChild := func() *pjs.ProcessQueueResponse {
+				prog := createFileSet(t, fc, map[string][]byte{"program": []byte(rand.String(32))})
+				cResp := createJob(t, ctx, c, fc, func(req *pjs.CreateJobRequest) {
+					req.Context = p.Context
+					req.Program = prog
+				})
+				var pResp *pjs.ProcessQueueResponse
+				_, err = runJobFrom(t, ctx, c, cResp.Id.Id, prog, func(resp *pjs.ProcessQueueResponse) error {
+					pResp = resp
+					return nil
+				})
+				require.NoError(t, err)
+				return pResp
+			}
+			newParents = append(newParents, createChild(), createChild())
+		}
+		parents = newParents
+	}
 }

@@ -57,6 +57,18 @@ class JobErrorCode(betterproto.Enum):
     """CANCELED means the job was canceled."""
 
 
+class WalkAlgorithm(betterproto.Enum):
+    """
+    WalkAlgorithm is used by WalkJob to specify how it should walk through a
+    tree.
+    """
+
+    UNKNOWN = 0
+    LEVEL_ORDER = 1
+    PRE_ORDER = 2
+    MIRRORED_POST_ORDER = 3
+
+
 @dataclass(eq=False, repr=False)
 class Job(betterproto.Message):
     """
@@ -239,6 +251,15 @@ class WalkJobRequest(betterproto.Message):
     """
     job is the job to start walking from.  If unset, the context Job is
     assumed.
+    """
+
+    algorithm: "WalkAlgorithm" = betterproto.enum_field(3)
+    """A sane client should default to 'LEVEL_ORDER'."""
+
+    max_depth: int = betterproto.uint64_field(4)
+    """
+    The depth relative from the starting point to traverse to. A depth of 0 is
+    interpreted as 10,000. A depth greater than 10,000 is capped at 10,000.
     """
 
 
@@ -435,13 +456,20 @@ class ApiStub:
             yield response
 
     def walk_job(
-        self, *, context: str = "", job: "Job" = None
+        self,
+        *,
+        context: str = "",
+        job: "Job" = None,
+        algorithm: "WalkAlgorithm" = None,
+        max_depth: int = 0
     ) -> Iterator["ListJobResponse"]:
 
         request = WalkJobRequest()
         request.context = context
         if job is not None:
             request.job = job
+        request.algorithm = algorithm
+        request.max_depth = max_depth
 
         for response in self.__rpc_walk_job(request):
             yield response

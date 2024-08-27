@@ -22,8 +22,13 @@ func ListQueues(ctx context.Context, db *pachsql.DB, req IterateQueuesRequest) (
 	return queues, nil
 }
 
+type DequeueResponse struct {
+	ID         JobID
+	JobContext JobContext
+}
+
 // DequeueAndProcess processes the first job in a given queue, and removes that element from queue
-func DequeueAndProcess(ctx context.Context, tx *pachsql.Tx, programHash []byte) (JobID, error) {
+func DequeueAndProcess(ctx context.Context, tx *pachsql.Tx, programHash []byte) (*DequeueResponse, error) {
 	ctx = pctx.Child(ctx, "dequeue and process")
 	var jobID JobID
 	if err := tx.QueryRowxContext(ctx, `
@@ -43,9 +48,17 @@ func DequeueAndProcess(ctx context.Context, tx *pachsql.Tx, programHash []byte) 
 	`, programHash).Scan(&jobID); err != nil {
 		// todo(muyang): should not return an error, just await
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, &DequeueFromEmptyQueueError{ID: string(programHash)}
+			return nil, &DequeueFromEmptyQueueError{ID: string(programHash)}
 		}
-		return 0, errors.Wrap(err, "dequeue and process")
+		return nil, errors.Wrap(err, "dequeue and process")
 	}
-	return jobID, nil
+	jobCtx, err := CreateJobContext(ctx, tx, jobID)
+	if err != nil {
+		return nil, errors.Wrap(err, "dequeue and process")
+	}
+	resp := &DequeueResponse{
+		ID:         jobID,
+		JobContext: jobCtx,
+	}
+	return resp, nil
 }

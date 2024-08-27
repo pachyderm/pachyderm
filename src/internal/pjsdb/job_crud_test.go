@@ -100,6 +100,13 @@ func TestCancelJob(t *testing.T) {
 	})
 }
 
+func jobIDs(jobs []pjsdb.Job) (ids []pjsdb.JobID) {
+	for _, job := range jobs {
+		ids = append(ids, job.ID)
+	}
+	return ids
+}
+
 func TestWalkJob(t *testing.T) {
 	t.Run("valid/walk/all", func(t *testing.T) {
 		maxDepth := 3
@@ -108,9 +115,27 @@ func TestWalkJob(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			fullBinaryJobTree(t, d, maxDepth)
 			// walk all jobs.
-			walkedJobs, err := pjsdb.WalkJob(d.ctx, d.tx, 1)
-			require.NoError(t, err)
-			require.Equal(t, numJobs, len(walkedJobs))
+			t.Run("level_order", func(t *testing.T) {
+				jobs, err := pjsdb.WalkJob(d.ctx, d.tx, 1, pjsdb.LevelOrder, 10_000)
+				require.NoError(t, err)
+				require.Equal(t, numJobs, len(jobs))
+				ids := jobIDs(jobs)
+				require.NoDiff(t, []pjsdb.JobID{1, 2, 3, 4, 5, 6, 7, 8}, ids, nil)
+			})
+			t.Run("pre_order", func(t *testing.T) {
+				jobs, err := pjsdb.WalkJob(d.ctx, d.tx, 1, pjsdb.PreOrder, 10_000)
+				require.NoError(t, err)
+				require.Equal(t, numJobs, len(jobs))
+				ids := jobIDs(jobs)
+				require.NoDiff(t, []pjsdb.JobID{1, 2, 3, 5, 6, 4, 7, 8}, ids, nil)
+			})
+			t.Run("post_order", func(t *testing.T) {
+				jobs, err := pjsdb.WalkJob(d.ctx, d.tx, 1, pjsdb.MirroredPostOrder, 10_000)
+				require.NoError(t, err)
+				require.Equal(t, numJobs, len(jobs))
+				ids := jobIDs(jobs)
+				require.NoDiff(t, []pjsdb.JobID{8, 7, 4, 6, 5, 3, 2, 1}, ids, nil)
+			})
 		})
 	})
 	t.Run("valid/walk/subset", func(t *testing.T) {
@@ -126,10 +151,34 @@ func TestWalkJob(t *testing.T) {
 		*/
 		withDependencies(t, func(d dependencies) {
 			fullBinaryJobTree(t, d, maxDepth)
-			jobs, err := pjsdb.WalkJob(d.ctx, d.tx, 3)
-			require.NoError(t, err)
-			require.Equal(t, 3, len(jobs))
-
+			t.Run("level_order", func(t *testing.T) {
+				jobs, err := pjsdb.WalkJob(d.ctx, d.tx, 3, pjsdb.LevelOrder, 10_000)
+				require.NoError(t, err)
+				require.Equal(t, 3, len(jobs))
+				ids := jobIDs(jobs)
+				require.NoDiff(t, []pjsdb.JobID{3, 5, 6}, ids, nil)
+			})
+			t.Run("pre_order", func(t *testing.T) {
+				jobs, err := pjsdb.WalkJob(d.ctx, d.tx, 3, pjsdb.PreOrder, 10_000)
+				require.NoError(t, err)
+				require.Equal(t, 3, len(jobs))
+				ids := jobIDs(jobs)
+				require.NoDiff(t, []pjsdb.JobID{3, 5, 6}, ids, nil)
+			})
+			t.Run("mirrored_post_order", func(t *testing.T) {
+				jobs, err := pjsdb.WalkJob(d.ctx, d.tx, 3, pjsdb.MirroredPostOrder, 10_000)
+				require.NoError(t, err)
+				require.Equal(t, 3, len(jobs))
+				ids := jobIDs(jobs)
+				require.NoDiff(t, []pjsdb.JobID{6, 5, 3}, ids, nil)
+			})
+			t.Run("level_order/depth=1", func(t *testing.T) {
+				jobs, err := pjsdb.WalkJob(d.ctx, d.tx, 2, pjsdb.LevelOrder, 1)
+				require.NoError(t, err)
+				require.Equal(t, 3, len(jobs))
+				ids := jobIDs(jobs)
+				require.NoDiff(t, []pjsdb.JobID{2, 3, 4}, ids, nil)
+			})
 		})
 	})
 }
