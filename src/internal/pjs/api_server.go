@@ -226,7 +226,7 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 }
 
 func (a *apiServer) resolveJobCtx(ctx context.Context, jobCtx string) (id pjsdb.JobID, err error) {
-	token, err := pjsdb.JobContextTokenFromString(jobCtx)
+	token, err := pjsdb.JobContextTokenFromHex(jobCtx)
 	if err != nil {
 		return 0, errors.Wrap(err, "job context token from string")
 	}
