@@ -25,7 +25,8 @@
                         "CLUSTER",
                         "REPO",
                         "SPEC_REPO",
-                        "PROJECT"
+                        "PROJECT",
+                        "JOB"
                     ],
                     "type": "string",
                     "title": "Resource Type",

@@ -6866,7 +6866,8 @@
         "PROJECT_DELETE",
         "PROJECT_LIST_REPO",
         "PROJECT_CREATE_REPO",
-        "PROJECT_MODIFY_BINDINGS"
+        "PROJECT_MODIFY_BINDINGS",
+        "JOB_SKIP_CTX"
       ],
       "default": "PERMISSION_UNKNOWN",
       "description": "- CLUSTER_CREATE_SECRET: TODO(actgardner): Make k8s secrets into nouns and add an Update RPC\n - CLUSTER_SET_DEFAULTS: CLUSTER_SET_DEFAULTS is part of PPS.\n - PROJECT_SET_DEFAULTS: PROJECT_SET_DEFAULTS is part of PPS.",
@@ -6891,7 +6892,8 @@
         "CLUSTER",
         "REPO",
         "SPEC_REPO",
-        "PROJECT"
+        "PROJECT",
+        "JOB"
       ],
       "default": "RESOURCE_TYPE_UNKNOWN",
       "title": "ResourceType represents the type of a Resource"
