@@ -270,7 +270,7 @@ func (c *Config) write(path string) (retErr error) {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer errors.Invoke1(&retErr, os.Remove, tmpfile.Name(), "remove temporary config %v", tmpfile.Name())
+	defer errors.Invoke1(&retErr, os.RemoveAll, tmpfile.Name(), "remove temporary config %v", tmpfile.Name())
 
 	if _, err = tmpfile.Write(rawConfig); err != nil {
 		return errors.EnsureStack(err)
