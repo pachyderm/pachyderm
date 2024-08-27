@@ -20,7 +20,6 @@ func init() {
 		// Avoid flagging (net/http).Response.Body.Close,
 		// opentracing.GlobalTracer().Close(), etc.; these should be checked, of course.
 		"(io.ReadCloser).Close",
-		"(io.Closer).Close",
 		"(*database/sql.Rows).Close",
 
 		// Syscalls that rarely fail (but should be fixed).

@@ -167,7 +167,7 @@ func PachctlBashCmdCtx(ctx context.Context, t *testing.T, c *client.APIClient, s
 	// PachctlBashCmd (without a context), and thus there is no logger to log to.  Supply
 	// pctx.TestContext(t) as context, and you'll be good to go.
 	stderr := log.WriterAt(ctx, log.DebugLevel)
-	t.Cleanup(func() { stderr.Close() })
+	t.Cleanup(func() { stderr.Close() }) //nolint:errcheck
 	cmd.Cmd.Stderr = stderr
 	return cmd.Cmd
 }
