@@ -9,7 +9,7 @@ require (
 	github.com/alecthomas/participle/v2 v2.1.1
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
-	github.com/bazelbuild/rules_go v0.48.1
+	github.com/bazelbuild/rules_go v0.49.0
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -141,7 +141,7 @@ require github.com/nishanths/exhaustive v0.12.0
 require github.com/golangci/gofmt v0.0.0-20240816233607-d8596aa466a9
 
 require (
-	github.com/bazelbuild/bazel-gazelle v0.36.0
+	github.com/bazelbuild/bazel-gazelle v0.38.0
 	github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
 	golang.org/x/tools/go/vcs v0.1.0-deprecated // indirect
