@@ -17,6 +17,8 @@ message ProfileRequest {
   Filter filter = 2;
 }
 
+// and a CORE-owned file
+
 message Profile {
     string name = 1;
     google.protobuf.Duration duration = 2; // only meaningful if name == "cpu"

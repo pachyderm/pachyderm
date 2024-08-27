@@ -23,6 +23,7 @@ message Repo {
   Project project = 3;
 }
 
+// Just testing codeowners for PFS-owned files too
 // Repo defines mutually exclusive pickers that resolve to a single repository.
 // Currently, the only way to pick a repo is by composing a repo name and type with a project.
 // If the type is omitted, the 'user' type will be used as a default.

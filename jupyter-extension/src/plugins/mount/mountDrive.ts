@@ -25,6 +25,7 @@ const DEFAULT_CONTENT_MODEL: Contents.IModel = {
   type: 'directory',
 };
 
+// Hey this comment is pointless, I'm just testing CODEOWNERS
 export class MountDrive implements Contents.IDrive {
   // Properties necessary for implementing IDrive, but otherwise unused.
   readonly _registry: DocumentRegistry;
