@@ -74,14 +74,14 @@ func (c *Client) QueryRange(ctx context.Context, queryStr string, limit int, sta
 	return c.doQuery(ctx, queryRangePath, params.Encode(), quiet)
 }
 
-func (c *Client) doQuery(ctx context.Context, path string, query string, quiet bool) (*QueryResponse, error) {
+func (c *Client) doQuery(ctx context.Context, path string, query string, quiet bool) (_ *QueryResponse, retErr error) {
 	var err error
 	var r QueryResponse
 	body, err := c.doRequest(ctx, path, query, quiet)
 	if err != nil {
 		return nil, errors.Wrap(err, "doing request")
 	}
-	defer body.Close()
+	defer errors.Close(&retErr, body, "close body")
 	if err := json.NewDecoder(body).Decode(&r); err != nil {
 		return nil, errors.Wrap(err, "decoding")
 	}
@@ -89,13 +89,13 @@ func (c *Client) doQuery(ctx context.Context, path string, query string, quiet b
 	return &r, nil
 }
 
-func (c *Client) QueryConfig(ctx context.Context) (map[string]any, error) {
+func (c *Client) QueryConfig(ctx context.Context) (_ map[string]any, retErr error) {
 	var output map[string]any
 	body, err := c.doRequest(ctx, configPath, "", false)
 	if err != nil {
 		return nil, errors.Wrap(err, "doing request")
 	}
-	defer body.Close()
+	defer errors.Close(&retErr, body, "close body")
 	if err := yaml.NewDecoder(body).Decode(&output); err != nil {
 		return nil, errors.Wrap(err, "decoding")
 	}

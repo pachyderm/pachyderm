@@ -47,7 +47,7 @@ type gRPCParams struct {
 	Headers []string
 }
 
-func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Writer, args []string) error {
+func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Writer, args []string) (retErr error) {
 	handlers := buildRPCs(
 		admin.File_admin_admin_proto,
 		auth.File_auth_auth_proto,
@@ -116,7 +116,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		}
 		authCtx = cl.Ctx()
 		cc = cl.ClientConn()
-		defer cl.Close()
+		defer errors.Close(&retErr, cl, "close ClientConn")
 	} else {
 		// If --address is set, just dial the server.
 		creds := insecure.NewCredentials()

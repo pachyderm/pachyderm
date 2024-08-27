@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 )
 
@@ -178,13 +179,13 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Hidden: true,
 		Short:  "New logs functionality",
 		Long:   "Query Pachyderm using new log service.",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 
 			level := logs.LogLevel_LOG_LEVEL_UNSET
 			switch levelString {
@@ -328,6 +329,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %T\n`", resp)
 				}
 			}
+			return nil
 		},
 		Use: "logs2",
 	}

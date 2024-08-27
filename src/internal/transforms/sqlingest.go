@@ -35,13 +35,13 @@ type SQLIngestParams struct {
 //
 // It makes outgoing connections using pachsql.OpenURL
 // It accesses the filesystem only within params.InputDir, and params.OutputDir
-func SQLIngest(ctx context.Context, params SQLIngestParams) error {
+func SQLIngest(ctx context.Context, params SQLIngestParams) (retErr error) {
 	log.Info(ctx, "Connecting to DB", zap.Stringer("url", &params.URL))
 	db, err := pachsql.OpenURL(params.URL, string(params.Password))
 	if err != nil {
 		return err
 	}
-	defer db.Close() //nolint:errcheck
+	defer errors.Close(&retErr, db, "close db connection to %v", params.URL)
 	if err := func() error {
 		ctx, cf := context.WithTimeout(ctx, 10*time.Second)
 		defer cf()
@@ -156,12 +156,12 @@ type SQLRunParams struct {
 	Format                string
 }
 
-func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
+func RunSQLRaw(ctx context.Context, params SQLRunParams) (retErr error) {
 	db, err := pachsql.OpenURL(params.URL, string(params.Password))
 	if err != nil {
 		return err
 	}
-	defer db.Close() //nolint:errcheck
+	defer errors.Close(&retErr, db, "close db connection to %v", params.URL)
 	if err := func() error {
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()

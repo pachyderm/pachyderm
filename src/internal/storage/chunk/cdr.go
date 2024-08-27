@@ -12,9 +12,9 @@ import (
 	"golang.org/x/crypto/chacha20"
 )
 
-func (s *Storage) CDRFromDataRef(ctx context.Context, dataRef *DataRef, cache *lru.Cache[string, string]) (*cdr.Ref, error) {
+func (s *Storage) CDRFromDataRef(ctx context.Context, dataRef *DataRef, cache *lru.Cache[string, string]) (_ *cdr.Ref, retErr error) {
 	client := NewClient(s.store, s.db, s.tracker, nil, s.pool).(*trackedClient)
-	defer client.Close() //nolint:errcheck
+	defer errors.Close(&retErr, client, "close cdr client")
 	key := string(dataRef.Ref.Id)
 	url, isCached := cache.Get(key)
 	if !isCached {

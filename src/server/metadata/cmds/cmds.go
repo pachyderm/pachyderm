@@ -96,7 +96,7 @@ Key/value pair format:
 			"\t - {{alias}} project myproject edit support_contact=you@example.com \n" +
 			"\t - {{alias}} commit images@master add verified_by=you@example.com \\ \n" +
 			"\t\t\t\t commit edges@master add verified_by=you@example.com",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			req, err := parseEditMetadataCmdline(args, pachCtx.Project)
 			if err != nil {
 				return errors.Wrap(err, "parse cmdline")
@@ -106,7 +106,7 @@ Key/value pair format:
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			if _, err := c.MetadataClient.EditMetadata(c.Ctx(), req); err != nil {
 				return errors.Wrap(err, "invoke EditMetadata")
 			}

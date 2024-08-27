@@ -410,7 +410,7 @@ func PachctlCmd() (*cobra.Command, error) {
 			if err != nil {
 				return err
 			}
-			defer pachClient.Close()
+			defer errors.Close(&retErr, pachClient, "close client")
 			ctx, cancel := context.WithTimeout(ctx, time.Second)
 			defer cancel()
 			serverVersion, err := pachClient.GetVersion(ctx, &emptypb.Empty{})
@@ -496,12 +496,12 @@ func PachctlCmd() (*cobra.Command, error) {
 		Short: "Delete everything.",
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			red := color.New(color.FgRed).SprintFunc()
 			var repos, pipelines []string
 			repoInfos, err := client.ListRepo()

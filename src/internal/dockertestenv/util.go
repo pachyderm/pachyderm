@@ -115,12 +115,12 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 	return nil
 }
 
-func ensureImage(ctx context.Context, dclient docker.APIClient, imageName string) error {
+func ensureImage(ctx context.Context, dclient docker.APIClient, imageName string) (retErr error) {
 	rc, err := dclient.ImagePull(ctx, imageName, types.ImagePullOptions{})
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer rc.Close()
+	defer errors.Close(&retErr, rc, "close image pull response body")
 	if err := readResponseBody(rc); err != nil {
 		return err
 	}
