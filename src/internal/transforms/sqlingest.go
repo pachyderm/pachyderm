@@ -175,11 +175,13 @@ func RunSQLRaw(ctx context.Context, params SQLRunParams) (retErr error) {
 	if err != nil {
 		return err
 	}
-	w, err := os.OpenFile(filepath.Join(params.OutputDir, params.OutputFile), os.O_WRONLY|os.O_CREATE, 0755)
+	outPath := filepath.Join(params.OutputDir, params.OutputFile)
+	w, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer w.Close() //nolint:errcheck
+	defer errors.Close(&retErr, w, "close output file %v", outPath)
+
 	log.Info(ctx, "Running query", zap.String("query", params.Query))
 	rows, err := db.QueryContext(ctx, params.Query)
 	if err != nil {

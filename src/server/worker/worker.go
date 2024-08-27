@@ -138,7 +138,7 @@ func (w *Worker) master(logger logs.TaggedLogger, env serviceenv.ServiceEnv) {
 	// retry interval, the master would be deleted before it gets a chance
 	// to restart.
 	b.InitialInterval = 10 * time.Second
-	backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() (retErr error) {
 		// We use pachClient.Ctx here because it contains auth information.
 		ctx, cancel := pctx.WithCancel(w.driver.PachClient().Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
@@ -146,7 +146,7 @@ func (w *Worker) master(logger logs.TaggedLogger, env serviceenv.ServiceEnv) {
 		if err != nil {
 			return errors.Wrap(err, "locking master lock")
 		}
-		defer masterLock.Unlock(ctx) //nolint:errcheck
+		defer errors.Invoke1(&retErr, masterLock.Unlock, ctx, "unlock master lock")
 
 		// Create a new driver that uses a new cancelable pachClient
 		return runSpawner(w.driver.WithContext(ctx), logger)
