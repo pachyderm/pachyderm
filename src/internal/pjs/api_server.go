@@ -177,6 +177,36 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 	}
 }
 
+func (a *apiServer) CancelJob(ctx context.Context, req *pjs.CancelJobRequest) (*pjs.CancelJobResponse, error) {
+	// handle job context and request validation.
+	var id pjsdb.JobID
+	if req.Context != "" {
+		jid, err := a.resolveJobCtx(ctx, req.Context)
+		if err != nil {
+			return nil, errors.Wrap(err, "resolve job ctx")
+		}
+		id = jid
+	} else { //nolint:staticcheck
+		// TODO(PJS): do auth.
+	}
+	// TODO(PJS): remove this once auth is implemented.
+	reqID := pjsdb.JobID(req.Job.Id)
+	if id != reqID {
+		log.Error(ctx, "job context token does not match requested job.", zap.Int64("request.Job.ID", req.Job.Id))
+		id = reqID // defaulting to this for testing until auth is implemented.
+	}
+
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		if _, err := pjsdb.CancelJob(ctx, sqlTx, id); err != nil {
+			return errors.Wrap(err, "cancel job")
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "with tx")
+	}
+	return &pjs.CancelJobResponse{}, nil
+}
+
 func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) (err error) {
 	ctx, done := log.SpanContext(srv.Context(), "walkJob")
 	defer done(log.Errorp(&err))
