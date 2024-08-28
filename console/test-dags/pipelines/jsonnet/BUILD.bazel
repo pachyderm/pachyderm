@@ -1,0 +1,19 @@
+load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_test")
+
+jsonnet_test(
+    name = "edges_jsonnet_test",
+    size = "small",
+    src = "edges.jsonnet",
+)
+
+jsonnet_test(
+    name = "error_args_jsonnet_test",
+    size = "small",
+    src = "error-args.jsonnet",
+)
+
+jsonnet_test(
+    name = "snowflake_jsonnet_test",
+    size = "small",
+    src = "snowflake.jsonnet",
+)
