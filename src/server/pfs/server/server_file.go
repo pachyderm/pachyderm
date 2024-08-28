@@ -64,7 +64,7 @@ func (a *apiServer) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb
 			branch.Name = commitID
 			commitID = ""
 		}
-		commit, err := a.resolveCommit(ctx, commitHandle)
+		commit, err := a.pickCommit(ctx, commitHandle)
 		if err != nil {
 			if !errutil.IsNotFoundError(err) || branch == nil || branch.Name == "" {
 				return err
@@ -211,7 +211,7 @@ func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *
 }
 
 func (a *apiServer) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
-	srcC, err := a.resolveCommit(ctx, src.Commit)
+	srcC, err := a.pickCommit(ctx, src.Commit)
 	if err != nil {
 		return err
 	}
@@ -541,7 +541,7 @@ func (a *apiServer) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb
 			return errors.EnsureStack(err)
 		}
 	}
-	newC, err := a.resolveCommit(ctx, newFile.Commit)
+	newC, err := a.pickCommit(ctx, newFile.Commit)
 	if err != nil {
 		return err
 	}
@@ -626,7 +626,7 @@ func (a *apiServer) getFileset(ctx context.Context, commit *pfsdb.Commit) (*file
 	var ids []fileset.ID
 	baseCommitHandle := commit.ParentCommit
 	for baseCommitHandle != nil {
-		baseCommit, err := a.resolveCommit(ctx, baseCommitHandle)
+		baseCommit, err := a.pickCommit(ctx, baseCommitHandle)
 		if err != nil {
 			return nil, err
 		}
@@ -682,7 +682,7 @@ func (a *apiServer) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles,
 }
 
 func (a *apiServer) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, filesetID fileset.ID) error {
-	commit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
+	commit, err := a.pickCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
 	}

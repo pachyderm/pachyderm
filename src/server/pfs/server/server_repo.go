@@ -374,7 +374,7 @@ func (a *apiServer) repoSize(ctx context.Context, txnCtx *txncontext.Transaction
 			}
 			commit := branchInfo.Head
 			for commit != nil {
-				c, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, commit)
+				c, err := a.pickCommitTx(ctx, txnCtx.SqlTx, commit)
 				if err != nil {
 					return 0, err
 				}

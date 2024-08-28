@@ -145,7 +145,7 @@ func (m *Master) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 			if oldHead.Commit.Id == ci.Commit.Id {
 				break
 			}
-			c, err := m.resolveCommitTx(ctx, txnCtx.SqlTx, ci.ParentCommit)
+			c, err := m.pickCommitTx(ctx, txnCtx.SqlTx, ci.ParentCommit)
 			if err != nil {
 				return false, err
 			}

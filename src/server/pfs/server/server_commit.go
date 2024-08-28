@@ -27,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 // CommitEvent is an event that contains a CommitInfo or an error
@@ -246,7 +245,7 @@ func (a *apiServer) linkParent(ctx context.Context, txnCtx *txncontext.Transacti
 	// Resolve 'parent' if it's a branch that isn't 'branch' (which can
 	// happen if 'branch' is new and diverges from the existing branch in
 	// 'parent').
-	parentCommit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, parent)
+	parentCommit, err := a.pickCommitTx(ctx, txnCtx.SqlTx, parent)
 	if err != nil {
 		return errors.Wrapf(err, "parent commit not found")
 	}
@@ -310,7 +309,7 @@ func (a *apiServer) findCommits(ctx context.Context, request *pfs.FindCommitsReq
 			logFields = append(logFields, zap.String("branch", commit.Branch.String()))
 		}
 		if err := log.LogStep(ctx, "searchingCommit", func(ctx context.Context) error {
-			inspectCommitResp, err := a.resolveCommitWithAuth(ctx, commit)
+			inspectCommitResp, err := a.pickCommitWithAuth(ctx, commit)
 			if err != nil {
 				return err
 			}
@@ -387,7 +386,7 @@ func (a *apiServer) isPathModifiedInCommit(ctx context.Context, commit *pfsdb.Co
 }
 
 func (a *apiServer) waitForCommit(ctx context.Context, commitHandle *pfs.Commit, wait pfs.CommitState) (*pfsdb.Commit, error) {
-	commit, err := a.resolveCommitWithAuth(ctx, commitHandle)
+	commit, err := a.pickCommitWithAuth(ctx, commitHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -448,20 +447,20 @@ func (a *apiServer) waitForFinishingOrFinished(ctx context.Context, commit *pfsd
 	return commit, nil
 }
 
-func (a *apiServer) resolveCommitWithAuth(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
+func (a *apiServer) pickCommitWithAuth(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
 	if err := a.env.Auth.CheckRepoIsAuthorized(ctx, commitHandle.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	return a.resolveCommit(ctx, commitHandle)
+	return a.pickCommit(ctx, commitHandle)
 }
 
-// resolveCommit creates a transaction, then calls resolveCommitTx in that transaction.
-func (a *apiServer) resolveCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
+// pickCommit creates a transaction, then calls pickCommitTx in that transaction.
+func (a *apiServer) pickCommit(ctx context.Context, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
 	// Resolve the commit in case it specifies a branch head or commit ancestry
 	var commit *pfsdb.Commit
 	if err := a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
-		commit, err = a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
+		commit, err = a.pickCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 		return err
 	}); err != nil {
 		return nil, err
@@ -469,20 +468,23 @@ func (a *apiServer) resolveCommit(ctx context.Context, commitHandle *pfs.Commit)
 	return commit, nil
 }
 
-// resolveCommitTx contains the essential implementation of InspectCommit. it converts 'commit' (which may
-// be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
-// ID. It accepts a postgres transaction so that it can be used in a transaction
-// and avoids an inconsistent call to a.waitForCommit()
-func (a *apiServer) resolveCommitTx(ctx context.Context, sqlTx *pachsql.Tx, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
+// pickCommitTx transforms a commitHandle into a *pfs.CommitPicker, then calls Pick() to resolve a single *pfsdb.Commit.
+// In a case where a commit is not found, pickCommitTx assumes the commit may be an alias to another commit in a different
+// commit set and attempts to resolve it by traversing commit set provenance.
+func (a *apiServer) pickCommitTx(ctx context.Context, tx *pachsql.Tx, commitHandle *pfs.Commit) (*pfsdb.Commit, error) {
 	if commitHandle == nil {
-		return nil, errors.Errorf("cannot resolve nil commit")
+		return nil, errors.Errorf("pick commit tx: cannot pick nil commit")
 	}
 	if commitHandle.Repo == nil {
-		return nil, errors.Errorf("cannot resolve commit with no repo")
+		return nil, errors.Errorf("pick commit tx: cannot pick commit with no repo")
 	}
 	if commitHandle.Id == "" && commitHandle.GetBranch().GetName() == "" {
-		return nil, errors.Errorf("cannot resolve commit with no ID or branch")
+		return nil, errors.Errorf("pick commit tx: cannot pick commit with no ID or branch")
 	}
+	// The fileset repo '__filesets__' is a repo to associate commits with their filesets, creating 'virtual commits'.
+	// It is key that these virtual commits appear to be finished, otherwise parts of the system that want to read
+	// the virtual commits will fail.
+	// TODO: now that ReadFileset exists, we should deprecate this subsystem in favor of using that.
 	if commitHandle.AccessRepo().Name == fileSetsRepo {
 		cinfo := &pfs.CommitInfo{
 			Commit:      commitHandle,
@@ -490,101 +492,57 @@ func (a *apiServer) resolveCommitTx(ctx context.Context, sqlTx *pachsql.Tx, comm
 			Finished:    &timestamppb.Timestamp{}, // it's always been finished. How did you get the id if it wasn't finished?
 		}
 		return &pfsdb.Commit{
-			ID:         0, // this doesn't seem like the right thing to do, but here we are.
+			ID:         0, // the commit won't actually be retrieved.
 			CommitInfo: cinfo,
 			Revision:   0,
 		}, nil
 	}
-	commitHandleCopy := proto.Clone(commitHandle).(*pfs.Commit) // back up user commit, for error reporting
-	// Extract any ancestor tokens from 'commit.ID' (i.e. ~, ^ and .)
-	var ancestryLength int
-	var err error
-	commitHandleCopy.Id, ancestryLength, err = ancestry.Parse(commitHandleCopy.Id)
+	picker := &pfs.CommitPicker{}
+	err := picker.UnmarshalText([]byte(commitHandle.String()))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "pick commit tx")
 	}
-	// Now that ancestry has been parsed out, check if the ID is a branch name
-	if commitHandleCopy.Id != "" && !uuid.IsUUIDWithoutDashes(commitHandleCopy.Id) {
-		if commitHandleCopy.Branch.GetName() != "" {
-			return nil, errors.Errorf("invalid commit ID given with a branch (%s): %s\n", commitHandleCopy.Branch, commitHandleCopy.Id)
+	commit, err := pfsdb.PickCommit(ctx, picker, tx)
+	if err != nil {
+		var pfserr error
+		switch {
+		// For convenience, users are allowed to send a requests for a commit with an 'incorrect' ID
+		// The commit set for that ID exists, but a commit for that particular repo + set ID combination does not.
+		//
+		// Allowing that helps users who want to do something with the commit in a repo that 'should' be in a commit set.
+		// However, depending on the DAG, there may not be a need to create a new commit.
+		//
+		// Take for instance a dag shaped like:
+		// 		repo.branch(A) -> repo.branch(B), repo.branch(C) -> repo.branch(B)
+		// If one creates a commit on repo.branch(A), it would result in a change to repo.branch(B).
+		// These commits would be in the same commit set. Let's call this commit set 'sN'.
+		// However, the result of commit in repo.branch(B) is a function of the commit used in repo.branch(A)
+		// and repo.branch(C). The commit used in repo.branch(C) was from a previous set, say sN-1.
+		//
+		// This wouldn't be necessary if pachyderm created new commits (even if they were empty).
+		case errors.As(err, &pfsdb.RepoNotFoundError{}):
+			pfserr = pfsserver.ErrRepoNotFound{Repo: commitHandle.Repo}
+		case errors.As(err, &pfsdb.BranchNotFoundError{}):
+			pfserr = pfsserver.ErrBranchNotFound{Branch: commitHandle.Branch}
+		case errors.As(err, &pfsdb.CommitNotFoundError{}):
+			pfserr = pfsserver.ErrCommitNotFound{Commit: commitHandle}
+		default:
+			return nil, errors.Wrap(err, "pick commit tx")
 		}
-		commitHandleCopy.Branch = commitHandleCopy.Repo.NewBranch(commitHandleCopy.Id)
-		commitHandleCopy.Id = ""
-	}
-	// If commit.ID is unspecified, get it from the branch head
-	if commitHandleCopy.Id == "" {
-		branchInfo, err := pfsdb.GetBranch(ctx, sqlTx, commitHandleCopy.Branch)
+		resolvedCommit, err := pfsdb.ResolveCommitProvenance(tx, commitHandle.Repo, commitHandle.Id)
 		if err != nil {
-			if pfsdb.IsNotFoundError(err) {
-				return nil, errors.Join(err, pfsserver.ErrBranchNotFound{Branch: commitHandleCopy.Branch})
-			}
-			return nil, errors.Wrap(err, "resolve commit")
+			return nil, errors.Wrap(errors.Join(err, pfserr), "pick commit tx")
 		}
-		commitHandleCopy.Id = branchInfo.Head.Id
-	}
-	commit, err := pfsdb.GetCommitByKey(ctx, sqlTx, commitHandleCopy)
-	if err != nil {
-		if pfsdb.IsNotFoundError(err) {
-			// try to resolve to alias if not found
-			resolvedCommit, err := pfsdb.ResolveCommitProvenance(sqlTx, commitHandle.Repo, commitHandleCopy.Id)
-			if err != nil {
-				return nil, err
-			}
-			commitHandleCopy.Id = resolvedCommit.Id
-			commit, err = pfsdb.GetCommitByKey(ctx, sqlTx, commitHandleCopy)
-			if err != nil {
-				return nil, errors.EnsureStack(err)
-			}
-		} else {
-			return nil, errors.Wrap(err, "resolve commit")
-		}
-	}
-	// Traverse commits' parents until you've reached the right ancestor
-	if ancestryLength >= 0 {
-		for i := 1; i <= ancestryLength; i++ {
-			if commit.CommitInfo.ParentCommit == nil {
-				return nil, pfsserver.ErrCommitNotFound{Commit: commitHandle}
-			}
-			parent := commit.CommitInfo.ParentCommit
-			commit, err = pfsdb.GetCommitByKey(ctx, sqlTx, parent)
-			if err != nil {
-				if pfsdb.IsNotFoundError(err) {
-					if i == 0 {
-						return nil, errors.Join(err, pfsserver.ErrCommitNotFound{Commit: commitHandle})
-					}
-					return nil, errors.Join(err, pfsserver.ErrParentCommitNotFound{Commit: commitHandleCopy})
-				}
-				return nil, errors.EnsureStack(err)
-			}
-		}
-	} else {
-		cis := make([]*pfsdb.Commit, ancestryLength*-1)
-		for i := 0; ; i++ {
-			if commitHandleCopy == nil {
-				if i >= len(cis) {
-					commit = cis[i%len(cis)]
-					break
-				}
-				return nil, pfsserver.ErrCommitNotFound{Commit: commitHandle}
-			}
-			cis[i%len(cis)], err = pfsdb.GetCommitByKey(ctx, sqlTx, commitHandleCopy)
-			if err != nil {
-				if pfsdb.IsNotFoundError(err) {
-					if i == 0 {
-						return nil, errors.Join(err, pfsserver.ErrCommitNotFound{Commit: commitHandle})
-					}
-					return nil, errors.Join(err, pfsserver.ErrParentCommitNotFound{Commit: commitHandleCopy})
-				}
-				return nil, err
-			}
-			commitHandleCopy = cis[i%len(cis)].CommitInfo.ParentCommit
+		commit, err = pfsdb.GetCommitByKey(ctx, tx, resolvedCommit)
+		if err != nil {
+			return nil, errors.Wrap(errors.Join(err, pfserr), "pick commit tx")
 		}
 	}
 	return commit, nil
 }
 
 // passesCommitOriginFilter is a helper function for listCommit and
-// subscribeCommit to apply filtering to the returned commits.  By default
+// subscribeCommit to apply filtering to the returned commits. By default
 // we allow users to request all the commits with
 // 'all', or a specific type of commit with 'originKind'.
 func passesCommitOriginFilter(commitInfo *pfs.CommitInfo, all bool, originKind pfs.OriginKind) bool {
@@ -637,12 +595,12 @@ func (a *apiServer) listCommit(
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := a.resolveCommit(ctx, from); err != nil {
+		if _, err := a.pickCommit(ctx, from); err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		ci, err := a.resolveCommit(ctx, to)
+		ci, err := a.pickCommit(ctx, to)
 		if err != nil {
 			return err
 		}
@@ -691,7 +649,7 @@ func (a *apiServer) listCommit(
 		if repo.Name != "" {
 			filter = &pfs.Commit{Repo: repo}
 		}
-		// driver.listCommit should return more recent commits by default, which is the
+		// server.listCommit should return more recent commits by default, which is the
 		// opposite behavior of pfsdb.ForEachCommit.
 		order := pfsdb.SortOrderDesc
 		if reverse {
@@ -822,7 +780,7 @@ func (a *apiServer) subscribeCommit(
 }
 
 func (a *apiServer) clearCommit(ctx context.Context, commitHandle *pfs.Commit) error {
-	commit, err := a.resolveCommit(ctx, commitHandle)
+	commit, err := a.pickCommit(ctx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -833,7 +791,7 @@ func (a *apiServer) clearCommit(ctx context.Context, commitHandle *pfs.Commit) e
 }
 
 func (a *apiServer) squashCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, recursive bool) error {
-	commit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
+	commit, err := a.pickCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -871,7 +829,7 @@ func (a *apiServer) squashCommit(ctx context.Context, txnCtx *txncontext.Transac
 }
 
 func (a *apiServer) dropCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, recursive bool) error {
-	commit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, commitHandle)
+	commit, err := a.pickCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
 	}
@@ -959,7 +917,7 @@ func (a *apiServer) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*
 	if err := a.env.Auth.CheckRepoIsAuthorized(ctx, commitHandle.Repo, auth.Permission_REPO_READ); err != nil {
 		return nil, nil, errors.EnsureStack(err)
 	}
-	commit, err := a.resolveCommit(ctx, commitHandle)
+	commit, err := a.pickCommit(ctx, commitHandle)
 	if err != nil {
 		return nil, nil, err
 	}

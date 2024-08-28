@@ -280,7 +280,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) FinishCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.FinishCommitRequest) error {
 	return metrics.ReportRequest(func() error {
-		commit, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, request.Commit)
+		commit, err := a.pickCommitTx(ctx, txnCtx.SqlTx, request.Commit)
 		if err != nil {
 			return errors.Wrap(err, "finish commit in transaction")
 		}
@@ -309,7 +309,7 @@ func (a *apiServer) forgetCommitTx(txnCtx *txncontext.TransactionContext, commit
 // excluded) except that it can run inside an existing postgres transaction.
 // This is not an RPC.
 func (a *apiServer) InspectCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
-	c, err := a.resolveCommitTx(ctx, txnCtx.SqlTx, request.Commit)
+	c, err := a.pickCommitTx(ctx, txnCtx.SqlTx, request.Commit)
 	if err != nil {
 		return nil, err
 	}
@@ -782,7 +782,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 			// TODO: actually derive output branch from job/pipeline, currently that coupling causes issues
 			output := client.NewCommit(info.Repo.Project.GetName(), info.Repo.Name, "master", "")
 			for output != nil {
-				c, err := a.resolveCommit(ctx, output)
+				c, err := a.pickCommit(ctx, output)
 				if err != nil {
 					return err
 				}
@@ -819,7 +819,7 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	commit, err := a.resolveCommit(ctx, req.Commit)
+	commit, err := a.pickCommit(ctx, req.Commit)
 	if err != nil {
 		return nil, errors.Wrap(err, "get file set")
 	}
