@@ -1,3 +1,4 @@
+load("@aspect_rules_js//js:defs.bzl", "js_library")
 load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_lint_test")
 
 jsonnet_lint_test(
@@ -10,4 +11,10 @@ jsonnet_lint_test(
     name = "snowflake_jsonnet_test",
     size = "small",
     src = "snowflake.jsonnet",
+)
+
+js_library(
+    name = "templates",
+    srcs = ["snowflake.jsonnet", "huggingFaceDownloader.jsonnet", "index.ts"],
+    visibility = ["//console/frontend:__pkg__"],
 )
