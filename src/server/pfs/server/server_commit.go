@@ -498,7 +498,7 @@ func (a *apiServer) pickCommitTx(ctx context.Context, tx *pachsql.Tx, commitHand
 		}, nil
 	}
 	picker := &pfs.CommitPicker{}
-	err := picker.UnmarshalText([]byte(commitHandle.Key()))
+	err := picker.UnmarshalText([]byte(commitHandle.String()))
 	if err != nil {
 		return nil, errors.Wrap(err, "pick commit tx")
 	}

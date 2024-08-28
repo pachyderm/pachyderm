@@ -104,6 +104,10 @@ func (c *Commit) NewFile(path string) *File {
 }
 
 func (c *Commit) String() string {
+	if (c.Id == "" || strings.HasPrefix(c.Id, ".") || strings.HasPrefix(c.Id, "^") || strings.HasPrefix(c.Id, "~")) &&
+		c.Branch != nil && c.Branch.Name != "" {
+		return c.Repo.String() + "@" + c.Branch.Name + c.Id
+	}
 	return c.Repo.String() + "@" + c.Id
 }
 
@@ -113,9 +117,6 @@ func (c *Commit) Key() string {
 	}
 	if c.Repo == nil {
 		return "<nil repo>@" + c.Id
-	}
-	if (c.Id == "" || strings.ContainsAny(c.Id, ".^")) && c.Branch != nil && c.Branch.Name != "" {
-		return c.Repo.Key() + "@" + c.Branch.Name + c.Id
 	}
 	return c.Repo.Key() + "@" + c.Id
 }
