@@ -1,5 +1,5 @@
 load("@aspect_bazel_lib//lib:tar.bzl", "tar")
-load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_test")
+load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_lint_test")
 
 files = [
     "envoy",
@@ -31,7 +31,7 @@ tar(
     visibility = ["//etc/helm/pachyderm:__pkg__"],
 )
 
-jsonnet_test(
+jsonnet_lint_test(
     name = "envoy_jsonnet_test",
     size = "small",
     src = "envoy.jsonnet",
@@ -41,7 +41,7 @@ jsonnet_test(
     ],
 )
 
-jsonnet_test(
+jsonnet_lint_test(
     name = "envoy_tls_jsonnet_test",
     size = "small",
     src = "envoy-tls.jsonnet",

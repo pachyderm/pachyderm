@@ -1,12 +1,12 @@
-load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_test")
+load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_lint_test")
 
-jsonnet_test(
+jsonnet_lint_test(
     name = "huggingFaceDownloader_jsonnet_test",
     size = "small",
     src = "huggingFaceDownloader.jsonnet",
 )
 
-jsonnet_test(
+jsonnet_lint_test(
     name = "snowflake_jsonnet_test",
     size = "small",
     src = "snowflake.jsonnet",

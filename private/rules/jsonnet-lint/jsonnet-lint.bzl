@@ -8,7 +8,7 @@ IFS=$'\n\t'
 exec {JSONNET_LINT} {SRC}
 """
 
-def _jsonnet_test_impl(ctx):
+def _jsonnet_lint_test_impl(ctx):
     linter = ctx.actions.declare_file("%s_lint.sh" % (ctx.label.name))
     ctx.actions.write(
         output = linter,
@@ -26,8 +26,8 @@ def _jsonnet_test_impl(ctx):
         runfiles = runfiles,
     )
 
-jsonnet_test = rule(
-    implementation = _jsonnet_test_impl,
+jsonnet_lint_test = rule(
+    implementation = _jsonnet_lint_test_impl,
     attrs = {
         "src": attr.label(
             allow_single_file = True,
