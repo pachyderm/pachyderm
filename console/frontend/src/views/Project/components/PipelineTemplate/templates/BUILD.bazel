@@ -15,6 +15,10 @@ jsonnet_lint_test(
 
 js_library(
     name = "templates",
-    srcs = ["snowflake.jsonnet", "huggingFaceDownloader.jsonnet", "index.ts"],
+    srcs = [
+        "huggingFaceDownloader.jsonnet",
+        "index.ts",
+        "snowflake.jsonnet",
+    ],
     visibility = ["//console/frontend:__pkg__"],
 )
