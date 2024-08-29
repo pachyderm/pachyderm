@@ -85,6 +85,24 @@ func (x *QueueInfoDetails) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *AwaitReq) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("job_context", x.JobContext)
+	enc.AddInt64("job", x.Job)
+	enc.AddString("desired_state", x.DesiredState.String())
+	return nil
+}
+
+func (x *AwaitResp) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("actual_state", x.ActualState.String())
+	return nil
+}
+
 func (x *CreateJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil

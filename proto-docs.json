@@ -16882,6 +16882,78 @@
       "extensions": [],
       "messages": [
         {
+          "name": "AwaitReq",
+          "longName": "AwaitReq",
+          "fullName": "pjs.AwaitReq",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "job_context",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "desired_state",
+              "description": "",
+              "label": "",
+              "type": "JobState",
+              "longType": "JobState",
+              "fullType": "pjs.JobState",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "AwaitResp",
+          "longName": "AwaitResp",
+          "fullName": "pjs.AwaitResp",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "actual_state",
+              "description": "",
+              "label": "",
+              "type": "JobState",
+              "longType": "JobState",
+              "fullType": "pjs.JobState",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "CancelJobRequest",
           "longName": "CancelJobRequest",
           "fullName": "pjs.CancelJobRequest",
@@ -17868,6 +17940,18 @@
               "responseType": "InspectQueueResponse",
               "responseLongType": "InspectQueueResponse",
               "responseFullType": "pjs.InspectQueueResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "Await",
+              "description": "Await blocks until the job has entered or passed the desired state.\nAwait returns the actual state of the job that met the criteria.\nAwait can timeout with DEADLINE_EXCEEDED.  In this case clients may\nretry in a new request.",
+              "requestType": "AwaitReq",
+              "requestLongType": "AwaitReq",
+              "requestFullType": "pjs.AwaitReq",
+              "requestStreaming": false,
+              "responseType": "AwaitResp",
+              "responseLongType": "AwaitResp",
+              "responseFullType": "pjs.AwaitResp",
               "responseStreaming": false
             }
           ]

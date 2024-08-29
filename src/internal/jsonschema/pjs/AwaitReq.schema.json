@@ -1,0 +1,29 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/AwaitReq",
+    "definitions": {
+        "AwaitReq": {
+            "properties": {
+                "jobContext": {
+                    "type": "string"
+                },
+                "job": {
+                    "type": "integer"
+                },
+                "desiredState": {
+                    "enum": [
+                        "JobState_UNSPECIFIED",
+                        "QUEUED",
+                        "PROCESSING",
+                        "DONE"
+                    ],
+                    "type": "string",
+                    "title": "Job State"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Await Req"
+        }
+    }
+}

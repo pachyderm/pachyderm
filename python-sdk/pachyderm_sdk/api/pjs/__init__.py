@@ -161,6 +161,18 @@ class QueueInfoDetails(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class AwaitReq(betterproto.Message):
+    job_context: str = betterproto.string_field(1)
+    job: int = betterproto.int64_field(2)
+    desired_state: "JobState" = betterproto.enum_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class AwaitResp(betterproto.Message):
+    actual_state: "JobState" = betterproto.enum_field(1)
+
+
+@dataclass(eq=False, repr=False)
 class CreateJobRequest(betterproto.Message):
     context: str = betterproto.string_field(1)
     """
@@ -400,6 +412,11 @@ class ApiStub:
             request_serializer=InspectQueueRequest.SerializeToString,
             response_deserializer=InspectQueueResponse.FromString,
         )
+        self.__rpc_await_ = channel.unary_unary(
+            "/pjs.API/Await",
+            request_serializer=AwaitReq.SerializeToString,
+            response_deserializer=AwaitResp.FromString,
+        )
 
     def create_job(
         self,
@@ -509,3 +526,14 @@ class ApiStub:
             request.queue = queue
 
         return self.__rpc_inspect_queue(request)
+
+    def await_(
+        self, *, job_context: str = "", job: int = 0, desired_state: "JobState" = None
+    ) -> "AwaitResp":
+
+        request = AwaitReq()
+        request.job_context = job_context
+        request.job = job
+        request.desired_state = desired_state
+
+        return self.__rpc_await_(request)
