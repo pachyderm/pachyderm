@@ -187,9 +187,9 @@ func (a *apiServer) CancelJob(ctx context.Context, req *pjs.CancelJobRequest) (*
 			return nil, errors.Wrap(err, "resolve job ctx")
 		}
 		id = jid
-	} else { //nolint:staticcheck
+	} else {
 		// TODO(PJS): do auth.
-	}
+	} //nolint:SA9003
 	// TODO(PJS): remove this once auth is implemented.
 	reqID := pjsdb.JobID(req.Job.Id)
 	if id != reqID {
