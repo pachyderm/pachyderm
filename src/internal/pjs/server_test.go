@@ -98,7 +98,7 @@ func TestRunJob(t *testing.T) {
 		// for now we do nothing here, simply return the input filesets
 		resp.Input = in.Input
 		return nil
-	}, nil)
+	})
 	require.NoError(t, err)
 	require.Equal(t, in.Input, out.Output)
 }
@@ -135,7 +135,7 @@ func TestCancelJob(t *testing.T) {
 			req.Program = program
 		})
 
-		afterDequeue := func() {
+		cancel := func() {
 			_, err := c.CancelJob(ctx, &pjs.CancelJobRequest{
 				Job: &pjs.Job{
 					Id: createResp.Id.Id,
@@ -145,10 +145,11 @@ func TestCancelJob(t *testing.T) {
 		}
 
 		_, err := runJobFrom(t, ctx, c, createResp.Id.Id, program, func(resp *pjs.ProcessQueueResponse) error {
-			// simulate processing time and wait for cancelJob
+			cancel()
+			// simulate processing time and ensure cancelJob is finished
 			time.Sleep(5 * time.Second)
 			return nil
-		}, afterDequeue)
+		})
 		require.NoError(t, err)
 
 		inspectCancelledJob(t, ctx, c, createResp.Id.Id)
@@ -173,7 +174,7 @@ func TestCancelJob(t *testing.T) {
 				close(jobAProcessing)
 				time.Sleep(5 * time.Second)
 				return nil
-			}, nil)
+			})
 			return err
 		})
 		<-jobAProcessing
@@ -190,7 +191,7 @@ func TestCancelJob(t *testing.T) {
 				close(jobBProcessing)
 				time.Sleep(5 * time.Second)
 				return nil
-			}, nil)
+			})
 			return err
 		})
 		<-jobBProcessing
@@ -205,7 +206,7 @@ func TestCancelJob(t *testing.T) {
 				close(jobCProcessing)
 				time.Sleep(5 * time.Second)
 				return nil
-			}, nil)
+			})
 			return err
 		})
 		<-jobCProcessing
@@ -272,14 +273,14 @@ func TestWalkJob(t *testing.T) {
 
 // runJob does work through PJS.
 func runJob(t *testing.T, ctx context.Context, c pjs.APIClient, in *pjs.CreateJobRequest,
-	fn func(resp *pjs.ProcessQueueResponse) error, afterDequeue func()) (*pjs.JobInfo_Success, error) {
+	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo_Success, error) {
 	jres, err := c.CreateJob(ctx, in)
 	require.NoError(t, err)
-	return runJobFrom(t, ctx, c, jres.Id.Id, in.Program, fn, afterDequeue)
+	return runJobFrom(t, ctx, c, jres.Id.Id, in.Program, fn)
 }
 
 func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, from int64, programStr string,
-	fn func(resp *pjs.ProcessQueueResponse) error, afterDequeue func()) (*pjs.JobInfo_Success, error) {
+	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo_Success, error) {
 	program, err := fileset.ParseID(programStr)
 	require.NoError(t, err)
 	programHash := []byte(program.HexString())
@@ -291,7 +292,7 @@ func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, from int64, 
 		defer cf()
 		pqc, err := c.ProcessQueue(ctx)
 		require.NoError(t, err)
-		err = processQueue(pqc, programHash, fn, afterDequeue)
+		err = processQueue(pqc, programHash, fn)
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
@@ -315,8 +316,7 @@ func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, from int64, 
 	return ret, nil
 }
 
-func processQueue(pqc pjs.API_ProcessQueueClient, programHash []byte, fn func(resp *pjs.ProcessQueueResponse) error,
-	afterDequeue func()) error {
+func processQueue(pqc pjs.API_ProcessQueueClient, programHash []byte, fn func(resp *pjs.ProcessQueueResponse) error) error {
 	if err := pqc.Send(&pjs.ProcessQueueRequest{
 		Queue: &pjs.Queue{Id: programHash},
 	}); err != nil {
@@ -326,10 +326,6 @@ func processQueue(pqc pjs.API_ProcessQueueClient, programHash []byte, fn func(re
 		msg, err := pqc.Recv()
 		if err != nil {
 			return err
-		}
-		// invoke the callback when a job is processing but hasn't been done
-		if afterDequeue != nil {
-			afterDequeue()
 		}
 		err = fn(msg)
 		if err != nil {
@@ -439,7 +435,7 @@ func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.AP
 	_, err := runJobFrom(t, ctx, c, createResp.Id.Id, program, func(resp *pjs.ProcessQueueResponse) error {
 		processResp = resp
 		return nil
-	}, nil)
+	})
 	require.NoError(t, err)
 
 	parents := make([]*pjs.ProcessQueueResponse, 0)
@@ -459,7 +455,7 @@ func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.AP
 				_, err := runJobFrom(t, ctx, c, cResp.Id.Id, prog, func(resp *pjs.ProcessQueueResponse) error {
 					pResp = resp
 					return nil
-				}, nil)
+				})
 				require.NoError(t, err)
 				return pResp
 			}
