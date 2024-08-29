@@ -85,17 +85,17 @@ func (x *QueueInfoDetails) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *AwaitReq) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *AwaitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("job_context", x.JobContext)
+	enc.AddString("context", x.Context)
 	enc.AddInt64("job", x.Job)
 	enc.AddString("desired_state", x.DesiredState.String())
 	return nil
 }
 
-func (x *AwaitResp) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *AwaitResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}

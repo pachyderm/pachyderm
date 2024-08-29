@@ -445,8 +445,8 @@
     - [API](#pfs_v2-API)
   
 - [pjs/pjs.proto](#pjs_pjs-proto)
-    - [AwaitReq](#pjs-AwaitReq)
-    - [AwaitResp](#pjs-AwaitResp)
+    - [AwaitRequest](#pjs-AwaitRequest)
+    - [AwaitResponse](#pjs-AwaitResponse)
     - [CancelJobRequest](#pjs-CancelJobRequest)
     - [CancelJobResponse](#pjs-CancelJobResponse)
     - [CreateJobRequest](#pjs-CreateJobRequest)
@@ -7183,15 +7183,15 @@ These are the different places where a commit may be originated from
 
 
 
-<a name="pjs-AwaitReq"></a>
+<a name="pjs-AwaitRequest"></a>
 
-### AwaitReq
+### AwaitRequest
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| job_context | [string](#string) |  |  |
+| context | [string](#string) |  |  |
 | job | [int64](#int64) |  |  |
 | desired_state | [JobState](#pjs-JobState) |  |  |
 
@@ -7200,9 +7200,9 @@ These are the different places where a commit may be originated from
 
 
 
-<a name="pjs-AwaitResp"></a>
+<a name="pjs-AwaitResponse"></a>
 
-### AwaitResp
+### AwaitResponse
 
 
 
@@ -7676,7 +7676,7 @@ Job API
 | ProcessQueue | [ProcessQueueRequest](#pjs-ProcessQueueRequest) stream | [ProcessQueueResponse](#pjs-ProcessQueueResponse) stream | ProcessQueue should be called by workers to process jobs in a queue. The protocol is as follows: Worker sends an initial request with the queue id. For each job: Server sends a response with a job context and the associated queue element. Worker processes the job. Worker sends a request with the job output or indicates that the job failed. This RPC should generally be run indefinitely. Workers will be scaled based on demand, so the expectation is that they should be processing queues while they are up. This RPC will be canceled by the server if the current job is canceled. Workers should generally retry the RPC when disconnects occur. |
 | ListQueue | [ListQueueRequest](#pjs-ListQueueRequest) | [ListQueueResponse](#pjs-ListQueueResponse) stream | ListQueue returns a list of queues and information about each queue. |
 | InspectQueue | [InspectQueueRequest](#pjs-InspectQueueRequest) | [InspectQueueResponse](#pjs-InspectQueueResponse) | InspectQueue returns detailed information about a queue. |
-| Await | [AwaitReq](#pjs-AwaitReq) | [AwaitResp](#pjs-AwaitResp) | Await blocks until the job has entered or passed the desired state. Await returns the actual state of the job that met the criteria. Await can timeout with DEADLINE_EXCEEDED. In this case clients may retry in a new request. |
+| Await | [AwaitRequest](#pjs-AwaitRequest) | [AwaitResponse](#pjs-AwaitResponse) | Await blocks until the job has entered or passed the desired state. Await returns the actual state of the job that met the criteria. Await can timeout with DEADLINE_EXCEEDED. In this case clients may retry in a new request. |
 
  
 

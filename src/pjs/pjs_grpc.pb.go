@@ -79,7 +79,7 @@ type APIClient interface {
 	// Await returns the actual state of the job that met the criteria.
 	// Await can timeout with DEADLINE_EXCEEDED.  In this case clients may
 	// retry in a new request.
-	Await(ctx context.Context, in *AwaitReq, opts ...grpc.CallOption) (*AwaitResp, error)
+	Await(ctx context.Context, in *AwaitRequest, opts ...grpc.CallOption) (*AwaitResponse, error)
 }
 
 type aPIClient struct {
@@ -262,8 +262,8 @@ func (c *aPIClient) InspectQueue(ctx context.Context, in *InspectQueueRequest, o
 	return out, nil
 }
 
-func (c *aPIClient) Await(ctx context.Context, in *AwaitReq, opts ...grpc.CallOption) (*AwaitResp, error) {
-	out := new(AwaitResp)
+func (c *aPIClient) Await(ctx context.Context, in *AwaitRequest, opts ...grpc.CallOption) (*AwaitResponse, error) {
+	out := new(AwaitResponse)
 	err := c.cc.Invoke(ctx, API_Await_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -319,7 +319,7 @@ type APIServer interface {
 	// Await returns the actual state of the job that met the criteria.
 	// Await can timeout with DEADLINE_EXCEEDED.  In this case clients may
 	// retry in a new request.
-	Await(context.Context, *AwaitReq) (*AwaitResp, error)
+	Await(context.Context, *AwaitRequest) (*AwaitResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -354,7 +354,7 @@ func (UnimplementedAPIServer) ListQueue(*ListQueueRequest, API_ListQueueServer) 
 func (UnimplementedAPIServer) InspectQueue(context.Context, *InspectQueueRequest) (*InspectQueueResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectQueue not implemented")
 }
-func (UnimplementedAPIServer) Await(context.Context, *AwaitReq) (*AwaitResp, error) {
+func (UnimplementedAPIServer) Await(context.Context, *AwaitRequest) (*AwaitResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Await not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
@@ -550,7 +550,7 @@ func _API_InspectQueue_Handler(srv interface{}, ctx context.Context, dec func(in
 }
 
 func _API_Await_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AwaitReq)
+	in := new(AwaitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -562,7 +562,7 @@ func _API_Await_Handler(srv interface{}, ctx context.Context, dec func(interface
 		FullMethod: API_Await_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).Await(ctx, req.(*AwaitReq))
+		return srv.(APIServer).Await(ctx, req.(*AwaitRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }

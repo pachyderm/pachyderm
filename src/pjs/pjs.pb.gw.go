@@ -320,7 +320,7 @@ func local_request_API_InspectQueue_0(ctx context.Context, marshaler runtime.Mar
 }
 
 func request_API_Await_0(ctx context.Context, marshaler runtime.Marshaler, client APIClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq AwaitReq
+	var protoReq AwaitRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -337,7 +337,7 @@ func request_API_Await_0(ctx context.Context, marshaler runtime.Marshaler, clien
 }
 
 func local_request_API_Await_0(ctx context.Context, marshaler runtime.Marshaler, server APIServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq AwaitReq
+	var protoReq AwaitRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)

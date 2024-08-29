@@ -870,47 +870,47 @@ var _ interface {
 	ErrorName() string
 } = QueueInfoDetailsValidationError{}
 
-// Validate checks the field values on AwaitReq with the rules defined in the
-// proto definition for this message. If any rules are violated, the first
+// Validate checks the field values on AwaitRequest with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
-func (m *AwaitReq) Validate() error {
+func (m *AwaitRequest) Validate() error {
 	return m.validate(false)
 }
 
-// ValidateAll checks the field values on AwaitReq with the rules defined in
-// the proto definition for this message. If any rules are violated, the
-// result is a list of violation errors wrapped in AwaitReqMultiError, or nil
-// if none found.
-func (m *AwaitReq) ValidateAll() error {
+// ValidateAll checks the field values on AwaitRequest with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in AwaitRequestMultiError, or
+// nil if none found.
+func (m *AwaitRequest) ValidateAll() error {
 	return m.validate(true)
 }
 
-func (m *AwaitReq) validate(all bool) error {
+func (m *AwaitRequest) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
 
 	var errors []error
 
-	// no validation rules for JobContext
+	// no validation rules for Context
 
 	// no validation rules for Job
 
 	// no validation rules for DesiredState
 
 	if len(errors) > 0 {
-		return AwaitReqMultiError(errors)
+		return AwaitRequestMultiError(errors)
 	}
 
 	return nil
 }
 
-// AwaitReqMultiError is an error wrapping multiple validation errors returned
-// by AwaitReq.ValidateAll() if the designated constraints aren't met.
-type AwaitReqMultiError []error
+// AwaitRequestMultiError is an error wrapping multiple validation errors
+// returned by AwaitRequest.ValidateAll() if the designated constraints aren't met.
+type AwaitRequestMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
-func (m AwaitReqMultiError) Error() string {
+func (m AwaitRequestMultiError) Error() string {
 	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
@@ -919,11 +919,11 @@ func (m AwaitReqMultiError) Error() string {
 }
 
 // AllErrors returns a list of validation violation errors.
-func (m AwaitReqMultiError) AllErrors() []error { return m }
+func (m AwaitRequestMultiError) AllErrors() []error { return m }
 
-// AwaitReqValidationError is the validation error returned by
-// AwaitReq.Validate if the designated constraints aren't met.
-type AwaitReqValidationError struct {
+// AwaitRequestValidationError is the validation error returned by
+// AwaitRequest.Validate if the designated constraints aren't met.
+type AwaitRequestValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -931,22 +931,22 @@ type AwaitReqValidationError struct {
 }
 
 // Field function returns field value.
-func (e AwaitReqValidationError) Field() string { return e.field }
+func (e AwaitRequestValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e AwaitReqValidationError) Reason() string { return e.reason }
+func (e AwaitRequestValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e AwaitReqValidationError) Cause() error { return e.cause }
+func (e AwaitRequestValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e AwaitReqValidationError) Key() bool { return e.key }
+func (e AwaitRequestValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e AwaitReqValidationError) ErrorName() string { return "AwaitReqValidationError" }
+func (e AwaitRequestValidationError) ErrorName() string { return "AwaitRequestValidationError" }
 
 // Error satisfies the builtin error interface
-func (e AwaitReqValidationError) Error() string {
+func (e AwaitRequestValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -958,14 +958,14 @@ func (e AwaitReqValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sAwaitReq.%s: %s%s",
+		"invalid %sAwaitRequest.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = AwaitReqValidationError{}
+var _ error = AwaitRequestValidationError{}
 
 var _ interface {
 	Field() string
@@ -973,24 +973,24 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = AwaitReqValidationError{}
+} = AwaitRequestValidationError{}
 
-// Validate checks the field values on AwaitResp with the rules defined in the
-// proto definition for this message. If any rules are violated, the first
+// Validate checks the field values on AwaitResponse with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
-func (m *AwaitResp) Validate() error {
+func (m *AwaitResponse) Validate() error {
 	return m.validate(false)
 }
 
-// ValidateAll checks the field values on AwaitResp with the rules defined in
-// the proto definition for this message. If any rules are violated, the
-// result is a list of violation errors wrapped in AwaitRespMultiError, or nil
-// if none found.
-func (m *AwaitResp) ValidateAll() error {
+// ValidateAll checks the field values on AwaitResponse with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in AwaitResponseMultiError, or
+// nil if none found.
+func (m *AwaitResponse) ValidateAll() error {
 	return m.validate(true)
 }
 
-func (m *AwaitResp) validate(all bool) error {
+func (m *AwaitResponse) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
@@ -1000,18 +1000,19 @@ func (m *AwaitResp) validate(all bool) error {
 	// no validation rules for ActualState
 
 	if len(errors) > 0 {
-		return AwaitRespMultiError(errors)
+		return AwaitResponseMultiError(errors)
 	}
 
 	return nil
 }
 
-// AwaitRespMultiError is an error wrapping multiple validation errors returned
-// by AwaitResp.ValidateAll() if the designated constraints aren't met.
-type AwaitRespMultiError []error
+// AwaitResponseMultiError is an error wrapping multiple validation errors
+// returned by AwaitResponse.ValidateAll() if the designated constraints
+// aren't met.
+type AwaitResponseMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
-func (m AwaitRespMultiError) Error() string {
+func (m AwaitResponseMultiError) Error() string {
 	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
@@ -1020,11 +1021,11 @@ func (m AwaitRespMultiError) Error() string {
 }
 
 // AllErrors returns a list of validation violation errors.
-func (m AwaitRespMultiError) AllErrors() []error { return m }
+func (m AwaitResponseMultiError) AllErrors() []error { return m }
 
-// AwaitRespValidationError is the validation error returned by
-// AwaitResp.Validate if the designated constraints aren't met.
-type AwaitRespValidationError struct {
+// AwaitResponseValidationError is the validation error returned by
+// AwaitResponse.Validate if the designated constraints aren't met.
+type AwaitResponseValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -1032,22 +1033,22 @@ type AwaitRespValidationError struct {
 }
 
 // Field function returns field value.
-func (e AwaitRespValidationError) Field() string { return e.field }
+func (e AwaitResponseValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e AwaitRespValidationError) Reason() string { return e.reason }
+func (e AwaitResponseValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e AwaitRespValidationError) Cause() error { return e.cause }
+func (e AwaitResponseValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e AwaitRespValidationError) Key() bool { return e.key }
+func (e AwaitResponseValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e AwaitRespValidationError) ErrorName() string { return "AwaitRespValidationError" }
+func (e AwaitResponseValidationError) ErrorName() string { return "AwaitResponseValidationError" }
 
 // Error satisfies the builtin error interface
-func (e AwaitRespValidationError) Error() string {
+func (e AwaitResponseValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -1059,14 +1060,14 @@ func (e AwaitRespValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sAwaitResp.%s: %s%s",
+		"invalid %sAwaitResponse.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = AwaitRespValidationError{}
+var _ error = AwaitResponseValidationError{}
 
 var _ interface {
 	Field() string
@@ -1074,7 +1075,7 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = AwaitRespValidationError{}
+} = AwaitResponseValidationError{}
 
 // Validate checks the field values on CreateJobRequest with the rules defined
 // in the proto definition for this message. If any rules are violated, the

@@ -16882,9 +16882,9 @@
       "extensions": [],
       "messages": [
         {
-          "name": "AwaitReq",
-          "longName": "AwaitReq",
-          "fullName": "pjs.AwaitReq",
+          "name": "AwaitRequest",
+          "longName": "AwaitRequest",
+          "fullName": "pjs.AwaitRequest",
           "description": "",
           "hasExtensions": false,
           "hasFields": true,
@@ -16892,7 +16892,7 @@
           "extensions": [],
           "fields": [
             {
-              "name": "job_context",
+              "name": "context",
               "description": "",
               "label": "",
               "type": "string",
@@ -16930,9 +16930,9 @@
           ]
         },
         {
-          "name": "AwaitResp",
-          "longName": "AwaitResp",
-          "fullName": "pjs.AwaitResp",
+          "name": "AwaitResponse",
+          "longName": "AwaitResponse",
+          "fullName": "pjs.AwaitResponse",
           "description": "",
           "hasExtensions": false,
           "hasFields": true,
@@ -17945,13 +17945,13 @@
             {
               "name": "Await",
               "description": "Await blocks until the job has entered or passed the desired state.\nAwait returns the actual state of the job that met the criteria.\nAwait can timeout with DEADLINE_EXCEEDED.  In this case clients may\nretry in a new request.",
-              "requestType": "AwaitReq",
-              "requestLongType": "AwaitReq",
-              "requestFullType": "pjs.AwaitReq",
+              "requestType": "AwaitRequest",
+              "requestLongType": "AwaitRequest",
+              "requestFullType": "pjs.AwaitRequest",
               "requestStreaming": false,
-              "responseType": "AwaitResp",
-              "responseLongType": "AwaitResp",
-              "responseFullType": "pjs.AwaitResp",
+              "responseType": "AwaitResponse",
+              "responseLongType": "AwaitResponse",
+              "responseFullType": "pjs.AwaitResponse",
               "responseStreaming": false
             }
           ]

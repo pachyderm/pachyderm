@@ -75,13 +75,13 @@ export type QueueInfoDetails = {
   size?: string
 }
 
-export type AwaitReq = {
-  jobContext?: string
+export type AwaitRequest = {
+  context?: string
   job?: string
   desiredState?: JobState
 }
 
-export type AwaitResp = {
+export type AwaitResponse = {
   actualState?: JobState
 }
 
@@ -199,7 +199,7 @@ export class API {
   static InspectQueue(req: InspectQueueRequest, initReq?: fm.InitReq): Promise<InspectQueueResponse> {
     return fm.fetchReq<InspectQueueRequest, InspectQueueResponse>(`/pjs.API/InspectQueue`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
-  static Await(req: AwaitReq, initReq?: fm.InitReq): Promise<AwaitResp> {
-    return fm.fetchReq<AwaitReq, AwaitResp>(`/pjs.API/Await`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  static Await(req: AwaitRequest, initReq?: fm.InitReq): Promise<AwaitResponse> {
+    return fm.fetchReq<AwaitRequest, AwaitResponse>(`/pjs.API/Await`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
 }

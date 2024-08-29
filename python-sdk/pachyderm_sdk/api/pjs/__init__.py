@@ -161,14 +161,14 @@ class QueueInfoDetails(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class AwaitReq(betterproto.Message):
-    job_context: str = betterproto.string_field(1)
+class AwaitRequest(betterproto.Message):
+    context: str = betterproto.string_field(1)
     job: int = betterproto.int64_field(2)
     desired_state: "JobState" = betterproto.enum_field(3)
 
 
 @dataclass(eq=False, repr=False)
-class AwaitResp(betterproto.Message):
+class AwaitResponse(betterproto.Message):
     actual_state: "JobState" = betterproto.enum_field(1)
 
 
@@ -414,8 +414,8 @@ class ApiStub:
         )
         self.__rpc_await_ = channel.unary_unary(
             "/pjs.API/Await",
-            request_serializer=AwaitReq.SerializeToString,
-            response_deserializer=AwaitResp.FromString,
+            request_serializer=AwaitRequest.SerializeToString,
+            response_deserializer=AwaitResponse.FromString,
         )
 
     def create_job(
@@ -528,11 +528,11 @@ class ApiStub:
         return self.__rpc_inspect_queue(request)
 
     def await_(
-        self, *, job_context: str = "", job: int = 0, desired_state: "JobState" = None
-    ) -> "AwaitResp":
+        self, *, context: str = "", job: int = 0, desired_state: "JobState" = None
+    ) -> "AwaitResponse":
 
-        request = AwaitReq()
-        request.job_context = job_context
+        request = AwaitRequest()
+        request.context = context
         request.job = job
         request.desired_state = desired_state
 

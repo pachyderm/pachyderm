@@ -4215,7 +4215,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/pjsAwaitResp"
+              "$ref": "#/definitions/pjsAwaitResponse"
             }
           },
           "default": {
@@ -4231,7 +4231,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/pjsAwaitReq"
+              "$ref": "#/definitions/pjsAwaitRequest"
             }
           }
         ]
@@ -10131,10 +10131,10 @@
         }
       }
     },
-    "pjsAwaitReq": {
+    "pjsAwaitRequest": {
       "type": "object",
       "properties": {
-        "jobContext": {
+        "context": {
           "type": "string"
         },
         "job": {
@@ -10146,7 +10146,7 @@
         }
       }
     },
-    "pjsAwaitResp": {
+    "pjsAwaitResponse": {
       "type": "object",
       "properties": {
         "actualState": {
