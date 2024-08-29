@@ -1,0 +1,25 @@
+load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_lint_test")
+
+jsonnet_lint_test(
+    name = "echo_name_jsonnet_test",
+    size = "small",
+    src = "echo-name.jsonnet",
+)
+
+jsonnet_lint_test(
+    name = "generate_large_file_jsonnet_test",
+    size = "small",
+    src = "generate-large-file.jsonnet",
+)
+
+jsonnet_lint_test(
+    name = "generate_small_files_jsonnet_test",
+    size = "small",
+    src = "generate-small-files.jsonnet",
+)
+
+jsonnet_lint_test(
+    name = "log_and_copy_files_jsonnet_test",
+    size = "small",
+    src = "log-and-copy-files.jsonnet",
+)

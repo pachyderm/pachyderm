@@ -1,0 +1,13 @@
+load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_lint_test")
+
+jsonnet_lint_test(
+    name = "edges_jsonnet_test",
+    size = "small",
+    src = "edges.jsonnet",
+)
+
+jsonnet_lint_test(
+    name = "montage_jsonnet_test",
+    size = "small",
+    src = "montage.jsonnet",
+)

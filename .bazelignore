@@ -4,12 +4,9 @@ examples/deferred-processing
 examples/err_cmd
 examples/gatk
 examples/globalID
-examples/group
 examples/img
-examples/joins
 examples/kubeflow
 examples/ml
-examples/opencv
 examples/redshift
 examples/run
 examples/shuffle
