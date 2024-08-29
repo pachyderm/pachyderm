@@ -121,6 +121,12 @@ require (
 )
 
 require (
+	github.com/bazelbuild/bazel-gazelle v0.36.0
+	github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 // indirect
+	golang.org/x/tools/go/vcs v0.1.0-deprecated // indirect
+)
+
+require (
 	cloud.google.com/go v0.115.0 // indirect
 	cloud.google.com/go/auth v0.5.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
