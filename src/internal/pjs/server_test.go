@@ -103,6 +103,130 @@ func TestRunJob(t *testing.T) {
 	require.Equal(t, in.Input, out.Output)
 }
 
+func TestCancelJob(t *testing.T) {
+	t.Run("cancel job before processing", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		c, fc := setupTest(t)
+		resp := createJob(t, ctx, c, fc)
+		jid := resp.Id.Id
+		_, err := c.CancelJob(ctx, &pjs.CancelJobRequest{
+			Job: &pjs.Job{
+				Id: jid,
+			},
+		})
+		require.NoError(t, err)
+		inspectJobResp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{
+			Job: &pjs.Job{
+				Id: jid,
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, inspectJobResp.Details)
+		jobInfo := inspectJobResp.Details.JobInfo
+		require.Equal(t, pjs.JobState_DONE, jobInfo.State)
+		// todo: the queue should be empty. This can be tested when inspectQueue is ready
+	})
+	t.Run("cancel a processing job", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		c, fc := setupTest(t)
+
+		program := createFileSet(t, fc, map[string][]byte{"program": []byte("foo")})
+		createResp := createJob(t, ctx, c, fc, func(req *pjs.CreateJobRequest) {
+			req.Program = program
+		})
+
+		cancel := func() {
+			_, err := c.CancelJob(ctx, &pjs.CancelJobRequest{
+				Job: &pjs.Job{
+					Id: createResp.Id.Id,
+				},
+			})
+			require.NoError(t, err)
+		}
+
+		_, err := runJobFrom(t, ctx, c, createResp.Id.Id, program, func(resp *pjs.ProcessQueueResponse) error {
+			cancel()
+			// simulate processing time and ensure cancelJob is finished
+			time.Sleep(5 * time.Second)
+			return nil
+		})
+		require.NoError(t, err)
+
+		inspectCancelledJob(t, ctx, c, createResp.Id.Id)
+	})
+	t.Run("cancel processing job tree", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		c, fc := setupTest(t)
+		eg, egCtx := errgroup.WithContext(ctx)
+
+		jobAProcessing := make(chan struct{})
+		jobBProcessing := make(chan struct{})
+		jobCProcessing := make(chan struct{})
+
+		var jobAContext string
+		programA := createFileSet(t, fc, map[string][]byte{"program": []byte("A")})
+		createRespA := createJob(t, ctx, c, fc, func(req *pjs.CreateJobRequest) {
+			req.Program = programA
+		})
+		eg.Go(func() error {
+			_, err := runJobFrom(t, egCtx, c, createRespA.Id.Id, programA, func(resp *pjs.ProcessQueueResponse) error {
+				jobAContext = resp.Context
+				close(jobAProcessing)
+				time.Sleep(5 * time.Second)
+				return nil
+			})
+			return err
+		})
+		<-jobAProcessing
+
+		programB := createFileSet(t, fc, map[string][]byte{"program": []byte("B")})
+		createRespB := createJob(t, ctx, c, fc, func(req *pjs.CreateJobRequest) {
+			req.Context = jobAContext
+			req.Program = programB
+		})
+		var jobBContext string
+		eg.Go(func() error {
+			_, err := runJobFrom(t, egCtx, c, createRespB.Id.Id, programB, func(resp *pjs.ProcessQueueResponse) error {
+				jobBContext = resp.Context
+				close(jobBProcessing)
+				time.Sleep(5 * time.Second)
+				return nil
+			})
+			return err
+		})
+		<-jobBProcessing
+
+		programC := createFileSet(t, fc, map[string][]byte{"program": []byte("C")})
+		createRespC := createJob(t, ctx, c, fc, func(req *pjs.CreateJobRequest) {
+			req.Context = jobBContext
+			req.Program = programC
+		})
+		eg.Go(func() error {
+			_, err := runJobFrom(t, egCtx, c, createRespC.Id.Id, programC, func(resp *pjs.ProcessQueueResponse) error {
+				close(jobCProcessing)
+				time.Sleep(5 * time.Second)
+				return nil
+			})
+			return err
+		})
+		<-jobCProcessing
+
+		// Cancel job A while A, B, and C are all processing
+		_, err := c.CancelJob(ctx, &pjs.CancelJobRequest{
+			Job: &pjs.Job{
+				Id: createRespA.Id.Id,
+			},
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, eg.Wait())
+
+		inspectCancelledJob(t, ctx, c, createRespA.Id.Id)
+		inspectCancelledJob(t, ctx, c, createRespB.Id.Id)
+		inspectCancelledJob(t, ctx, c, createRespC.Id.Id)
+	})
+}
+
 func TestWalkJob(t *testing.T) {
 	c, fc := setupTest(t)
 	ctx := pctx.TestContext(t)
@@ -169,6 +293,9 @@ func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, from int64, 
 		pqc, err := c.ProcessQueue(ctx)
 		require.NoError(t, err)
 		err = processQueue(pqc, programHash, fn)
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
 		if status.Code(err) == codes.Canceled {
 			err = nil
 		}
@@ -325,7 +452,7 @@ func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.AP
 					req.Program = prog
 				})
 				var pResp *pjs.ProcessQueueResponse
-				_, err = runJobFrom(t, ctx, c, cResp.Id.Id, prog, func(resp *pjs.ProcessQueueResponse) error {
+				_, err := runJobFrom(t, ctx, c, cResp.Id.Id, prog, func(resp *pjs.ProcessQueueResponse) error {
 					pResp = resp
 					return nil
 				})
@@ -336,4 +463,18 @@ func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.AP
 		}
 		parents = newParents
 	}
+}
+
+func inspectCancelledJob(t *testing.T, ctx context.Context, c pjs.APIClient, id int64) {
+	inspectJobResp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{
+		Job: &pjs.Job{
+			Id: id,
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, inspectJobResp.Details)
+	jobInfo := inspectJobResp.Details.JobInfo
+	// the processing job is still processed successfully, but the output
+	// does not get written back to db
+	require.Nil(t, jobInfo.GetSuccess())
 }

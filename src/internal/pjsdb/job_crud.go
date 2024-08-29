@@ -307,10 +307,10 @@ func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobE
 	_, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP, error = $1
-		WHERE id = $2
+		WHERE id = $2 AND error IS NULL
 	`, errCode, jobID)
 	if err != nil {
-		return errors.Wrapf(err, "complete error")
+		return errors.Wrapf(err, "error job: update error and state to done")
 	}
 	return nil
 }
@@ -319,13 +319,24 @@ func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobE
 // output filesets and in database.
 func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []string) error {
 	ctx = pctx.Child(ctx, "complete ok")
-	_, err := tx.ExecContext(ctx, `
+	result, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP
-		WHERE id = $1
+		WHERE id = $1 AND error IS NULL
 	`, jobID)
 	if err != nil {
-		return errors.Wrapf(err, "complete ok: update state to done")
+		return errors.Wrapf(err, "complete job: update state to done")
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "complete job: get rows affected")
+	}
+	// if no rows are affected,
+	// 1) the job's error is not null(it can be cancelled), so we should not update output
+	// 2) the id does not exist which means the job has been deleted. we should not update
+	// output for a deleted job
+	if rowsAffected == 0 {
+		return nil
 	}
 	for pos, output := range outputs {
 		_, err := tx.ExecContext(ctx, `
