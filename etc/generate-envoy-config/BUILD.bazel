@@ -50,3 +50,17 @@ jsonnet_lint_test(
         "pachyderm-services.libsonnet",
     ],
 )
+
+jsonnet_lint_test(
+    name = "envoy_libsonnet_lint_test",
+    size = "small",
+    src = "envoy.libsonnet",
+    deps = ["pachyderm-services.libsonnet"],
+)
+
+jsonnet_lint_test(
+    name = "pachyderm_services_libsonnet_lint_test",
+    size = "small",
+    src = "pachyderm-services.libsonnet",
+    deps = ["envoy.libsonnet"],
+)

@@ -75,12 +75,14 @@ gazelle_binary(
         "@gazelle//language/go",  # Built-in rule from gazelle for Golang.
         "@gazelle//language/proto",  # Built-in rule from gazelle for Protos.
         "@rules_python_gazelle_plugin//python",  # Use gazelle from rules_python.
+        "//src/internal/gazelle/jsonnet",
     ],
     visibility = ["//visibility:public"],
 )
 
 # gazelle:prefix github.com/pachyderm/pachyderm/v2
 # gazelle:proto disable_global
+# gazelle:jsonnet_verbose false
 gazelle(
     name = "gazelle",
     build_tags = ["bazel"],
