@@ -345,8 +345,6 @@ github.com/aymanbagabas/go-osc52/v2 v2.0.1 h1:HwpRHbFMcZLEVr42D4p7XBqjyuxQH5SMiE
 github.com/aymanbagabas/go-osc52/v2 v2.0.1/go.mod h1:uYgXzlJ7ZpABp8OJ+exZzJJhRNQ2ASbcXHWsFqH8hp8=
 github.com/bazelbuild/bazel-gazelle v0.36.0 h1:n41ODckCkU9D2BEwBxYN+xu5E92Vd0gaW6QmsIW9l00=
 github.com/bazelbuild/bazel-gazelle v0.36.0/go.mod h1:5wGHbkRpDUdz4LxREtPYwXstrWfnkV+oDmOuxNAxW1s=
-github.com/bazelbuild/bazel-gazelle v0.38.0 h1:7SABASdzy94tbvklgX8ThG+1y7ZNl2eFYRVevjOXpgw=
-github.com/bazelbuild/bazel-gazelle v0.38.0/go.mod h1:hspieDFb3FIjjhQV/dZjqq8qiVxsQ4rtRiWNZMihEXg=
 github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 h1:VNqmvOfFzn2Hrtoni8vqgXlIQ4C2Zt22fxeZ9gOOkp0=
 github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954/go.mod h1:689QdV3hBP7Vo9dJMmzhoYIyo/9iMhEmHkJcnaPRCbo=
 github.com/bazelbuild/rules_go v0.48.1 h1:uFAO3cNJyiZlf3r4HzApyMDiNch7lU0VtQBHrjnfCyw=
