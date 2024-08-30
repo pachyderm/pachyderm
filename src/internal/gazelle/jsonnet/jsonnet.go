@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/bazelbuild/bazel-gazelle/config"
@@ -20,10 +21,15 @@ type Jsonnet struct {
 	Verbose           bool
 }
 
+func NewLanguage() language.Language {
+	return new(Jsonnet)
+}
+
 const (
-	lang       = "jsonnet"
-	lintRule   = "jsonnet_lint_test"
-	ruleImport = "//private/rules/jsonnet-lint:jsonnet-lint.bzl"
+	lang             = "jsonnet"
+	lintRule         = "jsonnet_lint_test"
+	ruleImport       = "//private/rules/jsonnet-lint:jsonnet-lint.bzl"
+	verboseDirective = "jsonnet_verbose" // "# gazelle:jsonnet_verbose [true|false]" in BUILD file to control logging.
 )
 
 var (
@@ -43,13 +49,32 @@ var (
 	}
 )
 
-func (_ Jsonnet) Name() string { return lang }
+func (Jsonnet) Name() string { return lang }
 
-func (_ Jsonnet) Kinds() map[string]rule.KindInfo {
+func (Jsonnet) Kinds() map[string]rule.KindInfo {
 	return kindInfo
 }
 
-func (_ Jsonnet) Imports(c *config.Config, r *rule.Rule, f *rule.File) []resolve.ImportSpec {
+func (Jsonnet) KnownDirectives() []string { return []string{verboseDirective} }
+
+func (j *Jsonnet) Configure(c *config.Config, rel string, f *rule.File) {
+	if f == nil {
+		return
+	}
+	for _, d := range f.Directives {
+		switch d.Key {
+		case verboseDirective:
+			v, err := strconv.ParseBool(d.Value)
+			if err != nil {
+				log.Printf("error: unknown %v directive value in %v: should be true or false, not %v", verboseDirective, filepath.Join(rel, filepath.Base(f.Path)), d.Value)
+				continue
+			}
+			j.Verbose = v
+		}
+	}
+}
+
+func (Jsonnet) Imports(c *config.Config, r *rule.Rule, f *rule.File) []resolve.ImportSpec {
 	switch r.Kind() {
 	case lintRule:
 		return []resolve.ImportSpec{
@@ -59,7 +84,7 @@ func (_ Jsonnet) Imports(c *config.Config, r *rule.Rule, f *rule.File) []resolve
 	return nil
 }
 
-func (_ Jsonnet) ApparentLoads(moduleToApparentName func(string) string) []rule.LoadInfo {
+func (Jsonnet) ApparentLoads(moduleToApparentName func(string) string) []rule.LoadInfo {
 	return []rule.LoadInfo{
 		{
 			Name:    ruleImport,
@@ -157,8 +182,4 @@ func (j *Jsonnet) GenerateRules(args language.GenerateArgs) (result language.Gen
 		}
 	}
 	return
-}
-
-func NewLanguage() language.Language {
-	return &Jsonnet{Verbose: true}
 }
