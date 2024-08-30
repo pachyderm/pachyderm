@@ -5,5 +5,10 @@ go_library(
     srcs = ["jsonnet.go"],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/gazelle/jsonnet",
     visibility = ["//:__pkg__"],
-    deps = ["@gazelle//language:go_default_library"],
+    deps = [
+        "@gazelle//config:go_default_library",
+        "@gazelle//language:go_default_library",
+        "@gazelle//resolve:go_default_library",
+        "@gazelle//rule:go_default_library",
+    ],
 )
