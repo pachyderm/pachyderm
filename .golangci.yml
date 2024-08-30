@@ -20,6 +20,9 @@ linters:
         - exhaustive
         - goprintffuncname
         - depguard
+        - sqlclosecheck
+        - rowserrcheck
+        - execinquery
         # - bodyclose CORE-1317
         # - gocritic CORE-1318
         # - gosec CORE-1319
