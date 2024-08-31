@@ -193,12 +193,12 @@ func uploadTestResult(paths []string,
 	})
 }
 
-func uploadResultsFile(path string, basePath string, resultsFolder string, mf client.ModifyFile) error {
+func uploadResultsFile(path string, basePath string, resultsFolder string, mf client.ModifyFile) (retErr error) {
 	resultsFile, err := os.Open(path)
 	if err != nil {
 		return errors.Wrapf(err, "opening file %v", path)
 	}
-	defer resultsFile.Close() //nolint:errcheck
+	defer errors.Close(&retErr, resultsFile, "close %v", path)
 	resultsPath := findDestinationPath(path, basePath, resultsFolder)
 	if err = mf.PutFile(resultsPath, resultsFile); err != nil {
 		return err

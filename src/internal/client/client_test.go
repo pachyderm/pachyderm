@@ -50,7 +50,7 @@ func TestInterceptors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create client: %v", err)
 	}
-	defer c.Close()
+	defer c.Close() //nolint:errcheck
 
 	// Unary call.
 	if err := c.CreateRepo("bar", "foo"); err == nil {

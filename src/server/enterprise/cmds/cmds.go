@@ -32,13 +32,13 @@ func DeactivateCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Deactivate the enterprise service",
 		Long:  "This command deactivates the enterprise service.",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			// Deactivate the enterprise server
 			req := &enterprise.DeactivateRequest{}
@@ -64,19 +64,19 @@ func RegisterCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 			"\t- {{alias}} --id my-cluster-id \n" +
 			"\t- {{alias}} --id my-cluster-id --pachd-address <pachd-ip>:650 \n" +
 			"\t- {{alias}} --id my-cluster-id --pachd-enterprise-server-address <pach-enterprise-IP>:650 \n",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
-				return errors.Wrapf(err, "could not connect")
+				return errors.Wrapf(err, "could not connect to pachd")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			ec, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
-				return errors.Wrapf(err, "could not connect")
+				return errors.Wrapf(err, "could not connect to enterprise server")
 			}
-			defer ec.Close()
+			defer errors.Close(&retErr, c, "close enterprise client")
 
 			if pachdUsrAddr == "" {
 				pachdUsrAddr = c.GetAddress().Qualified()
@@ -158,13 +158,13 @@ func GetStateCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	getState := &cobra.Command{
 		Short: "Check whether the Pachyderm cluster has an active enterprise license.",
 		Long:  "This command checks whether the Pachyderm cluster has an active enterprise license; If so, it also returns the expiration date of the license.",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, isEnterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			resp, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			if err != nil {
 				return errors.EnsureStack(err)
@@ -187,7 +187,7 @@ func SyncContextsCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	syncContexts := &cobra.Command{
 		Short: "Pull all available Pachyderm Cluster contexts into your pachctl config",
 		Long:  "This command pulls all available Pachyderm Cluster contexts into your pachctl config.",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			cfg, err := config.Read(false, false)
 			if err != nil {
@@ -198,7 +198,7 @@ func SyncContextsCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer ec.Close()
+			defer errors.Close(&retErr, ec, "close client")
 
 			resp, err := ec.License.ListUserClusters(ec.Ctx(), &license.ListUserClustersRequest{})
 			if err != nil {
@@ -242,13 +242,13 @@ func HeartbeatCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Short: "Sync the enterprise state with the license server immediately.",
 		Long: "This command syncs the enterprise state with the license server immediately. \n\n" +
 			"This means that if there is an active enterprise license associated with the enterprise server, the cluster will also have access to enterprise features.",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, isEnterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			_, err = c.Enterprise.Heartbeat(c.Ctx(), &enterprise.HeartbeatRequest{})
 			if err != nil {
 				return errors.Wrapf(err, "could not sync with license server")
@@ -265,13 +265,13 @@ func PauseCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	pause := &cobra.Command{
 		Short: "Pause the cluster.",
 		Long:  "This command pauses the cluster.",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			_, err = c.Enterprise.Pause(c.Ctx(), &enterprise.PauseRequest{})
 			if err != nil {
 				return errors.Wrapf(err, "could not pause cluster")
@@ -287,13 +287,13 @@ func UnpauseCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	unpause := &cobra.Command{
 		Short: "Unpause the cluster.",
 		Long:  "This command unpauses the cluster.",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			_, err = c.Enterprise.Unpause(c.Ctx(), &enterprise.UnpauseRequest{})
 			if err != nil {
 				return errors.Wrapf(err, "could not unpause cluster")
@@ -310,13 +310,13 @@ func PauseStatusCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	pauseStatus := &cobra.Command{
 		Short: "Get the pause status of the cluster.",
 		Long:  "This command returns the pause state of the cluster: `normal`, `partially-paused` or `paused`.",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			resp, err := c.Enterprise.PauseStatus(c.Ctx(), &enterprise.PauseStatusRequest{})
 			if err != nil {
 				return errors.Wrapf(err, "could not get pause status")
