@@ -719,10 +719,13 @@ func NewInWorker(ctx context.Context, options ...Option) (*APIClient, error) {
 	return nil, errors.New("PEER_PORT not set")
 }
 
-// Close the connection to gRPC
+// Close the connection to gRPC.
 func (c *APIClient) Close() error {
 	if err := c.clientConn.Close(); err != nil {
-		return err
+		if !strings.Contains(err.Error(), "anceled") {
+			// grpc says "Canceled", go says "canceled"
+			return err
+		}
 	}
 
 	if c.portForwarder != nil {
