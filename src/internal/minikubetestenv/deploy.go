@@ -847,7 +847,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoError(t, err, "Creating determined values template")
 		valuesFile, err := os.CreateTemp("", "detvalues.*.yaml")
 		require.NoError(t, err, "Creating determined values temp file")
-		defer valuesFile.Close()
+		defer valuesFile.Close() //nolint:errcheck
 		err = valuesTemplate.Execute(valuesFile, struct{ K8sNamespace string }{K8sNamespace: namespace})
 		require.NoError(t, err, "Error templating determined values temp file")
 		opts.ValuesFiles = append([]string{valuesFile.Name()}, opts.ValuesFiles...) // we want any user specified values files to be applied after

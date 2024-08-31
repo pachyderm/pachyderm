@@ -38,7 +38,7 @@ func NewController(ctx context.Context, env *Env) {
 
 func (p *pachW) run(ctx context.Context) {
 	ctx = auth.AsInternalUser(ctx, "pachw-controller")
-	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
+	backoff.RetryUntilCancel(ctx, func() (retErr error) {
 		lock := dlock.NewDLock(p.env.EtcdClient, path.Join(p.env.EtcdPrefix, "pachw-controller-lock"))
 		ctx, err := lock.Lock(ctx)
 		if err != nil {
@@ -79,7 +79,7 @@ func (p *pachW) run(ctx context.Context) {
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		log.Error(ctx, "error in pachw run; will retry", zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
-	})
+	}) //nolint:errcheck
 }
 
 func (p *pachW) countTasks(ctx context.Context) (int, error) {

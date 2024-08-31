@@ -45,7 +45,7 @@ func RunShell(ctx context.Context, path string, opts Options) error {
 			printError(err)
 			return nil, errors.Wrap(err, "readline.NewEx")
 		}
-		defer rl.Close()
+		defer rl.Close() //nolint:errcheck
 		for {
 			signal.Reset(os.Interrupt) // This is rude, but oh well.
 			oneCtx, stop := signal.NotifyContext(ctx, os.Interrupt)

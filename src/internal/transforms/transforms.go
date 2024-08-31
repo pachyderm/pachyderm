@@ -43,12 +43,12 @@ func bijectiveMap(inputDir, outputDir string, pm PathMapper, dm DataMapper) erro
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		defer inputFile.Close()
+		defer inputFile.Close() //nolint:errcheck
 		outputFile, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		defer outputFile.Close()
+		defer outputFile.Close() //nolint:errcheck
 		if err := dm(inputFile, outputFile); err != nil {
 			return err
 		}

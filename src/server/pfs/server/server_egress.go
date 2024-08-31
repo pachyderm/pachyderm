@@ -50,7 +50,7 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck
 
 	// all table are written through a single transaction
 	tx, err := db.BeginTxx(ctx, nil)

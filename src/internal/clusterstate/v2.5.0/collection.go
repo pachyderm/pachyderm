@@ -299,7 +299,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	wColumns = append(wColumns, "key")
 
 	// Create new batcher with a batch size of 1000
-	err, batcher := migrationutils.NewPostgresBatcher(tx, "UPDATE", fmt.Sprintf("collections.%s", col.table), columns, wColumns, 1000)
+	batcher, err := migrationutils.NewPostgresBatcher(tx, "UPDATE", fmt.Sprintf("collections.%s", col.table), columns, wColumns, 1000)
 	if err != nil {
 		return err
 	}

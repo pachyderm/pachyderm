@@ -14,7 +14,7 @@ import (
 // New returns a new uuid.
 func New() string {
 	var result string
-	backoff.RetryNotify(func() error { //nolint:errcheck
+	backoff.RetryNotify(func() error {
 		uuid, err := uuid.NewV4()
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -24,7 +24,7 @@ func New() string {
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		fmt.Printf("error from uuid.NewV4: %v", err)
 		return nil
-	})
+	}) //nolint:errcheck
 	return result
 }
 

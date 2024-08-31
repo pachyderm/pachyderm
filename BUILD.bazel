@@ -1,6 +1,7 @@
 load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test", "buildozer_binary")
 load("@gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@rules_go//go:def.bzl", "go_library", "nogo")
+load("//src/internal/analyzers/staticcheck:def.bzl", "all_staticcheck_analyzers")  # buildifier: disable=bzl-visibility
 
 licenses(["notice"])
 
@@ -93,8 +94,91 @@ gazelle(
 nogo(
     name = "nogo",
     config = "nogo.json",
-    vet = True,
     visibility = ["//visibility:public"],  # must have public visibility
+    deps = all_staticcheck_analyzers + [
+        # These are go vet's checks; hard-coded here so that upgrading golang.org/x/tools doesn't
+        # add new linters unexpectedly.  Commented-out lines are available passes (bazel query
+        # 'kind(go_library, @org_golang_x_tools//go/analysis/passes/...)' | grep -v testdata | grep
+        # -v cmd | grep -v internal) but that govet doesn't run (`go tool vet help` explains).
+        "@org_golang_x_tools//go/analysis/passes/appends",
+        "@org_golang_x_tools//go/analysis/passes/asmdecl",
+        "@org_golang_x_tools//go/analysis/passes/assign",
+        "@org_golang_x_tools//go/analysis/passes/atomic",
+        # "@org_golang_x_tools//go/analysis/passes/atomicalign:atomicalign",
+        "@org_golang_x_tools//go/analysis/passes/bools",
+        # "@org_golang_x_tools//go/analysis/passes/buildssa:buildssa",
+        "@org_golang_x_tools//go/analysis/passes/buildtag",
+        # "@org_golang_x_tools//go/analysis/passes/cgocall:cgocall", # not supported by rules_go, apparently
+        "@org_golang_x_tools//go/analysis/passes/composite",
+        "@org_golang_x_tools//go/analysis/passes/copylock",
+        # "@org_golang_x_tools//go/analysis/passes/ctrlflow:ctrlflow",
+        # "@org_golang_x_tools//go/analysis/passes/deepequalerrors:deepequalerrors",
+        "@org_golang_x_tools//go/analysis/passes/defers",
+        "@org_golang_x_tools//go/analysis/passes/directive",
+        "@org_golang_x_tools//go/analysis/passes/errorsas",
+        # "@org_golang_x_tools//go/analysis/passes/fieldalignment:fieldalignment",
+        # "@org_golang_x_tools//go/analysis/passes/findcall:findcall",
+        # "@org_golang_x_tools//go/analysis/passes/framepointer:framepointer",
+        # "@org_golang_x_tools//go/analysis/passes/httpmux:httpmux",
+        "@org_golang_x_tools//go/analysis/passes/httpresponse",
+        "@org_golang_x_tools//go/analysis/passes/ifaceassert",
+        # "@org_golang_x_tools//go/analysis/passes/inspect:inspect",
+        "@org_golang_x_tools//go/analysis/passes/loopclosure",
+        "@org_golang_x_tools//go/analysis/passes/lostcancel",
+        "@org_golang_x_tools//go/analysis/passes/nilfunc",
+        # "@org_golang_x_tools//go/analysis/passes/nilness:nilness",
+        # "@org_golang_x_tools//go/analysis/passes/pkgfact:pkgfact",
+        # "@org_golang_x_tools//go/analysis/passes/printf", # TODO: reenable
+        # "@org_golang_x_tools//go/analysis/passes/reflectvaluecompare:reflectvaluecompare",
+        # "@org_golang_x_tools//go/analysis/passes/shadow:shadow",
+        "@org_golang_x_tools//go/analysis/passes/shift",
+        "@org_golang_x_tools//go/analysis/passes/sigchanyzer",
+        "@org_golang_x_tools//go/analysis/passes/slog",
+        # "@org_golang_x_tools//go/analysis/passes/sortslice:sortslice",
+        "@org_golang_x_tools//go/analysis/passes/stdmethods",
+        "@org_golang_x_tools//go/analysis/passes/stdversion",
+        "@org_golang_x_tools//go/analysis/passes/stringintconv",
+        "@org_golang_x_tools//go/analysis/passes/structtag",
+        "@org_golang_x_tools//go/analysis/passes/testinggoroutine",
+        "@org_golang_x_tools//go/analysis/passes/tests",
+        "@org_golang_x_tools//go/analysis/passes/timeformat",
+        "@org_golang_x_tools//go/analysis/passes/unmarshal",
+        "@org_golang_x_tools//go/analysis/passes/unreachable",
+        "@org_golang_x_tools//go/analysis/passes/unsafeptr",
+        "@org_golang_x_tools//go/analysis/passes/unusedresult",
+        # "@org_golang_x_tools//go/analysis/passes/unusedwrite:unusedwrite",
+        # "@org_golang_x_tools//go/analysis/passes/usesgenerics:usesgenerics",
+    ] + [
+        # ineffassign https://github.com/gordonklaus/ineffassign
+        "//src/internal/analyzers/ineffassign",
+    ] + [
+        # wrapcheck https://github.com/tomarrell/wrapcheck (using v2)
+        "//src/internal/analyzers/wrapcheck",
+    ] + [
+        # errcheck https://pkg.go.dev/github.com/kisielk/errcheck/errcheck
+        "//src/internal/analyzers/errcheck",
+    ] + [
+        # depguard https://github.com/OpenPeeDeeP/depguard/tree/v2
+        "//src/internal/analyzers/depguard",
+    ] + [
+        # asasalint https://github.com/alingse/asasalint
+        "//src/internal/analyzers/asasalint",
+    ] + [
+        # asciicheck https://github.com/tdakkota/asciicheck
+        "//src/internal/analyzers/asciicheck",
+    ] + [
+        # bidichk https://github.com/breml/bidichk
+        "//src/internal/analyzers/bidichk",
+    ] + [
+        # goprintffuncname https://github.com/jirfag/go-printf-func-name
+        "//src/internal/analyzers/goprintffuncname",
+    ] + [
+        # exhaustive https://pkg.go.dev/github.com/nishanths/exhaustive
+        "//src/internal/analyzers/exhaustive",
+    ] + [
+        # gofmt -s
+        "//src/internal/analyzers/gofmt",
+    ],
 )
 
 # Buildifier formats all BUILD files in the workspace.

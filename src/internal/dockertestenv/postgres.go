@@ -221,7 +221,7 @@ func EnsureDBEnv(ctx context.Context) error {
 	defer cf()
 
 	dclient := newDockerClient()
-	defer dclient.Close()
+	defer dclient.Close() //nolint:errcheck
 	if err := ensureContainer(ctx, dclient, "pach_test_postgres", containerSpec{
 		Env: map[string]string{
 			"POSTGRES_DB":               "pachyderm",
@@ -274,7 +274,7 @@ func EnsureDBEnv(ctx context.Context) error {
 			log.Info(ctx, "failed to connect to database; retrying", zap.Error(err))
 			return errors.Wrap(err, "connect to db")
 		}
-		defer db.Close()
+		defer db.Close() //nolint:errcheck
 		return errors.Wrap(db.PingContext(ctx), "ping db")
 	}, backoff.RetryEvery(time.Second), func(err error, _ time.Duration) error {
 		return nil

@@ -27,7 +27,7 @@ func kubeEventTail(ctx context.Context, coreV1 corev1.CoreV1Interface, namespace
 		log.Info(ctx, "skip kube event tail. kubernetes client not fully configured.")
 		return
 	}
-	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
+	backoff.RetryUntilCancel(ctx, func() (retErr error) {
 		lock := dlock.NewDLock(etcdClient, path.Join(etcdPrefix, "pachd-kube-events"))
 		ctx, err := lock.Lock(ctx)
 		if err != nil {
@@ -41,7 +41,7 @@ func kubeEventTail(ctx context.Context, coreV1 corev1.CoreV1Interface, namespace
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		log.Error(ctx, "error in kube event tail; will retry", zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
-	})
+	}) //nolint:errcheck
 }
 
 func (s *eventStore) logEvent(e *v1.Event) {

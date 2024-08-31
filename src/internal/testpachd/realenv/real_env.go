@@ -190,7 +190,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		// TODO: It appears the postgres db.Close() may return errors due to
 		// background goroutines using a closed TCP session because we don't do an
 		// orderly shutdown, so we don't check the error here.
-		realEnv.ServiceEnv.Close()
+		realEnv.ServiceEnv.Close() //nolint:errcheck
 	})
 
 	// database migrations

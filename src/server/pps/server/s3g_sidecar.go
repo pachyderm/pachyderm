@@ -127,7 +127,7 @@ func (s *sidecarS3G) createK8sServices(ctx context.Context) {
 	// createK8sServices goes through master election so that only one k8s service
 	// is created per pachyderm job running sidecar s3 gateway
 	var projectName = s.pipelineInfo.Pipeline.Project.GetName()
-	backoff.RetryNotify(func() error { //nolint:errcheck
+	backoff.RetryNotify(func() error {
 		masterLock := dlock.NewDLock(s.apiServer.env.EtcdClient,
 			path.Join(s.apiServer.etcdPrefix,
 				s3gSidecarLockPath,
@@ -160,7 +160,7 @@ func (s *sidecarS3G) createK8sServices(ctx context.Context) {
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		log.Error(ctx, "sidecar s3 gateway failed; retrying", zap.Error(err), zap.Duration("retryAfter", d))
 		return nil
-	})
+	}) //nolint:errcheck
 }
 
 type s3InstanceCreatingJobHandler struct {
@@ -303,7 +303,7 @@ func (h *handleJobsCtx) start(ctx context.Context) {
 	}()
 	for { // reestablish watch in a loop, in case there's a watch error
 		var watcher watch.Watcher
-		backoff.Retry(func() error { //nolint:errcheck
+		backoff.Retry(func() error {
 			var err error
 			watcher, err = h.s.apiServer.jobs.ReadOnly().WatchByIndex(
 				ctx, ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(h.s.pipelineInfo.Pipeline))
@@ -311,7 +311,7 @@ func (h *handleJobsCtx) start(ctx context.Context) {
 				return errors.Wrapf(err, "error creating watch")
 			}
 			return nil
-		}, backoff.NewInfiniteBackOff())
+		}, backoff.NewInfiniteBackOff()) //nolint:errcheck
 
 		for e := range watcher.Watch() {
 			if e.Type == watch.EventError {

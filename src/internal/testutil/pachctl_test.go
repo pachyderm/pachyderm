@@ -19,7 +19,7 @@ func TestPachctl(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer p.Close()
+	defer p.Close() //nolint:errcheck
 
 	cmd, err := p.Command(ctx, `pachctl version`)
 	if err != nil {

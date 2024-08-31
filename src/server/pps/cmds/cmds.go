@@ -960,7 +960,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					return errors.New("cannot set --output (-o) without --raw")
 				}
 				pretty.PrintCheckStatus(writer, res)
-				writer.Flush()
+				writer.Flush() //nolint:errcheck
 			}
 		}),
 	}
@@ -1617,7 +1617,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer c.Close() //nolint:errcheck
 			// TODO: Decide how to handle the environment variables in the response.
 			_, err = c.NextDatum(context.Background(), &workerapi.NextDatumRequest{Error: errStr})
 			return err

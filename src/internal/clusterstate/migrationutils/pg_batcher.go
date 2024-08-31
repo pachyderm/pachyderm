@@ -3,9 +3,10 @@ package migrationutils
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -46,23 +47,23 @@ type postgresBatcher struct {
 }
 
 // NewPostgresBatcher creates a new batcher.
-func NewPostgresBatcher(tx *pachsql.Tx, action string, table string, columns []string, wColumns []string, batchSize int) (error, *postgresBatcher) {
+func NewPostgresBatcher(tx *pachsql.Tx, action string, table string, columns []string, wColumns []string, batchSize int) (*postgresBatcher, error) {
 
 	// Validate the action; currently only UPDATE is
 	switch strings.ToUpper(action) {
 	case "UPDATE":
 	case "INSERT", "DELETE":
-		return errors.New("INSERT and DELETE are not currently implemented"), nil
+		return nil, errors.New("INSERT and DELETE are not currently implemented")
 	default:
-		return errors.Errorf("%q: invalid action", action), nil
+		return nil, errors.Errorf("%q: invalid action", action)
 	}
 
 	// Validate that at least 1 column and no more than 1 wColumn have been provided.
 	if len(columns) == 0 {
-		return errors.Errorf("at least one column must be provided; none were given"), nil
+		return nil, errors.Errorf("at least one column must be provided; none were given")
 	}
 	if len(wColumns) > 1 {
-		return errors.Errorf("currently only 1 column may be used in the WHERE clause, but %d were given", len(wColumns)), nil
+		return nil, errors.Errorf("currently only 1 column may be used in the WHERE clause, but %d were given", len(wColumns))
 	}
 
 	// Array where each element corresponds to the set string for one column (ex: "col1 = x.col1")
@@ -80,7 +81,7 @@ func NewPostgresBatcher(tx *pachsql.Tx, action string, table string, columns []s
 		}
 	}
 	// Create and return the batcher object
-	return nil, &postgresBatcher{
+	return &postgresBatcher{
 		tx:        tx,
 		action:    action,
 		table:     table,
@@ -88,7 +89,7 @@ func NewPostgresBatcher(tx *pachsql.Tx, action string, table string, columns []s
 		wColumns:  wColumns,
 		setString: strings.Join(ss, ", "),
 		max:       batchSize,
-	}
+	}, nil
 }
 
 // Add adds a row of data to the batch.

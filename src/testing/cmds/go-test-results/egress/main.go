@@ -85,7 +85,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "opening db connection")
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck
 	// filpathWalkDir does not evaluate the PFS symlink
 	sym, err := filepath.EvalSymlinks(inputFolder)
 	if err != nil {
@@ -135,7 +135,7 @@ func readJobInfo(path string) (*gotestresults.JobInfo, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "opening job info json file")
 	}
-	defer jobInfoFile.Close()
+	defer jobInfoFile.Close() //nolint:errcheck
 	jobInfoJson, err := io.ReadAll(jobInfoFile)
 	if err != nil {
 		return nil, errors.Wrapf(err, "reading job info data")
@@ -213,13 +213,13 @@ func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[str
 	if err != nil {
 		return errors.Wrapf(err, "opening results file ")
 	}
-	defer resultsFile.Close()
+	defer resultsFile.Close() //nolint:errcheck
 	// get job info previously inserted in order to link foreign keys to jobs table
 	fileName := filepath.Base(path)
 	jobInfo, ok := jobInfoPaths[strings.TrimSuffix(path, fileName)]
 	if !ok {
 		return errors.WithStack(fmt.Errorf(
-			"Failed to find job info for %v - file name %v - job infos %v ",
+			"failed to find job info for %v - file name %v - job infos %v ",
 			path,
 			filepath.Base(path),
 			jobInfoPaths,

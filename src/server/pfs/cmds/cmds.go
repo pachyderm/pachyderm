@@ -1800,7 +1800,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 						return err
 					}
 				}
-				defer f.Close()
+				defer f.Close() //nolint:errcheck
 				w = f
 			}
 			if err := c.GetFile(file.Commit, file.Path, w, client.WithOffset(offsetBytes)); err != nil {

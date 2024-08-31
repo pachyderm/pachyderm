@@ -115,7 +115,7 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		tests = append(tests, scanner.Text())
@@ -131,7 +131,7 @@ func waitForTestListFile(fileName string) error {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer watcher.Close()
+	defer watcher.Close() //nolint:errcheck
 	err = watcher.Add(".")
 	if err != nil {
 		return errors.EnsureStack(err)

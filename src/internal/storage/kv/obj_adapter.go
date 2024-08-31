@@ -36,7 +36,7 @@ func (s *BucketStore) Get(ctx context.Context, key []byte, buf []byte) (int, err
 		}
 		return 0, errors.EnsureStack(err)
 	}
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 	return miscutil.ReadInto(buf, r)
 }
 

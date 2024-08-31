@@ -239,8 +239,8 @@ func main() {
 				uploadR, uploadW := io.Pipe()
 				w := multipart.NewWriter(uploadW)
 				go func() {
-					defer uploadW.Close()
-					defer w.Close()
+					defer uploadW.Close() //nolint:errcheck
+					defer w.Close()       //nolint:errcheck
 					_ = w.WriteField("uploadId", idInfo.UploadId)
 					_ = w.WriteField("fileName", name)
 					_ = w.WriteField("chunkTotal", strconv.FormatInt(int64(nCk), 10))

@@ -69,10 +69,10 @@ func TestTaskChain(t *testing.T) {
 		}))
 		// The error may not be acknowledged by the next create task call because of goroutine scheduling.
 		// So, we ignore the error.
-		tc.CreateTask(func(_ context.Context) (func() error, error) { //nolint:errcheck
+		tc.CreateTask(func(_ context.Context) (func() error, error) {
 			time.Sleep(time.Second)
 			return func() error { return nil }, nil
-		})
+		}) //nolint:errcheck
 		// The error will always be acknowledged by the followup task because it will be forced to wait.
 		err := tc.CreateTask(func(_ context.Context) (func() error, error) { return func() error { return nil }, nil })
 		require.YesError(t, err)

@@ -247,7 +247,7 @@ func migrateRepos(ctx context.Context, env migrations.Env) error {
 	if err != nil {
 		return errors.Wrap(err, "preparing insert statement")
 	}
-	defer insertStmt.Close()
+	defer insertStmt.Close() //nolint:errcheck
 
 	repos, err := ListReposFromCollection(ctx, tx, false)
 	if err != nil {

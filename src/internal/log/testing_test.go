@@ -23,7 +23,7 @@ func TestTestParallel(t *testing.T) {
 		t.Parallel()
 		ctx := TestParallel(context.Background(), t)
 		Debug(ctx, "a")
-		Debug(nil, "not seen (a)") //nolint:staticcheck
+		Debug(nil, "not seen (a)") //nolint:SA1012 // intentional nil context
 		close(c)
 	})
 	t.Run("b", func(t *testing.T) {
@@ -31,7 +31,7 @@ func TestTestParallel(t *testing.T) {
 		ctx := TestParallel(context.Background(), t)
 		<-c
 		Debug(ctx, "b")
-		Debug(nil, "not seen (b)") //nolint:staticcheck
+		Debug(nil, "not seen (b)") //nolint:SA1012 // intentional nil context
 	})
 }
 
