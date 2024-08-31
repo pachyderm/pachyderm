@@ -1346,7 +1346,7 @@
     },
     "@@aspect_rules_ts~//ts:extensions.bzl%ext": {
       "general": {
-        "bzlTransitiveDigest": "oKcu5tBbtSfUDhUlzslFb7VqeJo83CbHK95dXgz/1F0=",
+        "bzlTransitiveDigest": "1X9STUnwmBLzzWERVX6QAHTZVHXkhVNUNaw1KokzY/Q=",
         "usagesDigest": "yMBPkWUZ0/imQ6G7PrvBkPigV2y85ThTIdL42wRRq50=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -1357,7 +1357,7 @@
             "ruleClassName": "http_archive_version",
             "attributes": {
               "bzlmod": true,
-              "version": "5.5.4",
+              "version": "5.4.5",
               "integrity": "",
               "build_file": "@@aspect_rules_ts~//ts:BUILD.typescript",
               "build_file_substitutions": {
