@@ -3,7 +3,6 @@
 package minikubetestenv
 
 import (
-	"context"
 	"crypto/x509"
 	"flag"
 	"fmt"
@@ -142,7 +141,7 @@ func (cf *ClusterFactory) acquireInstalledCluster(t testing.TB, as *acquireSetti
 	assigned, clusterIdx := cf.assignCluster(t)
 	kube := testutil.GetKubeClient(t)
 	c := InstallRelease(t,
-		context.Background(),
+		pctx.TestContext(t),
 		assigned,
 		kube,
 		deployOpts(clusterIdx, as),

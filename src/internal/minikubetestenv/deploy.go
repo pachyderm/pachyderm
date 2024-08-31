@@ -532,6 +532,7 @@ func waitForLabeledPod(t testing.TB, ctx context.Context, kubeClient *kube.Clien
 }
 
 func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, namespace string, certpool *x509.CertPool) *client.APIClient {
+	ctx := pctx.TestContext(t)
 	var c *client.APIClient
 	// retry connecting if it doesn't immediately work
 	require.NoError(t, backoff.Retry(func() error {
@@ -541,7 +542,7 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		if certpool != nil {
 			opts = append(opts, client.WithCertPool(certpool))
 		}
-		c, err = client.NewFromPachdAddress(pctx.TODO(), pachAddress, opts...)
+		c, err = client.NewFromPachdAddress(ctx, pachAddress, opts...)
 		if err != nil {
 			t.Logf("retryable: failed to connect to pachd on port %v: %v", pachAddress.Port, err)
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
