@@ -35,6 +35,7 @@ go_test(
     srcs = [
         "hash_test.go",
         "server_internal_test.go",
+        "hash_test.go",
         "server_test.go",
     ],
     embed = [":pjs"],
