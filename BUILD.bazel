@@ -1,6 +1,7 @@
 load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test", "buildozer_binary")
 load("@gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@rules_go//go:def.bzl", "go_library", "nogo")
+load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_lint_test")
 
 licenses(["notice"])
 
@@ -179,4 +180,10 @@ test_suite(
 alias(
     name = "pnpm",
     actual = "@pnpm//:pnpm",
+)
+
+jsonnet_lint_test(
+    name = "merge_lint_test",
+    size = "small",
+    src = "merge.jsonnet",
 )
