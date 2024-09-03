@@ -141,7 +141,7 @@ func (w *Writer) Write(record []*string) error {
 // Flush writes any buffered data to the underlying io.Writer.
 // To check if an error occurred during the Flush, call Error.
 func (w *Writer) Flush() {
-	w.w.Flush()
+	w.w.Flush() //nolint:errcheck
 }
 
 // Error reports any error that has occurred during a previous Write or Flush.

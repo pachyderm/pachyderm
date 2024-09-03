@@ -25,7 +25,7 @@ func TestMigrations(ctx context.Context, db *pachsql.DB) (retErr error) {
 	if err != nil {
 		return errors.Wrap(err, "create etcd server tmpdir")
 	}
-	defer os.RemoveAll(dir)
+	defer errors.Invoke1(&retErr, os.RemoveAll, dir, "cleanup etcd tmpdir %v", dir)
 
 	etcdConfig := embed.NewConfig()
 	etcdConfig.MaxTxnOps = 10000
@@ -53,7 +53,7 @@ func TestMigrations(ctx context.Context, db *pachsql.DB) (retErr error) {
 	if err != nil {
 		return errors.Wrap(err, "connect to etcd")
 	}
-	defer etcdClient.Close()
+	defer errors.Close(&retErr, etcdClient, "close etcd client")
 
 	txx, err := db.BeginTxx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelSerializable,

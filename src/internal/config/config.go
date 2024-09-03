@@ -234,7 +234,7 @@ func (c *Config) Write() error {
 // Note: Write() overwrites both the on-disk config and the cachedConfig;
 // configMu must be locked by the caller to ensure that Write() calls are
 // serialized and that these two representations stay in sync.
-func (c *Config) write(path string) error {
+func (c *Config) write(path string) (retErr error) {
 	if c.V1 != nil {
 		panic("config V1 included (this is a bug)")
 	}
@@ -270,7 +270,7 @@ func (c *Config) write(path string) error {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer errors.Invoke1(&retErr, os.RemoveAll, tmpfile.Name(), "remove temporary config %v", tmpfile.Name())
 
 	if _, err = tmpfile.Write(rawConfig); err != nil {
 		return errors.EnsureStack(err)

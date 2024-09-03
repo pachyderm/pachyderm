@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ import (
 
 func TestMain(m *testing.M) {
 	client.TailPerReadDeadline = 100 * time.Millisecond
-	m.Run()
+	os.Exit(m.Run())
 }
 
 func TestTail(t *testing.T) {

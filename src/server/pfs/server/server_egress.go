@@ -35,7 +35,7 @@ func (a *apiServer) copyToObjectStorage(ctx context.Context, taskService task.Se
 	return result, nil
 }
 
-func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pfs.SQLDatabaseEgress_FileFormat) (*pfs.EgressResponse_SQLDatabaseResult, error) {
+func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pfs.SQLDatabaseEgress_FileFormat) (_ *pfs.EgressResponse_SQLDatabaseResult, retErr error) {
 	url, err := pachsql.ParseURL(destURL)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -50,7 +50,7 @@ func copyToSQLDB(ctx context.Context, src Source, destURL string, fileFormat *pf
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	defer db.Close()
+	defer errors.Close(&retErr, db, "close db")
 
 	// all table are written through a single transaction
 	tx, err := db.BeginTxx(ctx, nil)

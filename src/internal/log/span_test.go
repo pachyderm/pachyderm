@@ -190,7 +190,7 @@ func TestSpan(t *testing.T) {
 			f: func(ctx context.Context) (err error) {
 				defer Span(ctx, "x")(Errorp(&err))
 				Debug(ctx, "hi")
-				return errors.New("failed") //nolint:wrapcheck
+				return errors.New("failed")
 			},
 			want: []string{
 				"x: debug: x: span start",
@@ -204,7 +204,7 @@ func TestSpan(t *testing.T) {
 			f: func(ctx context.Context) (err error) {
 				defer Span(ctx, "x")(ErrorpL(&err, ErrorLevel))
 				Debug(ctx, "hi")
-				return errors.New("failed") //nolint:wrapcheck
+				return errors.New("failed")
 			},
 			want: []string{
 				"x: debug: x: span start",

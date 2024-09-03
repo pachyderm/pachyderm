@@ -188,7 +188,7 @@ func TestCSVNull(t *testing.T) {
 	}
 	expected := `null,"""""",,""` + "\n"
 	require.NoError(t, w.WriteTuple(row))
-	w.Flush()
+	w.Flush() //nolint:errcheck
 	require.Equal(t, expected, buf.String())
 
 	r := NewCSVParser(buf)

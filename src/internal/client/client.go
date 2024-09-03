@@ -719,10 +719,13 @@ func NewInWorker(ctx context.Context, options ...Option) (*APIClient, error) {
 	return nil, errors.New("PEER_PORT not set")
 }
 
-// Close the connection to gRPC
+// Close the connection to gRPC.
 func (c *APIClient) Close() error {
 	if err := c.clientConn.Close(); err != nil {
-		return err
+		if !strings.Contains(err.Error(), "anceled") {
+			// grpc says "Canceled", go says "canceled"
+			return err
+		}
 	}
 
 	if c.portForwarder != nil {
@@ -812,7 +815,7 @@ func (c APIClient) DeleteAllEnterprise(ctx context.Context) error {
 func DefaultDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		// Don't return from Dial() until the connection has been established.
-		grpc.WithBlock(), //nolint:staticcheck
+		grpc.WithBlock(), //nolint:SA1019
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                20 * time.Second,
 			Timeout:             20 * time.Second,
@@ -851,7 +854,7 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 	// service discovery forever.
 	dialOptions = append(dialOptions, grpc.WithDisableServiceConfig())
 
-	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...) //nolint:staticcheck
+	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...) //nolint:SA1019
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "bidichk",
+    srcs = ["bidichk.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/analyzers/bidichk",
+    visibility = ["//:__pkg__"],
+    deps = ["@com_github_breml_bidichk//pkg/bidichk"],
+)

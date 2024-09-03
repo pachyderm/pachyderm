@@ -264,7 +264,7 @@ func storageClientToPach(c dex_storage.Client) *identity.OIDCClient {
 
 func dexConnectorToPach(c dex_storage.Connector) (*identity.IDPConnector, error) {
 	config := &structpb.Struct{}
-	if c.Config != nil && len(c.Config) != 0 {
+	if len(c.Config) != 0 {
 		if err := protojson.Unmarshal(c.Config, config); err != nil {
 			return nil, errors.Wrap(err, "unmarshal dex connector into a structpb.Struct")
 		}

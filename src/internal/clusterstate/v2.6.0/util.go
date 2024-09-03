@@ -43,12 +43,12 @@ func pipelineCommitKey(commit *pfs.Commit) string {
 	return fmt.Sprintf("%s/%s@%s", commit.Repo.Project.Name, commit.Repo.Name, commit.Id)
 }
 
-func forEachCollectionProtos[T proto.Message](ctx context.Context, tx *pachsql.Tx, table string, val T, f func(T)) error {
+func forEachCollectionProtos[T proto.Message](ctx context.Context, tx *pachsql.Tx, table string, val T, f func(T)) (retErr error) {
 	rr, err := tx.QueryContext(ctx, fmt.Sprintf("SELECT proto FROM collections.%s;", table))
 	if err != nil {
 		return errors.Wrap(err, "could not read table")
 	}
-	defer rr.Close()
+	defer errors.Close(&retErr, rr, "close collections query")
 	for rr.Next() {
 		var pb []byte
 		if err := rr.Err(); err != nil {

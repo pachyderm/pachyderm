@@ -179,7 +179,7 @@ func (f *PortForwarder) RunForConsole(localPort, remotePort uint16) (uint16, err
 
 // Close shuts down port forwarding.
 func (f *PortForwarder) Close() {
-	defer f.logger.Close()
+	defer f.logger.Close() //nolint:errcheck
 
 	f.stopChansLock.Lock()
 	defer f.stopChansLock.Unlock()

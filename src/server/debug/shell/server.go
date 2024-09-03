@@ -5,7 +5,6 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -23,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -94,7 +94,7 @@ func (d *debugDump) Address() string {
 	return d.mock.Addr.String()
 }
 
-func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error {
+func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) (retErr error) {
 	g := globlib.MustCompile(glob, '/')
 	info, err := os.Stat(d.path)
 	if err != nil {
@@ -102,7 +102,7 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 	}
 
 	if info.IsDir() {
-		if err := filepath.WalkDir(d.path, func(path string, entry fs.DirEntry, err error) error {
+		if err := filepath.WalkDir(d.path, func(path string, entry fs.DirEntry, err error) (retErr error) {
 			if err != nil {
 				return err
 			}
@@ -122,7 +122,7 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 			if err != nil {
 				return err
 			}
-			defer contents.Close()
+			defer errors.Close(&retErr, contents, "close file %v", path)
 			return cb(rel, contents)
 		}); err != nil {
 			if errors.Is(err, errutil.ErrBreak) {
@@ -137,12 +137,12 @@ func (d *debugDump) globTar(glob string, cb func(string, io.Reader) error) error
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer errors.Close(&retErr, file, "close file %v", d.path)
 	gr, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer gr.Close()
+	defer errors.Close(&retErr, gr, "close gzip reader on %v", d.path)
 	tr := tar.NewReader(gr)
 	for {
 		hdr, err := tr.Next()

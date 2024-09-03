@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "asasalint",
+    srcs = ["asasalint.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/analyzers/asasalint",
+    visibility = ["//:__pkg__"],
+    deps = [
+        "@com_github_alingse_asasalint//:asasalint",
+        "@org_golang_x_tools//go/analysis",
+    ],
+)

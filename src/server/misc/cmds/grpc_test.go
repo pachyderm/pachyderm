@@ -37,7 +37,7 @@ func TestGRPC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	t.Cleanup(func() { l.Close() })
+	t.Cleanup(func() { l.Close() }) //nolint:errcheck
 	go func() {
 		if err := s.Serve(l); err != nil {
 			panic(err)

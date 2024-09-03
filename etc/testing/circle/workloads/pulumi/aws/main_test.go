@@ -39,7 +39,7 @@ func TestDeployApp(t *testing.T) {
 		t.Logf("error resolving chart: %v, using etc/helm/pachyderm as the chart location", err)
 		chart = "etc/helm/pachyderm"
 	}
-	if helmPath, ok := bazel.FindBinary("//tools/helm", "_helm"); ok {
+	if helmPath, ok := bazel.FindBinary("//tools/helm", "_helm"); ok { //nolint:SA1019
 		tmpdir := t.TempDir()
 		if err := os.Symlink(helmPath, filepath.Join(tmpdir, "helm")); err != nil {
 			t.Fatalf("symlink helm into $PATH: %v", err)

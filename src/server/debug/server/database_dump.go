@@ -95,13 +95,13 @@ func (s *debugServer) collectDatabaseTables(ctx context.Context, dfs DumpFS, dir
 	return nil
 }
 
-func (s *debugServer) collectTable(ctx context.Context, w io.Writer, table *pachsql.SchemaTable) error {
+func (s *debugServer) collectTable(ctx context.Context, w io.Writer, table *pachsql.SchemaTable) (retErr error) {
 	sanitizedTableName := strings.ReplaceAll(table.SchemaName+"."+table.TableName, "'", "''")
 	rows, err := s.database.QueryContext(ctx, fmt.Sprintf("SELECT * FROM %s", sanitizedTableName))
 	if err != nil {
 		return errors.Wrap(err, "execute query")
 	}
-	defer rows.Close()
+	defer errors.Close(&retErr, rows, "close query")
 	return s.writeRowsToJSON(rows, w)
 }
 

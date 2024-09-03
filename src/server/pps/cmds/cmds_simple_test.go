@@ -91,12 +91,12 @@ func TestFileIndicatorToReader(t *testing.T) {
 	})
 }
 
-func testReader(indicator string) error {
+func testReader(indicator string) (retErr error) {
 	r, err := fileIndicatorToReadCloser(indicator)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer errors.Close(&retErr, r, "close reader")
 
 	rr := ppsutil.NewSpecReader(r)
 

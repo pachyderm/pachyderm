@@ -22,13 +22,13 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	inspectCluster := &cobra.Command{
 		Short: "Returns info about the Pachyderm cluster",
 		Long:  "Returns info about the Pachyderm cluster",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			if ci, ok := c.ClusterInfo(); ok {
 				if raw {
 					return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(ci))

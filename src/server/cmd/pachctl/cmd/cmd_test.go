@@ -19,7 +19,7 @@ import (
 
 func TestPortForwardError(t *testing.T) {
 	cfgFile := testConfig(t, "localhost:30650")
-	defer os.Remove(cfgFile.Name())
+	defer os.Remove(cfgFile.Name()) //nolint:errcheck
 	os.Setenv("PACH_CONFIG", cfgFile.Name())
 
 	c := tu.Command("pachctl", "version", "--timeout=1ns")

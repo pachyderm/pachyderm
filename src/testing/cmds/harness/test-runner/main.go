@@ -103,7 +103,7 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs []stri
 	return nil
 }
 
-func readTests(ctx context.Context, fileName string) ([]string, error) {
+func readTests(ctx context.Context, fileName string) (_ []string, retErr error) {
 	if _, err := os.Stat(fileName); err != nil {
 		err := waitForTestListFile(fileName)
 		if err != nil {
@@ -115,7 +115,7 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	defer file.Close()
+	defer errors.Close(&retErr, file, "close input %v", fileName)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		tests = append(tests, scanner.Text())
@@ -126,12 +126,12 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 	return tests, nil
 }
 
-func waitForTestListFile(fileName string) error {
+func waitForTestListFile(fileName string) (retErr error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer watcher.Close()
+	defer errors.Close(&retErr, watcher, "close fsnotify watcher")
 	err = watcher.Add(".")
 	if err != nil {
 		return errors.EnsureStack(err)

@@ -21,7 +21,7 @@ type SQLTupleWriter struct {
 
 func (m *SQLTupleWriter) WriteTuple(t Tuple) error {
 	if len(m.buf) >= rowLimit {
-		m.Flush()
+		m.Flush() //nolint:errcheck
 	}
 	m.buf = append(m.buf, CloneTuple(t))
 	return nil

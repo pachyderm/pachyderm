@@ -399,8 +399,8 @@ func (d *driver) RunUserCode(
 	}
 	err = cmd.Wait()
 	killChildren()
-	stdout.Close()
-	stderr.Close()
+	stdout.Close() //nolint:errcheck
+	stderr.Close() //nolint:errcheck
 	endMonitoring(errors.New("child exited"))
 
 	// Print final rusage metrics.
@@ -475,8 +475,8 @@ func (d *driver) RunUserErrorHandlingCode(
 	}
 	err = cmd.Wait()
 	killChildren()
-	stdout.Close()
-	stderr.Close()
+	stdout.Close() //nolint:errcheck
+	stderr.Close() //nolint:errcheck
 	endMonitoring(errors.New("child exited"))
 
 	// Print final rusage metrics.

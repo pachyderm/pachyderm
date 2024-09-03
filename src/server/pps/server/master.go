@@ -139,7 +139,7 @@ func newMaster(ctx context.Context, env Env, etcdPrefix string, kd InfraDriver, 
 // pipelines are created/removed.
 func (a *apiServer) master(ctx context.Context) {
 	masterLock := dlock.NewDLock(a.env.EtcdClient, path.Join(a.etcdPrefix, masterLockPath))
-	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+	backoff.RetryUntilCancel(ctx, func() (retErr error) {
 		ctx, cancel := pctx.WithCancel(pctx.Child(ctx, "master", pctx.WithServerID()))
 		// set internal auth for basic operations
 		ctx = middleware_auth.AsInternalUser(ctx, "pps-master")
@@ -148,7 +148,7 @@ func (a *apiServer) master(ctx context.Context) {
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		defer masterLock.Unlock(ctx) //nolint:errcheck
+		defer errors.Invoke1(&retErr, masterLock.Unlock, ctx, "unlock master lock")
 		log.Info(ctx, "PPS master: launching master process")
 		kd := newKubeDriver(a.env.KubeClient, a.env.Config)
 		sd := newPipelineStateDriver(a.env.DB, a.pipelines, a.txnEnv, a.env.PFSServer)
@@ -160,7 +160,7 @@ func (a *apiServer) master(ctx context.Context) {
 		log.Error(ctx, "PPS master: error running the master process; retrying",
 			zap.Error(err), zap.Duration("retryIn", d))
 		return nil
-	})
+	}) //nolint:errcheck
 }
 
 func (m *ppsMaster) setPipelineCrashing(ctx context.Context, specCommit *pfs.Commit, reason string) error {

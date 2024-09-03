@@ -321,7 +321,7 @@ func (c *Cluster) WaitForPachd(ctx context.Context, namespace string) error {
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		ctx, c := context.WithTimeout(ctx, 2*time.Second)
 		defer c()
-		cc, err := grpc.DialContext(ctx, "dns:///"+u.Host, opts...) //nolint:staticcheck
+		cc, err := grpc.DialContext(ctx, "dns:///"+u.Host, opts...) //nolint:SA1019
 		if err != nil {
 			return errors.Wrap(err, "dial")
 		}

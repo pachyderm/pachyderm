@@ -36,7 +36,7 @@ func NewCache(readOnly col.ReadOnlyCollection, key string, defaultValue proto.Me
 
 // Watch should be called in a goroutine to start the watcher
 func (c *Cache) Watch(ctx context.Context) {
-	backoff.RetryNotify(func() error { //nolint:errcheck
+	backoff.RetryNotify(func() error {
 		err := c.readOnly.WatchOneF(ctx, c.key, func(ev *watch.Event) error {
 			switch ev.Type {
 			case watch.EventPut:
@@ -51,7 +51,7 @@ func (c *Cache) Watch(ctx context.Context) {
 			return nil
 		})
 		return errors.EnsureStack(err)
-	}, backoff.NewInfiniteBackOff(), backoff.NotifyCtx(ctx, fmt.Sprintf("watcher for %v", c.key)))
+	}, backoff.NewInfiniteBackOff(), backoff.NotifyCtx(ctx, fmt.Sprintf("watcher for %v", c.key))) //nolint:errcheck
 }
 
 // Load retrieves the current cached value

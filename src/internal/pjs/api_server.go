@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"time"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -186,9 +187,9 @@ func (a *apiServer) CancelJob(ctx context.Context, req *pjs.CancelJobRequest) (*
 			return nil, errors.Wrap(err, "resolve job ctx")
 		}
 		id = jid
-	} else { //nolint:staticcheck
+	} else {
 		// TODO(PJS): do auth.
-	}
+	} //nolint:SA9003
 	// TODO(PJS): remove this once auth is implemented.
 	reqID := pjsdb.JobID(req.Job.Id)
 	if id != reqID {
@@ -218,9 +219,9 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 		if err != nil {
 			return errors.Wrap(err, "resolve job ctx")
 		}
-	} else { //nolint:staticcheck
+	} else {
 		// TODO(PJS): do auth.
-	}
+	} //nolint:SA9003
 	// TODO(PJS): remove this once auth is implemented.
 	reqID := pjsdb.JobID(req.Job.Id)
 	if id != reqID {

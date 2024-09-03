@@ -85,12 +85,12 @@ func createProjectsTable(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
-func migrateProjects(ctx context.Context, tx *pachsql.Tx) error {
+func migrateProjects(ctx context.Context, tx *pachsql.Tx) (retErr error) {
 	insertStmt, err := tx.PreparexContext(ctx, "INSERT INTO core.projects(name, description, created_at, updated_at) VALUES($1, $2, $3, $4)")
 	if err != nil {
 		return errors.Wrap(err, "preparing insert projects statement")
 	}
-	defer insertStmt.Close()
+	defer errors.Close(&retErr, insertStmt, "close insert statement")
 	projects, err := ListProjectsFromCollection(ctx, tx)
 	if err != nil {
 		return errors.Wrap(err, "listing projects from collection")

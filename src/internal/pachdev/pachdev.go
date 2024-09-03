@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 const DefaultClusterName = "pach"
@@ -193,7 +194,9 @@ This requires the "genhtml" tool from the "lcov" package (which requrires Perl).
 			go func() { doneCh <- s.ListenAndServe() }()
 			select {
 			case <-ctx.Done():
-				s.Close()
+				if err := s.Close(); err != nil {
+					log.Error(ctx, "error shutting down server", zap.Error(err))
+				}
 				return nil
 			case err := <-doneCh:
 				if err != nil {

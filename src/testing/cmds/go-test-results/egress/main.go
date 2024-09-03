@@ -68,7 +68,7 @@ func main() {
 		log.Exit(ctx, "Error during metric collection", zap.Error(err))
 	}
 }
-func run(ctx context.Context) error {
+func run(ctx context.Context) (retErr error) {
 	log.Info(ctx, "Running DB Migrate")
 	out, err := exec.Command("tern", "migrate").CombinedOutput()
 	if err != nil {
@@ -85,7 +85,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "opening db connection")
 	}
-	defer db.Close()
+	defer errors.Close(&retErr, db, "")
 	// filpathWalkDir does not evaluate the PFS symlink
 	sym, err := filepath.EvalSymlinks(inputFolder)
 	if err != nil {
@@ -130,12 +130,12 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-func readJobInfo(path string) (*gotestresults.JobInfo, error) {
+func readJobInfo(path string) (_ *gotestresults.JobInfo, retErr error) {
 	jobInfoFile, err := os.Open(path)
 	if err != nil {
 		return nil, errors.Wrapf(err, "opening job info json file")
 	}
-	defer jobInfoFile.Close()
+	defer errors.Close(&retErr, jobInfoFile, "close job info json file %v", path)
 	jobInfoJson, err := io.ReadAll(jobInfoFile)
 	if err != nil {
 		return nil, errors.Wrapf(err, "reading job info data")
@@ -208,18 +208,18 @@ func insertJobInfo(
 	return nil
 }
 
-func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[string]gotestresults.JobInfo, db *sqlx.DB) error {
+func insertTestResultFile(ctx context.Context, path string, jobInfoPaths map[string]gotestresults.JobInfo, db *sqlx.DB) (retErr error) {
 	resultsFile, err := os.Open(path)
 	if err != nil {
-		return errors.Wrapf(err, "opening results file ")
+		return errors.Wrapf(err, "opening results file %v", path)
 	}
-	defer resultsFile.Close()
+	defer errors.Close(&retErr, resultsFile, "close results file %v", path)
 	// get job info previously inserted in order to link foreign keys to jobs table
 	fileName := filepath.Base(path)
 	jobInfo, ok := jobInfoPaths[strings.TrimSuffix(path, fileName)]
 	if !ok {
 		return errors.WithStack(fmt.Errorf(
-			"Failed to find job info for %v - file name %v - job infos %v ",
+			"failed to find job info for %v - file name %v - job infos %v ",
 			path,
 			filepath.Base(path),
 			jobInfoPaths,

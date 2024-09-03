@@ -9,7 +9,7 @@ require (
 	github.com/alecthomas/participle/v2 v2.1.1
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
-	github.com/bazelbuild/rules_go v0.48.1
+	github.com/bazelbuild/rules_go v0.49.0
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -96,15 +96,15 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/zap v1.27.0
 	gocloud.dev v0.27.0
-	golang.org/x/crypto v0.24.0
+	golang.org/x/crypto v0.26.0
 	golang.org/x/exp v0.0.0-20240314144324-c7f7c6466f7f
-	golang.org/x/mod v0.18.0
-	golang.org/x/net v0.26.0
+	golang.org/x/mod v0.20.0
+	golang.org/x/net v0.28.0
 	golang.org/x/oauth2 v0.21.0
-	golang.org/x/sync v0.7.0
-	golang.org/x/sys v0.21.0
-	golang.org/x/term v0.21.0
-	golang.org/x/text v0.16.0
+	golang.org/x/sync v0.8.0
+	golang.org/x/sys v0.23.0
+	golang.org/x/term v0.23.0
+	golang.org/x/text v0.17.0
 	golang.org/x/vuln v1.1.2
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240624140628-dc46fd24d27d
 	google.golang.org/grpc v1.64.1
@@ -120,10 +120,32 @@ require (
 	sigs.k8s.io/yaml v1.4.0
 )
 
+require github.com/gordonklaus/ineffassign v0.1.0
+
+require github.com/tomarrell/wrapcheck/v2 v2.9.0
+
+require github.com/kisielk/errcheck v1.7.0
+
+require github.com/OpenPeeDeeP/depguard/v2 v2.2.0
+
+require github.com/alingse/asasalint v0.0.11
+
+require github.com/tdakkota/asciicheck v0.2.0
+
+require github.com/breml/bidichk v0.2.7
+
+require github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af
+
+require github.com/nishanths/exhaustive v0.12.0
+
+require github.com/golangci/gofmt v0.0.0-20240816233607-d8596aa466a9
+
 require (
-	github.com/bazelbuild/bazel-gazelle v0.36.0
+	github.com/bazelbuild/bazel-gazelle v0.38.0
 	github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
 	golang.org/x/tools/go/vcs v0.1.0-deprecated // indirect
+	honnef.co/go/tools v0.5.1
 )
 
 require (
@@ -144,7 +166,7 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2 // indirect
-	github.com/BurntSushi/toml v1.3.0 // indirect
+	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
@@ -299,7 +321,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.2
 	github.com/opencontainers/runc v1.1.12 // indirect
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
-	github.com/pelletier/go-toml v1.9.4 // indirect
+	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/pkg/term v1.1.0 // indirect
@@ -353,7 +375,7 @@ require (
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030 // indirect
 	golang.org/x/telemetry v0.0.0-20240522233618-39ace7a40ae7 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.22.0 // indirect
+	golang.org/x/tools v0.24.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/api v0.183.0 // indirect
 	google.golang.org/genproto v0.0.0-20240624140628-dc46fd24d27d // indirect

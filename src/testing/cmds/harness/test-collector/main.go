@@ -154,13 +154,13 @@ func readTests(stdout io.Reader) (map[string][]string, error) {
 	return testNames, nil
 }
 
-func outputToFile(fileName string, pkgTests map[string][]string) error {
+func outputToFile(fileName string, pkgTests map[string][]string) (retErr error) {
 	tmpFileName := fmt.Sprintf("%s.tmp", fileName)
 	f, err := os.Create(tmpFileName)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer f.Close()
+	defer errors.Close(&retErr, f, "close output %v", tmpFileName)
 	w := bufio.NewWriter(f)
 	for pkg, tests := range pkgTests {
 		for _, test := range tests {
