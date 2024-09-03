@@ -97,7 +97,7 @@ func NewWorker(
 func (w *Worker) worker(env serviceenv.ServiceEnv) {
 	ctx := w.driver.PachClient().Ctx()
 	logger := logs.New(w.driver.PachClient().Ctx())
-	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+	backoff.RetryUntilCancel(ctx, func() error {
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
 		if env.Config().PPSWorkerPreprocessing {
@@ -119,7 +119,7 @@ func (w *Worker) worker(env serviceenv.ServiceEnv) {
 			logger.Logf("worker failed, retrying in %v:\n%s", d, err)
 		}
 		return nil
-	})
+	}) //nolint:errcheck
 }
 
 func (w *Worker) master(logger logs.TaggedLogger, env serviceenv.ServiceEnv) {
@@ -138,7 +138,7 @@ func (w *Worker) master(logger logs.TaggedLogger, env serviceenv.ServiceEnv) {
 	// retry interval, the master would be deleted before it gets a chance
 	// to restart.
 	b.InitialInterval = 10 * time.Second
-	backoff.RetryNotify(func() error { //nolint:errcheck
+	backoff.RetryNotify(func() (retErr error) {
 		// We use pachClient.Ctx here because it contains auth information.
 		ctx, cancel := pctx.WithCancel(w.driver.PachClient().Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
@@ -146,7 +146,7 @@ func (w *Worker) master(logger logs.TaggedLogger, env serviceenv.ServiceEnv) {
 		if err != nil {
 			return errors.Wrap(err, "locking master lock")
 		}
-		defer masterLock.Unlock(ctx) //nolint:errcheck
+		defer errors.Invoke1(&retErr, masterLock.Unlock, ctx, "unlock master lock")
 
 		// Create a new driver that uses a new cancelable pachClient
 		return runSpawner(w.driver.WithContext(ctx), logger)
@@ -163,7 +163,7 @@ func (w *Worker) master(logger logs.TaggedLogger, env serviceenv.ServiceEnv) {
 		}
 		logger.Logf("master: error running the master process, retrying in %v: %+v", d, err)
 		return nil
-	})
+	}) //nolint:errcheck
 }
 
 type spawnerFunc func(driver.Driver, logs.TaggedLogger) error

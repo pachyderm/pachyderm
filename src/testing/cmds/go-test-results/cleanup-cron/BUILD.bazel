@@ -1,4 +1,5 @@
 load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_lint_test")
 
 go_library(
     name = "cleanup-cron_lib",
@@ -19,4 +20,10 @@ go_binary(
     name = "cleanup-cron",
     embed = [":cleanup-cron_lib"],
     visibility = ["//visibility:public"],
+)
+
+jsonnet_lint_test(
+    name = "pipeline_jsonnet_test",
+    size = "small",
+    src = "pipeline.jsonnet",
 )

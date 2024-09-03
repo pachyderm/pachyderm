@@ -19,7 +19,7 @@ func run(t *testing.T, cmd string) error {
 	require.NoError(t, os.Remove(tmpfile.Name()))
 
 	// remove the config file when done
-	defer os.Remove(tmpfile.Name())
+	defer os.Remove(tmpfile.Name()) //nolint:errcheck
 
 	return errors.EnsureStack(tu.BashCmd(`
 		export PACH_CONFIG={{.config}}

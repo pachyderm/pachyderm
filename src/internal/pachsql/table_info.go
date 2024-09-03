@@ -42,7 +42,7 @@ func GetTableInfo(ctx context.Context, db *DB, tableName string) (*TableInfo, er
 }
 
 // GetTableInfoTx looks up information about the table using INFORMATION_SCHEMA
-func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
+func GetTableInfoTx(tx *Tx, tablePath string) (_ *TableInfo, retErr error) {
 	schemaName, tableName := SplitTableSchema(tx.DriverName(), tablePath)
 	if schemaName == "" {
 		// Check whether table is unique, and infer schema_name
@@ -86,7 +86,7 @@ func GetTableInfoTx(tx *Tx, tablePath string) (*TableInfo, error) {
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	defer rows.Close()
+	defer errors.Close(&retErr, rows, "close information_schema.columns query")
 
 	var cinfos []ColumnInfo
 	var precision, scale sql.NullInt64

@@ -100,12 +100,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} bar --description 'my new repo' ➔ /<active-project>/bar \n" +
 			"\t- {{alias}} baz --project myproject ➔ /myproject/baz \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.CreateRepo(
@@ -136,12 +136,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo --description 'my updated repo description'\n" +
 			"\t- {{alias}} foo --project bar --description 'my updated repo description'\n",
 
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.CreateRepo(
@@ -170,12 +170,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- To specify the project containing the repo you want to inspect, use the `--project` flag \n",
 		Example: "\t- {{alias}} foo  \n" +
 			"\t- {{alias}} foo --project myproject",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			repoInfo, err := c.PfsAPIClient.InspectRepo(c.Ctx(), &pfs.InspectRepoRequest{Repo: cmdutil.ParseRepo(project, args[0])})
 			if err != nil {
 				return errors.EnsureStack(err)
@@ -221,12 +221,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --type user --all \n" +
 			"\t- {{alias}} --type user --all --project default \n" +
 			"\t- {{alias}} --type user --all --project default --raw",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			// Call ListRepo RPC with sane defaults
 			if all {
@@ -291,12 +291,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --all --type user \n" +
 			"\t- {{alias}} --all --type user --project default",
 
-		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			request := &pfs.DeleteRepoRequest{
 				Force: force,
@@ -382,7 +382,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@master --description 'my commit description' \n" +
 			"\t- {{alias}} foo@master --project bar",
 
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
@@ -391,7 +391,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			var parentCommit *pfs.Commit
 			if parent != "" {
@@ -444,7 +444,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@master --message 'my commit message' \n" +
 			"\t- {{alias}} foo@master --description 'my commit description' --project bar \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil {
 				return err
@@ -453,7 +453,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.FinishCommit(
@@ -488,7 +488,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@master --raw \n" +
 			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i --project bar --raw \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
 				return errors.New(`Use "list commit <id>" to see commits with a given ID across different repos`)
@@ -499,7 +499,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			commitInfo, err := c.PfsAPIClient.InspectCommit(
 				c.Ctx(),
@@ -558,7 +558,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			if !raw && output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
@@ -762,7 +762,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			commitInfo, err := c.WaitCommit(commit.Branch.Repo.Project.GetName(), commit.Branch.Repo.Name, commit.Branch.Name, commit.Id)
 			if err != nil {
@@ -809,7 +809,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			var fromCommit *pfs.Commit
 			if newCommits && from != "" {
@@ -880,12 +880,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:    "This command squashes the sub-commits of a commit.  The data in the sub-commits will remain in their child commits. The squash will fail if it includes a commit with no children",
 		Example: "\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				return c.SquashCommitSet(args[0])
@@ -900,12 +900,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Squash a commit.",
 		Long:  `Squashes the provided commit into its children. The recursive flag must be used if the squashed commit has subvenance.`,
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := client.NewOnUserMachine(cmd.Context(), "user")
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil {
 				return err
@@ -927,12 +927,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long: "This command deletes the sub-commits of a commit; data in sub-commits will be lost, so use with caution. " +
 			"This operation is only supported if none of the sub-commits have children. ",
 		Example: "\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				return c.DropCommitSet(args[0])
@@ -946,12 +946,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Delete a commit.",
 		Long:  `Deletes the provided commit. The recursive flag must be used if the deleted commit has subvenance.`,
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := client.NewOnUserMachine(cmd.Context(), "user")
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil {
 				return err
@@ -1002,7 +1002,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@master --trigger staging --trigger-cron='@every 1h' \n" +
 			"\t- {{alias}} foo@master --trigger staging --trigger-commits=10' \n" +
 			"\t- {{alias}} foo@master --trigger staging --trigger-size=100M --trigger-cron='@every 1h --trigger-commits=10 --trigger-all \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
@@ -1037,7 +1037,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.CreateBranch(
@@ -1074,12 +1074,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo@master  \n" +
 			"\t- {{alias}} foo@master --project bar \n" +
 			"\t- {{alias}} foo@master --raw \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
@@ -1118,12 +1118,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@master --project bar \n" +
 			"\t- {{alias}} foo@master --raw \n" +
 			"\t- {{alias}} foo@master --raw -o yaml \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			branchClient, err := c.PfsAPIClient.ListBranch(c.Ctx(), &pfs.ListBranchRequest{Repo: cmdutil.ParseRepo(project, args[0])})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -1165,7 +1165,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@master --project bar \n" +
 			"\t- {{alias}} foo@master --force \n" +
 			"\t- {{alias}} foo@master --project bar --force \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
@@ -1174,7 +1174,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err := c.PfsAPIClient.DeleteBranch(c.Ctx(), &pfs.DeleteBranchRequest{Branch: branch, Force: force})
@@ -1205,7 +1205,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@master:file --json \n" +
 			"\t- {{alias}} foo@master:file --project bar --json --limit 100 --timeout 20s \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
@@ -1215,7 +1215,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			ctx := c.Ctx()
 			var cf context.CancelFunc
 			if timeout != time.Duration(0) {
@@ -1271,12 +1271,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo-project \n" +
 			"\t- {{alias}} foo-project --description 'This is a project for foo.' \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			_, err = c.PfsAPIClient.CreateProject(
 				c.Ctx(),
 				&pfs.CreateProjectRequest{
@@ -1295,12 +1295,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short:   "Update a project.",
 		Long:    "This command updates a project's description.",
 		Example: "\t- {{alias}} foo-project --description 'This is a project for foo.' \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			_, err = c.PfsAPIClient.CreateProject(
 				c.Ctx(),
 				&pfs.CreateProjectRequest{
@@ -1327,12 +1327,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo-project --raw \n" +
 			"\t- {{alias}} foo-project --output=yaml \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			resp, err := c.PfsAPIClient.InspectProjectV2(
 				c.Ctx(),
 				&pfs.InspectProjectV2Request{
@@ -1359,12 +1359,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command returns all projects.",
 		Example: "\t- {{alias}} \n" +
 			"\t- {{alias}} --raw \n",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			pis, err := c.ListProject()
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -1400,12 +1400,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command deletes a project.",
 		Example: "\t- {{alias}} foo-project \n" +
 			"\t- {{alias}} foo-project --force \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			project := args[0]
 			pipelineResp, err := c.PpsAPIClient.ListPipeline(
 				c.Ctx(),
@@ -1546,7 +1546,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			defer progress.Wait()
 
 			// check whether or not the repo exists before attempting to upload
@@ -1693,7 +1693,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			var opts []client.CopyFileOption
 			if appendFile {
@@ -1739,7 +1739,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@master.1:chart.png  \n" +
 			"\t- {{alias}} foo@master.-1:chart.png  \n" +
 			"\t- " + `{{alias}} 'foo@master:/test\[\].txt'` + "\n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			if !enableProgress {
 				progress.Disable()
 			}
@@ -1751,7 +1751,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			defer progress.Wait()
 			// TODO: Decide what progress should look like in the recursive case. The files are downloaded in a batch in 2.x.
 			if recursive {
@@ -1800,7 +1800,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 						return err
 					}
 				}
-				defer f.Close()
+				defer errors.Close(&retErr, f, "close file %v", outputPath)
 				w = f
 			}
 			if err := c.GetFile(file.Commit, file.Path, w, client.WithOffset(offsetBytes)); err != nil {
@@ -1833,7 +1833,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} repo@master:/logs/log.txt^2 \n" +
 			"\t- {{alias}} repo@master:/logs/log.txt.-1 \n" +
 			"\t- {{alias}} repo@master:/logs/log.txt^2  --project foo \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
@@ -1842,7 +1842,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			fileInfo, err := c.InspectFile(file.Commit, file.Path)
 			if err != nil {
 				return err
@@ -1875,7 +1875,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@master^2 \n" +
 			"\t- {{alias}} repo@master.-2  --project foo \n" +
 			"\t- " + `{{alias}} 'foo@master:dir\[1\]'` + "\n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
@@ -1884,7 +1884,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
 				return c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
@@ -1919,7 +1919,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- " + `{{alias}} "foo@master:A*"` + "\n" +
 			"\t- " + `{{alias}} "foo@0001a0100b1c10d01111e001fg00h00i:data/*"` + "\n" +
 			"\t- " + `{{alias}} "foo@master:data/*"`,
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
@@ -1928,7 +1928,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			fileInfos, err := c.GlobFileAll(file.Commit, file.Path)
 			if err != nil {
 				return err
@@ -1975,7 +1975,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo@master:/logs/log.txt \n" +
 			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:log.txt \n" +
 			"\t- {{alias}} foo@master:path1 bar@master:path2",
-		Run: cmdutil.RunBoundedArgs(1, 2, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 2, func(cmd *cobra.Command, args []string) (retErr error) {
 			newFile, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
@@ -1994,7 +1994,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) (retErr error) {
 				var writer *tabwriter.Writer
@@ -2077,7 +2077,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:/images/image.png \n" +
 			"\t- {{alias}} -r foo@master:/images \n" +
 			"\t- {{alias}} -r foo@master:/images --project projectContainingFoo \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
@@ -2086,7 +2086,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			var opts []client.DeleteFileOption
 			if recursive {
@@ -2122,12 +2122,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --zombie-all \n" +
 			"\t- {{alias}} --zombie foo@bar \n" +
 			"\t- {{alias}} --zombie foo@bar --project projectContainingFoo \n",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			foundErrors := false
 			var opts []client.FsckOption
 			if zombieAll {

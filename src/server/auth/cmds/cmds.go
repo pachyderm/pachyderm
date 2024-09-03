@@ -73,12 +73,12 @@ func ActivateCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 			"\t- {{alias}} --supply-root-token" +
 			"\t- {{alias}} --enterprise" +
 			"\t- {{alias}} --issuer http://pachd:1658/ --redirect http://localhost:30657/authorization-code/callback --client-id pachd",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			var rootToken string
 			if supplyRootToken {
@@ -247,7 +247,7 @@ func DeactivateCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Long:  "This command deactivates Pachyderm's auth and identity systems, which exposes data to everyone on the network. Use with caution. ",
 		Example: "\t- {{alias}}" +
 			"\t- {{alias}} --enterprise",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			fmt.Println("Are you sure you want to delete ALL auth information " +
 				"(ACLs, tokens, and admins) in this cluster, and expose ALL data? yN")
 			confirm, err := bufio.NewReader(os.Stdin).ReadString('\n')
@@ -261,7 +261,7 @@ func DeactivateCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			// Delete any data from the identity server
 			if _, err := c.IdentityAPIClient.DeleteAll(c.Ctx(), &identity.DeleteAllRequest{}); err != nil {
@@ -285,12 +285,12 @@ func LoginCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Long: "This command Logs in to Pachyderm. Any resources that have been restricted to " +
 			"the account you have with your ID provider (e.g. GitHub, Okta) " +
 			"account will subsequently be accessible.",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			// Issue authentication request to Pachyderm and get response
 			var resp *auth.AuthenticateResponse
@@ -386,13 +386,13 @@ func WhoamiCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	whoami := &cobra.Command{
 		Short: "Print your Pachyderm identity",
 		Long:  "This command prints your Pachyderm identity (e.g., `user:alan.watts@domain.com`) and session expiration.",
-		Run: cmdutil.Run(func(cmd *cobra.Command, _ []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, _ []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			resp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
@@ -423,12 +423,12 @@ func GetRobotTokenCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 			"\t- {{alias}} my-robot --quiet" +
 			"\t- {{alias}} my-robot --quiet --ttl 1h" +
 			"\t- {{alias}} my-robot --enterprise",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			req := &auth.GetRobotTokenRequest{
 				Robot: args[0],
@@ -473,7 +473,7 @@ func RevokeCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Example: "\t- {{alias}} --token <token>" +
 			"\t- {{alias}} --user <user>" +
 			"\t- {{alias}} --enterprise --user <user>",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			if token == "" && user == "" {
 				return errors.Errorf("one of --token or --user must be set")
 			} else if token != "" && user != "" {
@@ -484,7 +484,7 @@ func RevokeCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			// handle plurals properly
 			_ = message.Set(language.English, "%d auth token(s) revoked", plural.Selectf(1, "",
@@ -524,12 +524,12 @@ func GetGroupsCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Example: "\t- {{alias}}" +
 			"\t- {{alias}} alan.watts@domain.com" +
 			"\t- {{alias}} alan.watts@domain.com --enterprise",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			var resp *auth.GetGroupsResponse
 			if len(args) == 1 {
@@ -582,13 +582,13 @@ func CheckRepoCmd(pachCtx *config.Context, pachctlCfg *pachctl.Config) *cobra.Co
 		Example: "\t- {{alias}} foo user:alan.watts@domain.com" +
 			"\t- {{alias}} foo user:alan.watts@domain.com --project bar" +
 			"\t- {{alias}} foo robot:my-robot",
-		Run: cmdutil.RunBoundedArgs(1, 2, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 2, func(cmd *cobra.Command, args []string) (retErr error) {
 			repoResource := client.NewRepo(project, args[0]).AuthResource()
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			var perms *auth.GetPermissionsResponse
 			if len(args) == 2 {
@@ -622,7 +622,7 @@ func SetRepoRoleBindingCmd(pachCtx *config.Context, pachctlCfg *pachctl.Config) 
 		Example: "\t- {{alias}} foo repoOwner user:alan.watts@domain.com" +
 			"\t- {{alias}} foo repoWriter, repoReader robot:my-robot" +
 			"\t- {{alias}} foo none robot:my-robot --project foobar",
-		Run: cmdutil.RunFixedArgs(3, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(3, func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			var roles []string
 			if args[1] == "none" {
@@ -636,7 +636,7 @@ func SetRepoRoleBindingCmd(pachCtx *config.Context, pachctlCfg *pachctl.Config) 
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			err = c.ModifyRepoRoleBinding(c.Ctx(), project, repo, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -654,13 +654,13 @@ func GetRepoRoleBindingCmd(pachCtx *config.Context, pachctlCfg *pachctl.Config) 
 		Long:  "This command returns the role bindings for a given repo.",
 		Example: "\t- {{alias}} foo" +
 			"\t- {{alias}} foo --project bar",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			repo := args[0]
 			resp, err := c.GetRepoRoleBinding(c.Ctx(), project, repo)
 			if err != nil {
@@ -682,13 +682,13 @@ func CheckProjectCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Short:   "Check the permissions a user has on a project",
 		Long:    "This command checks the permissions a user has on a given project.",
 		Example: "\t- {{alias}} foo user:alan.watts@domain.com",
-		Run: cmdutil.RunBoundedArgs(1, 2, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 2, func(cmd *cobra.Command, args []string) (retErr error) {
 			project := client.NewProject(args[0]).AuthResource()
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			var perms *auth.GetPermissionsResponse
 			if len(args) == 2 {
@@ -719,12 +719,12 @@ func SetProjectRoleBindingCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Long:  "This command sets the roles that a given subject has on a given project (`projectViewer`, `projectWriter`, `projectOwner`, `projectCreator`).",
 		Example: "\t- {{alias}} foo projectOwner user:alan.watts@domain.com" +
 			"\t- {{alias}} foo projectWriter, projectReader robot:my-robot",
-		Run: cmdutil.RunFixedArgs(3, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(3, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			var (
 				project *auth.Resource
@@ -754,13 +754,13 @@ func GetProjectRoleBindingCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Use:   "{{alias}} <project>",
 		Short: "Get the role bindings for a project",
 		Long:  "This command returns the role bindings for a given project.",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			project := args[0]
 			resp, err := c.GetProjectRoleBinding(c.Ctx(), project)
 			if err != nil {
@@ -781,7 +781,7 @@ func SetClusterRoleBindingCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Long:  "This command sets the roles that a given subject has on the cluster.",
 		Example: "\t- {{alias}} clusterOwner user:alan.watts@domain.com" +
 			"\t- {{alias}} clusterWriter, clusterReader robot:my-robot",
-		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) (retErr error) {
 			var roles []string
 			if args[0] == "none" {
 				roles = []string{}
@@ -794,7 +794,7 @@ func SetClusterRoleBindingCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			err = c.ModifyClusterRoleBinding(c.Ctx(), subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -808,12 +808,12 @@ func GetClusterRoleBindingCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Get the role bindings for the cluster",
 		Long:  "This command returns the role bindings for the cluster.",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 0, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			ctx := c.AddMetadata(cmd.Context())
 			resp, err := c.GetClusterRoleBinding(ctx)
 			if err != nil {
@@ -833,7 +833,7 @@ func SetEnterpriseRoleBindingCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Use:   "{{alias}} [role1,role2 | none ] subject",
 		Short: "Set the roles that a subject has on the enterprise server",
 		Long:  "This command sets the roles that a given subject has on the enterprise server.",
-		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) (retErr error) {
 			var roles []string
 			if args[0] == "none" {
 				roles = []string{}
@@ -846,7 +846,7 @@ func SetEnterpriseRoleBindingCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			err = c.ModifyClusterRoleBinding(c.Ctx(), subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -860,12 +860,12 @@ func GetEnterpriseRoleBindingCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Get the role bindings for the enterprise server",
 		Long:  "This command returns the role bindings for the enterprise server.",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 0, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			ctx := c.AddMetadata(cmd.Context())
 			resp, err := c.GetClusterRoleBinding(ctx)
 			if err != nil {
@@ -888,12 +888,12 @@ func RotateRootToken(pachctlCfg *pachctl.Config) *cobra.Command {
 		Long:  "This command rotates the root user's auth token; you can supply a token to rotate to, or one can be auto-generated.",
 		Example: "\t- {{alias}}" +
 			"\t- {{alias}} --supply-token <token>",
-		Run: cmdutil.RunBoundedArgs(0, 0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 0, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			req := &auth.RotateRootTokenRequest{
 				RootToken: rootToken,
@@ -922,12 +922,12 @@ func RolesForPermissionCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Long:  "This command lists roles that grant the given permission.",
 		Example: "\t- {{alias}} repoOwner" +
 			"\t- {{alias}} clusterAdmin",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			permission, ok := auth.Permission_value[strings.ToUpper(args[0])]
 			if !ok {

@@ -235,7 +235,7 @@ func createReposTable(ctx context.Context, tx *pachsql.Tx) error {
 }
 
 // Migrate repos from collections.repos to pfs.repos
-func migrateRepos(ctx context.Context, env migrations.Env) error {
+func migrateRepos(ctx context.Context, env migrations.Env) (retErr error) {
 	tx := env.Tx
 	if err := createReposTable(ctx, tx); err != nil {
 		return errors.Wrap(err, "creating pfs.repos table")
@@ -247,7 +247,7 @@ func migrateRepos(ctx context.Context, env migrations.Env) error {
 	if err != nil {
 		return errors.Wrap(err, "preparing insert statement")
 	}
-	defer insertStmt.Close()
+	defer errors.Close(&retErr, insertStmt, "close insert statement")
 
 	repos, err := ListReposFromCollection(ctx, tx, false)
 	if err != nil {

@@ -28,7 +28,7 @@ const (
 // returns the active-enterprise-context if set in the config
 // otherwise return the active-context if the enterprise license
 // is activated on that context's cluster
-func deduceActiveEnterpriseContext(ctx context.Context, cfg *config.Config, pachctlCfg *pachctl.Config) (string, error) {
+func deduceActiveEnterpriseContext(ctx context.Context, cfg *config.Config, pachctlCfg *pachctl.Config) (_ string, retErr error) {
 	var activeEnterpriseContext string
 	if cfg.V2.ActiveEnterpriseContext != "" {
 		activeEnterpriseContext = cfg.V2.ActiveEnterpriseContext
@@ -37,7 +37,7 @@ func deduceActiveEnterpriseContext(ctx context.Context, cfg *config.Config, pach
 		if err != nil {
 			return "", err
 		}
-		defer c.Close()
+		defer errors.Close(&retErr, c, "close client")
 		ctx, cancel := context.WithTimeout(c.Ctx(), time.Second)
 		defer cancel()
 		state, err := c.Enterprise.GetState(ctx, &enterprise.GetStateRequest{})

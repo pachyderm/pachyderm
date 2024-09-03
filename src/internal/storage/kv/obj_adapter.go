@@ -26,7 +26,7 @@ func NewFromBucket(b *blob.Bucket, maxKeySize, maxValueSize int) *BucketStore {
 	}
 }
 
-func (s *BucketStore) Get(ctx context.Context, key []byte, buf []byte) (int, error) {
+func (s *BucketStore) Get(ctx context.Context, key []byte, buf []byte) (_ int, retErr error) {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	r, err := s.b.NewReader(ctx, string(key), nil)
@@ -36,7 +36,7 @@ func (s *BucketStore) Get(ctx context.Context, key []byte, buf []byte) (int, err
 		}
 		return 0, errors.EnsureStack(err)
 	}
-	defer r.Close()
+	defer errors.Close(&retErr, r, "close bucket reader")
 	return miscutil.ReadInto(buf, r)
 }
 

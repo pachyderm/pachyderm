@@ -102,7 +102,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} <url>",
 		Short: "Make an HTTP HEAD request.",
 		Long:  "Make an HTTP HEAD request.",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
 			req, err := http.NewRequestWithContext(ctx, "HEAD", args[0], nil)
 			if err != nil {
@@ -113,7 +113,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			}
 			res, err := hc.Do(req)
 			if res != nil {
-				defer res.Body.Close()
+				defer errors.Close(&retErr, res.Body, "close body")
 				if content, err := httputil.DumpResponse(res, true); err == nil {
 					fmt.Printf("%s", content)
 				}
@@ -157,14 +157,14 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			}
 
 			u := &url.URL{}
-			getPrefix := func() error {
+			getPrefix := func() (retErr error) {
 				tctx, cancel := context.WithTimeout(ctx, time.Second)
 				defer cancel()
 				c, err := pachctlCfg.NewOnUserMachine(tctx, false)
 				if err != nil {
 					return err
 				}
-				defer c.Close()
+				defer errors.Close(&retErr, c, "close client")
 
 				info, _ := c.ClusterInfo()
 				fmt.Println(info.GetWebResources().GetArchiveDownloadBaseUrl() + path + ".zip")

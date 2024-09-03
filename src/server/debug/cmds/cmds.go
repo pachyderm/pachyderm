@@ -46,12 +46,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			"\t- {{alias}} cpu --pachd -d 30s cpu.tgz \n" +
 			"\t- {{alias}} cpu --pipeline foo -d 30s foo-pipeline.tgz \n" +
 			"\t- {{alias}} cpu --worker foo-v1-r6pdq -d 30s worker.tgz \n",
-		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			var d *durationpb.Duration
 			if duration != 0 {
 				d = durationpb.New(duration)
@@ -83,12 +83,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			"\t- {{alias}} --pachd pachd-binary.tgz \n" +
 			"\t- {{alias}} --worker foo-v1-r6pdq foo-pod-binary.tgz \n" +
 			"\t- {{alias}} --pipeline foo foo-binary.tgz \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			filter, err := createFilter(pachd, database, pipeline, worker)
 			if err != nil {
 				return err
@@ -110,12 +110,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			"Use the modified template with the `debug dump` command (e.g., `pachctl debug dump --template debug-template.yaml out.tgz`) \n",
 		Example: "\t- {{alias}} \n" +
 			"\t- {{alias}} > debug-template.yaml\n",
-		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			r, err := client.GetDumpV2Template(client.Ctx(), &debug.GetDumpV2TemplateRequest{})
 			if err != nil {
 				return err
@@ -137,12 +137,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			"You can customize this output by passing in a customized template (made from `pachctl debug template` via the `--template` flag.",
 		Example: "\t- {{alias}} dump.tgz \n" +
 			"\t- {{alias}} -t template.yaml out.tgz\n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			var req *debug.DumpV2Request
 			if template == "" {
 				r, err := client.DebugClient.GetDumpV2Template(client.Ctx(), &debug.GetDumpV2TemplateRequest{})
@@ -271,12 +271,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			"\t- {{alias}} info --duration 5m \n" +
 			"\t- {{alias}} info --grpc --duration 5m \n" +
 			"\t- {{alias}} info --recursive false --duration 5m \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 
 			want := strings.ToUpper(args[0])
 			lvl, ok := debug.SetLogLevelRequest_LogLevel_value[want]
@@ -318,7 +318,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} [output file]",
 		Short: "Collect a Go trace.",
 		Long:  "Collect a Go trace.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			var output *os.File
 			if len(args) == 0 {
 				var err error
@@ -346,7 +346,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			tc, err := c.DebugClient.Trace(c.Ctx(), &debug.TraceRequest{
 				Duration: durationpb.New(traceDuration),

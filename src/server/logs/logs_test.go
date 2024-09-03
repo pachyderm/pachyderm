@@ -1582,7 +1582,7 @@ func TestWithRealLogs(t *testing.T) {
 		if err != nil {
 			return errors.Wrap(err, "open")
 		}
-		defer f.Close()
+		defer f.Close() //nolint:errcheck
 		if err := testloki.AddLogFile(ctx, f, l); err != nil {
 			return errors.Wrap(err, "AddLogFile")
 		}

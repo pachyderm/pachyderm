@@ -50,6 +50,11 @@ func (a *apiServer) checkResourceIsAuthorizedInTransaction(ctx context.Context, 
 	return nil
 }
 
+// CheckJobIsAuthorized returns an error if the current user isn't cluster admin
+func (a *apiServer) CheckJobIsAuthorized(ctx context.Context) error {
+	return a.checkResourceIsAuthorized(ctx, &auth.Resource{Type: auth.ResourceType_JOB})
+}
+
 // CheckClusterIsAuthorized returns an error if the current user doesn't have
 // the permissions in `p` on the cluster
 func (a *apiServer) CheckClusterIsAuthorized(ctx context.Context, p ...auth.Permission) error {

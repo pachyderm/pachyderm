@@ -92,7 +92,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar --raw --output yaml \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
 				return errors.New(`Use "list job <id>" to see jobs with a given ID across different pipelines`)
@@ -103,7 +103,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			jobInfo, err := client.InspectJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, true)
 			if err != nil {
 				return errors.Wrap(err, "error from InspectJob")
@@ -156,12 +156,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar --raw --output yaml \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 
 			var jobInfos []*pps.JobInfo
 			if uuid.IsUUIDWithoutDashes(args[0]) {
@@ -219,7 +219,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --input foo-repo@5f93d03b65fa421996185e53f7f8b1e4 \n" +
 			"\t- {{alias}} --pipeline foo --input bar-repo@staging \n" +
 			"\t- {{alias}} --pipeline foo --input bar-repo@5f93d03b65fa421996185e53f7f8b1e4 \n",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			commits, err := cmdutil.ParseCommits(project, inputCommitStrs)
 			if err != nil {
 				return err
@@ -240,7 +240,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 
 			if !raw && output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
@@ -376,7 +376,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command deletes a job.",
 		Example: "\t- {{alias}} 5f93d03b65fa421996185e53f7f8b1e4 \n" +
 			"\t- {{alias}} 5f93d03b65fa421996185e53f7f8b1e4 --project foo",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
@@ -385,7 +385,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			if err := client.DeleteJob(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id); err != nil {
 				return errors.Wrap(err, "error from DeleteJob")
 			}
@@ -401,12 +401,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short: "Stop a job.",
 		Long: "This command stops a job immediately." +
 			"\t- To specify the project where the parent pipeline lives, use the `--project` flag \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 
 			if uuid.IsUUIDWithoutDashes(args[0]) {
 				// Stop each subjob in a transaction
@@ -458,7 +458,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs.txt \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs-a.txt, /logs/logs-b.txt \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs-a.txt, /logs/logs-b.txt --project bar ",
-		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) (retErr error) {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
@@ -467,7 +467,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			datumFilter := strings.Split(args[1], ",")
 			for i := 0; i < len(datumFilter); {
 				if len(datumFilter[i]) == 0 {
@@ -500,7 +500,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			var printF func(*pps.DatumInfo) error
 			if !raw {
 				if output != "" {
@@ -529,7 +529,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				if err != nil {
 					return err
 				}
-				defer r.Close()
+				defer errors.Close(&retErr, r, "close %v", pipelineInputPath)
 				specReader := ppsutil.NewSpecReader(r)
 				spec, err := specReader.Next()
 				if err != nil {
@@ -575,12 +575,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} --raw \n" +
 			"\t- {{alias}} --since 100s \n" +
 			"\t- {{alias}} --raw --since 1h \n",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			since, err := time.ParseDuration(since)
 			if err != nil {
 				return errors.Wrapf(err, "parse since(%q)", since)
@@ -616,13 +616,13 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command queries the loki logs.",
 		Example: "\t- {{alias}} <query> --since 100s \n" +
 			"\t- {{alias}} <query> --since 1h",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			query := args[0]
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			since, err := time.ParseDuration(since)
 			if err != nil {
 				return errors.Wrapf(err, "parse since(%q)", since)
@@ -653,7 +653,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command displays detailed info about a single datum; requires the pipeline to have stats enabled.",
 		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 7f3cd988429894000bdad549dfe2d09b5ca7bfc5083b79fec0e6bda3db8cc705 \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 7f3cd988429894000bdad549dfe2d09b5ca7bfc5083b79fec0e6bda3db8cc705 --project foo",
-		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) (retErr error) {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
@@ -662,7 +662,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			datumInfo, err := client.InspectDatum(job.Pipeline.Project.GetName(), job.Pipeline.Name, job.Id, args[1])
 			if err != nil {
 				return err
@@ -736,12 +736,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --worker  \n" +
 			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --master --tail 10  \n" +
 			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --worker --follow \n",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 
 			// Break up comma-separated input paths, and filter out empty entries
 			data := strings.Split(commaInputs, ",")
@@ -907,7 +907,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			err = client.RunCron(project, args[0])
 			if err != nil {
 				return err
@@ -933,7 +933,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if allProjects {
 				filter = nil
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			checkStatusClient, err := client.PpsAPIClient.CheckStatus(
 				client.Ctx(),
 				&pps.CheckStatusRequest{
@@ -960,7 +960,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					return errors.New("cannot set --output (-o) without --raw")
 				}
 				pretty.PrintCheckStatus(writer, res)
-				writer.Flush()
+				writer.Flush() //nolint:errcheck
 			}
 		}),
 	}
@@ -981,12 +981,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n" +
 			"\t- {{alias}} foo --project bar --raw -o yaml \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			pipelineInfo, err := client.InspectPipeline(project, args[0], true)
 			if err != nil {
 				return err
@@ -1025,7 +1025,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			info, _ := client.ClusterInfo()
 
 			pipelineInfo, err := client.InspectPipeline(project, args[0], true)
@@ -1158,7 +1158,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --state crashing \n" +
 			"\t- {{alias}} --project foo \n" +
 			"\t- {{alias}} --project foo --state restarting \n",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			// validate flags
 			if raw && spec {
 				return errors.Errorf("cannot set both --raw and --spec")
@@ -1181,7 +1181,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			var pipeline string
 			if len(args) > 0 {
 				pipeline = args[0]
@@ -1259,12 +1259,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --edge-height 8" +
 			"\t- {{alias}} --project foo" +
 			"\t- {{alias}} --box-width 20 --edge-height 8 --commit 5f93d03b65fa421996185e53f7f8b1e4",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			request := &pps.ListPipelineRequest{
 				History:   0,
 				JqFilter:  "",
@@ -1307,12 +1307,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo --force" +
 			"\t- {{alias}} foo --keep-repo" +
 			"\t- {{alias}} foo --project bar --keep-repo",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			if len(args) > 0 && all {
 				return errors.Errorf("cannot use the --all flag with an argument")
 			}
@@ -1358,12 +1358,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command restarts a stopped pipeline.",
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			if err := client.StartPipeline(project, args[0]); err != nil {
 				return errors.Wrap(err, "error from StartProjectPipeline")
 			}
@@ -1379,12 +1379,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command stops a running pipeline.",
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			if _, err := c.PpsAPIClient.StopPipeline(
 				c.Ctx(),
 				&pps.StopPipelineRequest{
@@ -1410,7 +1410,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			fileBytes, err := os.ReadFile(file)
 			if err != nil {
 				return errors.EnsureStack(err)
@@ -1440,7 +1440,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 
 			_, err = client.PpsAPIClient.DeleteSecret(
 				client.Ctx(),
@@ -1467,7 +1467,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 
 			secretInfo, err := client.PpsAPIClient.InspectSecret(
 				client.Ctx(),
@@ -1496,7 +1496,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 
 			secretInfos, err := client.PpsAPIClient.ListSecret(
 				client.Ctx(),
@@ -1612,15 +1612,15 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short:   "Used internally for datum batching",
 		Long:    "This command is used internally for datum batching",
 		Example: "\t- {{alias}}",
-		Run: cmdutil.Run(func(_ *cobra.Command, _ []string) error {
+		Run: cmdutil.Run(func(_ *cobra.Command, _ []string) (retErr error) {
 			c, err := workerserver.NewClient("127.0.0.1")
 			if err != nil {
-				return err
+				return errors.Wrap(err, "new workerserver client")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, &c, "close workerserver client")
 			// TODO: Decide how to handle the environment variables in the response.
 			_, err = c.NextDatum(context.Background(), &workerapi.NextDatumRequest{Error: errStr})
-			return err
+			return errors.Wrap(err, "NextDatum")
 		}),
 		Hidden: true,
 	}
@@ -1632,12 +1632,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short:   "Validate pipeline spec.",
 		Long:    "This command validates a pipeline spec.  Client-side only; does not check that repos, images, etc exist on the server.",
 		Example: "\t- {{alias}} --file spec.json",
-		Run: cmdutil.RunFixedArgs(0, func(_ *cobra.Command, _ []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(_ *cobra.Command, _ []string) (retErr error) {
 			r, err := fileIndicatorToReadCloser(pipelinePath)
 			if err != nil {
 				return err
 			}
-			defer r.Close()
+			defer errors.Close(&retErr, r, "close reader")
 			specReader := ppsutil.NewSpecReader(r)
 			for {
 				_, err := specReader.Next()
@@ -1659,12 +1659,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --reprocess\n" +
 			"\t- {{alias}} foo --project bar\n",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			_, err = client.PpsAPIClient.RerunPipeline(
 				client.Ctx(),
 				&pps.RerunPipelineRequest{
@@ -1690,12 +1690,12 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Return defaults.",
 		Long:  "Return cluster or project defaults.",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer errors.Close(&retErr, client, "close client")
 			flagSet := cmd.Flags()
 			switch {
 			case flagSet.Changed("cluster"):
@@ -1819,7 +1819,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 }
 
 // setClusterDefaults sets the cluster defaults to the result of reading from r.  Reprocess implies regenerate.
-func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.ReadCloser, regenerate, reprocess, dryRun bool) error {
+func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.ReadCloser, regenerate, reprocess, dryRun bool) (retErr error) {
 	if reprocess {
 		regenerate = true
 	}
@@ -1843,7 +1843,7 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer errors.Close(&retErr, client, "close client")
 
 	var resp *pps.SetClusterDefaultsResponse
 	if resp, err = client.PpsAPIClient.SetClusterDefaults(client.Ctx(), req); err != nil {
@@ -1863,7 +1863,7 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 }
 
 // setProjectDefaults sets the project defaults to the result of reading from r.  Reprocess implies regenerate.
-func setProjectDefaults(ctx context.Context, pachctlCfg *pachctl.Config, project string, r io.ReadCloser, regenerate, reprocess, dryRun bool) error {
+func setProjectDefaults(ctx context.Context, pachctlCfg *pachctl.Config, project string, r io.ReadCloser, regenerate, reprocess, dryRun bool) (retErr error) {
 	if reprocess {
 		regenerate = true
 	}
@@ -1888,7 +1888,7 @@ func setProjectDefaults(ctx context.Context, pachctlCfg *pachctl.Config, project
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer errors.Close(&retErr, client, "close client")
 
 	var resp *pps.SetProjectDefaultsResponse
 	if resp, err = client.PpsAPIClient.SetProjectDefaults(client.Ctx(), req); err != nil {
@@ -1934,12 +1934,12 @@ func fileIndicatorToReadCloser(indicator string) (io.ReadCloser, error) {
 	return f, nil
 }
 
-func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, jsonnetArgs []string) ([]byte, error) {
+func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, jsonnetArgs []string) (_ []byte, retErr error) {
 	r, err := fileIndicatorToReadCloser(jsonnetPath)
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer errors.Close(&retErr, r, "close %v", jsonnetPath)
 	templateBytes, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not read Jsonnet file %q", jsonnetPath)
@@ -1958,7 +1958,7 @@ func evaluateJsonnetTemplate(client *pachdclient.APIClient, jsonnetPath string, 
 	return []byte(res.Json), nil
 }
 
-func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess bool, pushImages bool, registry, username, projectName, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool, dryRun bool, output string, raw bool) error {
+func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess bool, pushImages bool, registry, username, projectName, pipelinePath, jsonnetPath string, jsonnetArgs []string, update bool, dryRun bool, output string, raw bool) (retErr error) {
 	// validate arguments
 	if pipelinePath != "" && jsonnetPath != "" {
 		return errors.New("cannot set both --file and --jsonnet; exactly one must be set")
@@ -1970,7 +1970,7 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 	if err != nil {
 		return errors.Wrapf(err, "error connecting to pachd")
 	}
-	defer pc.Close()
+	defer errors.Close(&retErr, pc, "close client")
 	// read/compute pipeline spec(s) (file, stdin, url, or via template)
 	var specReader *ppsutil.SpecReader
 	if pipelinePath != "" {
@@ -1978,7 +1978,7 @@ func pipelineHelper(ctx context.Context, pachctlCfg *pachctl.Config, reprocess b
 		if err != nil {
 			return err
 		}
-		defer r.Close()
+		defer errors.Close(&retErr, r, "close %v", pipelinePath)
 		specReader = ppsutil.NewSpecReader(r)
 
 	} else if jsonnetPath != "" {

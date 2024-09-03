@@ -1,0 +1,24 @@
+load("@aspect_rules_js//js:defs.bzl", "js_library")
+load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_lint_test")
+
+jsonnet_lint_test(
+    name = "huggingFaceDownloader_jsonnet_test",
+    size = "small",
+    src = "huggingFaceDownloader.jsonnet",
+)
+
+jsonnet_lint_test(
+    name = "snowflake_jsonnet_test",
+    size = "small",
+    src = "snowflake.jsonnet",
+)
+
+js_library(
+    name = "templates",
+    srcs = [
+        "huggingFaceDownloader.jsonnet",
+        "index.ts",
+        "snowflake.jsonnet",
+    ],
+    visibility = ["//console/frontend:__pkg__"],
+)

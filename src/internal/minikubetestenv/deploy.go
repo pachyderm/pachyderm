@@ -479,7 +479,7 @@ func checkForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset
 }
 
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
-	require.NoError(t, backoff.RetryNotify(func() error {
+	require.NoError(t, backoff.RetryNotify(func() (retErr error) {
 		client := http.Client{
 			Timeout: 15 * time.Second,
 		}
@@ -493,7 +493,7 @@ func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 			return errors.Wrap(err, "loki not ready due to error")
 		}
 		t.Logf("Connected to loki at lokiHost %v and lokiPort %v", lokiHost, lokiPort)
-		defer resp.Body.Close()
+		defer errors.Close(&retErr, resp.Body, "close body")
 		if resp.StatusCode != http.StatusOK {
 			return errors.Errorf("loki not ready. http response code %v", resp.StatusCode)
 		}
@@ -532,6 +532,7 @@ func waitForLabeledPod(t testing.TB, ctx context.Context, kubeClient *kube.Clien
 }
 
 func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, namespace string, certpool *x509.CertPool) *client.APIClient {
+	ctx := pctx.TestContext(t)
 	var c *client.APIClient
 	// retry connecting if it doesn't immediately work
 	require.NoError(t, backoff.Retry(func() error {
@@ -541,7 +542,7 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 		if certpool != nil {
 			opts = append(opts, client.WithCertPool(certpool))
 		}
-		c, err = client.NewFromPachdAddress(pctx.TODO(), pachAddress, opts...)
+		c, err = client.NewFromPachdAddress(ctx, pachAddress, opts...)
 		if err != nil {
 			t.Logf("retryable: failed to connect to pachd on port %v: %v", pachAddress.Port, err)
 			return errors.Wrapf(err, "failed to connect to pachd on port %v", pachAddress.Port)
@@ -847,7 +848,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoError(t, err, "Creating determined values template")
 		valuesFile, err := os.CreateTemp("", "detvalues.*.yaml")
 		require.NoError(t, err, "Creating determined values temp file")
-		defer valuesFile.Close()
+		defer valuesFile.Close() //nolint:errcheck
 		err = valuesTemplate.Execute(valuesFile, struct{ K8sNamespace string }{K8sNamespace: namespace})
 		require.NoError(t, err, "Error templating determined values temp file")
 		opts.ValuesFiles = append([]string{valuesFile.Name()}, opts.ValuesFiles...) // we want any user specified values files to be applied after

@@ -179,7 +179,7 @@ func TestAWS(t *testing.T) {
 				if !ok {
 					t.Errorf("pachd container not found in pachd deployment")
 				}
-				if err, got := GetEnvVarByName(c.Env, storageBackendEnvVar); err == nil && got != expectedStorageBackend {
+				if got, err := GetEnvVarByName(c.Env, storageBackendEnvVar); err == nil && got != expectedStorageBackend {
 					t.Errorf("expected %s to be %q, not %q", storageBackendEnvVar, expectedStorageBackend, got)
 				}
 			})

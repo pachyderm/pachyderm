@@ -25,12 +25,12 @@ func GetConfigCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	getConfig := &cobra.Command{
 		Short: "Retrieve Pachyderm's current auth configuration",
 		Long:  "Retrieve Pachyderm's current auth configuration",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			resp, err := c.GetConfiguration(c.Ctx(), &auth.GetConfigurationRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -77,12 +77,12 @@ func SetConfigCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	setConfig := &cobra.Command{
 		Short: "Set Pachyderm's current auth configuration",
 		Long:  "Set Pachyderm's current auth configuration",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			var rawConfigBytes []byte
 			if file == "-" {
 				var err error

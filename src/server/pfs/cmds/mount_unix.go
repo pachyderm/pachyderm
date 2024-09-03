@@ -67,12 +67,12 @@ func mountCmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			mountPoint := args[0]
 			repoOpts, err := parseRepoOpts(project, repoOpts)
 			if err != nil {

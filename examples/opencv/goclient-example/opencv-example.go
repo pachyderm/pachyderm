@@ -6,6 +6,7 @@ package main
 // example.
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/client"
@@ -15,8 +16,8 @@ import (
 )
 
 func main() {
-
-	c, err := client.NewOnUserMachine("")
+	ctx := context.Background()
+	c, err := client.NewOnUserMachineContext(ctx, "")
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +60,8 @@ func main() {
 	}
 	fmt.Println(files)
 
-	if err := c.CreatePipeline(
+	if err := c.CreateProjectPipeline(
+		"default",
 		"edges",
 		"pachyderm/opencv",
 		[]string{"python3", "/edges.py"},
@@ -74,7 +76,8 @@ func main() {
 		panic(err)
 	}
 
-	if err := c.CreatePipeline(
+	if err := c.CreateProjectPipeline(
+		"default",
 		"montage",
 		"v4tech/imagemagick",
 		[]string{"sh"},

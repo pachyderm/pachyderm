@@ -26,7 +26,7 @@ func IdentityPM(x string) string {
 //
 // To leave paths unchanged use IdentityPM for pm
 // To leave file content unchanged use IdentityDM for dm
-func bijectiveMap(inputDir, outputDir string, pm PathMapper, dm DataMapper) error {
+func bijectiveMap(inputDir, outputDir string, pm PathMapper, dm DataMapper) (retErr error) {
 	err := filepath.WalkDir(inputDir, func(inputPath string, dirEnt fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -43,12 +43,12 @@ func bijectiveMap(inputDir, outputDir string, pm PathMapper, dm DataMapper) erro
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		defer inputFile.Close()
+		defer errors.Close(&retErr, inputFile, "close input file %v", inputPath)
 		outputFile, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		defer outputFile.Close()
+		defer errors.Close(&retErr, outputFile, "close output file %v", outputPath)
 		if err := dm(inputFile, outputFile); err != nil {
 			return err
 		}

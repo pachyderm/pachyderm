@@ -226,7 +226,7 @@ func newPostgresCollection(name string, indexes []*index, opts ...colOption) *po
 	return col
 }
 
-func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name string, indices []*index, oldVal proto.Message, f func(oldKey string) (newKey string, newVal proto.Message, err error), opts ...colOption) error {
+func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name string, indices []*index, oldVal proto.Message, f func(oldKey string) (newKey string, newVal proto.Message, err error), opts ...colOption) (retErr error) {
 	var col = postgresReadWriteCollection{
 		postgresCollection: &postgresCollection{
 			table:   name,
@@ -242,7 +242,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	if err != nil {
 		return errors.Wrap(err, "could not read table")
 	}
-	defer rr.Close()
+	defer errors.Close(&retErr, rr, "close collections select")
 	type pair struct {
 		key string
 		val proto.Message
@@ -299,7 +299,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	wColumns = append(wColumns, "key")
 
 	// Create new batcher with a batch size of 1000
-	err, batcher := migrationutils.NewPostgresBatcher(tx, "UPDATE", fmt.Sprintf("collections.%s", col.table), columns, wColumns, 1000)
+	batcher, err := migrationutils.NewPostgresBatcher(tx, "UPDATE", fmt.Sprintf("collections.%s", col.table), columns, wColumns, 1000)
 	if err != nil {
 		return err
 	}

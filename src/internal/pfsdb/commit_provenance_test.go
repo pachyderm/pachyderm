@@ -22,7 +22,7 @@ import (
 func TestCommitSetProvenance(suite *testing.T) {
 	ctx := pctx.TestContext(suite)
 	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, suite)
-	defer db.Close()
+	defer db.Close() //nolint:errcheck
 	// setup schema
 	withTx(suite, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		_, err := tx.ExecContext(ctx, `CREATE SCHEMA collections`)
@@ -34,7 +34,7 @@ func TestCommitSetProvenance(suite *testing.T) {
 		require.NoError(suite, v2_6_0.SetupCommitProvenanceV0(ctx, tx))
 	})
 	suite.Cleanup(func() {
-		db.Close()
+		db.Close() //nolint:errcheck
 	})
 	proj := "my_project"
 	suite.Run("Basic", func(t *testing.T) {

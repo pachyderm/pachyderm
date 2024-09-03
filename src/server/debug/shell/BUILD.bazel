@@ -11,6 +11,7 @@ go_library(
         "//src/enterprise",
         "//src/internal/ancestry",
         "//src/internal/client",
+        "//src/internal/errors",
         "//src/internal/errutil",
         "//src/internal/pctx",
         "//src/internal/ppsutil",

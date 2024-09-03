@@ -11,5 +11,6 @@ go_library(
         "//src/internal/log",
         "//src/internal/pctx",
         "@com_github_spf13_cobra//:cobra",
+        "@org_uber_go_zap//:zap",
     ],
 )

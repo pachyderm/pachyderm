@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"fmt"
+
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/instrumenta/kubeval/kubeval"
@@ -55,7 +56,7 @@ func TestConsoleImageAndConfigTag(t *testing.T) {
 	}
 
 	issuerURIEnvVar := "ISSUER_URI"
-	err, issuerURI := GetEnvVarByName(deploymentContainers[0].Env, issuerURIEnvVar)
+	issuerURI, err := GetEnvVarByName(deploymentContainers[0].Env, issuerURIEnvVar)
 	if err != nil {
 		t.Fatalf("Could not find env var")
 	}
@@ -64,7 +65,7 @@ func TestConsoleImageAndConfigTag(t *testing.T) {
 	}
 
 	oauthURIEnvVar := "OAUTH_REDIRECT_URI"
-	err, oauthURI := GetEnvVarByName(deploymentContainers[0].Env, oauthURIEnvVar)
+	oauthURI, err := GetEnvVarByName(deploymentContainers[0].Env, oauthURIEnvVar)
 	if err != nil {
 		t.Fatalf("Could not find env var")
 	}
@@ -150,12 +151,12 @@ func TestPachdImageTagDeploymentEnv(t *testing.T) {
 	deploymentContainers := deployment.Spec.Template.Spec.Containers
 
 	workerImageEnvVar := "WORKER_IMAGE"
-	err, workerImage := GetEnvVarByName(deploymentContainers[0].Env, workerImageEnvVar)
+	workerImage, err := GetEnvVarByName(deploymentContainers[0].Env, workerImageEnvVar)
 	if err != nil {
 		t.Fatalf("Could not find env var")
 	}
 	workerSidecarImageEnvVar := "WORKER_SIDECAR_IMAGE"
-	err, workerSidecarImage := GetEnvVarByName(deploymentContainers[0].Env, workerSidecarImageEnvVar)
+	workerSidecarImage, err := GetEnvVarByName(deploymentContainers[0].Env, workerSidecarImageEnvVar)
 	if err != nil {
 		t.Fatalf("Could not find env var")
 	}

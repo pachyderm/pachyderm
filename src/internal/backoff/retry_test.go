@@ -46,7 +46,7 @@ func TestRetry(t *testing.T) {
 func TestRetryUntilCancel(t *testing.T) {
 	var results []int
 	ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
-	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+	backoff.RetryUntilCancel(ctx, func() error {
 		results = append(results, len(results))
 		if len(results) >= 3 {
 			cancel()
@@ -54,14 +54,14 @@ func TestRetryUntilCancel(t *testing.T) {
 		return backoff.ErrContinue
 	}, &backoff.ZeroBackOff{}, backoff.NotifyContinue(func(err error, d time.Duration) error {
 		panic("this should not be called due to cancellation")
-	}))
+	})) //nolint:errcheck
 	require.Equal(t, []int{0, 1, 2}, results)
 }
 
 func TestRetryUntilCancelZeroBackoff(t *testing.T) {
 	ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
 	first := true
-	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+	backoff.RetryUntilCancel(ctx, func() error {
 		if first {
 			first = false
 		} else {
@@ -71,7 +71,7 @@ func TestRetryUntilCancelZeroBackoff(t *testing.T) {
 	}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 		cancel() // This should prevent operation() from running
 		return nil
-	})
+	}) //nolint:errcheck
 }
 
 // if mustResetBackOff is called more than once without Reset() being called in
@@ -97,32 +97,32 @@ func (m *mustResetBackOff) Reset() {
 func TestRetryUntilCancelResetsOnErrContinue(t *testing.T) {
 	var b mustResetBackOff = 0
 	var results []int
-	backoff.RetryUntilCancel(pctx.TestContext(t), func() error { //nolint:errcheck
+	backoff.RetryUntilCancel(pctx.TestContext(t), func() error {
 		results = append(results, len(results)+1)
 		if len(results) < 3 {
 			return backoff.ErrContinue
 		}
 		return nil
-	}, &b, backoff.NotifyContinue(t.Name()))
+	}, &b, backoff.NotifyContinue(t.Name())) //nolint:errcheck
 	require.Equal(t, []int{1, 2, 3}, results)
 }
 
 func TestNotifyContinue(t *testing.T) {
 	t.Run("NotifyContinueWithNil", func(t *testing.T) {
 		var results []int
-		backoff.RetryNotify(func() error { //nolint:errcheck
+		backoff.RetryNotify(func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
 				return backoff.ErrContinue // notify fn below will be elided by NotifyContinue
 			}
 			return errors.New("done")
-		}, &backoff.ZeroBackOff{}, backoff.NotifyContinue(nil))
+		}, &backoff.ZeroBackOff{}, backoff.NotifyContinue(nil)) //nolint:errcheck
 		require.Equal(t, []int{0, 1, 2}, results)
 	})
 
 	t.Run("NotifyContinueWithNotify", func(t *testing.T) {
 		var results []int
-		backoff.RetryNotify(func() error { //nolint:errcheck
+		backoff.RetryNotify(func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
 				return backoff.ErrContinue // notify fn below will be elided by NotifyContinue
@@ -131,13 +131,13 @@ func TestNotifyContinue(t *testing.T) {
 		}, &backoff.ZeroBackOff{}, backoff.NotifyContinue(backoff.Notify(func(err error, d time.Duration) error {
 			results = append(results, -1)
 			return errors.New("done")
-		})))
+		}))) //nolint:errcheck
 		require.Equal(t, []int{0, 1, 2, -1}, results)
 	})
 
 	t.Run("NotifyContinueWithFunction", func(t *testing.T) {
 		var results []int
-		backoff.RetryNotify(func() error { //nolint:errcheck
+		backoff.RetryNotify(func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
 				return backoff.ErrContinue // notify fn below will be elided by NotifyContinue
@@ -146,7 +146,7 @@ func TestNotifyContinue(t *testing.T) {
 		}, &backoff.ZeroBackOff{}, backoff.NotifyContinue(func(err error, d time.Duration) error {
 			results = append(results, -1)
 			return errors.New("done")
-		}))
+		})) //nolint:errcheck
 		require.Equal(t, []int{0, 1, 2, -1}, results)
 	})
 
@@ -157,7 +157,7 @@ func TestNotifyContinue(t *testing.T) {
 
 		var results []int
 		ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
-		backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+		backoff.RetryUntilCancel(ctx, func() error {
 			results = append(results, len(results))
 			if len(results) < 3 {
 				return backoff.ErrContinue // causes NotifyContinue to re-run
@@ -166,7 +166,7 @@ func TestNotifyContinue(t *testing.T) {
 			}
 			cancel() // actually breaks out
 			return nil
-		}, &backoff.ZeroBackOff{}, backoff.NotifyContinue(t.Name()))
+		}, &backoff.ZeroBackOff{}, backoff.NotifyContinue(t.Name())) //nolint:errcheck
 		t.Logf("logs:\n%s", buf.String())
 		require.Equal(t, []int{0, 1, 2, 3}, results)
 		require.Equal(t, 1, strings.Count(buf.String(), t.Name())) // logged once
@@ -176,7 +176,7 @@ func TestNotifyContinue(t *testing.T) {
 func TestMustLoop(t *testing.T) {
 	var results []int
 	ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
-	backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error { //nolint:errcheck
+	backoff.RetryUntilCancel(ctx, backoff.MustLoop(func() error {
 		results = append(results, len(results)+1)
 		switch len(results) {
 		case 1:
@@ -187,6 +187,6 @@ func TestMustLoop(t *testing.T) {
 			cancel() // actually break out
 		}
 		return nil
-	}), &backoff.ZeroBackOff{}, backoff.NotifyContinue(t.Name()))
+	}), &backoff.ZeroBackOff{}, backoff.NotifyContinue(t.Name())) //nolint:errcheck
 	require.Equal(t, []int{1, 2, 3}, results)
 }

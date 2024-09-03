@@ -12,7 +12,6 @@ import (
 	"github.com/pulumi/pulumi-aws/sdk/v5/go/aws/s3"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes"
 	corev1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
-	secret "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/core/v1"
 	"github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/helm/v3"
 	metav1 "github.com/pulumi/pulumi-kubernetes/sdk/v3/go/kubernetes/meta/v1"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -35,15 +34,15 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	encoded := base64.StdEncoding.EncodeToString(jsonKey)
 	wpCloudFlareLoadTestAWSKeyID := os.Getenv("CF_WP_LOADTEST_AWSKEYID")
 	if wpCloudFlareLoadTestAWSKeyID == "" {
-		return nil, errors.WithStack(fmt.Errorf("need to supply env var cloudflare loadtest aws access key id."))
+		return nil, errors.WithStack(fmt.Errorf("need to supply env var cloudflare loadtest aws access key id"))
 	}
 	wpCloudFlareLoadTestEndpoint := os.Getenv("CF_WP_LOADTEST_ENDPOINT_URL")
 	if wpCloudFlareLoadTestEndpoint == "" {
-		return nil, errors.WithStack(fmt.Errorf("need to supply env var cloudflare loadtest endpoint."))
+		return nil, errors.WithStack(fmt.Errorf("need to supply env var cloudflare loadtest endpoint"))
 	}
 	wpCloudFlareLoadTestSecretAccessKey := os.Getenv("CF_WP_LOADTEST_AWSACCESSKEY")
 	if wpCloudFlareLoadTestSecretAccessKey == "" {
-		return nil, errors.WithStack(fmt.Errorf("need to supply env var cloudflare loadtest aws access key."))
+		return nil, errors.WithStack(fmt.Errorf("need to supply env var cloudflare loadtest aws access key"))
 	}
 	issuerURI := os.Getenv("ISSUER_URI")
 	if issuerURI == "" {
@@ -103,7 +102,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	if err != nil {
 		return nil, errors.WithStack(fmt.Errorf("error occurred while attempting to create test-ns: %w", err))
 	}
-	_, err = secret.NewSecret(ctx, "metrics-secret", &secret.SecretArgs{
+	_, err = corev1.NewSecret(ctx, "metrics-secret", &corev1.SecretArgs{
 		Metadata: &metav1.ObjectMetaArgs{
 			Name:      pulumi.String("metrics-secret"),
 			Namespace: namespace.Metadata.Elem().Name(),
@@ -116,7 +115,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	if err != nil {
 		return nil, errors.WithStack(fmt.Errorf("error creating metric secret: %w", err))
 	}
-	_, err = secret.NewSecret(ctx, " transfer-config", &secret.SecretArgs{
+	_, err = corev1.NewSecret(ctx, " transfer-config", &corev1.SecretArgs{
 		Metadata: &metav1.ObjectMetaArgs{
 			Name:      pulumi.String("transfer-config"),
 			Namespace: namespace.Metadata.Elem().Name(),
@@ -131,7 +130,7 @@ func DeployApp(ctx *pulumi.Context, k8sProvider *kubernetes.Provider, saRole *ia
 	if err != nil {
 		return nil, errors.WithStack(fmt.Errorf("error creating metric secret: %w", err))
 	}
-	_, err = secret.NewSecret(ctx, "workspace-wildcard", &secret.SecretArgs{
+	_, err = corev1.NewSecret(ctx, "workspace-wildcard", &corev1.SecretArgs{
 		Metadata: &metav1.ObjectMetaArgs{
 			Name:      pulumi.String("workspace-wildcard"),
 			Namespace: namespace.Metadata.Elem().Name(),

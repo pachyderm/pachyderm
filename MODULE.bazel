@@ -3,21 +3,21 @@ module(
     repo_name = "com_github_pachyderm_pachyderm",
 )
 
-bazel_dep(name = "aspect_bazel_lib", version = "2.5.3")  # Needed for arm64 jq and rules_oci/#425.
-bazel_dep(name = "aspect_rules_jest", version = "0.21.0")
-bazel_dep(name = "aspect_rules_js", version = "1.42.3")
-bazel_dep(name = "aspect_rules_ts", version = "2.4.2")
-bazel_dep(name = "circl", version = "1.3.7")
-bazel_dep(name = "container_structure_test", version = "1.16.0")
-bazel_dep(name = "gazelle", version = "0.36.0")
+bazel_dep(name = "aspect_bazel_lib", version = "2.8.1")  # Needed for arm64 jq and rules_oci/#425.
+bazel_dep(name = "aspect_rules_jest", version = "0.22.0")
+bazel_dep(name = "aspect_rules_js", version = "2.0.1")
+bazel_dep(name = "aspect_rules_ts", version = "3.0.0")
+bazel_dep(name = "circl", version = "1.3.8")
+bazel_dep(name = "container_structure_test", version = "1.19.1")
+bazel_dep(name = "gazelle", version = "0.38.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
-bazel_dep(name = "rules_go", version = "0.48.1")
-bazel_dep(name = "rules_oci", version = "1.7.5")
-bazel_dep(name = "rules_nodejs", version = "6.1.1")
-bazel_dep(name = "rules_python", version = "0.32.2")
-bazel_dep(name = "rules_python_gazelle_plugin", version = "0.32.2")  # Same version as rules_python
+bazel_dep(name = "rules_go", version = "0.49.0")
+bazel_dep(name = "rules_oci", version = "1.8.0")
+bazel_dep(name = "rules_nodejs", version = "6.2.0")
+bazel_dep(name = "rules_python", version = "0.35.0")
+bazel_dep(name = "rules_python_gazelle_plugin", version = "0.35.0")  # Same version as rules_python
 
-bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
+bazel_dep(name = "buildifier_prebuilt", version = "7.3.1", dev_dependency = True)
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.nogo(nogo = "//:nogo")
@@ -166,12 +166,15 @@ go_deps.module(
 )
 use_repo(
     go_deps,
+    "co_honnef_go_tools",
     "com_github_adrg_xdg",
     "com_github_alecthomas_jsonschema",
     "com_github_alecthomas_participle_v2",
     "com_github_alessio_shellescape",
+    "com_github_alingse_asasalint",
     "com_github_aws_aws_lambda_go",
     "com_github_aws_aws_sdk_go",
+    "com_github_breml_bidichk",
     "com_github_c_bata_go_prompt",
     "com_github_cevaris_ordered_map",
     "com_github_chmduquesne_rollinghash",
@@ -196,11 +199,13 @@ use_repo(
     "com_github_go_logr_zapr",
     "com_github_go_sql_driver_mysql",
     "com_github_golang_protobuf",
+    "com_github_golangci_gofmt",
     "com_github_google_btree",
     "com_github_google_go_cmp",
     "com_github_google_gofuzz",
     "com_github_google_shlex",
     "com_github_google_uuid",
+    "com_github_gordonklaus_ineffassign",
     "com_github_gorilla_mux",
     "com_github_grpc_ecosystem_go_grpc_middleware",
     "com_github_grpc_ecosystem_go_grpc_prometheus",
@@ -216,16 +221,20 @@ use_repo(
     "com_github_jackc_pgconn",
     "com_github_jackc_pgerrcode",
     "com_github_jackc_pgx_v4",
+    "com_github_jirfag_go_printf_func_name",
     "com_github_jmoiron_sqlx",
     "com_github_json_iterator_go",
     "com_github_juju_ansiterm",
+    "com_github_kisielk_errcheck",
     "com_github_klauspost_compress",
     "com_github_lib_pq",
     "com_github_mattn_go_isatty",
     "com_github_minio_minio_go_v6",
     "com_github_minio_minio_go_v7",
     "com_github_modern_go_reflect2",
+    "com_github_nishanths_exhaustive",
     "com_github_opencontainers_image_spec",
+    "com_github_openpeedeep_depguard_v2",
     "com_github_opentracing_contrib_go_grpc",
     "com_github_opentracing_opentracing_go",
     "com_github_pachyderm_ohmyglob",
@@ -248,7 +257,9 @@ use_repo(
     "com_github_spf13_cobra",
     "com_github_spf13_pflag",
     "com_github_stretchr_testify",
+    "com_github_tdakkota_asciicheck",
     "com_github_timewasted_go_accept_headers",
+    "com_github_tomarrell_wrapcheck_v2",
     "com_github_uber_jaeger_client_go",
     "com_github_vbauerster_mpb_v6",
     "com_github_wader_readline",
@@ -284,6 +295,7 @@ use_repo(
     "org_golang_x_sys",
     "org_golang_x_term",
     "org_golang_x_text",
+    "org_golang_x_tools",
     "org_golang_x_vuln",
     "org_uber_go_atomic",
     "org_uber_go_automaxprocs",

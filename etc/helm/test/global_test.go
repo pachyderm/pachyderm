@@ -13,7 +13,6 @@ import (
 	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
-	goyaml "gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/kubectl/pkg/scheme"
 )
@@ -28,7 +27,7 @@ const (
 
 // adapted from https://play.golang.org/p/MZNwxdUzxPo
 func splitYAML(manifest string) ([]string, error) {
-	dec := goyaml.NewDecoder(bytes.NewReader([]byte(manifest)))
+	dec := yaml.NewDecoder(bytes.NewReader([]byte(manifest)))
 	var res []string
 	for {
 		var value yaml.Node
@@ -38,7 +37,7 @@ func splitYAML(manifest string) ([]string, error) {
 			return nil, errors.Wrap(err, "decode")
 		}
 		//fmt.Printf("%+v\n", value.Content[0].Content[0].HeadComment)
-		b, err := goyaml.Marshal(&value)
+		b, err := yaml.Marshal(&value)
 		if err != nil {
 			return nil, errors.Wrap(err, "marshal")
 		}
@@ -141,13 +140,13 @@ func ensureVolumePresent(matchVol v1.Volume, volumes []v1.Volume) bool {
 	return present
 }
 
-func GetEnvVarByName(envVars []v1.EnvVar, name string) (error, string) {
+func GetEnvVarByName(envVars []v1.EnvVar, name string) (string, error) {
 	for _, v := range envVars {
 		if v.Name == name {
-			return nil, v.Value
+			return v.Value, nil
 		}
 	}
-	return stderr.New("Not found"), "" //nolint:wrapcheck
+	return "", stderr.New("Not found") //nolint:wrapcheck
 }
 
 // GetContainerByName returns container or nil

@@ -224,6 +224,8 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 // the Jaeger tracer, causes it to send any unreported traces to the collector
 func CloseAndReportTraces() {
 	if c, ok := opentracing.GlobalTracer().(io.Closer); ok {
-		c.Close()
+		if err := c.Close(); err != nil {
+			log.Error(pctx.Background("opentracing"), "problem closing global tracer", zap.Error(err))
+		}
 	}
 }

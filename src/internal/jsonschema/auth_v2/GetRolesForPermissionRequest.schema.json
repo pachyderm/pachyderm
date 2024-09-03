@@ -77,7 +77,8 @@
                         "PROJECT_DELETE",
                         "PROJECT_LIST_REPO",
                         "PROJECT_CREATE_REPO",
-                        "PROJECT_MODIFY_BINDINGS"
+                        "PROJECT_MODIFY_BINDINGS",
+                        "JOB_SKIP_CTX"
                     ],
                     "type": "string",
                     "title": "Permission",

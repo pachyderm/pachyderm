@@ -33,7 +33,10 @@ func TestMain(m *testing.M) {
 			os.Exit(1)
 		}
 		path := os.Getenv("PATH")
-		os.Setenv("PATH", tmp+":"+path)
+		if err := os.Setenv("PATH", tmp+":"+path); err != nil {
+			fmt.Fprintf(os.Stderr, "setenv(PATH): %v", err)
+			os.Exit(1)
+		}
 	}
 	os.Exit(m.Run())
 }

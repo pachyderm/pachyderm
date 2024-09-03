@@ -1,0 +1,7 @@
+load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_lint_test")
+
+jsonnet_lint_test(
+    name = "outer_join_jsonnet_test",
+    size = "small",
+    src = "outer_join.jsonnet",
+)

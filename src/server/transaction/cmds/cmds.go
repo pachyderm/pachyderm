@@ -47,12 +47,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	listTransaction := &cobra.Command{
 		Short: "List transactions.",
 		Long:  "This command lists transactions.",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			transactions, err := c.ListTransaction()
 			if err != nil {
 				return err
@@ -82,12 +82,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	startTransaction := &cobra.Command{
 		Short: "Start a new transaction.",
 		Long:  "This command starts a new transaction.",
-		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			txn, err := getActiveTransaction()
 			if err != nil {
 				return err
@@ -138,12 +138,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} [<transaction>]",
 		Short: "Execute and clear the currently active transaction.",
 		Long:  "This command executes and clears the currently active transaction.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
@@ -177,12 +177,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} [<transaction>]",
 		Short: "Cancel and delete an existing transaction.",
 		Long:  "This command cancels and deletes an existing transaction.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
@@ -225,12 +225,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} [<transaction>]",
 		Short: "Print information about an open transaction.",
 		Long:  "This command prints information about an open transaction.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 
 			var txn *transaction.Transaction
 			if len(args) > 0 {
@@ -268,12 +268,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} <transaction>",
 		Short: "Set an existing transaction as active.",
 		Long:  "This command sets an existing transaction as active; to be used with `pachctl stop transaction`.",
-		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
-			defer c.Close()
+			defer errors.Close(&retErr, c, "close client")
 			info, err := c.InspectTransaction(&transaction.Transaction{Id: args[0]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)

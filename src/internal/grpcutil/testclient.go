@@ -2,9 +2,10 @@ package grpcutil
 
 import (
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"net"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -29,7 +30,7 @@ func NewTestClient(t testing.TB, regFunc func(*grpc.Server)) *grpc.ClientConn {
 		}
 		return nil
 	})
-	gconn, err := grpc.DialContext(ctx, "", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { //nolint:staticcheck
+	gconn, err := grpc.DialContext(ctx, "", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { //nolint:SA1019
 		res, err := listener.Dial()
 		return res, errors.EnsureStack(err)
 	}), grpc.WithTransportCredentials(insecure.NewCredentials()))

@@ -80,6 +80,7 @@ export enum Permission {
   PROJECT_LIST_REPO = "PROJECT_LIST_REPO",
   PROJECT_CREATE_REPO = "PROJECT_CREATE_REPO",
   PROJECT_MODIFY_BINDINGS = "PROJECT_MODIFY_BINDINGS",
+  JOB_SKIP_CTX = "JOB_SKIP_CTX",
 }
 
 export enum ResourceType {
@@ -88,6 +89,7 @@ export enum ResourceType {
   REPO = "REPO",
   SPEC_REPO = "SPEC_REPO",
   PROJECT = "PROJECT",
+  JOB = "JOB",
 }
 
 export type ActivateRequest = {

@@ -35,7 +35,7 @@ func TestMount(t *testing.T) {
 	configDir := t.TempDir()
 	p, err := tu.NewPachctl(ctx, c, filepath.Join(configDir, "config.json"))
 	require.NoError(t, err)
-	defer p.Close()
+	defer p.Close() //nolint:errcheck
 	for _, projectName := range []string{tu.UniqueString("TestMount-project1"), tu.UniqueString("TestMount-project2")} {
 		projectName := projectName
 		mntDirPath := filepath.Join(t.TempDir())
