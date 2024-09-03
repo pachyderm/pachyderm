@@ -151,7 +151,7 @@ service API {
   // Await returns the actual state of the job that met the criteria.
   // Await can timeout with DEADLINE_EXCEEDED.  In this case clients may
   // retry in a new request.
-  rpc Await(AwaitRequest) returns (AwaitResponse){}
+  rpc Await(AwaitRequest) returns (AwaitResponse) {}
 }
 
 // Job Messages

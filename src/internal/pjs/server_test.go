@@ -384,7 +384,6 @@ func TestAwaitJob(t *testing.T) {
 		require.Equal(t, codes.NotFound, s.Code())
 	})
 	t.Run("invalid/time out", func(t *testing.T) {
-		c, _ := setupTest(t)
 		ctx := pctx.TestContext(t)
 		c, fc := setupTest(t)
 		resp := createJob(t, ctx, c, fc)

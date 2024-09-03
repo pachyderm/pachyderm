@@ -23,12 +23,14 @@ const DefaultRPCTimeout time.Duration = 60 * time.Second
 
 type apiServer struct {
 	pjs.UnimplementedAPIServer
-	env Env
+	env          Env
+	pollInterval time.Duration
 }
 
 func newAPIServer(env Env) *apiServer {
 	return &apiServer{
-		env: env,
+		env:          env,
+		pollInterval: 5 * time.Second,
 	}
 }
 
@@ -39,13 +41,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	}
 	program, err := fileset.ParseID(request.Program)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.Wrap(err, "parse program id")
 	}
 	var inputs []fileset.PinnedFileset
 	for _, input := range request.Input {
 		inputID, err := fileset.ParseID(input)
 		if err != nil {
-			return nil, errors.EnsureStack(err)
+			return nil, errors.Wrap(err, "parse input id")
 		}
 		inputs = append(inputs, fileset.PinnedFileset(*inputID))
 	}
@@ -64,7 +66,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		jobID, err := pjsdb.CreateJob(ctx, sqlTx, req)
 		if err != nil {
-			return errors.EnsureStack(err)
+			return errors.Wrap(err, "create job")
 		}
 		ret.Id = &pjs.Job{Id: int64(jobID)}
 		return nil
@@ -82,7 +84,7 @@ func (a *apiServer) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) 
 			if errors.As(err, &pjsdb.JobNotFoundError{}) {
 				return status.Errorf(codes.NotFound, "job %d not found", req.Job.Id)
 			}
-			return errors.EnsureStack(err)
+			return errors.Wrap(err, "get job")
 		}
 		jobInfo, err = toJobInfo(job)
 		if err != nil {
@@ -280,7 +282,7 @@ func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.Awai
 	// poll database every second and cancel after 60 seconds
 	ctx, cancel := context.WithTimeout(ctx, DefaultRPCTimeout)
 	defer cancel()
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(a.pollInterval)
 	defer ticker.Stop()
 
 	for {
@@ -293,23 +295,23 @@ func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.Awai
 		case <-ticker.C:
 			var currentState pjs.JobState
 			if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-				job, err := pjsdb.GetJob(ctx, sqlTx, pjsdb.JobID(req.Job))
+				job, err := pjsdb.GetJob(ctx, sqlTx, id)
 				if err != nil {
 					if errors.As(err, &pjsdb.JobNotFoundError{}) {
-						return status.Errorf(codes.NotFound, "job %d not found", req.Job)
+						return status.Errorf(codes.NotFound, "job %d not found", id)
 					}
-					return errors.EnsureStack(err)
+					return errors.Wrap(err, "get job")
 				}
 				jobInfo, err := toJobInfo(job)
 				if err != nil {
-					return errors.Wrap(err, "inspect job")
+					return errors.Wrapf(err, "toJobInfo(%d)", id)
 				}
 				currentState = jobInfo.State
 				return nil
 			}); err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "WithTx")
 			}
-			if currentState >= req.DesiredState {
+			if stateAdvancedBeyond(currentState, req.DesiredState) {
 				return &pjs.AwaitResponse{
 					ActualState: currentState,
 				}, nil
@@ -334,6 +336,18 @@ func (a *apiServer) resolveJobCtx(ctx context.Context, jobCtx string) (id pjsdb.
 		return 0, errors.Wrap(err, "with tx")
 	}
 	return id, nil
+}
+
+// stateAdvancedBeyond is the comparator for pjs.JobState. It returns true if current state has reached or passed
+// the desired jobState.
+func stateAdvancedBeyond(current pjs.JobState, desired pjs.JobState) bool {
+	// set the total ordering for states here instead of using the enum ordering.
+	comp := map[pjs.JobState]int{
+		pjs.JobState_QUEUED:     1,
+		pjs.JobState_PROCESSING: 2,
+		pjs.JobState_DONE:       3,
+	}
+	return comp[current] >= comp[desired]
 }
 
 func toJobInfo(job pjsdb.Job) (*pjs.JobInfo, error) {
