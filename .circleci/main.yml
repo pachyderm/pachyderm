@@ -649,22 +649,10 @@ jobs:
     parameters:
       version:
         type: string
-      upload:
-        description: Determines if this job should perform an extra step to upload bin to a gcp bucket.
-        type: boolean
-        default: false
     resource_class: large
     executor: docker-go
     steps:
       - checkout
-      - run:
-          name: Download utilities
-          command: |
-            mkdir -p /home/circleci/bin
-            wget https://github.com/chainlink/gcsupload/releases/download/v0.2.0/gcsupload_0.2.0_Linux_x86_64.tar.gz
-            tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
-            rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
-            echo 'export PATH=/home/circle/bin:$PATH' >> $BASH_ENV
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
@@ -673,40 +661,18 @@ jobs:
             - pachctl-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
             - pachctl-build-cache-v1-master-{{ checksum "current_week" }}
       - install-go-releaser
-      - when:
-          condition:
-            and:
-              - equal: [true, << parameters.upload >>]
-          steps:
-            - run:
-                name: build pachctl bin
-                description: Builds and uploads pachctl amd64 binary for extensions with a git commit SHA.
-                command: |
-                  make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
-            - run:
-                name: upload pachctl binaries
-                command: |
-                  echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
-                  cd /home/circleci/dist-pach/pachctl/
-                  gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
-                  rm /home/circleci/gcpcreds.json
-      - when:
-          condition:
-            and:
-              - equal: [false, << parameters.upload >>]
-          steps:
-            - run:
-                name: build pachctl bin
-                description: Builds and prepares all pachctl binaries for release.
-                command: |
-                  v=<< parameters.version >>
-                  additional=${v%%-*}
-                  index=${#additional}
-                  make release-pachctl GORELSNAP=--snapshot VERSION=${v} VERSION_ADDITIONAL=${v:index}
-            - persist_to_workspace:
-                root: ../
-                paths:
-                  - dist-pach/*
+      - run:
+          name: build pachctl bin
+          description: Builds and prepares all pachctl binaries for release.
+          command: |
+            v=<< parameters.version >>
+            additional=${v%%-*}
+            index=${#additional}
+            make release-pachctl GORELSNAP=--snapshot VERSION=${v} VERSION_ADDITIONAL=${v:index}
+      - persist_to_workspace:
+          root: ../
+          paths:
+            - dist-pach/*
       - save_cache:
           key: pachctl-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
