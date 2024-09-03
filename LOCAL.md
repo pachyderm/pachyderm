@@ -98,6 +98,20 @@ name. A file named `<cluster name>-pachyderm-values.json` will apply to pushes t
 `<cluster name>`. Finally, a file named `<cluster name>-<namespace>-pachyderm-values.yaml` will
 apply to any push to the named namespace in the named cluster.
 
+It is possible to use all three in the same push. They are added as `-f <filename>` arguments to the
+`helm` command.
+
+#### Helm diff
+
+`push` accepts a `--diff` flag. Diffing is implemented as a helm plugin that is not managed by
+Bazel; install the plugin using Helm's plugin manager, like this:
+
+    bazel run //tools/helm plugin install https://github.com/databus23/helm-diff
+
+After that, the `--diff` argument will leave your cluster untouched and instead print a unified diff
+of the manfests that would be changed if you had run without `--diff`. Diffing only works if
+Pachyderm is already installed in the namespace.
+
 ### Delete a cluster
 
     bazel run //src/testing/pachdev delete-cluster [<optional name>]
