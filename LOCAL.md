@@ -89,6 +89,15 @@ starts running.
 Running `--help` describes some options that may be of use. Protect the `--help` flag from
 `bazel run` as you always do.
 
+#### Configuring the push
+
+You'll often want to play around with different Helm values. You can set these in config files in
+`${XDG_CONFIG_HOME}/pachdev`, usually `~/.config/pachdev`. A file named `pachyderm-values.json` in
+this directory, if it exists, is applied to every push, regardless of the cluster name or namespace
+name. A file named `<cluster name>-pachyderm-values.json` will apply to pushes to the cluster named
+`<cluster name>`. Finally, a file named `<cluster name>-<namespace>-pachyderm-values.yaml` will
+apply to any push to the named namespace in the named cluster.
+
 ### Delete a cluster
 
     bazel run //src/testing/pachdev delete-cluster [<optional name>]
