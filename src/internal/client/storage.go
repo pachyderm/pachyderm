@@ -5,9 +5,11 @@ import (
 	"io"
 	"io/fs"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
+	"github.com/pachyderm/pachyderm/v2/src/storage"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 // FileSystemToFileset creates a new fileset containing fileSystem, returning the fileset ID.

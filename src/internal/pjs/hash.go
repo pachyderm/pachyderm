@@ -8,11 +8,13 @@ import (
 	"io"
 	"io/fs"
 
+	"google.golang.org/grpc"
+
+	"github.com/pachyderm/pachyderm/v2/src/storage"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
-	"github.com/pachyderm/pachyderm/v2/src/storage"
-	"google.golang.org/grpc"
 )
 
 // HashFS returns a stable hash of the contents of fileSystem.
