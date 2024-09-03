@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"time"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -17,6 +18,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+const DefaultRPCTimeout time.Duration = 60 * time.Second
 
 type apiServer struct {
 	pjs.UnimplementedAPIServer
@@ -253,6 +256,66 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 		}
 	}
 	return nil
+}
+
+func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.AwaitResponse, error) {
+	// handle job context and request validation.
+	var id pjsdb.JobID
+	if req.Context != "" {
+		jid, err := a.resolveJobCtx(ctx, req.Context)
+		if err != nil {
+			return nil, errors.Wrap(err, "resolve job ctx")
+		}
+		id = jid
+	} else { //nolint:staticcheck
+		// TODO(PJS): do auth.
+	}
+	// TODO(PJS): remove this once auth is implemented.
+	reqID := pjsdb.JobID(req.Job)
+	if id != reqID {
+		log.Error(ctx, "job context token does not match requested job.", zap.Int64("request.Job.ID", req.Job))
+		id = reqID // defaulting to this for testing until auth is implemented.
+	}
+
+	// poll database every second and cancel after 60 seconds
+	ctx, cancel := context.WithTimeout(ctx, DefaultRPCTimeout)
+	defer cancel()
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return nil, status.Errorf(codes.DeadlineExceeded, "Await timeout exceeded")
+			}
+			return nil, status.Errorf(codes.Canceled, "Await canceled: %v", ctx.Err())
+		case <-ticker.C:
+			var currentState pjs.JobState
+			if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+				job, err := pjsdb.GetJob(ctx, sqlTx, pjsdb.JobID(req.Job))
+				if err != nil {
+					if errors.As(err, &pjsdb.JobNotFoundError{}) {
+						return status.Errorf(codes.NotFound, "job %d not found", req.Job)
+					}
+					return errors.EnsureStack(err)
+				}
+				jobInfo, err := toJobInfo(job)
+				if err != nil {
+					return errors.Wrap(err, "inspect job")
+				}
+				currentState = jobInfo.State
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+			if currentState >= req.DesiredState {
+				return &pjs.AwaitResponse{
+					ActualState: currentState,
+				}, nil
+			}
+		}
+	}
 }
 
 func (a *apiServer) resolveJobCtx(ctx context.Context, jobCtx string) (id pjsdb.JobID, err error) {
