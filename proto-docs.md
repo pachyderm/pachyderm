@@ -1828,6 +1828,7 @@ Permission represents the ability to perform a given operation on a Resource
 | PROJECT_LIST_REPO | 402 |  |
 | PROJECT_CREATE_REPO | 403 |  |
 | PROJECT_MODIFY_BINDINGS | 404 |  |
+| JOB_SKIP_CTX | 501 |  |
 
 
 
@@ -1843,6 +1844,7 @@ ResourceType represents the type of a Resource
 | REPO | 2 |  |
 | SPEC_REPO | 3 |  |
 | PROJECT | 4 |  |
+| JOB | 5 |  |
 
 
  

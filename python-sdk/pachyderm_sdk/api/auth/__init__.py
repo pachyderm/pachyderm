@@ -104,6 +104,7 @@ class Permission(betterproto.Enum):
     PROJECT_LIST_REPO = 402
     PROJECT_CREATE_REPO = 403
     PROJECT_MODIFY_BINDINGS = 404
+    JOB_SKIP_CTX = 501
 
 
 class ResourceType(betterproto.Enum):
@@ -114,6 +115,7 @@ class ResourceType(betterproto.Enum):
     REPO = 2
     SPEC_REPO = 3
     PROJECT = 4
+    JOB = 5
 
 
 @dataclass(eq=False, repr=False)

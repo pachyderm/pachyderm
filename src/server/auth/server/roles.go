@@ -124,6 +124,16 @@ func init() {
 		},
 	})
 
+	// jobAdminRole has the ability to use PJS without needing job contexts.
+	jobAdminRole := registerRole(&auth.Role{
+		Name:         auth.JobAdminRole,
+		CanBeBoundTo: []auth.ResourceType{auth.ResourceType_JOB, auth.ResourceType_CLUSTER},
+		ReturnedFor:  []auth.ResourceType{auth.ResourceType_JOB, auth.ResourceType_CLUSTER},
+		Permissions: []auth.Permission{
+			auth.Permission_JOB_SKIP_CTX,
+		},
+	})
+
 	// debugger has the ability to produce debug dumps
 	debuggerRole := registerRole(&auth.Role{
 		Name:         auth.DebuggerRole,
@@ -250,6 +260,7 @@ func init() {
 			pachdLogReaderRole.Permissions,
 			projectOwnerRole.Permissions,
 			projectCreatorRole.Permissions,
+			jobAdminRole.Permissions,
 			[]auth.Permission{
 				auth.Permission_CLUSTER_MODIFY_BINDINGS,
 				auth.Permission_CLUSTER_GET_BINDINGS,
