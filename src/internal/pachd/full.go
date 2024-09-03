@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
 	storage_server "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -40,6 +41,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	admin_server "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
@@ -200,6 +202,7 @@ type Full struct {
 	txnSrv        transaction.APIServer
 	authSrv       auth.APIServer
 	pfsSrv        pfs.APIServer
+	pjsSrv        pjs.APIServer
 	storageSrv    *storage_server.Server
 	ppsSrv        pps.APIServer
 	metadataSrv   metadata.APIServer
@@ -317,6 +320,12 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 					return pd.ppsSrv.(pfs_server.PipelineInspector)
 				},
 				GetPPSServer: func() ppsiface.APIServer { return pd.ppsSrv.(pps_server.APIServer) },
+			}
+		}),
+		initPJSAPIServer(&pd.pjsSrv, func() pjs_server.Env {
+			return pjs_server.Env{
+				DB:               env.DB,
+				GetPermissionser: pd.authSrv.(pjs_server.GetPermissionser),
 			}
 		}),
 		initStorageServer(&pd.storageSrv, func() storage_server.Env {
@@ -525,6 +534,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 		logs.RegisterAPIServer(gs, pd.logsSrv)
 		metadata.RegisterAPIServer(gs, pd.metadataSrv)
 		pfs.RegisterAPIServer(gs, pd.pfsSrv)
+		pjs.RegisterAPIServer(gs, pd.pjsSrv)
 		storage.RegisterFilesetServer(gs, pd.storageSrv)
 		transaction.RegisterAPIServer(gs, pd.txnSrv)
 		pps.RegisterAPIServer(gs, pd.ppsSrv)

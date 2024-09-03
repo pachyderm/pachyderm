@@ -112,6 +112,9 @@ const (
 
 	// ProjectCreatorRole is a role which grants the ability to create projects
 	ProjectCreatorRole = "projectCreator"
+
+	// JobAdminRole is a role which grants access to PJS RPCs without needing job contexts.
+	JobAdminRole = "jobAdmin"
 )
 
 var (

@@ -82,7 +82,8 @@
                             "PROJECT_DELETE",
                             "PROJECT_LIST_REPO",
                             "PROJECT_CREATE_REPO",
-                            "PROJECT_MODIFY_BINDINGS"
+                            "PROJECT_MODIFY_BINDINGS",
+                            "JOB_SKIP_CTX"
                         ]
                     },
                     "type": "array",
@@ -103,7 +104,8 @@
                         "CLUSTER",
                         "REPO",
                         "SPEC_REPO",
-                        "PROJECT"
+                        "PROJECT",
+                        "JOB"
                     ],
                     "type": "string",
                     "title": "Resource Type",

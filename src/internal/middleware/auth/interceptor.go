@@ -192,6 +192,20 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/ReposSummary":   authDisabledOr(authenticated),
 
 	//
+	// PJS API
+	//
+
+	"/pjs.API/CreateJob":    authDisabledOr(authenticated),
+	"/pjs.API/CancelJob":    authDisabledOr(authenticated),
+	"/pjs.API/DeleteJob":    authDisabledOr(authenticated),
+	"/pjs.API/ListJob":      authDisabledOr(authenticated),
+	"/pjs.API/WalkJob":      authDisabledOr(authenticated),
+	"/pjs.API/InspectJob":   authDisabledOr(authenticated),
+	"/pjs.API/ProcessQueue": authDisabledOr(authenticated),
+	"/pjs.API/ListQueue":    authDisabledOr(authenticated),
+	"/pjs.API/InspectQueue": authDisabledOr(authenticated),
+
+	//
 	// Storage API
 	//
 

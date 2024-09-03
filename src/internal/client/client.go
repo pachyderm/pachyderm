@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"os"
 	"path"
 	"path/filepath"
@@ -67,6 +68,8 @@ const (
 // PfsAPIClient is an alias for pfs.APIClient.
 type PfsAPIClient pfs.APIClient
 
+type PjsAPIClient pjs.APIClient
+
 // FilesetClient is an alias for storage.FilesetClient.
 type FilesetClient storage.FilesetClient
 
@@ -100,6 +103,7 @@ type MetadataClient metadata.APIClient
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
+	PjsAPIClient
 	FilesetClient
 	PpsAPIClient
 	AuthAPIClient
@@ -859,6 +863,7 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 		return err
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
+	c.PjsAPIClient = pjs.NewAPIClient(clientConn)
 	c.FilesetClient = storage.NewFilesetClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)

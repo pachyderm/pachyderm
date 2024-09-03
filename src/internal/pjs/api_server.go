@@ -6,17 +6,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type apiServer struct {
@@ -51,7 +52,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	if request.Context != "" {
 		parent, err = a.resolveJobCtx(ctx, request.Context)
 		if err != nil {
-			return nil, errors.Wrap(err, "walk job")
+			return nil, err
 		}
 	}
 	req := pjsdb.CreateJobRequest{
@@ -74,11 +75,16 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 
 func (a *apiServer) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) (*pjs.InspectJobResponse, error) {
 	var jobInfo *pjs.JobInfo
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	if err != nil {
+		return nil, err
+	}
+
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		job, err := pjsdb.GetJob(ctx, sqlTx, pjsdb.JobID(req.Job.Id))
+		job, err := pjsdb.GetJob(ctx, sqlTx, id)
 		if err != nil {
 			if errors.As(err, &pjsdb.JobNotFoundError{}) {
-				return status.Errorf(codes.NotFound, "job %d not found", req.Job.Id)
+				return status.Errorf(codes.NotFound, "job %d not found", id)
 			}
 			return errors.EnsureStack(err)
 		}
@@ -180,23 +186,10 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 
 func (a *apiServer) CancelJob(ctx context.Context, req *pjs.CancelJobRequest) (*pjs.CancelJobResponse, error) {
 	// handle job context and request validation.
-	var id pjsdb.JobID
-	if req.Context != "" {
-		jid, err := a.resolveJobCtx(ctx, req.Context)
-		if err != nil {
-			return nil, errors.Wrap(err, "resolve job ctx")
-		}
-		id = jid
-	} else {
-		// TODO(PJS): do auth.
-	} //nolint:SA9003
-	// TODO(PJS): remove this once auth is implemented.
-	reqID := pjsdb.JobID(req.Job.Id)
-	if id != reqID {
-		log.Error(ctx, "job context token does not match requested job.", zap.Int64("request.Job.ID", req.Job.Id))
-		id = reqID // defaulting to this for testing until auth is implemented.
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	if err != nil {
+		return nil, err
 	}
-
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		if _, err := pjsdb.CancelJob(ctx, sqlTx, id); err != nil {
 			return errors.Wrap(err, "cancel job")
@@ -213,20 +206,9 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 	defer done(log.Errorp(&err))
 
 	// handle job context and request validation.
-	var id pjsdb.JobID
-	if req.Context != "" {
-		id, err = a.resolveJobCtx(ctx, req.Context)
-		if err != nil {
-			return errors.Wrap(err, "resolve job ctx")
-		}
-	} else {
-		// TODO(PJS): do auth.
-	} //nolint:SA9003
-	// TODO(PJS): remove this once auth is implemented.
-	reqID := pjsdb.JobID(req.Job.Id)
-	if id != reqID {
-		log.Error(ctx, "job context token does not match requested job.", zap.Int64("request.Job.ID", req.Job.Id))
-		id = reqID // defaulting to this for testing until auth is implemented.
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	if err != nil {
+		return err
 	}
 
 	// walk and stream back results.
@@ -256,6 +238,7 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 	return nil
 }
 
+// resolveJobCtx returns an error annotated with a GRPC status and therefore probably shouldn't be wrapped.
 func (a *apiServer) resolveJobCtx(ctx context.Context, jobCtx string) (id pjsdb.JobID, err error) {
 	token, err := pjsdb.JobContextTokenFromHex(jobCtx)
 	if err != nil {
@@ -264,8 +247,7 @@ func (a *apiServer) resolveJobCtx(ctx context.Context, jobCtx string) (id pjsdb.
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		id, err = pjsdb.ResolveJobContext(ctx, sqlTx, token)
 		if err != nil {
-			// TODO(PJS): handle NotFound with a special error type that returns the right proto error code.
-			return errors.Wrap(err, "resolve job ctx in pjsdb")
+			return status.Errorf(codes.NotFound, errors.Wrapf(err, "resolve job ctx").Error())
 		}
 		return nil
 	}, dbutil.WithReadOnly()); err != nil {
@@ -306,4 +288,41 @@ func toJobInfo(job pjsdb.Job) (*pjs.JobInfo, error) {
 		jobInfo.State = pjs.JobState_QUEUED
 	}
 	return jobInfo, nil
+}
+
+func (a *apiServer) resolveJob(ctx context.Context, jobCtx string, jobID int64) (id pjsdb.JobID, err error) {
+	// handle job context and request validation.
+	if jobCtx != "" {
+		id, err = a.resolveJobCtx(ctx, jobCtx)
+		if err != nil {
+			return 0, err
+		}
+		return id, err
+	}
+	if err := a.checkPermissions(ctx); err != nil {
+		return 0, errors.Wrap(err, "check permissions")
+	}
+	return pjsdb.JobID(jobID), err
+}
+
+func (a *apiServer) checkPermissions(ctx context.Context) error {
+	// Although there is a JOB resource, the JOB resource is scoped to specific job instances.
+	// The cluster resource is meant for cluster-wide permissions.
+	permissionResp, err := a.env.GetPermissionser.GetPermissions(ctx, &auth.GetPermissionsRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
+	})
+	if err != nil && !errors.Is(err, auth.ErrNotActivated) {
+		return errors.Wrap(err, "get user permissions")
+	}
+	foundValidPermission := false
+	for _, p := range permissionResp.Permissions {
+		if p == auth.Permission_JOB_SKIP_CTX {
+			foundValidPermission = true
+			break
+		}
+	}
+	if !foundValidPermission {
+		return status.Errorf(codes.PermissionDenied, "insufficient privileges to omit the \"jobContext\" field")
+	}
+	return nil
 }
