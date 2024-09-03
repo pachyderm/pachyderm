@@ -66,7 +66,9 @@ func HashFilesetID(ctx context.Context, fr FilesetReader, id string) ([]byte, er
 			}
 			return nil, errors.Wrap(err, "reading fileset")
 		}
-		h.writeFile(r.Path, int64(len(r.Data.Value)), bytes.NewReader(r.Data.Value))
+		if err := h.writeFile(r.Path, int64(len(r.Data.Value)), bytes.NewReader(r.Data.Value)); err != nil {
+			return nil, errors.Wrapf(err, "hashing %s", r.Path)
+		}
 	}
 	return h.sum()
 }
