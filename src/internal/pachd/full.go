@@ -355,7 +355,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 					EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
 				},
 				PFSServer: pd.pfsSrv.(pfs_server.APIServer),
-				PJSServer: pd.pjsSrv.(pjs.APIServer),
+				PJSServer: pd.pjsSrv,
 			}
 		}),
 		initMetadataServer(&pd.metadataSrv, func() (env metadata_server.Env) {
