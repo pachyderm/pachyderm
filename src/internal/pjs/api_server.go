@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"go.uber.org/zap"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -246,23 +244,10 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 
 func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.AwaitResponse, error) {
 	// handle job context and request validation.
-	var id pjsdb.JobID
-	if req.Context != "" {
-		jid, err := a.resolveJobCtx(ctx, req.Context)
-		if err != nil {
-			return nil, errors.Wrap(err, "resolve job ctx")
-		}
-		id = jid
-	} else { //nolint:staticcheck
-		// TODO(PJS): do auth.
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob())
+	if err != nil {
+		return nil, err
 	}
-	// TODO(PJS): remove this once auth is implemented.
-	reqID := pjsdb.JobID(req.Job)
-	if id != reqID {
-		log.Error(ctx, "job context token does not match requested job.", zap.Int64("request.Job.ID", req.Job))
-		id = reqID // defaulting to this for testing until auth is implemented.
-	}
-
 	// poll database every second and cancel after 60 seconds
 	ctx, cancel := context.WithTimeout(ctx, DefaultRPCTimeout)
 	defer cancel()
