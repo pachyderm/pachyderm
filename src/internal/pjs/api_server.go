@@ -269,7 +269,8 @@ func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.Awai
 	ticker := time.NewTicker(a.pollInterval)
 	defer ticker.Stop()
 
-	for {
+	// i is for debugging purpose
+	for i := 0; ; i++ {
 		select {
 		case <-ctx.Done():
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -293,7 +294,7 @@ func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.Awai
 				currentState = jobInfo.State
 				return nil
 			}); err != nil {
-				return nil, errors.Wrap(err, "WithTx")
+				return nil, errors.Wrapf(err, "WithTx(iteration %d)", i)
 			}
 			if stateAdvancedBeyond(currentState, req.DesiredState) {
 				return &pjs.AwaitResponse{
