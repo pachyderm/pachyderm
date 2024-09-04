@@ -85,6 +85,7 @@ func TestInspectJob(t *testing.T) {
 	})
 }
 
+// TestRunJob tests processQueue, AwaitJob, InspectJob as a whole
 func TestRunJob(t *testing.T) {
 	c, fc := setupTest(t)
 	ctx := pctx.TestContext(t)
@@ -374,18 +375,54 @@ func processQueue(pqc pjs.API_ProcessQueueClient, programHash []byte, fn func(re
 
 // await blocks until a Job enters the DONE state
 func await(ctx context.Context, s pjs.APIClient, jid int64) (*pjs.JobInfo, error) {
-	for {
-		res, err := s.InspectJob(ctx, &pjs.InspectJobRequest{
-			Job: &pjs.Job{Id: jid},
-		})
-		if err != nil {
-			return nil, err
-		}
-		if res.Details.JobInfo.State == pjs.JobState_DONE {
-			return res.Details.JobInfo, nil
-		}
-		time.Sleep(100 * time.Millisecond)
+	_, err := s.Await(ctx, &pjs.AwaitRequest{
+		Job:          jid,
+		DesiredState: pjs.JobState_DONE,
+	})
+	if err != nil {
+		return nil, err
 	}
+	resp, err := s.InspectJob(ctx, &pjs.InspectJobRequest{
+		Job: &pjs.Job{Id: jid},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Details.JobInfo, nil
+}
+
+func TestAwaitJob(t *testing.T) {
+	t.Run("invalid/job does not exist", func(t *testing.T) {
+		c, _ := setupTest(t)
+		ctx := pctx.TestContext(t)
+		_, err := c.Await(ctx, &pjs.AwaitRequest{
+			Job:          10,
+			DesiredState: pjs.JobState_DONE,
+		})
+		require.YesError(t, err)
+		s := status.Convert(err)
+		require.Equal(t, codes.NotFound, s.Code())
+	})
+	t.Run("invalid/time out", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		c, fc := setupTest(t)
+		testFileset := createFileSet(t, fc, map[string][]byte{
+			"file": []byte(`!#/bin/bash; ls /input/;`),
+		})
+		_, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
+			Program: testFileset,
+			Input:   []string{testFileset},
+		})
+		require.NoError(t, err)
+		_, err = c.Await(ctx, &pjs.AwaitRequest{
+			Job:          1,
+			DesiredState: pjs.JobState_DONE,
+		})
+		require.YesError(t, err)
+		s := status.Convert(err)
+		require.Equal(t, codes.DeadlineExceeded, s.Code())
+	})
+	// valid case is tested in TestRunJob with ProcessQueue
 }
 
 func setupTest(t testing.TB, opts ...ClientOptions) (pjs.APIClient, storage.FilesetClient) {
