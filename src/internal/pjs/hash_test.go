@@ -31,7 +31,7 @@ func TestHashFileset(t *testing.T) {
 	}
 	id, err := env.PachClient.FileSystemToFileset(ctx, testFS)
 	require.NoError(t, err, "FileSystemToFileset")
-	h, err := pjs.HashFilesetID(ctx, env.PachClient.FilesetClient, id)
+	h, err := pjs.HashFileset(ctx, env.PachClient.FilesetClient, id)
 	require.NoError(t, err, "hashing fileset")
 	require.Equal(t, "25ec7afdab18e8e5808730def751575fdb964d293a36ce21103415c747ca06db", hex.EncodeToString(h))
 }
