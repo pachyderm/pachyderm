@@ -4,6 +4,7 @@ go_library(
     name = "pjs",
     srcs = [
         "api_server.go",
+        "hash.go",
         "server.go",
         "util.go",
     ],
@@ -15,10 +16,13 @@ go_library(
         "//src/internal/errors",
         "//src/internal/grpcutil",
         "//src/internal/log",
+        "//src/internal/pachhash",
         "//src/internal/pachsql",
         "//src/internal/pjsdb",
         "//src/internal/storage/fileset",
+        "//src/internal/tarutil",
         "//src/pjs",
+        "//src/storage",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
@@ -28,6 +32,7 @@ go_library(
 go_test(
     name = "pjs_test",
     srcs = [
+        "hash_test.go",
         "server_internal_test.go",
         "server_test.go",
     ],
@@ -46,6 +51,8 @@ go_test(
         "//src/internal/storage",
         "//src/internal/storage/fileset",
         "//src/internal/testetcd",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
         "//src/pjs",
         "//src/storage",
         "@io_k8s_apimachinery//pkg/util/rand",
