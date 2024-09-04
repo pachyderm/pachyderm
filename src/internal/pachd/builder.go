@@ -493,6 +493,7 @@ func (b *builder) startPPSWorker(ctx context.Context) error {
 	w := pps_server.NewWorker(pps_server.WorkerEnv{
 		PFS:         b.env.GetPachClient(ctx).PfsAPIClient,
 		TaskService: b.env.GetTaskService(etcdPrefix),
+		PJS:         b.env.GetPachClient(ctx).PjsAPIClient,
 	})
 	go func() {
 		ctx := pctx.Child(ctx, "pps-worker")
