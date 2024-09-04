@@ -93,6 +93,16 @@ message QueueInfoDetails {
   int64 size = 2;
 }
 
+message AwaitRequest {
+  string context = 1;
+  int64 job = 2;
+  JobState desired_state = 3;
+}
+
+message AwaitResponse {
+  JobState actual_state = 1;
+}
+
 service API {
   // Job API
 	
@@ -137,6 +147,11 @@ service API {
   rpc ListQueue(ListQueueRequest) returns (stream ListQueueResponse) {}
   // InspectQueue returns detailed information about a queue.
   rpc InspectQueue(InspectQueueRequest) returns (InspectQueueResponse) {}
+  // Await blocks until the job has entered or passed the desired state.
+  // Await returns the actual state of the job that met the criteria.
+  // Await can timeout with DEADLINE_EXCEEDED.  In this case clients may
+  // retry in a new request.
+  rpc Await(AwaitRequest) returns (AwaitResponse) {}
 }
 
 // Job Messages

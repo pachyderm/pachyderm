@@ -870,6 +870,213 @@ var _ interface {
 	ErrorName() string
 } = QueueInfoDetailsValidationError{}
 
+// Validate checks the field values on AwaitRequest with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *AwaitRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AwaitRequest with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in AwaitRequestMultiError, or
+// nil if none found.
+func (m *AwaitRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AwaitRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Context
+
+	// no validation rules for Job
+
+	// no validation rules for DesiredState
+
+	if len(errors) > 0 {
+		return AwaitRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// AwaitRequestMultiError is an error wrapping multiple validation errors
+// returned by AwaitRequest.ValidateAll() if the designated constraints aren't met.
+type AwaitRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AwaitRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AwaitRequestMultiError) AllErrors() []error { return m }
+
+// AwaitRequestValidationError is the validation error returned by
+// AwaitRequest.Validate if the designated constraints aren't met.
+type AwaitRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e AwaitRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e AwaitRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e AwaitRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e AwaitRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e AwaitRequestValidationError) ErrorName() string { return "AwaitRequestValidationError" }
+
+// Error satisfies the builtin error interface
+func (e AwaitRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAwaitRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = AwaitRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = AwaitRequestValidationError{}
+
+// Validate checks the field values on AwaitResponse with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *AwaitResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on AwaitResponse with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in AwaitResponseMultiError, or
+// nil if none found.
+func (m *AwaitResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *AwaitResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for ActualState
+
+	if len(errors) > 0 {
+		return AwaitResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// AwaitResponseMultiError is an error wrapping multiple validation errors
+// returned by AwaitResponse.ValidateAll() if the designated constraints
+// aren't met.
+type AwaitResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m AwaitResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m AwaitResponseMultiError) AllErrors() []error { return m }
+
+// AwaitResponseValidationError is the validation error returned by
+// AwaitResponse.Validate if the designated constraints aren't met.
+type AwaitResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e AwaitResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e AwaitResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e AwaitResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e AwaitResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e AwaitResponseValidationError) ErrorName() string { return "AwaitResponseValidationError" }
+
+// Error satisfies the builtin error interface
+func (e AwaitResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sAwaitResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = AwaitResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = AwaitResponseValidationError{}
+
 // Validate checks the field values on CreateJobRequest with the rules defined
 // in the proto definition for this message. If any rules are violated, the
 // first error encountered is returned, or nil if there are no violations.

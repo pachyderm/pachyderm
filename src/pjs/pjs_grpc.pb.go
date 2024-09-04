@@ -28,6 +28,7 @@ const (
 	API_ProcessQueue_FullMethodName = "/pjs.API/ProcessQueue"
 	API_ListQueue_FullMethodName    = "/pjs.API/ListQueue"
 	API_InspectQueue_FullMethodName = "/pjs.API/InspectQueue"
+	API_Await_FullMethodName        = "/pjs.API/Await"
 )
 
 // APIClient is the client API for API service.
@@ -74,6 +75,11 @@ type APIClient interface {
 	ListQueue(ctx context.Context, in *ListQueueRequest, opts ...grpc.CallOption) (API_ListQueueClient, error)
 	// InspectQueue returns detailed information about a queue.
 	InspectQueue(ctx context.Context, in *InspectQueueRequest, opts ...grpc.CallOption) (*InspectQueueResponse, error)
+	// Await blocks until the job has entered or passed the desired state.
+	// Await returns the actual state of the job that met the criteria.
+	// Await can timeout with DEADLINE_EXCEEDED.  In this case clients may
+	// retry in a new request.
+	Await(ctx context.Context, in *AwaitRequest, opts ...grpc.CallOption) (*AwaitResponse, error)
 }
 
 type aPIClient struct {
@@ -256,6 +262,15 @@ func (c *aPIClient) InspectQueue(ctx context.Context, in *InspectQueueRequest, o
 	return out, nil
 }
 
+func (c *aPIClient) Await(ctx context.Context, in *AwaitRequest, opts ...grpc.CallOption) (*AwaitResponse, error) {
+	out := new(AwaitResponse)
+	err := c.cc.Invoke(ctx, API_Await_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 // All implementations must embed UnimplementedAPIServer
 // for forward compatibility
@@ -300,6 +315,11 @@ type APIServer interface {
 	ListQueue(*ListQueueRequest, API_ListQueueServer) error
 	// InspectQueue returns detailed information about a queue.
 	InspectQueue(context.Context, *InspectQueueRequest) (*InspectQueueResponse, error)
+	// Await blocks until the job has entered or passed the desired state.
+	// Await returns the actual state of the job that met the criteria.
+	// Await can timeout with DEADLINE_EXCEEDED.  In this case clients may
+	// retry in a new request.
+	Await(context.Context, *AwaitRequest) (*AwaitResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -333,6 +353,9 @@ func (UnimplementedAPIServer) ListQueue(*ListQueueRequest, API_ListQueueServer) 
 }
 func (UnimplementedAPIServer) InspectQueue(context.Context, *InspectQueueRequest) (*InspectQueueResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectQueue not implemented")
+}
+func (UnimplementedAPIServer) Await(context.Context, *AwaitRequest) (*AwaitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Await not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
@@ -526,6 +549,24 @@ func _API_InspectQueue_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_Await_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AwaitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).Await(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_Await_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).Await(ctx, req.(*AwaitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // API_ServiceDesc is the grpc.ServiceDesc for API service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -552,6 +593,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InspectQueue",
 			Handler:    _API_InspectQueue_Handler,
+		},
+		{
+			MethodName: "Await",
+			Handler:    _API_Await_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
