@@ -2,6 +2,7 @@ load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test", "build
 load("@gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@rules_go//go:def.bzl", "go_library", "nogo")
 load("//src/internal/analyzers/staticcheck:def.bzl", "all_staticcheck_analyzers")  # buildifier: disable=bzl-visibility
+
 licenses(["notice"])
 
 exports_files([

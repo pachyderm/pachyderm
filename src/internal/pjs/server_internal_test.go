@@ -3,7 +3,6 @@ package pjs
 import (
 	"context"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -100,7 +99,7 @@ func TestRunJob(t *testing.T) {
 		Input:   []string{inputFileset},
 	}
 
-	out, err := runJob(t, ctx, c, in, func(resp *pjs.ProcessQueueResponse) error {
+	out, err := runJob(t, ctx, c, fc, in, func(resp *pjs.ProcessQueueResponse) error {
 		// for now we do nothing here, simply return the input filesets
 		resp.Input = in.Input
 		return nil
@@ -159,7 +158,7 @@ func TestCancelJob(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		_, err = runJobFrom(t, ctx, c, createResp.Id.Id, program, func(resp *pjs.ProcessQueueResponse) error {
+		_, err = runJobFrom(t, ctx, c, fc, createResp.Id.Id, program, func(resp *pjs.ProcessQueueResponse) error {
 			cancel()
 			// simulate processing time and ensure cancelJob is finished
 			time.Sleep(5 * time.Second)
@@ -186,7 +185,7 @@ func TestCancelJob(t *testing.T) {
 		})
 		require.NoError(t, err)
 		eg.Go(func() error {
-			_, err := runJobFrom(t, egCtx, c, createRespA.Id.Id, programA, func(resp *pjs.ProcessQueueResponse) error {
+			_, err := runJobFrom(t, egCtx, c, fc, createRespA.Id.Id, programA, func(resp *pjs.ProcessQueueResponse) error {
 				jobAContext = resp.Context
 				close(jobAProcessing)
 				time.Sleep(5 * time.Second)
@@ -205,7 +204,7 @@ func TestCancelJob(t *testing.T) {
 		require.NoError(t, err)
 		var jobBContext string
 		eg.Go(func() error {
-			_, err := runJobFrom(t, egCtx, c, createRespB.Id.Id, programB, func(resp *pjs.ProcessQueueResponse) error {
+			_, err := runJobFrom(t, egCtx, c, fc, createRespB.Id.Id, programB, func(resp *pjs.ProcessQueueResponse) error {
 				jobBContext = resp.Context
 				close(jobBProcessing)
 				time.Sleep(5 * time.Second)
@@ -223,7 +222,7 @@ func TestCancelJob(t *testing.T) {
 		})
 		require.NoError(t, err)
 		eg.Go(func() error {
-			_, err := runJobFrom(t, egCtx, c, createRespC.Id.Id, programC, func(resp *pjs.ProcessQueueResponse) error {
+			_, err := runJobFrom(t, egCtx, c, fc, createRespC.Id.Id, programC, func(resp *pjs.ProcessQueueResponse) error {
 				close(jobCProcessing)
 				time.Sleep(5 * time.Second)
 				return nil
@@ -293,18 +292,17 @@ func TestWalkJob(t *testing.T) {
 }
 
 // runJob does work through PJS.
-func runJob(t *testing.T, ctx context.Context, c pjs.APIClient, in *pjs.CreateJobRequest,
+func runJob(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient, in *pjs.CreateJobRequest,
 	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo_Success, error) {
 	jres, err := c.CreateJob(ctx, in)
 	require.NoError(t, err)
-	return runJobFrom(t, ctx, c, jres.Id.Id, in.Program, fn)
+	return runJobFrom(t, ctx, c, fc, jres.Id.Id, in.Program, fn)
 }
 
-func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, from int64, programStr string,
+func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient, from int64, programStr string,
 	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo_Success, error) {
-	program, err := fileset.ParseID(programStr)
+	programHash, err := HashFileset(ctx, fc, programStr)
 	require.NoError(t, err)
-	programHash := []byte(program.HexString())
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	eg, ctx := errgroup.WithContext(ctx)
@@ -430,7 +428,8 @@ func setupTest(t testing.TB, opts ...ClientOptions) (pjs.APIClient, storage.File
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	return NewTestClient(t, db, opts...), storagesrv.NewTestFilesetClient(t, db)
+	client := storagesrv.NewTestFilesetClient(t, db)
+	return NewTestClient(t, db, client, opts...), client
 }
 
 func createFileSet(t *testing.T, fc storage.FilesetClient, files map[string][]byte) string {
@@ -470,7 +469,7 @@ func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.AP
 	createResp, err := c.CreateJob(ctx, req)
 	require.NoError(t, err)
 	var processResp *pjs.ProcessQueueResponse
-	_, err = runJobFrom(t, ctx, c, createResp.Id.Id, program, func(resp *pjs.ProcessQueueResponse) error {
+	_, err = runJobFrom(t, ctx, c, fc, createResp.Id.Id, program, func(resp *pjs.ProcessQueueResponse) error {
 		processResp = resp
 		return nil
 	})
@@ -493,7 +492,7 @@ func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.AP
 				cResp, err := c.CreateJob(ctx, req)
 				require.NoError(t, err)
 				var pResp *pjs.ProcessQueueResponse
-				_, err = runJobFrom(t, ctx, c, cResp.Id.Id, prog, func(resp *pjs.ProcessQueueResponse) error {
+				_, err = runJobFrom(t, ctx, c, fc, cResp.Id.Id, prog, func(resp *pjs.ProcessQueueResponse) error {
 					pResp = resp
 					return nil
 				})
@@ -589,7 +588,7 @@ func TestAuth(t *testing.T) {
 
 		var jobContext string
 		// run process queue to get a job context token.
-		_, err = runJobFrom(t, ctx, c, jobResp.Id.Id, testFileset, func(resp *pjs.ProcessQueueResponse) error {
+		_, err = runJobFrom(t, ctx, c, fc, jobResp.Id.Id, testFileset, func(resp *pjs.ProcessQueueResponse) error {
 			jobContext = resp.Context
 			return nil
 		})
