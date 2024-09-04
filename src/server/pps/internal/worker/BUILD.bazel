@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "worker",
+    srcs = ["fs.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/pps/internal/worker",
+    visibility = ["//src/server/pps:__subpackages__"],
+    deps = ["//src/internal/pjs"],
+)
+
+go_test(
+    name = "worker_test",
+    srcs = ["fs_test.go"],
+    deps = [
+        ":worker",
+        "//src/internal/require",
+    ],
+)
