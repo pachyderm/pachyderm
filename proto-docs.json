@@ -11690,6 +11690,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "branch_propagation_specs",
+              "description": "",
+              "label": "repeated",
+              "type": "BranchPropagationSpec",
+              "longType": "BranchPropagationSpec",
+              "fullType": "pfs_v2.BranchPropagationSpec",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -11782,6 +11794,42 @@
               "type": "string",
               "longType": "string",
               "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "BranchPropagationSpec",
+          "longName": "BranchPropagationSpec",
+          "fullName": "pfs_v2.BranchPropagationSpec",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "branch",
+              "description": "TODO: Picker?",
+              "label": "",
+              "type": "Branch",
+              "longType": "Branch",
+              "fullType": "pfs_v2.Branch",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "propagation_spec",
+              "description": "",
+              "label": "",
+              "type": "PropagationSpec",
+              "longType": "PropagationSpec",
+              "fullType": "pfs_v2.PropagationSpec",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -12690,6 +12738,18 @@
               "type": "bool",
               "longType": "bool",
               "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "branch_propagation_specs",
+              "description": "",
+              "label": "repeated",
+              "type": "BranchPropagationSpec",
+              "longType": "BranchPropagationSpec",
+              "fullType": "pfs_v2.BranchPropagationSpec",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -14838,6 +14898,30 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "picker",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PropagationSpec",
+          "longName": "PropagationSpec",
+          "fullName": "pfs_v2.PropagationSpec",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "never",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
               "defaultValue": ""
             }
           ]

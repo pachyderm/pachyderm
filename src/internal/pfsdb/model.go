@@ -197,3 +197,9 @@ func (trigger *BranchTrigger) Pb() *pfs.Trigger {
 		All:           trigger.AllConditions,
 	}
 }
+
+type BranchPropagationSpecRow struct {
+	FromID BranchID `db:"from_id"`
+	ToID   BranchID `db:"to_id"`
+	Never  bool     `db:"never"`
+}
