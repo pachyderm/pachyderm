@@ -4595,7 +4595,7 @@ func TestPropagateBranchNever(t *testing.T) {
 				Branch:     branches[1],
 				Provenance: []*pfs.Branch{branches[0]},
 				BranchPropagationSpecs: []*pfs.BranchPropagationSpec{
-					&pfs.BranchPropagationSpec{
+					{
 						Branch:          branches[0],
 						PropagationSpec: &pfs.PropagationSpec{Never: true},
 					},
@@ -4626,7 +4626,7 @@ func TestPropagateBranchNever(t *testing.T) {
 				Branch:     branches[2],
 				Provenance: []*pfs.Branch{branches[0]},
 				BranchPropagationSpecs: []*pfs.BranchPropagationSpec{
-					&pfs.BranchPropagationSpec{
+					{
 						Branch:          branches[0],
 						PropagationSpec: &pfs.PropagationSpec{Never: true},
 					},
@@ -4659,7 +4659,7 @@ func TestPropagateBranchNever(t *testing.T) {
 				Branch:     branches[3],
 				Provenance: []*pfs.Branch{branches[1], branches[2]},
 				BranchPropagationSpecs: []*pfs.BranchPropagationSpec{
-					&pfs.BranchPropagationSpec{
+					{
 						Branch:          branches[1],
 						PropagationSpec: &pfs.PropagationSpec{Never: true},
 					},
@@ -4684,11 +4684,11 @@ func TestPropagateBranchNever(t *testing.T) {
 				Branch:     branches[3],
 				Provenance: []*pfs.Branch{branches[1], branches[2]},
 				BranchPropagationSpecs: []*pfs.BranchPropagationSpec{
-					&pfs.BranchPropagationSpec{
+					{
 						Branch:          branches[1],
 						PropagationSpec: &pfs.PropagationSpec{Never: true},
 					},
-					&pfs.BranchPropagationSpec{
+					{
 						Branch:          branches[2],
 						PropagationSpec: &pfs.PropagationSpec{Never: true},
 					},
