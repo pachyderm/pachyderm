@@ -21,12 +21,12 @@ go_library(
         "//src/internal/pjsdb",
         "//src/internal/storage/fileset",
         "//src/internal/tarutil",
+        "//src/internal/testutil",
         "//src/pjs",
         "//src/storage",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
-        "@org_uber_go_zap//:zap",
     ],
 )
 
@@ -50,7 +50,6 @@ go_test(
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/storage",
-        "//src/internal/storage/fileset",
         "//src/internal/testetcd",
         "//src/internal/testpachd/realenv",
         "//src/internal/testutil",

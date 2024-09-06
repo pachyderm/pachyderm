@@ -28,13 +28,6 @@ type apiServer struct {
 	pollInterval time.Duration
 }
 
-func newAPIServer(env Env) *apiServer {
-	return &apiServer{
-		env:          env,
-		pollInterval: 5 * time.Second,
-	}
-}
-
 func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest) (response *pjs.CreateJobResponse, retErr error) {
 	var ret pjs.CreateJobResponse
 	if request.Input == nil {
@@ -59,10 +52,19 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 			return nil, err
 		}
 	}
+	authedCtx, err := a.maybeAddAuthToken(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "adding auth token to ctx")
+	}
+	hash, err := HashFileset(authedCtx, a.env.GetStorageClient(ctx), program.HexString())
+	if err != nil {
+		return nil, errors.Wrapf(err, "hashing fileset: %q", program.HexString())
+	}
 	req := pjsdb.CreateJobRequest{
-		Parent:  parent,
-		Program: fileset.PinnedFileset(*program),
-		Inputs:  inputs,
+		Parent:      parent,
+		Program:     fileset.PinnedFileset(*program),
+		ProgramHash: hash,
+		Inputs:      inputs,
 	}
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		jobID, err := pjsdb.CreateJob(ctx, sqlTx, req)
@@ -389,4 +391,21 @@ func (a *apiServer) checkPermissions(ctx context.Context) error {
 		return status.Errorf(codes.PermissionDenied, "insufficient privileges to omit the \"jobContext\" field")
 	}
 	return nil
+}
+
+func (a *apiServer) maybeAddAuthToken(ctx context.Context) (context.Context, error) {
+	_, err := a.env.GetPermissionser.GetPermissions(ctx, &auth.GetPermissionsRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
+	})
+	if err != nil {
+		if errors.Is(err, auth.ErrNotActivated) {
+			return ctx, nil
+		}
+		return nil, errors.Wrap(err, "get user permissions")
+	}
+	token, err := a.env.GetAuthToken(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "getting auth token")
+	}
+	return auth.WithToken(ctx, token), nil
 }

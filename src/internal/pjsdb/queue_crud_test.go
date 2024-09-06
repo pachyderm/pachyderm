@@ -13,13 +13,13 @@ func TestForEachQueue(t *testing.T) {
 	ctx, db := DB(t)
 	s := FilesetStorage(t, db)
 	withTx(t, ctx, db, s, func(d dependencies) {
-		prog1 := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
-		prog2 := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hi';")
-		prog3 := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hey';")
+		prog1, prog1Hash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
+		prog2, prog2Hash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hi';")
+		prog3, prog3Hash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hey';")
 		for i := 0; i < 25; i++ {
-			createJobWithFilesets(t, d, 0, prog1)
-			createJobWithFilesets(t, d, 0, prog2)
-			createJobWithFilesets(t, d, 0, prog3)
+			createJobWithFilesets(t, d, 0, prog1, prog1Hash)
+			createJobWithFilesets(t, d, 0, prog2, prog2Hash)
+			createJobWithFilesets(t, d, 0, prog3, prog3Hash)
 		}
 	})
 	num := 0
@@ -37,16 +37,17 @@ func TestDequeue(t *testing.T) {
 	ctx, db := DB(t)
 	s := FilesetStorage(t, db)
 	var prog1, prog2, prog3 fileset.PinnedFileset
+	var prog1Hash, prog2Hash, prog3Hash []byte
 	// create 3 queues and put in 25 jobs in each queue
 	const NumOfPrograms = 25
 	withTx(t, ctx, db, s, func(d dependencies) {
-		prog1 = mockFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
-		prog2 = mockFileset(t, d, "/program", "#!/bin/bash; echo 'hi';")
-		prog3 = mockFileset(t, d, "/program", "#!/bin/bash; echo 'hey';")
+		prog1, prog1Hash = mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
+		prog2, prog2Hash = mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hi';")
+		prog3, prog3Hash = mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hey';")
 		for i := 0; i < NumOfPrograms; i++ {
-			createJobWithFilesets(t, d, 0, prog1)
-			createJobWithFilesets(t, d, 0, prog2)
-			createJobWithFilesets(t, d, 0, prog3)
+			createJobWithFilesets(t, d, 0, prog1, prog1Hash)
+			createJobWithFilesets(t, d, 0, prog2, prog2Hash)
+			createJobWithFilesets(t, d, 0, prog3, prog3Hash)
 		}
 	})
 
@@ -55,16 +56,16 @@ func TestDequeue(t *testing.T) {
 		withTx(t, ctx, db, s, func(d dependencies) {
 			dequeued++
 			// for now the program hash is also the program
-			resp, err := pjsdb.DequeueAndProcess(ctx, d.tx, []byte(fileset.ID(prog1).HexString()))
+			resp, err := pjsdb.DequeueAndProcess(ctx, d.tx, prog1Hash)
 			require.NoError(t, err)
 			// the job is dequeued in FIFO order
 			require.Equal(t, uint64(resp.ID), dequeued)
 			dequeued++
-			resp, err = pjsdb.DequeueAndProcess(ctx, d.tx, []byte(fileset.ID(prog2).HexString()))
+			resp, err = pjsdb.DequeueAndProcess(ctx, d.tx, prog2Hash)
 			require.NoError(t, err)
 			require.Equal(t, uint64(resp.ID), dequeued)
 			dequeued++
-			resp, err = pjsdb.DequeueAndProcess(ctx, d.tx, []byte(fileset.ID(prog3).HexString()))
+			resp, err = pjsdb.DequeueAndProcess(ctx, d.tx, prog3Hash)
 			require.NoError(t, err)
 			require.Equal(t, uint64(resp.ID), dequeued)
 		})
@@ -79,7 +80,7 @@ func TestDequeue(t *testing.T) {
 	}
 	withTx(t, ctx, db, s, func(d dependencies) {
 		// All three queues are empty. An error is expected if more dequeue operation is performed
-		_, err := pjsdb.DequeueAndProcess(ctx, d.tx, []byte(fileset.ID(prog1).HexString()))
+		_, err := pjsdb.DequeueAndProcess(ctx, d.tx, prog1Hash)
 		require.YesError(t, err)
 		require.True(t, errors.As(err, &pjsdb.DequeueFromEmptyQueueError{}))
 	})

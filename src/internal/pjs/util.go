@@ -2,6 +2,9 @@ package pjs
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -9,16 +12,17 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/pjs"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 type ClientOptions func(env *Env)
 
-func NewTestClient(t testing.TB, db *pachsql.DB, opts ...ClientOptions) pjs.APIClient {
+func NewTestClient(t testing.TB, db *pachsql.DB, client storage.FilesetClient, opts ...ClientOptions) pjs.APIClient {
 	env := Env{
 		DB:               db,
 		GetPermissionser: &testPermitter{mode: permitterAllow},
+		GetStorageClient: func(ctx context.Context) storage.FilesetClient { return client },
+		GetAuthToken:     func(ctx context.Context) (string, error) { return tu.RootToken, nil },
 	}
 	for _, opt := range opts {
 		opt(&env)
