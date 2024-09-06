@@ -292,6 +292,31 @@ func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.Awai
 	}
 }
 
+func (a *apiServer) InspectQueue(ctx context.Context, req *pjs.InspectQueueRequest) (*pjs.InspectQueueResponse, error) {
+	var queueInfoDetails *pjs.QueueInfoDetails
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		q, err := pjsdb.GetQueue(ctx, sqlTx, req.Queue.Id)
+		if err != nil {
+			return errors.Wrap(err, "get queue")
+		}
+		queueInfoDetails = &pjs.QueueInfoDetails{
+			QueueInfo: &pjs.QueueInfo{
+				Queue: &pjs.Queue{
+					Id: q.ProgramHash,
+				},
+				Program: q.Program,
+			},
+			Size: q.Size,
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return &pjs.InspectQueueResponse{
+		Details: queueInfoDetails,
+	}, nil
+}
+
 // resolveJobCtx returns an error annotated with a GRPC status and therefore probably shouldn't be wrapped.
 func (a *apiServer) resolveJobCtx(ctx context.Context, jobCtx string) (id pjsdb.JobID, err error) {
 	token, err := pjsdb.JobContextTokenFromHex(jobCtx)
