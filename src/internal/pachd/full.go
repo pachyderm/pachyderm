@@ -323,17 +323,22 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 				GetPPSServer: func() ppsiface.APIServer { return pd.ppsSrv.(pps_server.APIServer) },
 			}
 		}),
-		initPJSAPIServer(&pd.pjsSrv, func() pjs_server.Env {
-			return pjs_server.Env{
-				DB:               env.DB,
-				GetPermissionser: pd.authSrv.(pjs_server.GetPermissionser),
-			}
-		}),
 		initStorageServer(&pd.storageSrv, func() storage_server.Env {
 			return storage_server.Env{
 				DB:     env.DB,
 				Bucket: env.Bucket,
 				Config: config.StorageConfiguration,
+			}
+		}),
+		initPJSAPIServer(&pd.pjsSrv, func() pjs_server.Env {
+			return pjs_server.Env{
+				DB:               env.DB,
+				GetPermissionser: pd.authSrv.(pjs_server.GetPermissionser),
+				GetStorageClient: func(ctx context.Context) storage.FilesetClient {
+					pachClient := pd.mustGetPachClient(ctx)
+					return pachClient.FilesetClient
+				},
+				GetAuthToken: auth.GetAuthToken,
 			}
 		}),
 		initPPSAPIServer(&pd.ppsSrv, func() pps_server.Env {

@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func NewTestFilesetServer(t testing.TB, db *pachsql.DB) storage.FilesetServer {
+func NewTestFilesetServer(t testing.TB, db *pachsql.DB) *Server {
 	ctx := pctx.TestContext(t)
 	b, buckURL := dockertestenv.NewTestBucket(ctx, t)
 	t.Log("bucket", buckURL)

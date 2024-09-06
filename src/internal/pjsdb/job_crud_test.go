@@ -12,10 +12,12 @@ import (
 )
 
 func createRootJob(t *testing.T, d dependencies) pjsdb.JobID {
+	fs, hash := mockAndHashFileset(t, d, "/", "")
 	req := pjsdb.CreateJobRequest{
-		Parent:  0,
-		Inputs:  nil,
-		Program: mockFileset(t, d, "/", ""),
+		Parent:      0,
+		Inputs:      nil,
+		Program:     fs,
+		ProgramHash: hash,
 	}
 	id, err := pjsdb.CreateJob(d.ctx, d.tx, req)
 	require.NoError(t, err)
@@ -261,9 +263,9 @@ func TestListJobTxByFilter(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			expected := make([]pjsdb.Job, 0)
 			var err error
-			targetFs := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
+			targetFs, targetHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
 			for i := 0; i < 5; i++ {
-				included, err := pjsdb.GetJob(d.ctx, d.tx, createJobWithFilesets(t, d, 0, targetFs))
+				included, err := pjsdb.GetJob(d.ctx, d.tx, createJobWithFilesets(t, d, 0, targetFs, targetHash))
 				require.NoError(t, err)
 				_, err = createJob(t, d, 0)
 				require.NoError(t, err)

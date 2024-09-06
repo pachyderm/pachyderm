@@ -47,7 +47,6 @@ func DequeueAndProcess(ctx context.Context, tx *pachsql.Tx, programHash []byte) 
 		WHERE pjs.jobs.id = updated.id
 		RETURNING pjs.jobs.id
 	`, programHash).Scan(&jobID); err != nil {
-		// todo(muyang): should not return an error, just await
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, &DequeueFromEmptyQueueError{ID: string(programHash)}
 		}

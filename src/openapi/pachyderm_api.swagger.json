@@ -4207,6 +4207,36 @@
         ]
       }
     },
+    "/pjs.API/Await": {
+      "post": {
+        "summary": "Await blocks until the job has entered or passed the desired state.\nAwait returns the actual state of the job that met the criteria.\nAwait can timeout with DEADLINE_EXCEEDED.  In this case clients may\nretry in a new request.",
+        "operationId": "API_Await",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pjsAwaitResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsAwaitRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pps_v2.API/InspectJob": {
       "post": {
         "operationId": "API_InspectJob",
@@ -10100,6 +10130,29 @@
         "reverse": {
           "type": "boolean",
           "title": "If true, return files in reverse order"
+        }
+      }
+    },
+    "pjsAwaitRequest": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string"
+        },
+        "job": {
+          "type": "string",
+          "format": "int64"
+        },
+        "desiredState": {
+          "$ref": "#/definitions/pjsJobState"
+        }
+      }
+    },
+    "pjsAwaitResponse": {
+      "type": "object",
+      "properties": {
+        "actualState": {
+          "$ref": "#/definitions/pjsJobState"
         }
       }
     },

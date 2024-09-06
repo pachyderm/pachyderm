@@ -3,6 +3,7 @@ package pjsdb_test
 import (
 	"bytes"
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"math/rand"
 	"path/filepath"
 	"strconv"
@@ -73,9 +74,22 @@ func mockFileset(t *testing.T, d dependencies, path, value string) fileset.Pinne
 	return pin
 }
 
+func mockAndHashFileset(t *testing.T, d dependencies, path, value string) (fileset.PinnedFileset, []byte) {
+	fs := mockFileset(t, d, path, value)
+	hasher := pachhash.New()
+	_, err := hasher.Write([]byte(path))
+	require.NoError(t, err)
+	_, err = hasher.Write([]byte(strconv.Itoa(len(path))))
+	require.NoError(t, err)
+	_, err = hasher.Write([]byte(value))
+	require.NoError(t, err)
+	hash := hasher.Sum(nil)
+	return fs, hash
+}
+
 func makeReq(t *testing.T, d dependencies, parent pjsdb.JobID, mutate func(req *pjsdb.CreateJobRequest)) pjsdb.CreateJobRequest {
 	program := `!#/bin/bash; ls /input/;`
-	programFileset := mockFileset(t, d, "/program.py", program)
+	programFileset, hash := mockAndHashFileset(t, d, "/program.py", program)
 	numInputs := rand.Intn(10) + 1
 	inputs := make([]fileset.PinnedFileset, 0)
 	for i := 0; i < numInputs; i++ {
@@ -83,9 +97,10 @@ func makeReq(t *testing.T, d dependencies, parent pjsdb.JobID, mutate func(req *
 		inputs = append(inputs, inputFileset)
 	}
 	createRequest := &pjsdb.CreateJobRequest{
-		Program: programFileset,
-		Inputs:  inputs,
-		Parent:  parent,
+		Program:     programFileset,
+		ProgramHash: hash,
+		Inputs:      inputs,
+		Parent:      parent,
 	}
 	if mutate != nil {
 		mutate(createRequest)
@@ -94,11 +109,12 @@ func makeReq(t *testing.T, d dependencies, parent pjsdb.JobID, mutate func(req *
 }
 
 func createJobWithFilesets(t *testing.T, d dependencies, parent pjsdb.JobID, program fileset.PinnedFileset,
-	inputs ...fileset.PinnedFileset) pjsdb.JobID {
+	targetHash []byte, inputs ...fileset.PinnedFileset) pjsdb.JobID {
 	createRequest := pjsdb.CreateJobRequest{
-		Program: program,
-		Inputs:  inputs,
-		Parent:  parent,
+		Program:     program,
+		ProgramHash: targetHash,
+		Inputs:      inputs,
+		Parent:      parent,
 	}
 	id, err := pjsdb.CreateJob(d.ctx, d.tx, createRequest)
 	require.NoError(t, err)

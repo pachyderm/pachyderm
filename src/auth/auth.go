@@ -333,3 +333,10 @@ func GetAuthTokenOutgoing(ctx context.Context) (string, error) {
 	}
 	return md[ContextTokenKey][0], nil
 }
+
+func WithToken(ctx context.Context, authToken string) context.Context {
+	if authToken != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, ContextTokenKey, authToken)
+	}
+	return ctx
+}

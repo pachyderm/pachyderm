@@ -57,13 +57,12 @@ func TestForEachJobTxByFilter(t *testing.T) {
 	t.Run("valid/program_hash", func(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			expected := make(map[pjsdb.JobID]bool)
-			targetFs := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
-			targetHash := targetFs
+			targetFs, targetHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
 			withForEachJob(t, d, expected,
-				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{ProgramHash: []byte(fileset.ID(targetHash).HexString())}},
+				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{ProgramHash: targetHash}},
 				func(expected map[pjsdb.JobID]bool) {
 					for i := 0; i < 25; i++ {
-						included := createJobWithFilesets(t, d, 0, targetFs)
+						included := createJobWithFilesets(t, d, 0, targetFs, targetHash)
 						_, err := createJob(t, d, 0)
 						require.NoError(t, err)
 						expected[included] = true
@@ -74,12 +73,12 @@ func TestForEachJobTxByFilter(t *testing.T) {
 	t.Run("valid/program", func(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			expected := make(map[pjsdb.JobID]bool)
-			targetFs := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
+			targetFs, targetHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
 			withForEachJob(t, d, expected,
 				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Program: []byte(fileset.ID(targetFs).HexString())}},
 				func(expected map[pjsdb.JobID]bool) {
 					for i := 0; i < 25; i++ {
-						included := createJobWithFilesets(t, d, 0, targetFs)
+						included := createJobWithFilesets(t, d, 0, targetFs, targetHash)
 						_, err := createJob(t, d, 0)
 						require.NoError(t, err)
 						expected[included] = true
@@ -104,15 +103,15 @@ func TestForEachJobTxByFilter(t *testing.T) {
 	t.Run("valid/has_input", func(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			expected := make(map[pjsdb.JobID]bool)
-			targetFs := mockFileset(t, d, "/inputs/0.txt", "fake data")
+			targetInput := mockFileset(t, d, "/inputs/0.txt", "fake data")
 			withForEachJob(t, d, expected,
-				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{HasInput: []byte(fileset.ID(targetFs).HexString())}},
+				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{HasInput: []byte(fileset.ID(targetInput).HexString())}},
 				func(expected map[pjsdb.JobID]bool) {
 					for i := 0; i < 25; i++ {
-						program := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
+						program, programHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
 						otherInput := mockFileset(t, d, "/inputs/1.txt", "more fake data")
-						included := createJobWithFilesets(t, d, 0, program, targetFs, otherInput)
-						createJobWithFilesets(t, d, 0, program, otherInput, mockFileset(t, d, "/inputs/2.txt", "even more fake data"))
+						included := createJobWithFilesets(t, d, 0, program, programHash, targetInput, otherInput)
+						createJobWithFilesets(t, d, 0, program, programHash, otherInput, mockFileset(t, d, "/inputs/2.txt", "even more fake data"))
 						expected[included] = true
 					}
 				})
@@ -121,9 +120,9 @@ func TestForEachJobTxByFilter(t *testing.T) {
 	t.Run("valid/complex/and", func(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			expected := make(map[pjsdb.JobID]bool)
-			targetProgram := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
+			targetProgram, targetHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
 			targetInput := mockFileset(t, d, "/inputs/0.txt", "fake data")
-			otherProgram := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hi';")
+			otherProgram, otherHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hi';")
 			otherInput := mockFileset(t, d, "/inputs/1.txt", "more fake data")
 			withForEachJob(t, d, expected,
 				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{
@@ -131,11 +130,11 @@ func TestForEachJobTxByFilter(t *testing.T) {
 					HasInput: []byte(fileset.ID(targetInput).HexString())}},
 				func(expected map[pjsdb.JobID]bool) {
 					for i := 0; i < 25; i++ {
-						included := createJobWithFilesets(t, d, 0, targetProgram, targetInput)
+						included := createJobWithFilesets(t, d, 0, targetProgram, targetHash, targetInput)
 						expected[included] = true
-						createJobWithFilesets(t, d, 0, otherProgram, otherInput)
-						createJobWithFilesets(t, d, 0, targetProgram, otherInput)
-						createJobWithFilesets(t, d, 0, otherProgram, targetInput)
+						createJobWithFilesets(t, d, 0, otherProgram, otherHash, otherInput)
+						createJobWithFilesets(t, d, 0, targetProgram, []byte("foo"), otherInput)
+						createJobWithFilesets(t, d, 0, otherProgram, []byte("foo"), targetInput)
 					}
 				})
 		})
@@ -143,9 +142,9 @@ func TestForEachJobTxByFilter(t *testing.T) {
 	t.Run("valid/complex/or", func(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			expected := make(map[pjsdb.JobID]bool)
-			targetProgram := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
+			targetProgram, targetHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
 			targetInput := mockFileset(t, d, "/inputs/0.txt", "fake data")
-			otherProgram := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hi';")
+			otherProgram, otherHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hi';")
 			otherInput := mockFileset(t, d, "/inputs/1.txt", "more fake data")
 			withForEachJob(t, d, expected,
 				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{
@@ -154,10 +153,10 @@ func TestForEachJobTxByFilter(t *testing.T) {
 					HasInput:  []byte(fileset.ID(targetInput).HexString())}},
 				func(expected map[pjsdb.JobID]bool) {
 					for i := 0; i < 25; i++ {
-						expected[createJobWithFilesets(t, d, 0, targetProgram, targetInput)] = true
-						expected[createJobWithFilesets(t, d, 0, targetProgram, otherInput)] = true
-						expected[createJobWithFilesets(t, d, 0, otherProgram, targetInput)] = true
-						createJobWithFilesets(t, d, 0, otherProgram, otherInput)
+						expected[createJobWithFilesets(t, d, 0, targetProgram, targetHash, targetInput)] = true
+						expected[createJobWithFilesets(t, d, 0, targetProgram, targetHash, otherInput)] = true
+						expected[createJobWithFilesets(t, d, 0, otherProgram, otherHash, targetInput)] = true
+						createJobWithFilesets(t, d, 0, otherProgram, otherHash, otherInput)
 					}
 				})
 		})

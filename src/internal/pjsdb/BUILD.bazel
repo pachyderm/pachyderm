@@ -46,6 +46,7 @@ go_test(
         "//src/internal/dockertestenv",
         "//src/internal/errors",
         "//src/internal/migrations",
+        "//src/internal/pachhash",
         "//src/internal/pachsql",
         "//src/internal/pctx",
         "//src/internal/require",

@@ -1,3 +1,4 @@
+// See <project-root>/LOCAL.md for documentation.
 package main
 
 import (
