@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	mlc "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 	"google.golang.org/grpc/credentials/insecure"
@@ -59,7 +58,7 @@ func newDexClient(hostAndPort string) (dex_api.DexClient, error) {
 	opts = append(opts, grpc.WithChainStreamInterceptor(mlc.LogStream))
 	conn, err := grpc.NewClient(hostAndPort, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("dial: %v", err)
+		return nil, errors.Errorf("dial: %v", err)
 	}
 	return dex_api.NewDexClient(conn), nil
 }
