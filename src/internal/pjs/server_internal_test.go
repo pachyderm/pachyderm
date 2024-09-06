@@ -144,6 +144,7 @@ func TestCancelJob(t *testing.T) {
 			},
 		})
 		require.Equal(t, int64(0), inspectQueueResp.Details.Size)
+		require.NoError(t, err)
 	})
 	t.Run("cancel a processing job", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
