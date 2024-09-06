@@ -10458,9 +10458,8 @@
           "$ref": "#/definitions/pjsQueue",
           "title": "queue is the Queue's identity"
         },
-        "spec": {
-          "$ref": "#/definitions/protobufAny",
-          "description": "spec specifies the code to be run to process the Queue."
+        "program": {
+          "type": "string"
         }
       },
       "title": "QueueInfo describes a Queue"
