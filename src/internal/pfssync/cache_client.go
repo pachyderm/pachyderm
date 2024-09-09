@@ -4,7 +4,7 @@ import (
 	io "io"
 	"sync"
 
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -15,7 +15,7 @@ import (
 type CacheClient struct {
 	*client.APIClient
 	mu      sync.Mutex
-	cache   *simplelru.LRU
+	cache   *simplelru.LRU[string, *pfs.Commit]
 	renewer *renew.StringSet
 }
 
@@ -26,7 +26,7 @@ func NewCacheClient(pachClient *client.APIClient, renewer *renew.StringSet) *Cac
 		APIClient: pachClient,
 		renewer:   renewer,
 	}
-	cache, err := simplelru.NewLRU(10, nil)
+	cache, err := simplelru.NewLRU[string, *pfs.Commit](10, nil)
 	if err != nil {
 		// lru.NewWithEvict only errors for size < 1
 		panic(err)
@@ -84,7 +84,7 @@ func (cc *CacheClient) get(key string) (*pfs.Commit, bool) {
 	if !ok {
 		return nil, ok
 	}
-	return c.(*pfs.Commit), ok
+	return c, ok
 }
 
 func (cc *CacheClient) put(key string, commit *pfs.Commit) {
