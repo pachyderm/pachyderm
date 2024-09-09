@@ -27,7 +27,9 @@ const (
                 j.processing IS NULL
 				AND j.done IS NULL
 				AND j.queued IS NOT NULL`
-	groupQueuePostfix = `GROUP BY queues.program_hash`
+	groupQueuePostfix = `
+			 GROUP BY queues.program_hash
+	`
 )
 
 // TODO(Fahad): add queue filter once filter is designed.
