@@ -10459,7 +10459,10 @@
           "title": "queue is the Queue's identity"
         },
         "program": {
-          "type": "string"
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "title": "QueueInfo describes a Queue"

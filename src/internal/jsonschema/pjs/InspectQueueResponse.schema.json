@@ -34,7 +34,10 @@
                     "description": "queue is the Queue's identity"
                 },
                 "program": {
-                    "type": "string"
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
                 }
             },
             "additionalProperties": false,

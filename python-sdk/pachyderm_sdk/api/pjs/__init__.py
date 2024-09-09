@@ -143,7 +143,7 @@ class QueueInfo(betterproto.Message):
     queue: "Queue" = betterproto.message_field(1)
     """queue is the Queue's identity"""
 
-    program: str = betterproto.string_field(2)
+    program: List[str] = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)

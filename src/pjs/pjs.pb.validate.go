@@ -633,8 +633,6 @@ func (m *QueueInfo) validate(all bool) error {
 		}
 	}
 
-	// no validation rules for Program
-
 	if len(errors) > 0 {
 		return QueueInfoMultiError(errors)
 	}
