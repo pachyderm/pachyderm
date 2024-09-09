@@ -614,7 +614,7 @@ jobs:
           name: Download utilities
           command: |
             sudo apt update
-            sudo apt install qemu binfmt-support qemu-user-static
+            sudo apt install binfmt-support qemu-user-static
       - install-go-releaser
       - run:
           name: pachydermbuildbot docker login
