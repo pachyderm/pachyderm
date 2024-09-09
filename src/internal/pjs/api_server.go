@@ -304,7 +304,7 @@ func (a *apiServer) InspectQueue(ctx context.Context, req *pjs.InspectQueueReque
 			uniquePrograms[program.HexString()] = struct{}{}
 		}
 		var programs []string
-		for k, _ := range uniquePrograms {
+		for k := range uniquePrograms {
 			programs = append(programs, k)
 		}
 		queueInfoDetails = &pjs.QueueInfoDetails{

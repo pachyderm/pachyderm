@@ -136,7 +136,7 @@ func TestCancelJob(t *testing.T) {
 		require.NotNil(t, inspectJobResp.Details)
 		jobInfo := inspectJobResp.Details.JobInfo
 		require.Equal(t, pjs.JobState_DONE, jobInfo.State)
-		hash, err := HashFileset(ctx, fc, programFileset) ////
+		hash, err := HashFileset(ctx, fc, programFileset)
 		require.NoError(t, err)
 		inspectQueueResp, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
 			Queue: &pjs.Queue{
