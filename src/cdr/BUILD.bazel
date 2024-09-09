@@ -14,7 +14,7 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/protoextensions",
-        "@com_github_hashicorp_golang_lru//:golang-lru",
+        "@com_github_hashicorp_golang_lru_v2//:golang-lru",
         "@org_golang_google_protobuf//proto",
         "@org_golang_google_protobuf//reflect/protoreflect",
         "@org_golang_google_protobuf//runtime/protoimpl",
