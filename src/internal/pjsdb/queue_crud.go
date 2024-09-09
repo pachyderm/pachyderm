@@ -3,7 +3,7 @@ package pjsdb
 import (
 	"context"
 	"database/sql"
-
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -61,4 +61,25 @@ func DequeueAndProcess(ctx context.Context, tx *pachsql.Tx, programHash []byte) 
 		JobContext: jobCtx,
 	}
 	return resp, nil
+}
+
+func GetQueue(ctx context.Context, tx *pachsql.Tx, queueId []byte) (Queue, error) {
+	ctx = pctx.Child(ctx, "getQueue")
+	record := queueRecord{}
+	err := sqlx.GetContext(ctx, tx, &record, selectQueuePrefix+`
+		 AND queues.program_hash = $1`+groupQueuePostfix, queueId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Queue{
+				Size: 0,
+				ID:   record.ID,
+			}, nil
+		}
+		return Queue{}, errors.Wrap(err, "get queue sql")
+	}
+	queue, err := record.toQueue()
+	if err != nil {
+		return Queue{}, errors.Wrap(err, "queue record to Queue")
+	}
+	return queue, nil
 }

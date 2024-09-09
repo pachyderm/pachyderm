@@ -81,8 +81,8 @@ message Queue {
 message QueueInfo {
   // queue is the Queue's identity
   Queue queue = 1;
-  // spec specifies the code to be run to process the Queue.
-  google.protobuf.Any spec = 2;
+  // The current storage system supports cloned filesets with the same content hash.
+  repeated string program = 2;
 }
 
 // QueueInfoDetails contains detailed information about a Queue, which may be more expensive to get.

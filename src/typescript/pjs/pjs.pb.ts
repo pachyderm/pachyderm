@@ -5,7 +5,6 @@
 */
 
 import * as fm from "../fetch.pb"
-import * as GoogleProtobufAny from "../google/protobuf/any.pb"
 
 type Absent<T, K extends keyof T> = { [k in Exclude<keyof T, K>]?: undefined };
 type OneOf<T> =
@@ -67,7 +66,7 @@ export type Queue = {
 
 export type QueueInfo = {
   queue?: Queue
-  spec?: GoogleProtobufAny.Any
+  program?: string[]
 }
 
 export type QueueInfoDetails = {

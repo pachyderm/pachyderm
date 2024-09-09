@@ -292,6 +292,39 @@ func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.Awai
 	}
 }
 
+func (a *apiServer) InspectQueue(ctx context.Context, req *pjs.InspectQueueRequest) (*pjs.InspectQueueResponse, error) {
+	var queueInfoDetails *pjs.QueueInfoDetails
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		q, err := pjsdb.GetQueue(ctx, sqlTx, req.Queue.Id)
+		if err != nil {
+			return errors.Wrap(err, "get queue")
+		}
+		uniquePrograms := make(map[string]struct{})
+		for _, program := range q.Programs {
+			uniquePrograms[program.HexString()] = struct{}{}
+		}
+		var programs []string
+		for k := range uniquePrograms {
+			programs = append(programs, k)
+		}
+		queueInfoDetails = &pjs.QueueInfoDetails{
+			QueueInfo: &pjs.QueueInfo{
+				Queue: &pjs.Queue{
+					Id: q.ID,
+				},
+				Program: programs,
+			},
+			Size: int64(q.Size),
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return &pjs.InspectQueueResponse{
+		Details: queueInfoDetails,
+	}, nil
+}
+
 // resolveJobCtx returns an error annotated with a GRPC status and therefore probably shouldn't be wrapped.
 func (a *apiServer) resolveJobCtx(ctx context.Context, jobCtx string) (id pjsdb.JobID, err error) {
 	token, err := pjsdb.JobContextTokenFromHex(jobCtx)

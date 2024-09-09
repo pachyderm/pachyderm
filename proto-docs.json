@@ -17727,12 +17727,12 @@
               "defaultValue": ""
             },
             {
-              "name": "spec",
-              "description": "spec specifies the code to be run to process the Queue.",
-              "label": "",
-              "type": "Any",
-              "longType": "google.protobuf.Any",
-              "fullType": "google.protobuf.Any",
+              "name": "program",
+              "description": "The current storage system supports cloned filesets with the same content hash.",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",

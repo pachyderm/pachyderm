@@ -9,7 +9,7 @@ package pjs
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	_ "google.golang.org/protobuf/types/known/anypb"
 	reflect "reflect"
 	sync "sync"
 )
@@ -473,8 +473,8 @@ type QueueInfo struct {
 
 	// queue is the Queue's identity
 	Queue *Queue `protobuf:"bytes,1,opt,name=queue,proto3" json:"queue,omitempty"`
-	// spec specifies the code to be run to process the Queue.
-	Spec *anypb.Any `protobuf:"bytes,2,opt,name=spec,proto3" json:"spec,omitempty"`
+	// The current storage system supports cloned filesets with the same content hash.
+	Program []string `protobuf:"bytes,2,rep,name=program,proto3" json:"program,omitempty"`
 }
 
 func (x *QueueInfo) Reset() {
@@ -516,9 +516,9 @@ func (x *QueueInfo) GetQueue() *Queue {
 	return nil
 }
 
-func (x *QueueInfo) GetSpec() *anypb.Any {
+func (x *QueueInfo) GetProgram() []string {
 	if x != nil {
-		return x.Spec
+		return x.Program
 	}
 	return nil
 }
@@ -1799,13 +1799,12 @@ var file_pjs_pjs_proto_rawDesc = []byte{
 	0x69, 0x6e, 0x66, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x70, 0x6a, 0x73,
 	0x2e, 0x4a, 0x6f, 0x62, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x07, 0x6a, 0x6f, 0x62, 0x49, 0x6e, 0x66,
 	0x6f, 0x22, 0x17, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x75, 0x65, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x02, 0x69, 0x64, 0x22, 0x57, 0x0a, 0x09, 0x51, 0x75,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x02, 0x69, 0x64, 0x22, 0x47, 0x0a, 0x09, 0x51, 0x75,
 	0x65, 0x75, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x20, 0x0a, 0x05, 0x71, 0x75, 0x65, 0x75, 0x65,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x51, 0x75, 0x65,
-	0x75, 0x65, 0x52, 0x05, 0x71, 0x75, 0x65, 0x75, 0x65, 0x12, 0x28, 0x0a, 0x04, 0x73, 0x70, 0x65,
-	0x63, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65,
-	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x41, 0x6e, 0x79, 0x52, 0x04, 0x73,
-	0x70, 0x65, 0x63, 0x22, 0x55, 0x0a, 0x10, 0x51, 0x75, 0x65, 0x75, 0x65, 0x49, 0x6e, 0x66, 0x6f,
+	0x75, 0x65, 0x52, 0x05, 0x71, 0x75, 0x65, 0x75, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x70, 0x72, 0x6f,
+	0x67, 0x72, 0x61, 0x6d, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x07, 0x70, 0x72, 0x6f, 0x67,
+	0x72, 0x61, 0x6d, 0x22, 0x55, 0x0a, 0x10, 0x51, 0x75, 0x65, 0x75, 0x65, 0x49, 0x6e, 0x66, 0x6f,
 	0x44, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x12, 0x2d, 0x0a, 0x0a, 0x71, 0x75, 0x65, 0x75, 0x65,
 	0x5f, 0x69, 0x6e, 0x66, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x70, 0x6a,
 	0x73, 0x2e, 0x51, 0x75, 0x65, 0x75, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x09, 0x71, 0x75, 0x65,
@@ -2018,7 +2017,6 @@ var file_pjs_pjs_proto_goTypes = []interface{}{
 	(*InspectQueueResponse)(nil),        // 27: pjs.InspectQueueResponse
 	(*JobInfo_Success)(nil),             // 28: pjs.JobInfo.Success
 	(*ProcessQueueRequest_Success)(nil), // 29: pjs.ProcessQueueRequest.Success
-	(*anypb.Any)(nil),                   // 30: google.protobuf.Any
 }
 var file_pjs_pjs_proto_depIdxs = []int32{
 	3,  // 0: pjs.JobInfo.job:type_name -> pjs.Job
@@ -2028,53 +2026,52 @@ var file_pjs_pjs_proto_depIdxs = []int32{
 	1,  // 4: pjs.JobInfo.error:type_name -> pjs.JobErrorCode
 	4,  // 5: pjs.JobInfoDetails.job_info:type_name -> pjs.JobInfo
 	6,  // 6: pjs.QueueInfo.queue:type_name -> pjs.Queue
-	30, // 7: pjs.QueueInfo.spec:type_name -> google.protobuf.Any
-	7,  // 8: pjs.QueueInfoDetails.queue_info:type_name -> pjs.QueueInfo
-	0,  // 9: pjs.AwaitRequest.desired_state:type_name -> pjs.JobState
-	0,  // 10: pjs.AwaitResponse.actual_state:type_name -> pjs.JobState
-	3,  // 11: pjs.CreateJobResponse.id:type_name -> pjs.Job
-	3,  // 12: pjs.CancelJobRequest.job:type_name -> pjs.Job
-	3,  // 13: pjs.DeleteJobRequest.job:type_name -> pjs.Job
-	3,  // 14: pjs.ListJobRequest.job:type_name -> pjs.Job
-	3,  // 15: pjs.ListJobResponse.id:type_name -> pjs.Job
-	4,  // 16: pjs.ListJobResponse.info:type_name -> pjs.JobInfo
-	5,  // 17: pjs.ListJobResponse.details:type_name -> pjs.JobInfoDetails
-	3,  // 18: pjs.WalkJobRequest.job:type_name -> pjs.Job
-	2,  // 19: pjs.WalkJobRequest.algorithm:type_name -> pjs.WalkAlgorithm
-	3,  // 20: pjs.InspectJobRequest.job:type_name -> pjs.Job
-	5,  // 21: pjs.InspectJobResponse.details:type_name -> pjs.JobInfoDetails
-	6,  // 22: pjs.ProcessQueueRequest.queue:type_name -> pjs.Queue
-	29, // 23: pjs.ProcessQueueRequest.success:type_name -> pjs.ProcessQueueRequest.Success
-	6,  // 24: pjs.ListQueueResponse.id:type_name -> pjs.Queue
-	7,  // 25: pjs.ListQueueResponse.info:type_name -> pjs.QueueInfo
-	8,  // 26: pjs.ListQueueResponse.details:type_name -> pjs.QueueInfoDetails
-	6,  // 27: pjs.InspectQueueRequest.queue:type_name -> pjs.Queue
-	8,  // 28: pjs.InspectQueueResponse.details:type_name -> pjs.QueueInfoDetails
-	11, // 29: pjs.API.CreateJob:input_type -> pjs.CreateJobRequest
-	13, // 30: pjs.API.CancelJob:input_type -> pjs.CancelJobRequest
-	15, // 31: pjs.API.DeleteJob:input_type -> pjs.DeleteJobRequest
-	17, // 32: pjs.API.ListJob:input_type -> pjs.ListJobRequest
-	19, // 33: pjs.API.WalkJob:input_type -> pjs.WalkJobRequest
-	20, // 34: pjs.API.InspectJob:input_type -> pjs.InspectJobRequest
-	22, // 35: pjs.API.ProcessQueue:input_type -> pjs.ProcessQueueRequest
-	24, // 36: pjs.API.ListQueue:input_type -> pjs.ListQueueRequest
-	26, // 37: pjs.API.InspectQueue:input_type -> pjs.InspectQueueRequest
-	9,  // 38: pjs.API.Await:input_type -> pjs.AwaitRequest
-	12, // 39: pjs.API.CreateJob:output_type -> pjs.CreateJobResponse
-	14, // 40: pjs.API.CancelJob:output_type -> pjs.CancelJobResponse
-	16, // 41: pjs.API.DeleteJob:output_type -> pjs.DeleteJobResponse
-	18, // 42: pjs.API.ListJob:output_type -> pjs.ListJobResponse
-	18, // 43: pjs.API.WalkJob:output_type -> pjs.ListJobResponse
-	21, // 44: pjs.API.InspectJob:output_type -> pjs.InspectJobResponse
-	23, // 45: pjs.API.ProcessQueue:output_type -> pjs.ProcessQueueResponse
-	25, // 46: pjs.API.ListQueue:output_type -> pjs.ListQueueResponse
-	27, // 47: pjs.API.InspectQueue:output_type -> pjs.InspectQueueResponse
-	10, // 48: pjs.API.Await:output_type -> pjs.AwaitResponse
-	39, // [39:49] is the sub-list for method output_type
-	29, // [29:39] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	7,  // 7: pjs.QueueInfoDetails.queue_info:type_name -> pjs.QueueInfo
+	0,  // 8: pjs.AwaitRequest.desired_state:type_name -> pjs.JobState
+	0,  // 9: pjs.AwaitResponse.actual_state:type_name -> pjs.JobState
+	3,  // 10: pjs.CreateJobResponse.id:type_name -> pjs.Job
+	3,  // 11: pjs.CancelJobRequest.job:type_name -> pjs.Job
+	3,  // 12: pjs.DeleteJobRequest.job:type_name -> pjs.Job
+	3,  // 13: pjs.ListJobRequest.job:type_name -> pjs.Job
+	3,  // 14: pjs.ListJobResponse.id:type_name -> pjs.Job
+	4,  // 15: pjs.ListJobResponse.info:type_name -> pjs.JobInfo
+	5,  // 16: pjs.ListJobResponse.details:type_name -> pjs.JobInfoDetails
+	3,  // 17: pjs.WalkJobRequest.job:type_name -> pjs.Job
+	2,  // 18: pjs.WalkJobRequest.algorithm:type_name -> pjs.WalkAlgorithm
+	3,  // 19: pjs.InspectJobRequest.job:type_name -> pjs.Job
+	5,  // 20: pjs.InspectJobResponse.details:type_name -> pjs.JobInfoDetails
+	6,  // 21: pjs.ProcessQueueRequest.queue:type_name -> pjs.Queue
+	29, // 22: pjs.ProcessQueueRequest.success:type_name -> pjs.ProcessQueueRequest.Success
+	6,  // 23: pjs.ListQueueResponse.id:type_name -> pjs.Queue
+	7,  // 24: pjs.ListQueueResponse.info:type_name -> pjs.QueueInfo
+	8,  // 25: pjs.ListQueueResponse.details:type_name -> pjs.QueueInfoDetails
+	6,  // 26: pjs.InspectQueueRequest.queue:type_name -> pjs.Queue
+	8,  // 27: pjs.InspectQueueResponse.details:type_name -> pjs.QueueInfoDetails
+	11, // 28: pjs.API.CreateJob:input_type -> pjs.CreateJobRequest
+	13, // 29: pjs.API.CancelJob:input_type -> pjs.CancelJobRequest
+	15, // 30: pjs.API.DeleteJob:input_type -> pjs.DeleteJobRequest
+	17, // 31: pjs.API.ListJob:input_type -> pjs.ListJobRequest
+	19, // 32: pjs.API.WalkJob:input_type -> pjs.WalkJobRequest
+	20, // 33: pjs.API.InspectJob:input_type -> pjs.InspectJobRequest
+	22, // 34: pjs.API.ProcessQueue:input_type -> pjs.ProcessQueueRequest
+	24, // 35: pjs.API.ListQueue:input_type -> pjs.ListQueueRequest
+	26, // 36: pjs.API.InspectQueue:input_type -> pjs.InspectQueueRequest
+	9,  // 37: pjs.API.Await:input_type -> pjs.AwaitRequest
+	12, // 38: pjs.API.CreateJob:output_type -> pjs.CreateJobResponse
+	14, // 39: pjs.API.CancelJob:output_type -> pjs.CancelJobResponse
+	16, // 40: pjs.API.DeleteJob:output_type -> pjs.DeleteJobResponse
+	18, // 41: pjs.API.ListJob:output_type -> pjs.ListJobResponse
+	18, // 42: pjs.API.WalkJob:output_type -> pjs.ListJobResponse
+	21, // 43: pjs.API.InspectJob:output_type -> pjs.InspectJobResponse
+	23, // 44: pjs.API.ProcessQueue:output_type -> pjs.ProcessQueueResponse
+	25, // 45: pjs.API.ListQueue:output_type -> pjs.ListQueueResponse
+	27, // 46: pjs.API.InspectQueue:output_type -> pjs.InspectQueueResponse
+	10, // 47: pjs.API.Await:output_type -> pjs.AwaitResponse
+	38, // [38:48] is the sub-list for method output_type
+	28, // [28:38] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_pjs_pjs_proto_init() }
