@@ -1452,6 +1452,7 @@ jobs:
           name: Run tests
           command: |
             pip3 install -r requirements.txt
+            pip3 install ../python-sdk
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
   bazel-style-tests:
     resource_class: xlarge
