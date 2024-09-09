@@ -780,6 +780,9 @@ jobs:
           path: test-results
 
   jupyter-extension-integration-test:
+    parameters:
+      python-version:
+        type: string
     resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
