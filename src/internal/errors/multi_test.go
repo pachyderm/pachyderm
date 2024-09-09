@@ -1,16 +1,15 @@
 package errors
 
 import (
+	"errors"
 	"testing"
-
-	"github.com/pkg/errors"
 )
 
 var (
-	a     = errors.New("a")
-	b     = errors.New("b")
-	run   = errors.New("run")
-	close = errors.New("close")
+	a     = errors.New("a")     //nolint:st1012
+	b     = errors.New("b")     //nolint:st1012
+	run   = errors.New("run")   //nolint:st1012
+	close = errors.New("close") //nolint:st1012
 )
 
 func TestJoin(t *testing.T) {
