@@ -472,7 +472,8 @@ type QueueInfo struct {
 	unknownFields protoimpl.UnknownFields
 
 	// queue is the Queue's identity
-	Queue   *Queue   `protobuf:"bytes,1,opt,name=queue,proto3" json:"queue,omitempty"`
+	Queue *Queue `protobuf:"bytes,1,opt,name=queue,proto3" json:"queue,omitempty"`
+	// The current storage system supports cloned filesets with the same content hash.
 	Program []string `protobuf:"bytes,2,rep,name=program,proto3" json:"program,omitempty"`
 }
 

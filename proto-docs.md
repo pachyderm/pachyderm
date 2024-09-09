@@ -7572,7 +7572,7 @@ QueueInfo describes a Queue
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | queue | [Queue](#pjs-Queue) |  | queue is the Queue&#39;s identity |
-| program | [string](#string) | repeated |  |
+| program | [string](#string) | repeated | The current storage system supports cloned filesets with the same content hash. |
 
 
 

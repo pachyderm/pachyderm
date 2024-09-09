@@ -10462,7 +10462,8 @@
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "description": "The current storage system supports cloned filesets with the same content hash."
         }
       },
       "title": "QueueInfo describes a Queue"
