@@ -127,6 +127,7 @@ func (r *queueRecord) toQueue() (Queue, error) {
 		ID:       r.ID,
 		Programs: programs,
 		Jobs:     jobs,
+		Size:     r.Size,
 	}
 	return queue, nil
 }

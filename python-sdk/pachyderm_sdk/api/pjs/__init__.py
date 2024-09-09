@@ -143,8 +143,7 @@ class QueueInfo(betterproto.Message):
     queue: "Queue" = betterproto.message_field(1)
     """queue is the Queue's identity"""
 
-    spec: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(2)
-    """spec specifies the code to be run to process the Queue."""
+    program: List[str] = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)
