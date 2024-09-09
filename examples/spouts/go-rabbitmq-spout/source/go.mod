@@ -1,6 +1,6 @@
 module github.com/pachyderm/pachyderm/examples/spouts/go-rabbitmq-spout/source
 
-go 1.22.5
+go 1.23.0
 
 require (
 	github.com/pachyderm/pachyderm/v2 v2.10.1
@@ -30,6 +30,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dexidp/dex v2.36.0+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
+	github.com/docker/docker v24.0.9+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
