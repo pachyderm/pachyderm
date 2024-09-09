@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -65,42 +63,23 @@ func DequeueAndProcess(ctx context.Context, tx *pachsql.Tx, programHash []byte) 
 	return resp, nil
 }
 
-type GetQueueResponse struct {
-	Size        int64
-	Program     string
-	ProgramHash []byte
-}
-
-type QueueRecord struct {
-	Size    int64  `db:"queue_size"`
-	Program []byte `db:"program"`
-}
-
-func GetQueue(ctx context.Context, tx *pachsql.Tx, queueId []byte) (GetQueueResponse, error) {
+func GetQueue(ctx context.Context, tx *pachsql.Tx, queueId []byte) (Queue, error) {
 	ctx = pctx.Child(ctx, "getQueue")
-	record := QueueRecord{}
-	err := sqlx.GetContext(ctx, tx, &record, `
-		SELECT COUNT(*) AS queue_size, program
-		 	FROM pjs.jobs
-		 	WHERE processing IS NULL AND done IS NULL AND queued IS NOT NULL AND program_hash = $1
-		 	GROUP BY program;
-	`, queueId)
+	record := queueRecord{}
+	err := sqlx.GetContext(ctx, tx, &record, selectQueuePrefix+`
+		 AND queues.program_hash = $1`+groupQueuePostfix, queueId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return GetQueueResponse{
-				Size:        0,
-				ProgramHash: queueId,
+			return Queue{
+				Size: 0,
+				ID:   record.ID,
 			}, nil
 		}
-		return GetQueueResponse{}, errors.Wrap(err, "get queue sql")
+		return Queue{}, errors.Wrap(err, "get queue sql")
 	}
-	program, err := fileset.ParseID(string(record.Program))
+	queue, err := record.toQueue()
 	if err != nil {
-		return GetQueueResponse{}, errors.Wrap(err, "parse ID")
+		return Queue{}, errors.Wrap(err, "queue record to Queue")
 	}
-	return GetQueueResponse{
-		Size:        record.Size,
-		Program:     program.HexString(),
-		ProgramHash: queueId,
-	}, nil
+	return queue, nil
 }

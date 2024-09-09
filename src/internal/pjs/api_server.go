@@ -299,14 +299,22 @@ func (a *apiServer) InspectQueue(ctx context.Context, req *pjs.InspectQueueReque
 		if err != nil {
 			return errors.Wrap(err, "get queue")
 		}
+		uniquePrograms := make(map[string]struct{})
+		for _, program := range q.Programs {
+			uniquePrograms[program.HexString()] = struct{}{}
+		}
+		var programs []string
+		for k, _ := range uniquePrograms {
+			programs = append(programs, k)
+		}
 		queueInfoDetails = &pjs.QueueInfoDetails{
 			QueueInfo: &pjs.QueueInfo{
 				Queue: &pjs.Queue{
-					Id: q.ProgramHash,
+					Id: q.ID,
 				},
-				Program: q.Program,
+				Program: programs,
 			},
-			Size: q.Size,
+			Size: int64(q.Size),
 		}
 		return nil
 	}); err != nil {

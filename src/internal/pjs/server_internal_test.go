@@ -474,7 +474,7 @@ func TestInspectQueue(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.Equal(t, int64(i), inspectQueueResp1.Details.Size)
-			require.Equal(t, programFileset1, inspectQueueResp1.Details.QueueInfo.Program)
+			require.Equal(t, []string{programFileset1}, inspectQueueResp1.Details.QueueInfo.Program)
 			require.Equal(t, hash1, inspectQueueResp1.Details.QueueInfo.Queue.Id)
 			_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{
 				Program: programFileset2,
