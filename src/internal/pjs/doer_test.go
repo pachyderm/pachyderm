@@ -189,6 +189,9 @@ func TestDoer(t *testing.T) {
 						panic(err)
 					}
 					b, err := proto.Marshal(a)
+					if err != nil {
+						panic(err)
+					}
 					if err := cc.Send(&storage.CreateFilesetRequest{
 						Modification: &storage.CreateFilesetRequest_AppendFile{
 							AppendFile: &storage.AppendFile{
