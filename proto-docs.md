@@ -7572,7 +7572,7 @@ QueueInfo describes a Queue
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | queue | [Queue](#pjs-Queue) |  | queue is the Queue&#39;s identity |
-| spec | [google.protobuf.Any](#google-protobuf-Any) |  | spec specifies the code to be run to process the Queue. |
+| program | [string](#string) | repeated | The current storage system supports cloned filesets with the same content hash. |
 
 
 

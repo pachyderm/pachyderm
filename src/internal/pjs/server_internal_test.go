@@ -136,7 +136,15 @@ func TestCancelJob(t *testing.T) {
 		require.NotNil(t, inspectJobResp.Details)
 		jobInfo := inspectJobResp.Details.JobInfo
 		require.Equal(t, pjs.JobState_DONE, jobInfo.State)
-		// todo: the queue should be empty. This can be tested when inspectQueue is ready
+		hash, err := HashFileset(ctx, fc, programFileset)
+		require.NoError(t, err)
+		inspectQueueResp, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
+			Queue: &pjs.Queue{
+				Id: hash,
+			},
+		})
+		require.Equal(t, int64(0), inspectQueueResp.Details.Size)
+		require.NoError(t, err)
 	})
 	t.Run("cancel a processing job", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
@@ -421,6 +429,81 @@ func TestAwaitJob(t *testing.T) {
 		require.Equal(t, codes.DeadlineExceeded, s.Code())
 	})
 	// valid case is tested in TestRunJob with ProcessQueue
+}
+
+func TestInspectQueue(t *testing.T) {
+	t.Run("empty queue", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		c, _ := setupTest(t)
+		inspectQueueResp1, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
+			Queue: &pjs.Queue{
+				Id: []byte(`dummyHash`),
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, int64(0), inspectQueueResp1.Details.Size)
+	})
+	t.Run("multiple queues", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		c, fc := setupTest(t)
+		programFileset1 := createFileSet(t, fc, map[string][]byte{
+			"file": []byte(`program1`),
+		})
+		programFileset2 := createFileSet(t, fc, map[string][]byte{
+			"file": []byte(`program2`),
+		})
+		programFileset3 := createFileSet(t, fc, map[string][]byte{
+			"file": []byte(`program3`),
+		})
+		hash1, err := HashFileset(ctx, fc, programFileset1)
+		require.NoError(t, err)
+		hash2, err := HashFileset(ctx, fc, programFileset2)
+		require.NoError(t, err)
+		hash3, err := HashFileset(ctx, fc, programFileset3)
+		require.NoError(t, err)
+		for i := 1; i <= 10; i++ {
+			_, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
+				Program: programFileset1,
+				Input:   []string{programFileset1},
+			})
+			require.NoError(t, err)
+			inspectQueueResp1, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
+				Queue: &pjs.Queue{
+					Id: hash1,
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, int64(i), inspectQueueResp1.Details.Size)
+			require.Equal(t, []string{programFileset1}, inspectQueueResp1.Details.QueueInfo.Program)
+			require.Equal(t, hash1, inspectQueueResp1.Details.QueueInfo.Queue.Id)
+			_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{
+				Program: programFileset2,
+				Input:   []string{programFileset2},
+			})
+			require.NoError(t, err)
+			inspectQueueResp2, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
+				Queue: &pjs.Queue{
+					Id: hash2,
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, int64(i), inspectQueueResp2.Details.Size)
+			require.Equal(t, hash2, inspectQueueResp2.Details.QueueInfo.Queue.Id)
+			_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{
+				Program: programFileset3,
+				Input:   []string{programFileset3},
+			})
+			require.NoError(t, err)
+			inspectQueueResp3, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
+				Queue: &pjs.Queue{
+					Id: hash3,
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, int64(i), inspectQueueResp3.Details.Size)
+			require.Equal(t, hash3, inspectQueueResp3.Details.QueueInfo.Queue.Id)
+		}
+	})
 }
 
 func setupTest(t testing.TB, opts ...ClientOptions) (pjs.APIClient, storage.FilesetClient) {
