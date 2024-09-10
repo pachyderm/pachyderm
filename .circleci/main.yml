@@ -731,9 +731,6 @@ jobs:
       - run: mv jsonnet jsonnetfmt /usr/local/bin
       - run: make -C etc/generate-envoy-config test
   jupyter-extension-test:
-    parameters:
-      python-version:
-        type: string
     docker:
       - image: cimg/node:20.11.0
     resource_class: large
@@ -780,9 +777,6 @@ jobs:
           path: test-results
 
   jupyter-extension-integration-test:
-    parameters:
-      python-version:
-        type: string
     resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1887,15 +1881,9 @@ workflows:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
-      - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
+      - jupyter-extension-test
       - jupyter-extension-frontend-test
-      - jupyter-extension-integration-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
+      - jupyter-extension-integration-test
       - jupyter-extension-e2e-test:
           requires:
             - jupyter-extension-build
@@ -1976,9 +1964,6 @@ workflows:
             - build-docker-images
             - helm-build
       - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
           filters: *only-release-tags
       - jupyter-extension-frontend-test:
           filters: *only-release-tags
@@ -2268,8 +2253,8 @@ commands:
           name: Downgrade python
           command: |-
             set -euxo pipefail
-            pyenv install << parameters.python-version >>
-            pyenv global << parameters.python-version >>
+            pyenv install 3.11
+            pyenv global 3.11
       - run:
           name: Install kubectl
           command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install
