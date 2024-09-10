@@ -43,7 +43,6 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0
 	github.com/gruntwork-io/terratest v0.38.8
 	github.com/hanwen/go-fuse/v2 v2.1.0
-	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/golang-lru/v2 v2.0.1
 	github.com/instrumenta/kubeval v0.0.0-20201118090229-529b532b1ea1
 	github.com/itchyny/gojq v0.11.2

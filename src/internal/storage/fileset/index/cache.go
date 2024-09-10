@@ -7,7 +7,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/hashicorp/golang-lru/simplelru"
+	"github.com/hashicorp/golang-lru/v2/simplelru"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -15,12 +15,12 @@ import (
 
 type Cache struct {
 	storage *chunk.Storage
-	cache   *simplelru.LRU
+	cache   *simplelru.LRU[string, *cachedChunk]
 	mu      sync.Mutex
 }
 
 func NewCache(storage *chunk.Storage, size int) *Cache {
-	lruCache, err := simplelru.NewLRU(size, nil)
+	lruCache, err := simplelru.NewLRU[string, *cachedChunk](size, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -35,7 +35,7 @@ func (c *Cache) Get(ctx context.Context, chunkRef *chunk.DataRef, filter *pathFi
 	v, ok := c.cache.Get(string(chunkRef.Ref.Id))
 	c.mu.Unlock()
 	if ok {
-		return get(v.(*cachedChunk), filter, w)
+		return get(v, filter, w)
 	}
 	cr := c.storage.NewReader(ctx, []*chunk.DataRef{chunkRef})
 	buf := &bytes.Buffer{}
