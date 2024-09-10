@@ -296,7 +296,7 @@ func DeleteJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 	}
 	ids := make([]JobID, 0)
 	if err = sqlx.SelectContext(ctx, tx, &ids, recursiveTraverseChildren+`
-	DELETE FROM pjs.jobs WHERE id IN (SELECT id FROM children) AND done IS NOT NULL
+	DELETE FROM pjs.jobs WHERE id IN (SELECT id FROM children) AND (done IS NOT NULL OR processing IS NULL)
 	RETURNING id;`, job.ID, maxDepth); err != nil {
 		return nil, errors.Wrap(err, "cancel job")
 	}
