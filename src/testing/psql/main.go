@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -30,7 +31,6 @@ const (
 
 func main() {
 	endLogging := log.InitBatchLogger("")
-	log.SetLevel(log.DebugLevel)
 	ctx, cancel := pctx.Interactive()
 
 	err := Run(ctx)
@@ -59,6 +59,7 @@ func StartPortForward(ctx context.Context) (_ int, retErr error) {
 	ctx, done := log.SpanContext(ctx, "kubectl.port-forward")
 	defer done(log.Errorp(&retErr))
 
+	reportedError := new(atomic.Bool)
 	r, w := io.Pipe()
 	cmd := exec.CommandContext(ctx, "kubectl", "port-forward", "postgres-0", "0:5432", "--address=127.0.0.1")
 	cmd.Stdin = nil
@@ -76,16 +77,22 @@ func StartPortForward(ctx context.Context) (_ int, retErr error) {
 	if err := cmd.Start(); err != nil {
 		return 0, errors.Wrap(err, "start kubectl port-forward")
 	}
+	wait := func() {
+		err := cmd.Wait()
+		if err != nil && !reportedError.Load() {
+			if err.Error() != "signal: killed" {
+				log.Error(ctx, "port-forward exited unexpectedly", zap.Error(err))
+			}
+		}
+		w.CloseWithError(errors.Wrap(err, "wait for port-forward to exit"))
+	}
+	go wait()
 
 	// Wait for a line that looks like "Forwarding from 127.0.0.1:12345 -> 5432"
 	s := bufio.NewScanner(r)
 	var port int64
 	for s.Scan() {
 		line := s.Text()
-		if port > 0 {
-			log.Info(ctx, line)
-			continue
-		}
 		if !strings.HasPrefix(line, forwardingFrom) {
 			log.Info(ctx, "stdout: "+line)
 			continue
@@ -104,44 +111,17 @@ func StartPortForward(ctx context.Context) (_ int, retErr error) {
 	startupTimer.Stop()
 
 	if err := s.Err(); err != nil {
-		// This sort of error would probably prevent us from starting up but not from
-		// continuing the run.  If it breaks the run, Wait() below will abort.
-		if port > 0 {
-			log.Info(ctx, "problem reading output from port-forward, but it doesn't really matter", zap.Error(err))
-		} else {
+		if port == 0 {
 			log.Error(ctx, "problem reading output from port-forward", zap.Error(err))
+			reportedError.Store(true)
+			return 0, errors.Wrap(err, "port-forward did not output a port number")
+		} else {
+			log.Info(ctx, "problem reading output from port-forward, but we got a port, so continuing...", zap.Error(err))
 		}
 	}
 	go func() {
 		for s.Scan() { // drain the reader
-			log.Info(ctx, s.Text())
-		}
-	}()
-
-	// If we didn't read a port number, kill port-forward and wait for port-forward to exit.
-	wait := func() error {
-		if err := cmd.Wait(); err != nil {
-			if err.Error() != "signal: killed" {
-				return errors.Wrap(err, "wait for port-forward to exit")
-			}
-		}
-		return nil
-	}
-	if port == 0 {
-		if err := cmd.Process.Kill(); err != nil {
-			return 0, errors.Wrap(err, "kill zombie port-forward")
-		}
-		if err := wait(); err != nil {
-			return 0, errors.Wrap(err, "after never outputting a port number")
-		}
-		return 0, errors.New("port-forward did not output a port number")
-	}
-
-	// We read a port number, so wait for port-forward to exit (when the context is canceled) in
-	// the background.
-	go func() {
-		if err := wait(); err != nil {
-			log.Error(ctx, "problem running port-forward", zap.Error(err))
+			log.Info(ctx, "stdout: "+s.Text())
 		}
 	}()
 	return int(port), nil
