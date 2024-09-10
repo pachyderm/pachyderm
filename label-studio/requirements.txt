@@ -1,4 +1,3 @@
 pytest~=7.4.0
 requests~=2.32.0
-pachyderm-sdk~=2.7.0
 label-studio-sdk~=0.0.29
