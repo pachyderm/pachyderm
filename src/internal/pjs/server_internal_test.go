@@ -108,6 +108,117 @@ func TestRunJob(t *testing.T) {
 	require.Equal(t, in.Input, out.Output)
 }
 
+func TestDeleteJob(t *testing.T) {
+	type setup struct {
+		ctx     context.Context
+		c       pjs.APIClient
+		fc      storage.FilesetClient
+		id      *pjs.Job
+		program string
+	}
+	setupJob := func() (s setup) {
+		s.ctx = pctx.TestContext(t)
+		s.c, s.fc = setupTest(t)
+		s.program = createFileSet(t, s.fc, map[string][]byte{
+			"file": []byte(`!#/bin/bash; ls /input/;`),
+		})
+		resp, err := s.c.CreateJob(s.ctx, &pjs.CreateJobRequest{
+			Program: s.program,
+			Input:   []string{s.program},
+		})
+		require.NoError(t, err)
+		s.id = resp.Id
+		return s
+	}
+	attemptDelete := func(s setup) {
+		_, err := s.c.DeleteJob(s.ctx, &pjs.DeleteJobRequest{Job: s.id})
+		require.NoError(t, err)
+		_, err = s.c.InspectJob(s.ctx, &pjs.InspectJobRequest{Job: s.id})
+		require.YesError(t, err)
+		require.Equal(t, codes.NotFound, status.Convert(err).Code())
+	}
+	t.Run("valid/single/queued", func(t *testing.T) {
+		s := setupJob()
+		attemptDelete(s)
+	})
+	t.Run("valid/single/done", func(t *testing.T) {
+		s := setupJob()
+		_, err := runJobFrom(t, s.ctx, s.c, s.fc, s.id.Id, s.program, func(resp *pjs.ProcessQueueResponse) error {
+			return nil
+		})
+		require.NoError(t, err)
+		attemptDelete(s)
+	})
+	t.Run("valid/single/cancelled", func(t *testing.T) {
+		s := setupJob()
+		_, err := runJobFrom(t, s.ctx, s.c, s.fc, s.id.Id, s.program, func(resp *pjs.ProcessQueueResponse) error {
+			_, err := s.c.CancelJob(s.ctx, &pjs.CancelJobRequest{
+				Job: &pjs.Job{
+					Id: s.id.Id,
+				},
+			})
+			require.NoError(t, err)
+			return nil
+		})
+		require.NoError(t, err)
+		attemptDelete(s)
+	})
+	t.Run("valid/tree/done", func(t *testing.T) {
+		s := setupJob()
+		eg, egCtx := errgroup.WithContext(s.ctx)
+		parentCtx := make(chan string)
+		childDone := make(chan struct{})
+		eg.Go(func() error {
+			// runJobFrom blocks, so it needs to be run in a separate goroutine.
+			_, err := runJobFrom(t, egCtx, s.c, s.fc, s.id.Id, s.program, func(resp *pjs.ProcessQueueResponse) error {
+				parentCtx <- resp.Context
+				<-childDone // wait for the child job to finish before parent can finish.
+				return nil
+			})
+			require.NoError(t, err)
+			return nil
+		})
+		jCtx := <-parentCtx // block on context being ready to read.
+		childJob, err := s.c.CreateJob(s.ctx, &pjs.CreateJobRequest{Context: jCtx, Program: s.program, Input: []string{s.program}})
+		require.NoError(t, err)
+		_, err = runJobFrom(t, s.ctx, s.c, s.fc, childJob.Id.Id, s.program, func(resp *pjs.ProcessQueueResponse) error {
+			close(childDone) // mark child job as done.
+			return nil
+		})
+		require.NoError(t, err)
+		require.NoError(t, eg.Wait())
+		attemptDelete(s)
+		// also confirm the child job was deleted.
+		_, err = s.c.InspectJob(s.ctx, &pjs.InspectJobRequest{Job: childJob.Id})
+		require.YesError(t, err)
+		require.Equal(t, codes.NotFound, status.Convert(err).Code())
+	})
+	t.Run("mixed/single/processing", func(t *testing.T) {
+		s := setupJob()
+		eg, egCtx := errgroup.WithContext(s.ctx)
+		processing, done := make(chan struct{}), make(chan struct{})
+		eg.Go(func() error {
+			// runJobFrom blocks so it must be run in another goroutine.
+			_, err := runJobFrom(t, egCtx, s.c, s.fc, s.id.Id, s.program, func(resp *pjs.ProcessQueueResponse) error {
+				close(processing) //at this point, the job is in the 'processing' job state.
+				<-done            // wait for main thread to tell job to finish.
+				return nil
+			})
+			return err
+		})
+		<-processing // wait for processing job state before attempting deletion.
+		_, err := s.c.DeleteJob(s.ctx, &pjs.DeleteJobRequest{Job: s.id})
+		require.YesError(t, err)
+		require.Equal(t, codes.FailedPrecondition, status.Convert(err).Code())
+		close(done) // tell the job it can finish.
+		require.NoError(t, eg.Wait())
+		_, err = s.c.InspectJob(s.ctx, &pjs.InspectJobRequest{Job: s.id})
+		require.NoError(t, err)
+		// test delete works after everything is done.
+		attemptDelete(s)
+	})
+}
+
 func TestCancelJob(t *testing.T) {
 	t.Run("cancel job before processing", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
