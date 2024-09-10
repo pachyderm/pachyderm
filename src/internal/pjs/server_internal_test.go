@@ -127,7 +127,7 @@ func TestRunJob(t *testing.T) {
 			return errors.New("intentional error to fail the callback")
 		})
 		require.NoError(t, err)
-		require.Equal(t, pjs.JobErrorCode_value["failed"], int32(out.GetError()))
+		require.Equal(t, pjs.JobErrorCode_FAILED, out.GetError())
 	})
 }
 

@@ -307,7 +307,7 @@ func DeleteJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 // done timestamp in database.
 func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobErrorCode) error {
 	ctx = pctx.Child(ctx, "complete error")
-	errStr := errEnumToString(errCode)
+	errStr := ErrEnumToString(errCode)
 	_, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP, error = $1
@@ -319,14 +319,24 @@ func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobE
 	return nil
 }
 
-// errEnumToString fills in the gap between pjs proto error enum and database error enum
-func errEnumToString(errCode pjs.JobErrorCode) string {
+// ErrEnumToString fills in the gap between pjs proto error enum and database error enum
+func ErrEnumToString(errCode pjs.JobErrorCode) string {
 	converter := map[pjs.JobErrorCode]string{
 		pjs.JobErrorCode_DISCONNECTED: "disconnected",
 		pjs.JobErrorCode_FAILED:       "failed",
 		pjs.JobErrorCode_CANCELED:     "cancelled",
 	}
 	return converter[errCode]
+}
+
+// StringToErrEnum fills in the gap between database error enum and pjs proto error enum
+func StringToErrEnum(errStr string) pjs.JobErrorCode {
+	converter := map[string]pjs.JobErrorCode{
+		"disconnected": pjs.JobErrorCode_DISCONNECTED,
+		"failed":       pjs.JobErrorCode_FAILED,
+		"cancelled":    pjs.JobErrorCode_CANCELED,
+	}
+	return converter[errStr]
 }
 
 // CompleteJob is called when job processing without any error. It updates done timestamp

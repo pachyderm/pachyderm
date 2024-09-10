@@ -372,7 +372,7 @@ func toJobInfo(job pjsdb.Job) (*pjs.JobInfo, error) {
 	case job.Done != time.Time{}:
 		jobInfo.State = pjs.JobState_DONE
 		jobInfo.Result = &pjs.JobInfo_Error{
-			Error: pjs.JobErrorCode(pjs.JobErrorCode_value[job.Error]),
+			Error: pjsdb.StringToErrEnum(job.Error),
 		}
 		if len(job.Outputs) != 0 {
 			jobInfoSuccess := pjs.JobInfo_Success{}
