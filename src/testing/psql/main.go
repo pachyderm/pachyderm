@@ -1,8 +1,10 @@
-// Command psql connects to postgres-0 in your current k8s namespace and starts a `psql` shell
-// against it.
+// Command psql connects to postgres-0 setup by pachdev's default settings in your current k8s
+// namespace and starts a `psql` shell against it.  Any args to this command are passed directly to
+// psql.
 //
 // This is a quick hack; it should be part of pachdev but pachdev needs to be refactored to not
-// build images on every run.  It should then use your pachdev context / postgres password / etc.
+// build images on every run.  It should then use your pachdev context / postgres password stored in
+// the cluster / etc.
 package main
 
 import (
@@ -34,7 +36,7 @@ func main() {
 	err := Run(ctx)
 	cancel()
 	if err != nil {
-		log.Error(ctx, "run failed", zap.Error(err))
+		log.Error(ctx, err.Error())
 	}
 	endLogging(err)
 }
@@ -50,14 +52,18 @@ func Run(ctx context.Context) error {
 	return nil
 }
 
+// StartPortForward starts a `kubectl port-forward` run, returning as soon as port-forward tells us
+// which random port it picked, or returning an error if port-forward fails to output a port number
+// or fails to startup.
 func StartPortForward(ctx context.Context) (_ int, retErr error) {
 	ctx, done := log.SpanContext(ctx, "kubectl.port-forward")
 	defer done(log.Errorp(&retErr))
 
+	r, w := io.Pipe()
 	cmd := exec.CommandContext(ctx, "kubectl", "port-forward", "postgres-0", "0:5432", "--address=127.0.0.1")
 	cmd.Stdin = nil
-	r, w := io.Pipe()
-
+	cmd.Stdout = w
+	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "stderr"), log.InfoLevel)
 	startupTimer := time.NewTimer(portForwardStartup)
 	go func() {
 		select {
@@ -67,11 +73,11 @@ func StartPortForward(ctx context.Context) (_ int, retErr error) {
 			w.CloseWithError(context.Cause(ctx))
 		}
 	}()
-	cmd.Stdout = w
-	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "stderr"), log.InfoLevel)
 	if err := cmd.Start(); err != nil {
 		return 0, errors.Wrap(err, "start kubectl port-forward")
 	}
+
+	// Wait for a line that looks like "Forwarding from 127.0.0.1:12345 -> 5432"
 	s := bufio.NewScanner(r)
 	var port int64
 	for s.Scan() {
@@ -96,6 +102,7 @@ func StartPortForward(ctx context.Context) (_ int, retErr error) {
 		break
 	}
 	startupTimer.Stop()
+
 	if err := s.Err(); err != nil {
 		// This sort of error would probably prevent us from starting up but not from
 		// continuing the run.  If it breaks the run, Wait() below will abort.
@@ -110,18 +117,38 @@ func StartPortForward(ctx context.Context) (_ int, retErr error) {
 			log.Info(ctx, s.Text())
 		}
 	}()
-	go func() {
+
+	// If we didn't read a port number, kill port-forward and wait for port-forward to exit.
+	wait := func() error {
 		if err := cmd.Wait(); err != nil {
 			if err.Error() != "signal: killed" {
-				log.Error(ctx, "port-forward ended", zap.Error(err))
+				return errors.Wrap(err, "wait for port-forward to exit")
 			}
-			return
 		}
-		log.Info(ctx, "port-forward ended")
+		return nil
+	}
+	if port == 0 {
+		if err := cmd.Process.Kill(); err != nil {
+			return 0, errors.Wrap(err, "kill zombie port-forward")
+		}
+		if err := wait(); err != nil {
+			return 0, errors.Wrap(err, "after never outputting a port number")
+		}
+		return 0, errors.New("port-forward did not output a port number")
+	}
+
+	// We read a port number, so wait for port-forward to exit (when the context is canceled) in
+	// the background.
+	go func() {
+		if err := wait(); err != nil {
+			log.Error(ctx, "problem running port-forward", zap.Error(err))
+		}
 	}()
 	return int(port), nil
 }
 
+// RunPsql runs `psql` in the foreground (so that readline, etc. work) and returns when it exits.
+// os.Argv[1:] is passed to the psql command.
 func RunPsql(ctx context.Context, host string, port int, password string) error {
 	args := []string{"-U", "postgres", "-h", host, "-p", strconv.Itoa(port)}
 	args = append(args, os.Args[1:]...)
