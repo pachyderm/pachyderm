@@ -66,9 +66,9 @@
     ],
   },
   'pachd-identity': {
-    internal_port: 1658,
-    external_port: 30658,
-    service: 'pachd-proxy-backend',
+    internal_port: 5556,
+    external_port: 5556,
+    service: 'dex-test',
     routes: [
       {
         match: {
