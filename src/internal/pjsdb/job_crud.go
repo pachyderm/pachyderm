@@ -307,15 +307,26 @@ func DeleteJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 // done timestamp in database.
 func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobErrorCode) error {
 	ctx = pctx.Child(ctx, "complete error")
+	errStr := errEnumToString(errCode)
 	_, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP, error = $1
 		WHERE id = $2 AND error IS NULL
-	`, errCode, jobID)
+	`, errStr, jobID)
 	if err != nil {
 		return errors.Wrapf(err, "error job: update error and state to done")
 	}
 	return nil
+}
+
+// errEnumToString fills in the gap between pjs proto error enum and database error enum
+func errEnumToString(errCode pjs.JobErrorCode) string {
+	converter := map[pjs.JobErrorCode]string{
+		pjs.JobErrorCode_DISCONNECTED: "disconnected",
+		pjs.JobErrorCode_FAILED:       "failed",
+		pjs.JobErrorCode_CANCELED:     "cancelled",
+	}
+	return converter[errCode]
 }
 
 // CompleteJob is called when job processing without any error. It updates done timestamp

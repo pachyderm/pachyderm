@@ -86,26 +86,49 @@ func TestInspectJob(t *testing.T) {
 
 // TestRunJob tests processQueue, AwaitJob, InspectJob as a whole
 func TestRunJob(t *testing.T) {
-	c, fc := setupTest(t)
-	ctx := pctx.TestContext(t)
-	programFileset := createFileSet(t, fc, map[string][]byte{
-		"file": []byte(`!#/bin/bash; ls /input/;`),
-	})
-	inputFileset := createFileSet(t, fc, map[string][]byte{
-		"a.txt": []byte("dummy input"),
-	})
-	in := &pjs.CreateJobRequest{
-		Program: programFileset,
-		Input:   []string{inputFileset},
-	}
+	t.Run("happy path", func(t *testing.T) {
+		c, fc := setupTest(t)
+		ctx := pctx.TestContext(t)
+		programFileset := createFileSet(t, fc, map[string][]byte{
+			"file": []byte(`!#/bin/bash; ls /input/;`),
+		})
+		inputFileset := createFileSet(t, fc, map[string][]byte{
+			"a.txt": []byte("dummy input"),
+		})
+		in := &pjs.CreateJobRequest{
+			Program: programFileset,
+			Input:   []string{inputFileset},
+		}
 
-	out, err := runJob(t, ctx, c, fc, in, func(resp *pjs.ProcessQueueResponse) error {
-		// for now we do nothing here, simply return the input filesets
-		resp.Input = in.Input
-		return nil
+		out, err := runJob(t, ctx, c, fc, in, func(resp *pjs.ProcessQueueResponse) error {
+			// for now we do nothing here, simply return the input filesets
+			resp.Input = in.Input
+			return nil
+		})
+		require.NoError(t, err)
+		require.Equal(t, in.Input, out.GetSuccess().Output)
 	})
-	require.NoError(t, err)
-	require.Equal(t, in.Input, out.Output)
+	t.Run("run job callback fails", func(t *testing.T) {
+		c, fc := setupTest(t)
+		ctx := pctx.TestContext(t)
+		programFileset := createFileSet(t, fc, map[string][]byte{
+			"file": []byte(`!#/bin/bash; ls /input/;`),
+		})
+		inputFileset := createFileSet(t, fc, map[string][]byte{
+			"a.txt": []byte("dummy input"),
+		})
+		in := &pjs.CreateJobRequest{
+			Program: programFileset,
+			Input:   []string{inputFileset},
+		}
+		out, err := runJob(t, ctx, c, fc, in, func(resp *pjs.ProcessQueueResponse) error {
+			// for now we do nothing here, simply return the input filesets
+			resp.Input = in.Input
+			return errors.New("intentional error to fail the callback")
+		})
+		require.NoError(t, err)
+		require.Equal(t, pjs.JobErrorCode_value["failed"], int32(out.GetError()))
+	})
 }
 
 func TestCancelJob(t *testing.T) {
@@ -301,14 +324,14 @@ func TestWalkJob(t *testing.T) {
 
 // runJob does work through PJS.
 func runJob(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient, in *pjs.CreateJobRequest,
-	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo_Success, error) {
+	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo, error) {
 	jres, err := c.CreateJob(ctx, in)
 	require.NoError(t, err)
 	return runJobFrom(t, ctx, c, fc, jres.Id.Id, in.Program, fn)
 }
 
 func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient, from int64, programStr string,
-	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo_Success, error) {
+	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo, error) {
 	programHash, err := HashFileset(ctx, fc, programStr)
 	require.NoError(t, err)
 	ctx, cf := context.WithCancel(ctx)
@@ -328,13 +351,13 @@ func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.F
 		}
 		return err
 	})
-	var ret *pjs.JobInfo_Success
+	var ret *pjs.JobInfo
 	eg.Go(func() error {
 		jobInfo, err := await(ctx, c, from)
 		if err != nil {
 			return err
 		}
-		ret = jobInfo.GetSuccess()
+		ret = jobInfo
 		cf() // success, cancel the other gorountine
 		return nil
 	})
@@ -364,7 +387,7 @@ func processQueue(pqc pjs.API_ProcessQueueClient, programHash []byte, fn func(re
 				return sendErr
 			}
 		} else {
-			// todo(muayng): if send returns an error, the ctx on the server side will be cancelled. Job cannot transit to
+			// if send returns an error, the ctx on the server side will be cancelled. Job cannot transit to
 			// Done state. Await will spin forever.
 			if err := pqc.Send(&pjs.ProcessQueueRequest{
 				Result: &pjs.ProcessQueueRequest_Success_{
