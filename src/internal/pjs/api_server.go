@@ -113,7 +113,7 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 	ctx := srv.Context()
 	req, err := srv.Recv()
 	if err != nil {
-		return errors.Wrap(err, "recieve")
+		return errors.Wrap(err, "receive")
 	}
 	if req.Queue == nil {
 		return status.Errorf(codes.InvalidArgument, "first message must pick Queue")
