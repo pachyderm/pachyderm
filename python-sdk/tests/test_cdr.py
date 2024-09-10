@@ -60,11 +60,9 @@ class TestCDR:
             b"</Error>"
         )
         mock.return_value = mocked_response
-        request_iterator = iter([
-            storage.CreateFilesetRequest(
-                append_file=storage.AppendFile(path="/file", data=os.urandom(1024))
-            )
-        ])
+
+        append_file = storage.AppendFile(path="/file", data=os.urandom(1024))
+        request_iterator = iter([storage.CreateFilesetRequest(append_file=append_file)])
 
         # Act & Assert
         fileset_id = client.storage.create_fileset(request_iterator).fileset_id
@@ -78,4 +76,6 @@ class TestCDR:
             "Error 400 - HTTP response: "
             "<Error><Code>ExpiredToken</Code><Message>The provided token has expired.</Message></Error>"
         )
-        assert str(err.value.__cause__) == "400 Client Error: Bad Request for url: http://localhost:9000"
+        assert str(err.value.__cause__) == (
+            "400 Client Error: Bad Request for url: http://localhost:9000"
+        )
