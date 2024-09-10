@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -59,9 +60,14 @@ func StartPortForward(ctx context.Context) (_ int, retErr error) {
 	ctx, done := log.SpanContext(ctx, "kubectl.port-forward")
 	defer done(log.Errorp(&retErr))
 
+	path, ok := bazel.FindBinary("//tools/kubectl", "_kubectl")
+	if !ok {
+		log.Info(ctx, "binary not built with bazel; falling back to host kubectl")
+		path = "kubectl"
+	}
 	reportedError := new(atomic.Bool)
 	r, w := io.Pipe()
-	cmd := exec.CommandContext(ctx, "kubectl", "port-forward", "postgres-0", "0:5432", "--address=127.0.0.1")
+	cmd := exec.CommandContext(ctx, path, "port-forward", "postgres-0", "0:5432", "--address=127.0.0.1")
 	cmd.Stdin = nil
 	cmd.Stdout = w
 	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "stderr"), log.InfoLevel)
