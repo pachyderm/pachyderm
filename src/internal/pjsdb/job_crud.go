@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -39,6 +40,23 @@ const (
 		LEFT JOIN pjs.job_filesets jf_output ON j.id = jf_output.job_id AND jf_output.fileset_type = 'output'
 	`
 )
+
+var (
+	errorCodeToEnumString map[pjs.JobErrorCode]string
+	enumStringToErrorCode map[string]pjs.JobErrorCode
+)
+
+func init() {
+	// auto-generated errors are capitalized. This converts them into database error format
+	for code, name := range pjs.JobErrorCode_name {
+		if code == 0 {
+			continue
+		}
+		lower := strings.ToLower(name)
+		errorCodeToEnumString[pjs.JobErrorCode(code)] = lower
+		enumStringToErrorCode[lower] = pjs.JobErrorCode(code)
+	}
+}
 
 // functions in the CRUD API assume that the JobContext token has already been resolved upstream to a job by the
 // job system. Some functions take a request object such as an IterateJobsRequest. Requests bundle associated fields
@@ -308,7 +326,7 @@ func DeleteJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 // done timestamp in database.
 func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobErrorCode) error {
 	ctx = pctx.Child(ctx, "complete error")
-	errStr := errEnumToString(errCode)
+	errStr := errorCodeToEnumString[errCode]
 	_, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP, error = $1
@@ -318,26 +336,6 @@ func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobE
 		return errors.Wrapf(err, "error job: update error and state to done")
 	}
 	return nil
-}
-
-// ErrEnumToString fills in the gap between pjs proto error enum and database error enum
-func errEnumToString(errCode pjs.JobErrorCode) string {
-	converter := map[pjs.JobErrorCode]string{
-		pjs.JobErrorCode_DISCONNECTED: "disconnected",
-		pjs.JobErrorCode_FAILED:       "failed",
-		pjs.JobErrorCode_CANCELED:     "cancelled",
-	}
-	return converter[errCode]
-}
-
-// StringToErrEnum fills in the gap between database error enum and pjs proto error enum
-func stringToErrEnum(errStr string) pjs.JobErrorCode {
-	converter := map[string]pjs.JobErrorCode{
-		"disconnected": pjs.JobErrorCode_DISCONNECTED,
-		"failed":       pjs.JobErrorCode_FAILED,
-		"cancelled":    pjs.JobErrorCode_CANCELED,
-	}
-	return converter[errStr]
 }
 
 func ToJobInfo(job Job) (*pjs.JobInfo, error) {
@@ -357,7 +355,7 @@ func ToJobInfo(job Job) (*pjs.JobInfo, error) {
 	case job.Done != time.Time{}:
 		jobInfo.State = pjs.JobState_DONE
 		jobInfo.Result = &pjs.JobInfo_Error{
-			Error: stringToErrEnum(job.Error),
+			Error: enumStringToErrorCode[job.Error],
 		}
 		if len(job.Outputs) != 0 {
 			jobInfoSuccess := pjs.JobInfo_Success{}
