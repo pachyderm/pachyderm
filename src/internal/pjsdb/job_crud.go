@@ -47,6 +47,8 @@ var (
 )
 
 func init() {
+	errorCodeToEnumString = make(map[pjs.JobErrorCode]string)
+	enumStringToErrorCode = make(map[string]pjs.JobErrorCode)
 	// auto-generated errors are capitalized. This converts them into database error format
 	for code, name := range pjs.JobErrorCode_name {
 		if code == 0 {
