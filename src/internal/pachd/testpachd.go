@@ -85,10 +85,10 @@ func WithS3Server(t *testing.T, addr *string) TestPachdOption {
 	var server *http.Server
 	return TestPachdOption{
 		OnReady: func(ctx context.Context, full *Full) error {
-			full.s3Srv.Addr = l.Addr().String()
+			full.s3Server.Addr = l.Addr().String()
 			*addr = l.Addr().String()
-			server = full.s3Srv.Server
-			go full.s3Srv.Serve(l) //nolint:errcheck
+			server = full.s3Server.Server
+			go full.s3Server.Serve(l) //nolint:errcheck
 			log.Info(ctx, "waiting for s3 server to be ready", zap.String("addr", *addr))
 			for i := 0; i < 10; i++ {
 				req, err := http.NewRequestWithContext(ctx, "get", fmt.Sprintf("http://%v/", *addr), nil)

@@ -81,8 +81,8 @@ message Queue {
 message QueueInfo {
   // queue is the Queue's identity
   Queue queue = 1;
-  // spec specifies the code to be run to process the Queue.
-  google.protobuf.Any spec = 2;
+  // The current storage system supports cloned filesets with the same content hash.
+  repeated string program = 2;
 }
 
 // QueueInfoDetails contains detailed information about a Queue, which may be more expensive to get.
@@ -91,6 +91,16 @@ message QueueInfoDetails {
   QueueInfo queue_info = 1;
   // size is the number of elements queued.
   int64 size = 2;
+}
+
+message AwaitRequest {
+  string context = 1;
+  int64 job = 2;
+  JobState desired_state = 3;
+}
+
+message AwaitResponse {
+  JobState actual_state = 1;
 }
 
 service API {
@@ -137,6 +147,11 @@ service API {
   rpc ListQueue(ListQueueRequest) returns (stream ListQueueResponse) {}
   // InspectQueue returns detailed information about a queue.
   rpc InspectQueue(InspectQueueRequest) returns (InspectQueueResponse) {}
+  // Await blocks until the job has entered or passed the desired state.
+  // Await returns the actual state of the job that met the criteria.
+  // Await can timeout with DEADLINE_EXCEEDED.  In this case clients may
+  // retry in a new request.
+  rpc Await(AwaitRequest) returns (AwaitResponse) {}
 }
 
 // Job Messages

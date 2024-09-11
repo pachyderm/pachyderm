@@ -92,7 +92,7 @@ func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 
 	workerapi.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	debugSrv := debugserver.NewDebugServer(debugserver.Env{
+	debugServer := debugserver.NewDebugServer(debugserver.Env{
 		DB:                   env.GetDBClient(),
 		SidecarClient:        pachClient,
 		GetLokiClient:        env.GetLokiClient,
@@ -103,7 +103,7 @@ func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 		Config:               *env.Config(),
 		TaskService:          env.GetTaskService("debug"),
 	})
-	debugclient.RegisterDebugServer(server.Server, debugSrv)
+	debugclient.RegisterDebugServer(server.Server, debugServer)
 
 	// Put our IP address into etcd, so pachd can discover us
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo)

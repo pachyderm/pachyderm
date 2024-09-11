@@ -7,27 +7,25 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
+
+const DefaultRPCTimeout time.Duration = 60 * time.Second
 
 type apiServer struct {
 	pjs.UnimplementedAPIServer
-	env Env
-}
-
-func newAPIServer(env Env) *apiServer {
-	return &apiServer{
-		env: env,
-	}
+	env          Env
+	pollInterval time.Duration
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest) (response *pjs.CreateJobResponse, retErr error) {
@@ -37,13 +35,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	}
 	program, err := fileset.ParseID(request.Program)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.Wrap(err, "parse program id")
 	}
 	var inputs []fileset.PinnedFileset
 	for _, input := range request.Input {
 		inputID, err := fileset.ParseID(input)
 		if err != nil {
-			return nil, errors.EnsureStack(err)
+			return nil, errors.Wrap(err, "parse input id")
 		}
 		inputs = append(inputs, fileset.PinnedFileset(*inputID))
 	}
@@ -51,18 +49,27 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	if request.Context != "" {
 		parent, err = a.resolveJobCtx(ctx, request.Context)
 		if err != nil {
-			return nil, errors.Wrap(err, "walk job")
+			return nil, err
 		}
 	}
+	authedCtx, err := a.maybeAddAuthToken(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "adding auth token to ctx")
+	}
+	hash, err := HashFileset(authedCtx, a.env.GetStorageClient(ctx), program.HexString())
+	if err != nil {
+		return nil, errors.Wrapf(err, "hashing fileset: %q", program.HexString())
+	}
 	req := pjsdb.CreateJobRequest{
-		Parent:  parent,
-		Program: fileset.PinnedFileset(*program),
-		Inputs:  inputs,
+		Parent:      parent,
+		Program:     fileset.PinnedFileset(*program),
+		ProgramHash: hash,
+		Inputs:      inputs,
 	}
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		jobID, err := pjsdb.CreateJob(ctx, sqlTx, req)
 		if err != nil {
-			return errors.EnsureStack(err)
+			return errors.Wrap(err, "create job")
 		}
 		ret.Id = &pjs.Job{Id: int64(jobID)}
 		return nil
@@ -72,15 +79,50 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	return &ret, nil
 }
 
+func (a *apiServer) DeleteJob(ctx context.Context, req *pjs.DeleteJobRequest) (*pjs.DeleteJobResponse, error) {
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	if err != nil {
+		return nil, err
+	}
+	// TODO: consider convenience flags, like a flag that also cancels, or a flag that awaits completion then deletes.
+	var job *pjsdb.Job
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		deletedIds, err := pjsdb.DeleteJob(ctx, sqlTx, id)
+		if err != nil {
+			return errors.Wrap(err, "delete job (pjsdb)")
+		}
+		// Get the job if delete fails. Job state will be used in the error message.
+		if len(deletedIds) == 0 {
+			j, err := pjsdb.GetJob(ctx, sqlTx, pjsdb.JobID(req.Job.Id))
+			if err != nil {
+				return errors.Wrap(err, "get job")
+			}
+			job = &j
+		}
+		return err
+	}); err != nil {
+		return nil, errors.Wrapf(err, "with tx")
+	}
+	if job != nil && job.Done.IsZero() && !job.Processing.IsZero() {
+		return nil, status.Errorf(codes.FailedPrecondition, "job %d was not deleted, because it is still processing. Call the CancelJob RPC first", req.Job.Id)
+	}
+	return &pjs.DeleteJobResponse{}, nil
+}
+
 func (a *apiServer) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) (*pjs.InspectJobResponse, error) {
 	var jobInfo *pjs.JobInfo
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	if err != nil {
+		return nil, err
+	}
+
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		job, err := pjsdb.GetJob(ctx, sqlTx, pjsdb.JobID(req.Job.Id))
+		job, err := pjsdb.GetJob(ctx, sqlTx, id)
 		if err != nil {
 			if errors.As(err, &pjsdb.JobNotFoundError{}) {
-				return status.Errorf(codes.NotFound, "job %d not found", req.Job.Id)
+				return status.Errorf(codes.NotFound, "job %d not found", id)
 			}
-			return errors.EnsureStack(err)
+			return errors.Wrap(err, "get job")
 		}
 		jobInfo, err = toJobInfo(job)
 		if err != nil {
@@ -180,23 +222,10 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 
 func (a *apiServer) CancelJob(ctx context.Context, req *pjs.CancelJobRequest) (*pjs.CancelJobResponse, error) {
 	// handle job context and request validation.
-	var id pjsdb.JobID
-	if req.Context != "" {
-		jid, err := a.resolveJobCtx(ctx, req.Context)
-		if err != nil {
-			return nil, errors.Wrap(err, "resolve job ctx")
-		}
-		id = jid
-	} else {
-		// TODO(PJS): do auth.
-	} //nolint:SA9003
-	// TODO(PJS): remove this once auth is implemented.
-	reqID := pjsdb.JobID(req.Job.Id)
-	if id != reqID {
-		log.Error(ctx, "job context token does not match requested job.", zap.Int64("request.Job.ID", req.Job.Id))
-		id = reqID // defaulting to this for testing until auth is implemented.
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	if err != nil {
+		return nil, err
 	}
-
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		if _, err := pjsdb.CancelJob(ctx, sqlTx, id); err != nil {
 			return errors.Wrap(err, "cancel job")
@@ -213,20 +242,9 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 	defer done(log.Errorp(&err))
 
 	// handle job context and request validation.
-	var id pjsdb.JobID
-	if req.Context != "" {
-		id, err = a.resolveJobCtx(ctx, req.Context)
-		if err != nil {
-			return errors.Wrap(err, "resolve job ctx")
-		}
-	} else {
-		// TODO(PJS): do auth.
-	} //nolint:SA9003
-	// TODO(PJS): remove this once auth is implemented.
-	reqID := pjsdb.JobID(req.Job.Id)
-	if id != reqID {
-		log.Error(ctx, "job context token does not match requested job.", zap.Int64("request.Job.ID", req.Job.Id))
-		id = reqID // defaulting to this for testing until auth is implemented.
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	if err != nil {
+		return err
 	}
 
 	// walk and stream back results.
@@ -256,6 +274,88 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 	return nil
 }
 
+func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.AwaitResponse, error) {
+	// handle job context and request validation.
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob())
+	if err != nil {
+		return nil, err
+	}
+	// poll database every second and cancel after 60 seconds
+	ctx, cancel := context.WithTimeout(ctx, DefaultRPCTimeout)
+	defer cancel()
+	ticker := time.NewTicker(a.pollInterval)
+	defer ticker.Stop()
+
+	// i is for debugging purpose
+	for i := 0; ; i++ {
+		select {
+		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return nil, status.Errorf(codes.DeadlineExceeded, "Await timeout exceeded")
+			}
+			return nil, status.Errorf(codes.Canceled, "Await canceled: %v", ctx.Err())
+		case <-ticker.C:
+			var currentState pjs.JobState
+			if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+				job, err := pjsdb.GetJob(ctx, sqlTx, id)
+				if err != nil {
+					if errors.As(err, &pjsdb.JobNotFoundError{}) {
+						return status.Errorf(codes.NotFound, "job %d not found", id)
+					}
+					return errors.Wrap(err, "get job")
+				}
+				jobInfo, err := toJobInfo(job)
+				if err != nil {
+					return errors.Wrapf(err, "toJobInfo(%d)", id)
+				}
+				currentState = jobInfo.State
+				return nil
+			}); err != nil {
+				return nil, errors.Wrapf(err, "WithTx(iteration %d)", i)
+			}
+			if stateAdvancedBeyond(currentState, req.DesiredState) {
+				return &pjs.AwaitResponse{
+					ActualState: currentState,
+				}, nil
+			}
+		}
+	}
+}
+
+func (a *apiServer) InspectQueue(ctx context.Context, req *pjs.InspectQueueRequest) (*pjs.InspectQueueResponse, error) {
+	var queueInfoDetails *pjs.QueueInfoDetails
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		q, err := pjsdb.GetQueue(ctx, sqlTx, req.Queue.Id)
+		if err != nil {
+			return errors.Wrap(err, "get queue")
+		}
+		uniquePrograms := make(map[string]struct{})
+		for _, program := range q.Programs {
+			uniquePrograms[program.HexString()] = struct{}{}
+		}
+		var programs []string
+		for k := range uniquePrograms {
+			programs = append(programs, k)
+		}
+		queueInfoDetails = &pjs.QueueInfoDetails{
+			QueueInfo: &pjs.QueueInfo{
+				Queue: &pjs.Queue{
+					Id: q.ID,
+				},
+				Program: programs,
+			},
+			Size: int64(q.Size),
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return &pjs.InspectQueueResponse{
+		Details: queueInfoDetails,
+	}, nil
+}
+
+// resolveJobCtx returns an error annotated with a GRPC status and therefore probably shouldn't be wrapped.
 func (a *apiServer) resolveJobCtx(ctx context.Context, jobCtx string) (id pjsdb.JobID, err error) {
 	token, err := pjsdb.JobContextTokenFromHex(jobCtx)
 	if err != nil {
@@ -264,14 +364,25 @@ func (a *apiServer) resolveJobCtx(ctx context.Context, jobCtx string) (id pjsdb.
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		id, err = pjsdb.ResolveJobContext(ctx, sqlTx, token)
 		if err != nil {
-			// TODO(PJS): handle NotFound with a special error type that returns the right proto error code.
-			return errors.Wrap(err, "resolve job ctx in pjsdb")
+			return status.Errorf(codes.NotFound, errors.Wrapf(err, "resolve job ctx").Error())
 		}
 		return nil
 	}, dbutil.WithReadOnly()); err != nil {
 		return 0, errors.Wrap(err, "with tx")
 	}
 	return id, nil
+}
+
+// stateAdvancedBeyond is the comparator for pjs.JobState. It returns true if current state has reached or passed
+// the desired jobState.
+func stateAdvancedBeyond(current pjs.JobState, desired pjs.JobState) bool {
+	// set the total ordering for states here instead of using the enum ordering.
+	comp := map[pjs.JobState]int{
+		pjs.JobState_QUEUED:     1,
+		pjs.JobState_PROCESSING: 2,
+		pjs.JobState_DONE:       3,
+	}
+	return comp[current] >= comp[desired]
 }
 
 func toJobInfo(job pjsdb.Job) (*pjs.JobInfo, error) {
@@ -306,4 +417,58 @@ func toJobInfo(job pjsdb.Job) (*pjs.JobInfo, error) {
 		jobInfo.State = pjs.JobState_QUEUED
 	}
 	return jobInfo, nil
+}
+
+func (a *apiServer) resolveJob(ctx context.Context, jobCtx string, jobID int64) (id pjsdb.JobID, err error) {
+	// handle job context and request validation.
+	if jobCtx != "" {
+		id, err = a.resolveJobCtx(ctx, jobCtx)
+		if err != nil {
+			return 0, err
+		}
+		return id, err
+	}
+	if err := a.checkPermissions(ctx); err != nil {
+		return 0, errors.Wrap(err, "check permissions")
+	}
+	return pjsdb.JobID(jobID), err
+}
+
+func (a *apiServer) checkPermissions(ctx context.Context) error {
+	// Although there is a JOB resource, the JOB resource is scoped to specific job instances.
+	// The cluster resource is meant for cluster-wide permissions.
+	permissionResp, err := a.env.GetPermissionser.GetPermissions(ctx, &auth.GetPermissionsRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
+	})
+	if err != nil && !errors.Is(err, auth.ErrNotActivated) {
+		return errors.Wrap(err, "get user permissions")
+	}
+	foundValidPermission := false
+	for _, p := range permissionResp.Permissions {
+		if p == auth.Permission_JOB_SKIP_CTX {
+			foundValidPermission = true
+			break
+		}
+	}
+	if !foundValidPermission {
+		return status.Errorf(codes.PermissionDenied, "insufficient privileges to omit the \"jobContext\" field")
+	}
+	return nil
+}
+
+func (a *apiServer) maybeAddAuthToken(ctx context.Context) (context.Context, error) {
+	_, err := a.env.GetPermissionser.GetPermissions(ctx, &auth.GetPermissionsRequest{
+		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
+	})
+	if err != nil {
+		if errors.Is(err, auth.ErrNotActivated) {
+			return ctx, nil
+		}
+		return nil, errors.Wrap(err, "get user permissions")
+	}
+	token, err := a.env.GetAuthToken(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "getting auth token")
+	}
+	return auth.WithToken(ctx, token), nil
 }

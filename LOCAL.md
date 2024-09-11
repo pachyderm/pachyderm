@@ -89,6 +89,29 @@ starts running.
 Running `--help` describes some options that may be of use. Protect the `--help` flag from
 `bazel run` as you always do.
 
+#### Configuring the push
+
+You'll often want to play around with different Helm values. You can set these in config files in
+`${XDG_CONFIG_HOME}/pachdev`, usually `~/.config/pachdev`. A file named `pachyderm-values.json` in
+this directory, if it exists, is applied to every push, regardless of the cluster name or namespace
+name. A file named `<cluster name>-pachyderm-values.json` will apply to pushes to the cluster named
+`<cluster name>`. Finally, a file named `<cluster name>-<namespace>-pachyderm-values.yaml` will
+apply to any push to the named namespace in the named cluster.
+
+It is possible to use all three in the same push. They are added as `-f <filename>` arguments to the
+`helm` command.
+
+#### Helm diff
+
+`push` accepts a `--diff` flag. Diffing is implemented as a helm plugin that is not managed by
+Bazel; install the plugin using Helm's plugin manager, like this:
+
+    bazel run //tools/helm plugin install https://github.com/databus23/helm-diff
+
+After that, the `--diff` argument will leave your cluster untouched and instead print a unified diff
+of the manfests that would be changed if you had run without `--diff`. Diffing only works if
+Pachyderm is already installed in the namespace.
+
 ### Delete a cluster
 
     bazel run //src/testing/pachdev delete-cluster [<optional name>]

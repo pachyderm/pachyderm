@@ -11,6 +11,27 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
+const (
+	selectQueuePrefix = `WITH queues AS (SELECT DISTINCT program_hash FROM pjs.jobs)
+			  SELECT 
+				queues.program_hash AS "id", 
+				array_agg(j.id ORDER BY j.id ASC) AS "jobs",
+				array_agg(j.program ORDER BY j.id ASC) AS "programs",
+				count(j.id) AS "size"
+			  FROM 
+				queues 
+			  JOIN 
+				pjs.jobs j 
+				ON j.program_hash = queues.program_hash
+              WHERE
+                j.processing IS NULL
+				AND j.done IS NULL
+				AND j.queued IS NOT NULL`
+	groupQueuePostfix = `
+			 GROUP BY queues.program_hash
+	`
+)
+
 // TODO(Fahad): add queue filter once filter is designed.
 type IterateQueuesRequest struct {
 	IteratorConfiguration
@@ -46,23 +67,7 @@ func NewQueuesIterator(extCtx sqlx.ExtContext, req IterateQueuesRequest) *Queues
 	var values []any
 	// The current storage system supports cloned filesets with the same content hash.
 	// therefore, programs must be aggregated.
-	query := `WITH queues AS (SELECT DISTINCT program_hash FROM pjs.jobs)
-			  SELECT 
-				queues.program_hash AS "id", 
-				array_agg(j.id ORDER BY j.id ASC) AS "jobs",
-				array_agg(j.program ORDER BY j.id ASC) AS "programs",
-				count(j.id) AS "size"
-			  FROM 
-				queues 
-			  JOIN 
-				pjs.jobs j 
-				ON j.program_hash = queues.program_hash
-              WHERE
-                j.processing IS NULL
-				AND j.done IS NULL
-				AND j.queued IS NOT NULL
-			  GROUP BY 
-				queues.program_hash`
+	query := selectQueuePrefix + groupQueuePostfix
 	query = extCtx.Rebind(query)
 	if req.PageSize == 0 {
 		req.PageSize = defaultPageSize

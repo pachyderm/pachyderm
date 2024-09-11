@@ -23,7 +23,7 @@ go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.nogo(nogo = "//:nogo")
 go_sdk.download(
     name = "go_sdk",
-    version = "1.22.5",
+    version = "1.23.1",
 )
 use_repo(go_sdk, "go_sdk")
 
@@ -212,7 +212,6 @@ use_repo(
     "com_github_grpc_ecosystem_grpc_gateway_v2",
     "com_github_gruntwork_io_terratest",
     "com_github_hanwen_go_fuse_v2",
-    "com_github_hashicorp_golang_lru",
     "com_github_hashicorp_golang_lru_v2",
     "com_github_iancoleman_orderedmap",
     "com_github_iancoleman_strcase",

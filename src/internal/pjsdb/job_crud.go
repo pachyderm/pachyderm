@@ -50,6 +50,9 @@ type CreateJobRequest struct {
 	Parent  JobID
 	Inputs  []fileset.PinnedFileset
 	Program fileset.PinnedFileset
+	// The user is responsible for supplying the hash.
+	// The hash ought to be computed with HashFileset() in the internal PJS package (src/internal/pjs.go)
+	ProgramHash []byte
 }
 
 // IsSanitized is a utility function that wraps sanitize() for the purposes of testing.
@@ -67,7 +70,7 @@ func (req CreateJobRequest) sanitize(ctx context.Context, tx *pachsql.Tx) (creat
 	}
 	sanitizedReq := createJobRequest{
 		Program:     []byte(fileset.ID(req.Program).HexString()), // there aren't real pins as of yet.
-		ProgramHash: []byte(fileset.ID(req.Program).HexString()), // eventually the ID will be a hash.
+		ProgramHash: req.ProgramHash,                             // eventually the ID will be a hash.
 	}
 	// validate parent.
 	sanitizedReq.Parent = sql.NullInt64{Valid: false}
@@ -293,7 +296,7 @@ func DeleteJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 	}
 	ids := make([]JobID, 0)
 	if err = sqlx.SelectContext(ctx, tx, &ids, recursiveTraverseChildren+`
-	DELETE FROM pjs.jobs WHERE id IN (SELECT id FROM children) AND done IS NOT NULL
+	DELETE FROM pjs.jobs WHERE id IN (SELECT id FROM children) AND (done IS NOT NULL OR processing IS NULL)
 	RETURNING id;`, job.ID, maxDepth); err != nil {
 		return nil, errors.Wrap(err, "cancel job")
 	}
