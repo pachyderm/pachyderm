@@ -113,7 +113,16 @@ class CdrResolver:
             url = parsed_url._replace(netloc=self.http_host_replacement).geturl()
 
         response = requests.get(url=url, headers=headers)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as err:
+            text = err.response.text
+            if text:
+                # If there's a response, log it in the error chain.
+                raise requests.HTTPError(
+                    f"Error {err.response.status_code} - HTTP response: {text}"
+                ) from err
+            raise err
         return response.content
 
     def _dereference_cipher(self, body: Cipher) -> bytes:

@@ -1,4 +1,7 @@
 import os
+import unittest.mock
+
+import requests
 
 from tests.fixtures import *
 
@@ -40,3 +43,39 @@ class TestCDR:
         # Assert
         for msg in response:
             assert resolver.resolve(msg.ref) == files[msg.path]
+
+    @staticmethod
+    @unittest.mock.patch("requests.get")
+    def test_log_network_error(mock, client: TestClient):
+        """Test that the CdrResolver logs the HTTP response when a network error occurs."""
+        # Arrange
+        mocked_response = requests.Response()
+        mocked_response.reason = "Bad Request"
+        mocked_response.status_code = 400
+        mocked_response.url = "http://localhost:9000"
+        mocked_response._content = (
+            b"<Error>"
+            b"<Code>ExpiredToken</Code>"
+            b"<Message>The provided token has expired.</Message>"
+            b"</Error>"
+        )
+        mock.return_value = mocked_response
+
+        append_file = storage.AppendFile(path="/file", data=os.urandom(1024))
+        request_iterator = iter([storage.CreateFilesetRequest(append_file=append_file)])
+
+        # Act & Assert
+        fileset_id = client.storage.create_fileset(request_iterator).fileset_id
+        response = client.storage.read_fileset_cdr(fileset_id=fileset_id)
+
+        resolver = CdrResolver()
+        with pytest.raises(requests.HTTPError) as err:
+            resolver.resolve(next(response).ref)
+
+        assert str(err.value) == (
+            "Error 400 - HTTP response: "
+            "<Error><Code>ExpiredToken</Code><Message>The provided token has expired.</Message></Error>"
+        )
+        assert str(err.value.__cause__) == (
+            "400 Client Error: Bad Request for url: http://localhost:9000"
+        )
