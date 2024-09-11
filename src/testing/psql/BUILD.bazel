@@ -16,7 +16,7 @@ go_library(
 
 go_binary(
     name = "psql",
+    data = ["//tools/kubectl"],
     embed = [":psql_lib"],
     visibility = ["//visibility:public"],
-    data = ["//tools/kubectl"],
 )
