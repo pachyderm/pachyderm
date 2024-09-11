@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
+	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 )
 
 const (
@@ -307,11 +308,11 @@ func DeleteJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 // done timestamp in database.
 func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobErrorCode) error {
 	ctx = pctx.Child(ctx, "complete error")
-	errStr := ErrEnumToString(errCode)
+	errStr := errEnumToString(errCode)
 	_, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP, error = $1
-		WHERE id = $2 AND error IS NULL
+		WHERE id = $2 AND error IS NULL AND done IS NULL
 	`, errStr, jobID)
 	if err != nil {
 		return errors.Wrapf(err, "error job: update error and state to done")
@@ -320,7 +321,7 @@ func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobE
 }
 
 // ErrEnumToString fills in the gap between pjs proto error enum and database error enum
-func ErrEnumToString(errCode pjs.JobErrorCode) string {
+func errEnumToString(errCode pjs.JobErrorCode) string {
 	converter := map[pjs.JobErrorCode]string{
 		pjs.JobErrorCode_DISCONNECTED: "disconnected",
 		pjs.JobErrorCode_FAILED:       "failed",
@@ -330,13 +331,47 @@ func ErrEnumToString(errCode pjs.JobErrorCode) string {
 }
 
 // StringToErrEnum fills in the gap between database error enum and pjs proto error enum
-func StringToErrEnum(errStr string) pjs.JobErrorCode {
+func stringToErrEnum(errStr string) pjs.JobErrorCode {
 	converter := map[string]pjs.JobErrorCode{
 		"disconnected": pjs.JobErrorCode_DISCONNECTED,
 		"failed":       pjs.JobErrorCode_FAILED,
 		"cancelled":    pjs.JobErrorCode_CANCELED,
 	}
 	return converter[errStr]
+}
+
+func ToJobInfo(job Job) (*pjs.JobInfo, error) {
+	jobInfo := &pjs.JobInfo{
+		Job: &pjs.Job{
+			Id: int64(job.ID),
+		},
+		ParentJob: &pjs.Job{
+			Id: int64(job.Parent),
+		},
+		Program: job.Program.HexString(),
+	}
+	for _, filesetID := range job.Inputs {
+		jobInfo.Input = append(jobInfo.Input, filesetID.HexString())
+	}
+	switch {
+	case job.Done != time.Time{}:
+		jobInfo.State = pjs.JobState_DONE
+		jobInfo.Result = &pjs.JobInfo_Error{
+			Error: stringToErrEnum(job.Error),
+		}
+		if len(job.Outputs) != 0 {
+			jobInfoSuccess := pjs.JobInfo_Success{}
+			for _, filesetID := range job.Outputs {
+				jobInfoSuccess.Output = append(jobInfoSuccess.Output, filesetID.HexString())
+			}
+			jobInfo.Result = &pjs.JobInfo_Success_{Success: &jobInfoSuccess}
+		}
+	case job.Processing != time.Time{}:
+		jobInfo.State = pjs.JobState_PROCESSING
+	default:
+		jobInfo.State = pjs.JobState_QUEUED
+	}
+	return jobInfo, nil
 }
 
 // CompleteJob is called when job processing without any error. It updates done timestamp
@@ -346,7 +381,7 @@ func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []str
 	result, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP
-		WHERE id = $1 AND error IS NULL
+		WHERE id = $1 AND error IS NULL AND done IS NULL
 	`, jobID)
 	if err != nil {
 		return errors.Wrapf(err, "complete job: update state to done")

@@ -106,7 +106,7 @@ func TestRunJob(t *testing.T) {
 			return nil
 		})
 		require.NoError(t, err)
-		require.Equal(t, in.Input, out.GetSuccess().Output)
+		require.Equal(t, in.Input, out.success.Output)
 	})
 	t.Run("run job callback fails", func(t *testing.T) {
 		c, fc := setupTest(t)
@@ -127,7 +127,7 @@ func TestRunJob(t *testing.T) {
 			return errors.New("intentional error to fail the callback")
 		})
 		require.NoError(t, err)
-		require.Equal(t, pjs.JobErrorCode_FAILED, out.GetError())
+		require.Equal(t, pjs.JobErrorCode_FAILED, out.errorCode)
 	})
 }
 
@@ -322,16 +322,21 @@ func TestWalkJob(t *testing.T) {
 	require.NoDiff(t, expected, actual, nil)
 }
 
+type jobInfoResult struct {
+	success   *pjs.JobInfo_Success
+	errorCode pjs.JobErrorCode
+}
+
 // runJob does work through PJS.
 func runJob(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient, in *pjs.CreateJobRequest,
-	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo, error) {
+	fn func(resp *pjs.ProcessQueueResponse) error) (*jobInfoResult, error) {
 	jres, err := c.CreateJob(ctx, in)
 	require.NoError(t, err)
 	return runJobFrom(t, ctx, c, fc, jres.Id.Id, in.Program, fn)
 }
 
 func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient, from int64, programStr string,
-	fn func(resp *pjs.ProcessQueueResponse) error) (*pjs.JobInfo, error) {
+	fn func(resp *pjs.ProcessQueueResponse) error) (*jobInfoResult, error) {
 	programHash, err := HashFileset(ctx, fc, programStr)
 	require.NoError(t, err)
 	ctx, cf := context.WithCancel(ctx)
@@ -351,13 +356,14 @@ func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.F
 		}
 		return err
 	})
-	var ret *pjs.JobInfo
+	var ret = &jobInfoResult{}
 	eg.Go(func() error {
 		jobInfo, err := await(ctx, c, from)
 		if err != nil {
 			return err
 		}
-		ret = jobInfo
+		ret.success = jobInfo.GetSuccess()
+		ret.errorCode = jobInfo.GetError()
 		cf() // success, cancel the other gorountine
 		return nil
 	})
