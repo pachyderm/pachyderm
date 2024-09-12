@@ -14,6 +14,7 @@ go_library(
         "portforwarder.go",
         "pps.go",
         "proxy.go",
+        "storage.go",
         "task.go",
         "transaction.gen.go",
         "transaction.go",
@@ -78,10 +79,17 @@ go_library(
 go_test(
     name = "client_test",
     size = "small",
-    srcs = ["client_test.go"],
+    srcs = [
+        "client_test.go",
+        "storage_test.go",
+    ],
     embed = [":client"],
     deps = [
+        "//src/internal/dockertestenv",
         "//src/internal/grpcutil",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
         "//src/pfs",
         "@org_golang_google_grpc//:grpc",
     ],

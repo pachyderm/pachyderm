@@ -13,9 +13,9 @@ func (n *loopbackNode) renameExchange(name string, newparent *loopbackNode, newN
 	if err != nil {
 		return fs.ToErrno(err)
 	}
-	defer syscall.Close(fd1)
+	defer syscall.Close(fd1) //nolint:errcheck
 	fd2, err := syscall.Open(newparent.path(), syscall.O_DIRECTORY, 0)
-	defer syscall.Close(fd2)
+	defer syscall.Close(fd2) //nolint:errcheck
 	if err != nil {
 		return fs.ToErrno(err)
 	}

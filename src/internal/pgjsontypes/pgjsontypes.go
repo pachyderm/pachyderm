@@ -58,7 +58,7 @@ func (c StringMap) Value() (driver.Value, error) {
 	// This has a non-pointer receiver because it's easy to accidentally insert StringMap{...}
 	// instead of &StringMap{...}.  If you do that, then it will marshal this struct to JSON
 	// automatically, instead of marshalling the underlying data.
-	if c.Data == nil || len(c.Data) == 0 {
+	if len(c.Data) == 0 {
 		return []byte(`{}`), nil
 	}
 	content, err := json.Marshal(c.Data)

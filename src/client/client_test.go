@@ -42,7 +42,7 @@ func TestInterceptors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listener: %v", err)
 	}
-	defer listener.Close()
+	defer listener.Close() //nolint:errcheck
 	pfs.RegisterAPIServer(server.Server, new(pfs.UnimplementedAPIServer))
 
 	interceptor := new(countingInterceptor)
@@ -50,7 +50,7 @@ func TestInterceptors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create client: %v", err)
 	}
-	defer c.Close()
+	defer c.Close() //nolint:errcheck
 
 	// Unary call.
 	if err := c.CreateRepo("foo"); err == nil {

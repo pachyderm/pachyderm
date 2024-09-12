@@ -80,7 +80,7 @@ func collectPipelineUpdates(ctx context.Context, tx *pachsql.Tx) (rowUpdates []*
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "query duplicates in collections.pipelines")
 	}
-	defer rr.Close()
+	defer errors.Close(&retErr, rr, "close duplicate pipelines query")
 	pipLatestVersion := make(map[string]uint64)
 	pipVersionChanges := make(map[string]map[uint64]uint64)
 	var updates []*PipUpdateRow
@@ -138,12 +138,12 @@ func UpdateJobPipelineVersions(ctx context.Context, tx *pachsql.Tx, pipVersionCh
 	return nil
 }
 
-func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges map[string]map[uint64]uint64) ([]*jobRow, error) {
+func collectJobUpdates(ctx context.Context, tx *pachsql.Tx, pipVersionChanges map[string]map[uint64]uint64) (_ []*jobRow, retErr error) {
 	rr, err := tx.QueryxContext(ctx, listJobInfos)
 	if err != nil {
 		return nil, errors.Wrap(err, "list jobs")
 	}
-	defer rr.Close()
+	defer errors.Close(&retErr, rr, "close list jobs query")
 	var updates []*jobRow
 	for rr.Next() {
 		ji := &pps.JobInfo{}

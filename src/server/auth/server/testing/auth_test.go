@@ -3003,7 +3003,7 @@ func TestListFileNils(t *testing.T) {
 		}
 	}
 	// this used to cause a core dump
-	var commit *pfs.Commit = &pfs.Commit{
+	commit := &pfs.Commit{
 		Branch: &pfs.Branch{
 			Repo: &pfs.Repo{Name: repo, Project: &pfs.Project{}},
 			Name: "master",

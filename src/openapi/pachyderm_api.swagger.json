@@ -4207,6 +4207,36 @@
         ]
       }
     },
+    "/pjs.API/Await": {
+      "post": {
+        "summary": "Await blocks until the job has entered or passed the desired state.\nAwait returns the actual state of the job that met the criteria.\nAwait can timeout with DEADLINE_EXCEEDED.  In this case clients may\nretry in a new request.",
+        "operationId": "API_Await",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pjsAwaitResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsAwaitRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pps_v2.API/InspectJob": {
       "post": {
         "operationId": "API_InspectJob",
@@ -6866,7 +6896,8 @@
         "PROJECT_DELETE",
         "PROJECT_LIST_REPO",
         "PROJECT_CREATE_REPO",
-        "PROJECT_MODIFY_BINDINGS"
+        "PROJECT_MODIFY_BINDINGS",
+        "JOB_SKIP_CTX"
       ],
       "default": "PERMISSION_UNKNOWN",
       "description": "- CLUSTER_CREATE_SECRET: TODO(actgardner): Make k8s secrets into nouns and add an Update RPC\n - CLUSTER_SET_DEFAULTS: CLUSTER_SET_DEFAULTS is part of PPS.\n - PROJECT_SET_DEFAULTS: PROJECT_SET_DEFAULTS is part of PPS.",
@@ -6891,7 +6922,8 @@
         "CLUSTER",
         "REPO",
         "SPEC_REPO",
-        "PROJECT"
+        "PROJECT",
+        "JOB"
       ],
       "default": "RESOURCE_TYPE_UNKNOWN",
       "title": "ResourceType represents the type of a Resource"
@@ -10135,6 +10167,29 @@
         }
       }
     },
+    "pjsAwaitRequest": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string"
+        },
+        "job": {
+          "type": "string",
+          "format": "int64"
+        },
+        "desiredState": {
+          "$ref": "#/definitions/pjsJobState"
+        }
+      }
+    },
+    "pjsAwaitResponse": {
+      "type": "object",
+      "properties": {
+        "actualState": {
+          "$ref": "#/definitions/pjsJobState"
+        }
+      }
+    },
     "pjsCancelJobRequest": {
       "type": "object",
       "properties": {
@@ -10437,9 +10492,12 @@
           "$ref": "#/definitions/pjsQueue",
           "title": "queue is the Queue's identity"
         },
-        "spec": {
-          "$ref": "#/definitions/protobufAny",
-          "description": "spec specifies the code to be run to process the Queue."
+        "program": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The current storage system supports cloned filesets with the same content hash."
         }
       },
       "title": "QueueInfo describes a Queue"

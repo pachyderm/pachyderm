@@ -2,7 +2,9 @@
   "_base": {
     "exclude_files": {
       "external/": "not our code",
-      "[.]pb([.][a-z]+)?[.]go$": "generated"
+      "[.]pb([.][a-z]+)?[.]go$": "generated",
+      "custom_gazelle_binary": "generated",
+      "/testmain.go": "generated"
     }
   }
 }

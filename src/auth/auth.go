@@ -112,6 +112,9 @@ const (
 
 	// ProjectCreatorRole is a role which grants the ability to create projects
 	ProjectCreatorRole = "projectCreator"
+
+	// JobAdminRole is a role which grants access to PJS RPCs without needing job contexts.
+	JobAdminRole = "jobAdmin"
 )
 
 var (
@@ -329,4 +332,11 @@ func GetAuthTokenOutgoing(ctx context.Context) (string, error) {
 		return "", ErrNotSignedIn
 	}
 	return md[ContextTokenKey][0], nil
+}
+
+func WithToken(ctx context.Context, authToken string) context.Context {
+	if authToken != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, ContextTokenKey, authToken)
+	}
+	return ctx
 }

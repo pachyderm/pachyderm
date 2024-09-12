@@ -128,7 +128,7 @@ func govulncheck(t *testing.T, pkg string) {
 	r, w := io.Pipe()
 	cmd.Stdout = w
 	go func() {
-		defer w.Close()
+		defer w.Close() //nolint:errcheck
 		if err := cmd.Start(); err != nil {
 			cancel(errors.Wrap(err, "start govulncheck scan"))
 		}
@@ -165,7 +165,7 @@ func TestDecode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open testdata: %v", err)
 	}
-	t.Cleanup(func() { fh.Close() })
+	t.Cleanup(func() { fh.Close() }) //nolint:errcheck
 	got, details, err := decode(t, fh)
 	if err != nil {
 		t.Fatalf("decode: %v", err)

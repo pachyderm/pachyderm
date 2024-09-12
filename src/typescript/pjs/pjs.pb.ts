@@ -5,7 +5,6 @@
 */
 
 import * as fm from "../fetch.pb"
-import * as GoogleProtobufAny from "../google/protobuf/any.pb"
 
 type Absent<T, K extends keyof T> = { [k in Exclude<keyof T, K>]?: undefined };
 type OneOf<T> =
@@ -67,12 +66,22 @@ export type Queue = {
 
 export type QueueInfo = {
   queue?: Queue
-  spec?: GoogleProtobufAny.Any
+  program?: string[]
 }
 
 export type QueueInfoDetails = {
   queueInfo?: QueueInfo
   size?: string
+}
+
+export type AwaitRequest = {
+  context?: string
+  job?: string
+  desiredState?: JobState
+}
+
+export type AwaitResponse = {
+  actualState?: JobState
 }
 
 export type CreateJobRequest = {
@@ -188,5 +197,8 @@ export class API {
   }
   static InspectQueue(req: InspectQueueRequest, initReq?: fm.InitReq): Promise<InspectQueueResponse> {
     return fm.fetchReq<InspectQueueRequest, InspectQueueResponse>(`/pjs.API/InspectQueue`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static Await(req: AwaitRequest, initReq?: fm.InitReq): Promise<AwaitResponse> {
+    return fm.fetchReq<AwaitRequest, AwaitResponse>(`/pjs.API/Await`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
 }

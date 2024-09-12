@@ -245,7 +245,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Input {
 	commitsetID := outputCommit.Id
 	jobInput := proto.Clone(pipelineInfo.Details.Input).(*pps.Input)
-	pps.VisitInput(jobInput, func(input *pps.Input) error { //nolint:errcheck
+	pps.VisitInput(jobInput, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			input.Pfs.Commit = commitsetID
 		}
@@ -253,7 +253,7 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommit *pfs.Commit) *pps.Inp
 			input.Cron.Commit = commitsetID
 		}
 		return nil
-	})
+	}) //nolint:errcheck
 	return jobInput
 }
 
@@ -388,13 +388,13 @@ func MetaCommit(commit *pfs.Commit) *pfs.Commit {
 // 'S3' set to true. Any pipelines with s3 inputs lj
 func ContainsS3Inputs(in *pps.Input) bool {
 	var found bool
-	pps.VisitInput(in, func(in *pps.Input) error { //nolint:errcheck
+	pps.VisitInput(in, func(in *pps.Input) error {
 		if in.Pfs != nil && in.Pfs.S3 {
 			found = true
 			return errutil.ErrBreak
 		}
 		return nil
-	})
+	}) //nolint:errcheck
 	return found
 }
 

@@ -73,12 +73,12 @@ func writeErrorFile(dfs DumpFS, err error, prefix string) error {
 	)
 }
 
-func writeTarFile(tw *tar.Writer, dest string, src string, fi os.FileInfo) error {
+func writeTarFile(tw *tar.Writer, dest string, src string, fi os.FileInfo) (retErr error) {
 	f, err := os.Open(src)
 	if err != nil {
 		return errors.Wrapf(err, "open file %q", src)
 	}
-	defer f.Close()
+	defer errors.Close(&retErr, f, "close file %q", src)
 	if err := tw.WriteHeader(&tar.Header{
 		Name: dest,
 		Size: fi.Size(),

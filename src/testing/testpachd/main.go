@@ -175,7 +175,7 @@ func main() {
 		// testpachd as a subprocess and not have to reimplement health checking / auth
 		// readiness checking.  Once a line is printed, it's ready to go.
 		fmt.Println(pachClient.GetAddress().Qualified())
-		os.Stdout.Close()
+		os.Stdout.Close() //nolint:errcheck
 	}()
 
 	// With pachd started and the config ready, run until the context is done.  Background

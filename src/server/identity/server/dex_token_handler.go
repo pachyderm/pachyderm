@@ -55,7 +55,11 @@ func (w *dexWeb) idTokenHandler(next http.Handler) http.HandlerFunc {
 			return
 		}
 		for _, p := range ps {
-			defer p.close()
+			defer func() {
+				if err := p.close(); err != nil {
+					log.Info(ctx, "failed to close OIDC provisioner", zap.Error(err))
+				}
+			}()
 			u := &user{name: token.Email}
 			if _, err := p.findUser(ctx, token.Email); err != nil {
 				if !errors.As(err, &errNotFound{}) {

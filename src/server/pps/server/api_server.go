@@ -2035,7 +2035,7 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 func branchProvenance(project *pfs.Project, input *pps.Input) ([]*pfs.Branch, []*pfs.BranchPropagationSpec) {
 	var branches []*pfs.Branch
 	var branchPropagationSpecs []*pfs.BranchPropagationSpec
-	pps.VisitInput(input, func(input *pps.Input) error { //nolint:errcheck
+	pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			var projectName = input.Pfs.Project
 			if projectName == "" {
@@ -2058,7 +2058,7 @@ func branchProvenance(project *pfs.Project, input *pps.Input) ([]*pfs.Branch, []
 			branches = append(branches, client.NewBranch(projectName, input.Cron.Repo, "master"))
 		}
 		return nil
-	})
+	}) //nolint:errcheck
 	return branches, branchPropagationSpecs
 }
 
@@ -2802,7 +2802,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
 func setInputDefaults(pipelineName string, input *pps.Input) {
 	pps.SortInput(input)
 	nCreatedBranches := make(map[string]int)
-	pps.VisitInput(input, func(input *pps.Input) error { //nolint:errcheck
+	pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			if input.Pfs.Branch == "" {
 				if input.Pfs.Trigger != nil {
@@ -2835,7 +2835,7 @@ func setInputDefaults(pipelineName string, input *pps.Input) {
 			}
 		}
 		return nil
-	})
+	}) //nolint:errcheck
 }
 
 func (a *apiServer) stopAllJobsInPipeline(ctx context.Context, txnCtx *txncontext.TransactionContext, pipeline *pps.Pipeline, reason string) error {
@@ -3095,7 +3095,8 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	if request != nil && request.Pipeline != nil {
 		ensurePipelineProject(request.GetPipeline())
 	}
-	if request.All { //nolint:staticcheck
+	//nolint:SA1019
+	if request.All {
 		_, err := a.DeletePipelines(ctx, &pps.DeletePipelinesRequest{
 			KeepRepo: request.KeepRepo,
 		})

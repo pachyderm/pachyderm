@@ -54,5 +54,8 @@ common --define gotags=bazel
 # Recommended when using rules_js.
 startup --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1
 
+# Print output of erroring tests by default.
+test --test_output=errors
+
 # local modifications should take priority
 try-import %workspace%/.bazelrc.local

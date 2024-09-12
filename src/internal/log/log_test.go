@@ -34,7 +34,7 @@ func TestPanics(t *testing.T) {
 	}{
 		{
 			name: "nil context",
-			f:    func(_ *zap.Logger) { Debug(nil, "this should panic") }, //nolint:staticcheck
+			f:    func(_ *zap.Logger) { Debug(nil, "this should panic") }, //nolint:SA1012 // intentionally testing nil context
 		},
 		{
 			name: "empty context",
@@ -81,7 +81,7 @@ func TestPanics(t *testing.T) {
 
 func TestNoPanicsInProduction(t *testing.T) {
 	_, h := TestWithCapture(t)
-	Debug(nil, "this should use the global logger") //nolint:staticcheck // Intentional nil to test error handling.
+	Debug(nil, "this should use the global logger") //nolint:SA1012 // Intentional nil to test error handling.
 	want := []string{
 		"dpanic: log: internal error: nil context provided to ExtractLogger",
 		"debug: this should use the global logger",

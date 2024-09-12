@@ -125,7 +125,7 @@ func TestPutFileFullPathNoFilePath(t *testing.T) {
 	// Create a temporary directory and file with nested structure
 	tmpDir, err := os.MkdirTemp("", "pachyderm_test_put_file_full_path")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck
 
 	nestedDir := filepath.Join(tmpDir, "nested/dir")
 	require.NoError(t, os.MkdirAll(nestedDir, 0755))
@@ -157,7 +157,7 @@ func TestPutFileFullPathWithFilePath(t *testing.T) {
 	// Create a temporary file in a nested directory
 	tmpDir, err := os.MkdirTemp("", "pachyderm_test_full_path_with_file_path")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck
 
 	nestedDir := filepath.Join(tmpDir, "nested/dir")
 	require.NoError(t, os.MkdirAll(nestedDir, 0755))
@@ -190,7 +190,7 @@ func TestPutFileFullPathWithFilePathEndingSlash(t *testing.T) {
 	// Create a temporary file in a nested directory
 	tmpDir, err := os.MkdirTemp("", "pachyderm_test_full_path_with_file_path_ending_slash")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck
 
 	nestedDir := filepath.Join(tmpDir, "nested/dir")
 	require.NoError(t, os.MkdirAll(nestedDir, 0755))
@@ -223,7 +223,7 @@ func TestPutFileFilePathEndsWithSlashSingleSource(t *testing.T) {
 	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "pachyderm_test_put_file_single_source")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer os.Remove(tmpFile.Name()) //nolint:errcheck
 
 	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("test data"), 0644))
 
@@ -252,7 +252,7 @@ func TestPutFileFilePathWithoutSlashSingleSource(t *testing.T) {
 	// Create a temporary file
 	tmpFile, err := os.CreateTemp("", "pachyderm_test_put_file_single_source_no_slash")
 	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	defer os.Remove(tmpFile.Name()) //nolint:errcheck
 
 	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("test data"), 0644))
 
@@ -281,7 +281,7 @@ func TestPutFileRecursiveFullPathWithFilePathOfSlash(t *testing.T) {
 	// Create two temporary files in a nested directory
 	tmpDir, err := os.MkdirTemp("", "pachyderm_test_full_path_recursive_with_file_path_of_slash")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck
 
 	nestedDir := filepath.Join(tmpDir, "nested/dir")
 	require.NoError(t, os.MkdirAll(nestedDir, 0755))
@@ -319,7 +319,7 @@ func TestPutFileRecursiveWithFilePathOfSlash(t *testing.T) {
 	// Create two temporary files in a nested directory
 	tmpDir, err := os.MkdirTemp("", "pachyderm_test_recursive_with_file_path_of_slash")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer os.RemoveAll(tmpDir) //nolint:errcheck
 
 	nestedDir := filepath.Join(tmpDir, "nested/dir")
 	require.NoError(t, os.MkdirAll(nestedDir, 0755))

@@ -207,7 +207,7 @@ var spawnLock sync.Mutex
 // TODO: use the docker client, instead of the bash script
 // TODO: use the bitnami pg_bouncer image
 // TODO: look into https://github.com/ory/dockertest
-func EnsureDBEnv(ctx context.Context) error {
+func EnsureDBEnv(ctx context.Context) (retErr error) {
 	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
 	if got, want := os.Getenv("SKIP_DOCKER_POSTGRES_CREATE"), "1"; got == want {
 		log.Info(ctx, "not attempting to create postgres + pgbouncer docker container; SKIP_DOCKER_POSTGRES_CREATE=1")
@@ -221,7 +221,7 @@ func EnsureDBEnv(ctx context.Context) error {
 	defer cf()
 
 	dclient := newDockerClient()
-	defer dclient.Close()
+	defer errors.Close(&retErr, dclient, "close docker client")
 	if err := ensureContainer(ctx, dclient, "pach_test_postgres", containerSpec{
 		Env: map[string]string{
 			"POSTGRES_DB":               "pachyderm",
@@ -263,7 +263,7 @@ func EnsureDBEnv(ctx context.Context) error {
 		return errors.EnsureStack(err)
 	}
 
-	return backoff.RetryUntilCancel(ctx, func() error {
+	return backoff.RetryUntilCancel(ctx, func() (retErr error) {
 		db, err := dbutil.NewDB(
 			ctx,
 			dbutil.WithDBName(DefaultPostgresDatabase),
@@ -274,7 +274,7 @@ func EnsureDBEnv(ctx context.Context) error {
 			log.Info(ctx, "failed to connect to database; retrying", zap.Error(err))
 			return errors.Wrap(err, "connect to db")
 		}
-		defer db.Close()
+		defer errors.Close(&retErr, db, "close db connection")
 		return errors.Wrap(db.PingContext(ctx), "ping db")
 	}, backoff.RetryEvery(time.Second), func(err error, _ time.Duration) error {
 		return nil

@@ -90,6 +90,42 @@ Writing Go code works like it always did. Your editor can understand the entire 
 any help. Whenever you add or delete files, or change dependencies, run `bazel run //:gazelle` to
 update the associated BUILD files for Bazel.
 
+## Lint Go code
+
+Go code is automatically linted as it's compiled. Errors will be reported during compilation like:
+
+    compilepkg: nogo: errors found by nogo during build-time code analysis:
+    src/internal/lokiutil/client/client_test.go:18:1: TestMain should call os.Exit to set exit code (SA3000)
+
+To ignore this error, add a `//nolint:SA3000` comment. The part after nolint:, `SA3000`, comes from
+the expression in parentheses at the end of the error message. Following the linter's advice is our
+policy, so nolint directives should be treated with great suspicion during code reviews. (The error
+in the example output above is a bug and should be fixed, not ignored.)
+
+Lint checks we use:
+
+1. `govet`: `go tool vet`
+1. `SA*`: staticcheck, https://staticcheck.dev/docs/checks#SA
+1. `S*`: simple (code simplifications), https://staticcheck.dev/docs/checks#S
+1. `ST*`: stylecheck, https://staticcheck.dev/docs/checks#ST
+1. `U1000`: unused, https://staticcheck.dev/docs/checks#U
+1. `ineffassign`: https://github.com/gordonklaus/ineffassign
+1. `wrapcheck`: https://github.com/tomarrell/wrapcheck
+1. `errcheck`: https://pkg.go.dev/github.com/kisielk/errcheck/errcheck
+1. `depguard`: https://github.com/OpenPeeDeeP/depguard/tree/v2
+1. `asasalint`: https://github.com/alingse/asasalint
+1. `asciicheck`: https://github.com/tdakkota/asciicheck
+1. `bidichk`: https://github.com/breml/bidichk
+1. `goprintffuncname`: https://github.com/jirfag/go-printf-func-name
+1. `exhaustive`: https://pkg.go.dev/github.com/nishanths/exhaustive
+1. `gofmt`, checks that code is formatted with `gofmt -s`. gopls does this for you on save.
+
+Most linters are customized somewhere in the `//src/internal/analyzers/...` hierarchy.
+`golangci-lint` used a YAML file; we mostly use pure Go to configure these linters now, so check
+that directory for customization / override options.
+
+`nogo.json` contains some global excludes, so that dependencies and generated code aren't linted.
+
 ## Write Python code
 
 For the Jupyter extension, see [jupyter-extension/BAZEL.md](jupyter-extensions/BAZEL.md).
@@ -103,10 +139,10 @@ this after editing protos.
 ## Managing dependencies
 
 Our repository is compatible with the traditional `go` toolchain in addition to Bazel. If you add or
-remove dependencies, run `bazel run //:go mod tidy` to update go.mod and go.sum, and run
-`bazel run //:gazelle` to update BUILD files. Then run a build or test. Also consider running
-`bazel run :buildifier` to format the BUILD files. Sometimes the `buildozer` commands suggested by
-Gazelle lead to lint errors; buildifier will auto-fix them for you.
+remove dependencies, run `bazel run //:go mod tidy` to update go.mod and go.sum, `bazel mod tidy` to
+make Bazel aware of the changes to go.mod and go.sum, and run `bazel run //:gazelle` to update BUILD
+files. Then run a build or test. Also consider running `bazel run :buildifier` to reformat the BUILD
+files.
 
 The `bazel-style-tests` in CircleCI ensure you did all of this correctly.
 
@@ -162,9 +198,9 @@ Check that imports in Go sources match importpath attributes in deps.
 
 ### Buildifier
 
-If you edit BUILD files, run `bazel test //:buildifier_test` (potentially with `--test_output=all`)
-to see if you introduced any lint errors. If you did, run `bazel run //:buildifier` to auto-fix
-them. You can also install
+If you edit BUILD, .bzl, etc. files, run `bazel test //:buildifier_test` (potentially with
+`--test_output=all`) to see if you introduced any lint errors in them. If you did, run
+`bazel run //:buildifier` to auto-fix them. You can also install
 [buildifier](https://github.com/bazelbuild/buildtools/blob/master/buildifier/README.md) and have
 your editor run it on save for `*.bazel` files. Be aware that the lint rules change based on the
 dialect of Starlark (raw Starlark, BUILD.bazel, WORKSPACE, etc.), so your editor needs to tell
@@ -177,9 +213,7 @@ If you'd like to invoke the version of Go used for proto generation, run `bazel 
 If the build prints something like **You can use the following buildozer command to fix these
 issues:**, use `bazel run //:buildozer` to invoke
 [buildozer](https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md) as per the
-printed instructions. This mostly happens when Go modules are added or removed; `MODULE.bazel`
-contains a duplicate list of what's in `go.mod`, and the recommended `buildozer` command keeps them
-in sync. If you forget to run this, nothing will work, so it's unlikely that you'll forget.
+printed instructions.
 
 ## Binaries
 

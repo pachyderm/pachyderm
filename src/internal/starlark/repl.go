@@ -19,7 +19,7 @@ import (
 )
 
 func RunShell(ctx context.Context, path string, opts Options) error {
-	_, err := Run(ctx, path, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, in string, module string, globals starlark.StringDict) (starlark.StringDict, error) {
+	_, err := Run(ctx, path, opts, func(fileOpts *syntax.FileOptions, thread *starlark.Thread, in string, module string, globals starlark.StringDict) (_ starlark.StringDict, retErr error) {
 		if in != "" {
 			fmt.Printf("Running %v...", module)
 			result, err := starlark.ExecFileOptions(fileOpts, thread, module, nil, globals)
@@ -45,7 +45,7 @@ func RunShell(ctx context.Context, path string, opts Options) error {
 			printError(err)
 			return nil, errors.Wrap(err, "readline.NewEx")
 		}
-		defer rl.Close()
+		defer errors.Close(&retErr, rl, "close readline")
 		for {
 			signal.Reset(os.Interrupt) // This is rude, but oh well.
 			oneCtx, stop := signal.NotifyContext(ctx, os.Interrupt)

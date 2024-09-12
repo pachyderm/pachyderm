@@ -9,7 +9,7 @@ import (
 	"io"
 	"net/http"
 
-	lru "github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20"
@@ -235,11 +235,11 @@ func (c readCloser) Close() error {
 }
 
 type cache struct {
-	cache *lru.Cache
+	cache *lru.Cache[[32]byte, []byte]
 }
 
 func newCache() cache {
-	c, err := lru.New(8)
+	c, err := lru.New[[32]byte, []byte](8)
 	if err != nil {
 		panic(err)
 	}
@@ -260,7 +260,7 @@ func (c cache) get(r *Ref) []byte {
 	if !ok {
 		return nil
 	}
-	return v.([]byte)
+	return v
 }
 
 func (c cache) makeKey(r *Ref) [32]byte {

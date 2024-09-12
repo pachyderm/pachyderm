@@ -346,7 +346,7 @@ func main() {
 				fmt.Printf("%d file(s) ok\n", len(report.Unchanged))
 				return nil
 			}
-			fmt.Fprintf(os.Stderr, "\n*** "+failureMessage+"\n")
+			fmt.Fprint(os.Stderr, "\n*** "+failureMessage+"\n")
 			return ErrExit1
 		},
 	}}...)

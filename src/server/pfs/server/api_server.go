@@ -65,14 +65,14 @@ func newAPIServer(ctx context.Context, env Env) (*apiServer, error) {
 		Bucket: env.Bucket,
 		Config: env.StorageConfig,
 	}
-	storageSrv, err := storage.New(ctx, storageEnv)
+	storageServer, err := storage.New(ctx, storageEnv)
 	if err != nil {
 		return nil, err
 	}
-	s.storage = storageSrv
-	s.commitStore = newPostgresCommitStore(env.DB, storageSrv.Tracker, storageSrv.Filesets)
+	s.storage = storageServer
+	s.commitStore = newPostgresCommitStore(env.DB, storageServer.Tracker, storageServer.Filesets)
 	// TODO: Make the cache max size configurable.
-	s.cache = fileset.NewCache(env.DB, storageSrv.Tracker, 10000)
+	s.cache = fileset.NewCache(env.DB, storageServer.Tracker, 10000)
 	return s, nil
 }
 

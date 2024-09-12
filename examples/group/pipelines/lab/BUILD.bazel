@@ -1,0 +1,13 @@
+load("//private/rules/jsonnet-lint:jsonnet-lint.bzl", "jsonnet_lint_test")
+
+jsonnet_lint_test(
+    name = "lab_group_by_hospital_jsonnet_test",
+    size = "small",
+    src = "lab_group_by_hospital.jsonnet",
+)
+
+jsonnet_lint_test(
+    name = "lab_group_by_patient_jsonnet_test",
+    size = "small",
+    src = "lab_group_by_patient.jsonnet",
+)

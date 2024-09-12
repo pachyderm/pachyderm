@@ -72,7 +72,13 @@ func (x *QueueInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("queue", x.Queue)
-	protoextensions.AddAny(enc, "spec", x.Spec)
+	programArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Program {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("program", zapcore.ArrayMarshalerFunc(programArrMarshaller))
 	return nil
 }
 
@@ -82,6 +88,24 @@ func (x *QueueInfoDetails) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddObject("queue_info", x.QueueInfo)
 	enc.AddInt64("size", x.Size)
+	return nil
+}
+
+func (x *AwaitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("context", x.Context)
+	enc.AddInt64("job", x.Job)
+	enc.AddString("desired_state", x.DesiredState.String())
+	return nil
+}
+
+func (x *AwaitResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("actual_state", x.ActualState.String())
 	return nil
 }
 

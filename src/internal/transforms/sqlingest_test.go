@@ -131,7 +131,7 @@ func TestCSVHeaderSQLIngest(t *testing.T) {
 func countLinesInFile(t testing.TB, p string) int {
 	f, err := os.Open(p)
 	require.NoError(t, err)
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 	br := bufio.NewReader(f)
 	var count int
 	for {

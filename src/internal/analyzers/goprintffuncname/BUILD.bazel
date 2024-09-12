@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "goprintffuncname",
+    srcs = ["goprintffuncname.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/analyzers/goprintffuncname",
+    visibility = ["//:__pkg__"],
+    deps = ["@com_github_jirfag_go_printf_func_name//pkg/analyzer"],
+)

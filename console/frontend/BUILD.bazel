@@ -37,6 +37,7 @@ jest_test(
         "node_modules_frontend",
         "tsconfig.json",
         "//console:jest_config_base",
+        "//console/frontend/src/views/Project/components/PipelineTemplate/templates",
         "//src/internal/jsonschema:jsonschema_js",
         "//src/typescript:typescript_protos",
     ],
@@ -51,5 +52,6 @@ jest_test(
         "./src",
     ],
     node_modules = "node_modules_frontend",
+    shard_count = 50,
     visibility = ["//visibility:public"],
 )

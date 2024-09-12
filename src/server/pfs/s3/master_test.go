@@ -161,7 +161,7 @@ func masterLargeObjects(t *testing.T, pachClient *client.APIClient, minioClient 
 	// create a temporary file to put ~65mb of contents into it
 	inputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-input-*")
 	require.NoError(t, err)
-	defer os.Remove(inputFile.Name())
+	defer os.Remove(inputFile.Name()) //nolint:errcheck
 	n, err := inputFile.WriteString(strings.Repeat("no tv and no beer make homer something something.\n", 1363149))
 	require.NoError(t, err)
 	require.Equal(t, n, 68157450)
@@ -188,7 +188,7 @@ func masterLargeObjects(t *testing.T, pachClient *client.APIClient, minioClient 
 	// get the file that does exist
 	outputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-output-*")
 	require.NoError(t, err)
-	defer os.Remove(outputFile.Name())
+	defer os.Remove(outputFile.Name()) //nolint:errcheck
 	err = minioClient.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name(), minio.GetObjectOptions{})
 	require.True(t, err == nil || errors.Is(err, io.EOF), fmt.Sprintf("unexpected error: %s", err))
 

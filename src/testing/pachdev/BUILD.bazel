@@ -13,6 +13,7 @@ go_library(
     ],
 )
 
+# See <project-root>/LOCAL.md for documentation.
 go_binary(
     name = "pachdev",
     data = [

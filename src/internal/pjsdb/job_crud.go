@@ -50,6 +50,9 @@ type CreateJobRequest struct {
 	Parent  JobID
 	Inputs  []fileset.PinnedFileset
 	Program fileset.PinnedFileset
+	// The user is responsible for supplying the hash.
+	// The hash ought to be computed with HashFileset() in the internal PJS package (src/internal/pjs.go)
+	ProgramHash []byte
 }
 
 // IsSanitized is a utility function that wraps sanitize() for the purposes of testing.
@@ -67,7 +70,7 @@ func (req CreateJobRequest) sanitize(ctx context.Context, tx *pachsql.Tx) (creat
 	}
 	sanitizedReq := createJobRequest{
 		Program:     []byte(fileset.ID(req.Program).HexString()), // there aren't real pins as of yet.
-		ProgramHash: []byte(fileset.ID(req.Program).HexString()), // eventually the ID will be a hash.
+		ProgramHash: req.ProgramHash,                             // eventually the ID will be a hash.
 	}
 	// validate parent.
 	sanitizedReq.Parent = sql.NullInt64{Valid: false}
@@ -293,7 +296,7 @@ func DeleteJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 	}
 	ids := make([]JobID, 0)
 	if err = sqlx.SelectContext(ctx, tx, &ids, recursiveTraverseChildren+`
-	DELETE FROM pjs.jobs WHERE id IN (SELECT id FROM children) AND done IS NOT NULL
+	DELETE FROM pjs.jobs WHERE id IN (SELECT id FROM children) AND (done IS NOT NULL OR processing IS NULL)
 	RETURNING id;`, job.ID, maxDepth); err != nil {
 		return nil, errors.Wrap(err, "cancel job")
 	}
@@ -307,10 +310,10 @@ func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobE
 	_, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP, error = $1
-		WHERE id = $2
+		WHERE id = $2 AND error IS NULL
 	`, errCode, jobID)
 	if err != nil {
-		return errors.Wrapf(err, "complete error")
+		return errors.Wrapf(err, "error job: update error and state to done")
 	}
 	return nil
 }
@@ -319,13 +322,24 @@ func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobE
 // output filesets and in database.
 func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []string) error {
 	ctx = pctx.Child(ctx, "complete ok")
-	_, err := tx.ExecContext(ctx, `
+	result, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP
-		WHERE id = $1
+		WHERE id = $1 AND error IS NULL
 	`, jobID)
 	if err != nil {
-		return errors.Wrapf(err, "complete ok: update state to done")
+		return errors.Wrapf(err, "complete job: update state to done")
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "complete job: get rows affected")
+	}
+	// if no rows are affected,
+	// 1) the job's error is not null(it can be cancelled), so we should not update output
+	// 2) the id does not exist which means the job has been deleted. we should not update
+	// output for a deleted job
+	if rowsAffected == 0 {
+		return nil
 	}
 	for pos, output := range outputs {
 		_, err := tx.ExecContext(ctx, `

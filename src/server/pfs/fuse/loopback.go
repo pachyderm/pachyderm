@@ -292,7 +292,7 @@ func (n *loopbackNode) Create(ctx context.Context, name string, flags uint32, mo
 
 	st := syscall.Stat_t{}
 	if err := syscall.Fstat(fd, &st); err != nil {
-		syscall.Close(fd)
+		syscall.Close(fd) //nolint:errcheck
 		return nil, nil, 0, fs.ToErrno(err)
 	}
 
@@ -423,7 +423,7 @@ func (n *loopbackNode) Opendir(ctx context.Context) syscall.Errno {
 	if err != nil {
 		return fs.ToErrno(err)
 	}
-	syscall.Close(fd)
+	syscall.Close(fd) //nolint:errcheck
 	return fs.OK
 }
 

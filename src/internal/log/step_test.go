@@ -23,7 +23,7 @@ func TestSkip(t *testing.T) {
 	ctx := withLogger(context.Background(), l.WithOptions(zap.AddCallerSkip(1)))
 
 	// It is important that the next line is line 26.
-	if err := LogStep(ctx, "log a step", func(context.Context) error { return errors.New("oh no") }); err == nil { //nolint:wrapcheck
+	if err := LogStep(ctx, "log a step", func(context.Context) error { return errors.New("oh no") }); err == nil {
 		t.Errorf("expected error")
 	}
 

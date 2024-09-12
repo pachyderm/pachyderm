@@ -35,13 +35,13 @@ type SQLIngestParams struct {
 //
 // It makes outgoing connections using pachsql.OpenURL
 // It accesses the filesystem only within params.InputDir, and params.OutputDir
-func SQLIngest(ctx context.Context, params SQLIngestParams) error {
+func SQLIngest(ctx context.Context, params SQLIngestParams) (retErr error) {
 	log.Info(ctx, "Connecting to DB", zap.Stringer("url", &params.URL))
 	db, err := pachsql.OpenURL(params.URL, string(params.Password))
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer errors.Close(&retErr, db, "close db connection to %v", params.URL)
 	if err := func() error {
 		ctx, cf := context.WithTimeout(ctx, 10*time.Second)
 		defer cf()
@@ -156,12 +156,12 @@ type SQLRunParams struct {
 	Format                string
 }
 
-func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
+func RunSQLRaw(ctx context.Context, params SQLRunParams) (retErr error) {
 	db, err := pachsql.OpenURL(params.URL, string(params.Password))
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer errors.Close(&retErr, db, "close db connection to %v", params.URL)
 	if err := func() error {
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
@@ -175,11 +175,13 @@ func RunSQLRaw(ctx context.Context, params SQLRunParams) error {
 	if err != nil {
 		return err
 	}
-	w, err := os.OpenFile(filepath.Join(params.OutputDir, params.OutputFile), os.O_WRONLY|os.O_CREATE, 0755)
+	outPath := filepath.Join(params.OutputDir, params.OutputFile)
+	w, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer w.Close()
+	defer errors.Close(&retErr, w, "close output file %v", outPath)
+
 	log.Info(ctx, "Running query", zap.String("query", params.Query))
 	rows, err := db.QueryContext(ctx, params.Query)
 	if err != nil {

@@ -19,11 +19,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
@@ -124,7 +126,7 @@ func runMigrations(db *pachsql.DB, etcdClient *etcd.Client, state *migrations.St
 
 func newSelfGRPC(l net.Listener, opts []grpc.DialOption) *grpc.ClientConn {
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	gc, err := grpc.Dial(l.Addr().String(), opts...) //nolint:staticcheck
+	gc, err := grpc.Dial(l.Addr().String(), opts...) //nolint:SA1019
 	if err != nil {
 		// This is always a configuration issue, Dial does not initiate a network connection before returning.
 		panic(err)
@@ -164,6 +166,18 @@ func initPFSAPIServer(out *pfs.APIServer, outMaster **pfs_server.Master, env fun
 		},
 	}
 }
+
+func initPJSAPIServer(out *pjs.APIServer, env func() pjs_server.Env) setupStep {
+	return setupStep{
+		Name: "initPFSAPIServer",
+		Fn: func(ctx context.Context) error {
+			apiServer := pjs_server.NewAPIServer(env())
+			*out = apiServer
+			return nil
+		},
+	}
+}
+
 func initStorageServer(out **storage.Server, env func() storage.Env) setupStep {
 	return setupStep{
 		Name: "initStorageServer",

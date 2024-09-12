@@ -123,7 +123,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 }
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
-	require.NoErrorWithinTRetryConstant(t, 90*time.Second, func() error {
+	require.NoErrorWithinTRetryConstant(t, 90*time.Second, func() (retErr error) {
 		// login using mock IDP admin
 		hc := &http.Client{Timeout: 15 * time.Second}
 		c.SetAuthToken("")
@@ -137,7 +137,7 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		defer getResp.Body.Close()
+		defer errors.Close(&retErr, getResp.Body, "close body")
 		if got, want := http.StatusOK, getResp.StatusCode; got != want {
 			testutil.LogHttpResponse(t, getResp, "mock login get")
 			return errors.Errorf("retrieve mock login page satus code: got %v want %v", got, want)
