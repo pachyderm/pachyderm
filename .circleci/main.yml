@@ -35,13 +35,13 @@ orbs:
 parameters:
   machine_image:
     type: string
-    default: ubuntu-2204:2023.04.2
+    default: ubuntu-2404:2024.05.1
   ci_runner_image:
     type: string
     default: docker.io/pachyderm/ci-runner:20240614-f19663ebdd4f8a08829ef251b9375c594ad866fe@sha256:1446c14f98c9de7de078ee7b5dac34643e138d1c190be9558f49cfa731206e3c
   go-version:
     type: string
-    default: "1.22.4"
+    default: "1.23.1"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -614,7 +614,7 @@ jobs:
           name: Download utilities
           command: |
             sudo apt update
-            sudo apt install qemu binfmt-support qemu-user-static
+            sudo apt install binfmt-support qemu-user-static
       - install-go-releaser
       - run:
           name: pachydermbuildbot docker login
@@ -731,9 +731,6 @@ jobs:
       - run: mv jsonnet jsonnetfmt /usr/local/bin
       - run: make -C etc/generate-envoy-config test
   jupyter-extension-test:
-    parameters:
-      python-version:
-        type: string
     docker:
       - image: cimg/node:20.11.0
     resource_class: large
@@ -793,7 +790,6 @@ jobs:
           name: "Integration tests"
           command: |
             set -eux
-
             python3 -m venv venv
             . venv/bin/activate
             python3 -m pip install '.'
@@ -1452,6 +1448,7 @@ jobs:
           name: Run tests
           command: |
             pip3 install -r requirements.txt
+            pip3 install ../python-sdk
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
   bazel-style-tests:
     resource_class: xlarge
@@ -1884,10 +1881,7 @@ workflows:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
       - build-docker-images
-      - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
+      - jupyter-extension-test
       - jupyter-extension-frontend-test
       - jupyter-extension-integration-test
       - jupyter-extension-e2e-test:
@@ -1970,9 +1964,6 @@ workflows:
             - build-docker-images
             - helm-build
       - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
           filters: *only-release-tags
       - jupyter-extension-frontend-test:
           filters: *only-release-tags
@@ -2258,6 +2249,12 @@ commands:
       - attach_workspace:
           at: ./
       - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
+      - run:
+          name: Downgrade python
+          command: |-
+            set -euxo pipefail
+            pyenv install 3.11
+            pyenv global 3.11
       - run:
           name: Install kubectl
           command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install

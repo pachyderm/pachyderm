@@ -1,6 +1,6 @@
 module github.com/pachyderm/pachyderm/v2
 
-go 1.22.5
+go 1.23.1
 
 require (
 	cloud.google.com/go/profiler v0.3.0
@@ -19,16 +19,16 @@ require (
 	github.com/dexidp/dex v2.36.0+incompatible
 	github.com/dexidp/dex/api/v2 v2.1.0
 	github.com/dlmiddlecote/sqlstats v1.0.2
-	github.com/docker/docker v20.10.27+incompatible
+	github.com/docker/docker v24.0.9+incompatible
 	github.com/docker/go-connections v0.4.0
-	github.com/docker/go-units v0.4.0
+	github.com/docker/go-units v0.5.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/envoyproxy/protoc-gen-validate v1.0.4
 	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/color v1.13.0
 	github.com/felixge/httpsnoop v1.0.4
-	github.com/fsouza/go-dockerclient v1.4.1
+	github.com/fsouza/go-dockerclient v1.10.1
 	github.com/go-logr/zapr v1.2.3
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/golang/protobuf v1.5.4
@@ -37,13 +37,12 @@ require (
 	github.com/google/go-jsonnet v0.20.0
 	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20191002090509-6af20e3a5340
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0
 	github.com/gruntwork-io/terratest v0.38.8
 	github.com/hanwen/go-fuse/v2 v2.1.0
-	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/golang-lru/v2 v2.0.1
 	github.com/instrumenta/kubeval v0.0.0-20201118090229-529b532b1ea1
 	github.com/itchyny/gojq v0.11.2
@@ -141,6 +140,13 @@ require github.com/nishanths/exhaustive v0.12.0
 require github.com/golangci/gofmt v0.0.0-20240816233607-d8596aa466a9
 
 require (
+	github.com/containerd/containerd v1.6.26 // indirect
+	github.com/moby/patternmatcher v0.6.0 // indirect
+	github.com/moby/sys/sequential v0.5.0 // indirect
+	github.com/morikuni/aec v1.0.0 // indirect
+)
+
+require (
 	github.com/bazelbuild/bazel-gazelle v0.38.0
 	github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
@@ -172,7 +178,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.2.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/Microsoft/hcsshim v0.9.3 // indirect
 	github.com/ProtonMail/go-crypto v1.0.0 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
@@ -212,9 +217,7 @@ require (
 	github.com/charmbracelet/lipgloss v0.7.1 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
-	github.com/containerd/cgroups v1.0.4 // indirect
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
-	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/coreos/go-oidc/v3 v3.5.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
@@ -267,7 +270,6 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/hcl/v2 v2.16.1 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
-	github.com/ijc/Gotty v0.0.0-20170406111628-a8b993ba6abd // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/itchyny/astgen-go v0.0.0-20200815150004-12a293722290 // indirect
@@ -306,8 +308,6 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
-	github.com/moby/sys/mount v0.3.0 // indirect
-	github.com/moby/sys/mountinfo v0.6.2 // indirect
 	github.com/moby/term v0.0.0-20221205130635-1aeaba878587 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
@@ -318,8 +318,8 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.0.2
-	github.com/opencontainers/runc v1.1.12 // indirect
+	github.com/opencontainers/image-spec v1.1.0-rc2.0.20221005185240-3a7f492d3f1b
+	github.com/opencontainers/runc v1.1.14 // indirect
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
