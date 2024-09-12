@@ -151,7 +151,6 @@ message PropagationSpec {
   bool never = 1;
 }
 
-
 // These are the different places where a commit may be originated from
 enum OriginKind {
   reserved 4;

@@ -21834,6 +21834,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "propagation_spec",
+              "description": "",
+              "label": "",
+              "type": "PropagationSpec",
+              "longType": "pfs_v2.PropagationSpec",
+              "fullType": "pfs_v2.PropagationSpec",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },

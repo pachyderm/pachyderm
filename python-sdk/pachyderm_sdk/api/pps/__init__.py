@@ -268,6 +268,8 @@ class PfsInput(betterproto.Message):
     the input is processed anytime something is committed to the input branch.
     """
 
+    propagation_spec: "_pfs__.PropagationSpec" = betterproto.message_field(15)
+
 
 @dataclass(eq=False, repr=False)
 class CronInput(betterproto.Message):
