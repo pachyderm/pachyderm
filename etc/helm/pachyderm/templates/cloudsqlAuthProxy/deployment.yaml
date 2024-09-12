@@ -38,6 +38,10 @@ spec:
         image: {{ .Values.cloudsqlAuthProxy.image.repository }}:{{ .Values.cloudsqlAuthProxy.image.tag }}
         ports:
         - containerPort: {{ .Values.cloudsqlAuthProxy.port }}
+        {{- if .Values.cloudsqlAuthProxy.privateIp }}
+        args:
+          - --private-ip
+        {{- end }}
         env:
         - name: CSQL_PROXY_INSTANCE_CONNECTION_NAME
           value: "{{ .Values.cloudsqlAuthProxy.connectionName }}"
