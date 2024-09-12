@@ -40,6 +40,9 @@
                 "priorityClassName": {
                     "type": "string"
                 },
+                "privateIp": {
+                    "type": "boolean"
+                },
                 "resources": {
                     "type": "object"
                 },
@@ -215,9 +218,6 @@
                         "cpuImage": {
                             "type": "string"
                         },
-                        "gpuImage": {
-                            "type": "string"
-                        },
                         "kubeScheduler": {
                             "type": "string"
                         },
@@ -237,6 +237,9 @@
                 },
                 "enterpriseEdition": {
                     "type": "boolean"
+                },
+                "gpuImage": {
+                    "type": "string"
                 },
                 "imagePullSecretName": {
                     "type": "string"
