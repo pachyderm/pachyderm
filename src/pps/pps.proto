@@ -123,6 +123,7 @@ message PFSInput {
   // Trigger defines when this input is processed by the pipeline, if it's nil
   // the input is processed anytime something is committed to the input branch.
   pfs_v2.Trigger trigger = 12;
+  bool reference = 16; 
 }
 
 message CronInput {

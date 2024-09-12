@@ -145,6 +145,7 @@ func processPFSTask(ctx context.Context, c client.PfsAPIClient, task *PFSTask) (
 						Branch:     task.Input.Branch,
 						EmptyFiles: task.Input.EmptyFiles,
 						S3:         task.Input.S3,
+						Reference:  task.Input.Reference,
 					},
 				},
 				Index: index,

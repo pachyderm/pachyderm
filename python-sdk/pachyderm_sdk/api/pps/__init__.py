@@ -268,6 +268,8 @@ class PfsInput(betterproto.Message):
     the input is processed anytime something is committed to the input branch.
     """
 
+    reference: bool = betterproto.bool_field(16)
+
 
 @dataclass(eq=False, repr=False)
 class CronInput(betterproto.Message):

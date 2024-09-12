@@ -1219,6 +1219,8 @@ func (m *PFSInput) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for Reference
+
 	if len(errors) > 0 {
 		return PFSInputMultiError(errors)
 	}

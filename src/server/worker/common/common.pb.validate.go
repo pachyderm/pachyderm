@@ -101,6 +101,8 @@ func (m *Input) validate(all bool) error {
 
 	// no validation rules for S3
 
+	// no validation rules for Reference
+
 	if len(errors) > 0 {
 		return InputMultiError(errors)
 	}
