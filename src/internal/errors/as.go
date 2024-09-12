@@ -1,10 +1,9 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
-
-	"github.com/pkg/errors"
 )
 
 var errorType = reflect.TypeOf((*error)(nil)).Elem()

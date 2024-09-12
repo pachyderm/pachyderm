@@ -10,6 +10,7 @@ var Analyzer *analysis.Analyzer
 func init() {
 	cfg := wrapcheck.NewDefaultConfig()
 	cfg.IgnoreSigs = []string{
+		"fmt.Errorf",
 		"github.com/pachyderm/pachyderm/v2/src/internal/errors.Errorf",
 		"github.com/pachyderm/pachyderm/v2/src/internal/errors.New",
 		"github.com/pachyderm/pachyderm/v2/src/internal/errors.Unwrap",

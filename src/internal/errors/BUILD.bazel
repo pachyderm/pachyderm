@@ -6,10 +6,10 @@ go_library(
         "as.go",
         "errors.go",
         "multi.go",
+        "with-stack.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/errors",
     visibility = ["//src:__subpackages__"],
-    deps = ["@com_github_pkg_errors//:errors"],
 )
 
 go_test(
