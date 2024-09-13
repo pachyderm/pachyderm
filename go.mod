@@ -55,7 +55,6 @@ require (
 	github.com/klauspost/compress v1.16.4
 	github.com/lib/pq v1.10.7
 	github.com/mattn/go-isatty v0.0.18
-	github.com/minio/minio-go/v6 v6.0.57
 	github.com/minio/minio-go/v7 v7.0.42
 	github.com/modern-go/reflect2 v1.0.2
 	github.com/opentracing-contrib/go-grpc v0.0.0-20210225150812-73cb765af46e

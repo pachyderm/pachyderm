@@ -228,7 +228,6 @@ use_repo(
     "com_github_klauspost_compress",
     "com_github_lib_pq",
     "com_github_mattn_go_isatty",
-    "com_github_minio_minio_go_v6",
     "com_github_minio_minio_go_v7",
     "com_github_modern_go_reflect2",
     "com_github_nishanths_exhaustive",

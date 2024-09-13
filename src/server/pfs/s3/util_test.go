@@ -15,17 +15,18 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/s3"
 
-	minio "github.com/minio/minio-go/v6"
+	minio "github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
-func getObject(t *testing.T, minioClient *minio.Client, bucket, file string) (string, error) {
+func getObject(ctx context.Context, t *testing.T, minioClient *minio.Client, bucket, file string) (string, error) {
 	t.Helper()
 
-	obj, err := minioClient.GetObject(bucket, file, minio.GetObjectOptions{})
+	obj, err := minioClient.GetObject(ctx, bucket, file, minio.GetObjectOptions{})
 	if err != nil {
 		return "", errors.EnsureStack(err)
 	}
@@ -143,7 +144,7 @@ func testRunner(ctx context.Context, t *testing.T, pachClient *client.APIClient,
 
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	minioClient, err := minio.NewV4(fmt.Sprintf("127.0.0.1:%d", port), "", "", false)
+	minioClient, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), &minio.Options{Creds: credentials.NewStaticV4("", "", "")})
 	require.NoError(t, err)
 
 	t.Run(group, func(t *testing.T) {
@@ -165,7 +166,7 @@ func projectTestRunner(ctx context.Context, t *testing.T, pachClient *client.API
 
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	minioClient, err := minio.NewV4(fmt.Sprintf("127.0.0.1:%d", port), "1234", "1234", false)
+	minioClient, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), &minio.Options{Creds: credentials.NewStaticV4("1234", "1234", "")})
 	require.NoError(t, err)
 
 	t.Run(group, func(t *testing.T) {

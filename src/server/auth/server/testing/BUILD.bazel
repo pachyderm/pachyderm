@@ -52,7 +52,7 @@ go_test(
         "//src/pps",
         "//src/server/auth/server",
         "//src/server/pfs",
-        "@com_github_minio_minio_go_v6//:minio-go",
+        "@com_github_minio_minio_go_v7//:minio-go",
         "@org_golang_google_protobuf//types/known/emptypb",
         "@org_golang_google_protobuf//types/known/timestamppb",
     ],

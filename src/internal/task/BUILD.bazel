@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "etcd_queue.go",
         "etcd_service.go",
+        "pjs_service.go",
         "task.go",
         "task.pb.go",
         "task.pb.validate.go",
@@ -23,6 +24,7 @@ go_library(
         "//src/internal/taskchain",
         "//src/internal/uuid",
         "//src/internal/watch",
+        "//src/pjs",
         "//src/protoextensions",
         "//src/task",
         "//src/version",
