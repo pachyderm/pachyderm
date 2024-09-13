@@ -54,5 +54,6 @@ go_test(
         "//src/internal/testutil",
         "//src/pfs",
         "@com_github_minio_minio_go_v7//:minio-go",
+        "@com_github_minio_minio_go_v7//pkg/credentials",
     ],
 )
