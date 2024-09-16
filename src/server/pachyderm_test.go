@@ -10653,3 +10653,81 @@ func TestNoPostgresPassword(t *testing.T) {
 	}
 	require.Equal(t, "FOO=BAR", foo, "FOO=BAR should be in there")
 }
+
+func TestReferenceInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	// Create repos and initial commits.
+	project := pfs.DefaultProjectName
+	repo := tu.UniqueString("TestReferenceInput")
+	require.NoError(t, c.CreateRepo(project, repo))
+	referenceRepo := tu.UniqueString("TestReferenceInput_reference")
+	require.NoError(t, c.CreateRepo(project, referenceRepo))
+
+	commit, err := c.StartCommit(project, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo")))
+	require.NoError(t, c.FinishCommit(project, repo, "", commit.Id))
+
+	commit, err = c.StartCommit(project, referenceRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "reference_file", strings.NewReader("foo")))
+	require.NoError(t, c.FinishCommit(project, referenceRepo, "", commit.Id))
+
+	// Create pipeline with reference input.
+	pipeline := tu.UniqueString("TestReferenceInput")
+	require.NoError(t, c.CreatePipeline(
+		project,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{"true"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewCrossInput(
+			client.NewPFSInput(project, repo, "/*"),
+			&pps.Input{Pfs: &pps.PFSInput{
+				Project:   project,
+				Repo:      referenceRepo,
+				Glob:      "/*",
+				Reference: true,
+			}},
+		),
+		"",
+		false,
+	))
+
+	check := func(state pps.DatumState) {
+		commitInfo, err := c.InspectCommit(project, pipeline, "master", "")
+		require.NoError(t, err)
+		_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+		require.NoError(t, err)
+		datumInfos, err := c.ListDatumAll(project, pipeline, commitInfo.Commit.Id)
+		require.NoError(t, err)
+		require.True(t, len(datumInfos) == 1)
+		require.Equal(t, state, datumInfos[0].State)
+	}
+	check(pps.DatumState_SUCCESS)
+
+	// Create commits with new file content in each repo.
+	// The datum should be skipped for the reference repo and processed for
+	// the non-reference repo.
+	commit, err = c.StartCommit(project, referenceRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "reference_file", strings.NewReader("bar")))
+	require.NoError(t, c.FinishCommit(project, referenceRepo, "", commit.Id))
+	check(pps.DatumState_SKIPPED)
+
+	commit, err = c.StartCommit(project, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("bar")))
+	require.NoError(t, c.FinishCommit(project, repo, "", commit.Id))
+	check(pps.DatumState_SUCCESS)
+}

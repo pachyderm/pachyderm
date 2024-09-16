@@ -187,6 +187,7 @@ func (x *PFSInput) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("empty_files", x.EmptyFiles)
 	enc.AddBool("s3", x.S3)
 	enc.AddObject("trigger", x.Trigger)
+	enc.AddBool("reference", x.Reference)
 	return nil
 }
 

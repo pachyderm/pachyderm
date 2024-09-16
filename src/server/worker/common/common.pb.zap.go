@@ -21,5 +21,6 @@ func (x *Input) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("branch", x.Branch)
 	enc.AddBool("empty_files", x.EmptyFiles)
 	enc.AddBool("s3", x.S3)
+	enc.AddBool("reference", x.Reference)
 	return nil
 }

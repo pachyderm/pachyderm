@@ -15,4 +15,5 @@ export type Input = {
   branch?: string
   emptyFiles?: boolean
   s3?: boolean
+  reference?: boolean
 }

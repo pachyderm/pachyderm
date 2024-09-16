@@ -11652,6 +11652,9 @@
         "trigger": {
           "$ref": "#/definitions/pfs_v2Trigger",
           "description": "Trigger defines when this input is processed by the pipeline, if it's nil\nthe input is processed anytime something is committed to the input branch."
+        },
+        "reference": {
+          "type": "boolean"
         }
       }
     },
