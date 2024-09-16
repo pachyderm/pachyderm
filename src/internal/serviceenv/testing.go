@@ -182,7 +182,7 @@ func (env *TestServiceEnv) PjsServer() pjs.APIServer {
 }
 
 // SetPjsServer returns the registered PJS APIServer
-func (env *TestServiceEnv) SetPJSServer(s pjs.APIServer) {
+func (env *TestServiceEnv) SetPjsServer(s pjs.APIServer) {
 	env.Pjs = s
 }
 
