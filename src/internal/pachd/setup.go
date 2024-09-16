@@ -169,7 +169,7 @@ func initPFSAPIServer(out *pfs.APIServer, outMaster **pfs_server.Master, env fun
 
 func initPJSAPIServer(out *pjs.APIServer, env func() pjs_server.Env) setupStep {
 	return setupStep{
-		Name: "initPFSAPIServer",
+		Name: "initPJSAPIServer",
 		Fn: func(ctx context.Context) error {
 			apiServer := pjs_server.NewAPIServer(env())
 			*out = apiServer
