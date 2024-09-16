@@ -79,6 +79,36 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	return &ret, nil
 }
 
+func (a *apiServer) DeleteJob(ctx context.Context, req *pjs.DeleteJobRequest) (*pjs.DeleteJobResponse, error) {
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	if err != nil {
+		return nil, err
+	}
+	// TODO: consider convenience flags, like a flag that also cancels, or a flag that awaits completion then deletes.
+	var job *pjsdb.Job
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		deletedIds, err := pjsdb.DeleteJob(ctx, sqlTx, id)
+		if err != nil {
+			return errors.Wrap(err, "delete job (pjsdb)")
+		}
+		// Get the job if delete fails. Job state will be used in the error message.
+		if len(deletedIds) == 0 {
+			j, err := pjsdb.GetJob(ctx, sqlTx, pjsdb.JobID(req.Job.Id))
+			if err != nil {
+				return errors.Wrap(err, "get job")
+			}
+			job = &j
+		}
+		return err
+	}); err != nil {
+		return nil, errors.Wrapf(err, "with tx")
+	}
+	if job != nil && job.Done.IsZero() && !job.Processing.IsZero() {
+		return nil, status.Errorf(codes.FailedPrecondition, "job %d was not deleted, because it is still processing. Call the CancelJob RPC first", req.Job.Id)
+	}
+	return &pjs.DeleteJobResponse{}, nil
+}
+
 func (a *apiServer) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) (*pjs.InspectJobResponse, error) {
 	var jobInfo *pjs.JobInfo
 	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())

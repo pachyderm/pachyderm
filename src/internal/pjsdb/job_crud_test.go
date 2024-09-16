@@ -186,6 +186,15 @@ func TestWalkJob(t *testing.T) {
 }
 
 func TestDeleteJob(t *testing.T) {
+	t.Run("valid/delete/single/queued", func(t *testing.T) {
+		withDependencies(t, func(d dependencies) {
+			id, err := createJob(t, d, createRootJob(t, d))
+			require.NoError(t, err)
+			deletedIds, err := pjsdb.DeleteJob(d.ctx, d.tx, id)
+			require.NoError(t, err)
+			require.Equal(t, deletedIds[0], id)
+		})
+	})
 	t.Run("valid/delete/single", func(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			id, err := createJob(t, d, createRootJob(t, d))
@@ -240,6 +249,8 @@ func TestDeleteJob(t *testing.T) {
 	t.Run("invalid/delete/single", func(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			id, err := createJob(t, d, createRootJob(t, d))
+			require.NoError(t, err)
+			_, err = d.tx.ExecContext(d.ctx, `UPDATE pjs.jobs SET processing = CURRENT_TIMESTAMP where id = $1`, id)
 			require.NoError(t, err)
 			deletedIds, err := pjsdb.DeleteJob(d.ctx, d.tx, id)
 			require.NoError(t, err)
