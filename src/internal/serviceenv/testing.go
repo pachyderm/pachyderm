@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
+	pjs "github.com/pachyderm/pachyderm/v2/src/pjs"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -51,6 +52,8 @@ type TestServiceEnv struct {
 
 	// Enterprise is the registered pfs APIServer
 	Enterprise enterprise_server.APIServer
+
+	Pjs pjs.APIServer
 
 	// Ready is a channel that blocks `GetPachClient` until it's closed.
 	// This avoids a race when we need to instantiate the server before
@@ -171,6 +174,11 @@ func (env *TestServiceEnv) EnterpriseServer() enterprise_server.APIServer {
 // SetEnterpriseServer returns the registered Enterprise APIServer
 func (env *TestServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
 	env.Enterprise = s
+}
+
+// PjsServer returns the registered PFS APIServer
+func (env *TestServiceEnv) PjsServer() pjs.APIServer {
+	return env.Pjs
 }
 
 // SetKubeClient can be used to override the kubeclient in testing.
