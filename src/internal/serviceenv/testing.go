@@ -176,9 +176,14 @@ func (env *TestServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
 	env.Enterprise = s
 }
 
-// PjsServer returns the registered PFS APIServer
+// PjsServer returns the registered PJS APIServer
 func (env *TestServiceEnv) PjsServer() pjs.APIServer {
 	return env.Pjs
+}
+
+// SetPjsServer returns the registered PJS APIServer
+func (env *TestServiceEnv) SetPJSServer(s pjs.APIServer) {
+	env.Pjs = s
 }
 
 // SetKubeClient can be used to override the kubeclient in testing.
