@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
@@ -40,6 +41,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
@@ -277,6 +279,18 @@ func (b *builder) registerPFSServer(ctx context.Context) error {
 	}
 	b.forGRPCServer(func(s *grpc.Server) { pfs.RegisterAPIServer(s, apiServer) })
 	b.env.SetPfsServer(apiServer)
+	return nil
+}
+
+func (b *builder) registerPJSServer(ctx context.Context) error {
+	env := PJSEnv(b.env)
+	// if err != nil {
+	// 	return err
+	// }
+	apiServer := pjs_server.NewAPIServer(env)
+
+	b.forGRPCServer(func(s *grpc.Server) { pjs.RegisterAPIServer(s, apiServer) })
+	b.env.SetPjsServer(apiServer)
 	return nil
 }
 

@@ -37,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	pjs "github.com/pachyderm/pachyderm/v2/src/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
@@ -61,6 +62,7 @@ type ServiceEnv interface {
 	SetPfsServer(pfs_server.APIServer)
 	SetPpsServer(pps_server.APIServer)
 	SetEnterpriseServer(enterprise_server.APIServer)
+	SetPjsServer(pjs.APIServer)
 	SetKubeClient(kube.Interface)
 	SetDynamicKubeClient(dynamic.Interface)
 
@@ -140,6 +142,7 @@ type NonblockingServiceEnv struct {
 	ppsServer        pps_server.APIServer
 	pfsServer        pfs_server.APIServer
 	enterpriseServer enterprise_server.APIServer
+	pjsServer        pjs.APIServer
 
 	// ctx is the background context for the environment that will be canceled
 	// when the ServiceEnv is closed - this typically only happens for orderly
@@ -627,6 +630,11 @@ func (env *NonblockingServiceEnv) EnterpriseServer() enterprise_server.APIServer
 // SetEnterpriseServer registers a Enterprise APIServer with this service env
 func (env *NonblockingServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
 	env.enterpriseServer = s
+}
+
+// SetPfsServer registers a Pjs APIServer with this service env
+func (env *NonblockingServiceEnv) SetPjsServer(s pjs.APIServer) {
+	env.pjsServer = s
 }
 
 // SetKubeClient can be used to override the kubeclient in testing.

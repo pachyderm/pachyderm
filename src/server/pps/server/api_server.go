@@ -1227,6 +1227,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 		// if err != nil {
 		// 	return errors.Wrap(err, "hashing program fileset")
 		// }
+		fmt.Println("QQQ PJS client", pachClient.PjsAPIClient)
 		var taskDoer = pjs.Doer{
 			Client:  pachClient.PjsAPIClient,
 			Program: program,
