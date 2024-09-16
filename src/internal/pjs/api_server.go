@@ -124,7 +124,7 @@ func (a *apiServer) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) 
 			}
 			return errors.Wrap(err, "get job")
 		}
-		jobInfo, err = toJobInfo(job)
+		jobInfo, err = pjsdb.ToJobInfo(job)
 		if err != nil {
 			return errors.Wrap(err, "inspect job")
 		}
@@ -256,7 +256,7 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 		return errors.Wrap(err, "with tx")
 	}
 	for i, job := range jobs {
-		jobInfo, err := toJobInfo(job)
+		jobInfo, err := pjsdb.ToJobInfo(job)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("to job info, iteration=%d/%d", i, len(jobs)))
 		}
@@ -304,7 +304,7 @@ func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.Awai
 					}
 					return errors.Wrap(err, "get job")
 				}
-				jobInfo, err := toJobInfo(job)
+				jobInfo, err := pjsdb.ToJobInfo(job)
 				if err != nil {
 					return errors.Wrapf(err, "toJobInfo(%d)", id)
 				}
@@ -383,40 +383,6 @@ func stateAdvancedBeyond(current pjs.JobState, desired pjs.JobState) bool {
 		pjs.JobState_DONE:       3,
 	}
 	return comp[current] >= comp[desired]
-}
-
-func toJobInfo(job pjsdb.Job) (*pjs.JobInfo, error) {
-	jobInfo := &pjs.JobInfo{
-		Job: &pjs.Job{
-			Id: int64(job.ID),
-		},
-		ParentJob: &pjs.Job{
-			Id: int64(job.Parent),
-		},
-		Program: job.Program.HexString(),
-	}
-	for _, filesetID := range job.Inputs {
-		jobInfo.Input = append(jobInfo.Input, filesetID.HexString())
-	}
-	switch {
-	case job.Done != time.Time{}:
-		jobInfo.State = pjs.JobState_DONE
-		jobInfo.Result = &pjs.JobInfo_Error{
-			Error: pjs.JobErrorCode(pjs.JobErrorCode_value[job.Error]),
-		}
-		if len(job.Outputs) != 0 {
-			jobInfoSuccess := pjs.JobInfo_Success{}
-			for _, filesetID := range job.Outputs {
-				jobInfoSuccess.Output = append(jobInfoSuccess.Output, filesetID.HexString())
-			}
-			jobInfo.Result = &pjs.JobInfo_Success_{Success: &jobInfoSuccess}
-		}
-	case job.Processing != time.Time{}:
-		jobInfo.State = pjs.JobState_PROCESSING
-	default:
-		jobInfo.State = pjs.JobState_QUEUED
-	}
-	return jobInfo, nil
 }
 
 func (a *apiServer) resolveJob(ctx context.Context, jobCtx string, jobID int64) (id pjsdb.JobID, err error) {
