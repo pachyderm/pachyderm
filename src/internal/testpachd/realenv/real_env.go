@@ -22,26 +22,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
-	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
-	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
+	pjsapi "github.com/pachyderm/pachyderm/v2/src/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminapi "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
@@ -63,6 +47,25 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	pjs "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
+	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 )
 
 // RealEnv contains a setup for running end-to-end pachyderm tests locally.  It
@@ -88,6 +91,7 @@ type RealEnv struct {
 	ProxyServer              proxy.APIServer
 	MetadataServer           metadata.APIServer
 	MockPPSTransactionServer *testpachd.MockPPSTransactionServer
+	PJSServer                pjsapi.APIServer
 }
 
 // NewRealEnv constructs a MockEnv, then forwards all API calls to go to API
@@ -210,6 +214,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	realEnv.AuthServer, err = authserver.NewAuthServer(authEnv, true, false, true)
 	require.NoError(t, err)
 	realEnv.ServiceEnv.SetAuthServer(realEnv.AuthServer)
+	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
 
 	// ENTERPRISE
 	entEnv := pachd.EnterpriseEnv(realEnv.ServiceEnv, path.Join("", "enterprise"), txnEnv)
@@ -316,14 +321,10 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 
 	ppsWorker := ppsserver.NewWorker(ppsserver.WorkerEnv{
 		PFS:         realEnv.ServiceEnv.GetPachClient(ctx).PfsAPIClient,
+		PJS:         realEnv.ServiceEnv.GetPachClient(ctx).PjsAPIClient,
 		TaskService: realEnv.ServiceEnv.GetTaskService(path.Join(realEnv.ServiceEnv.Config().EtcdPrefix, realEnv.ServiceEnv.Config().PPSEtcdPrefix)),
+		Fileset:     realEnv.ServiceEnv.GetPachClient(ctx).FilesetClient,
 	})
-	go func() {
-		ctx := pctx.Child(ctx, "pps-worker")
-		if err := ppsWorker.Run(ctx); err != nil {
-			log.Error(ctx, "from pps-worker", zap.Error(err))
-		}
-	}()
 
 	// Debug
 	debugEnv := pachd.DebugEnv(realEnv.ServiceEnv)
@@ -337,16 +338,25 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	})
 	go debugWorker.Run(ctx) //nolint:errcheck
 
+	// Logs
 	realEnv.LogsServer, err = logsserver.NewAPIServer(logsserver.Env{
 		GetLokiClient: realEnv.ServiceEnv.GetLokiClient,
 		AuthServer:    realEnv.AuthServer,
 	})
 	require.NoError(t, err)
 
+	// PJS
+	pjsEnv := pachd.PJSEnv(realEnv.ServiceEnv)
+	pjsEnv.DB = realEnv.ServiceEnv.GetDBClient()
+	pjsEnv.GetPermissionser = realEnv.AuthServer
+	pjsEnv.GetStorageClient = func(ctx context.Context) storage.FilesetClient {
+		return realEnv.PachClient.FilesetClient
+	}
+	realEnv.PJSServer = pjs.NewAPIServer(pjsEnv)
+
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Storage, realEnv.StorageServer)
 	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)
-	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
 	linkServers(&realEnv.MockPachd.Enterprise, realEnv.EnterpriseServer)
 	linkServers(&realEnv.MockPachd.License, realEnv.LicenseServer)
 	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
@@ -354,6 +364,13 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
 	linkServers(&realEnv.MockPachd.Logs, realEnv.LogsServer)
 	linkServers(&realEnv.MockPachd.Metadata, realEnv.MetadataServer)
+	linkServers(&realEnv.MockPachd.PJS, realEnv.PJSServer)
+	go func() {
+		ctx := pctx.Child(ctx, "pps-worker")
+		if err := ppsWorker.Run(ctx); err != nil {
+			log.Error(ctx, "from pps-worker", zap.Error(err))
+		}
+	}()
 
 	return realEnv
 }

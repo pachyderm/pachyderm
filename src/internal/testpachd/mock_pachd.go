@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	"github.com/pachyderm/pachyderm/v2/src/storage"
@@ -2238,6 +2239,147 @@ func (api *metadataServerAPI) EditMetadata(ctx context.Context, req *metadata.Ed
 	return nil, errors.Errorf("unhandled pachd mock metadata.EditMetadata")
 }
 
+/* PJS Server Mocks */
+
+type pjsServerAPI struct {
+	pjs.UnsafeAPIServer
+	mock *mockPJSServer
+}
+
+type mockPJSServer struct {
+	api          pjsServerAPI
+	Await        mockAwait
+	CancelJob    mockCancelJob
+	CreateJob    mockCreateJob
+	DeleteJob    mockPJSDeleteJob
+	InspectJob   mockPJSInspectJob
+	InspectQueue mockPJSInspectQueue
+	ListJob      mockPJSListJob
+	ListQueue    mockPJSListQueue
+	ProcessQueue mockPJSProcessQueue
+	WalkJob      mockPJSWalkJob
+}
+
+type pjs_AwaitFunc func(context.Context, *pjs.AwaitRequest) (*pjs.AwaitResponse, error)
+type mockAwait struct{ handler pjs_AwaitFunc }
+
+func (mock *mockAwait) Use(cb pjs_AwaitFunc) { mock.handler = cb }
+
+func (api *pjsServerAPI) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.AwaitResponse, error) {
+	if api.mock.Await.handler != nil {
+		return api.mock.Await.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pjs.Await")
+}
+
+type pjs_CancelJobFunc func(context.Context, *pjs.CancelJobRequest) (*pjs.CancelJobResponse, error)
+type mockCancelJob struct{ handler pjs_CancelJobFunc }
+
+func (mock *mockCancelJob) Use(cb pjs_CancelJobFunc) { mock.handler = cb }
+
+func (api *pjsServerAPI) CancelJob(ctx context.Context, req *pjs.CancelJobRequest) (*pjs.CancelJobResponse, error) {
+	if api.mock.CancelJob.handler != nil {
+		return api.mock.CancelJob.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pjs.CancelJob")
+}
+
+type pjs_CreateJobFunc func(context.Context, *pjs.CreateJobRequest) (*pjs.CreateJobResponse, error)
+type mockCreateJob struct{ handler pjs_CreateJobFunc }
+
+func (mock *mockCreateJob) Use(cb pjs_CreateJobFunc) { mock.handler = cb }
+
+func (api *pjsServerAPI) CreateJob(ctx context.Context, req *pjs.CreateJobRequest) (*pjs.CreateJobResponse, error) {
+	if api.mock.CreateJob.handler != nil {
+		return api.mock.CreateJob.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pjs.CreateJob")
+}
+
+type pjs_DeleteJobFunc func(context.Context, *pjs.DeleteJobRequest) (*pjs.DeleteJobResponse, error)
+type mockPJSDeleteJob struct{ handler pjs_DeleteJobFunc }
+
+func (mock *mockPJSDeleteJob) Use(cb pjs_DeleteJobFunc) { mock.handler = cb }
+
+func (api *pjsServerAPI) DeleteJob(ctx context.Context, req *pjs.DeleteJobRequest) (*pjs.DeleteJobResponse, error) {
+	if api.mock.DeleteJob.handler != nil {
+		return api.mock.DeleteJob.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pjs.DeleteJob")
+}
+
+type pjs_InspectJobFunc func(context.Context, *pjs.InspectJobRequest) (*pjs.InspectJobResponse, error)
+type mockPJSInspectJob struct{ handler pjs_InspectJobFunc }
+
+func (mock *mockPJSInspectJob) Use(cb pjs_InspectJobFunc) { mock.handler = cb }
+
+func (api *pjsServerAPI) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) (*pjs.InspectJobResponse, error) {
+	if api.mock.InspectJob.handler != nil {
+		return api.mock.InspectJob.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pjs.InspectJob")
+}
+
+type pjs_InspectQueueFunc func(context.Context, *pjs.InspectQueueRequest) (*pjs.InspectQueueResponse, error)
+type mockPJSInspectQueue struct{ handler pjs_InspectQueueFunc }
+
+func (mock *mockPJSInspectQueue) Use(cb pjs_InspectQueueFunc) { mock.handler = cb }
+
+func (api *pjsServerAPI) InspectQueue(ctx context.Context, req *pjs.InspectQueueRequest) (*pjs.InspectQueueResponse, error) {
+	if api.mock.InspectQueue.handler != nil {
+		return api.mock.InspectQueue.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pjs.InspectQueue")
+}
+
+type pjs_ListJobFunc func(*pjs.ListJobRequest, pjs.API_ListJobServer) error
+type mockPJSListJob struct{ handler pjs_ListJobFunc }
+
+func (mock *mockPJSListJob) Use(cb pjs_ListJobFunc) { mock.handler = cb }
+
+func (api *pjsServerAPI) ListJob(req *pjs.ListJobRequest, svr pjs.API_ListJobServer) error {
+	if api.mock.ListJob.handler != nil {
+		return api.mock.ListJob.handler(req, svr)
+	}
+	return errors.Errorf("unhandled pachd mock pjs.ListJob")
+}
+
+type pjs_ListQueueFunc func(*pjs.ListQueueRequest, pjs.API_ListQueueServer) error
+type mockPJSListQueue struct{ handler pjs_ListQueueFunc }
+
+func (mock *mockPJSListQueue) Use(cb pjs_ListQueueFunc) { mock.handler = cb }
+
+func (api *pjsServerAPI) ListQueue(req *pjs.ListQueueRequest, svr pjs.API_ListQueueServer) error {
+	if api.mock.ListQueue.handler != nil {
+		return api.mock.ListQueue.handler(req, svr)
+	}
+	return errors.Errorf("unhandled pachd mock pjs.ListQueue")
+}
+
+type pjs_ProcessQueueFunc func(pjs.API_ProcessQueueServer) error
+type mockPJSProcessQueue struct{ handler pjs_ProcessQueueFunc }
+
+func (mock *mockPJSProcessQueue) Use(cb pjs_ProcessQueueFunc) { mock.handler = cb }
+
+func (api *pjsServerAPI) ProcessQueue(svr pjs.API_ProcessQueueServer) error {
+	if api.mock.ProcessQueue.handler != nil {
+		return api.mock.ProcessQueue.handler(svr)
+	}
+	return errors.Errorf("unhandled pachd mock pjs.ProcessQueue")
+}
+
+type pjs_WalkJobFunc func(*pjs.WalkJobRequest, pjs.API_WalkJobServer) error
+type mockPJSWalkJob struct{ handler pjs_WalkJobFunc }
+
+func (mock *mockPJSWalkJob) Use(cb pjs_WalkJobFunc) { mock.handler = cb }
+
+func (api *pjsServerAPI) WalkJob(req *pjs.WalkJobRequest, svr pjs.API_WalkJobServer) error {
+	if api.mock.WalkJob.handler != nil {
+		return api.mock.WalkJob.handler(req, svr)
+	}
+	return errors.Errorf("unhandled pachd mock pjs.WalkJob")
+}
+
 // MockPachd provides an interface for running the interface for a Pachd API
 // server locally without any of its dependencies. Tests may mock out specific
 // API calls by providing a handler function, and later check information about
@@ -2262,6 +2404,7 @@ type MockPachd struct {
 	Proxy         mockProxyServer
 	Logs          mockLogsServer
 	Metadata      mockMetadataServer
+	PJS           mockPJSServer
 }
 
 type InterceptorOption func(mock *MockPachd) grpcutil.Interceptor
@@ -2301,6 +2444,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	mock.GetAuthServer = func() authserver.APIServer {
 		return &mock.Auth.api
 	}
+	mock.PJS.api.mock = &mock.PJS
 
 	loggingInterceptor := loggingmw.NewLoggingInterceptor(ctx)
 	unaryOpts := []grpc.UnaryServerInterceptor{
@@ -2355,6 +2499,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	license.RegisterAPIServer(server.Server, &mock.License.api)
 	identity.RegisterAPIServer(server.Server, &mock.Identity.api)
 	metadata.RegisterAPIServer(server.Server, &mock.Metadata.api)
+	pjs.RegisterAPIServer(server.Server, &mock.PJS.api)
 
 	listener, err := server.ListenTCP("localhost", port)
 	if err != nil {

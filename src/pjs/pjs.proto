@@ -57,6 +57,7 @@ message JobInfo {
     // output is a list of fileset handles produced by a successful Job.
     repeated string output = 1;
   }
+
   // result is set when the Job enters the DONE state.
   oneof result {
     Success success = 6;

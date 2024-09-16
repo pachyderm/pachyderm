@@ -250,6 +250,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 		PFS:         pfs.NewAPIClient(pd.selfGRPC),
 		TaskService: task.NewEtcdService(env.EtcdClient, config.PPSEtcdPrefix),
 		PJS:         pjs.NewAPIClient(pd.selfGRPC),
+		Fileset:     storage.NewFilesetClient(pd.selfGRPC),
 	})
 
 	pd.kubeClient = fake.NewSimpleClientset(env.K8sObjects...)

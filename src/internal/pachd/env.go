@@ -4,6 +4,7 @@ import (
 	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -185,4 +186,9 @@ func DebugEnv(env serviceenv.ServiceEnv) debug_server.Env {
 		GetPachClient:        env.GetPachClient,
 		TaskService:          env.GetTaskService(env.Config().EtcdPrefix),
 	}
+}
+
+func PJSEnv(env serviceenv.ServiceEnv) pjs_server.Env {
+	// FIXME: we’ll just add items as it crashes
+	return pjs_server.Env{}
 }
