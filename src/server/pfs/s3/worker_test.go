@@ -1,12 +1,13 @@
 package s3_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
 
-	minio "github.com/minio/minio-go/v6"
+	minio "github.com/minio/minio-go/v7"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -29,14 +30,14 @@ type workerTestState struct {
 	outputBranch       string
 }
 
-func workerListBuckets(t *testing.T, s *workerTestState) {
+func workerListBuckets(ctx context.Context, t *testing.T, s *workerTestState) {
 	// create a repo - this should not show up list buckets with the worker
 	// driver
 	repo := tu.UniqueString("testlistbuckets1")
 	require.NoError(t, s.pachClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, s.pachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
 
-	buckets, err := s.minioClient.ListBuckets()
+	buckets, err := s.minioClient.ListBuckets(ctx)
 	require.NoError(t, err)
 
 	actualBucketNames := []string{}
@@ -47,60 +48,60 @@ func workerListBuckets(t *testing.T, s *workerTestState) {
 	require.ElementsEqual(t, []string{"in1", "in2", "out"}, actualBucketNames)
 }
 
-func workerGetObject(t *testing.T, s *workerTestState) {
-	fetchedContent, err := getObject(t, s.minioClient, "in1", "0")
+func workerGetObject(ctx context.Context, t *testing.T, s *workerTestState) {
+	fetchedContent, err := getObject(ctx, t, s.minioClient, "in1", "0")
 	require.NoError(t, err)
 	require.Equal(t, "0\n", fetchedContent)
 }
 
-func workerGetObjectOutputRepo(t *testing.T, s *workerTestState) {
-	_, err := getObject(t, s.minioClient, "out", "file")
+func workerGetObjectOutputRepo(ctx context.Context, t *testing.T, s *workerTestState) {
+	_, err := getObject(ctx, t, s.minioClient, "out", "file")
 	keyNotFoundError(t, err)
 }
 
-func workerStatObject(t *testing.T, s *workerTestState) {
-	info, err := s.minioClient.StatObject("in1", "0", minio.StatObjectOptions{})
+func workerStatObject(ctx context.Context, t *testing.T, s *workerTestState) {
+	info, err := s.minioClient.StatObject(ctx, "in1", "0", minio.StatObjectOptions{})
 	require.NoError(t, err)
 	require.True(t, len(info.ETag) > 0)
 	require.Equal(t, "text/plain; charset=utf-8", info.ContentType)
 	require.Equal(t, int64(2), info.Size)
 }
 
-func workerPutObject(t *testing.T, s *workerTestState) {
+func workerPutObject(ctx context.Context, t *testing.T, s *workerTestState) {
 	r := strings.NewReader("content1")
-	_, err := s.minioClient.PutObject("out", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	_, err := s.minioClient.PutObject(ctx, "out", "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
 	// this should act as a PFS PutFile
 	r2 := strings.NewReader("content2")
-	_, err = s.minioClient.PutObject("out", "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	_, err = s.minioClient.PutObject(ctx, "out", "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
-	_, err = getObject(t, s.minioClient, "out", "file")
+	_, err = getObject(ctx, t, s.minioClient, "out", "file")
 	keyNotFoundError(t, err)
 }
 
-func workerPutObjectInputRepo(t *testing.T, s *workerTestState) {
+func workerPutObjectInputRepo(ctx context.Context, t *testing.T, s *workerTestState) {
 	r := strings.NewReader("content1")
-	_, err := s.minioClient.PutObject("in1", "0", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
+	_, err := s.minioClient.PutObject(ctx, "in1", "0", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	notImplementedError(t, err)
 }
 
-func workerRemoveObject(t *testing.T, s *workerTestState) {
+func workerRemoveObject(ctx context.Context, t *testing.T, s *workerTestState) {
 	require.NoError(t, s.pachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, s.outputRepo, s.outputBranch, ""), "file", strings.NewReader("content")))
 
 	// as per PFS semantics, the second delete should be a no-op
-	require.NoError(t, s.minioClient.RemoveObject("out", "file"))
-	require.NoError(t, s.minioClient.RemoveObject("out", "file"))
+	require.NoError(t, s.minioClient.RemoveObject(ctx, "out", "file", minio.RemoveObjectOptions{}))
+	require.NoError(t, s.minioClient.RemoveObject(ctx, "out", "file", minio.RemoveObjectOptions{}))
 }
 
-func workerRemoveObjectInputRepo(t *testing.T, s *workerTestState) {
-	err := s.minioClient.RemoveObject("in1", "0")
+func workerRemoveObjectInputRepo(ctx context.Context, t *testing.T, s *workerTestState) {
+	err := s.minioClient.RemoveObject(ctx, "in1", "0", minio.RemoveObjectOptions{})
 	notImplementedError(t, err)
 }
 
 // Tests inserting and getting files over 64mb in size
-func workerLargeObjects(t *testing.T, s *workerTestState) {
+func workerLargeObjects(ctx context.Context, t *testing.T, s *workerTestState) {
 	// create a temporary file to put ~65mb of contents into it
 	inputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-input-*")
 	require.NoError(t, err)
@@ -112,20 +113,20 @@ func workerLargeObjects(t *testing.T, s *workerTestState) {
 
 	// first ensure that putting into a repo that doesn't exist triggers an
 	// error
-	_, err = s.minioClient.FPutObject("foobar", "file", inputFile.Name(), minio.PutObjectOptions{
+	_, err = s.minioClient.FPutObject(ctx, "foobar", "file", inputFile.Name(), minio.PutObjectOptions{
 		ContentType: "text/plain",
 	})
 	bucketNotFoundError(t, err)
 
 	// now try putting into a legit repo
-	l, err := s.minioClient.FPutObject("out", "file", inputFile.Name(), minio.PutObjectOptions{
+	l, err := s.minioClient.FPutObject(ctx, "out", "file", inputFile.Name(), minio.PutObjectOptions{
 		ContentType: "text/plain",
 	})
 	require.NoError(t, err)
-	require.Equal(t, int(l), 68157450)
+	require.Equal(t, int(l.Size), 68157450)
 
 	// try getting an object that does not exist
-	err = s.minioClient.FGetObject("foobar", "file", "foo", minio.GetObjectOptions{})
+	err = s.minioClient.FGetObject(ctx, "foobar", "file", "foo", minio.GetObjectOptions{})
 	bucketNotFoundError(t, err)
 
 	// get the file that does exist, doesn't work because we're reading from
@@ -133,37 +134,37 @@ func workerLargeObjects(t *testing.T, s *workerTestState) {
 	outputFile, err := os.CreateTemp("", "pachyderm-test-large-objects-output-*")
 	require.NoError(t, err)
 	defer os.Remove(outputFile.Name()) //nolint:errcheck
-	err = s.minioClient.FGetObject("out", "file", outputFile.Name(), minio.GetObjectOptions{})
+	err = s.minioClient.FGetObject(ctx, "out", "file", outputFile.Name(), minio.GetObjectOptions{})
 	keyNotFoundError(t, err)
 }
 
-func workerMakeBucket(t *testing.T, s *workerTestState) {
+func workerMakeBucket(ctx context.Context, t *testing.T, s *workerTestState) {
 	repo := tu.UniqueString("testmakebucket")
-	notImplementedError(t, s.minioClient.MakeBucket(repo, ""))
+	notImplementedError(t, s.minioClient.MakeBucket(ctx, repo, minio.MakeBucketOptions{}))
 }
 
-func workerBucketExists(t *testing.T, s *workerTestState) {
-	exists, err := s.minioClient.BucketExists("in1")
+func workerBucketExists(ctx context.Context, t *testing.T, s *workerTestState) {
+	exists, err := s.minioClient.BucketExists(ctx, "in1")
 	require.NoError(t, err)
 	require.True(t, exists)
 
-	exists, err = s.minioClient.BucketExists("out")
+	exists, err = s.minioClient.BucketExists(ctx, "out")
 	require.NoError(t, err)
 	require.True(t, exists)
 
-	exists, err = s.minioClient.BucketExists("foobar")
+	exists, err = s.minioClient.BucketExists(ctx, "foobar")
 	require.NoError(t, err)
 	require.False(t, exists)
 }
 
-func workerRemoveBucket(t *testing.T, s *workerTestState) {
-	notImplementedError(t, s.minioClient.RemoveBucket("in1"))
-	notImplementedError(t, s.minioClient.RemoveBucket("out"))
+func workerRemoveBucket(ctx context.Context, t *testing.T, s *workerTestState) {
+	notImplementedError(t, s.minioClient.RemoveBucket(ctx, "in1"))
+	notImplementedError(t, s.minioClient.RemoveBucket(ctx, "out"))
 }
 
-func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
+func workerListObjectsPaginated(ctx context.Context, t *testing.T, s *workerTestState) {
 	// Request that will list all files in root
-	ch := s.minioClient.ListObjects("in2", "", false, make(chan struct{}))
+	ch := s.minioClient.ListObjects(ctx, "in2", minio.ListObjectsOptions{Prefix: ""})
 	expectedFiles := []string{}
 	for i := 0; i <= 100; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
@@ -172,7 +173,7 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 
 	// Request that will list all files in with / as a prefix ("/" should mean
 	// the same as "", e.g. rust-s3 client)
-	ch = s.minioClient.ListObjects("in2", "/", false, make(chan struct{}))
+	ch = s.minioClient.ListObjects(ctx, "in2", minio.ListObjectsOptions{Prefix: "/"})
 	expectedFiles = []string{}
 	for i := 0; i <= 100; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
@@ -180,7 +181,7 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{"dir/"})
 
 	// Request that will list all files starting with 1
-	ch = s.minioClient.ListObjects("in2", "1", false, make(chan struct{}))
+	ch = s.minioClient.ListObjects(ctx, "in2", minio.ListObjectsOptions{Prefix: "1"})
 	expectedFiles = []string{}
 	for i := 0; i <= 100; i++ {
 		file := fmt.Sprintf("%d", i)
@@ -191,7 +192,7 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
 
 	// Request that will list all files in a directory
-	ch = s.minioClient.ListObjects("in2", "dir/", false, make(chan struct{}))
+	ch = s.minioClient.ListObjects(ctx, "in2", minio.ListObjectsOptions{Prefix: "dir/"})
 	expectedFiles = []string{}
 	for i := 0; i < 10; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("dir/%d", i))
@@ -199,30 +200,30 @@ func workerListObjectsPaginated(t *testing.T, s *workerTestState) {
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
 }
 
-func workerListObjectsRecursive(t *testing.T, s *workerTestState) {
+func workerListObjectsRecursive(ctx context.Context, t *testing.T, s *workerTestState) {
 	// Request that will list all files in master
 	expectedFiles := []string{"0", "rootdir/1", "rootdir/subdir/2"}
-	ch := s.minioClient.ListObjects("in1", "", true, make(chan struct{}))
+	ch := s.minioClient.ListObjects(ctx, "in1", minio.ListObjectsOptions{Prefix: "", Recursive: true})
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
 
 	// Requests that will list all files in rootdir
 	expectedFiles = []string{"rootdir/1", "rootdir/subdir/2"}
-	ch = s.minioClient.ListObjects("in1", "r", true, make(chan struct{}))
+	ch = s.minioClient.ListObjects(ctx, "in1", minio.ListObjectsOptions{Prefix: "r", Recursive: true})
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
-	ch = s.minioClient.ListObjects("in1", "rootdir", true, make(chan struct{}))
+	ch = s.minioClient.ListObjects(ctx, "in1", minio.ListObjectsOptions{Prefix: "rootdir", Recursive: true})
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
-	ch = s.minioClient.ListObjects("in1", "rootdir/", true, make(chan struct{}))
+	ch = s.minioClient.ListObjects(ctx, "in1", minio.ListObjectsOptions{Prefix: "rootdir/", Recursive: true})
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
 
 	// Requests that will list all files in subdir
 	expectedFiles = []string{"rootdir/subdir/2"}
-	ch = s.minioClient.ListObjects("in1", "rootdir/s", true, make(chan struct{}))
+	ch = s.minioClient.ListObjects(ctx, "in1", minio.ListObjectsOptions{Prefix: "rootdir/s", Recursive: true})
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
-	ch = s.minioClient.ListObjects("in1", "rootdir/subdir", true, make(chan struct{}))
+	ch = s.minioClient.ListObjects(ctx, "in1", minio.ListObjectsOptions{Prefix: "rootdir/subdir", Recursive: true})
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
-	ch = s.minioClient.ListObjects("in1", "rootdir/subdir/", true, make(chan struct{}))
+	ch = s.minioClient.ListObjects(ctx, "in1", minio.ListObjectsOptions{Prefix: "rootdir/subdir/", Recursive: true})
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
-	ch = s.minioClient.ListObjects("in1", "rootdir/subdir/2", true, make(chan struct{}))
+	ch = s.minioClient.ListObjects(ctx, "in1", minio.ListObjectsOptions{Prefix: "rootdir/subdir/2", Recursive: true})
 	checkListObjects(t, ch, nil, nil, expectedFiles, []string{})
 }
 
@@ -300,46 +301,46 @@ func TestWorkerDriver(t *testing.T) {
 		}
 
 		t.Run("ListBuckets", func(t *testing.T) {
-			workerListBuckets(t, s)
+			workerListBuckets(ctx, t, s)
 		})
 		t.Run("GetObject", func(t *testing.T) {
-			workerGetObject(t, s)
+			workerGetObject(ctx, t, s)
 		})
 		t.Run("GetObjectOutputRepo", func(t *testing.T) {
-			workerGetObjectOutputRepo(t, s)
+			workerGetObjectOutputRepo(ctx, t, s)
 		})
 		t.Run("StatObject", func(t *testing.T) {
-			workerStatObject(t, s)
+			workerStatObject(ctx, t, s)
 		})
 		t.Run("PutObject", func(t *testing.T) {
-			workerPutObject(t, s)
+			workerPutObject(ctx, t, s)
 		})
 		t.Run("PutObjectInputRepo", func(t *testing.T) {
-			workerPutObjectInputRepo(t, s)
+			workerPutObjectInputRepo(ctx, t, s)
 		})
 		t.Run("RemoveObject", func(t *testing.T) {
-			workerRemoveObject(t, s)
+			workerRemoveObject(ctx, t, s)
 		})
 		t.Run("RemoveObjectInputRepo", func(t *testing.T) {
-			workerRemoveObjectInputRepo(t, s)
+			workerRemoveObjectInputRepo(ctx, t, s)
 		})
 		t.Run("LargeObjects", func(t *testing.T) {
-			workerLargeObjects(t, s)
+			workerLargeObjects(ctx, t, s)
 		})
 		t.Run("MakeBucket", func(t *testing.T) {
-			workerMakeBucket(t, s)
+			workerMakeBucket(ctx, t, s)
 		})
 		t.Run("BucketExists", func(t *testing.T) {
-			workerBucketExists(t, s)
+			workerBucketExists(ctx, t, s)
 		})
 		t.Run("RemoveBucket", func(t *testing.T) {
-			workerRemoveBucket(t, s)
+			workerRemoveBucket(ctx, t, s)
 		})
 		t.Run("ListObjectsPaginated", func(t *testing.T) {
-			workerListObjectsPaginated(t, s)
+			workerListObjectsPaginated(ctx, t, s)
 		})
 		t.Run("ListObjectsRecursive", func(t *testing.T) {
-			workerListObjectsRecursive(t, s)
+			workerListObjectsRecursive(ctx, t, s)
 		})
 	})
 }
