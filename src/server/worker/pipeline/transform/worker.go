@@ -86,8 +86,6 @@ func PreprocessingWorker(ctx context.Context, c pfs.APIClient, taskService task.
 		))
 	}()
 	go func() {
-
-		time.Sleep(24)
 		defer wg.Done()
 		if pjsService == nil {
 			return
