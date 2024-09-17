@@ -2,15 +2,16 @@ package pjs
 
 import (
 	"context"
+	"io"
+	"math"
+	"testing"
+	"time"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"math"
-	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -655,7 +656,7 @@ func setupTest(t testing.TB, opts ...ClientOptions) (pjs.APIClient, storage.File
 	return NewTestClient(t, db, client, opts...), client
 }
 
-func createFileSet(t *testing.T, fc storage.FilesetClient, files map[string][]byte) string {
+func createFileSet(t testing.TB, fc storage.FilesetClient, files map[string][]byte) string {
 	ctx := pctx.TestContext(t)
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
