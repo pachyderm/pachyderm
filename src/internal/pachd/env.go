@@ -1,16 +1,19 @@
 package pachd
 
 import (
+	"context"
 	"path"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
+	storage_server "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	admin_server "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
@@ -124,13 +127,13 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 	}, nil
 }
 
-func StorageEnv(env serviceenv.ServiceEnv) (*storage.Env, error) {
+func StorageEnv(env serviceenv.ServiceEnv) (*storage_server.Env, error) {
 	cfg := env.Config()
 	bucket, err := obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "storage env")
 	}
-	return &storage.Env{
+	return &storage_server.Env{
 		Bucket: bucket,
 		DB:     env.GetDBClient(),
 		Config: cfg.StorageConfiguration,
@@ -190,5 +193,12 @@ func DebugEnv(env serviceenv.ServiceEnv) debug_server.Env {
 
 func PJSEnv(env serviceenv.ServiceEnv) pjs_server.Env {
 	// FIXME: we’ll just add items as it crashes
-	return pjs_server.Env{}
+	return pjs_server.Env{
+		DB:               env.GetDBClient(),
+		GetPermissionser: env.AuthServer(),
+		GetStorageClient: func(ctx context.Context) storage.FilesetClient {
+			return env.GetPachClient(ctx).FilesetClient
+		},
+		GetAuthToken: auth.GetAuthToken,
+	}
 }
