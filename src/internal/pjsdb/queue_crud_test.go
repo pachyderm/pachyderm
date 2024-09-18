@@ -2,6 +2,7 @@ package pjsdb_test
 
 import (
 	"context"
+	"fmt"
 	"golang.org/x/sync/errgroup"
 	"testing"
 
@@ -91,7 +92,8 @@ func TestDequeue(t *testing.T) {
 }
 
 func BenchmarkDequeuePerformance(t *testing.B) {
-	numItems := 1000 * t.N
+	t.StopTimer()
+	numItems := t.N
 	numWorkers := 10
 	ctx, db := DB(t)
 	db.SetMaxOpenConns(numWorkers)
@@ -107,20 +109,24 @@ func BenchmarkDequeuePerformance(t *testing.B) {
 		queueId = [32]byte(progHash)
 	})
 
-	t.Log("numItems:", numItems)
-
-	t.ResetTimer()
+	t.StartTimer()
 	var eg errgroup.Group
 
 	for i := 0; i < numWorkers; i++ {
-		for j := 0; j < numItems/numWorkers; j++ {
-			eg.Go(func() error {
-				return dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		eg.Go(func() error {
+			for j := 0; j < numItems/numWorkers; j++ {
+				err := dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 					_, err := pjsdb.DequeueAndProcess(ctx, sqlTx, queueId[:])
 					return err
 				})
-			})
-		}
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 	}
 	require.NoError(t, eg.Wait())
+
+	fmt.Printf("took %s with t.N = %d\n", t.Elapsed(), t.N)
 }
