@@ -2,7 +2,6 @@ package pjsdb_test
 
 import (
 	"context"
-	"fmt"
 	"golang.org/x/sync/errgroup"
 	"testing"
 
@@ -99,8 +98,6 @@ func BenchmarkDequeuePerformance(t *testing.B) {
 	db.SetMaxOpenConns(numWorkers)
 	s := FilesetStorage(t, db)
 	var queueId [32]byte
-	// 1. create 1000 jobs. same queue
-	// 2. dequeue 1000/N jobs across N go routines
 	withTx(t, ctx, db, s, func(d dependencies) {
 		prog, progHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo;")
 		for i := 0; i < numItems; i++ {
@@ -128,5 +125,5 @@ func BenchmarkDequeuePerformance(t *testing.B) {
 	}
 	require.NoError(t, eg.Wait())
 
-	fmt.Printf("took %s with t.N = %d\n", t.Elapsed(), t.N)
+	t.Logf("took %s with t.N = %d\n", t.Elapsed(), t.N)
 }
