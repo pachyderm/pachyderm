@@ -34,10 +34,16 @@ const (
 		SELECT 
 			j.*,
 			ARRAY_REMOVE(ARRAY_AGG(jf_input.fileset ORDER BY jf_input.array_position), NULL) as "inputs",
-			ARRAY_REMOVE(ARRAY_AGG(jf_output.fileset ORDER BY jf_output.array_position), NULL) as "outputs"
+			ARRAY_REMOVE(ARRAY_AGG(jf_output.fileset ORDER BY jf_output.array_position), NULL) as "outputs",
+			-- jc.job_id is redudant here and can be omitted.
+			jc.job_hash, 
+			-- if there is no cache entry for the job, return false.
+			COALESCE(jc.cache_read, FALSE) as "cache_read", 
+			COALESCE(jc.cache_write, FALSE) as "cache_write"
 		FROM pjs.jobs j
 		LEFT JOIN pjs.job_filesets jf_input ON j.id = jf_input.job_id AND jf_input.fileset_type = 'input'
 		LEFT JOIN pjs.job_filesets jf_output ON j.id = jf_output.job_id AND jf_output.fileset_type = 'output'
+		LEFT JOIN pjs.job_cache jc ON j.id = jc.job_id
 	`
 )
 
@@ -74,6 +80,7 @@ type CreateJobRequest struct {
 	// The user is responsible for supplying the hash.
 	// The hash ought to be computed with HashFileset() in the internal PJS package (src/internal/pjs.go)
 	ProgramHash []byte
+	//TODO: handle caching.
 }
 
 // IsSanitized is a utility function that wraps sanitize() for the purposes of testing.
@@ -124,6 +131,7 @@ type createJobRequest struct {
 	Inputs      []jobFilesetsRow
 	Program     []byte
 	ProgramHash []byte
+	//TODO: handle caching.
 }
 
 // CreateJob creates a job entry in postgres.
@@ -133,6 +141,8 @@ func CreateJob(ctx context.Context, tx *pachsql.Tx, req CreateJobRequest) (JobID
 	if err != nil {
 		return 0, errors.Wrap(err, "create job")
 	}
+	//TODO: handle caching.
+
 	// insert into the jobs table.
 	var id JobID
 	row := tx.QueryRowxContext(ctx, `
@@ -162,7 +172,7 @@ func GetJob(ctx context.Context, tx *pachsql.Tx, id JobID) (Job, error) {
 	ctx = pctx.Child(ctx, "getJob")
 	record := jobRecord{}
 	err := sqlx.GetContext(ctx, tx, &record, selectJobRecordPrefix+`
-	WHERE j.id = $1 GROUP BY j.id;`, id)
+	WHERE j.id = $1 GROUP BY j.id, jc.job_hash, jc.cache_write, jc.cache_read;`, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Job{}, &JobNotFoundError{ID: id}
@@ -253,7 +263,7 @@ func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID, algo WalkAlgorithm, 
 func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
 	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
 		INNER JOIN children c ON j.id = c.id
-		GROUP BY j.id
+		GROUP BY j.id, jc.job_hash, jc.cache_write, jc.cache_read
 		ORDER BY MIN(depth) ASC;
 	`, id, depth); err != nil {
 		return nil, errors.Wrap(err, "select context")
@@ -264,7 +274,7 @@ func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64)
 func walkPreOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
 	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
 		INNER JOIN children c ON j.id = c.id
-		GROUP BY j.id, c.path
+		GROUP BY j.id, jc.job_hash, jc.cache_write, jc.cache_read, c.path
 		ORDER BY c.path;
 	`, id, depth); err != nil {
 		return nil, errors.Wrap(err, "select context")
@@ -281,7 +291,7 @@ func walkMirroredPostOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth 
 		)
 		`+selectJobRecordPrefix+`
 		JOIN post_order p ON p.id = j.id 
-		GROUP BY j.id, p.post_order
+		GROUP BY j.id, jc.job_hash, jc.cache_write, jc.cache_read, p.post_order
 		ORDER BY p.post_order;
 	`, id, depth); err != nil {
 		return nil, errors.Wrap(err, "select context")

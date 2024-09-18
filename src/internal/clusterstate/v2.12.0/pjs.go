@@ -40,6 +40,17 @@ func createPJSSchema(ctx context.Context, env migrations.Env) error {
 			'input', 
 			'output'
 		);
+		-- PJS has a server side cache for jobs. Utilizing this cache allows PJS to skip subtrees when spawning job trees.
+		CREATE TABLE pjs.job_cache (
+			job_hash BYTEA NOT NULL,
+			job_id BIGINT REFERENCES pjs.jobs(id) ON DELETE CASCADE,
+			cache_read BOOLEAN NOT NULL DEFAULT FALSE,
+		    cache_write BOOLEAN NOT NULL DEFAULT FALSE,
+		    PRIMARY KEY(job_hash, job_id)
+		);
+		CREATE INDEX id_to_hash ON pjs.job_cache (
+			job_id, job_hash
+		);
 		-- A job's input and output may be more than one fileset.
 		-- An extra table makes looking up, inserting, and reordering those filesets more efficient.
 		CREATE TABLE pjs.job_filesets (

@@ -1,6 +1,7 @@
 package pjsdb_test
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"math"
 	"strings"
@@ -30,7 +31,7 @@ func createJob(t *testing.T, d dependencies, parent pjsdb.JobID) (pjsdb.JobID, e
 	return id, err
 }
 
-func TestCreateJob(t *testing.T) {
+func TestCreateAndGetJob(t *testing.T) {
 	t.Run("valid/parent/nil", func(t *testing.T) {
 		withDependencies(t, func(d dependencies) {
 			id, err := createJob(t, d, 0)
@@ -45,6 +46,24 @@ func TestCreateJob(t *testing.T) {
 			require.NoError(t, err)
 			_, err = pjsdb.GetJob(d.ctx, d.tx, id)
 			require.NoError(t, err)
+		})
+	})
+	t.Run("valid/cache/exists", func(t *testing.T) {
+		withDependencies(t, func(d dependencies) {
+			id, err := createJob(t, d, createRootJob(t, d))
+			require.NoError(t, err)
+			hasher := pachhash.New()
+			_, err = hasher.Write([]byte("hello, world!"))
+			require.NoError(t, err)
+			hash := hasher.Sum(nil)
+			_, err = d.tx.ExecContext(d.ctx, `
+				INSERT INTO pjs.job_cache (job_id, job_hash, cache_read, cache_write) 
+				VALUES ($1, $2, true, true);`,
+				id, hash)
+			require.NoError(t, err)
+			j, err := pjsdb.GetJob(d.ctx, d.tx, id)
+			require.NoError(t, err)
+			require.NoDiff(t, hash, j.JobHash, nil)
 		})
 	})
 }
