@@ -127,16 +127,16 @@ func (a *apiServer) propagateBranches(ctx context.Context, txnCtx *txncontext.Tr
 }
 
 func computePropagatedBranches(ctx context.Context, tx *pachsql.Tx, seen map[string]*pfs.BranchInfo, id pfsdb.BranchID) ([]*pfs.BranchInfo, error) {
-	specs, err := pfsdb.GetBranchPropagationSpecDirectSubvenanceRows(ctx, tx, id)
+	rows, err := pfsdb.GetBranchProvenanceRowsDirectSubvenance(ctx, tx, id)
 	if err != nil {
 		return nil, err
 	}
 	var subvenantBranchInfos []*pfs.BranchInfo
-	for _, spec := range specs {
-		if spec.Never {
+	for _, row := range rows {
+		if row.Never {
 			continue
 		}
-		branchInfo, err := pfsdb.GetBranchInfo(ctx, tx, spec.FromID)
+		branchInfo, err := pfsdb.GetBranchInfo(ctx, tx, row.FromID)
 		if err != nil {
 			return nil, err
 		}
@@ -145,7 +145,7 @@ func computePropagatedBranches(ctx context.Context, tx *pachsql.Tx, seen map[str
 		}
 		seen[pfsdb.BranchKey(branchInfo.Branch)] = branchInfo
 		subvenantBranchInfos = append(subvenantBranchInfos, branchInfo)
-		branchInfos, err := computePropagatedBranches(ctx, tx, seen, spec.FromID)
+		branchInfos, err := computePropagatedBranches(ctx, tx, seen, row.FromID)
 		if err != nil {
 			return nil, err
 		}

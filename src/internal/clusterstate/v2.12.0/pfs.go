@@ -8,20 +8,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 
-// TODO: Inverted index?
-func createBranchPropagationSpecsTable(ctx context.Context, env migrations.Env) error {
-	ctx = pctx.Child(ctx, "createBranchPropagationSpecsTable")
+func alterBranchProvenanceTable(ctx context.Context, env migrations.Env) error {
+	ctx = pctx.Child(ctx, "alterBranchProvenanceTable")
 	_, err := env.Tx.ExecContext(ctx, `
-		CREATE TABLE pfs.branch_propagation_specs (
-			from_id BIGINT NOT NULL,
-			to_id BIGINT NOT NULL,
-			FOREIGN KEY (from_id, to_id) REFERENCES pfs.branch_provenance (from_id, to_id) ON DELETE CASCADE,
-			PRIMARY KEY (from_id, to_id),
-			never BOOLEAN NOT NULL
-		);
+		ALTER TABLE pfs.branch_provenance
+		ADD COLUMN never BOOL NOT NULL DEFAULT false;
 	`)
 	if err != nil {
-		return errors.Wrap(err, "create branch propagation specs table")
+		return errors.Wrap(err, "alter branch provenance table")
 	}
 	return nil
 }

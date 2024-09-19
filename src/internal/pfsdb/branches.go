@@ -371,21 +371,19 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 			return branchID, errors.Wrap(err, "updating branch trigger")
 		}
 	}
-	// Create the branch propagation specs.
-	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_propagation_specs WHERE from_id = $1`, branchID); err != nil {
-		return branchID, errors.Wrap(err, "could not delete branch propagation specs")
-	}
+	// Update the branch propagation specs.
 	for _, bps := range branchInfo.BranchPropagationSpecs {
 		toBranchID, err := GetBranchID(ctx, tx, bps.Branch)
 		if err != nil {
-			return branchID, errors.Wrapf(err, "could not get to_branch_id for creating branch propagation spec")
+			return branchID, errors.Wrapf(err, "could not get to_branch_id for updating branch propagation spec")
 		}
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO pfs.branch_propagation_specs(from_id, to_id, never)
-			VALUES ($1, $2, $3)
-			ON CONFLICT DO NOTHING
+			UPDATE pfs.branch_provenance
+			SET never = $3
+			WHERE from_id = $1
+			AND to_id = $2
 		`, branchID, toBranchID, bps.PropagationSpec.Never); err != nil {
-			return branchID, errors.Wrap(err, "could not insert branch propagation spec")
+			return branchID, errors.Wrap(err, "could not update branch propagation spec")
 		}
 	}
 	return branchID, nil
@@ -748,17 +746,14 @@ func DeleteBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) err
 	return nil
 }
 
-func GetBranchPropagationSpecDirectSubvenanceRows(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*BranchPropagationSpecRow, error) {
-	var rows []*BranchPropagationSpecRow
+func GetBranchProvenanceRowsDirectSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*BranchProvenanceRow, error) {
+	var rows []*BranchProvenanceRow
 	if err := sqlx.SelectContext(ctx, ext, &rows, `
-		SELECT bp.from_id, bp.to_id, CASE WHEN never IS NULL THEN false ELSE never END 
-		FROM pfs.branch_provenance bp
-		LEFT JOIN pfs.branch_propagation_specs bps
-		ON bp.from_id = bps.from_id
-		AND bp.to_id = bps.to_id
-		WHERE bp.to_id = $1
+		SELECT from_id, to_id, never
+		FROM pfs.branch_provenance
+		WHERE to_id = $1
 	`, id); err != nil {
-		return nil, errors.Wrap(err, "could not get branch propagation spec direct subvenance rows")
+		return nil, errors.Wrap(err, "could not get branch provenance rows direct subvenance")
 	}
 	return rows, nil
 }
@@ -793,7 +788,39 @@ func fetchBranchInfoByBranch(ctx context.Context, ext sqlx.ExtContext, branch *B
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get branch trigger")
 	}
+	branchInfo.BranchPropagationSpecs, err = GetBranchPropagationSpecs(ctx, ext, branch.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get branch propagation specs")
+	}
 	return branchInfo, nil
+}
+
+func GetBranchPropagationSpecs(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*pfs.BranchPropagationSpec, error) {
+	var rows []*BranchProvenanceRow
+	if err := sqlx.SelectContext(ctx, ext, &rows, `
+               SELECT to_id, never
+               FROM pfs.branch_provenance
+               WHERE from_id = $1
+       `, id); err != nil {
+		return nil, errors.Wrap(err, "could not get branch provenance rows")
+	}
+	var bps []*pfs.BranchPropagationSpec
+	for _, row := range rows {
+		// Skip default branch propagation specs.
+		if !row.Never {
+			continue
+		}
+		branch := &BranchRow{}
+		id := row.ToID
+		if err := sqlx.GetContext(ctx, ext, branch, getBranchByIDQuery, id); err != nil {
+			return nil, errors.Wrap(err, "could not get branch")
+		}
+		bps = append(bps, &pfs.BranchPropagationSpec{
+			Branch:          branch.Pb(),
+			PropagationSpec: &pfs.PropagationSpec{Never: row.Never},
+		})
+	}
+	return bps, nil
 }
 
 // Helper functions for watching branches.

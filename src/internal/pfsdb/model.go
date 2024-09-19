@@ -198,7 +198,7 @@ func (trigger *BranchTrigger) Pb() *pfs.Trigger {
 	}
 }
 
-type BranchPropagationSpecRow struct {
+type BranchProvenanceRow struct {
 	FromID BranchID `db:"from_id"`
 	ToID   BranchID `db:"to_id"`
 	Never  bool     `db:"never"`
