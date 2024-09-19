@@ -97,13 +97,13 @@ func BenchmarkDequeuePerformance(t *testing.B) {
 	ctx, db := DB(t)
 	db.SetMaxOpenConns(numWorkers)
 	s := FilesetStorage(t, db)
-	var queueId [32]byte
+	var queueId []byte
 	withTx(t, ctx, db, s, func(d dependencies) {
 		prog, progHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo;")
 		for i := 0; i < numItems; i++ {
 			createJobWithFilesets(t, d, 0, prog, progHash)
 		}
-		copy(queueId[:], progHash[:32])
+		queueId = progHash
 	})
 
 	t.StartTimer()
@@ -113,7 +113,7 @@ func BenchmarkDequeuePerformance(t *testing.B) {
 		eg.Go(func() error {
 			for j := 0; j < numItems/numWorkers; j++ {
 				err := dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-					_, err := pjsdb.DequeueAndProcess(ctx, sqlTx, queueId[:])
+					_, err := pjsdb.DequeueAndProcess(ctx, sqlTx, queueId)
 					return err
 				})
 				if err != nil {
