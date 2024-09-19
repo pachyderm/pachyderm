@@ -10654,7 +10654,11 @@ func TestNoPostgresPassword(t *testing.T) {
 	require.Equal(t, "FOO=BAR", foo, "FOO=BAR should be in there")
 }
 
+<<<<<<< HEAD
 func TestPropagationSpec(t *testing.T) {
+=======
+func TestReferenceInput(t *testing.T) {
+>>>>>>> master
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -10665,6 +10669,7 @@ func TestPropagationSpec(t *testing.T) {
 
 	// Create repos and initial commits.
 	project := pfs.DefaultProjectName
+<<<<<<< HEAD
 	repo := tu.UniqueString("TestPropagationSpec")
 	require.NoError(t, c.CreateRepo(project, repo))
 	neverRepo := tu.UniqueString("TestPropagationSpec_never")
@@ -10680,6 +10685,25 @@ func TestPropagationSpec(t *testing.T) {
 
 	// Create pipeline with never propagation spec.
 	pipeline := tu.UniqueString("TestPropagationSpec")
+=======
+	repo := tu.UniqueString("TestReferenceInput")
+	require.NoError(t, c.CreateRepo(project, repo))
+	referenceRepo := tu.UniqueString("TestReferenceInput_reference")
+	require.NoError(t, c.CreateRepo(project, referenceRepo))
+
+	commit, err := c.StartCommit(project, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo")))
+	require.NoError(t, c.FinishCommit(project, repo, "", commit.Id))
+
+	commit, err = c.StartCommit(project, referenceRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "reference_file", strings.NewReader("foo")))
+	require.NoError(t, c.FinishCommit(project, referenceRepo, "", commit.Id))
+
+	// Create pipeline with reference input.
+	pipeline := tu.UniqueString("TestReferenceInput")
+>>>>>>> master
 	require.NoError(t, c.CreatePipeline(
 		project,
 		pipeline,
@@ -10692,16 +10716,24 @@ func TestPropagationSpec(t *testing.T) {
 		client.NewCrossInput(
 			client.NewPFSInput(project, repo, "/*"),
 			&pps.Input{Pfs: &pps.PFSInput{
+<<<<<<< HEAD
 				Project:         project,
 				Repo:            neverRepo,
 				Glob:            "/*",
 				PropagationSpec: &pfs.PropagationSpec{Never: true},
+=======
+				Project:   project,
+				Repo:      referenceRepo,
+				Glob:      "/*",
+				Reference: true,
+>>>>>>> master
 			}},
 		),
 		"",
 		false,
 	))
 
+<<<<<<< HEAD
 	commitInfo, err := c.InspectCommit(project, pipeline, "master", "")
 	require.NoError(t, err)
 	expectedCommit := commitInfo.Commit
@@ -10727,4 +10759,32 @@ func TestPropagationSpec(t *testing.T) {
 	require.NoError(t, c.FinishCommit(project, repo, "", commit.Id))
 	expectedCommit = commit
 	check(expectedCommit)
+=======
+	check := func(state pps.DatumState) {
+		commitInfo, err := c.InspectCommit(project, pipeline, "master", "")
+		require.NoError(t, err)
+		_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+		require.NoError(t, err)
+		datumInfos, err := c.ListDatumAll(project, pipeline, commitInfo.Commit.Id)
+		require.NoError(t, err)
+		require.True(t, len(datumInfos) == 1)
+		require.Equal(t, state, datumInfos[0].State)
+	}
+	check(pps.DatumState_SUCCESS)
+
+	// Create commits with new file content in each repo.
+	// The datum should be skipped for the reference repo and processed for
+	// the non-reference repo.
+	commit, err = c.StartCommit(project, referenceRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "reference_file", strings.NewReader("bar")))
+	require.NoError(t, c.FinishCommit(project, referenceRepo, "", commit.Id))
+	check(pps.DatumState_SKIPPED)
+
+	commit, err = c.StartCommit(project, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("bar")))
+	require.NoError(t, c.FinishCommit(project, repo, "", commit.Id))
+	check(pps.DatumState_SUCCESS)
+>>>>>>> master
 }

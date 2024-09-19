@@ -124,6 +124,7 @@ message PFSInput {
   // the input is processed anytime something is committed to the input branch.
   pfs_v2.Trigger trigger = 12;
   pfs_v2.PropagationSpec propagation_spec = 15;
+  bool reference = 16; 
 }
 
 message CronInput {

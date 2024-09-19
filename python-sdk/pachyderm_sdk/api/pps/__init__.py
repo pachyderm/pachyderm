@@ -269,6 +269,7 @@ class PfsInput(betterproto.Message):
     """
 
     propagation_spec: "_pfs__.PropagationSpec" = betterproto.message_field(15)
+    reference: bool = betterproto.bool_field(16)
 
 
 @dataclass(eq=False, repr=False)

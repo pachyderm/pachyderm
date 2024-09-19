@@ -56,6 +56,9 @@ func HashDatum(pipelineSalt string, inputs []*Input) string {
 	id := DatumID(inputs)
 	hash.Write([]byte(id))
 	for _, input := range inputs {
+		if input.Reference {
+			continue
+		}
 		hash.Write([]byte(input.FileInfo.Hash))
 	}
 	hash.Write([]byte(pipelineSalt))

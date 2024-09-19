@@ -1176,6 +1176,16 @@
                         },
                         {}
                     ]
+                },
+                "reference": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "boolean"
+                        }
+                    ]
                 }
             },
             "additionalProperties": false,

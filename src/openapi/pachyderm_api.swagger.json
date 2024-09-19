@@ -11688,6 +11688,9 @@
         },
         "propagationSpec": {
           "$ref": "#/definitions/pfs_v2PropagationSpec"
+        },
+        "reference": {
+          "type": "boolean"
         }
       }
     },

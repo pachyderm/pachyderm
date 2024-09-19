@@ -32,6 +32,9 @@
                 "s3": {
                     "type": "boolean",
                     "description": "If set, workers won't create an input directory for this input"
+                },
+                "reference": {
+                    "type": "boolean"
                 }
             },
             "additionalProperties": false,

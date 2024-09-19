@@ -163,6 +163,7 @@ export type PFSInput = {
   s3?: boolean
   trigger?: Pfs_v2Pfs.Trigger
   propagationSpec?: Pfs_v2Pfs.PropagationSpec
+  reference?: boolean
 }
 
 export type CronInput = {

@@ -8753,6 +8753,7 @@ indicating when and why the line was logged.
 | s3 | [bool](#bool) |  | S3, if true, will cause the worker to NOT download or link files from this input into the /pfs_v2 directory. Instead, an instance of our S3 gateway service will run on each of the sidecars, and data can be retrieved from this input by querying http://&lt;pipeline&gt;-s3.&lt;namespace&gt;/&lt;job id&gt;.&lt;input&gt;/my/file |
 | trigger | [pfs_v2.Trigger](#pfs_v2-Trigger) |  | Trigger defines when this input is processed by the pipeline, if it&#39;s nil the input is processed anytime something is committed to the input branch. |
 | propagation_spec | [pfs_v2.PropagationSpec](#pfs_v2-PropagationSpec) |  |  |
+| reference | [bool](#bool) |  |  |
 
 
 
@@ -10784,6 +10785,7 @@ WellKnownRegex contain some well-known patterns.
 | branch | [string](#string) |  |  |
 | empty_files | [bool](#bool) |  |  |
 | s3 | [bool](#bool) |  | If set, workers won&#39;t create an input directory for this input |
+| reference | [bool](#bool) |  |  |
 
 
 
