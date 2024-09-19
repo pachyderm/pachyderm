@@ -103,7 +103,7 @@ func BenchmarkDequeuePerformance(t *testing.B) {
 		for i := 0; i < numItems; i++ {
 			createJobWithFilesets(t, d, 0, prog, progHash)
 		}
-		queueId = [32]byte(progHash)
+		copy(queueId[:], progHash[:32])
 	})
 
 	t.StartTimer()
