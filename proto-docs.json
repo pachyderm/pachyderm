@@ -11823,7 +11823,7 @@
           "fields": [
             {
               "name": "branch",
-              "description": "TODO: Picker?",
+              "description": "",
               "label": "",
               "type": "Branch",
               "longType": "Branch",

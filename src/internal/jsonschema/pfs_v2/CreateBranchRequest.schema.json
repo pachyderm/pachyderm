@@ -57,8 +57,7 @@
             "properties": {
                 "branch": {
                     "$ref": "#/definitions/pfs_v2.Branch",
-                    "additionalProperties": false,
-                    "description": "TODO: Picker?"
+                    "additionalProperties": false
                 },
                 "propagationSpec": {
                     "$ref": "#/definitions/pfs_v2.PropagationSpec",

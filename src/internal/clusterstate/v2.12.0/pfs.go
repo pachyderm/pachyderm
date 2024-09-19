@@ -17,7 +17,7 @@ func createBranchPropagationSpecsTable(ctx context.Context, env migrations.Env) 
 			to_id BIGINT NOT NULL,
 			FOREIGN KEY (from_id, to_id) REFERENCES pfs.branch_provenance (from_id, to_id) ON DELETE CASCADE,
 			PRIMARY KEY (from_id, to_id),
-			never BOOLEAN
+			never BOOLEAN NOT NULL
 		);
 	`)
 	if err != nil {

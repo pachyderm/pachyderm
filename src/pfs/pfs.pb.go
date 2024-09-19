@@ -1116,7 +1116,6 @@ type BranchPropagationSpec struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// TODO: Picker?
 	Branch          *Branch          `protobuf:"bytes,1,opt,name=branch,proto3" json:"branch,omitempty"`
 	PropagationSpec *PropagationSpec `protobuf:"bytes,2,opt,name=propagation_spec,json=propagationSpec,proto3" json:"propagation_spec,omitempty"`
 }

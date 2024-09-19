@@ -5356,7 +5356,7 @@ Picker messages should only be used as request parameters.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| branch | [Branch](#pfs_v2-Branch) |  | TODO: Picker? |
+| branch | [Branch](#pfs_v2-Branch) |  |  |
 | propagation_spec | [PropagationSpec](#pfs_v2-PropagationSpec) |  |  |
 
 

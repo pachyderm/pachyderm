@@ -8771,8 +8771,7 @@
       "type": "object",
       "properties": {
         "branch": {
-          "$ref": "#/definitions/pfs_v2Branch",
-          "title": "TODO: Picker?"
+          "$ref": "#/definitions/pfs_v2Branch"
         },
         "propagationSpec": {
           "$ref": "#/definitions/pfs_v2PropagationSpec"

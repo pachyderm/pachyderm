@@ -273,8 +273,6 @@ class Trigger(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class BranchPropagationSpec(betterproto.Message):
     branch: "Branch" = betterproto.message_field(1)
-    """TODO: Picker?"""
-
     propagation_spec: "PropagationSpec" = betterproto.message_field(2)
 
 

@@ -144,6 +144,10 @@ class QueueInfo(betterproto.Message):
     """queue is the Queue's identity"""
 
     program: List[str] = betterproto.string_field(2)
+    """
+    The current storage system supports cloned filesets with the same content
+    hash.
+    """
 
 
 @dataclass(eq=False, repr=False)
