@@ -30,6 +30,16 @@
             "title": "Create Datum Request",
             "description": "Emits a stream of datums as they are created from the given input. Client must cancel the stream when it no longer wants to receive datums."
         },
+        "pfs_v2.PropagationSpec": {
+            "properties": {
+                "never": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Propagation Spec"
+        },
         "pfs_v2.Trigger": {
             "properties": {
                 "branch": {
@@ -337,6 +347,16 @@
                         {}
                     ],
                     "description": "Trigger defines when this input is processed by the pipeline, if it's nil the input is processed anytime something is committed to the input branch."
+                },
+                "propagationSpec": {
+                    "$ref": "#/definitions/pfs_v2.PropagationSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "reference": {
                     "oneOf": [

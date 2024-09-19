@@ -115,6 +115,7 @@ message BranchInfo {
   // When information about the branch was last modified (not necessarily when the data in this
   // branch changed or anything like that).
   google.protobuf.Timestamp updated_at = 10;
+  repeated BranchPropagationSpec branch_propagation_specs = 11;
 }
 
 // Trigger defines the conditions under which a head is moved, and to which
@@ -138,6 +139,15 @@ message Trigger {
   // setting this will result with the trigger only firing based on the cron
   // schedule.
   string cron_spec = 6;
+}
+
+message BranchPropagationSpec {
+  Branch branch = 1;
+  PropagationSpec propagation_spec = 2; 
+}
+
+message PropagationSpec {
+  bool never = 1;
 }
 
 // These are the different places where a commit may be originated from
@@ -459,6 +469,7 @@ message CreateBranchRequest {
   repeated Branch provenance = 3;
   Trigger trigger = 4;
   bool new_commit_set = 5; // overrides the default behavior of using the same CommitSet as 'head'
+  repeated BranchPropagationSpec branch_propagation_specs = 6;
 }
 
 message FindCommitsRequest {

@@ -166,6 +166,13 @@ func (x *BranchInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("created_by", x.CreatedBy)
 	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
 	protoextensions.AddTimestamp(enc, "updated_at", x.UpdatedAt)
+	branch_propagation_specsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.BranchPropagationSpecs {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("branch_propagation_specs", zapcore.ArrayMarshalerFunc(branch_propagation_specsArrMarshaller))
 	return nil
 }
 
@@ -179,6 +186,23 @@ func (x *Trigger) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("size", x.Size)
 	enc.AddInt64("commits", x.Commits)
 	enc.AddString("cron_spec", x.CronSpec)
+	return nil
+}
+
+func (x *BranchPropagationSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("branch", x.Branch)
+	enc.AddObject("propagation_spec", x.PropagationSpec)
+	return nil
+}
+
+func (x *PropagationSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("never", x.Never)
 	return nil
 }
 
@@ -665,6 +689,13 @@ func (x *CreateBranchRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	enc.AddArray("provenance", zapcore.ArrayMarshalerFunc(provenanceArrMarshaller))
 	enc.AddObject("trigger", x.Trigger)
 	enc.AddBool("new_commit_set", x.NewCommitSet)
+	branch_propagation_specsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.BranchPropagationSpecs {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("branch_propagation_specs", zapcore.ArrayMarshalerFunc(branch_propagation_specsArrMarshaller))
 	return nil
 }
 

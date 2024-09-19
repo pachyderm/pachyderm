@@ -469,7 +469,7 @@ func (a *apiServer) WalkCommitSubvenanceTx(ctx context.Context, txnCtx *txnconte
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) CreateBranchInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
-	return a.createBranch(ctx, txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger)
+	return a.createBranch(ctx, txnCtx, request.Branch, request.Head, request.Provenance, request.Trigger, request.BranchPropagationSpecs)
 }
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC

@@ -6,5 +6,6 @@ import (
 
 func Migrate(state migrations.State) migrations.State {
 	return state.
-		Apply("Create PJS Schema", createPJSSchema)
+		Apply("Create PJS Schema", createPJSSchema).
+		Apply("Alter Branch Provenance Table", alterBranchProvenanceTable)
 }

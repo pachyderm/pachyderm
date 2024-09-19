@@ -332,6 +332,7 @@
     - [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry)
     - [BranchPicker](#pfs_v2-BranchPicker)
     - [BranchPicker.BranchName](#pfs_v2-BranchPicker-BranchName)
+    - [BranchPropagationSpec](#pfs_v2-BranchPropagationSpec)
     - [CheckStorageRequest](#pfs_v2-CheckStorageRequest)
     - [CheckStorageResponse](#pfs_v2-CheckStorageResponse)
     - [ClearCacheRequest](#pfs_v2-ClearCacheRequest)
@@ -405,6 +406,7 @@
     - [ProjectInfo](#pfs_v2-ProjectInfo)
     - [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry)
     - [ProjectPicker](#pfs_v2-ProjectPicker)
+    - [PropagationSpec](#pfs_v2-PropagationSpec)
     - [PutCacheRequest](#pfs_v2-PutCacheRequest)
     - [RenewFileSetRequest](#pfs_v2-RenewFileSetRequest)
     - [Repo](#pfs_v2-Repo)
@@ -5290,6 +5292,7 @@ To set a user&#39;s auth scope for a resource, use the Pachyderm Auth API (in sr
 | created_by | [string](#string) |  | The user that caused this branch to be created. |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | When the branch was added to the database. |
 | updated_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | When information about the branch was last modified (not necessarily when the data in this branch changed or anything like that). |
+| branch_propagation_specs | [BranchPropagationSpec](#pfs_v2-BranchPropagationSpec) | repeated |  |
 
 
 
@@ -5339,6 +5342,22 @@ Picker messages should only be used as request parameters.
 | ----- | ---- | ----- | ----------- |
 | repo | [RepoPicker](#pfs_v2-RepoPicker) |  |  |
 | name | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-BranchPropagationSpec"></a>
+
+### BranchPropagationSpec
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| branch | [Branch](#pfs_v2-Branch) |  |  |
+| propagation_spec | [PropagationSpec](#pfs_v2-PropagationSpec) |  |  |
 
 
 
@@ -5653,6 +5672,7 @@ This models .N syntax.
 | provenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | trigger | [Trigger](#pfs_v2-Trigger) |  |  |
 | new_commit_set | [bool](#bool) |  | overrides the default behavior of using the same CommitSet as &#39;head&#39; |
+| branch_propagation_specs | [BranchPropagationSpec](#pfs_v2-BranchPropagationSpec) | repeated |  |
 
 
 
@@ -6531,6 +6551,21 @@ Picker messages should only be used as request parameters.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-PropagationSpec"></a>
+
+### PropagationSpec
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| never | [bool](#bool) |  |  |
 
 
 
@@ -8717,6 +8752,7 @@ indicating when and why the line was logged.
 | empty_files | [bool](#bool) |  | EmptyFiles, if true, will cause files from this PFS input to be presented as empty files. This is useful in shuffle pipelines where you want to read the names of files and reorganize them using symlinks. |
 | s3 | [bool](#bool) |  | S3, if true, will cause the worker to NOT download or link files from this input into the /pfs_v2 directory. Instead, an instance of our S3 gateway service will run on each of the sidecars, and data can be retrieved from this input by querying http://&lt;pipeline&gt;-s3.&lt;namespace&gt;/&lt;job id&gt;.&lt;input&gt;/my/file |
 | trigger | [pfs_v2.Trigger](#pfs_v2-Trigger) |  | Trigger defines when this input is processed by the pipeline, if it&#39;s nil the input is processed anytime something is committed to the input branch. |
+| propagation_spec | [pfs_v2.PropagationSpec](#pfs_v2-PropagationSpec) |  |  |
 | reference | [bool](#bool) |  |  |
 
 

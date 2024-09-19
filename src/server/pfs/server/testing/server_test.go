@@ -4565,6 +4565,155 @@ func TestPropagateBranch(t *testing.T) {
 	require.Equal(t, 2, len(commits))
 }
 
+func TestPropagateBranchNever(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	// Create a diamond shaped DAG.
+	var branches []*pfs.Branch
+	for i := 0; i < 4; i++ {
+		repo := tu.UniqueString("PropagateBranchNever")
+		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+		branches = append(branches, client.NewBranch(pfs.DefaultProjectName, repo, "master"))
+	}
+	resetBranches := func() {
+		for i, b := range branches {
+			var provenance []*pfs.Branch
+			if i == 1 || i == 2 {
+				provenance = []*pfs.Branch{branches[0]}
+			} else if i == 3 {
+				provenance = []*pfs.Branch{branches[1], branches[2]}
+			}
+			require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, b.Repo.Name, b.Name, "", "", provenance))
+		}
+	}
+	resetBranches()
+	// Test setting the propagation spec of the edges on the left side of the DAG.
+	t.Run("SingleLeftEdge", func(t *testing.T) {
+		_, err := env.PachClient.PfsAPIClient.CreateBranch(
+			env.PachClient.Ctx(),
+			&pfs.CreateBranchRequest{
+				Branch:     branches[1],
+				Provenance: []*pfs.Branch{branches[0]},
+				BranchPropagationSpecs: []*pfs.BranchPropagationSpec{
+					{
+						Branch:          branches[0],
+						PropagationSpec: &pfs.PropagationSpec{Never: true},
+					},
+				},
+			},
+		)
+		require.NoError(t, err)
+		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, branches[0].Repo.Name, "master")
+		require.NoError(t, err)
+		require.NoError(t, finishCommit(env.PachClient, branches[0].Repo.Name, "", commit.Id))
+		expected := []*pfs.Branch{branches[0], branches[2], branches[3]}
+		for _, b := range expected {
+			ci, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, b.Repo.Name, "master", "")
+			require.NoError(t, err)
+			require.Equal(t, ci.Commit.Id, commit.Id)
+		}
+		notExpected := []*pfs.Branch{branches[1]}
+		for _, b := range notExpected {
+			ci, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, b.Repo.Name, "master", "")
+			require.NoError(t, err)
+			require.NotEqual(t, ci.Commit.Id, commit.Id)
+		}
+	})
+	t.Run("BothLeftEdges", func(t *testing.T) {
+		_, err := env.PachClient.PfsAPIClient.CreateBranch(
+			env.PachClient.Ctx(),
+			&pfs.CreateBranchRequest{
+				Branch:     branches[2],
+				Provenance: []*pfs.Branch{branches[0]},
+				BranchPropagationSpecs: []*pfs.BranchPropagationSpec{
+					{
+						Branch:          branches[0],
+						PropagationSpec: &pfs.PropagationSpec{Never: true},
+					},
+				},
+			},
+		)
+		require.NoError(t, err)
+		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, branches[0].Repo.Name, "master")
+		require.NoError(t, err)
+		require.NoError(t, finishCommit(env.PachClient, branches[0].Repo.Name, "", commit.Id))
+		expected := []*pfs.Branch{branches[0]}
+		for _, b := range expected {
+			ci, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, b.Repo.Name, "master", "")
+			require.NoError(t, err)
+			require.Equal(t, ci.Commit.Id, commit.Id)
+		}
+		notExpected := []*pfs.Branch{branches[1], branches[2], branches[3]}
+		for _, b := range notExpected {
+			ci, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, b.Repo.Name, "master", "")
+			require.NoError(t, err)
+			require.NotEqual(t, ci.Commit.Id, commit.Id)
+		}
+	})
+	// Test setting the propagation spec of the edges on the right side of the DAG.
+	resetBranches()
+	t.Run("SingleRightEdge", func(t *testing.T) {
+		_, err := env.PachClient.PfsAPIClient.CreateBranch(
+			env.PachClient.Ctx(),
+			&pfs.CreateBranchRequest{
+				Branch:     branches[3],
+				Provenance: []*pfs.Branch{branches[1], branches[2]},
+				BranchPropagationSpecs: []*pfs.BranchPropagationSpec{
+					{
+						Branch:          branches[1],
+						PropagationSpec: &pfs.PropagationSpec{Never: true},
+					},
+				},
+			},
+		)
+		require.NoError(t, err)
+		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, branches[0].Repo.Name, "master")
+		require.NoError(t, err)
+		require.NoError(t, finishCommit(env.PachClient, branches[0].Repo.Name, "", commit.Id))
+		expected := []*pfs.Branch{branches[0], branches[1], branches[2], branches[3]}
+		for _, b := range expected {
+			ci, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, b.Repo.Name, "master", "")
+			require.NoError(t, err)
+			require.Equal(t, ci.Commit.Id, commit.Id)
+		}
+	})
+	t.Run("BothRightEdges", func(t *testing.T) {
+		_, err := env.PachClient.PfsAPIClient.CreateBranch(
+			env.PachClient.Ctx(),
+			&pfs.CreateBranchRequest{
+				Branch:     branches[3],
+				Provenance: []*pfs.Branch{branches[1], branches[2]},
+				BranchPropagationSpecs: []*pfs.BranchPropagationSpec{
+					{
+						Branch:          branches[1],
+						PropagationSpec: &pfs.PropagationSpec{Never: true},
+					},
+					{
+						Branch:          branches[2],
+						PropagationSpec: &pfs.PropagationSpec{Never: true},
+					},
+				},
+			},
+		)
+		require.NoError(t, err)
+		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, branches[0].Repo.Name, "master")
+		require.NoError(t, err)
+		require.NoError(t, finishCommit(env.PachClient, branches[0].Repo.Name, "", commit.Id))
+		expected := []*pfs.Branch{branches[0], branches[1], branches[2]}
+		for _, b := range expected {
+			ci, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, b.Repo.Name, "master", "")
+			require.NoError(t, err)
+			require.Equal(t, ci.Commit.Id, commit.Id)
+		}
+		notExpected := []*pfs.Branch{branches[3]}
+		for _, b := range notExpected {
+			ci, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, b.Repo.Name, "master", "")
+			require.NoError(t, err)
+			require.NotEqual(t, ci.Commit.Id, commit.Id)
+		}
+	})
+}
+
 // BackfillBranch implements the following DAG:
 //
 // A ──▶ C

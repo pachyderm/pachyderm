@@ -2032,26 +2032,34 @@ func (a *apiServer) validatePipeline(pipelineInfo *pps.PipelineInfo) error {
 	return nil
 }
 
-func branchProvenance(project *pfs.Project, input *pps.Input) []*pfs.Branch {
-	var result []*pfs.Branch
+func branchProvenance(project *pfs.Project, input *pps.Input) ([]*pfs.Branch, []*pfs.BranchPropagationSpec) {
+	var branches []*pfs.Branch
+	var branchPropagationSpecs []*pfs.BranchPropagationSpec
 	pps.VisitInput(input, func(input *pps.Input) error {
 		if input.Pfs != nil {
 			var projectName = input.Pfs.Project
 			if projectName == "" {
 				projectName = project.GetName()
 			}
-			result = append(result, client.NewBranch(projectName, input.Pfs.Repo, input.Pfs.Branch))
+			branch := client.NewBranch(projectName, input.Pfs.Repo, input.Pfs.Branch)
+			branches = append(branches, branch)
+			if input.Pfs.PropagationSpec != nil {
+				branchPropagationSpecs = append(branchPropagationSpecs, &pfs.BranchPropagationSpec{
+					Branch:          branch,
+					PropagationSpec: input.Pfs.PropagationSpec,
+				})
+			}
 		}
 		if input.Cron != nil {
 			var projectName = input.Cron.Project
 			if projectName == "" {
 				projectName = project.GetName()
 			}
-			result = append(result, client.NewBranch(projectName, input.Cron.Repo, "master"))
+			branches = append(branches, client.NewBranch(projectName, input.Cron.Repo, "master"))
 		}
 		return nil
 	}) //nolint:errcheck
-	return result
+	return branches, branchPropagationSpecs
 }
 
 func (a *apiServer) fixPipelineInputRepoACLsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
@@ -2576,13 +2584,11 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		return err
 	}
 
-	var (
-		// provenance for the pipeline's output branch (includes the spec branch)
-		provenance = append(branchProvenance(newPipelineInfo.Pipeline.Project, newPipelineInfo.Details.Input),
-			client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"))
-		outputBranch = client.NewBranch(projectName, pipelineName, newPipelineInfo.Details.OutputBranch)
-		metaBranch   = client.NewSystemRepo(projectName, pipelineName, pfs.MetaRepoType).NewBranch(newPipelineInfo.Details.OutputBranch)
-	)
+	// provenance for the pipeline's output branch (includes the spec branch)
+	provenance, branchPropagationSpecs := branchProvenance(newPipelineInfo.Pipeline.Project, newPipelineInfo.Details.Input)
+	provenance = append(provenance, client.NewSystemRepo(projectName, pipelineName, pfs.SpecRepoType).NewBranch("master"))
+	outputBranch := client.NewBranch(projectName, pipelineName, newPipelineInfo.Details.OutputBranch)
+	metaBranch := client.NewSystemRepo(projectName, pipelineName, pfs.MetaRepoType).NewBranch(newPipelineInfo.Details.OutputBranch)
 
 	// Get the expected number of workers for this pipeline
 	if parallelism, err := getExpectedNumWorkers(newPipelineInfo); err != nil {
@@ -2694,13 +2700,15 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	// restarted.
 	if newPipelineInfo.Stopped {
 		provenance = nil
+		branchPropagationSpecs = nil
 	}
 
 	// Create or update the output branch (creating new output commit for the pipeline
 	// and restarting the pipeline)
 	if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
-		Branch:     outputBranch,
-		Provenance: provenance,
+		Branch:                 outputBranch,
+		Provenance:             provenance,
+		BranchPropagationSpecs: branchPropagationSpecs,
 	}); err != nil {
 		return errors.Wrapf(err, "could not create/update output branch")
 	}
@@ -2745,8 +2753,9 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			return errors.Wrap(err, "could not create meta repo")
 		}
 		if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
-			Branch:     metaBranch,
-			Provenance: provenance, // same provenance as output branch
+			Branch:                 metaBranch,
+			Provenance:             provenance, // same provenance as output branch
+			BranchPropagationSpecs: branchPropagationSpecs,
 		}); err != nil {
 			return errors.Wrapf(err, "could not create/update meta branch")
 		}
@@ -3318,19 +3327,21 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		}
 
 		// Restore branch provenance, which may create a new output commit/job
-		provenance := append(branchProvenance(pipelineInfo.Pipeline.Project, pipelineInfo.Details.Input),
-			client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.SpecRepoType).NewBranch("master"))
+		provenance, branchPropagationSpecs := branchProvenance(pipelineInfo.Pipeline.Project, pipelineInfo.Details.Input)
+		provenance = append(provenance, client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.SpecRepoType).NewBranch("master"))
 		if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
-			Branch:     client.NewBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
-			Provenance: provenance,
+			Branch:                 client.NewBranch(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.OutputBranch),
+			Provenance:             provenance,
+			BranchPropagationSpecs: branchPropagationSpecs,
 		}); err != nil {
 			return errors.EnsureStack(err)
 		}
 		// restore same provenance to meta repo
 		if pipelineInfo.Details.Spout == nil && pipelineInfo.Details.Service == nil {
 			if err := a.env.PFSServer.CreateBranchInTransaction(ctx, txnCtx, &pfs.CreateBranchRequest{
-				Branch:     client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
-				Provenance: provenance,
+				Branch:                 client.NewSystemRepo(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pfs.MetaRepoType).NewBranch(pipelineInfo.Details.OutputBranch),
+				Provenance:             provenance,
+				BranchPropagationSpecs: branchPropagationSpecs,
 			}); err != nil {
 				return errors.EnsureStack(err)
 			}

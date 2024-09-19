@@ -162,6 +162,7 @@ export type PFSInput = {
   emptyFiles?: boolean
   s3?: boolean
   trigger?: Pfs_v2Pfs.Trigger
+  propagationSpec?: Pfs_v2Pfs.PropagationSpec
   reference?: boolean
 }
 

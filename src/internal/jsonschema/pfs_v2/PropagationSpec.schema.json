@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/PropagationSpec",
+    "definitions": {
+        "PropagationSpec": {
+            "properties": {
+                "never": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Propagation Spec"
+        }
+    }
+}

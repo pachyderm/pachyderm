@@ -8748,6 +8748,13 @@
           "type": "string",
           "format": "date-time",
           "description": "When information about the branch was last modified (not necessarily when the data in this\nbranch changed or anything like that)."
+        },
+        "branchPropagationSpecs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2BranchPropagationSpec"
+          }
         }
       }
     },
@@ -8759,6 +8766,17 @@
         }
       },
       "description": "BranchPicker defines mutually exclusive pickers that resolve to a single branch.\nCurrently, the only way to pick a branch is by composing a branch name with a repo.\nPicker messages should only be used as request parameters."
+    },
+    "pfs_v2BranchPropagationSpec": {
+      "type": "object",
+      "properties": {
+        "branch": {
+          "$ref": "#/definitions/pfs_v2Branch"
+        },
+        "propagationSpec": {
+          "$ref": "#/definitions/pfs_v2PropagationSpec"
+        }
+      }
     },
     "pfs_v2CheckStorageRequest": {
       "type": "object",
@@ -9034,6 +9052,13 @@
         "newCommitSet": {
           "type": "boolean",
           "title": "overrides the default behavior of using the same CommitSet as 'head'"
+        },
+        "branchPropagationSpecs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2BranchPropagationSpec"
+          }
         }
       }
     },
@@ -9692,6 +9717,14 @@
         }
       },
       "description": "ProjectPicker defines mutually exclusive pickers that resolve to a single project.\nCurrently, the only way to pick a project is by using a project name.\nPicker messages should only be used as request parameters."
+    },
+    "pfs_v2PropagationSpec": {
+      "type": "object",
+      "properties": {
+        "never": {
+          "type": "boolean"
+        }
+      }
     },
     "pfs_v2PutCacheRequest": {
       "type": "object",
@@ -11652,6 +11685,9 @@
         "trigger": {
           "$ref": "#/definitions/pfs_v2Trigger",
           "description": "Trigger defines when this input is processed by the pipeline, if it's nil\nthe input is processed anytime something is committed to the input branch."
+        },
+        "propagationSpec": {
+          "$ref": "#/definitions/pfs_v2PropagationSpec"
         },
         "reference": {
           "type": "boolean"

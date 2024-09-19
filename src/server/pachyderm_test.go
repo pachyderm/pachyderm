@@ -10654,6 +10654,81 @@ func TestNoPostgresPassword(t *testing.T) {
 	require.Equal(t, "FOO=BAR", foo, "FOO=BAR should be in there")
 }
 
+func TestPropagationSpec(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+
+	// Create repos and initial commits.
+	project := pfs.DefaultProjectName
+	repo := tu.UniqueString("TestPropagationSpec")
+	require.NoError(t, c.CreateRepo(project, repo))
+	neverRepo := tu.UniqueString("TestPropagationSpec_never")
+	require.NoError(t, c.CreateRepo(project, neverRepo))
+
+	commit, err := c.StartCommit(project, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(project, repo, "", commit.Id))
+
+	commit, err = c.StartCommit(project, neverRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(project, neverRepo, "", commit.Id))
+
+	// Create pipeline with never propagation spec.
+	pipeline := tu.UniqueString("TestPropagationSpec")
+	require.NoError(t, c.CreatePipeline(
+		project,
+		pipeline,
+		tu.DefaultTransformImage,
+		[]string{"bash"},
+		[]string{"true"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewCrossInput(
+			client.NewPFSInput(project, repo, "/*"),
+			&pps.Input{Pfs: &pps.PFSInput{
+				Project:         project,
+				Repo:            neverRepo,
+				Glob:            "/*",
+				PropagationSpec: &pfs.PropagationSpec{Never: true},
+			}},
+		),
+		"",
+		false,
+	))
+
+	commitInfo, err := c.InspectCommit(project, pipeline, "master", "")
+	require.NoError(t, err)
+	expectedCommit := commitInfo.Commit
+	check := func(commit *pfs.Commit) {
+		commitInfo, err := c.InspectCommit(project, pipeline, "master", "")
+		require.NoError(t, err)
+		require.Equal(t, commit.Id, commitInfo.Commit.Id)
+		_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+		require.NoError(t, err)
+	}
+	check(expectedCommit)
+
+	// Create commits in each repo.
+	// The commit in the never repo should not result in a downstream commit.
+	// The commit in the other repo should result with a downstream commit.
+	commit, err = c.StartCommit(project, neverRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(project, neverRepo, "", commit.Id))
+	check(expectedCommit)
+
+	commit, err = c.StartCommit(project, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(project, repo, "", commit.Id))
+	expectedCommit = commit
+	check(expectedCommit)
+}
+
 func TestReferenceInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

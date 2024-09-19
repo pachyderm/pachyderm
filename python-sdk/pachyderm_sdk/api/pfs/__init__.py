@@ -223,6 +223,10 @@ class BranchInfo(betterproto.Message):
     the data in this branch changed or anything like that).
     """
 
+    branch_propagation_specs: List["BranchPropagationSpec"] = betterproto.message_field(
+        11
+    )
+
 
 @dataclass(eq=False, repr=False)
 class Trigger(betterproto.Message):
@@ -264,6 +268,17 @@ class Trigger(betterproto.Message):
     respect to the others, so setting this will result with the trigger only
     firing based on the cron schedule.
     """
+
+
+@dataclass(eq=False, repr=False)
+class BranchPropagationSpec(betterproto.Message):
+    branch: "Branch" = betterproto.message_field(1)
+    propagation_spec: "PropagationSpec" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class PropagationSpec(betterproto.Message):
+    never: bool = betterproto.bool_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -674,6 +689,9 @@ class CreateBranchRequest(betterproto.Message):
     provenance: List["Branch"] = betterproto.message_field(3)
     trigger: "Trigger" = betterproto.message_field(4)
     new_commit_set: bool = betterproto.bool_field(5)
+    branch_propagation_specs: List["BranchPropagationSpec"] = betterproto.message_field(
+        6
+    )
 
 
 @dataclass(eq=False, repr=False)
@@ -1630,9 +1648,11 @@ class ApiStub:
         branch: "Branch" = None,
         provenance: Optional[List["Branch"]] = None,
         trigger: "Trigger" = None,
-        new_commit_set: bool = False
+        new_commit_set: bool = False,
+        branch_propagation_specs: Optional[List["BranchPropagationSpec"]] = None
     ) -> "betterproto_lib_google_protobuf.Empty":
         provenance = provenance or []
+        branch_propagation_specs = branch_propagation_specs or []
 
         request = CreateBranchRequest()
         if head is not None:
@@ -1644,6 +1664,8 @@ class ApiStub:
         if trigger is not None:
             request.trigger = trigger
         request.new_commit_set = new_commit_set
+        if branch_propagation_specs is not None:
+            request.branch_propagation_specs = branch_propagation_specs
 
         return self.__rpc_create_branch(request)
 

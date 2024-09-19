@@ -140,6 +140,7 @@ export type BranchInfo = {
   createdBy?: string
   createdAt?: GoogleProtobufTimestamp.Timestamp
   updatedAt?: GoogleProtobufTimestamp.Timestamp
+  branchPropagationSpecs?: BranchPropagationSpec[]
 }
 
 export type Trigger = {
@@ -149,6 +150,15 @@ export type Trigger = {
   size?: string
   commits?: string
   cronSpec?: string
+}
+
+export type BranchPropagationSpec = {
+  branch?: Branch
+  propagationSpec?: PropagationSpec
+}
+
+export type PropagationSpec = {
+  never?: boolean
 }
 
 export type CommitOrigin = {
@@ -392,6 +402,7 @@ export type CreateBranchRequest = {
   provenance?: Branch[]
   trigger?: Trigger
   newCommitSet?: boolean
+  branchPropagationSpecs?: BranchPropagationSpec[]
 }
 
 export type FindCommitsRequest = {

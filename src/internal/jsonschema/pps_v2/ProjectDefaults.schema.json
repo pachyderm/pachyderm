@@ -67,6 +67,16 @@
             "type": "object",
             "title": "Project"
         },
+        "pfs_v2.PropagationSpec": {
+            "properties": {
+                "never": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Propagation Spec"
+        },
         "pfs_v2.Repo": {
             "properties": {
                 "name": {
@@ -923,6 +933,16 @@
                         {}
                     ],
                     "description": "Trigger defines when this input is processed by the pipeline, if it's nil the input is processed anytime something is committed to the input branch."
+                },
+                "propagationSpec": {
+                    "$ref": "#/definitions/pfs_v2.PropagationSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "reference": {
                     "oneOf": [

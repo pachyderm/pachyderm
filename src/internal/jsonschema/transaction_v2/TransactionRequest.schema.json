@@ -64,6 +64,21 @@
             "type": "object",
             "title": "Branch"
         },
+        "pfs_v2.BranchPropagationSpec": {
+            "properties": {
+                "branch": {
+                    "$ref": "#/definitions/pfs_v2.Branch",
+                    "additionalProperties": false
+                },
+                "propagationSpec": {
+                    "$ref": "#/definitions/pfs_v2.PropagationSpec",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Branch Propagation Spec"
+        },
         "pfs_v2.Commit": {
             "properties": {
                 "repo": {
@@ -118,6 +133,13 @@
                 "newCommitSet": {
                     "type": "boolean",
                     "description": "overrides the default behavior of using the same CommitSet as 'head'"
+                },
+                "branchPropagationSpecs": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.BranchPropagationSpec"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
                 }
             },
             "additionalProperties": false,
@@ -210,6 +232,16 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Project"
+        },
+        "pfs_v2.PropagationSpec": {
+            "properties": {
+                "never": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Propagation Spec"
         },
         "pfs_v2.Repo": {
             "properties": {
@@ -1134,6 +1166,16 @@
                         {}
                     ],
                     "description": "Trigger defines when this input is processed by the pipeline, if it's nil the input is processed anytime something is committed to the input branch."
+                },
+                "propagationSpec": {
+                    "$ref": "#/definitions/pfs_v2.PropagationSpec",
+                    "additionalProperties": false,
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {}
+                    ]
                 },
                 "reference": {
                     "oneOf": [

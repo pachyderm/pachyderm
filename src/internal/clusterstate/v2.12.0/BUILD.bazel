@@ -4,6 +4,7 @@ go_library(
     name = "v2_12_0",
     srcs = [
         "clusterstate.go",
+        "pfs.go",
         "pjs.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.12.0",

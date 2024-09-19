@@ -1347,6 +1347,40 @@ func (m *BranchInfo) validate(all bool) error {
 		}
 	}
 
+	for idx, item := range m.GetBranchPropagationSpecs() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, BranchInfoValidationError{
+						field:  fmt.Sprintf("BranchPropagationSpecs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, BranchInfoValidationError{
+						field:  fmt.Sprintf("BranchPropagationSpecs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return BranchInfoValidationError{
+					field:  fmt.Sprintf("BranchPropagationSpecs[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return BranchInfoMultiError(errors)
 	}
@@ -1533,6 +1567,268 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = TriggerValidationError{}
+
+// Validate checks the field values on BranchPropagationSpec with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *BranchPropagationSpec) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on BranchPropagationSpec with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// BranchPropagationSpecMultiError, or nil if none found.
+func (m *BranchPropagationSpec) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *BranchPropagationSpec) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetBranch()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BranchPropagationSpecValidationError{
+					field:  "Branch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BranchPropagationSpecValidationError{
+					field:  "Branch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetBranch()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return BranchPropagationSpecValidationError{
+				field:  "Branch",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetPropagationSpec()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, BranchPropagationSpecValidationError{
+					field:  "PropagationSpec",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, BranchPropagationSpecValidationError{
+					field:  "PropagationSpec",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPropagationSpec()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return BranchPropagationSpecValidationError{
+				field:  "PropagationSpec",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return BranchPropagationSpecMultiError(errors)
+	}
+
+	return nil
+}
+
+// BranchPropagationSpecMultiError is an error wrapping multiple validation
+// errors returned by BranchPropagationSpec.ValidateAll() if the designated
+// constraints aren't met.
+type BranchPropagationSpecMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m BranchPropagationSpecMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m BranchPropagationSpecMultiError) AllErrors() []error { return m }
+
+// BranchPropagationSpecValidationError is the validation error returned by
+// BranchPropagationSpec.Validate if the designated constraints aren't met.
+type BranchPropagationSpecValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e BranchPropagationSpecValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e BranchPropagationSpecValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e BranchPropagationSpecValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e BranchPropagationSpecValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e BranchPropagationSpecValidationError) ErrorName() string {
+	return "BranchPropagationSpecValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e BranchPropagationSpecValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sBranchPropagationSpec.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = BranchPropagationSpecValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = BranchPropagationSpecValidationError{}
+
+// Validate checks the field values on PropagationSpec with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *PropagationSpec) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PropagationSpec with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// PropagationSpecMultiError, or nil if none found.
+func (m *PropagationSpec) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PropagationSpec) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Never
+
+	if len(errors) > 0 {
+		return PropagationSpecMultiError(errors)
+	}
+
+	return nil
+}
+
+// PropagationSpecMultiError is an error wrapping multiple validation errors
+// returned by PropagationSpec.ValidateAll() if the designated constraints
+// aren't met.
+type PropagationSpecMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PropagationSpecMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PropagationSpecMultiError) AllErrors() []error { return m }
+
+// PropagationSpecValidationError is the validation error returned by
+// PropagationSpec.Validate if the designated constraints aren't met.
+type PropagationSpecValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e PropagationSpecValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e PropagationSpecValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e PropagationSpecValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e PropagationSpecValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e PropagationSpecValidationError) ErrorName() string { return "PropagationSpecValidationError" }
+
+// Error satisfies the builtin error interface
+func (e PropagationSpecValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sPropagationSpec.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = PropagationSpecValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = PropagationSpecValidationError{}
 
 // Validate checks the field values on CommitOrigin with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
@@ -7090,6 +7386,40 @@ func (m *CreateBranchRequest) validate(all bool) error {
 	}
 
 	// no validation rules for NewCommitSet
+
+	for idx, item := range m.GetBranchPropagationSpecs() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CreateBranchRequestValidationError{
+						field:  fmt.Sprintf("BranchPropagationSpecs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CreateBranchRequestValidationError{
+						field:  fmt.Sprintf("BranchPropagationSpecs[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CreateBranchRequestValidationError{
+					field:  fmt.Sprintf("BranchPropagationSpecs[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
 
 	if len(errors) > 0 {
 		return CreateBranchRequestMultiError(errors)

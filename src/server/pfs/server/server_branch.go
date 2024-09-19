@@ -2,9 +2,10 @@ package server
 
 import (
 	"context"
+	"sort"
+
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
-	"sort"
 
 	"google.golang.org/protobuf/proto"
 
@@ -46,21 +47,15 @@ func (a *apiServer) propagateBranches(ctx context.Context, txnCtx *txncontext.Tr
 	var propagatedBranches []*pfs.BranchInfo
 	seen := make(map[string]*pfs.BranchInfo)
 	for _, branchHandle := range branches {
-		branch, err := pfsdb.GetBranch(ctx, txnCtx.SqlTx, branchHandle)
+		id, err := pfsdb.GetBranchID(ctx, txnCtx.SqlTx, branchHandle)
 		if err != nil {
-			return errors.Wrapf(err, "propagate branches: get branchHandle %q", pfsdb.BranchKey(branchHandle))
+			return err
 		}
-		for _, subvenantBranchHandle := range branch.Subvenance {
-			if _, ok := seen[pfsdb.BranchKey(subvenantBranchHandle)]; !ok {
-				subvenantBranch, err := pfsdb.GetBranch(ctx, txnCtx.SqlTx, subvenantBranchHandle)
-				if err != nil {
-					return errors.Wrapf(err, "propagate branches: get subvenant branchHandle %q", pfsdb.BranchKey(subvenantBranchHandle))
-				}
-				branchInfo := subvenantBranch.BranchInfo
-				seen[pfsdb.BranchKey(subvenantBranchHandle)] = branchInfo
-				propagatedBranches = append(propagatedBranches, branchInfo)
-			}
+		branchInfos, err := computePropagatedBranches(ctx, txnCtx.SqlTx, seen, id)
+		if err != nil {
+			return err
 		}
+		propagatedBranches = append(propagatedBranches, branchInfos...)
 	}
 	sort.Slice(propagatedBranches, func(i, j int) bool {
 		return len(propagatedBranches[i].Provenance) < len(propagatedBranches[j].Provenance)
@@ -131,6 +126,34 @@ func (a *apiServer) propagateBranches(ctx context.Context, txnCtx *txncontext.Tr
 	return nil
 }
 
+func computePropagatedBranches(ctx context.Context, tx *pachsql.Tx, seen map[string]*pfs.BranchInfo, id pfsdb.BranchID) ([]*pfs.BranchInfo, error) {
+	rows, err := pfsdb.GetBranchProvenanceRowsDirectSubvenance(ctx, tx, id)
+	if err != nil {
+		return nil, err
+	}
+	var subvenantBranchInfos []*pfs.BranchInfo
+	for _, row := range rows {
+		if row.Never {
+			continue
+		}
+		branchInfo, err := pfsdb.GetBranchInfo(ctx, tx, row.FromID)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := seen[pfsdb.BranchKey(branchInfo.Branch)]; ok {
+			continue
+		}
+		seen[pfsdb.BranchKey(branchInfo.Branch)] = branchInfo
+		subvenantBranchInfos = append(subvenantBranchInfos, branchInfo)
+		branchInfos, err := computePropagatedBranches(ctx, tx, seen, row.FromID)
+		if err != nil {
+			return nil, err
+		}
+		subvenantBranchInfos = append(subvenantBranchInfos, branchInfos...)
+	}
+	return subvenantBranchInfos, nil
+}
+
 // fillNewBranches helps create the upstream branches on which a branch is provenant, if they don't exist.
 // TODO(provenance): consider removing this functionality
 func (a *apiServer) fillNewBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch, provenance []*pfs.Branch) error {
@@ -188,7 +211,7 @@ func upsertBranchAndSyncCommit(ctx context.Context, tx *pachsql.Tx, branchInfo *
 // for 'branch' itself once 'b.Provenance' has been set.
 //
 // i.e. up to one branch in a repo can be present within a DAG
-func (a *apiServer) createBranch(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch, commitHandle *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger) error {
+func (a *apiServer) createBranch(ctx context.Context, txnCtx *txncontext.TransactionContext, branchHandle *pfs.Branch, commitHandle *pfs.Commit, provenance []*pfs.Branch, trigger *pfs.Trigger, branchPropagationSpecs []*pfs.BranchPropagationSpec) error {
 	// Validate arguments
 	if branchHandle == nil {
 		return errors.New("branch cannot be nil")
@@ -201,6 +224,9 @@ func (a *apiServer) createBranch(ctx context.Context, txnCtx *txncontext.Transac
 	}
 	if len(provenance) > 0 && trigger != nil {
 		return errors.New("a branch cannot have both provenance and a trigger")
+	}
+	if err := validateBranchPropagationSpecs(provenance, branchPropagationSpecs); err != nil {
+		return err
 	}
 	var err error
 	if err := a.env.Auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, branchHandle.Repo, auth.Permission_REPO_CREATE_BRANCH); err != nil {
@@ -270,6 +296,7 @@ func (a *apiServer) createBranch(ctx context.Context, txnCtx *txncontext.Transac
 	if trigger != nil && trigger.Branch != "" {
 		branchInfo.Trigger = trigger
 	}
+	branchInfo.BranchPropagationSpecs = branchPropagationSpecs
 	if err := upsertBranchAndSyncCommit(ctx, txnCtx.SqlTx, branchInfo, newHead); err != nil {
 		return errors.Wrap(err, "create branch")
 	}
@@ -328,6 +355,20 @@ func (a *apiServer) validateTrigger(ctx context.Context, txnCtx *txncontext.Tran
 			b = bi.Trigger.Branch
 		} else {
 			break
+		}
+	}
+	return nil
+}
+
+func validateBranchPropagationSpecs(branches []*pfs.Branch, branchPropagationSpecs []*pfs.BranchPropagationSpec) error {
+	branchesMap := make(map[string]struct{})
+	for _, branch := range branches {
+		branchesMap[pfsdb.BranchKey(branch)] = struct{}{}
+	}
+	for _, bps := range branchPropagationSpecs {
+		key := pfsdb.BranchKey(bps.Branch)
+		if _, ok := branchesMap[key]; !ok {
+			return errors.Errorf("branch propagation spec must reference provenant branch (referenced branch: %v)", key)
 		}
 	}
 	return nil
