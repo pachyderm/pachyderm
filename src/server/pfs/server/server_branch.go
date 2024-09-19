@@ -141,7 +141,7 @@ func computePropagatedBranches(ctx context.Context, tx *pachsql.Tx, seen map[str
 			return nil, err
 		}
 		if _, ok := seen[pfsdb.BranchKey(branchInfo.Branch)]; ok {
-			return nil, nil
+			continue
 		}
 		seen[pfsdb.BranchKey(branchInfo.Branch)] = branchInfo
 		subvenantBranchInfos = append(subvenantBranchInfos, branchInfo)
