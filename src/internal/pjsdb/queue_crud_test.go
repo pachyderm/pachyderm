@@ -89,10 +89,10 @@ func TestDequeue(t *testing.T) {
 func BenchmarkDequeuePerformance(t *testing.B) {
 	t.StopTimer()
 	//numItems := t.N
-	//numWorkers := 10
-	//_, db := DB(t)
-	_, _ = DB(t)
-	//db.SetMaxOpenConns(numWorkers)
+	numWorkers := 10
+	_, db := DB(t)
+	//_, _ = DB(t)
+	db.SetMaxOpenConns(numWorkers)
 	//s := FilesetStorage(t, db)
 	//_ = FilesetStorage(t, db)
 
