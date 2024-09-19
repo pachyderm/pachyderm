@@ -88,19 +88,21 @@ func TestDequeue(t *testing.T) {
 
 func BenchmarkDequeuePerformance(t *testing.B) {
 	t.StopTimer()
-	numItems := t.N
+	//numItems := t.N
 	numWorkers := 10
-	ctx, db := DB(t)
+	_, db := DB(t)
 	db.SetMaxOpenConns(numWorkers)
-	s := FilesetStorage(t, db)
+	//s := FilesetStorage(t, db)
+	_ = FilesetStorage(t, db)
+
 	//var queueId []byte
-	withTx(t, ctx, db, s, func(d dependencies) {
-		prog, progHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo;")
-		for i := 0; i < numItems; i++ {
-			createJobWithFilesets(t, d, 0, prog, progHash)
-		}
-		//	queueId = progHash
-	})
+	//withTx(t, ctx, db, s, func(d dependencies) {
+	//	prog, progHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo;")
+	//	for i := 0; i < numItems; i++ {
+	//		createJobWithFilesets(t, d, 0, prog, progHash)
+	//	}
+	//	//	queueId = progHash
+	//})
 
 	t.StartTimer()
 	//var eg errgroup.Group
