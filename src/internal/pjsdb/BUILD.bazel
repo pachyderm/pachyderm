@@ -43,6 +43,7 @@ go_test(
     deps = [
         ":pjsdb",
         "//src/internal/clusterstate",
+        "//src/internal/dbutil",
         "//src/internal/dockertestenv",
         "//src/internal/errors",
         "//src/internal/migrations",
@@ -55,5 +56,6 @@ go_test(
         "//src/internal/storage/kv",
         "//src/internal/storage/track",
         "//src/internal/testetcd",
+        "@org_golang_x_sync//errgroup",
     ],
 )
