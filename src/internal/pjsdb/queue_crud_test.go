@@ -91,6 +91,7 @@ func BenchmarkDequeuePerformance(t *testing.B) {
 	//numItems := t.N
 	//numWorkers := 10
 	//_, db := DB(t)
+	_, _ = DB(t)
 	//db.SetMaxOpenConns(numWorkers)
 	//s := FilesetStorage(t, db)
 	//_ = FilesetStorage(t, db)
