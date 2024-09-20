@@ -123,7 +123,7 @@ require github.com/gordonklaus/ineffassign v0.1.0
 
 require github.com/tomarrell/wrapcheck/v2 v2.9.0
 
-require github.com/kisielk/errcheck v1.7.0
+require github.com/kisielk/errcheck v1.7.1-0.20240702033320-b832de3f3c5a
 
 require github.com/OpenPeeDeeP/depguard/v2 v2.2.0
 
