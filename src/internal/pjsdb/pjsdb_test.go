@@ -30,7 +30,7 @@ type dependencies struct {
 	s   *fileset.Storage
 }
 
-func DB(t *testing.T) (context.Context, *pachsql.DB) {
+func DB(t testing.TB) (context.Context, *pachsql.DB) {
 	t.Helper()
 	ctx := pctx.Child(pctx.TestContext(t), t.Name())
 	db := dockertestenv.NewTestDB(t)
@@ -39,14 +39,14 @@ func DB(t *testing.T) (context.Context, *pachsql.DB) {
 	return ctx, db
 }
 
-func FilesetStorage(t *testing.T, db *pachsql.DB) *fileset.Storage {
+func FilesetStorage(t testing.TB, db *pachsql.DB) *fileset.Storage {
 	t.Helper()
 	store := kv.NewFSStore(filepath.Join(t.TempDir(), "obj-store"), 512, chunk.DefaultMaxChunkSize)
 	tr := track.NewPostgresTracker(db)
 	return fileset.NewStorage(fileset.NewPostgresStore(db), tr, chunk.NewStorage(store, nil, db, tr))
 }
 
-func withTx(t *testing.T, ctx context.Context, db *pachsql.DB, s *fileset.Storage, f func(d dependencies)) {
+func withTx(t testing.TB, ctx context.Context, db *pachsql.DB, s *fileset.Storage, f func(d dependencies)) {
 	t.Helper()
 	tx, err := db.BeginTxx(ctx, nil)
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ func withDependencies(t *testing.T, f func(d dependencies)) {
 	})
 }
 
-func mockFileset(t *testing.T, d dependencies, path, value string) fileset.PinnedFileset {
+func mockFileset(t testing.TB, d dependencies, path, value string) fileset.PinnedFileset {
 	var id *fileset.ID
 	uw, err := d.s.NewUnorderedWriter(d.ctx)
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func mockFileset(t *testing.T, d dependencies, path, value string) fileset.Pinne
 	return pin
 }
 
-func mockAndHashFileset(t *testing.T, d dependencies, path, value string) (fileset.PinnedFileset, []byte) {
+func mockAndHashFileset(t testing.TB, d dependencies, path, value string) (fileset.PinnedFileset, []byte) {
 	fs := mockFileset(t, d, path, value)
 	hasher := pachhash.New()
 	_, err := hasher.Write([]byte(path))
@@ -108,7 +108,7 @@ func makeReq(t *testing.T, d dependencies, parent pjsdb.JobID, mutate func(req *
 	return *createRequest
 }
 
-func createJobWithFilesets(t *testing.T, d dependencies, parent pjsdb.JobID, program fileset.PinnedFileset,
+func createJobWithFilesets(t testing.TB, d dependencies, parent pjsdb.JobID, program fileset.PinnedFileset,
 	targetHash []byte, inputs ...fileset.PinnedFileset) pjsdb.JobID {
 	createRequest := pjsdb.CreateJobRequest{
 		Program:     program,
