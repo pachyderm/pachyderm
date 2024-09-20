@@ -1,9 +1,13 @@
 package pjsdb_test
 
 import (
+	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"golang.org/x/sync/errgroup"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -84,4 +88,43 @@ func TestDequeue(t *testing.T) {
 		require.YesError(t, err)
 		require.True(t, errors.As(err, &pjsdb.DequeueFromEmptyQueueError{}))
 	})
+}
+
+func BenchmarkDequeuePerformance(t *testing.B) {
+	t.StopTimer()
+	numItems := t.N
+	numWorkers := 10
+	ctx, db := DB(t)
+	db.DB.SetMaxOpenConns(numWorkers)
+	s := FilesetStorage(t, db)
+
+	var queueId []byte
+	withTx(t, ctx, db, s, func(d dependencies) {
+		prog, progHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo;")
+		for i := 0; i < numItems; i++ {
+			createJobWithFilesets(t, d, 0, prog, progHash)
+		}
+		queueId = progHash
+	})
+
+	t.StartTimer()
+	var eg errgroup.Group
+
+	for i := 0; i < numWorkers; i++ {
+		eg.Go(func() error {
+			for j := 0; j < numItems/numWorkers; j++ {
+				err := dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+					_, err := pjsdb.DequeueAndProcess(ctx, sqlTx, queueId)
+					return err
+				})
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	require.NoError(t, eg.Wait())
+
+	t.Logf("took %s with t.N = %d\n", t.Elapsed(), t.N)
 }
