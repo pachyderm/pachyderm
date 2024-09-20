@@ -29,6 +29,7 @@ func (err *InvalidFilesetError) Error() string {
 type JobNotFoundError struct {
 	ID          JobID
 	ProgramHash string
+	JobHash     string
 }
 
 func (err *JobNotFoundError) GRPCStatus() *status.Status {
@@ -36,7 +37,7 @@ func (err *JobNotFoundError) GRPCStatus() *status.Status {
 }
 
 func (err *JobNotFoundError) Error() string {
-	return fmt.Sprintf("job not found (id=%d, program_hash=%v)", err.ID, err.ProgramHash)
+	return fmt.Sprintf("job not found (id=%d, program_hash=%v, job_hash=%v)", err.ID, err.ProgramHash, err.JobHash)
 }
 
 type DequeueFromEmptyQueueError struct {
@@ -49,4 +50,12 @@ func (err *DequeueFromEmptyQueueError) GRPCStatus() *status.Status {
 
 func (err *DequeueFromEmptyQueueError) Error() string {
 	return fmt.Sprintf("cannot dequeue from an empty queue (queue_id=%s)", err.ID)
+}
+
+type JobCacheCacheMissError struct {
+	JobHash string
+}
+
+func (e *JobCacheCacheMissError) Error() string {
+	return "job not found in cache: job hash: " + e.JobHash
 }
