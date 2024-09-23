@@ -25,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
@@ -62,9 +61,9 @@ func TestServer(t *testing.T) {
 }
 
 func TestCreateAndRead(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	c := env.PachClient.FilesetClient
+	pachClient := pachd.NewTestPachd(t)
+	ctx := pachClient.Ctx()
+	c := pachClient.FilesetClient
 	id, testFiles, err := createFileset(ctx, c, 99, units.KB)
 	require.NoError(t, err)
 	t.Run("Full", func(t *testing.T) {
