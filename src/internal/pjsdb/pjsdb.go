@@ -207,6 +207,40 @@ func parseFileset(filesets string) ([]fileset.ID, error) {
 	return ids, nil
 }
 
+func ToJobInfo(job Job) (*pjs.JobInfo, error) {
+	jobInfo := &pjs.JobInfo{
+		Job: &pjs.Job{
+			Id: int64(job.ID),
+		},
+		ParentJob: &pjs.Job{
+			Id: int64(job.Parent),
+		},
+		Program: job.Program.HexString(),
+	}
+	for _, filesetID := range job.Inputs {
+		jobInfo.Input = append(jobInfo.Input, filesetID.HexString())
+	}
+	switch {
+	case job.Done != time.Time{}:
+		jobInfo.State = pjs.JobState_DONE
+		jobInfo.Result = &pjs.JobInfo_Error{
+			Error: enumStringToErrorCode[job.Error],
+		}
+		if len(job.Outputs) != 0 {
+			jobInfoSuccess := pjs.JobInfo_Success{}
+			for _, filesetID := range job.Outputs {
+				jobInfoSuccess.Output = append(jobInfoSuccess.Output, filesetID.HexString())
+			}
+			jobInfo.Result = &pjs.JobInfo_Success_{Success: &jobInfoSuccess}
+		}
+	case job.Processing != time.Time{}:
+		jobInfo.State = pjs.JobState_PROCESSING
+	default:
+		jobInfo.State = pjs.JobState_QUEUED
+	}
+	return jobInfo, nil
+}
+
 func ToQueueInfo(queue Queue) (*pjs.QueueInfo, error) {
 	var programs []string
 	for _, p := range queue.Programs {
