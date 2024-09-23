@@ -31,13 +31,11 @@ go_test(
     deps = [
         ":pfssync",
         "//src/internal/client",
-        "//src/internal/dockertestenv",
         "//src/internal/errors",
-        "//src/internal/pctx",
+        "//src/internal/pachd",
         "//src/internal/randutil",
         "//src/internal/require",
         "//src/internal/storage/renew",
-        "//src/internal/testpachd/realenv",
         "//src/pfs",
     ],
 )
