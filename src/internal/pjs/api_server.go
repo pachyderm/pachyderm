@@ -329,13 +329,9 @@ func (a *apiServer) InspectQueue(ctx context.Context, req *pjs.InspectQueueReque
 		if err != nil {
 			return errors.Wrap(err, "get queue")
 		}
-		uniquePrograms := make(map[string]struct{})
-		for _, program := range q.Programs {
-			uniquePrograms[program.HexString()] = struct{}{}
-		}
 		var programs []string
-		for k := range uniquePrograms {
-			programs = append(programs, k)
+		for _, program := range q.Programs {
+			programs = append(programs, program.HexString())
 		}
 		queueInfoDetails = &pjs.QueueInfoDetails{
 			QueueInfo: &pjs.QueueInfo{
@@ -353,6 +349,89 @@ func (a *apiServer) InspectQueue(ctx context.Context, req *pjs.InspectQueueReque
 	return &pjs.InspectQueueResponse{
 		Details: queueInfoDetails,
 	}, nil
+}
+
+func (a *apiServer) ListJob(req *pjs.ListJobRequest, srv pjs.API_ListJobServer) (err error) {
+	ctx, done := log.SpanContext(srv.Context(), "list job")
+	defer done(log.Errorp(&err))
+
+	// list all the jobs without parent
+	noParent := req.Job == nil && req.Context == ""
+
+	var id pjsdb.JobID
+	if !noParent {
+		// handle job context and request validation.
+		jid, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+		if err != nil {
+			return err
+		}
+		id = jid
+	}
+
+	// list jobs and stream back results.
+	var jobs []pjsdb.Job
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		// list job returns direct children
+		jobs, err = pjsdb.ListJobTxByFilter(ctx, sqlTx,
+			pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{
+				Operation:  pjsdb.FilterOperationAND,
+				NullParent: noParent,
+				Parent:     id,
+			}})
+		return errors.Wrap(err, "list job in pjsdb")
+	}, dbutil.WithReadOnly()); err != nil {
+		return errors.Wrap(err, "with tx")
+	}
+	for i, job := range jobs {
+		jobInfo, err := toJobInfo(job)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("to job info, iteration=%d/%d", i, len(jobs)))
+		}
+		resp := &pjs.ListJobResponse{
+			Id:   jobInfo.Job,
+			Info: jobInfo,
+			Details: &pjs.JobInfoDetails{
+				JobInfo: jobInfo,
+			},
+		}
+		if err := srv.Send(resp); err != nil {
+			return errors.Wrap(err, fmt.Sprintf("send, iteration=%d/%d", i, len(jobs)))
+		}
+	}
+	return nil
+}
+
+func (a *apiServer) ListQueue(req *pjs.ListQueueRequest, srv pjs.API_ListQueueServer) (err error) {
+	ctx, done := log.SpanContext(srv.Context(), "list queue")
+	defer done(log.Errorp(&err))
+
+	var queues []pjsdb.Queue
+	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		queues, err = pjsdb.ListQueues(ctx, a.env.DB, pjsdb.IterateQueuesRequest{})
+		return errors.Wrap(err, "list queue in pjsdb")
+	}, dbutil.WithReadOnly()); err != nil {
+		return errors.Wrap(err, "with tx")
+	}
+	for i, queue := range queues {
+		queueInfo, err := pjsdb.ToQueueInfo(queue)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("to queue info, iteration=%d/%d", i, len(queues)))
+		}
+		resp := &pjs.ListQueueResponse{
+			Id: &pjs.Queue{
+				Id: []byte(queue.ID),
+			},
+			Info: queueInfo,
+			Details: &pjs.QueueInfoDetails{
+				QueueInfo: queueInfo,
+				Size:      int64(queue.Size),
+			},
+		}
+		if err := srv.Send(resp); err != nil {
+			return errors.Wrap(err, fmt.Sprintf("send, iteration=%d/%d", i, len(queues)))
+		}
+	}
+	return nil
 }
 
 // resolveJobCtx returns an error annotated with a GRPC status and therefore probably shouldn't be wrapped.

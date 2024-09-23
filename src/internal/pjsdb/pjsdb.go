@@ -5,6 +5,7 @@ package pjsdb
 import (
 	"database/sql"
 	"encoding/hex"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"strconv"
 	"strings"
 	"time"
@@ -204,4 +205,17 @@ func parseFileset(filesets string) ([]fileset.ID, error) {
 		ids = append(ids, *id)
 	}
 	return ids, nil
+}
+
+func ToQueueInfo(queue Queue) (*pjs.QueueInfo, error) {
+	var programs []string
+	for _, p := range queue.Programs {
+		programs = append(programs, p.HexString())
+	}
+	return &pjs.QueueInfo{
+		Queue: &pjs.Queue{
+			Id: queue.ID,
+		},
+		Program: programs,
+	}, nil
 }

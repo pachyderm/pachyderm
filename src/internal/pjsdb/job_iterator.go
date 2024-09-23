@@ -24,6 +24,7 @@ type IterateJobsFilter struct {
 	Operation filterOperation
 
 	// fields to filter on
+	NullParent  bool
 	Parent      JobID
 	HasInput    []byte
 	Program     []byte
@@ -46,7 +47,7 @@ func (f IterateJobsFilter) IsEmpty() bool {
 func (f IterateJobsFilter) apply() (where string, values []any) {
 	var conditions []string
 	// from pjs.jobs
-	if f.Parent != 0 {
+	if f.Parent != 0 && !f.NullParent {
 		conditions = append(conditions, "j.parent = ?")
 		values = append(values, f.Parent)
 	}
@@ -70,6 +71,9 @@ func (f IterateJobsFilter) apply() (where string, values []any) {
 	if f.HasOutput != nil {
 		conditions = append(conditions, "jf_output.fileset IN (?)")
 		values = append(values, f.HasOutput)
+	}
+	if f.NullParent {
+		conditions = append(conditions, "j.parent IS NULL")
 	}
 	if len(conditions) == 0 {
 		return "", nil
