@@ -7,7 +7,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
 )
 
 // ListQueues returns a list of Queue objects.
@@ -83,17 +82,4 @@ func GetQueue(ctx context.Context, tx *pachsql.Tx, queueId []byte) (Queue, error
 		return Queue{}, errors.Wrap(err, "queue record to Queue")
 	}
 	return queue, nil
-}
-
-func ToQueueInfo(queue Queue) (*pjs.QueueInfo, error) {
-	var programs []string
-	for _, p := range queue.Programs {
-		programs = append(programs, p.HexString())
-	}
-	return &pjs.QueueInfo{
-		Queue: &pjs.Queue{
-			Id: queue.ID,
-		},
-		Program: programs,
-	}, nil
 }

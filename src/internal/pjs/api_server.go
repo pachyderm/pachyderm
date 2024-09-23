@@ -355,10 +355,17 @@ func (a *apiServer) ListJob(req *pjs.ListJobRequest, srv pjs.API_ListJobServer) 
 	ctx, done := log.SpanContext(srv.Context(), "list job")
 	defer done(log.Errorp(&err))
 
-	// handle job context and request validation.
-	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
-	if err != nil {
-		return err
+	// list all the jobs without parent
+	noParent := req.Job == nil && req.Context == ""
+
+	var id pjsdb.JobID
+	if !noParent {
+		// handle job context and request validation.
+		jid, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+		if err != nil {
+			return err
+		}
+		id = jid
 	}
 
 	// list jobs and stream back results.
@@ -366,7 +373,11 @@ func (a *apiServer) ListJob(req *pjs.ListJobRequest, srv pjs.API_ListJobServer) 
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		// list job returns direct children
 		jobs, err = pjsdb.ListJobTxByFilter(ctx, sqlTx,
-			pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Parent: id}})
+			pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{
+				Operation:  pjsdb.FilterOperationAND,
+				NullParent: noParent,
+				Parent:     id,
+			}})
 		return errors.Wrap(err, "list job in pjsdb")
 	}, dbutil.WithReadOnly()); err != nil {
 		return errors.Wrap(err, "with tx")

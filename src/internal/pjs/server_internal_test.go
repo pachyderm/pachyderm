@@ -2,15 +2,16 @@ package pjs
 
 import (
 	"context"
+	"io"
+	"math"
+	"testing"
+	"time"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"io"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"math"
-	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -613,18 +614,42 @@ func TestInspectQueue(t *testing.T) {
 }
 
 func TestListJob(t *testing.T) {
-	c, fc := setupTest(t)
-	ctx := pctx.TestContext(t)
-	depth := 3
-	fullBinaryJobTree(t, ctx, depth, c, fc)
+	t.Run("list jobs given parents", func(t *testing.T) {
+		c, fc := setupTest(t)
+		ctx := pctx.TestContext(t)
+		depth := 3
+		fullBinaryJobTree(t, ctx, depth, c, fc)
 
-	for jid := 1; jid <= 3; jid++ {
-		expected := []int64{int64(jid * 2), int64(jid*2 + 1)}
-		listC, err := c.ListJob(ctx, &pjs.ListJobRequest{
-			Job: &pjs.Job{
-				Id: int64(jid),
-			},
-		})
+		for jid := 1; jid <= 3; jid++ {
+			expected := []int64{int64(jid * 2), int64(jid*2 + 1)}
+			listC, err := c.ListJob(ctx, &pjs.ListJobRequest{
+				Job: &pjs.Job{
+					Id: int64(jid),
+				},
+			})
+			require.NoError(t, err)
+			var actual []int64
+			for {
+				resp, err := listC.Recv()
+				if err != nil {
+					if errors.As(err, io.EOF) {
+						break
+					}
+					require.NoError(t, err)
+				}
+				actual = append(actual, resp.Id.Id)
+			}
+			require.NoDiff(t, expected, actual, nil)
+		}
+	})
+	t.Run("list no parent jobs", func(t *testing.T) {
+		c, fc := setupTest(t)
+		ctx := pctx.TestContext(t)
+		depth := 3
+		fullBinaryJobTree(t, ctx, depth, c, fc)
+		// list job request without giving parent job
+		listC, err := c.ListJob(ctx, &pjs.ListJobRequest{})
+		expected := []int64{1}
 		require.NoError(t, err)
 		var actual []int64
 		for {
@@ -635,14 +660,10 @@ func TestListJob(t *testing.T) {
 				}
 				require.NoError(t, err)
 			}
-			parentJob := resp.Details.JobInfo.ParentJob
-			if parentJob != nil && parentJob.Id != 0 {
-				actual = append(actual, resp.Id.Id)
-			}
-			require.NoError(t, err)
+			actual = append(actual, resp.Id.Id)
 		}
 		require.NoDiff(t, expected, actual, nil)
-	}
+	})
 }
 
 func TestListQueue(t *testing.T) {
@@ -675,7 +696,7 @@ func TestListQueue(t *testing.T) {
 	hash3, err := HashFileset(ctx, fc, programFileset3)
 	require.NoError(t, err)
 	expected := make(map[string][]string)
-	// ListQueue should return QueueIDs an lengths based on all jobs in all states.
+	// ListQueue should return QueueIDs and lengths based on all jobs in all states.
 	// Length should come from counting only jobs in QUEUED state.
 	for i := 1; i <= 10; i++ {
 		// queue1 and queue2 has no queued jobs.
