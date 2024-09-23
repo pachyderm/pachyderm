@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
@@ -36,6 +37,7 @@ type Env struct {
 
 	PFSServer  pfsserver.APIServer
 	AuthServer authserver.APIServer
+	PJSServer  pjs.APIServer
 	// TODO: This should just be a pach client for the needed services.
 	// serviceenv blocks until everything is done though, so we can't get it until after setup is done.
 	GetPachClient func(context.Context) *client.APIClient

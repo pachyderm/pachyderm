@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"testing/fstest"
 	"time"
 	"unicode"
 
@@ -25,8 +26,10 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +48,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
@@ -61,6 +65,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsfile"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -135,6 +140,20 @@ type apiServer struct {
 	jobs            col.PostgresCollection
 	clusterDefaults col.PostgresCollection
 	projectDefaults col.PostgresCollection
+
+	preprocessingFileset string
+}
+
+func (a *apiServer) getPreprocessingFileset(ctx context.Context) (string, error) {
+	if a.preprocessingFileset != "" {
+		return a.preprocessingFileset, nil
+	}
+	var err error
+	a.preprocessingFileset, err = a.env.GetPachClient(ctx).FileSystemToFileset(ctx, preprocessingFS)
+	if err != nil {
+		return "", errors.Wrap(err, "uploading list datum filesystem as fileset")
+	}
+	return a.preprocessingFileset, nil
 }
 
 func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) error {
@@ -1166,6 +1185,17 @@ func (a *apiServer) listDatumReverse(ctx context.Context, request *pps.ListDatum
 	return nil
 }
 
+const usePJS = true
+
+var (
+	listDatumFS = fstest.MapFS{
+		"name": &fstest.MapFile{Data: []byte("list-datum")},
+	}
+	preprocessingFS = fstest.MapFS{
+		"name": &fstest.MapFile{Data: []byte("preprocessing")},
+	}
+)
+
 func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb func(*datum.Meta) error) error {
 	setInputDefaults("", input)
 	if visitErr := pps.VisitInput(input, func(input *pps.Input) error {
@@ -1184,16 +1214,100 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	}); visitErr != nil {
 		return visitErr
 	}
-	pachClient := a.env.GetPachClient(ctx)
-	// TODO: Add cache?
-	taskDoer := a.env.TaskService.NewDoer(driver.PreprocessingTaskNamespace(nil), uuid.NewWithoutDashes(), nil)
-	di, err := datum.NewIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
-	if err != nil {
-		return err
+	if usePJS {
+		// maybe a PJS task.Doer?
+		// datum.Publish
+		//a.env.PJSServer
+		pachClient := a.env.GetPachClient(ctx)
+		program, err := a.getPreprocessingFileset(ctx)
+		if err != nil {
+			return errors.Wrap(err, "getting preprocessing fileset")
+		}
+		// h, err := pjs.HashFileset(ctx, pachClient.FilesetClient, program)
+		// if err != nil {
+		// 	return errors.Wrap(err, "hashing program fileset")
+		// }
+		fmt.Println("QQQ PJS client", pachClient.PjsAPIClient)
+		var taskDoer = pjs.Doer{
+			Client:  pachClient.PjsAPIClient,
+			Program: program,
+			InputTranslator: func(ctx context.Context, msg *anypb.Any) ([]string, error) {
+
+				// just write the message to a fileset
+				b, err := proto.Marshal(msg)
+				if err != nil {
+					return nil, errors.Wrap(err, "marshal")
+				}
+				cc, err := pachClient.FilesetClient.CreateFileset(ctx)
+				if err != nil {
+					return nil, errors.Wrap(err, "CreateFileSet")
+				}
+				if err := cc.Send(&storage.CreateFilesetRequest{
+					Modification: &storage.CreateFilesetRequest_AppendFile{
+						AppendFile: &storage.AppendFile{
+							Path: "data",
+							Data: &wrapperspb.BytesValue{Value: b},
+						},
+					},
+				}); err != nil {
+					return nil, errors.Wrap(err, "send")
+				}
+				resp, err := cc.CloseAndRecv()
+				if err != nil {
+					return nil, errors.Wrap(err, "close fileset")
+				}
+				return []string{resp.FilesetId}, nil
+			},
+			OutputTranslator: func(ctx context.Context, outputs []string) (*anypb.Any, error) {
+				if len(outputs) != 1 {
+					return nil, errors.Errorf("expected one output; got %d", len(outputs))
+				}
+				cc, err := pachClient.FilesetClient.ReadFileset(ctx, &storage.ReadFilesetRequest{
+					FilesetId: outputs[0],
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "reading output fileset")
+				}
+				for {
+					r, err := cc.Recv()
+					if err != nil {
+						if err == io.EOF {
+							break
+						}
+						return nil, errors.Wrap(err, "could not receive fileset")
+					}
+					if r.Path != "/data" {
+						continue
+					}
+					var a anypb.Any
+					if err := proto.Unmarshal(r.Data.Value, &a); err != nil {
+						return nil, errors.Wrap(err, "could not unmarshal result")
+					}
+					return &a, nil
+				}
+				return nil, errors.New("got here")
+			},
+		}
+		di, err := datum.NewIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
+		if err != nil {
+			return err
+		}
+		return errors.EnsureStack(di.Iterate(func(meta *datum.Meta) error {
+			return cb(meta)
+		}))
+	} else {
+		pachClient := a.env.GetPachClient(ctx)
+		// TODO: Add cache?
+		taskDoer := a.env.TaskService.NewDoer(driver.PreprocessingTaskNamespace(nil), uuid.NewWithoutDashes(), nil)
+		// FIXME: either use task doer or PJS job creation here
+		di, err := datum.NewIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
+		if err != nil {
+			return err
+		}
+		return errors.EnsureStack(di.Iterate(func(meta *datum.Meta) error {
+			return cb(meta)
+		}))
 	}
-	return errors.EnsureStack(di.Iterate(func(meta *datum.Meta) error {
-		return cb(meta)
-	}))
 }
 
 func convertDatumMetaToInfo(meta *datum.Meta, sourceJob *pps.Job) *pps.DatumInfo {

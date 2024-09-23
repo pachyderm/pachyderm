@@ -3,24 +3,31 @@ package transform
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/logs"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfssync"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
@@ -37,40 +44,158 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 	return common.HashDatum(h.salt, inputs)
 }
 
-func PreprocessingWorker(ctx context.Context, c pfs.APIClient, taskService task.Service, pipelineInfo *pps.PipelineInfo) error {
-	taskSource := taskService.NewSource(driver.PreprocessingTaskNamespace(pipelineInfo))
-	return errors.EnsureStack(taskSource.Iterate(
-		ctx,
-		func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
-			switch {
-			case datum.IsTask(input):
-				return datum.ProcessTask(ctx, c, input)
-			case input.MessageIs(&CreateParallelDatumsTask{}):
-				task, err := deserializeCreateParallelDatumsTask(input)
-				if err != nil {
-					return nil, err
+func PreprocessingWorker(ctx context.Context, c pfs.APIClient, taskService task.Service, pipelineInfo *pps.PipelineInfo, pjsService pjs.APIClient, filesetClient storage.FilesetClient) error {
+	var (
+		wg              sync.WaitGroup
+		taskErr, pjsErr error
+	)
+	wg.Add(2)
+	go func() {
+		taskSource := taskService.NewSource(driver.PreprocessingTaskNamespace(pipelineInfo))
+		taskErr = errors.EnsureStack(taskSource.Iterate(
+			ctx,
+			func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
+				switch {
+				case datum.IsTask(input):
+					return datum.ProcessTask(ctx, c, input)
+				case input.MessageIs(&CreateParallelDatumsTask{}):
+					task, err := deserializeCreateParallelDatumsTask(input)
+					if err != nil {
+						return nil, err
+					}
+					ctx = client.SetAuthToken(ctx, task.AuthToken)
+					return processCreateParallelDatumsTask(ctx, c, task)
+				case input.MessageIs(&CreateSerialDatumsTask{}):
+					task, err := deserializeCreateSerialDatumsTask(input)
+					if err != nil {
+						return nil, err
+					}
+					ctx = client.SetAuthToken(ctx, task.AuthToken)
+					return processCreateSerialDatumsTask(ctx, c, task)
+				case input.MessageIs(&CreateDatumSetsTask{}):
+					task, err := deserializeCreateDatumSetsTask(input)
+					if err != nil {
+						return nil, err
+					}
+					ctx = client.SetAuthToken(ctx, task.AuthToken)
+					return processCreateDatumSetsTask(ctx, c, task)
+				default:
+					return nil, errors.Errorf("unrecognized any type (%v) in preprocessing worker", input.TypeUrl)
 				}
-				ctx = client.SetAuthToken(ctx, task.AuthToken)
-				return processCreateParallelDatumsTask(ctx, c, task)
-			case input.MessageIs(&CreateSerialDatumsTask{}):
-				task, err := deserializeCreateSerialDatumsTask(input)
-				if err != nil {
-					return nil, err
-				}
-				ctx = client.SetAuthToken(ctx, task.AuthToken)
-				return processCreateSerialDatumsTask(ctx, c, task)
-			case input.MessageIs(&CreateDatumSetsTask{}):
-				task, err := deserializeCreateDatumSetsTask(input)
-				if err != nil {
-					return nil, err
-				}
-				ctx = client.SetAuthToken(ctx, task.AuthToken)
-				return processCreateDatumSetsTask(ctx, c, task)
-			default:
-				return nil, errors.Errorf("unrecognized any type (%v) in preprocessing worker", input.TypeUrl)
+			},
+		))
+	}()
+	go func() {
+		defer wg.Done()
+		if pjsService == nil {
+			return
+		}
+		pjsErr = backoff.RetryUntilCancel(ctx, func() error {
+			q, err := pjsService.ProcessQueue(ctx)
+			if err != nil {
+				return errors.Wrap(err, "PJS.ProcessQueue")
 			}
-		},
-	))
+			if err := q.Send(&pjs.ProcessQueueRequest{Queue: &pjs.Queue{Id: workerHash}}); err != nil {
+				return errors.Wrap(err, "send initial request")
+			}
+			for r, err := q.Recv(); err == nil; r, err = q.Recv() {
+				log.Info(ctx, "response received", zap.Strings("inputs", r.Input), zap.String("context", r.Context))
+
+				if len(r.Input) != 1 {
+					return errors.Errorf("cannot handle len(inputs) ≠ 1")
+				}
+				cc, err := filesetClient.ReadFileset(ctx, &storage.ReadFilesetRequest{
+					FilesetId: r.Input[0],
+				})
+				if err != nil {
+					return errors.Wrap(err, "reading fileset")
+				}
+				for {
+					r, err := cc.Recv()
+					if err != nil {
+						if err == io.EOF {
+							break
+						}
+						return errors.Wrap(err, "could not receive fileset")
+					}
+					if r.Path != "/data" {
+						continue
+					}
+					var a anypb.Any
+					if err := proto.Unmarshal(r.Data.Value, &a); err != nil {
+						return errors.Wrap(err, "could not unmarshal result")
+					}
+					result, err := func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
+						switch {
+						case datum.IsTask(input):
+							return datum.ProcessTask(ctx, c, input)
+						case input.MessageIs(&CreateParallelDatumsTask{}):
+							task, err := deserializeCreateParallelDatumsTask(input)
+							if err != nil {
+								return nil, err
+							}
+							ctx = client.SetAuthToken(ctx, task.AuthToken)
+							return processCreateParallelDatumsTask(ctx, c, task)
+						case input.MessageIs(&CreateSerialDatumsTask{}):
+							task, err := deserializeCreateSerialDatumsTask(input)
+							if err != nil {
+								return nil, err
+							}
+							ctx = client.SetAuthToken(ctx, task.AuthToken)
+							return processCreateSerialDatumsTask(ctx, c, task)
+						case input.MessageIs(&CreateDatumSetsTask{}):
+							task, err := deserializeCreateDatumSetsTask(input)
+							if err != nil {
+								return nil, err
+							}
+							ctx = client.SetAuthToken(ctx, task.AuthToken)
+							return processCreateDatumSetsTask(ctx, c, task)
+						default:
+							return nil, errors.Errorf("unrecognized any type (%v) in preprocessing worker", input.TypeUrl)
+						}
+					}(ctx, &a)
+					if err != nil {
+						return err
+					}
+					b, err := proto.Marshal(result)
+					if err != nil {
+						return errors.Wrap(err, "marshal")
+					}
+					cc, err := filesetClient.CreateFileset(ctx)
+					if err != nil {
+						return errors.Wrap(err, "CreateFileSet")
+					}
+					if err := cc.Send(&storage.CreateFilesetRequest{
+						Modification: &storage.CreateFilesetRequest_AppendFile{
+							AppendFile: &storage.AppendFile{
+								Path: "data",
+								Data: &wrapperspb.BytesValue{Value: b},
+							},
+						},
+					}); err != nil {
+						return errors.Wrap(err, "send")
+					}
+					resp, err := cc.CloseAndRecv()
+					if err != nil {
+						return errors.Wrap(err, "close fileset")
+					}
+					if err := q.Send(&pjs.ProcessQueueRequest{Result: &pjs.ProcessQueueRequest_Success_{
+						Success: &pjs.ProcessQueueRequest_Success{
+							Output: []string{resp.FilesetId},
+						},
+					}}); err != nil {
+						return errors.Wrap(err, "sending request")
+					}
+				}
+			}
+			return errors.Wrap(err, "receive subsequent responses")
+		}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
+			log.Debug(ctx, "error in preprocessing worker", zap.Error(err))
+			return nil
+		})
+	}()
+	wg.Wait()
+	return errors.Join(taskErr, pjsErr)
 }
 
 func ProcessingWorker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, status *Status) error {

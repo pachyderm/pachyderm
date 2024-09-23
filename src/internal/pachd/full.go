@@ -136,6 +136,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.maybeRegisterIdentityServer,
 		fb.registerAuthServer,
 		fb.registerPFSServer,
+		fb.registerPJSServer,
 		fb.registerStorageServer,
 		fb.registerPPSServer,
 		fb.registerTransactionServer,
@@ -249,6 +250,8 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 	pd.ppsWorker = pps_server.NewWorker(pps_server.WorkerEnv{
 		PFS:         pfs.NewAPIClient(pd.selfGRPC),
 		TaskService: task.NewEtcdService(env.EtcdClient, config.PPSEtcdPrefix),
+		PJS:         pjs.NewAPIClient(pd.selfGRPC),
+		Fileset:     storage.NewFilesetClient(pd.selfGRPC),
 	})
 
 	pd.kubeClient = fake.NewSimpleClientset(env.K8sObjects...)
@@ -359,6 +362,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 					EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
 				},
 				PFSServer: pd.pfsServer.(pfs_server.APIServer),
+				PJSServer: pd.pjsServer,
 			}
 		}),
 		initMetadataServer(&pd.metadataServer, func() (env metadata_server.Env) {

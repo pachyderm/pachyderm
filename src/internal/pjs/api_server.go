@@ -143,7 +143,7 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 	ctx := srv.Context()
 	req, err := srv.Recv()
 	if err != nil {
-		return errors.Wrap(err, "recieve")
+		return errors.Wrap(err, "receive")
 	}
 	if req.Queue == nil {
 		return status.Errorf(codes.InvalidArgument, "first message must pick Queue")
@@ -406,9 +406,13 @@ func (a *apiServer) checkPermissions(ctx context.Context) error {
 	permissionResp, err := a.env.GetPermissionser.GetPermissions(ctx, &auth.GetPermissionsRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 	})
-	if err != nil && !errors.Is(err, auth.ErrNotActivated) {
+	if err != nil {
+		if errors.Is(err, auth.ErrNotActivated) {
+			return nil
+		}
 		return errors.Wrap(err, "get user permissions")
 	}
+
 	foundValidPermission := false
 	for _, p := range permissionResp.Permissions {
 		if p == auth.Permission_JOB_SKIP_CTX {
