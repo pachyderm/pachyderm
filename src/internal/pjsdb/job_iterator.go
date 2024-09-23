@@ -18,7 +18,7 @@ import (
 // IterateJobsFilter is translated to a 'where' SQL clause for use by the job iterator.
 // keeping this as its own separate struct makes it easy to check to see if a
 // filter is defined. It also allows filters to be combined later if needed.
-// TODO(Fahad): combine filters by adding filter.And(other Filter) and filter.Or(other Filter)
+// TODO(Fahad): if needed, combine filters by adding filter.And(other Filter) and filter.Or(other Filter)
 type IterateJobsFilter struct {
 	// Operation determines how fields are joined into a predicate. The default is 'AND'
 	Operation filterOperation
@@ -124,7 +124,7 @@ func NewJobsIterator(extCtx sqlx.ExtContext, req IterateJobsRequest) *JobsIterat
 	query := selectJobRecordPrefix
 	where, values := req.Filter.apply()
 	query += where
-	query += "\nGROUP BY j.id "
+	query += "\nGROUP BY j.id, jc.job_hash, jc.cache_write, jc.cache_read "
 	query += req.orderBy()
 	query = extCtx.Rebind(query)
 	if req.PageSize == 0 {

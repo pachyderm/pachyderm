@@ -34,7 +34,15 @@ type Job struct {
 	Queued     time.Time
 	Processing time.Time
 	Done       time.Time
-	// additional fields or metadata that would be computed would go here.
+
+	JobCacheMetadata
+}
+
+// JobCacheMetadata is the corresponding cache metadata of a Job.
+type JobCacheMetadata struct {
+	JobHash      []byte
+	ReadEnabled  bool
+	WriteEnabled bool
 }
 
 // jobRow models a single row in the pjs.jobs table.
@@ -61,12 +69,20 @@ type jobFilesetsRow struct {
 	Fileset       []byte `db:"fileset"`
 }
 
+// jobCacheRow models a single row in the pjs.job_cache table.
+type jobCacheRow struct {
+	JobHash      []byte `db:"job_hash"`
+	ReadEnabled  bool   `db:"cache_read"`
+	WriteEnabled bool   `db:"cache_write"`
+}
+
 // jobRecord is derived from the pjs.jobs and pjs.job_filesets tables.
 // note that this is a 'record' and not a row, because it is the result of joining tables together.
 type jobRecord struct {
 	jobRow
 	Inputs  string `db:"inputs"`
 	Outputs string `db:"outputs"`
+	jobCacheRow
 }
 
 func (r jobRecord) toJob() (Job, error) {
@@ -79,6 +95,11 @@ func (r jobRecord) toJob() (Job, error) {
 		Queued:      r.Queued,
 		Processing:  r.Processing.Time,
 		Done:        r.Done.Time,
+		JobCacheMetadata: JobCacheMetadata{
+			JobHash:      r.JobHash,
+			ReadEnabled:  r.ReadEnabled,
+			WriteEnabled: r.WriteEnabled,
+		},
 	}
 	var err error
 	if job.Inputs, err = parseFileset(r.Inputs); err != nil {
