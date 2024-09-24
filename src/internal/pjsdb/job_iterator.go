@@ -128,7 +128,7 @@ func NewJobsIterator(extCtx sqlx.ExtContext, req IterateJobsRequest) *JobsIterat
 	query := selectJobRecordPrefix
 	where, values := req.Filter.apply()
 	query += where
-	query += "\nGROUP BY j.id, jc.job_hash, jc.cache_write, jc.cache_read "
+	query += "\nGROUP BY j.id, jc.job_hash, jc.cache_read, jc.cache_write "
 	query += req.orderBy()
 	query = extCtx.Rebind(query)
 	if req.PageSize == 0 {

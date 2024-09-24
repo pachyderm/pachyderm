@@ -1,15 +1,15 @@
 package pjsdb_test
 
 import (
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"math"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 )
 
 func createRootJob(t *testing.T, d dependencies) pjsdb.JobID {
