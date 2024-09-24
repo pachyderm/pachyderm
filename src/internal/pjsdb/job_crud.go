@@ -4,15 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pjs"
+	"strings"
 )
 
 const (
@@ -348,40 +346,6 @@ func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobE
 		return errors.Wrapf(err, "error job: update error and state to done")
 	}
 	return nil
-}
-
-func ToJobInfo(job Job) (*pjs.JobInfo, error) {
-	jobInfo := &pjs.JobInfo{
-		Job: &pjs.Job{
-			Id: int64(job.ID),
-		},
-		ParentJob: &pjs.Job{
-			Id: int64(job.Parent),
-		},
-		Program: job.Program.HexString(),
-	}
-	for _, filesetID := range job.Inputs {
-		jobInfo.Input = append(jobInfo.Input, filesetID.HexString())
-	}
-	switch {
-	case job.Done != time.Time{}:
-		jobInfo.State = pjs.JobState_DONE
-		jobInfo.Result = &pjs.JobInfo_Error{
-			Error: enumStringToErrorCode[job.Error],
-		}
-		if len(job.Outputs) != 0 {
-			jobInfoSuccess := pjs.JobInfo_Success{}
-			for _, filesetID := range job.Outputs {
-				jobInfoSuccess.Output = append(jobInfoSuccess.Output, filesetID.HexString())
-			}
-			jobInfo.Result = &pjs.JobInfo_Success_{Success: &jobInfoSuccess}
-		}
-	case job.Processing != time.Time{}:
-		jobInfo.State = pjs.JobState_PROCESSING
-	default:
-		jobInfo.State = pjs.JobState_QUEUED
-	}
-	return jobInfo, nil
 }
 
 // CompleteJob is called when job processing without any error. It updates done timestamp

@@ -383,7 +383,7 @@ func (a *apiServer) ListJob(req *pjs.ListJobRequest, srv pjs.API_ListJobServer) 
 		return errors.Wrap(err, "with tx")
 	}
 	for i, job := range jobs {
-		jobInfo, err := toJobInfo(job)
+		jobInfo, err := pjsdb.ToJobInfo(job)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("to job info, iteration=%d/%d", i, len(jobs)))
 		}
