@@ -421,9 +421,9 @@ func checkFilesetCDR(ctx context.Context, t *testing.T, c storage.FilesetClient,
 }
 
 func TestRenewFileset_validation(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	c := env.PachClient.FilesetClient
+	pachClient := pachd.NewTestPachd(t)
+	ctx := pachClient.Ctx()
+	c := pachClient.FilesetClient
 	id, _, err := createFileset(ctx, c, 99, units.KB)
 	require.NoError(t, err)
 	_, err = c.RenewFileset(ctx, &storage.RenewFilesetRequest{
