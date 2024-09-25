@@ -488,8 +488,7 @@ func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, 
 	ctx = pctx.Child(ctx, "createChunkset")
 	// Insert ChunkSet into ChunkSet table.
 	var chunksetID ChunkSetID
-	err := tx.GetContext(ctx, &chunksetID, `INSERT INTO storage.chunksets DEFAULT VALUES RETURNING id`)
-	if err != nil {
+	if err := tx.GetContext(ctx, &chunksetID, `INSERT INTO storage.chunksets DEFAULT VALUES RETURNING id`); err != nil {
 		return 0, errors.Wrapf(err, "get chunk set id")
 	}
 
@@ -498,7 +497,7 @@ func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, 
 
 	// List all of the filesets.
 	var pointsTo []string
-	if err = tx.SelectContext(ctx, &pointsTo, `SELECT str_id FROM storage.tracker_objects WHERE str_id LIKE 'fileset%'`); err != nil {
+	if err := tx.SelectContext(ctx, &pointsTo, `SELECT str_id FROM storage.tracker_objects WHERE str_id LIKE 'fileset/%'`); err != nil {
 		return 0, errors.Wrap(err, "get filesets from db")
 	}
 	if err := s.tracker.CreateTx(tx, chunksetStrID, pointsTo, track.NoTTL); err != nil {
