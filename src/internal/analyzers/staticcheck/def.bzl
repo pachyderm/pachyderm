@@ -146,7 +146,7 @@ ANALYZERS = [
     # "ST1019", # double import
     "ST1020",  # function doc comments
     "ST1021",  # type doc comments
-    # "ST1022", # var doc comments
+    "ST1022",  # var doc comments
     "ST1023",
     "U1000",
 ]
