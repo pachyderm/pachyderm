@@ -16,9 +16,10 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
 )
 
-// Create a new EKS cluster; this leverages the pulumi aws crosswalk library.
-// aws crosswalk (awsx) is a higher level library that makes it easier to
-// create AWS resources since it created all the associated networking.
+// DeployCluster creates a new EKS cluster; this leverages the pulumi aws
+// crosswalk library.  aws crosswalk (awsx) is a higher level library that makes
+// it easier to create AWS resources since it created all the associated
+// networking.
 func DeployCluster(ctx *pulumi.Context) (*kubernetes.Provider, *iam.Role, error) {
 	cfg := config.New(ctx, "")
 	minClusterSize, err := cfg.TryInt("minClusterSize")
