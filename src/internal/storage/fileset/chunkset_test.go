@@ -24,11 +24,6 @@ import (
 func TestCreateChunkset(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	s, db := setUptest(t, ctx)
-	//db := dockertestenv.NewTestDB(t)
-	//migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	//require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	//tr := track.NewTestTracker(t, db)
-	//storage := fileset.NewTestStorage(ctx, t, db, tr)
 
 	// create a fileset
 	gc := s.NewGC(5 * time.Second)
