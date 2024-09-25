@@ -40,6 +40,10 @@ type registry struct {
 	limiter limit.ConcurrencyLimiter
 }
 
+// NewRegistry is not properly documented.
+//
+// TODO: document.
+//
 // TODO:
 // Prometheus stats? (previously in the driver, which included testing we should reuse if possible)
 // capture logs (reuse driver tests and reintroduce tagged logger).

@@ -98,16 +98,18 @@ func WithIsolationLevel(x sql.IsolationLevel) WithTxOption {
 	}
 }
 
-// TODO: Unused, but probably acceptable to leave in place
-// WithReadOnly causes WithTx to run the transaction as read only
+// WithReadOnly causes WithTx to run the transaction as read only.
+//
+// TODO: Unused, but probably acceptable to leave in place.
 func WithReadOnly() WithTxOption {
 	return func(c *withTxConfig) {
 		c.TxOptions.ReadOnly = true
 	}
 }
 
+// WithBackOff sets the BackOff used when retrying.
+//
 // TODO: Unused, but probably acceptable to leave in place
-// WithBackOff sets the BackOff used when retrying
 func WithBackOff(bo backoff.BackOff) WithTxOption {
 	return func(c *withTxConfig) {
 		c.BackOff = bo

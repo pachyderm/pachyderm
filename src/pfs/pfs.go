@@ -121,7 +121,10 @@ func (c *Commit) Key() string {
 	return c.Repo.Key() + "@" + c.Id
 }
 
-// TODO(provenance): there's a concern client code will unknowningly call GetRepo() when it shouldn't
+// AccessRepo is not properly documented.
+//
+//   - TODO(provenance): there's a concern client code will unknowningly call GetRepo() when it shouldn't.
+//   - TODO: document.
 func (c *Commit) AccessRepo() *Repo {
 	if c.GetRepo() != nil {
 		return c.GetRepo()

@@ -204,9 +204,12 @@ func NewEphemeralPostgresDB(ctx context.Context, t testing.TB) (*pachsql.DB, str
 
 var spawnLock sync.Mutex
 
-// TODO: use the docker client, instead of the bash script
-// TODO: use the bitnami pg_bouncer image
-// TODO: look into https://github.com/ory/dockertest
+// EnsureDBEnv is not properly documented.
+//
+//   - TODO: use the docker client, instead of the bash script.
+//   - TODO: use the bitnami pg_bouncer image.
+//   - TODO: look into https://github.com/ory/dockertest.
+//   - TODO: document.
 func EnsureDBEnv(ctx context.Context) (retErr error) {
 	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
 	if got, want := os.Getenv("SKIP_DOCKER_POSTGRES_CREATE"), "1"; got == want {

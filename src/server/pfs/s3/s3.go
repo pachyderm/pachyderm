@@ -75,7 +75,7 @@ func (c *controller) requestClient(r *http.Request) *client.APIClient {
 
 // Router creates an http server like object that serves an S3-like API for PFS. This allows you to
 // use s3 clients to access PFS contents.
-
+//
 // `inputBuckets` specifies which buckets should be served, referencing
 // specific commit IDs. If nil, all PFS branches will be served as separate
 // buckets, of the form `<branch name>.<bucket name>`. Some s3 features are

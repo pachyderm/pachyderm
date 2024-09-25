@@ -37,6 +37,10 @@ func GetAlerts(pi *PipelineInfo) []string {
 	return alerts
 }
 
+// ProjectNameField is not properly documented.
+//
+// TODO: document.
+//
 // The following are zap fields for log lines that can be parsed into a LogMessage.  The field name
 // must be equal to the `protobuf:"...,json="` name.
 func ProjectNameField(name string) zap.Field {
