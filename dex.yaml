@@ -1,4 +1,4 @@
-# helm install -f dex.yaml --generate-name --wait dex/dex
+# helm install dex-test dex/dex --values dex.yaml --wait
 grpc:
   enabled: true  # Defaults to false, must explicitly enable.
 
@@ -21,7 +21,8 @@ config:
     - id: example-app
       redirectURIs:
         - 'http://127.0.0.1:5555/callback'
-        - 'http://pachyderm.local/authorization-code/callback'
+#        - 'http://pachyderm.local:5556/authorization-code/callback'
+#        - 'http://pachyderm.local/oauth/callback/?inline=true'
       name: 'Example App'
       secret: ZXhhbXBsZS1hcHAtc2VjcmV0
 
