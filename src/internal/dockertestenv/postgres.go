@@ -14,10 +14,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"go.uber.org/zap"
 )
@@ -189,6 +191,15 @@ func NewTestDBConfigCtx(ctx context.Context) (config DBConfig, cleaner *cleanup.
 func NewTestDB(t testing.TB) *pachsql.DB {
 	cfg := NewTestDBConfig(t)
 	return testutil.OpenDB(t, cfg.PGBouncer.DBOptions()...)
+}
+
+// NewMigratedTestDB creates a new database connection with migrations applied.
+func NewMigratedTestDB(t testing.TB, state migrations.State) *pachsql.DB {
+	ctx := pctx.TestContext(t)
+	db := NewTestDB(t)
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state), "should be able to set up tables")
+	return db
 }
 
 func NewTestDirectDB(t testing.TB) *pachsql.DB {
