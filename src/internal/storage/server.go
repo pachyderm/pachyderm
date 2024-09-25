@@ -312,13 +312,14 @@ func (s *Server) RenewFileset(ctx context.Context, request *storage.RenewFileset
 	if err != nil {
 		return nil, err
 	}
+	switch {
+	case request.TtlSeconds < 1:
+		return nil, errors.Errorf("ttl (%d) must be at least one second", request.TtlSeconds)
+	case request.TtlSeconds > int64(maxTTL/time.Second):
+		return nil, errors.Errorf("ttl (%ds) exceeds max ttl (%ds)", request.TtlSeconds, maxTTL/time.Second)
+	}
+	// NOTE: no need to explicitly check overflow because of the bounds checks above.
 	ttl := time.Duration(request.TtlSeconds) * time.Second
-	if ttl < time.Second {
-		return nil, errors.Errorf("ttl (%d) must be at least one second", ttl)
-	}
-	if ttl > maxTTL {
-		return nil, errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
-	}
 	_, err = s.Filesets.SetTTL(ctx, *id, ttl)
 	if err != nil {
 		return nil, err
