@@ -28,6 +28,8 @@ import (
 // The namespace is used for scoping the Doers and Sources of tasks such that clients can create workers
 // that only process tasks created by clients in the same namespace.
 
+// A Service can create Doers and Sources and provide information about current tasks.
+//
 // Scheduling:
 // A task managed by a Service has a group.
 // The group is used for scheduling purposes.

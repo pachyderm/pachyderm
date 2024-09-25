@@ -269,8 +269,9 @@ func NewConfiguration(config any) *Configuration {
 	}
 }
 
+// EmptyConfig is only used in pachctl-doc.
+//
 // TODO: remove
-// At the time of writing EmptyConfig is only used in pachctl-doc
 type EmptyConfig struct{}
 
 func (EmptyConfig) isPachConfig() {}

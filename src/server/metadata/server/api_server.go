@@ -14,10 +14,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 )
 
-// Auth is the subset of the auth server needed by the metadata service.
 type Env struct {
 	TxnEnv *transactionenv.TransactionEnv
-	Auth   metadata.Auth
+	// Auth is the subset of the auth server needed by the metadata service.
+	Auth metadata.Auth
 }
 
 type APIServer struct {
