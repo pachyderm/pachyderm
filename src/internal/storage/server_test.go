@@ -421,7 +421,7 @@ func checkFilesetCDR(ctx context.Context, t *testing.T, c storage.FilesetClient,
 	require.Equal(t, 0, len(expected))
 }
 
-func TestRenewFileset(t *testing.T) {
+func TestRenewFileset_validation(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient.FilesetClient
@@ -431,17 +431,20 @@ func TestRenewFileset(t *testing.T) {
 		FilesetId:  id,
 		TtlSeconds: math.MaxInt64,
 	})
-	require.True(t, strings.Contains(err.Error(), "exceeds max ttl"))
+	require.True(t, strings.Contains(err.Error(), "exceeds max ttl"), "TTL greater than the maximum is an error")
 	_, err = c.RenewFileset(ctx, &storage.RenewFilesetRequest{
 		FilesetId:  id,
 		TtlSeconds: 1800000000000,
 	})
-	require.True(t, strings.Contains(err.Error(), "exceeds max ttl"))
-	require.True(t, strings.Contains(err.Error(), "exceeds max ttl"))
+	require.True(t, strings.Contains(err.Error(), "exceeds max ttl"), "TTL greater than the maximum is an error")
 	_, err = c.RenewFileset(ctx, &storage.RenewFilesetRequest{
 		FilesetId:  id,
 		TtlSeconds: 0, // TODO: support pinning in the future
 	})
-	require.True(t, strings.Contains(err.Error(), "at least one second"))
-
+	require.True(t, strings.Contains(err.Error(), "at least one second"), "TTL must be at least one second")
+	_, err = c.RenewFileset(ctx, &storage.RenewFilesetRequest{
+		FilesetId:  id,
+		TtlSeconds: -1,
+	})
+	require.True(t, strings.Contains(err.Error(), "at least one second"), "TTL must be at least one second")
 }
