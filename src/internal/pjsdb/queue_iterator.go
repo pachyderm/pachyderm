@@ -20,7 +20,7 @@ const (
 				count(j.id) AS "size"
 			  FROM 
 				queues 
-			  JOIN 
+			  LEFT JOIN 
 				pjs.jobs j 
 				ON j.program_hash = queues.program_hash
               WHERE

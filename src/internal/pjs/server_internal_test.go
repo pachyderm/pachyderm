@@ -602,49 +602,172 @@ func TestInspectQueue(t *testing.T) {
 		require.NoError(t, err)
 		hash3, err := HashFileset(ctx, fc, programFileset3)
 		require.NoError(t, err)
+		expected := make(map[string][]string)
+		inspect := func(hash []byte, i int) {
+			inspectQueueResp1, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
+				Queue: &pjs.Queue{
+					Id: hash,
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, int64(i), inspectQueueResp1.Details.Size)
+			require.Equal(t, expected[string(hash)], inspectQueueResp1.Details.QueueInfo.Program)
+			require.Equal(t, hash, inspectQueueResp1.Details.QueueInfo.Queue.Id)
+		}
 		for i := 1; i <= 10; i++ {
+			expected[string(hash1)] = append(expected[string(hash1)], programFileset1)
 			_, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
 				Program: programFileset1,
 				Input:   []string{programFileset1},
 			})
 			require.NoError(t, err)
-			inspectQueueResp1, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
-				Queue: &pjs.Queue{
-					Id: hash1,
-				},
-			})
-			require.NoError(t, err)
-			require.Equal(t, int64(i), inspectQueueResp1.Details.Size)
-			require.Equal(t, []string{programFileset1}, inspectQueueResp1.Details.QueueInfo.Program)
-			require.Equal(t, hash1, inspectQueueResp1.Details.QueueInfo.Queue.Id)
+			inspect(hash1, i)
+
+			expected[string(hash2)] = append(expected[string(hash2)], programFileset2)
 			_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{
 				Program: programFileset2,
 				Input:   []string{programFileset2},
 			})
 			require.NoError(t, err)
-			inspectQueueResp2, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
-				Queue: &pjs.Queue{
-					Id: hash2,
-				},
-			})
-			require.NoError(t, err)
-			require.Equal(t, int64(i), inspectQueueResp2.Details.Size)
-			require.Equal(t, hash2, inspectQueueResp2.Details.QueueInfo.Queue.Id)
+			inspect(hash2, i)
+
+			expected[string(hash3)] = append(expected[string(hash3)], programFileset3)
 			_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{
 				Program: programFileset3,
 				Input:   []string{programFileset3},
 			})
 			require.NoError(t, err)
-			inspectQueueResp3, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
-				Queue: &pjs.Queue{
-					Id: hash3,
+			inspect(hash3, i)
+		}
+	})
+}
+
+func TestListJob(t *testing.T) {
+	t.Run("list jobs given parents", func(t *testing.T) {
+		c, fc := setupTest(t)
+		ctx := pctx.TestContext(t)
+		depth := 3
+		fullBinaryJobTree(t, ctx, depth, c, fc)
+
+		for jid := 1; jid <= 3; jid++ {
+			expected := []int64{int64(jid * 2), int64(jid*2 + 1)}
+			listC, err := c.ListJob(ctx, &pjs.ListJobRequest{
+				Job: &pjs.Job{
+					Id: int64(jid),
 				},
 			})
 			require.NoError(t, err)
-			require.Equal(t, int64(i), inspectQueueResp3.Details.Size)
-			require.Equal(t, hash3, inspectQueueResp3.Details.QueueInfo.Queue.Id)
+			var actual []int64
+			for {
+				resp, err := listC.Recv()
+				if err != nil {
+					if errors.As(err, io.EOF) {
+						break
+					}
+					require.NoError(t, err)
+				}
+				actual = append(actual, resp.Id.Id)
+			}
+			require.NoDiff(t, expected, actual, nil)
 		}
 	})
+	t.Run("list no parent jobs", func(t *testing.T) {
+		c, fc := setupTest(t)
+		ctx := pctx.TestContext(t)
+		depth := 3
+		fullBinaryJobTree(t, ctx, depth, c, fc)
+		// list job request without giving parent job
+		listC, err := c.ListJob(ctx, &pjs.ListJobRequest{})
+		expected := []int64{1}
+		require.NoError(t, err)
+		var actual []int64
+		for {
+			resp, err := listC.Recv()
+			if err != nil {
+				if errors.As(err, io.EOF) {
+					break
+				}
+				require.NoError(t, err)
+			}
+			actual = append(actual, resp.Id.Id)
+		}
+		require.NoDiff(t, expected, actual, nil)
+	})
+}
+
+func TestListQueue(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	c, fc := setupTest(t)
+	inputFileset := createFileSet(t, fc, map[string][]byte{
+		"a.txt": []byte(`dummy input`),
+	})
+	programFileset1 := createFileSet(t, fc, map[string][]byte{
+		"file": []byte(`program1`),
+	})
+	req1 := &pjs.CreateJobRequest{
+		Program: programFileset1,
+		Input:   []string{inputFileset},
+	}
+	programFileset2 := createFileSet(t, fc, map[string][]byte{
+		"file": []byte(`program2`),
+	})
+	req2 := &pjs.CreateJobRequest{
+		Program: programFileset2,
+		Input:   []string{inputFileset},
+	}
+	programFileset3 := createFileSet(t, fc, map[string][]byte{
+		"file": []byte(`program3`),
+	})
+	hash1, err := HashFileset(ctx, fc, programFileset1)
+	require.NoError(t, err)
+	hash2, err := HashFileset(ctx, fc, programFileset2)
+	require.NoError(t, err)
+	hash3, err := HashFileset(ctx, fc, programFileset3)
+	require.NoError(t, err)
+	expected := make(map[string][]string)
+	// ListQueue should return QueueIDs and lengths based on all jobs in all states.
+	// Length should come from counting only jobs in QUEUED state.
+	for i := 1; i <= 10; i++ {
+		// queue1 and queue2 has no queued jobs.
+		_, err := runJob(t, ctx, c, fc, req1, func(resp *pjs.ProcessQueueResponse) error {
+			return nil
+		})
+		require.NoError(t, err)
+		_, err = runJob(t, ctx, c, fc, req2, func(resp *pjs.ProcessQueueResponse) error {
+			return nil
+		})
+		require.NoError(t, err)
+
+		_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{
+			Program: programFileset3,
+			Input:   []string{inputFileset},
+		})
+		require.NoError(t, err)
+		expected[string(hash3)] = append(expected[string(hash3)], programFileset3)
+	}
+	listC, err := c.ListQueue(ctx, &pjs.ListQueueRequest{})
+	require.NoError(t, err)
+
+	for {
+		resp, err := listC.Recv()
+		if err != nil {
+			if errors.As(err, io.EOF) {
+				break
+			}
+			require.NoError(t, err)
+		}
+		require.NoError(t, err)
+		if idHashEqual(resp.Id.Id, hash1) || idHashEqual(resp.Id.Id, hash2) {
+			require.Equal(t, int64(0), resp.Details.Size)
+		} else {
+			require.Equal(t, int64(10), resp.Details.Size)
+		}
+		require.Equal(t, expected[string(resp.Id.Id)], resp.Info.Program)
+	}
+}
+
+func idHashEqual(a []byte, b []byte) bool {
+	return string(a) == string(b)
 }
 
 func setupTest(t testing.TB, opts ...ClientOptions) (pjs.APIClient, storage.FilesetClient) {

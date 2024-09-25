@@ -60,7 +60,6 @@ go_test(
         "//src/internal/storage/fileset",
         "//src/internal/storage/track",
         "//src/internal/stream",
-        "//src/internal/testpachd/realenv",
         "//src/storage",
         "@com_github_docker_go_units//:go-units",
         "@org_golang_google_protobuf//types/known/wrapperspb",

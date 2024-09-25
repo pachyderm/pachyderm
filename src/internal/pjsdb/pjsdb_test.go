@@ -92,15 +92,20 @@ func makeReq(t *testing.T, d dependencies, parent pjsdb.JobID, mutate func(req *
 	programFileset, hash := mockAndHashFileset(t, d, "/program.py", program)
 	numInputs := rand.Intn(10) + 1
 	inputs := make([]fileset.PinnedFileset, 0)
+	inputHashes := make([][]byte, 0)
 	for i := 0; i < numInputs; i++ {
-		inputFileset := mockFileset(t, d, "/input/"+strconv.Itoa(i)+".txt", `pachyderm`)
+		inputFileset, inputHash := mockAndHashFileset(t, d, "/input/"+strconv.Itoa(i)+".txt", `pachyderm`)
 		inputs = append(inputs, inputFileset)
+		inputHashes = append(inputHashes, inputHash)
 	}
 	createRequest := &pjsdb.CreateJobRequest{
-		Program:     programFileset,
-		ProgramHash: hash,
-		Inputs:      inputs,
-		Parent:      parent,
+		Program:           programFileset,
+		ProgramHash:       hash,
+		Inputs:            inputs,
+		InputHashes:       inputHashes,
+		Parent:            parent,
+		CacheWriteEnabled: true,
+		CacheReadEnabled:  true,
 	}
 	if mutate != nil {
 		mutate(createRequest)

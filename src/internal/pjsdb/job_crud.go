@@ -4,15 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/jmoiron/sqlx"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pjs"
+	"strings"
 )
 
 const (
@@ -80,7 +79,13 @@ type CreateJobRequest struct {
 	// The user is responsible for supplying the hash.
 	// The hash ought to be computed with HashFileset() in the internal PJS package (src/internal/pjs.go)
 	ProgramHash []byte
-	//TODO: handle caching.
+	// InputHashes are required to use the server-side job cache.
+	// The hash ought to be computed with HashFileset() in the internal PJS package (src/internal/pjs.go)
+	InputHashes [][]byte // There is one array per input.
+
+	// CacheReadEnabled and CacheWriteEnabled are used to configure caching behavior for the server-side job cache.
+	CacheReadEnabled  bool // if true, attempt to read from the cache when creating this job.
+	CacheWriteEnabled bool // if true, write the result of the job into the cache once the output fileset exists.
 }
 
 // IsSanitized is a utility function that wraps sanitize() for the purposes of testing.
@@ -97,8 +102,11 @@ func (req CreateJobRequest) sanitize(ctx context.Context, tx *pachsql.Tx) (creat
 		return createJobRequest{}, errors.New("program cannot be nil")
 	}
 	sanitizedReq := createJobRequest{
-		Program:     []byte(fileset.ID(req.Program).HexString()), // there aren't real pins as of yet.
-		ProgramHash: req.ProgramHash,                             // eventually the ID will be a hash.
+		Program:           []byte(fileset.ID(req.Program).HexString()), // there aren't real pins as of yet.
+		ProgramHash:       req.ProgramHash,                             // eventually the ID will be a hash.
+		InputHashes:       req.InputHashes,
+		CacheReadEnabled:  req.CacheReadEnabled,
+		CacheWriteEnabled: req.CacheWriteEnabled,
 	}
 	// validate parent.
 	sanitizedReq.Parent = sql.NullInt64{Valid: false}
@@ -127,11 +135,12 @@ func (req CreateJobRequest) sanitize(ctx context.Context, tx *pachsql.Tx) (creat
 }
 
 type createJobRequest struct {
-	Parent      sql.NullInt64
-	Inputs      []jobFilesetsRow
-	Program     []byte
-	ProgramHash []byte
-	//TODO: handle caching.
+	Parent                              sql.NullInt64
+	Inputs                              []jobFilesetsRow
+	Program                             []byte
+	ProgramHash                         []byte
+	InputHashes                         [][]byte
+	CacheReadEnabled, CacheWriteEnabled bool
 }
 
 // CreateJob creates a job entry in postgres.
@@ -139,19 +148,24 @@ func CreateJob(ctx context.Context, tx *pachsql.Tx, req CreateJobRequest) (JobID
 	ctx = pctx.Child(ctx, "createJob")
 	sReq, err := req.sanitize(ctx, tx)
 	if err != nil {
-		return 0, errors.Wrap(err, "create job")
+		return 0, errors.Wrap(err, "req.sanitize")
 	}
-	//TODO: handle caching.
-
+	id, err := maybeCreateJobFromCache(ctx, tx, sReq)
+	if err != nil {
+		return 0, errors.Wrap(err, "creating job from job cache")
+	}
+	// return on a cache hit. An id of 0 is the default value which is invalid. The first valid job id is 1.
+	if id != JobID(0) {
+		return id, nil
+	}
 	// insert into the jobs table.
-	var id JobID
 	row := tx.QueryRowxContext(ctx, `
 		INSERT INTO pjs.jobs 
 		(program, program_hash, parent) 
 		VALUES ($1, $2, $3) 
 		RETURNING id`, sReq.Program, sReq.ProgramHash, sReq.Parent)
 	if err := row.Scan(&id); err != nil {
-		return 0, errors.Wrap(err, "create job: inserting row")
+		return 0, errors.Wrap(err, "inserting row into pjs.jobs")
 	}
 	// insert into the jobs_filesets table.
 	for _, input := range sReq.Inputs {
@@ -167,12 +181,42 @@ func CreateJob(ctx context.Context, tx *pachsql.Tx, req CreateJobRequest) (JobID
 	return id, nil
 }
 
+func maybeCreateJobFromCache(ctx context.Context, tx *pachsql.Tx, req createJobRequest) (id JobID, err error) {
+	if !req.CacheReadEnabled {
+		return 0, nil
+	}
+	jobHash := jobCacheKey(req.ProgramHash, req.InputHashes)
+	job, err := readFromJobCache(ctx, tx, jobHash)
+	if err != nil {
+		// swallow a cache-miss error, it's okay if we don't have a cache hit.
+		if errors.As(err, &JobCacheCacheMissError{}) {
+			return 0, nil
+		}
+		return 0, errors.Wrap(err, "read from job cache")
+	}
+	id, err = createJobFromCache(ctx, tx, job)
+	if err != nil {
+		return 0, errors.Wrap(err, "create job from cache")
+	}
+	if !req.CacheWriteEnabled {
+		return id, nil
+	}
+	return id, errors.Wrap(writeToJobCache(ctx, tx, Job{
+		ID: id,
+		JobCacheMetadata: JobCacheMetadata{
+			JobHash:      jobHash,
+			ReadEnabled:  true,
+			WriteEnabled: true,
+		},
+	}), "write to job cache")
+}
+
 // GetJob returns a job by its JobID. GetJob should not be used to claim a job.
 func GetJob(ctx context.Context, tx *pachsql.Tx, id JobID) (Job, error) {
 	ctx = pctx.Child(ctx, "getJob")
 	record := jobRecord{}
 	err := sqlx.GetContext(ctx, tx, &record, selectJobRecordPrefix+`
-	WHERE j.id = $1 GROUP BY j.id, jc.job_hash, jc.cache_write, jc.cache_read;`, id)
+	WHERE j.id = $1 GROUP BY j.id, jc.job_hash, jc.cache_read, jc.cache_write;`, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Job{}, &JobNotFoundError{ID: id}
@@ -263,7 +307,7 @@ func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID, algo WalkAlgorithm, 
 func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
 	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
 		INNER JOIN children c ON j.id = c.id
-		GROUP BY j.id, jc.job_hash, jc.cache_write, jc.cache_read
+		GROUP BY j.id, jc.job_hash, jc.cache_read, jc.cache_write
 		ORDER BY MIN(depth) ASC;
 	`, id, depth); err != nil {
 		return nil, errors.Wrap(err, "select context")
@@ -274,7 +318,7 @@ func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64)
 func walkPreOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
 	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
 		INNER JOIN children c ON j.id = c.id
-		GROUP BY j.id, jc.job_hash, jc.cache_write, jc.cache_read, c.path
+		GROUP BY j.id, jc.job_hash, jc.cache_read, jc.cache_write, c.path
 		ORDER BY c.path;
 	`, id, depth); err != nil {
 		return nil, errors.Wrap(err, "select context")
@@ -329,65 +373,55 @@ func DeleteJob(ctx context.Context, tx *pachsql.Tx, id JobID) ([]JobID, error) {
 	if err = sqlx.SelectContext(ctx, tx, &ids, recursiveTraverseChildren+`
 	DELETE FROM pjs.jobs WHERE id IN (SELECT id FROM children) AND (done IS NOT NULL OR processing IS NULL)
 	RETURNING id;`, job.ID, maxDepth); err != nil {
-		return nil, errors.Wrap(err, "cancel job")
+		return nil, errors.Wrap(err, "delete job")
 	}
 	return ids, nil
 }
 
+type WriteToCacheOption struct {
+	//if a non-empty JobCacheMetadata.JobHash is passed in then, the program and input hashes will be ignored.
+	JobHash []byte
+	// ProgramHash and InputHashes can be used to derive the JobHash.
+	ProgramHash []byte
+	InputHashes [][]byte
+	// cache read will be false since this job was not copied from the cache, but instead had to run.
+	// cache write will be true, otherwise we wouldn't be writing to the cache.
+}
+
 // ErrorJob is called when job processing has an error. It updates job err code and
 // done timestamp in database.
-func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobErrorCode) error {
-	ctx = pctx.Child(ctx, "complete error")
+func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobErrorCode, option ...WriteToCacheOption) error {
+	ctx = pctx.Child(ctx, "errorJob")
 	errStr := errorCodeToEnumString[errCode]
 	_, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP, error = $1
-		WHERE id = $2 AND error IS NULL AND done IS NULL
+		WHERE id = $2 AND error IS NULL
 	`, errStr, jobID)
 	if err != nil {
 		return errors.Wrapf(err, "error job: update error and state to done")
 	}
-	return nil
-}
-
-func ToJobInfo(job Job) (*pjs.JobInfo, error) {
-	jobInfo := &pjs.JobInfo{
-		Job: &pjs.Job{
-			Id: int64(job.ID),
+	if len(option) == 0 {
+		return nil
+	}
+	jobHash := option[0].JobHash
+	if len(jobHash) == 0 {
+		jobHash = jobCacheKey(option[0].ProgramHash, option[0].InputHashes)
+	}
+	return errors.Wrap(writeToJobCache(ctx, tx, Job{
+		ID: jobID,
+		JobCacheMetadata: JobCacheMetadata{
+			JobHash:      jobHash,
+			ReadEnabled:  false,
+			WriteEnabled: true,
 		},
-		ParentJob: &pjs.Job{
-			Id: int64(job.Parent),
-		},
-		Program: job.Program.HexString(),
-	}
-	for _, filesetID := range job.Inputs {
-		jobInfo.Input = append(jobInfo.Input, filesetID.HexString())
-	}
-	switch {
-	case job.Done != time.Time{}:
-		jobInfo.State = pjs.JobState_DONE
-		jobInfo.Result = &pjs.JobInfo_Error{
-			Error: enumStringToErrorCode[job.Error],
-		}
-		if len(job.Outputs) != 0 {
-			jobInfoSuccess := pjs.JobInfo_Success{}
-			for _, filesetID := range job.Outputs {
-				jobInfoSuccess.Output = append(jobInfoSuccess.Output, filesetID.HexString())
-			}
-			jobInfo.Result = &pjs.JobInfo_Success_{Success: &jobInfoSuccess}
-		}
-	case job.Processing != time.Time{}:
-		jobInfo.State = pjs.JobState_PROCESSING
-	default:
-		jobInfo.State = pjs.JobState_QUEUED
-	}
-	return jobInfo, nil
+	}), "write to job cache")
 }
 
 // CompleteJob is called when job processing without any error. It updates done timestamp
 // output filesets and in database.
-func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []string) error {
-	ctx = pctx.Child(ctx, "complete ok")
+func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []string, option ...WriteToCacheOption) error {
+	ctx = pctx.Child(ctx, "completeJob")
 	result, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
 		SET done = CURRENT_TIMESTAMP
@@ -409,14 +443,29 @@ func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []str
 	}
 	for pos, output := range outputs {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO pjs.job_filesets 
-		(job_id, fileset_type, array_position, fileset) 
+		INSERT INTO pjs.job_filesets
+		(job_id, fileset_type, array_position, fileset)
 		VALUES ($1, $2, $3, $4);`, jobID, "output", pos, []byte(output))
 		if err != nil {
 			return errors.Wrapf(err, "complete ok: insert output fileset")
 		}
 	}
-	return nil
+	if len(option) == 0 {
+		return nil
+	}
+	jobHash := option[0].JobHash
+	if len(jobHash) == 0 {
+		jobHash = jobCacheKey(option[0].ProgramHash, option[0].InputHashes)
+	}
+	// otherwise write, to the cache
+	return errors.Wrap(writeToJobCache(ctx, tx, Job{
+		ID: jobID,
+		JobCacheMetadata: JobCacheMetadata{
+			JobHash:      jobHash,
+			ReadEnabled:  false,
+			WriteEnabled: true,
+		},
+	}), "write to job cache")
 }
 
 // validateJobTree walks jobs from job 'id' and confirms that no parent job with processing or queued child jobs is done.
