@@ -1,7 +1,9 @@
+// Package taskchain implements chains of parallel and serial tasks.
 package taskchain
 
 import (
 	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"golang.org/x/sync/errgroup"

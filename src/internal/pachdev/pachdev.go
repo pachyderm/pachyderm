@@ -1,3 +1,6 @@
+// Package pachdev needs to be documented.
+//
+// TODO: document
 package pachdev
 
 import (

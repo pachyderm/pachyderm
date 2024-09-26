@@ -1,3 +1,6 @@
+// Package track implements a tracker.
+//
+// TODO: naming: “track” implements a “tracker”
 package track
 
 import (

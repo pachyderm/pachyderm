@@ -1,3 +1,6 @@
+// Package stats provides worker metrics.
+//
+// TODO: naming: why “stats” rather than “metrics”?
 package stats
 
 import (

@@ -1,3 +1,4 @@
+// Package pachtmpl provides jsonnet templating.
 package pachtmpl
 
 import (

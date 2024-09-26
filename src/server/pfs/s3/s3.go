@@ -1,5 +1,8 @@
-// TODO: the s2 library checks the type of the error to decide how to handle it,
-// which doesn't work properly with wrapped errors
+// Package s3 needs to be documented.
+//
+//   - TODO: the s2 library checks the type of the error to decide how to handle it,
+//     which doesn't work properly with wrapped errors.
+//   - TODO: document.
 package s3
 
 import (

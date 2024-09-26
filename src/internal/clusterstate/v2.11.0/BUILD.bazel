@@ -7,6 +7,7 @@ go_library(
         "clusterstate.go",
         "commit_diffs.go",
         "commit_totals.go",
+        "doc.go",
         "metadata.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.11.0",

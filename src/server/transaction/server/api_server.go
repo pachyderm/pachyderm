@@ -1,3 +1,4 @@
+// Package server implements the transaction service gRPC server.
 package server
 
 import (

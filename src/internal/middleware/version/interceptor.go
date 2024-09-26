@@ -1,3 +1,4 @@
+// Package version implements a version-checking gRPC interceptor.
 package version
 
 import (

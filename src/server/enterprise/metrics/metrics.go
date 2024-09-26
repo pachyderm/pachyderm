@@ -1,3 +1,4 @@
+// Package metrics defines enterprise metrics.
 package metrics
 
 import "sync/atomic"

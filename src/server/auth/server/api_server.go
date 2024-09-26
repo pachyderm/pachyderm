@@ -1,3 +1,4 @@
+// Package server implement the auth service gRPC server.
 package server
 
 import (

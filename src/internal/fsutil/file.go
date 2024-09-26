@@ -1,3 +1,7 @@
+// Package fsutil provides a temporary file abstraction.
+//
+// TODO: currently only used in PFS command tests — can this be replaced with
+// t.TempDir?
 package fsutil
 
 import (

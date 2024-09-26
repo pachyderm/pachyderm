@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "chunkset.go",
         "clusterstate.go",
+        "doc.go",
         "pfs.go",
         "pjs.go",
     ],

@@ -1,3 +1,6 @@
+// Package integrationtests needs to be documented.
+//
+// TODO: document
 package integrationtests
 
 import (

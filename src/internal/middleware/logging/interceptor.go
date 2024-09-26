@@ -1,4 +1,6 @@
 //nolint:wrapcheck
+
+// Package logging provides a logging gRPC interceptor.
 package logging
 
 import (

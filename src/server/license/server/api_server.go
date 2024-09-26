@@ -1,3 +1,4 @@
+// Package server implements the license service gRPC server.
 package server
 
 import (

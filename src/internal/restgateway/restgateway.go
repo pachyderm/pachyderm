@@ -1,3 +1,6 @@
+// Package restgateway implements a REST gateway.
+//
+// TODO: document REST gateway.  Is it really RESTful, or just a JSON-over-HTML gateway?
 package restgateway
 
 import (

@@ -1,4 +1,19 @@
-// json_encoder.go is similar to yaml_encoder.go; see its comment on general
+package serde
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+)
+
+// JSONEncoder is an implementation of serde.Encoder that operates on JSON data
+//
+// JSONEncoder is similar to YAMLEncoder; see its comment on general
 // approach. Because the final output is json, the steps this uses are a little
 // more redundant, but still the reverse of the steps in decoder.go (allowing
 // for future-proof reversability):
@@ -14,20 +29,6 @@
 // Pachyderm identity configs. That code could be written to modify the holder
 // (map[string]interface{}) instead of using connectorConfig as an intermediate
 // struct, which must be kept in sync.
-package serde
-
-import (
-	"bytes"
-	"encoding/json"
-	"io"
-	"strings"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-)
-
-// JSONEncoder is an implementation of serde.Encoder that operates on JSON data
 type JSONEncoder struct {
 	w io.Writer
 	e *json.Encoder

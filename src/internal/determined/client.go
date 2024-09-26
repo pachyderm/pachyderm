@@ -1,3 +1,5 @@
+// Package determined provides a Determined (HPE Machine Learning Development
+// Environment) client.
 package determined
 
 import (

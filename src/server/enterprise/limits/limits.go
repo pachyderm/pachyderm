@@ -1,3 +1,4 @@
+// Package limits defines limits for the community edition.
 package limits
 
 const (

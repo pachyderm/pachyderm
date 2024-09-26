@@ -1,3 +1,6 @@
+// Package identity needs to be documented.
+//
+// TODO: document
 package identity
 
 import (

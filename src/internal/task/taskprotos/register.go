@@ -1,3 +1,6 @@
+// Package taskprotos needs to be documented.
+//
+// TODO: document
 package taskprotos
 
 import (

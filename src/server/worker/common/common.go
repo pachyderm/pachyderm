@@ -1,3 +1,6 @@
+// Package common needs to be documented.
+//
+// TODO: document
 package common
 
 import (

@@ -1,3 +1,7 @@
+// Package clusterstate needs to be documented.
+//
+// TODO: document
+//
 // DO NOT MODIFY THIS STATE
 // IT HAS ALREADY SHIPPED IN A RELEASE
 package clusterstate

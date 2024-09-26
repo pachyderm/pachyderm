@@ -1,3 +1,4 @@
+// Package server implements the admin service gRPC server.
 package server
 
 import (

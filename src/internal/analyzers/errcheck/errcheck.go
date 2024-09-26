@@ -1,3 +1,4 @@
+// Package errcheck provides an errcheck analyzer.
 package errcheck
 
 import "github.com/kisielk/errcheck/errcheck"

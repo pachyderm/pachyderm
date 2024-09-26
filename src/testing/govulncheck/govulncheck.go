@@ -1,3 +1,4 @@
+// Package govulncheck implements vulnerability checking.
 package govulncheck
 
 import (

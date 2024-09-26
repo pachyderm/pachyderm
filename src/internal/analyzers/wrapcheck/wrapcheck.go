@@ -1,3 +1,4 @@
+// Package wrapcheck provides a wrapcheck analyzer.
 package wrapcheck
 
 import (

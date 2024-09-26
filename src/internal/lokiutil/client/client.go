@@ -1,3 +1,6 @@
+// Package client provides a Loki client.
+//
+// TODO: rename?
 package client
 
 import (

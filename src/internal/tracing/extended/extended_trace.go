@@ -1,3 +1,6 @@
+// Package extended needs to be documented.
+//
+// TODO: document
 package extended
 
 import (

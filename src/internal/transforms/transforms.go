@@ -1,4 +1,4 @@
-// package transforms contains PPS Pipeline Transform implementations
+// Package transforms contains PPS Pipeline Transform implementations.
 package transforms
 
 import (

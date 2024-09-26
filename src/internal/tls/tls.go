@@ -1,3 +1,4 @@
+// Package tls provides a few TLS certificate handling utilities.
 package tls
 
 import (

@@ -1,16 +1,20 @@
-// sanitize.go is taken from https://github.com/jackc/pgx/blob/v5.5.0/internal/sanitize/sanitize.go
 package migrationutils
 
 import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
+
+// Copyright (c) 2013-2021 Jack Christensen
+//
+// sanitize.go is taken from https://github.com/jackc/pgx/blob/v5.5.0/internal/sanitize/sanitize.go
 
 // Part is either a string or an int. A string is raw SQL. An int is a
 // argument placeholder.

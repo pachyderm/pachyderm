@@ -1,3 +1,4 @@
+// Package random provides cryptographically random, URL-safe string generation.
 package random
 
 import (

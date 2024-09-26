@@ -1,3 +1,6 @@
+// Package keycache needs to be documented.
+//
+// TODO: document
 package keycache
 
 import (

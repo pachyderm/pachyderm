@@ -1,3 +1,4 @@
+// Package tarutil implements utilities for tar file handling.
 package tarutil
 
 import (

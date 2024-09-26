@@ -1,3 +1,4 @@
+// Package tracing provides utilities related to Jaeger tracing.
 package tracing
 
 import (

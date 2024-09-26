@@ -1,3 +1,6 @@
+// Package pachd needs to be documented.
+//
+// TODO: document
 package pachd
 
 import (

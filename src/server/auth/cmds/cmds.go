@@ -1,3 +1,4 @@
+// Package cmds implements pachctl commands for the auth service.
 package cmds
 
 import (

@@ -1,3 +1,4 @@
+// Package cmds implements pachctl commands for the license service.
 package cmds
 
 import (

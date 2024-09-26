@@ -1,3 +1,6 @@
+// Package version implements the version RPC server (and a client?).
+//
+// TODO: sort out client & server, document.
 package version
 
 import (

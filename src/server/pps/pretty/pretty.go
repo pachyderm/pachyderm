@@ -1,3 +1,4 @@
+// Package pretty implements pretty-printing for the PPS service.
 package pretty
 
 import (
