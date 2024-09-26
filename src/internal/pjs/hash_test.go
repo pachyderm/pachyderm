@@ -3,16 +3,15 @@ package pjs_test
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"math/big"
 	"path"
 	"testing"
 	"testing/fstest"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
@@ -28,14 +27,14 @@ func TestHashFS(t *testing.T) {
 
 func TestHashFileset(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	pachClient := pachd.NewTestPachd(t)
 	var testFS = fstest.MapFS{
 		"test":   &fstest.MapFile{Data: []byte("123")},
 		"abc123": &fstest.MapFile{Data: []byte("foo")},
 	}
-	id, err := env.PachClient.FileSystemToFileset(ctx, testFS)
+	id, err := pachClient.FileSystemToFileset(ctx, testFS)
 	require.NoError(t, err, "FileSystemToFileset")
-	h, err := pjs.HashFileset(ctx, env.PachClient.FilesetClient, id)
+	h, err := pjs.HashFileset(ctx, pachClient.FilesetClient, id)
 	require.NoError(t, err, "hashing fileset")
 	require.Equal(t, "25ec7afdab18e8e5808730def751575fdb964d293a36ce21103415c747ca06db", hex.EncodeToString(h))
 }
@@ -71,16 +70,16 @@ func populateDir(fs fstest.MapFS, dirName string, max int) {
 
 func TestHashing(t *testing.T) {
 	var (
-		testFS = make(fstest.MapFS)
-		ctx    = pctx.TestContext(t)
-		env    = realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+		testFS     = make(fstest.MapFS)
+		ctx        = pctx.TestContext(t)
+		pachClient = pachd.NewTestPachd(t)
 	)
 	populateDir(testFS, ".", 8)
 	populateDir(testFS, ".", 8)
 
-	id, err := env.PachClient.FileSystemToFileset(ctx, testFS)
+	id, err := pachClient.FileSystemToFileset(ctx, testFS)
 	require.NoError(t, err, "FileSystemToFileset")
-	filesetHash, err := pjs.HashFileset(ctx, env.PachClient.FilesetClient, id)
+	filesetHash, err := pjs.HashFileset(ctx, pachClient.FilesetClient, id)
 	require.NoError(t, err, "hashing fileset")
 
 	fsHash, err := pjs.HashFS(testFS)
