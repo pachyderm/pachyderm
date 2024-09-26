@@ -24,6 +24,9 @@ func jobCacheKey(programHash []byte, inputHashes [][]byte) []byte {
 }
 
 func readFromJobCache(ctx context.Context, extCtx sqlx.ExtContext, jobHash []byte) (job Job, err error) {
+	if len(jobHash) == 0 {
+		return Job{}, errors.Wrap(err, "no job hash supplied.")
+	}
 	ctx = pctx.Child(ctx, "readFromJobCache")
 	record := jobRecord{}
 	err = sqlx.GetContext(ctx, extCtx, &record, selectJobRecordPrefix+`
@@ -67,15 +70,9 @@ func createJobFromCache(ctx context.Context, tx *pachsql.Tx, cachedJob Job) (Job
 	return id, nil
 }
 
-func writeToJobCache(ctx context.Context, extCtx sqlx.ExtContext, job Job) error {
-	ctx = pctx.Child(ctx, "writeToJobCache")
-	if len(job.JobHash) == 0 {
-		return errors.New("job hash cannot be empty")
-	}
-	result, err := extCtx.ExecContext(ctx, `
-		INSERT INTO pjs.job_cache (job_id, job_hash, cache_read, cache_write) 
-		VALUES ($1, $2, $3, $4)
-	`, job.ID, job.JobHash, job.ReadEnabled, job.WriteEnabled)
+// jobCacheWriteWrapper defines code that's common to the functions that update or insert into the pjs.jobs_cache table.
+func jobCacheWriteWrapper(ctx context.Context, extCtx sqlx.ExtContext, query string, args ...interface{}) error {
+	result, err := extCtx.ExecContext(ctx, query, args...)
 	if err != nil {
 		return errors.Wrap(err, "inserting into pjs.job_cache")
 	}
@@ -87,4 +84,37 @@ func writeToJobCache(ctx context.Context, extCtx sqlx.ExtContext, job Job) error
 		return errors.New("no rows affected")
 	}
 	return nil
+
+}
+
+// writeStubToJobCache creates a 'stub' entry in the cache on a cache miss or when the cache read is disabled for a specific job.
+func writeStubToJobCache(ctx context.Context, extCtx sqlx.ExtContext, job Job) error {
+	ctx = pctx.Child(ctx, "writeStubToJobCache")
+	return jobCacheWriteWrapper(ctx, extCtx, `
+		INSERT INTO pjs.job_cache (job_id, cache_read, cache_write) 
+		VALUES ($1, $2, $3)
+	`, job.ID, job.ReadEnabled, job.WriteEnabled)
+}
+
+// writeToJobCache does a full write, current this happens only on a cache hit.
+func writeToJobCache(ctx context.Context, extCtx sqlx.ExtContext, job Job) error {
+	ctx = pctx.Child(ctx, "writeToJobCache")
+	if len(job.JobHash) == 0 {
+		return errors.New("job hash cannot be empty")
+	}
+	return jobCacheWriteWrapper(ctx, extCtx, `
+		INSERT INTO pjs.job_cache (job_id, job_hash, cache_read, cache_write) 
+		VALUES ($1, $2, $3, $4)
+	`, job.ID, job.JobHash, job.ReadEnabled, job.WriteEnabled)
+}
+
+// setJobCacheJobHash sets the job hash when a job is done and cache options were passed in -- either successfully or on an error.
+func setJobCacheJobHash(ctx context.Context, extCtx sqlx.ExtContext, job Job) error {
+	ctx = pctx.Child(ctx, "setJobCacheJobHash")
+	if len(job.JobHash) == 0 {
+		return errors.New("job hash cannot be empty")
+	}
+	return jobCacheWriteWrapper(ctx, extCtx, `
+		UPDATE pjs.job_cache SET job_hash = $1 WHERE job_id = $2
+	`, job.JobHash, job.ID)
 }

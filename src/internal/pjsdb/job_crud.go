@@ -158,6 +158,7 @@ func CreateJob(ctx context.Context, tx *pachsql.Tx, req CreateJobRequest) (JobID
 	if id != JobID(0) {
 		return id, nil
 	}
+
 	// insert into the jobs table.
 	row := tx.QueryRowxContext(ctx, `
 		INSERT INTO pjs.jobs 
@@ -177,6 +178,17 @@ func CreateJob(ctx context.Context, tx *pachsql.Tx, req CreateJobRequest) (JobID
 		if err != nil {
 			return 0, errors.Wrap(err, "create job: inserting job_filesets row")
 		}
+	}
+	// lastly, add a stub entry to the cache. This must be done after the job id exists.
+	// the job hash will be filled out when the job is done.
+	if err := writeStubToJobCache(ctx, tx, Job{
+		ID: id,
+		JobCacheMetadata: JobCacheMetadata{
+			ReadEnabled:  req.CacheReadEnabled,
+			WriteEnabled: req.CacheWriteEnabled,
+		},
+	}); err != nil {
+		return 0, errors.Wrap(err, "write stub to job cache")
 	}
 	return id, nil
 }
@@ -204,9 +216,7 @@ func maybeCreateJobFromCache(ctx context.Context, tx *pachsql.Tx, req createJobR
 	return id, errors.Wrap(writeToJobCache(ctx, tx, Job{
 		ID: id,
 		JobCacheMetadata: JobCacheMetadata{
-			JobHash:      jobHash,
-			ReadEnabled:  true,
-			WriteEnabled: true,
+			JobHash: jobHash,
 		},
 	}), "write to job cache")
 }
@@ -384,8 +394,6 @@ type WriteToCacheOption struct {
 	// ProgramHash and InputHashes can be used to derive the JobHash.
 	ProgramHash []byte
 	InputHashes [][]byte
-	// cache read will be false since this job was not copied from the cache, but instead had to run.
-	// cache write will be true, otherwise we wouldn't be writing to the cache.
 }
 
 // ErrorJob is called when job processing has an error. It updates job err code and
@@ -404,18 +412,7 @@ func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobE
 	if len(option) == 0 {
 		return nil
 	}
-	jobHash := option[0].JobHash
-	if len(jobHash) == 0 {
-		jobHash = jobCacheKey(option[0].ProgramHash, option[0].InputHashes)
-	}
-	return errors.Wrap(writeToJobCache(ctx, tx, Job{
-		ID: jobID,
-		JobCacheMetadata: JobCacheMetadata{
-			JobHash:      jobHash,
-			ReadEnabled:  false,
-			WriteEnabled: true,
-		},
-	}), "write to job cache")
+	return handleWriteToCacheOption(ctx, tx, jobID, option[0])
 }
 
 // CompleteJob is called when job processing without any error. It updates done timestamp
@@ -453,17 +450,25 @@ func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []str
 	if len(option) == 0 {
 		return nil
 	}
-	jobHash := option[0].JobHash
-	if len(jobHash) == 0 {
-		jobHash = jobCacheKey(option[0].ProgramHash, option[0].InputHashes)
+	return handleWriteToCacheOption(ctx, tx, jobID, option[0])
+}
+
+func handleWriteToCacheOption(ctx context.Context, tx *pachsql.Tx, jobID JobID, option WriteToCacheOption) error {
+	j, err := GetJob(ctx, tx, jobID)
+	if err != nil {
+		return errors.Wrapf(err, "getting job id=%d to determine if we need to update cache", jobID)
 	}
-	// otherwise write, to the cache
-	return errors.Wrap(writeToJobCache(ctx, tx, Job{
+	if !j.WriteEnabled {
+		return nil
+	}
+	jobHash := option.JobHash
+	if len(jobHash) == 0 {
+		jobHash = jobCacheKey(option.ProgramHash, option.InputHashes)
+	}
+	return errors.Wrap(setJobCacheJobHash(ctx, tx, Job{
 		ID: jobID,
 		JobCacheMetadata: JobCacheMetadata{
-			JobHash:      jobHash,
-			ReadEnabled:  false,
-			WriteEnabled: true,
+			JobHash: jobHash,
 		},
 	}), "write to job cache")
 }
