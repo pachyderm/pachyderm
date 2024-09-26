@@ -2,8 +2,10 @@ package fileset
 
 import (
 	"context"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -478,4 +480,29 @@ func (s *Storage) Pin(tx *pachsql.Tx, fs ID) (PinnedFileset, error) {
 		return PinnedFileset{}, errors.Wrap(err, "pin")
 	}
 	return PinnedFileset(*id), nil
+}
+
+type ChunkSetID uint64
+
+func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, error) {
+	ctx = pctx.Child(ctx, "createChunkset")
+	// Insert ChunkSet into ChunkSet table.
+	var chunksetID ChunkSetID
+	if err := tx.GetContext(ctx, &chunksetID, `INSERT INTO storage.chunksets DEFAULT VALUES RETURNING id`); err != nil {
+		return 0, errors.Wrapf(err, "get chunk set id")
+	}
+
+	// encode chunkset into string for tracker
+	chunksetStrID := "chunkset" + strconv.FormatUint(uint64(chunksetID), 10)
+
+	// List all of the filesets.
+	var pointsTo []string
+	if err := tx.SelectContext(ctx, &pointsTo, `SELECT str_id FROM storage.tracker_objects WHERE str_id LIKE 'fileset/%'`); err != nil {
+		return 0, errors.Wrap(err, "get filesets from db")
+	}
+	if err := s.tracker.CreateTx(tx, chunksetStrID, pointsTo, track.NoTTL); err != nil {
+		return 0, errors.Wrap(err, "create tracker object and references")
+	}
+
+	return chunksetID, nil
 }
