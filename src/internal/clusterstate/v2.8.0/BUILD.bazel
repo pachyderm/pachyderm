@@ -6,6 +6,7 @@ go_library(
         "clusterstate.go",
         "collection.go",
         "defaults.go",
+        "doc.go",
         "model.go",
         "pfsdb.go",
         "ppsdb.go",

@@ -1,3 +1,4 @@
+// Package depguard provides a depguard analyzer.
 package depguard
 
 import (

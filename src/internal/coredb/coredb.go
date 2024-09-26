@@ -1,3 +1,6 @@
+// Package coredb implements cluster metadata.
+//
+// TODO: document, particularly package naming.
 package coredb
 
 import (

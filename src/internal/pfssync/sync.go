@@ -1,3 +1,6 @@
+// Package pfssync needs to be documented.
+//
+// TODO: document
 package pfssync
 
 import (

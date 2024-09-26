@@ -1,3 +1,4 @@
+// Package license implements license validation.
 package license
 
 import (

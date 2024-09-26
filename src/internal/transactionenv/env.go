@@ -1,3 +1,6 @@
+// Package transactionenv needs to be documented.
+//
+// TODO: document
 package transactionenv
 
 import (

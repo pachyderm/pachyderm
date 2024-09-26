@@ -1,3 +1,6 @@
+// Package datum needs to be documented.
+//
+// TODO: document
 package datum
 
 import (

@@ -1,3 +1,15 @@
+// Package migrationutils implements a general purpose "batcher" for executing
+// multiple SQL statements with a single Postgres call.  The intention is that
+// this can be used by any migration code that needs to perform a large number
+// of SQL updates and wishes to do so in a more performant way.
+//
+// Current limitations:
+//   - Only UPDATE statements are supported.
+//   - Only one column is supported in the WHERE clause.
+//
+// It is likely that we'll want to enhance this in the future to support INSERT and/or DELETE statements,
+// and to allow for multiple columns in the WHERE clause. The functions have been written with this in mind
+// to make them easy to expand upon.
 package migrationutils
 
 import (
@@ -12,20 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
-
-// pg_batcher.go
-//
-// This module implements a general purpose "batcher" for executing multiple SQL statements with a single
-// Postgres call.  The intention is that this can be used by any migration code that needs to perform a
-// large number of SQL updates and wishes to do so in a more performant way.
-//
-// Current limitations:
-//    - Only UPDATE statements are supported.
-//    - Only one column is supported in the WHERE clause.
-//
-// It is likely that we'll want to enhance this in the future to support INSERT and/or DELETE statements,
-// and to allow for multiple columns in the WHERE clause. The functions have been written with this in mind
-// to make them easy to expand upon.
 
 // row contains the values to be used for an insert/update of one row in Postgres.
 type row struct {

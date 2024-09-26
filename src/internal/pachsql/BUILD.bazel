@@ -4,6 +4,7 @@ go_library(
     name = "pachsql",
     srcs = [
         "db.go",
+        "doc.go",
         "pgdump_reader.go",
         "table_info.go",
         "url.go",

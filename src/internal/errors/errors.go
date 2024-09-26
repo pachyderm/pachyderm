@@ -1,3 +1,4 @@
+// Package errors aliases the standard library errors and github.com/pkg/errors.
 package errors
 
 import (

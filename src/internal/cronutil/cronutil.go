@@ -1,3 +1,4 @@
+// Package cronutil provides an implementation of the cron.Schedule interface.
 package cronutil
 
 import (

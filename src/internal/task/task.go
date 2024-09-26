@@ -1,3 +1,5 @@
+// Package task defines task management utilities.  It will shortly be replaced
+// with PJS.
 package task
 
 import (

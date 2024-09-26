@@ -1,10 +1,14 @@
+// Package server needs to be documented.
+//
+// TODO: document
 package server
 
 import (
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	etcd "go.etcd.io/etcd/client/v3"
 	"gocloud.dev/blob"

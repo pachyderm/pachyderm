@@ -1,3 +1,4 @@
+// Package cmds implements pachctl commands for the PFS service.
 package cmds
 
 import (

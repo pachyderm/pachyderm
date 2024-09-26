@@ -130,7 +130,7 @@ ANALYZERS = [
     "SA9006",
     "SA9007",
     "SA9008",
-    # "ST1000", # package doc comments
+    "ST1000",  # package doc comments
     "ST1001",
     # "ST1003", # "ID" instead of "Id"
     "ST1005",

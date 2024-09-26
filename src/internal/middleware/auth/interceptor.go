@@ -1,3 +1,4 @@
+// Package auth implements an authentication gRPC middleware.
 package auth
 
 import (

@@ -1,3 +1,4 @@
+// Package server implements the metadata service gRPC server.
 package server
 
 import (

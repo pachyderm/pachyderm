@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "collection",
     srcs = [
+        "doc.go",
         "errors.go",
         "etcd_collection.go",
         "postgres_collection.go",

@@ -1,4 +1,5 @@
-// package dockertestenv provides test environment where service dependencies are docker containers
+// Package dockertestenv provides test environment where service dependencies
+// are docker containers.
 package dockertestenv
 
 import (

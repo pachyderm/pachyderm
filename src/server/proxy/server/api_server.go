@@ -1,3 +1,4 @@
+// Package server implements the proxy service gRPC server.
 package server
 
 import (

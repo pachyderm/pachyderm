@@ -1,3 +1,6 @@
+// Package cdr provides common data references.
+//
+// TODO: document what common data references are.
 package cdr
 
 func IsImmutable(ref *Ref) bool {

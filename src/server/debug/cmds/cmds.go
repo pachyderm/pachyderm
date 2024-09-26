@@ -1,3 +1,4 @@
+// Package cmds implements pachctl commands for the debug service.
 package cmds
 
 import (

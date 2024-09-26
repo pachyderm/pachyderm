@@ -1,3 +1,6 @@
+// Package postgres needs to be documented.
+//
+// TODO: document
 package postgres
 
 import (

@@ -1,3 +1,4 @@
+// Package startest provides utilities for Starlark tests.
 package startest
 
 import (

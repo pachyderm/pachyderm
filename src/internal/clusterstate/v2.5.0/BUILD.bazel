@@ -9,6 +9,7 @@ go_library(
         "commit_info.pb.go",
         "commit_info.pb.validate.go",
         "commit_info.pb.zap.go",
+        "doc.go",
         "pfsdb.go",
         "ppsdb.go",
     ],

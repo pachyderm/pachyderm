@@ -1,3 +1,6 @@
+// Package gotestresults needs documentation.
+//
+// TODO: document package gotestresults.
 package gotestresults
 
 import (

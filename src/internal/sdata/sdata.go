@@ -1,3 +1,4 @@
+// Package sdata provides tools for dealing with structured data.
 package sdata
 
 import (

@@ -1,3 +1,4 @@
+// Package migrations implements database migrations.
 package migrations
 
 import (

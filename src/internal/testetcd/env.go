@@ -1,3 +1,6 @@
+// Package testetcd needs to be documented.
+//
+// TODO: document
 package testetcd
 
 import (

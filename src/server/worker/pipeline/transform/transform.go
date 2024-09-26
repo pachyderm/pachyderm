@@ -1,3 +1,6 @@
+// Package transform needs to be documented.
+//
+// TODO: document
 package transform
 
 import (
