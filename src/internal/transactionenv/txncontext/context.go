@@ -1,3 +1,7 @@
+// Package txncontext implements a transaction context.
+//
+// TODO: document what a transaction context is, why one wants one and how to
+// use it.
 package txncontext
 
 import (

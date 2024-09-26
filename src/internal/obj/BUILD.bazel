@@ -4,6 +4,7 @@ go_library(
     name = "obj",
     srcs = [
         "bucket.go",
+        "doc.go",
         "key_iterator.go",
         "url.go",
         "util.go",

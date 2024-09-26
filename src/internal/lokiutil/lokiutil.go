@@ -1,3 +1,6 @@
+// Package lokiutil provides utilities for working with Loki.
+//
+// TODO: document.
 package lokiutil
 
 import (

@@ -1,3 +1,6 @@
+// Package errutil provides error utilities.
+//
+// TODO: document errutil.
 package errutil
 
 import (

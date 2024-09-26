@@ -1,6 +1,7 @@
+package s3
+
 // TODO: the s2 library checks the type of the error to decide how to handle it,
 // which doesn't work properly with wrapped errors
-package s3
 
 import (
 	"context"

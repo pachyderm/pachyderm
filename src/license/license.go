@@ -1,3 +1,4 @@
+// Package license declares a license subsystem.
 package license
 
 import (

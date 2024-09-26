@@ -1,3 +1,4 @@
+// Package pretty implements pretty-printing for PFS.
 package pretty
 
 import (

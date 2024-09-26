@@ -1,3 +1,6 @@
+// Package pjs needs to be documented.
+//
+// TODO: document
 package pjs
 
 import (
@@ -37,14 +40,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	if err != nil {
 		return nil, errors.Wrap(err, "parse program id")
 	}
-	var inputs []fileset.PinnedFileset
-	for _, input := range request.Input {
-		inputID, err := fileset.ParseID(input)
-		if err != nil {
-			return nil, errors.Wrap(err, "parse input id")
-		}
-		inputs = append(inputs, fileset.PinnedFileset(*inputID))
-	}
 	var parent pjsdb.JobID
 	if request.Context != "" {
 		parent, err = a.resolveJobCtx(ctx, request.Context)
@@ -56,15 +51,32 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	if err != nil {
 		return nil, errors.Wrap(err, "adding auth token to ctx")
 	}
+	var inputs []fileset.PinnedFileset
+	var inputHashes [][]byte
+	for i, input := range request.Input {
+		inputID, err := fileset.ParseID(input)
+		if err != nil {
+			return nil, errors.Wrap(err, "parse input id")
+		}
+		inputs = append(inputs, fileset.PinnedFileset(*inputID))
+		hash, err := HashFileset(authedCtx, a.env.GetStorageClient(ctx), inputID.HexString())
+		if err != nil {
+			return nil, errors.Wrapf(err, "hashing input fileset: %q, (%d/%d)", inputID.HexString(), i, len(request.Input))
+		}
+		inputHashes = append(inputHashes, hash)
+	}
 	hash, err := HashFileset(authedCtx, a.env.GetStorageClient(ctx), program.HexString())
 	if err != nil {
 		return nil, errors.Wrapf(err, "hashing fileset: %q", program.HexString())
 	}
 	req := pjsdb.CreateJobRequest{
-		Parent:      parent,
-		Program:     fileset.PinnedFileset(*program),
-		ProgramHash: hash,
-		Inputs:      inputs,
+		Parent:            parent,
+		Program:           fileset.PinnedFileset(*program),
+		ProgramHash:       hash,
+		Inputs:            inputs,
+		InputHashes:       inputHashes,
+		CacheReadEnabled:  request.CacheRead,
+		CacheWriteEnabled: request.CacheWrite,
 	}
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		jobID, err := pjsdb.CreateJob(ctx, sqlTx, req)
@@ -170,20 +182,30 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 			}
 			return err
 		}
-		var inputsID []fileset.ID
+		var (
+			inputsID    []fileset.ID
+			inputHashes [][]byte
+			programHash []byte
+		)
 		if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 			job, err := pjsdb.GetJob(ctx, sqlTx, jobID)
 			if err != nil {
 				return errors.Wrap(err, "get job")
 			}
+			programHash = job.ProgramHash
 			inputsID = job.Inputs
 			return nil
 		}, dbutil.WithReadOnly()); err != nil {
 			return errors.Wrap(err, "with tx")
 		}
 		var inputs []string
-		for _, filesetID := range inputsID {
+		for i, filesetID := range inputsID {
 			inputs = append(inputs, filesetID.HexString())
+			hash, err := HashFileset(ctx, a.env.GetStorageClient(ctx), filesetID.HexString())
+			if err != nil {
+				return errors.Wrapf(err, "hashing input fileset: %q, (%d/%d)", filesetID.HexString(), i, len(inputsID))
+			}
+			inputHashes = append(inputHashes, hash)
 		}
 		if err := srv.Send(&pjs.ProcessQueueResponse{
 			Context: hex.EncodeToString(jobCtx.Token),
@@ -209,7 +231,10 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 			}
 		} else if out := req.GetSuccess(); out != nil {
 			if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-				if err := pjsdb.CompleteJob(ctx, sqlTx, jobID, out.Output); err != nil {
+				if err := pjsdb.CompleteJob(ctx, sqlTx, jobID, out.Output, pjsdb.WriteToCacheOption{
+					ProgramHash: programHash,
+					InputHashes: inputHashes,
+				}); err != nil {
 					return errors.Wrap(err, "complete job")
 				}
 				return nil

@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "client.go",
         "commit.go",
+        "doc.go",
         "env.go",
         "file.go",
         "fuzz.go",

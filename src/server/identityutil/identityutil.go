@@ -1,3 +1,6 @@
+// Package identityutil provides utilities for identities.
+//
+// TODO: document identityutil.
 package identityutil
 
 import (

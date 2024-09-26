@@ -1,3 +1,4 @@
+// Package enterprise declares an interface representing an enterprise API server.
 package enterprise
 
 import (

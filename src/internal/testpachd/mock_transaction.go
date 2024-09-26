@@ -1,3 +1,6 @@
+// Package testpachd needs to be documented.
+//
+// TODO: document
 package testpachd
 
 import (

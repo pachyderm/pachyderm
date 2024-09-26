@@ -1,3 +1,4 @@
+// Package pachhash abstracts over BLAKE2b and provides some utilities.
 package pachhash
 
 import (

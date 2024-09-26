@@ -1,4 +1,9 @@
 //nolint:wrapcheck
+
+// Package client implements a gRPC client for Pachyderm.
+//
+// Before using this package, give serious thought to just using the generated
+// gRPC interface directly.
 package client
 
 import (

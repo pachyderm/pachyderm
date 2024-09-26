@@ -1,3 +1,4 @@
+// Package tabwriter provides a tabular-data writer.
 package tabwriter
 
 import (

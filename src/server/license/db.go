@@ -1,3 +1,4 @@
+// Package license implements the license server.
 package license
 
 import (

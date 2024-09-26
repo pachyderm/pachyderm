@@ -1,3 +1,4 @@
+// Package metrics implements storage metrics.
 package metrics
 
 import (

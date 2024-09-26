@@ -130,7 +130,7 @@ ANALYZERS = [
     "SA9006",
     "SA9007",
     "SA9008",
-    # "ST1000", # package doc comments
+    "ST1000",  # package doc comments
     "ST1001",
     # "ST1003", # "ID" instead of "Id"
     "ST1005",
@@ -145,8 +145,8 @@ ANALYZERS = [
     "ST1018",
     # "ST1019", # double import
     "ST1020",  # function doc comments
-    # "ST1021", # type doc comments
-    # "ST1022", # var doc comments
+    "ST1021",  # type doc comments
+    "ST1022",  # var doc comments
     "ST1023",
     "U1000",
 ]

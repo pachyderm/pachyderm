@@ -1,3 +1,6 @@
+// Package client provides a Loki client.
+//
+// TODO: rename?
 package client
 
 import (
@@ -178,10 +181,12 @@ type TailChunk struct {
 	Lines  []string          // The text of the messages.
 }
 
-// The websocket reader does not respect the context while reading, so we set an explicit deadline
-// for each read.  It's OK if no log lines show up in this interval, the read will be silently
-// retried if this deadline is reached and the context is still alive.  This is a variable so tests
-// can set this to something short and end as soon as they are ready to end.
+// TailPerReadDeadline sets an explicit deadline for each read because the
+// websocket reader does not respect the context while reading.  It's OK if no
+// log lines show up in this interval, the read will be silently retried if this
+// deadline is reached and the context is still alive.  This is a variable so
+// tests can set this to something short and end as soon as they are ready to
+// end.
 var TailPerReadDeadline = 30 * time.Second
 
 // Tail watches a Loki query until the provided context is canceled.  The start time should be as

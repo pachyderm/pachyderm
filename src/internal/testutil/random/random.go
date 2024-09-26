@@ -1,3 +1,5 @@
+// Package random enables the caller to seed package rand based on the current
+// time.
 package random
 
 import (

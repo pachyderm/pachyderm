@@ -1,13 +1,15 @@
+// Package pbutil implements some utilities for protobufs.
 package pbutil
 
 import (
 	"database/sql"
 	"encoding/binary"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"time"
 	"unsafe"
+
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"google.golang.org/protobuf/proto"
 

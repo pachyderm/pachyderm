@@ -4,6 +4,7 @@ go_library(
     name = "v2_10_0",
     srcs = [
         "clusterstate.go",
+        "doc.go",
         "metadata.go",
         "pipelines.go",
     ],

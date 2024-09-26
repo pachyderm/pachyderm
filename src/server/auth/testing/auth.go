@@ -1,3 +1,8 @@
+// Package testing has something to do with auth testing.
+//
+//   - TODO: document.
+//   - TODO: naming.
+//   - TODO: why doesn’t it seem to have anything to do with testing?
 package testing
 
 import (

@@ -1,3 +1,6 @@
+// Package cmd needs to be documented.
+//
+// TODO: document
 package cmd
 
 import (

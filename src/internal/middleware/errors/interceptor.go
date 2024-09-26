@@ -1,3 +1,4 @@
+// Package errors provides error-intercepting gRPC middleware.
 package errors
 
 import (

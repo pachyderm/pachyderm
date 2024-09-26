@@ -1,3 +1,4 @@
+// Package require implements test assertions.
 package require
 
 import (

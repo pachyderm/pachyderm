@@ -1,3 +1,4 @@
+// Package auth implements an authentication gRPC middleware.
 package auth
 
 import (
@@ -308,7 +309,7 @@ func NewInterceptor(getAuthServer func() authserver.APIServer) *Interceptor {
 	}
 }
 
-// we use ServerStreamWrapper to set the stream's Context with added values
+// ServerStreamWrapper adds additional values to the stream's Context.
 type ServerStreamWrapper struct {
 	grpc.ServerStream
 	ctx context.Context

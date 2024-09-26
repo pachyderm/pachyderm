@@ -996,3 +996,45 @@ func TestAuth(t *testing.T) {
 		}
 	})
 }
+
+func TestJobCaching(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	c, fc := setupTest(t)
+	inputFileset := createFileSet(t, fc, map[string][]byte{
+		"a.txt": []byte(`dummy input`),
+	})
+	programFileset1 := createFileSet(t, fc, map[string][]byte{
+		"file": []byte(`program1`),
+	})
+	req1 := &pjs.CreateJobRequest{
+		Program:    programFileset1,
+		Input:      []string{inputFileset},
+		CacheWrite: true,
+		CacheRead:  true,
+	}
+	var jobCtx string
+	_, err := runJob(t, ctx, c, fc, req1, func(resp *pjs.ProcessQueueResponse) error {
+		jobCtx = resp.Context
+		return nil
+	})
+	require.NoError(t, err)
+	// job2 should be created from the cache.
+	job2, err := c.CreateJob(ctx, req1)
+	require.NoError(t, err)
+	resp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{Job: job2.Id})
+	require.NoError(t, err)
+	require.Equal(t, pjs.JobState_DONE, resp.Details.JobInfo.State)
+	// now, delete the first job. The second job should be used for the cache.
+	_, err = c.DeleteJob(ctx, &pjs.DeleteJobRequest{Context: jobCtx})
+	require.NoError(t, err)
+	_, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Context: jobCtx})
+	require.YesError(t, err)
+	require.Equal(t, codes.NotFound, status.Convert(err).Code())
+	// job3 should be created using job2.
+	job3, err := c.CreateJob(ctx, req1)
+	require.NoError(t, err)
+	resp, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Job: job3.Id})
+	require.NoError(t, err)
+	require.Equal(t, pjs.JobState_DONE, resp.Details.JobInfo.State)
+
+}

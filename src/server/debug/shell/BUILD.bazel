@@ -2,7 +2,10 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "shell",
-    srcs = ["server.go"],
+    srcs = [
+        "doc.go",
+        "server.go",
+    ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/server/debug/shell",
     visibility = ["//visibility:public"],
     deps = [

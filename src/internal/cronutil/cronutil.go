@@ -1,3 +1,4 @@
+// Package cronutil provides an implementation of the cron.Schedule interface.
 package cronutil
 
 import (
@@ -12,7 +13,8 @@ const (
 	epoch_9999_01_01 = 253_370_764_800
 )
 
-// empty struct for implementing cron.Schedule interface
+// Year9999 is an empty struct used as a receiver for implementing the
+// cron.Schedule interface.
 type Year9999 struct{}
 
 // Next implements the cron.Schedule interface.  It returns timepoint for year

@@ -1,3 +1,4 @@
+// Package cmds implements configuration-related commands.
 package cmds
 
 import (

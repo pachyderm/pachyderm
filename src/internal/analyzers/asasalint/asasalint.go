@@ -1,3 +1,4 @@
+// Package asasalint aliases github.com/alingse/asasalint.
 package asasalint
 
 import (

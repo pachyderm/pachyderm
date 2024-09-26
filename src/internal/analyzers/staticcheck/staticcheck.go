@@ -1,3 +1,4 @@
+// Package staticcheck implements static checks based on https://github.com/sluongng/nogo-analyzer
 package staticcheck
 
 import (
@@ -10,8 +11,6 @@ import (
 	"honnef.co/go/tools/stylecheck"
 	"honnef.co/go/tools/unused"
 )
-
-// based on https://github.com/sluongng/nogo-analyzer
 
 var (
 	// Value to be added during stamping
