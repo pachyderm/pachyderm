@@ -19,8 +19,11 @@ type CacheClient struct {
 	renewer *renew.StringSet
 }
 
-// TODO: Expose configuration for cache size?
-// TODO: Dedupe work?
+// NewCacheClient is not properly documented.
+//
+//   - TODO: Expose configuration for cache size?
+//   - TODO: Dedupe work?
+//   - TODO: Document.
 func NewCacheClient(pachClient *client.APIClient, renewer *renew.StringSet) *CacheClient {
 	cc := &CacheClient{
 		APIClient: pachClient,

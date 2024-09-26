@@ -162,7 +162,7 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16, select
 	return 0, errors.New("failed to discover local bound port")
 }
 
-// RunForDaemon creates a port forwarder for the pachd daemon.
+// RunForPachd creates a port forwarder for the pachd daemon.
 func (f *PortForwarder) RunForPachd(localPort, remotePort uint16) (uint16, error) {
 	return f.Run("pachd", localPort, remotePort)
 }

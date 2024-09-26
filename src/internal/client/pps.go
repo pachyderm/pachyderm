@@ -756,14 +756,14 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 	return grpcutil.Collect[*pps.PipelineInfo](client, 1000)
 }
 
-// ListProjectPipelineHistory returns historical information about pipelines.
+// ListPipelineHistory returns historical information about pipelines.
 //
 // `pipelineName` specifies which pipeline to return history about, if it's equal
 // to "" then ListPipelineHistory returns historical information about all
 // pipelines.
 //
 // `history` specifies how many historical revisions to return:
-
+//
 // - 0: Return the current version of the pipeline or pipelines.
 // - 1: Return the above and the next most recent version
 // - 2: etc.

@@ -730,8 +730,8 @@ func NewInWorker(options ...Option) (*APIClient, error) {
 	return NewInWorkerContext(pctx.TODO(), options...)
 }
 
-// NewInWorker constructs a new APIClient intended to be used from a worker
-// to talk to the sidecar pachd container
+// NewInWorkerContext constructs a new APIClient intended to be used from a
+// worker to talk to the sidecar pachd container
 func NewInWorkerContext(ctx context.Context, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false, true)
 	if err != nil {

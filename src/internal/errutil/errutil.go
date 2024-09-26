@@ -65,7 +65,8 @@ func IsNetRetryable(err error) bool {
 	return errors.As(err, &netErr) && netErr.Temporary() //nolint:SA1019
 }
 
-// IsDatabseDisconnect returns true if the error represents a database disconnect
+// IsDatabaseDisconnect returns true if the error represents a database
+// disconnect.
 func IsDatabaseDisconnect(err error) bool {
 	if err == nil {
 		return false

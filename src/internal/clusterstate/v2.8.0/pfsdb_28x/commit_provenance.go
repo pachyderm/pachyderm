@@ -11,7 +11,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
-// returns the commit of a certain repo in a commit set.
+// ResolveCommitProvenance returns the commit of a certain repo in a commit set.
 func ResolveCommitProvenance(tx *pachsql.Tx, repo *pfs.Repo, commitSet string) (*pfs.Commit, error) {
 	cs, err := CommitSetProvenance(tx, commitSet)
 	if err != nil {

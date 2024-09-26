@@ -260,7 +260,8 @@ func Export(storageRoot string, w io.Writer, opts ...ExportOption) (retErr error
 	})
 }
 
-// Reader converts a set of files to a tar stream.
+// NewReader converts a set of files to a tar stream.
+//
 // TODO: Probably should just go to disk for this.
 func NewReader(files []File) (io.Reader, error) {
 	buf := &bytes.Buffer{}

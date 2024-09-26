@@ -22,6 +22,10 @@ func licenseCollection(db *pachsql.DB, listener col.PostgresListener) col.Postgr
 	)
 }
 
+// CollectionsV0 is not documented.
+//
+// TODO: document.
+//
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func CollectionsV0() []col.PostgresCollection {

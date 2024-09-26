@@ -178,7 +178,10 @@ func (s *Server) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, msg 
 	return uw.Copy(ctx, fs, "", false, index.WithPrefix(srcPath))
 }
 
-// TODO: Add file filter error types.
+// ReadFileset is not properly documented.
+//
+//   - TODO: Add file filter error types.
+//   - TODO: document.
 func (s *Server) ReadFileset(request *storage.ReadFilesetRequest, server storage.Fileset_ReadFilesetServer) error {
 	ctx := server.Context()
 	return s.readFileset(ctx, request, func(f fileset.File) error {
@@ -306,7 +309,10 @@ func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server stor
 	return taskChain.Wait()
 }
 
-// TODO: We should be able to use this and potentially others directly in PFS.
+// RenewFileset is not properly documented.
+//
+//   - TODO: We should be able to use this and potentially others directly in PFS.
+//   - TODO: Document.
 func (s *Server) RenewFileset(ctx context.Context, request *storage.RenewFilesetRequest) (*emptypb.Empty, error) {
 	id, err := fileset.ParseID(request.FilesetId)
 	if err != nil {

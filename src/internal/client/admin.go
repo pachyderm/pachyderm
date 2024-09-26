@@ -18,8 +18,8 @@ func (c APIClient) InspectCluster(ctx context.Context) (*admin.ClusterInfo, erro
 	return clusterInfo, nil
 }
 
-// InspectCluster retrieves cluster state, and sends the server its version for the server to
-// validate.
+// InspectClusterWithVersionAndProject retrieves cluster state, and sends the
+// server its version for the server to validate.
 func (c APIClient) InspectClusterWithVersionAndProject(ctx context.Context, v *versionpb.Version, p *pfs.Project) (*admin.ClusterInfo, error) {
 	clusterInfo, err := c.AdminAPIClient.InspectCluster(ctx, &admin.InspectClusterRequest{
 		ClientVersion:  v,

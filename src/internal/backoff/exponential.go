@@ -200,7 +200,7 @@ func (b *ExponentialBackOff) incrementCurrentInterval() {
 	}
 }
 
-// Returns a random value from the following interval:
+// GetRandomValueFromInterval returns a random value from the following interval:
 //
 //	[randomizationFactor * currentInterval, randomizationFactor * currentInterval].
 func GetRandomValueFromInterval(randomizationFactor, random float64, currentInterval time.Duration) time.Duration {
