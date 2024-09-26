@@ -87,7 +87,7 @@ func jobCacheWriteWrapper(ctx context.Context, extCtx sqlx.ExtContext, query str
 
 }
 
-// the 'stub' is created on a cache miss or when the cache read is disabled for a specific job.
+// writeStubToJobCache creates a 'stub' entry in the cache on a cache miss or when the cache read is disabled for a specific job.
 func writeStubToJobCache(ctx context.Context, extCtx sqlx.ExtContext, job Job) error {
 	ctx = pctx.Child(ctx, "writeStubToJobCache")
 	return jobCacheWriteWrapper(ctx, extCtx, `
@@ -96,7 +96,7 @@ func writeStubToJobCache(ctx context.Context, extCtx sqlx.ExtContext, job Job) e
 	`, job.ID, job.ReadEnabled, job.WriteEnabled)
 }
 
-// a full write is only done on a cache hit.
+// writeToJobCache does a full write, current this happens only on a cache hit.
 func writeToJobCache(ctx context.Context, extCtx sqlx.ExtContext, job Job) error {
 	ctx = pctx.Child(ctx, "writeToJobCache")
 	if len(job.JobHash) == 0 {
@@ -108,7 +108,7 @@ func writeToJobCache(ctx context.Context, extCtx sqlx.ExtContext, job Job) error
 	`, job.ID, job.JobHash, job.ReadEnabled, job.WriteEnabled)
 }
 
-// set job hash occurs when a job is done.
+// setJobCacheJobHash sets the job hash when a job is done and cache options were passed in -- either successfully or on an error.
 func setJobCacheJobHash(ctx context.Context, extCtx sqlx.ExtContext, job Job) error {
 	ctx = pctx.Child(ctx, "setJobCacheJobHash")
 	if len(job.JobHash) == 0 {
