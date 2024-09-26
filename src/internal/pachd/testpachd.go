@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// TestPachdOptions allow a testpachd to be customized.
+// TestPachdOption is used to customize a testpachd.
 type TestPachdOption struct {
 	noLogToFile      bool // A flag to turn off the LogToFileOption when it's the default.
 	MutateContext    func(ctx context.Context) context.Context

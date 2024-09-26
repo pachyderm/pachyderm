@@ -108,7 +108,7 @@ func Router(ctx context.Context, driver Driver, clientFactory ClientFactory) *mu
 
 // S3Server wraps an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to access PFS contents.
-
+//
 // In addition to providing the http server itself, S3Server exposes methods
 // to configure handlers (mux.Routers) corresponding to different request URI hostnames.
 // This way one http Server can respond differently and accordingly to each specific job.
