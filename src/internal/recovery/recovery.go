@@ -1,3 +1,4 @@
+// Package recovery implements subsystem-independent disaster recovery.
 package recovery
 
 import (
