@@ -437,8 +437,8 @@ determined:
   #       - pool_name: additional_pool
   resourceManager:
     # Specifies the namespace in a given Kubernetes compute cluster where all workload pods will be sent by default.
-    defaultNamespace:
-    clusterName:
+    defaultNamespace: ""
+    clusterName: ""
 
 console:
   # enabled controls whether the console manifests are created or not.
