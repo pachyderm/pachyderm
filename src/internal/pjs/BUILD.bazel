@@ -51,7 +51,6 @@ go_test(
         "//src/internal/require",
         "//src/internal/storage",
         "//src/internal/testetcd",
-        "//src/internal/testpachd/realenv",
         "//src/internal/testutil",
         "//src/pjs",
         "//src/storage",

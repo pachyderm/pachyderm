@@ -8,6 +8,7 @@ go_test(
     deps = [
         "//src/internal/client",
         "//src/internal/dockertestenv",
+        "//src/internal/pachd",
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/testpachd/realenv",
