@@ -174,9 +174,9 @@ func (p Pachctl) Command(ctx context.Context, script string) (Cmd, error) {
 	return newCmd(ctx, "/bin/bash", nil, buf), nil
 }
 
-// Command provides a Cmd to execute script with Bash.  Script is interpreted as
-// a Go template and provided with data.  If context is cancelled then the
-// command will be terminated.
+// CommandTemplate provides a Cmd to execute script with Bash.  Script is
+// interpreted as a Go template and provided with data.  If context is cancelled
+// then the command will be terminated.
 func (p *Pachctl) CommandTemplate(ctx context.Context, scriptTemplate string, data any) (Cmd, error) {
 	r, err := p.bashTemplate(scriptTemplate, data)
 	if err != nil {

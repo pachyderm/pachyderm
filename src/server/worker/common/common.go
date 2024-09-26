@@ -87,7 +87,10 @@ dataFilters:
 	return matchesData
 }
 
-// TODO: Trim non-meta file shards?
+// Shard is not properly documented.
+//
+//   - TODO: Trim non-meta file shards?
+//   - TODO: document.
 func Shard(ctx context.Context, c pfs.APIClient, fileSetIDs []string) ([]*pfs.PathRange, error) {
 	var result []*pfs.PathRange
 	for _, fileSetID := range fileSetIDs {

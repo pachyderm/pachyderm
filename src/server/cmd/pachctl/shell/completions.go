@@ -268,7 +268,7 @@ func jobSetDesc(jsi *pps.JobSetInfo) string {
 	return fmt.Sprintf("%s, %d subjobs %d failure(s)", pretty.Ago(created), len(jsi.Jobs), failure)
 }
 
-// JobCompletion completes job parameters of the form <job-set>
+// JobSetCompletion completes job parameters of the form <job-set>
 func JobSetCompletion(_, text string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
 	var result []prompt.Suggest

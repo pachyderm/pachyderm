@@ -882,11 +882,11 @@ func (c APIClient) CreatePipeline(pipelineName, image string, cmd []string, stdi
 	return c.CreateProjectPipeline(pfs.DefaultProjectName, pipelineName, image, cmd, stdin, parallelismSpec, input, outputBranch, update)
 }
 
-// CreatePipeline creates a new pipeline, pipelines are the main computation
-// object in PPS they create a flow of data from a set of input Repos to an
-// output Repo (which has the same name as the pipeline).  Whenever new data is
-// committed to one of the input repos the pipelines will create jobs to bring
-// the output Repo up to data.
+// CreateProjectPipeline creates a new pipeline, pipelines are the main
+// computation object in PPS they create a flow of data from a set of input
+// Repos to an output Repo (which has the same name as the pipeline).  Whenever
+// new data is committed to one of the input repos the pipelines will create
+// jobs to bring the output Repo up to data.
 //
 // image is the Docker image to run the jobs in.
 //
@@ -971,7 +971,7 @@ func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 // pipelines.
 //
 // `history` specifies how many historical revisions to return:
-
+//
 //   - 0: Return the current version of the pipeline or pipelines.
 //   - 1: Return the above and the next most recent version
 //   - 2: etc.

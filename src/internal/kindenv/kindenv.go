@@ -561,8 +561,9 @@ func (c *Cluster) editNamespace(ctx context.Context, namespace string, edit func
 	return nil
 }
 
-// Allocate port returns a port number for the named service.  If multiple ports are allocated to
-// the named service, they are all returned separated by commas.
+// AllocatePort returns a port number for the named service.  If multiple ports
+// are allocated to the named service, they are all returned separated by
+// commas.
 func (c *Cluster) AllocatePort(ctx context.Context, namespace, service string) (string, error) {
 	var port string
 	if err := c.editNamespace(ctx, namespace, func(ns *corev1.Namespace) error {

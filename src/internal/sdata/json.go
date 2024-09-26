@@ -18,7 +18,10 @@ type JSONWriter struct {
 	record map[string]interface{}
 }
 
-// TODO: figure out some way to specify a projection so that we can write nested structures.
+// NewJSONWriter returns a new JSONWriter which will write the indicated fields to an io.Writer.
+//
+// TODO: figure out some way to specify a projection so that we can write nested
+// structures.
 func NewJSONWriter(w io.Writer, fieldNames []string) *JSONWriter {
 	bufw := bufio.NewWriter(w)
 	enc := json.NewEncoder(bufw)
@@ -30,6 +33,7 @@ func NewJSONWriter(w io.Writer, fieldNames []string) *JSONWriter {
 	}
 }
 
+// WriteTuple writes a Tuple to a JSONWriter.
 func (m *JSONWriter) WriteTuple(row Tuple) error {
 	if len(row) != len(m.fields) {
 		return ErrTupleFields{Writer: m, Fields: m.fields, Tuple: row}
@@ -98,10 +102,12 @@ func (m *JSONWriter) WriteTuple(row Tuple) error {
 	return errors.EnsureStack(m.enc.Encode(record))
 }
 
+// Flush flushes the underlying io.Writer.
 func (m *JSONWriter) Flush() error {
 	return errors.EnsureStack(m.bufw.Flush())
 }
 
+// A JSONParser parses JSON.
 type JSONParser struct {
 	dec        *json.Decoder
 	fieldNames []string
@@ -109,6 +115,8 @@ type JSONParser struct {
 	m map[string]interface{}
 }
 
+// NewJSONParser returns a TupleReader which will parse tuples with the
+// indicated field names from an underlying io.Reader.
 func NewJSONParser(r io.Reader, fieldNames []string) TupleReader {
 	dec := json.NewDecoder(r)
 	// UseNumber() is necessary to correctly parse large int64s, we have to first parse them
@@ -121,6 +129,7 @@ func NewJSONParser(r io.Reader, fieldNames []string) TupleReader {
 	}
 }
 
+// Next returns the next tuple from the underlying io.Reader.
 func (p *JSONParser) Next(row Tuple) error {
 	if len(row) != len(p.fieldNames) {
 		return ErrTupleFields{Fields: p.fieldNames, Tuple: row}

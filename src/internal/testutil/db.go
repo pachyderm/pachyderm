@@ -50,7 +50,7 @@ func CreateEphemeralDB(t testing.TB, db *pachsql.DB, dbName string) {
 	t.Log("database", dbName, "successfully created")
 }
 
-// CreateEphermealDBNontest creates a new database outside of a test.
+// CreateEphemeralDBNontest creates a new database outside of a test.
 func CreateEphemeralDBNontest(ctx context.Context, db *pachsql.DB, dbName string) error {
 	if _, err := db.ExecContext(ctx, `CREATE DATABASE `+dbName); err != nil {
 		return errors.Wrap(err, "create database")

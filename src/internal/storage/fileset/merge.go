@@ -3,9 +3,10 @@ package fileset
 import (
 	"bytes"
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"io"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -86,8 +87,11 @@ func (mr *MergeReader) IterateDeletes(ctx context.Context, cb func(File) error, 
 	})
 }
 
-// TODO: Look at the sizes?
-// TODO: Come up with better heuristics for sharding.
+// Shards is not documented.
+//
+//   - TODO: Look at the sizes?
+//   - TODO: Come up with better heuristics for sharding.
+//   - TODO: document.
 func (mr *MergeReader) Shards(ctx context.Context, opts ...index.Option) ([]*index.PathRange, error) {
 	ctx = pctx.Child(ctx, "mergedReader")
 	shards, err := mr.fileSets[0].Shards(ctx, opts...)

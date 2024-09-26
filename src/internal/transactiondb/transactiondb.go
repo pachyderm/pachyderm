@@ -25,9 +25,10 @@ func Transactions(db *pachsql.DB, listener col.PostgresListener) col.PostgresCol
 	)
 }
 
-// AllCollections returns a list of all the Transaction API collections for
+// CollectionsV0 returns a list of all the Transaction API collections for
 // postgres-initialization purposes. These collections are not usable for
 // querying.
+//
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func CollectionsV0() []col.PostgresCollection {

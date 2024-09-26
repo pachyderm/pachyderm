@@ -15,6 +15,10 @@ func CreatePostgresSchema(ctx context.Context, sqlTx *pachsql.Tx) error {
 	return errors.EnsureStack(err)
 }
 
+// SetupPostgresV0 is not properly documented.
+//
+// TODO: document.
+//
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func SetupPostgresV0(ctx context.Context, sqlTx *pachsql.Tx) error {

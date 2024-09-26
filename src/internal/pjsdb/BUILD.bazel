@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "errors.go",
         "iterators.go",
+        "job_cache.go",
         "job_context.go",
         "job_crud.go",
         "job_iterator.go",
@@ -16,6 +17,7 @@ go_library(
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/internal/errors",
+        "//src/internal/log",
         "//src/internal/pachhash",
         "//src/internal/pachsql",
         "//src/internal/pctx",
@@ -27,12 +29,14 @@ go_library(
         "@com_github_jmoiron_sqlx//:sqlx",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
+        "@org_uber_go_zap//:zap",
     ],
 )
 
 go_test(
     name = "pjsdb_test",
     srcs = [
+        "job_cache_test.go",
         "job_context_test.go",
         "job_crud_test.go",
         "job_iterator_test.go",
@@ -56,6 +60,8 @@ go_test(
         "//src/internal/storage/kv",
         "//src/internal/storage/track",
         "//src/internal/testetcd",
+        "//src/pjs",
+        "@com_github_jmoiron_sqlx//:sqlx",
         "@org_golang_x_sync//errgroup",
     ],
 )

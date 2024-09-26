@@ -8,7 +8,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-// CreateTokensTable sets up the postgres table which tracks active clusters
+// CreateAuthTokensTable sets up the postgres table which tracks active
+// clusters.
 func CreateAuthTokensTable(ctx context.Context, tx *pachsql.Tx) error {
 	_, err := tx.ExecContext(ctx, `
 CREATE TABLE IF NOT EXISTS auth.auth_tokens (

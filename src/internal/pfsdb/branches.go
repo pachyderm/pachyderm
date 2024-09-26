@@ -624,7 +624,7 @@ func getSubvenantBranchRows(ctx context.Context, ext sqlx.ExtContext, id BranchI
 	return branches, nil
 }
 
-// CreateBranchProvenance creates a provenance relationship between two branches.
+// CreateDirectBranchProvenance creates a provenance relationship between two branches.
 func CreateDirectBranchProvenance(ctx context.Context, ext sqlx.ExtContext, from, to BranchID) error {
 	if _, err := ext.ExecContext(ctx, `
 		INSERT INTO pfs.branch_provenance(from_id, to_id)
