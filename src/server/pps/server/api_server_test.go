@@ -40,22 +40,21 @@ import (
 
 func TestListDatum(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	ctx = env.Context
+	pachClient := pachd.NewTestPachd(t)
 	repo := "TestListDatum"
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	commit1, err := pachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	for i := 0; i < 9; i++ {
-		require.NoError(t, env.PachClient.PutFile(commit1, fmt.Sprintf("/file%d", i), &bytes.Buffer{}))
+		require.NoError(t, pachClient.PutFile(commit1, fmt.Sprintf("/file%d", i), &bytes.Buffer{}))
 	}
-	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.Id))
-	_, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, repo, "master", commit1.Id)
+	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.Id))
+	_, err = pachClient.WaitCommit(pfs.DefaultProjectName, repo, "master", commit1.Id)
 	require.NoError(t, err)
 
 	input := &pps.Input{Pfs: &pps.PFSInput{Repo: repo, Glob: "/*"}}
 	request := &pps.ListDatumRequest{Input: input}
-	listDatumClient, err := env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+	listDatumClient, err := pachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
 	dis, err := grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 	require.NoError(t, err)
@@ -67,7 +66,7 @@ func TestListDatum(t *testing.T) {
 	// Test getting the datums in three pages of 3
 	var pagedDatumIDs []string
 	request = &pps.ListDatumRequest{Input: input, Number: 3}
-	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+	listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
 	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 	require.NoError(t, err)
@@ -78,7 +77,7 @@ func TestListDatum(t *testing.T) {
 	// get next two pages
 	for i := 0; i < 2; i++ {
 		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.Id}
-		listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+		listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 		require.NoError(t, err)
 		dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 		require.NoError(t, err)
@@ -90,7 +89,7 @@ func TestListDatum(t *testing.T) {
 	// we should have gotten all the datums
 	require.ElementsEqual(t, datumIDs, pagedDatumIDs)
 	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.Id}
-	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+	listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
 	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 	require.NoError(t, err)
@@ -99,7 +98,7 @@ func TestListDatum(t *testing.T) {
 	var reverseDatumIDs []string
 	// get last page
 	request = &pps.ListDatumRequest{Input: input, Number: 3, Reverse: true}
-	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+	listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
 	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 	require.NoError(t, err)
@@ -110,7 +109,7 @@ func TestListDatum(t *testing.T) {
 	// get previous two pages
 	for i := 0; i < 2; i++ {
 		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.Id, Reverse: true}
-		listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+		listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 		require.NoError(t, err)
 		dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 		require.NoError(t, err)
@@ -120,7 +119,7 @@ func TestListDatum(t *testing.T) {
 		}
 	}
 	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.Id, Reverse: true}
-	listDatumClient, err = env.PachClient.PpsAPIClient.ListDatum(ctx, request)
+	listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
 	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
 	require.NoError(t, err)
@@ -132,30 +131,30 @@ func TestListDatum(t *testing.T) {
 
 func TestCreateDatum(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	pc := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption).PachClient
+	pachClient := pachd.NewTestPachd(t)
 	repo := tu.UniqueString("TestCreateDatum")
-	require.NoError(t, pc.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, pc.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
 	input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
 
 	t.Run("EmptyRepo", func(t *testing.T) {
-		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		datumClient, err := pachClient.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
 		_, err = datumClient.Recv()
 		require.ErrorIs(t, err, io.EOF)
 	})
 
-	commit, err := pc.StartCommit(pfs.DefaultProjectName, repo, "master")
+	commit, err := pachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	numFiles := ppsserver.DefaultDatumBatchSize + 50
 	for i := 0; i < numFiles; i++ {
-		require.NoError(t, pc.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader(fmt.Sprintf("file%d", i))))
+		require.NoError(t, pachClient.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader(fmt.Sprintf("file%d", i))))
 	}
-	require.NoError(t, pc.FinishCommit(pfs.DefaultProjectName, repo, "master", commit.Id))
+	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit.Id))
 
 	t.Run("SingleBatch", func(t *testing.T) {
-		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		datumClient, err := pachClient.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		// Requesting more datums than exist should return all datums without erroring
 		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input, Number: int32(numFiles)}}}))
@@ -164,7 +163,7 @@ func TestCreateDatum(t *testing.T) {
 		require.Equal(t, numFiles, n)
 	})
 	t.Run("MultipleBatches", func(t *testing.T) {
-		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		datumClient, err := pachClient.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		// Not specifying number of datums should return DefaultDatumBatchSize datums
 		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
@@ -195,7 +194,7 @@ func TestCreateDatum(t *testing.T) {
 		}
 	})
 	t.Run("UnionInput", func(t *testing.T) {
-		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		datumClient, err := pachClient.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		input := client.NewUnionInput(
 			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
@@ -230,7 +229,7 @@ func TestCreateDatum(t *testing.T) {
 		}
 	})
 	t.Run("CrossInput", func(t *testing.T) {
-		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		datumClient, err := pachClient.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		input := client.NewCrossInput(
 			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file?"),
@@ -266,7 +265,7 @@ func TestCreateDatum(t *testing.T) {
 		}
 	})
 	t.Run("JoinInput", func(t *testing.T) {
-		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		datumClient, err := pachClient.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		input := client.NewJoinInput(
 			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file(?)", "$1", "", false, false, nil),
@@ -296,7 +295,7 @@ func TestCreateDatum(t *testing.T) {
 		}
 	})
 	t.Run("GroupInput", func(t *testing.T) {
-		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		datumClient, err := pachClient.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		input := client.NewGroupInput(
 			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file(?)*", "", "$1", false, false, nil),
@@ -321,13 +320,13 @@ func TestCreateDatum(t *testing.T) {
 		}
 	})
 	t.Run("WrongRequestMessage", func(t *testing.T) {
-		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		datumClient, err := pachClient.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Continue{Continue: &pps.ContinueCreateDatumRequest{}}}))
 		_, err = datumClient.Recv()
 		require.ErrorContains(t, err, "first message must be a StartCreateDatumRequest message")
 
-		datumClient, err = pc.PpsAPIClient.CreateDatum(ctx)
+		datumClient, err = pachClient.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input, Number: 1}}}))
 		_, err = datumClient.Recv()
@@ -340,8 +339,8 @@ func TestCreateDatum(t *testing.T) {
 
 func TestRenderTemplate(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	client := env.PachClient.PpsAPIClient
+	pachClient := pachd.NewTestPachd(t)
+	client := pachClient.PpsAPIClient
 	res, err := client.RenderTemplate(ctx, &pps.RenderTemplateRequest{
 		Args: map[string]string{
 			"arg1": "value1",
@@ -494,15 +493,15 @@ func TestParseLokiLine(t *testing.T) {
 
 func TestDeletePipelines(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	pachClient := pachd.NewTestPachd(t)
 	inputRepo := tu.UniqueString("repo")
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, inputRepo))
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, inputRepo))
 	// pipeline1 is in default project and takes inputRepo as input
 	// pipeline2 is in a non-default project, and takes pipeline1 as input
 	project := tu.UniqueString("project-")
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
-	require.NoError(t, env.PachClient.CreateProject(project))
-	require.NoError(t, env.PachClient.CreatePipeline(
+	require.NoError(t, pachClient.CreateProject(project))
+	require.NoError(t, pachClient.CreatePipeline(
 		pfs.DefaultProjectName,
 		pipeline1,
 		"", /* default image*/
@@ -513,7 +512,7 @@ func TestDeletePipelines(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
-	require.NoError(t, env.PachClient.CreatePipeline(
+	require.NoError(t, pachClient.CreatePipeline(
 		project,
 		pipeline2,
 		"", /* default image*/
@@ -525,7 +524,7 @@ func TestDeletePipelines(t *testing.T) {
 		true, /* update */
 	))
 	// update pipeline 1; this helps verify that internally, we delete pipelines topologically
-	require.NoError(t, env.PachClient.CreatePipeline(
+	require.NoError(t, pachClient.CreatePipeline(
 		pfs.DefaultProjectName,
 		pipeline1,
 		"", /* default image*/
@@ -536,21 +535,20 @@ func TestDeletePipelines(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
-	inspectResp, err := env.PachClient.InspectPipeline(pfs.DefaultProjectName, pipeline1, false)
+	inspectResp, err := pachClient.InspectPipeline(pfs.DefaultProjectName, pipeline1, false)
 	require.NoError(t, err)
 	require.Equal(t, uint64(2), inspectResp.Version)
-	deleteResp, err := env.PachClient.DeletePipelines(ctx, &pps.DeletePipelinesRequest{All: true})
+	deleteResp, err := pachClient.DeletePipelines(ctx, &pps.DeletePipelinesRequest{All: true})
 	require.NoError(t, err)
 	require.Equal(t, 2, len(deleteResp.Pipelines))
 }
 
 func TestUpdatePipelineInputBranch(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	pachClient := pachd.NewTestPachd(t)
 	repo := "input"
 	pipeline := "pipeline"
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, env.PachClient.CreatePipeline(
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, pachClient.CreatePipeline(
 		pfs.DefaultProjectName,
 		pipeline,
 		"", /* default image*/
@@ -561,12 +559,12 @@ func TestUpdatePipelineInputBranch(t *testing.T) {
 		"",   /* output */
 		true, /* update */
 	))
-	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+	commit1, err := pachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, env.PachClient.PutFile(commit1, "/foo", strings.NewReader("foo")))
-	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.Id))
-	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "pin", "master", "", nil))
-	require.NoError(t, env.PachClient.CreatePipeline(
+	require.NoError(t, pachClient.PutFile(commit1, "/foo", strings.NewReader("foo")))
+	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.Id))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "pin", "master", "", nil))
+	require.NoError(t, pachClient.CreatePipeline(
 		pfs.DefaultProjectName,
 		pipeline,
 		"", /* default image*/
@@ -1010,13 +1008,13 @@ func TestCreatePipelineDryRun(t *testing.T) {
 
 func TestListPipelinePagination(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	pachClient := pachd.NewTestPachd(t)
 	collectPipelinePage := func(page *pps.PipelinePage, projects []string) []*pps.PipelineInfo {
 		var prjs []*pfs.Project
 		for _, p := range projects {
 			prjs = append(prjs, client.NewProject(p))
 		}
-		piClient, err := env.PachClient.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{
+		piClient, err := pachClient.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{
 			Page:     page,
 			Projects: prjs,
 		})
@@ -1026,9 +1024,9 @@ func TestListPipelinePagination(t *testing.T) {
 		return pis
 	}
 	repo := "input"
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
 	createPipeline := func(project, name string) {
-		require.NoError(t, env.PachClient.CreatePipeline(
+		require.NoError(t, pachClient.CreatePipeline(
 			project,
 			name,
 			"", /* default image*/
@@ -1042,7 +1040,7 @@ func TestListPipelinePagination(t *testing.T) {
 	}
 	projects := []string{"a", "b"}
 	for _, prj := range projects {
-		require.NoError(t, env.PachClient.CreateProject(prj))
+		require.NoError(t, pachClient.CreateProject(prj))
 	}
 	for i, p := range []string{"A", "B", "C", "D", "E"} {
 		proj := projects[0]
