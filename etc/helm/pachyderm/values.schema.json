@@ -218,6 +218,9 @@
                         "cpuImage": {
                             "type": "string"
                         },
+                        "gpuImage": {
+                            "type": "string"
+                        },
                         "kubeScheduler": {
                             "type": "string"
                         },
@@ -237,9 +240,6 @@
                 },
                 "enterpriseEdition": {
                     "type": "boolean"
-                },
-                "gpuImage": {
-                    "type": "string"
                 },
                 "imagePullSecretName": {
                     "type": "string"
@@ -323,10 +323,10 @@
                     "type": "object",
                     "properties": {
                         "clusterName": {
-                            "type": "null"
+                            "type": "string"
                         },
                         "defaultNamespace": {
-                            "type": "null"
+                            "type": "string"
                         }
                     }
                 },
