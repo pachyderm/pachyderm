@@ -60,6 +60,62 @@ func TestCreateChunkset(t *testing.T) {
 	require.True(t, countDeleted == 0)
 }
 
+func TestDropChunkset(t *testing.T) {
+	t.Run("chunkset does not exist", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		s, db := setUptest(t, ctx)
+
+		// create a fileset
+		w := s.NewWriter(ctx, fileset.WithTTL(time.Hour))
+		require.NoError(t, w.Add("a.txt", "datum1", strings.NewReader("test data")))
+		_, err := w.Close()
+		require.NoError(t, err)
+
+		// drop a chunkset that does not exist
+		err = dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			err := s.DropChunkSet(ctx, tx, 2)
+			return err
+		})
+		require.YesError(t, err)
+		require.Equal(t, "no chunkset found with the given id: 2", err.Error())
+	})
+
+	t.Run("happy path", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		s, db := setUptest(t, ctx)
+
+		// create a fileset
+		gc := s.NewGC(5 * time.Second)
+		w := s.NewWriter(ctx, fileset.WithTTL(time.Hour))
+		require.NoError(t, w.Add("a.txt", "datum1", strings.NewReader("test data")))
+		filesetID, err := w.Close()
+		require.NoError(t, err)
+
+		// create a chunkset
+		var chunkSetID fileset.ChunkSetID
+		err = dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			chunkSetID, err = s.CreateChunkSet(ctx, tx)
+			return err
+		})
+		require.NoError(t, err)
+		// drop the chunkset
+		err = dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			err := s.DropChunkSet(ctx, tx, chunkSetID)
+			return err
+		})
+		require.NoError(t, err)
+
+		// expire it
+		require.NoError(t, s.Drop(ctx, *filesetID))
+		// run the gc
+		countDeleted, err := gc.RunOnce(ctx)
+		require.NoError(t, err)
+		// now the fileset can be deleted
+		t.Log(countDeleted)
+		require.True(t, countDeleted > 0)
+	})
+}
+
 func setUptest(t *testing.T, ctx context.Context) (*fileset.Storage, *pachsql.DB) {
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
