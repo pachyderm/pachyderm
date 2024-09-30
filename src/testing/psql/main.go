@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
@@ -145,6 +146,10 @@ func RunPsql(ctx context.Context, host string, port int, password string) error 
 	environ := os.Environ()
 	environ = append(environ, "PGPASSWORD="+password)
 	cmd.Env = environ
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid:    true,
+		Foreground: true,
+	}
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(err, "run psql")
 	}
