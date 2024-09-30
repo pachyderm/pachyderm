@@ -508,7 +508,6 @@ func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, 
 }
 
 func (s *Storage) DropChunkSet(ctx context.Context, tx *sqlx.Tx, id ChunkSetID) error {
-	ctx = pctx.Child(ctx, "dropChunkset")
 	result, err := tx.Exec("DELETE FROM storage.chunksets WHERE id = $1", id)
 	if err != nil {
 		return errors.Wrap(err, "delete chunkset in db")
