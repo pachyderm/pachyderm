@@ -18,8 +18,8 @@ go_test(
     name = "migrations_test",
     size = "small",
     srcs = ["migrations_test.go"],
-    embed = [":migrations"],
     deps = [
+        ":migrations",
         "//src/internal/dockertestenv",
         "//src/internal/errors",
         "//src/internal/pctx",

@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "recovery",
+    srcs = ["recovery.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/recovery",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/storage/fileset",
+        "//src/version",
+        "@com_github_jmoiron_sqlx//:sqlx",
+    ],
+)
+
+go_test(
+    name = "recovery_test",
+    srcs = ["recovery_test.go"],
+    embed = [":recovery"],
+    deps = [
+        "//src/internal/clusterstate",
+        "//src/internal/dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/storage/chunk",
+        "//src/internal/storage/fileset",
+        "//src/internal/storage/kv",
+        "//src/internal/storage/track",
+        "//src/version",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_satori_go_uuid//:go_uuid",
+    ],
+)

@@ -1,4 +1,4 @@
-package migrations
+package migrations_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/stretchr/testify/assert"
@@ -16,16 +17,16 @@ import (
 func TestMigration(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
-	state := InitialState().
-		Apply("test 1", func(ctx context.Context, env Env) error {
+	state := migrations.InitialState().
+		Apply("test 1", func(ctx context.Context, env migrations.Env) error {
 			// NoOp
 			return nil
 		}).
-		Apply("test 2", func(ctx context.Context, env Env) error {
+		Apply("test 2", func(ctx context.Context, env migrations.Env) error {
 			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE test_table1 (id BIGSERIAL PRIMARY KEY, field1 TEXT, field2 TEXT);`)
 			return errors.EnsureStack(err)
 		}).
-		Apply("test 3", func(ctx context.Context, env Env) error {
+		Apply("test 3", func(ctx context.Context, env migrations.Env) error {
 			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE test_table2 (id BIGSERIAL PRIMARY KEY, field1 TEXT, field2 TEXT);`)
 			return errors.EnsureStack(err)
 		})
@@ -34,12 +35,12 @@ func TestMigration(t *testing.T) {
 		const numWaiters = 10
 		for i := 0; i < numWaiters; i++ {
 			eg.Go(func() error {
-				return BlockUntil(ctx, db, state)
+				return migrations.BlockUntil(ctx, db, state)
 			})
 		}
 		eg.Go(func() error {
 			time.Sleep(time.Second)
-			return ApplyMigrations(ctx, db, Env{}, state)
+			return migrations.ApplyMigrations(ctx, db, migrations.Env{}, state)
 		})
 		require.NoError(t, eg.Wait())
 	}()

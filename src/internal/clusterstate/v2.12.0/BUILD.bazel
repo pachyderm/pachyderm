@@ -8,6 +8,7 @@ go_library(
         "doc.go",
         "pfs.go",
         "pjs.go",
+        "snapshot.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.12.0",
     visibility = ["//src:__subpackages__"],
