@@ -37,8 +37,7 @@ func TestCreateChunkset(t *testing.T) {
 	countDeleted, err := gc.RunOnce(ctx)
 	require.NoError(t, err)
 	// gc sanity check. the fileset should be deleted
-	t.Log(countDeleted)
-	require.True(t, countDeleted > 0)
+	require.Equal(t, 1, countDeleted)
 
 	// create fileset and rerun gc.
 	w = s.NewWriter(ctx, fileset.WithTTL(time.Hour))
@@ -64,13 +63,11 @@ func TestDropChunkset(t *testing.T) {
 	t.Run("chunkset does not exist", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		s, db := setUptest(t, ctx)
-
 		// create a fileset
 		w := s.NewWriter(ctx, fileset.WithTTL(time.Hour))
 		require.NoError(t, w.Add("a.txt", "datum1", strings.NewReader("test data")))
 		_, err := w.Close()
 		require.NoError(t, err)
-
 		// drop a chunkset that does not exist
 		err = dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 			err := s.DropChunkSet(ctx, tx, 2)
@@ -83,14 +80,12 @@ func TestDropChunkset(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		s, db := setUptest(t, ctx)
-
 		// create a fileset
 		gc := s.NewGC(5 * time.Second)
 		w := s.NewWriter(ctx, fileset.WithTTL(time.Hour))
 		require.NoError(t, w.Add("a.txt", "datum1", strings.NewReader("test data")))
 		filesetID, err := w.Close()
 		require.NoError(t, err)
-
 		// create a chunkset
 		var chunkSetID fileset.ChunkSetID
 		err = dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
@@ -104,15 +99,13 @@ func TestDropChunkset(t *testing.T) {
 			return err
 		})
 		require.NoError(t, err)
-
 		// expire it
 		require.NoError(t, s.Drop(ctx, *filesetID))
 		// run the gc
 		countDeleted, err := gc.RunOnce(ctx)
 		require.NoError(t, err)
 		// now the fileset can be deleted
-		t.Log(countDeleted)
-		require.True(t, countDeleted > 0)
+		require.Equal(t, 1, countDeleted)
 	})
 }
 
