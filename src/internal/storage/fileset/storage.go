@@ -493,7 +493,7 @@ func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, 
 	}
 
 	// encode chunkset into string for tracker
-	chunksetStrID := "chunkset" + strconv.FormatUint(uint64(chunksetID), 10)
+	chunksetStrID := chunksetStringID(chunksetID)
 
 	// List all of the filesets.
 	var pointsTo []string
@@ -505,4 +505,26 @@ func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, 
 	}
 
 	return chunksetID, nil
+}
+
+func (s *Storage) DropChunkSet(ctx context.Context, tx *sqlx.Tx, id ChunkSetID) error {
+	result, err := tx.Exec("DELETE FROM storage.chunksets WHERE id = $1", id)
+	if err != nil {
+		return errors.Wrap(err, "delete chunkset in db")
+	}
+	// Check the number of affected rows
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "rows effected")
+	}
+	if rowsAffected == 0 {
+		return errors.Errorf("no chunkset found with the given id: %d", id)
+	}
+	// encode chunkset into string for tracker
+	strID := chunksetStringID(id)
+	return errors.Wrap(s.tracker.DeleteTx(tx, strID), "delete tracker object and references")
+}
+
+func chunksetStringID(id ChunkSetID) string {
+	return "chunkset/" + strconv.FormatUint(uint64(id), 10)
 }
