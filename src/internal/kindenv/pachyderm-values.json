@@ -10,6 +10,7 @@
     }
   },
   "oidc": {
+    "deploy": true,
     "issuerURI": "http://pachd:30658/dex"
   },
   "pachd": {

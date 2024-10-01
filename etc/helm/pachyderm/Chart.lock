@@ -5,5 +5,8 @@ dependencies:
 - name: loki-stack
   repository: https://grafana.github.io/helm-charts
   version: 2.8.1
-digest: sha256:1155b086db1444b20af2ca680e0ddb078fb349290fd7c8f4c8b7b71693663d9a
-generated: "2022-08-31T11:31:50.145618129-04:00"
+- name: dex
+  repository: https://charts.dexidp.io
+  version: 0.19.1
+digest: sha256:7bed907aa582bfc0ebc50b219eff34ae8c1b2ea2ae19e4c29105874fffc61433
+generated: "2024-10-01T17:02:26.29385662Z"
