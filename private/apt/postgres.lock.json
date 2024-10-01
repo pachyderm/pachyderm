@@ -1,0 +1,23 @@
+{
+	"packages": [
+		{
+			"arch": "amd64",
+			"dependencies": [],
+			"key": "postgresql-client-17_17.0-1.pgdg120-p-_20240930.0337.g77f1546_amd64",
+			"name": "postgresql-client-17",
+			"sha256": "ba88ffe5f68c8bcac6fb40f78b92531fc23769da93d2e8192ca908aef1428029",
+			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.0-1.pgdg120+~20240930.0337.g77f1546_amd64.deb",
+			"version": "17.0-1.pgdg120+~20240930.0337.g77f1546"
+		},
+		{
+			"arch": "arm64",
+			"dependencies": [],
+			"key": "postgresql-client-17_17.0-1.pgdg120-p-_20240930.0337.g77f1546_arm64",
+			"name": "postgresql-client-17",
+			"sha256": "acae790271e950bf0135126327c5cd4ac385668c18b0203ef338e08b2a40641d",
+			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.0-1.pgdg120+~20240930.0337.g77f1546_arm64.deb",
+			"version": "17.0-1.pgdg120+~20240930.0337.g77f1546"
+		}
+	],
+	"version": 1
+}

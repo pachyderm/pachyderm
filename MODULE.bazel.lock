@@ -12,6 +12,7 @@
     "https://bcr.bazel.build/modules/aspect_bazel_lib/1.28.0/MODULE.bazel": "d793416e81c34d137d75ef84fe622df6c550826772a7f06e3b98a0d1c347fe1c",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/1.42.1/MODULE.bazel": "b7aca918a7c7f4cb9ea223e7e2cba294760659ec7364cc551df156067e4a3621",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/2.7.7/MODULE.bazel": "491f8681205e31bb57892d67442ce448cda4f472a8e6b3dc062865e29a64f89c",
+    "https://bcr.bazel.build/modules/aspect_bazel_lib/2.7.9/MODULE.bazel": "06e54f2b345b8eb7adceed2329b273da00d0368e28a9ebd9dfc75b4a052dac85",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/2.8.1/MODULE.bazel": "812d2dd42f65dca362152101fbec418029cc8fd34cbad1a2fde905383d705838",
     "https://bcr.bazel.build/modules/aspect_bazel_lib/2.8.1/source.json": "95a6b56904e2d8bfea164dc6c98ccafe8cb75cb0623cb6ef5b3cfb15fdddabd6",
     "https://bcr.bazel.build/modules/aspect_rules_jest/0.22.0/MODULE.bazel": "60a8ad6fe18540d2a726d34f31cf3775f00958d8cc499c588792ac26f8a6983c",
@@ -82,6 +83,8 @@
     "https://bcr.bazel.build/modules/rules_cc/0.0.8/MODULE.bazel": "964c85c82cfeb6f3855e6a07054fdb159aced38e99a5eecf7bce9d53990afa3e",
     "https://bcr.bazel.build/modules/rules_cc/0.0.9/MODULE.bazel": "836e76439f354b89afe6a911a7adf59a6b2518fafb174483ad78a2a2fde7b1c5",
     "https://bcr.bazel.build/modules/rules_cc/0.0.9/source.json": "1f1ba6fea244b616de4a554a0f4983c91a9301640c8fe0dd1d410254115c8430",
+    "https://bcr.bazel.build/modules/rules_distroless/0.3.8/MODULE.bazel": "7d7cf5b71d0f05ea30308c379ee7c3e69caddb2c94878796799333ffcd6aa840",
+    "https://bcr.bazel.build/modules/rules_distroless/0.3.8/source.json": "a2421c594d7685202be9a18e89e88fb0c8e1acfea55d0e0cf0452244cb1bf250",
     "https://bcr.bazel.build/modules/rules_go/0.33.0/MODULE.bazel": "a2b11b64cd24bf94f57454f53288a5dacfe6cb86453eee7761b7637728c1910c",
     "https://bcr.bazel.build/modules/rules_go/0.38.1/MODULE.bazel": "fb8e73dd3b6fc4ff9d260ceacd830114891d49904f5bda1c16bc147bcc254f71",
     "https://bcr.bazel.build/modules/rules_go/0.39.1/MODULE.bazel": "d34fb2a249403a5f4339c754f1e63dc9e5ad70b47c5e97faee1441fc6636cd61",
@@ -822,7 +825,7 @@
     "@@aspect_bazel_lib~//lib:extensions.bzl%toolchains": {
       "general": {
         "bzlTransitiveDigest": "o+c8qRBWojmxp6XnxraB8cDLR3egI6E7hjYq4t1rzM8=",
-        "usagesDigest": "ctoOAaYBc+vADOcIkHRjVIKBMa+yqb9N5pKV6dmknc4=",
+        "usagesDigest": "Pcq+2kpz4YZhTikkRUdASlHyhsNUBGkgu/iCHsbPWAY=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1748,6 +1751,78 @@
           }
         },
         "recordedRepoMappingEntries": []
+      }
+    },
+    "@@rules_distroless~//apt:extensions.bzl%apt": {
+      "general": {
+        "bzlTransitiveDigest": "SAvduU1mz3auZTzTm3EvlvMh575cyos6hDHPQ5uaaaU=",
+        "usagesDigest": "uevU3fFHIiqERwkOUBonXJvm88qdQPD2XtR2tXLBmKM=",
+        "recordedFileInputs": {
+          "@@//private/apt/postgres.lock.json": "910e18129bf6a6ab2016bf395d4e1f5f2a0a52cf29f3423d0ff60535bf574d09"
+        },
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "postgres_resolve": {
+            "bzlFile": "@@rules_distroless~//apt/private:resolve.bzl",
+            "ruleClassName": "deb_resolve",
+            "attributes": {
+              "manifest": "@@//private/apt:postgres.yaml",
+              "resolve_transitive": false
+            }
+          },
+          "postgres_postgresql-client-17_17.0-1.pgdg120-p-_20240930.0337.g77f1546_amd64": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\ngenrule(\n    name = \"data\",\n    srcs = glob([\"data.tar*\"]),\n    outs = [\"layer.tar.gz\"],\n    cmd = \"\"\"\n    # Per the dpkg-dev man page:\n    # https://manpages.debian.org/bookworm/dpkg-dev/deb.5.en.html\n    #\n    # Debian data.tar files can be:\n    #  - .tar uncompressed, supported since dpkg 1.10.24\n    #  - .tar compressed with\n    #    *  gzip: .gz\n    #    * bzip2: .bz2, supported since dpkg 1.10.24\n    #    *  lzma: .lzma, supported since dpkg 1.13.25\n    #    *    xz: .xz, supported since dpkg 1.15.6\n    #    *  zstd: .zst, supported since dpkg 1.21.18\n    #\n    # ZSTD_BIN can decompress all formats except bzip2\n    #\n    # The OCI image spec supports .tar and .tar compressed with gzip or zstd.\n    # Bazel needs the output filename to be fixed in advanced so we settle for\n    # gzip compression.\n\n    data_file=\"$$(basename $<)\"\n\n    if [[ \"$$data_file\" == \"data.tar.bz2\" ]]; then\n      # TODO: support bz2\n      echo \"ERROR: unsupported compression: bz2\"\n      exit 1\n    elif [[ \"$$data_file\" == \"data.tar.gz\" ]]; then\n      mv $< $@\n    elif [[ \"$$data_file\" == \"data.tar\" ]]; then\n      $(ZSTD_BIN) --compress --format=gzip $< >$@\n    else\n      $(ZSTD_BIN) --force --decompress --stdout $< |\n      $(ZSTD_BIN) --compress --format=gzip - >$@\n    fi\n    \"\"\",\n    toolchains = [\"@zstd_toolchains//:resolved_toolchain\"],\n    visibility = [\"//visibility:public\"],\n)\n\nfilegroup(\n    name = \"control\",\n    srcs = glob([\"control.tar.*\"]),\n    visibility = [\"//visibility:public\"],\n)\n",
+              "urls": [
+                "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.0-1.pgdg120+~20240930.0337.g77f1546_amd64.deb"
+              ],
+              "sha256": "ba88ffe5f68c8bcac6fb40f78b92531fc23769da93d2e8192ca908aef1428029"
+            }
+          },
+          "postgres_postgresql-client-17_17.0-1.pgdg120-p-_20240930.0337.g77f1546_arm64": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\ngenrule(\n    name = \"data\",\n    srcs = glob([\"data.tar*\"]),\n    outs = [\"layer.tar.gz\"],\n    cmd = \"\"\"\n    # Per the dpkg-dev man page:\n    # https://manpages.debian.org/bookworm/dpkg-dev/deb.5.en.html\n    #\n    # Debian data.tar files can be:\n    #  - .tar uncompressed, supported since dpkg 1.10.24\n    #  - .tar compressed with\n    #    *  gzip: .gz\n    #    * bzip2: .bz2, supported since dpkg 1.10.24\n    #    *  lzma: .lzma, supported since dpkg 1.13.25\n    #    *    xz: .xz, supported since dpkg 1.15.6\n    #    *  zstd: .zst, supported since dpkg 1.21.18\n    #\n    # ZSTD_BIN can decompress all formats except bzip2\n    #\n    # The OCI image spec supports .tar and .tar compressed with gzip or zstd.\n    # Bazel needs the output filename to be fixed in advanced so we settle for\n    # gzip compression.\n\n    data_file=\"$$(basename $<)\"\n\n    if [[ \"$$data_file\" == \"data.tar.bz2\" ]]; then\n      # TODO: support bz2\n      echo \"ERROR: unsupported compression: bz2\"\n      exit 1\n    elif [[ \"$$data_file\" == \"data.tar.gz\" ]]; then\n      mv $< $@\n    elif [[ \"$$data_file\" == \"data.tar\" ]]; then\n      $(ZSTD_BIN) --compress --format=gzip $< >$@\n    else\n      $(ZSTD_BIN) --force --decompress --stdout $< |\n      $(ZSTD_BIN) --compress --format=gzip - >$@\n    fi\n    \"\"\",\n    toolchains = [\"@zstd_toolchains//:resolved_toolchain\"],\n    visibility = [\"//visibility:public\"],\n)\n\nfilegroup(\n    name = \"control\",\n    srcs = glob([\"control.tar.*\"]),\n    visibility = [\"//visibility:public\"],\n)\n",
+              "urls": [
+                "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.0-1.pgdg120+~20240930.0337.g77f1546_arm64.deb"
+              ],
+              "sha256": "acae790271e950bf0135126327c5cd4ac385668c18b0203ef338e08b2a40641d"
+            }
+          },
+          "postgres": {
+            "bzlFile": "@@rules_distroless~//apt/private:index.bzl",
+            "ruleClassName": "deb_package_index",
+            "attributes": {
+              "lock": "@@//private/apt:postgres.lock.json",
+              "lock_content": "{\n\t\"packages\": [\n\t\t{\n\t\t\t\"arch\": \"amd64\",\n\t\t\t\"dependencies\": [],\n\t\t\t\"key\": \"postgresql-client-17_17.0-1.pgdg120-p-_20240930.0337.g77f1546_amd64\",\n\t\t\t\"name\": \"postgresql-client-17\",\n\t\t\t\"sha256\": \"ba88ffe5f68c8bcac6fb40f78b92531fc23769da93d2e8192ca908aef1428029\",\n\t\t\t\"url\": \"https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.0-1.pgdg120+~20240930.0337.g77f1546_amd64.deb\",\n\t\t\t\"version\": \"17.0-1.pgdg120+~20240930.0337.g77f1546\"\n\t\t},\n\t\t{\n\t\t\t\"arch\": \"arm64\",\n\t\t\t\"dependencies\": [],\n\t\t\t\"key\": \"postgresql-client-17_17.0-1.pgdg120-p-_20240930.0337.g77f1546_arm64\",\n\t\t\t\"name\": \"postgresql-client-17\",\n\t\t\t\"sha256\": \"acae790271e950bf0135126327c5cd4ac385668c18b0203ef338e08b2a40641d\",\n\t\t\t\"url\": \"https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.0-1.pgdg120+~20240930.0337.g77f1546_arm64.deb\",\n\t\t\t\"version\": \"17.0-1.pgdg120+~20240930.0337.g77f1546\"\n\t\t}\n\t],\n\t\"version\": 1\n}",
+              "package_template": "@@rules_distroless~//apt/private:package.BUILD.tmpl"
+            }
+          }
+        },
+        "moduleExtensionMetadata": {
+          "explicitRootModuleDirectDeps": [
+            "postgres"
+          ],
+          "explicitRootModuleDirectDevDeps": [],
+          "useAllRepos": "NO",
+          "reproducible": false
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "rules_distroless~",
+            "aspect_bazel_lib",
+            "aspect_bazel_lib~"
+          ],
+          [
+            "rules_distroless~",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
       }
     },
     "@@rules_jvm_external~//:extensions.bzl%maven": {

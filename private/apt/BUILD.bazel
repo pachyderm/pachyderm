@@ -1,0 +1,11 @@
+genrule(
+    name = "pg_dump_genrule",
+    srcs = select({
+        "//:is_x86_64_linux": ["@postgres//postgresql-client-17/amd64:data"],
+        "//:is_aarch64_linux": ["@postgres//postgresql-client-17/arm64:data"],
+    }),
+    outs = ["pg_dump"],
+    cmd = "$(BSDTAR_BIN) --extract --strip-components 6 --verbose --file $< usr/lib/postgresql/17/bin/pg_dump; mv pg_dump $@",
+    executable = True,
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+)
