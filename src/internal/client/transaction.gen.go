@@ -18,6 +18,7 @@ import (
 	pjs "github.com/pachyderm/pachyderm/v2/src/pjs"
 	pps_v2 "github.com/pachyderm/pachyderm/v2/src/pps"
 	proxy "github.com/pachyderm/pachyderm/v2/src/proxy"
+	snapshot "github.com/pachyderm/pachyderm/v2/src/snapshot"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 	transaction_v2 "github.com/pachyderm/pachyderm/v2/src/transaction"
 	versionpb_v2 "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -756,6 +757,24 @@ type unsupportedProxyBuilderClient struct{}
 
 func (c *unsupportedProxyBuilderClient) Listen(_ context.Context, _ *proxy.ListenRequest, opts ...grpc.CallOption) (proxy.API_ListenClient, error) {
 	return nil, unsupportedError("Listen")
+}
+
+type unsupportedSnapshotBuilderClient struct{}
+
+func (c *unsupportedSnapshotBuilderClient) CreateSnapshot(_ context.Context, _ *snapshot.CreateSnapshotRequest, opts ...grpc.CallOption) (*snapshot.CreateSnapshotResponse, error) {
+	return nil, unsupportedError("CreateSnapshot")
+}
+
+func (c *unsupportedSnapshotBuilderClient) DeleteSnapshot(_ context.Context, _ *snapshot.DeleteSnapshotRequest, opts ...grpc.CallOption) (*snapshot.DeleteSnapshotResponse, error) {
+	return nil, unsupportedError("DeleteSnapshot")
+}
+
+func (c *unsupportedSnapshotBuilderClient) InspectSnapshot(_ context.Context, _ *snapshot.InspectSnapshotRequest, opts ...grpc.CallOption) (*snapshot.InspectSnapshotResponse, error) {
+	return nil, unsupportedError("InspectSnapshot")
+}
+
+func (c *unsupportedSnapshotBuilderClient) ListSnapshot(_ context.Context, _ *snapshot.ListSnapshotRequest, opts ...grpc.CallOption) (snapshot.API_ListSnapshotClient, error) {
+	return nil, unsupportedError("ListSnapshot")
 }
 
 type unsupportedTransactionBuilderClient struct{}

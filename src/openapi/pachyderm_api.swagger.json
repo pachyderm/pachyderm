@@ -5641,6 +5641,131 @@
         ]
       }
     },
+    "/snapshot.API/CreateSnapshot": {
+      "post": {
+        "operationId": "API_CreateSnapshot",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/snapshotCreateSnapshotResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/snapshotCreateSnapshotRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/snapshot.API/DeleteSnapshot": {
+      "post": {
+        "operationId": "API_DeleteSnapshot",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/snapshotDeleteSnapshotResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/snapshotDeleteSnapshotRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/snapshot.API/InspectSnapshot": {
+      "post": {
+        "operationId": "API_InspectSnapshot",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/snapshotInspectSnapshotResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/snapshotInspectSnapshotRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/snapshot.API/ListSnapshot": {
+      "post": {
+        "operationId": "API_ListSnapshot",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/snapshotListSnapshotResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of snapshotListSnapshotResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/snapshotListSnapshotRequest"
+            }
+          }
+        ]
+      }
+    },
     "/storage.Fileset/CreateFileset": {
       "post": {
         "summary": "CreateFileset creates a fileset based on a stream of file modifications.\nA string identifier for the created fileset will be returned that can be used for subsequent fileset operations.\nFilesets have a fixed time-to-live (ttl), which is currently 10 minutes.\nFilesets needed longer than the ttl will need to be renewed.",
@@ -12627,6 +12752,107 @@
             "type": "object",
             "$ref": "#/definitions/protobufAny"
           }
+        }
+      }
+    },
+    "snapshotCreateSnapshotRequest": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "snapshotCreateSnapshotResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "snapshotDeleteSnapshotRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "snapshotDeleteSnapshotResponse": {
+      "type": "object"
+    },
+    "snapshotInspectSnapshotRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "snapshotInspectSnapshotResponse": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "$ref": "#/definitions/snapshotSnapshotInfo"
+        }
+      }
+    },
+    "snapshotListSnapshotRequest": {
+      "type": "object",
+      "properties": {
+        "since": {
+          "type": "string",
+          "format": "date-time",
+          "title": "exclusive; nil = start at the present"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "int32",
+          "title": "0 = no limit"
+        }
+      }
+    },
+    "snapshotListSnapshotResponse": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "$ref": "#/definitions/snapshotSnapshotInfo"
+        }
+      }
+    },
+    "snapshotSnapshotInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "chunksetId": {
+          "type": "string",
+          "format": "int64"
+        },
+        "sqlDumpFilesetId": {
+          "type": "string"
+        },
+        "pachydermVersion": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
