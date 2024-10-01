@@ -1256,7 +1256,8 @@ cloudsqlAuthProxy:
     type: ClusterIP
 
 oidc:
-  issuerURI: "http://pachyderm.local/dex" #Inferred if running locally or using ingress
+  deploy: false #change to true if you'd like to deploy dex. Related helm values can be controlled via the 'dex' subchart.
+  issuerURI: "" #Inferred if running locally or using ingress
   requireVerifiedEmail: false
   # IDTokenExpiry is parsed into golang's time.Duration: https://pkg.go.dev/time#example-ParseDuration
   IDTokenExpiry: 24h
