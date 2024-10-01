@@ -3,13 +3,22 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "recovery",
     srcs = ["recovery.go"],
+    data = ["//private/apt:pg_dump"],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/recovery",
     visibility = ["//src:__subpackages__"],
+    x_defs = {"pgDumpRlocation": "$(rlocationpath //private/apt:pg_dump)"},
     deps = [
+        "//src/internal/dbutil",
         "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
         "//src/internal/storage/fileset",
         "//src/version",
         "@com_github_jmoiron_sqlx//:sqlx",
+        "@com_github_klauspost_compress//zstd",
+        "@org_uber_go_zap//:zap",
+        "@rules_go//go/runfiles:go_default_library",
     ],
 )
 

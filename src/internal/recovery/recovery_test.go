@@ -1,11 +1,15 @@
 package recovery
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/klauspost/compress/zstd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -20,35 +24,15 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-func TestSnapshotDatabase(t *testing.T) {
+func TestCreateSnaphot(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewMigratedTestDB(t, clusterstate.DesiredClusterState)
 	tracker := track.NewPostgresTracker(db)
 	s := fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunk.NewStorage(kv.NewMemStore(), nil, db, tracker))
-	var snapID SnapshotID
-	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-		var err error
-		snapID, err = createSnapshotRow(ctx, tx, s)
-		return errors.Wrap(err, "createSnapshotRow")
-	}); err != nil {
-		t.Fatalf("WithTx: %v", err)
-	}
-	if snapID < 1 {
-		t.Errorf("snapshot id < 1: %v", snapID)
-	}
 
-	w := s.NewWriter(ctx)
-	if err := w.Add("dump.sql", "", strings.NewReader("hello, world")); err != nil {
-		t.Fatalf("writer.Add(dump.sql): %v", err)
-	}
-	fsID, err := w.Close()
+	snapID, err := CreateSnapshot(ctx, db, s)
 	if err != nil {
-		t.Fatalf("writer.Close: %v", err)
-	}
-	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-		return errors.Wrap(addDatabaseDump(ctx, tx, snapID, *fsID), "addDatabaseDump")
-	}); err != nil {
-		t.Fatalf("WithTx: %v", err)
+		t.Fatalf("CreateSnapshot: %v", err)
 	}
 
 	var got, want struct {
@@ -58,7 +42,6 @@ func TestSnapshotDatabase(t *testing.T) {
 	}
 	want.ChunksetID = 1
 	want.PachydermVersion = version.Version.String()
-	want.SQLDumpFileSetID = uuid.UUID(*fsID)
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		if err := tx.GetContext(ctx, &got, `select chunkset_id, pachyderm_version, sql_dump_fileset_id from recovery.snapshots where id=$1`, snapID); err != nil {
 			return errors.Wrap(err, "read snapshot")
@@ -67,7 +50,57 @@ func TestSnapshotDatabase(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
 	}
+	fsid := fileset.ID(got.SQLDumpFileSetID[:])
+	got.SQLDumpFileSetID = uuid.UUID{}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("snapshot row (-want +got):\n%s", diff)
+	}
+
+	fs, err := s.Open(ctx, []fileset.ID{fsid})
+	if err != nil {
+		t.Fatalf("open fileset (%v): %v", got.SQLDumpFileSetID.String(), err)
+	}
+	var buf bytes.Buffer
+	if err := fs.Iterate(ctx, func(f fileset.File) error {
+		if got, want := f.Index().Path, "dump.sql.zst"; got != want {
+			return errors.Errorf("invalid file in filest:\n  got: %v\n want: %v", got, want)
+		}
+		r, w := io.Pipe()
+		zr, err := zstd.NewReader(r)
+		doneCh := make(chan error)
+		go func() {
+			_, err := io.Copy(&buf, zr)
+			doneCh <- err
+			close(doneCh)
+		}()
+		if err != nil {
+			return errors.Wrap(err, "new zstd reader")
+		}
+		if err := f.Content(ctx, w); err != nil {
+			w.CloseWithError(err) //nolint:errcheck
+			return errors.Wrap(err, "read content")
+		}
+		w.Close() //nolint:errcheck
+		if err := <-doneCh; err != nil {
+			return errors.Wrap(err, "copy to buffer")
+		}
+		return nil
+	}); err != nil {
+		t.Errorf("iterate over fileset: %v", err)
+	}
+	var looksLikeDump bool
+	scan := bufio.NewScanner(&buf)
+	for i := 0; i < 10; i++ {
+		if !scan.Scan() {
+			t.Fatal("too few lines in buf")
+		}
+		line := scan.Text()
+		t.Logf("database dump line: %v", line)
+		if strings.Contains(line, "-- PostgreSQL database dump") {
+			looksLikeDump = true
+		}
+	}
+	if !looksLikeDump {
+		t.Errorf("the file we got out of PFS does not look like a database dump; see debug logs above")
 	}
 }

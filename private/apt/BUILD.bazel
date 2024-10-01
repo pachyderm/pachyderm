@@ -8,4 +8,5 @@ genrule(
     cmd = "$(BSDTAR_BIN) --extract --strip-components 6 --verbose --file $< usr/lib/postgresql/17/bin/pg_dump; mv pg_dump $@",
     executable = True,
     toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    visibility = ["//:__subpackages__"],
 )
