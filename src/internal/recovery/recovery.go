@@ -48,7 +48,7 @@ func pgDumpEnviron(existing []string) (result []string) {
 	}
 	// Find libpq.so.5's directory.
 	x, err := runfiles.Rlocation(libpqRlocation)
-	if err == nil {
+	if err != nil {
 		x = libpqRlocation
 	}
 	if x != "" {
@@ -128,6 +128,9 @@ func dumpDatabase(ctx context.Context, db *pachsql.DB, w io.WriteCloser) (retErr
 	cmd.Stdout = zw
 	cmd.Stderr = log.WriterAt(ctx, log.DebugLevel)
 	cmd.Env = pgDumpEnviron(cmd.Environ())
+	for _, x := range cmd.Environ() {
+		fmt.Println(x)
+	}
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(err, "run pg_dump")
 	}
