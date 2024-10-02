@@ -233,9 +233,6 @@ dependencies:
   remark-gfm:
     specifier: 3.0.1
     version: 3.0.1
-  rudder-sdk-js:
-    specifier: 2.20.0
-    version: 2.20.0
 
 devDependencies:
   '@babel/runtime':
