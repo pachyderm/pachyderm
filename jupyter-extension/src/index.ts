@@ -10,7 +10,6 @@ import mount from './plugins/mount';
  */
 const plugins: JupyterFrontEndPlugin<any>[] = [
   mount,
-  telemetry,
   help,
   examples,
 ];
