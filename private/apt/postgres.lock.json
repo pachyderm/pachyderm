@@ -10,12 +10,30 @@
 			"version": "17.0-1.pgdg120+~20240930.0337.g77f1546"
 		},
 		{
+			"arch": "amd64",
+			"dependencies": [],
+			"key": "libpq5_17.0-1.pgdg120-p-_20240930.0337.g77f1546_amd64",
+			"name": "libpq5",
+			"sha256": "7fe2b430b60cefb17f8d67afb6a4dfd6aa29f9e601bc5ad4b17fecf08b0c67eb",
+			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/libpq5_17.0-1.pgdg120+~20240930.0337.g77f1546_amd64.deb",
+			"version": "17.0-1.pgdg120+~20240930.0337.g77f1546"
+		},
+		{
 			"arch": "arm64",
 			"dependencies": [],
 			"key": "postgresql-client-17_17.0-1.pgdg120-p-_20240930.0337.g77f1546_arm64",
 			"name": "postgresql-client-17",
 			"sha256": "acae790271e950bf0135126327c5cd4ac385668c18b0203ef338e08b2a40641d",
 			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.0-1.pgdg120+~20240930.0337.g77f1546_arm64.deb",
+			"version": "17.0-1.pgdg120+~20240930.0337.g77f1546"
+		},
+		{
+			"arch": "arm64",
+			"dependencies": [],
+			"key": "libpq5_17.0-1.pgdg120-p-_20240930.0337.g77f1546_arm64",
+			"name": "libpq5",
+			"sha256": "cfb6d98bbec7f2f2a0cb1c52a0b4cee3d60546a40f4ca9b01edbdb40a6956997",
+			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/libpq5_17.0-1.pgdg120+~20240930.0337.g77f1546_arm64.deb",
 			"version": "17.0-1.pgdg120+~20240930.0337.g77f1546"
 		}
 	],

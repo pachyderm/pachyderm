@@ -10,3 +10,18 @@ genrule(
     toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
     visibility = ["//:__subpackages__"],
 )
+
+genrule(
+    name = "libpq_genrule",
+    srcs = select({
+        "//:is_x86_64_linux": ["@postgres//libpq5/amd64:data"],
+        "//:is_aarch64_linux": ["@postgres//libpq5/arm64:data"],
+    }),
+    outs = ["libpq.so.5.17"],
+    cmd = "$(BSDTAR_BIN) --extract --strip-components 4 --verbose --file $< usr/lib/" + select({
+        "//:is_x86_64_linux": "x86_64-linux-gnu",
+        "//:is_aarch64_linux": "aarch64-linux-gnu",
+    }) + "/libpq.so.5.17; mv libpq.so.5.17 $@",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    visibility = ["//:__subpackages__"],
+)

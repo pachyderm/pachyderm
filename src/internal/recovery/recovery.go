@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/jmoiron/sqlx"
@@ -23,6 +25,7 @@ import (
 
 var (
 	pgDumpRlocation = "" // Replaced by the linker during Bazel builds.
+	libpqRlocation  = ""
 )
 
 func pgDumpPath() string {
@@ -31,6 +34,37 @@ func pgDumpPath() string {
 		return "pg_dump" // Probably not built with bazel, look in $PATH and hope for the best.
 	}
 	return x
+}
+
+func pgDumpEnviron(existing []string) (result []string) {
+	// Find the existing value of $LD_LIBRARY_PATH.
+	var libraryPath string
+	for _, e := range existing {
+		if strings.HasPrefix(e, "LD_LIBRARY_PATH=") {
+			libraryPath = e[len("LD_LIBRARY_PATH="):]
+		} else {
+			result = append(result, e)
+		}
+	}
+	// Find libpq.so.5's directory.
+	x, err := runfiles.Rlocation(libpqRlocation)
+	if err == nil {
+		x = libpqRlocation
+	}
+	if x != "" {
+		// If this worked, tack on dirname(path/to/libpq.so.5) to the front of
+		// $LD_LIBRARY_PATH.
+		if libraryPath != "" {
+			libraryPath = filepath.Dir(x) + ":" + libraryPath
+		} else {
+			libraryPath = filepath.Dir(x)
+		}
+	}
+	// If there's $LD_LIBRARY_PATH, add it to the result.
+	if libraryPath != "" {
+		result = append(result, "LD_LIBRARY_PATH="+libraryPath)
+	}
+	return
 }
 
 type SnapshotID int64
@@ -93,6 +127,7 @@ func dumpDatabase(ctx context.Context, db *pachsql.DB, w io.WriteCloser) (retErr
 	cmd.Stdin = bytes.NewReader(nil)
 	cmd.Stdout = zw
 	cmd.Stderr = log.WriterAt(ctx, log.DebugLevel)
+	cmd.Env = pgDumpEnviron(cmd.Environ())
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(err, "run pg_dump")
 	}
