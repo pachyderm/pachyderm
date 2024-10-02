@@ -29,7 +29,6 @@ const LARGE_DEPS = [
   'micromark',
   'react-markdown',
   'react-window',
-  'rudder-sdk-js',
 ];
 
 const env = Object.keys(process.env)
