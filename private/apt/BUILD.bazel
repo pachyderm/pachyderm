@@ -17,7 +17,7 @@ genrule(
         "//:is_x86_64_linux": ["@postgres//libpq5/amd64:data"],
         "//:is_aarch64_linux": ["@postgres//libpq5/arm64:data"],
     }),
-    outs = ["libpq.so.5.17"],
+    outs = ["libpq.so.5"],
     cmd = "$(BSDTAR_BIN) --extract --strip-components 4 --verbose --file $< usr/lib/" + select({
         "//:is_x86_64_linux": "x86_64-linux-gnu",
         "//:is_aarch64_linux": "aarch64-linux-gnu",

@@ -4,14 +4,14 @@ go_library(
     name = "recovery",
     srcs = ["recovery.go"],
     data = [
-        "//private/apt:libpq.so.5.17",
+        "//private/apt:libpq.so.5",
         "//private/apt:pg_dump",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/recovery",
     visibility = ["//src:__subpackages__"],
     x_defs = {
         "pgDumpRlocation": "$(rlocationpath //private/apt:pg_dump)",
-        "libpqRlocation": "$(rlocationpath //private/apt:libpq.so.5.17)",
+        "libpqRlocation": "$(rlocationpath //private/apt:libpq.so.5)",
     },
     deps = [
         "//src/internal/dbutil",
