@@ -4,15 +4,33 @@ go_library(
     name = "recovery",
     srcs = ["recovery.go"],
     data = [
-        "//private/apt:libpq.so.5",
-        "//private/apt:pg_dump",
-    ],
+        "//tools/postgres/pg_dump",
+    ] + select({
+        "//:is_x86_64_linux": ["//private/apt:libpq.so.5"],
+        "//:is_aarch64_linux": ["//private/apt:libpq.so.5"],
+        "//:is_x86_64_macos": ["@com_enterprisedb_get_postgresql_macos//:lib/libpq.5.dylib", "@com_enterprisedb_get_postgresql_macos//:lib/libpq.dylib"],
+        "//:is_aarch64_macos": ["@com_enterprisedb_get_postgresql_macos//:lib/libpq.5.dylib", "@com_enterprisedb_get_postgresql_macos//:lib/libpq.dylib"],
+    }),
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/recovery",
     visibility = ["//src:__subpackages__"],
-    x_defs = {
-        "pgDumpRlocation": "$(rlocationpath //private/apt:pg_dump)",
-        "libpqRlocation": "$(rlocationpath //private/apt:libpq.so.5)",
-    },
+    x_defs = select({
+        "//:is_x86_64_linux": {
+            "pgDumpRlocation": "$(rlocationpath //tools/postgres/pg_dump)",
+            "libpqRlocation": "$(rlocationpath //private/apt:libpq.so.5)",
+        },
+        "//:is_aarch64_linux": {
+            "pgDumpRlocation": "$(rlocationpath //tools/postgres/pg_dump)",
+            "libpqRlocation": "$(rlocationpath //private/apt:libpq.so.5)",
+        },
+        "//:is_x86_64_macos": {
+            "pgDumpRlocation": "$(rlocationpath //tools/postgres/pg_dump)",
+            "libpqRlocation": "$(rlocationpath @com_enterprisedb_get_postgresql_macos//:lib/libpq.5.dylib)",
+        },
+        "//:is_aarch64_macos": {
+            "pgDumpRlocation": "$(rlocationpath //tools/postgres/pg_dump)",
+            "libpqRlocation": "$(rlocationpath @com_enterprisedb_get_postgresql_macos//:lib/libpq.5.dylib)",
+        },
+    }),
     deps = [
         "//src/internal/dbutil",
         "//src/internal/errors",

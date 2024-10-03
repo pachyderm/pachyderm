@@ -145,7 +145,7 @@
   "moduleExtensions": {
     "//private:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "7S8ny2ptOYThbVYONyO5bfTxSzvWHYk4ugkJy29zzn8=",
+        "bzlTransitiveDigest": "HbbuCgfdjPD6FwQuQ/T991RjCIdy09MYI7IFnyVUG+A=",
         "usagesDigest": "U0dyDGLBJWEXdtPwyiXuae5kpvg0jjp8hY11KlqSV0M=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -707,6 +707,16 @@
               "url": "https://github.com/pseudomuto/protoc-gen-doc/releases/download/v1.5.1/protoc-gen-doc_1.5.1_linux_amd64.tar.gz",
               "build_file_content": "exports_files([\"protoc-gen-doc\"])",
               "integrity": "sha256-R81ysH5tqzQI1oamXTfTpqthbafYtWSyvSopY6crcv0="
+            }
+          },
+          "com_enterprisedb_get_postgresql_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://get.enterprisedb.com/postgresql/postgresql-17.0-1-osx-binaries.zip",
+              "integrity": "sha256-p/AEohFAe6Ny1kUsspBPbV1OHeyhi+rAq6d5L3267WI=",
+              "build_file_content": "exports_files(glob([\"**\"]))",
+              "strip_prefix": "pgsql"
             }
           },
           "com_github_bufbuild_protoc_gen_validate_x86_64_linux": {
