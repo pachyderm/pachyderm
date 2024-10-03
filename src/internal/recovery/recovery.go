@@ -128,9 +128,6 @@ func dumpDatabase(ctx context.Context, db *pachsql.DB, w io.WriteCloser) (retErr
 	cmd.Stdout = zw
 	cmd.Stderr = log.WriterAt(ctx, log.DebugLevel)
 	cmd.Env = pgDumpEnviron(cmd.Environ())
-	for _, x := range cmd.Environ() {
-		fmt.Println(x)
-	}
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(err, "run pg_dump")
 	}
