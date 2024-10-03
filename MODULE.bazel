@@ -479,6 +479,6 @@ apt.install(
     name = "postgres",
     lock = "//private/apt:postgres.lock.json",
     manifest = "//private/apt:postgres.yaml",
-    resolve_transitive = False,
+    resolve_transitive = True,
 )
 use_repo(apt, "postgres")

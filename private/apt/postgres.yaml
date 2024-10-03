@@ -8,6 +8,10 @@ version: 1
 sources:
     - channel: bookworm-pgdg-snapshot main
       url: https://apt.postgresql.org/pub/repos/apt
+    - channel: bookworm main
+      url: https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z
+    - channel: bookworm-security main
+      url: https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z
 
 archs:
     - "amd64"
@@ -16,3 +20,4 @@ archs:
 packages:
     - "postgresql-client-17"
     - "libpq5"
+    - "libldap-2.5-0"
