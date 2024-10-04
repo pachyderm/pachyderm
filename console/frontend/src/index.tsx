@@ -1,7 +1,6 @@
 import * as Sentry from '@sentry/react';
 import React from 'react';
 import {createRoot} from 'react-dom/client';
-import {load as loadRudderstack} from 'rudder-sdk-js';
 
 import '@pachyderm/components/index.module.css';
 
@@ -23,13 +22,6 @@ if (enableTelemetry && process.env.REACT_APP_SENTRY_DSN) {
     release: process.env.REACT_APP_RELEASE_VERSION,
     tracesSampleRate: 1.0,
   });
-}
-
-if (enableTelemetry && process.env.REACT_APP_RUDDERSTACK_ID) {
-  loadRudderstack(
-    process.env.REACT_APP_RUDDERSTACK_ID,
-    'https://pachyderm-dataplane.rudderstack.com',
-  );
 }
 
 const container = document.getElementById('root');

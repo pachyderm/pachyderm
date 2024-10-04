@@ -1,6 +1,5 @@
 import * as Sentry from '@sentry/react';
 import React from 'react';
-import {identify, page, track} from 'rudder-sdk-js';
 
 import {useAccount} from '@dash-frontend/hooks/useAccount';
 import useAuth from '@dash-frontend/hooks/useAuth';
@@ -28,9 +27,9 @@ const AnalyticsProviderEnabled = ({children}: {children?: React.ReactNode}) => {
     id: account?.id,
     clusterId: cluster?.id,
     provider: {
-      identify,
-      page,
-      track,
+      identify: () => {},
+      page: () => {},
+      track: () => {},
     },
   });
 
