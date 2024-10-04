@@ -19,5 +19,3 @@ archs:
 
 packages:
     - "postgresql-client-17"
-    - "libpq5"
-    - "libldap-2.5-0"
