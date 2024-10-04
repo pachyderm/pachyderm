@@ -1,6 +1,16 @@
 import {Request, Response} from 'express';
 import {verify} from 'jsonwebtoken';
-import {Issuer} from 'openid-client';
+import {custom, Issuer} from 'openid-client';
+
+custom.setHttpOptionsDefaults({
+  host: "dex-test.default.svc.cluster.local",
+  port: 5556,
+  headers: {
+    'Host': "pachyderm.local",
+    'Accept-Encoding': 'identity',
+  },
+  timeout: 120000
+});
 
 export const getAuthAccount = async (req: Request, res: Response) => {
   const idToken = req.body.idToken;
