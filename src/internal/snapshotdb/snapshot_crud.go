@@ -21,7 +21,6 @@ const (
 		values ($1, $2) returning id`
 )
 
-// todo: metadata
 func CreateSnapshot(ctx context.Context, tx *pachsql.Tx, s *fileset.Storage, metadata []byte) (snapshot.SnapshotID, error) {
 	chunksetID, err := s.CreateChunkSet(ctx, tx)
 	if err != nil {
