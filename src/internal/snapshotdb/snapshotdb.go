@@ -1,3 +1,4 @@
+// Package snapshotdb implements subsystem-independent disaster recovery database CRUD.
 package snapshotdb
 
 import (

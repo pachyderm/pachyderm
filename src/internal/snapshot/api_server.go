@@ -1,3 +1,4 @@
+// Package snapshot implements subsystem-independent disaster recovery.
 package snapshot
 
 //import (
