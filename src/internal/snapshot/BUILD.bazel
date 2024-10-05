@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "snapshot",
+    srcs = [
+        "api_server.go",
+        "server.go",
+        "snapshot.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/snapshot",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/storage/fileset",
+        "@com_github_google_uuid//:uuid",
+    ],
+)
+
+go_test(
+    name = "snapshot_test",
+    srcs = ["server_internal_test.go"],
+    embed = [":snapshot"],
+)

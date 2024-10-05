@@ -1,0 +1,48 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "snapshotdb",
+    srcs = [
+        "errors.go",
+        "iterators.go",
+        "snapshot_crud.go",
+        "snapshot_iterator.go",
+        "snapshotdb.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/snapshotdb",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/snapshot",
+        "//src/internal/storage/fileset",
+        "//src/internal/stream",
+        "//src/version",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_jmoiron_sqlx//:sqlx",
+    ],
+)
+
+go_test(
+    name = "snapshotdb_test",
+    srcs = [
+        "snapshot_crud_test.go",
+        "snapshotdb_test.go",
+    ],
+    deps = [
+        ":snapshotdb",
+        "//src/internal/clusterstate",
+        "//src/internal/dockertestenv",
+        "//src/internal/migrations",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/snapshot",
+        "//src/internal/storage/chunk",
+        "//src/internal/storage/fileset",
+        "//src/internal/storage/kv",
+        "//src/internal/storage/track",
+        "//src/internal/testetcd",
+    ],
+)
