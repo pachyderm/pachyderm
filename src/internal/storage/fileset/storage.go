@@ -515,6 +515,9 @@ func (s *Storage) Pin(tx *pachsql.Tx, handle *Handle) (PinnedFileset, error) {
 
 type ChunkSetID uint64
 
+// CreateChunkSet creates a new chunkset.  If you change how this code works, make sure to update
+// the database dump / snapshotting code.  It relies on the exact details of this function to create
+// a restorable database.
 func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, error) {
 	ctx = pctx.Child(ctx, "createChunkset")
 	// Insert ChunkSet into ChunkSet table.

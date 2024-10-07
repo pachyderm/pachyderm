@@ -91,13 +91,13 @@ func InitialState() State {
 	return State{
 		name: "init",
 		change: func(ctx context.Context, env Env) error {
-			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS migrations (
+			_, err := env.Tx.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS public.migrations (
 				id BIGINT PRIMARY KEY,
 				NAME VARCHAR(250) NOT NULL,
 				start_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				end_time TIMESTAMP
 			);
-			INSERT INTO migrations (id, name, start_time, end_time) VALUES (0, 'init', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;
+			INSERT INTO public.migrations (id, name, start_time, end_time) VALUES (0, 'init', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ON CONFLICT DO NOTHING;
 			`)
 			return errors.EnsureStack(err)
 		},
@@ -187,7 +187,7 @@ func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
 		log.Info(ctx, msg) // avoid log rate limit
 		return nil
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO public.migrations (id, name, start_time) VALUES ($1, $2, CURRENT_TIMESTAMP)`, state.n, state.name); err != nil {
 		return errors.EnsureStack(err)
 	}
 	msg := fmt.Sprintf("applying migration %d: %s", state.n, state.name)
@@ -195,7 +195,7 @@ func ApplyMigrationTx(ctx context.Context, env Env, state State) error {
 	if err := state.change(ctx, env); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE public.migrations SET end_time = CURRENT_TIMESTAMP WHERE id = $1`, state.n); err != nil {
 		return errors.EnsureStack(err)
 	}
 	msg = fmt.Sprintf("successfully applied migration %d", state.n)
@@ -226,7 +226,7 @@ func BlockUntil(ctx context.Context, db *pachsql.DB, state State) error {
 		}
 		if tableExists {
 			var latest int
-			if err := db.GetContext(ctx, &latest, `SELECT COALESCE(MAX(id), 0) FROM migrations`); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			if err := db.GetContext(ctx, &latest, `SELECT COALESCE(MAX(id), 0) FROM public.migrations`); err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return errors.EnsureStack(err)
 			}
 			if latest == state.n {
@@ -247,7 +247,7 @@ func isFinished(ctx context.Context, tx *pachsql.Tx, state State) (bool, error) 
 	var name string
 	if err := tx.GetContext(ctx, &name, `
 	SELECT name
-	FROM migrations
+	FROM public.migrations
 	WHERE id = $1
 	`, state.n); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

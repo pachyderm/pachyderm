@@ -1,0 +1,13 @@
+load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
+
+native_binary(
+    name = "psql",
+    src = select({
+        "//:is_x86_64_linux": "//private/apt:psql",
+        "//:is_aarch64_linux": "//private/apt:psql",
+        "//:is_x86_64_macos": "@com_enterprisedb_get_postgresql_macos//:bin/psql",
+        "//:is_aarch64_macos": "@com_enterprisedb_get_postgresql_macos//:bin/psql",
+    }),
+    out = "psql",
+    visibility = ["//:__subpackages__"],
+)
