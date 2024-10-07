@@ -68,7 +68,7 @@
   'pachd-identity': {
     internal_port: 5556,
     external_port: 5556,
-    service: 'dex-test',
+    service: 'pachyderm-dex',
     routes: [
       {
         match: {

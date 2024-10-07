@@ -348,7 +348,7 @@
                            "endpoint": {
                               "address": {
                                  "socket_address": {
-                                    "address": "dex-test",
+                                    "address": "pachyderm-dex",
                                     "port_value": 5556
                                  }
                               }

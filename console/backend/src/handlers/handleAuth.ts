@@ -3,7 +3,7 @@ import {verify} from 'jsonwebtoken';
 import {custom, Issuer} from 'openid-client';
 
 custom.setHttpOptionsDefaults({
-  host: "dex-test.default.svc.cluster.local",
+  host: "pachyderm-dex.default.svc.cluster.local",
   port: 5556,
   headers: {
     'Host': "pachyderm.local",

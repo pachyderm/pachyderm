@@ -8,7 +8,7 @@ import (
 )
 
 // localhostIdentityServerAddress is the URL we can reach the embedded identity server at
-const externalIdentityServerAddress = "http://dex-test.default.svc.cluster.local:5556/"
+const externalIdentityServerAddress = "http://pachyderm-dex.default.svc.cluster.local:5556/"
 
 // RewriteRoundTripper replaces the expected hostname with a new hostname.
 // If a scheme is specified it's also replaced.
