@@ -37,7 +37,7 @@ type dexAPI struct {
 func newDexAPI(sp dex_storage.Storage) *dexAPI {
 	ctx := pctx.Background("dexAPI")
 	logger := log.NewLogrus(ctx)
-	c, err := newDexClient("dex-test.default.svc.cluster.local:5557") // Temporary hard coding.
+	c, err := newDexClient("pachyderm-dex.default.svc.cluster.local:5557") // Temporary hard coding.
 	if err != nil {
 		return nil
 	}
