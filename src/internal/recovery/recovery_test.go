@@ -24,41 +24,11 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-func TestCreateSnaphot(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	db := dockertestenv.NewMigratedTestDB(t, clusterstate.DesiredClusterState)
-	tracker := track.NewPostgresTracker(db)
-	s := fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunk.NewStorage(kv.NewMemStore(), nil, db, tracker))
-
-	snapID, err := CreateSnapshot(ctx, db, s)
-	if err != nil {
-		t.Fatalf("CreateSnapshot: %v", err)
-	}
-
-	var got, want struct {
-		ChunksetID       int64     `db:"chunkset_id"`
-		PachydermVersion string    `db:"pachyderm_version"`
-		SQLDumpFileSetID uuid.UUID `db:"sql_dump_fileset_id"`
-	}
-	want.ChunksetID = 1
-	want.PachydermVersion = version.Version.String()
-	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		if err := tx.GetContext(ctx, &got, `select chunkset_id, pachyderm_version, sql_dump_fileset_id from recovery.snapshots where id=$1`, snapID); err != nil {
-			return errors.Wrap(err, "read snapshot")
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("WithTx: %v", err)
-	}
-	fsid := fileset.ID(got.SQLDumpFileSetID[:])
-	got.SQLDumpFileSetID = uuid.UUID{}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("snapshot row (-want +got):\n%s", diff)
-	}
-
+func validateDumpFileset(ctx context.Context, t *testing.T, s *fileset.Storage, fsid fileset.ID) {
+	t.Helper()
 	fs, err := s.Open(ctx, []fileset.ID{fsid})
 	if err != nil {
-		t.Fatalf("open fileset (%v): %v", got.SQLDumpFileSetID.String(), err)
+		t.Fatalf("open fileset (%v): %v", fsid.HexString(), err)
 	}
 	var buf bytes.Buffer
 	if err := fs.Iterate(ctx, func(f fileset.File) error {
@@ -67,15 +37,15 @@ func TestCreateSnaphot(t *testing.T) {
 		}
 		r, w := io.Pipe()
 		zr, err := zstd.NewReader(r)
+		if err != nil {
+			return errors.Wrap(err, "new zstd reader")
+		}
 		doneCh := make(chan error)
 		go func() {
 			_, err := io.Copy(&buf, zr)
 			doneCh <- err
 			close(doneCh)
 		}()
-		if err != nil {
-			return errors.Wrap(err, "new zstd reader")
-		}
 		if err := f.Content(ctx, w); err != nil {
 			w.CloseWithError(err) //nolint:errcheck
 			return errors.Wrap(err, "read content")
@@ -103,4 +73,52 @@ func TestCreateSnaphot(t *testing.T) {
 	if !looksLikeDump {
 		t.Errorf("the file we got out of PFS does not look like a database dump; see debug logs above")
 	}
+}
+
+func TestCreateAndRestoreSnaphot(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	db := dockertestenv.NewMigratedTestDB(t, clusterstate.DesiredClusterState)
+	tracker := track.NewPostgresTracker(db)
+	s := fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunk.NewStorage(kv.NewMemStore(), nil, db, tracker))
+
+	snapID, err := CreateSnapshot(ctx, db, s)
+	if err != nil {
+		t.Fatalf("CreateSnapshot: %v", err)
+	}
+
+	var got, want snapshot
+	want.ID = snapID
+	want.ChunksetID = 1
+	want.PachydermVersion = version.Version.String()
+	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		var err error
+		got, err = getSnapshotRow(ctx, tx, snapID)
+		if err != nil {
+			return errors.Wrap(err, "getSnapshotRow")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("WithTx: %v", err)
+	}
+	fsid := fileset.ID(got.SQLDumpFileSetID)
+	got.SQLDumpFileSetID = uuid.UUID{}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("snapshot row (-want +got):\n%s", diff)
+	}
+	validateDumpFileset(ctx, t, s, fsid)
+
+	if err := RestoreSnapshot(ctx, db, s, snapID, RestoreSnapshotOptions{}); err != nil {
+		t.Errorf("snapshot not restorable: %v", err)
+	}
+	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		var err error
+		got, err = getSnapshotRow(ctx, tx, snapID)
+		if err != nil {
+			return errors.Wrap(err, "getSnapshotRow (after restore)")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("WithTx: %v", err)
+	}
+	validateDumpFileset(ctx, t, s, fileset.ID(got.SQLDumpFileSetID))
 }

@@ -9,6 +9,7 @@ LINUX_LIBRARIES = [
 
 LINUX_VARS = {
     "pgdump": "$(rlocationpath //tools/postgres/pg_dump)",
+    "psql": "$(rlocationpath //tools/postgres/psql)",
     "libpq": "$(rlocationpath //private/apt:libpq.so.5)",
     "libldap": "$(rlocationpath //private/apt:libldap-2.5.so.0)",
     "liblber": "$(rlocationpath //private/apt:liblber-2.5.so.0)",
@@ -22,6 +23,7 @@ MAC_LIBRARIES = [
 
 MAC_VARS = {
     "pgdump": "$(rlocationpath //tools/postgres/pg_dump)",
+    "psql": "$(rlocationpath //tools/postgres/psql)",
     "libpq": "$(rlocationpath @com_enterprisedb_get_postgresql_macos//:lib/libpq.5.dylib)",
 }
 
@@ -30,6 +32,7 @@ go_library(
     srcs = ["recovery.go"],
     data = [
         "//tools/postgres/pg_dump",
+        "//tools/postgres/psql",
     ] + select({
         "//:is_x86_64_linux": LINUX_LIBRARIES,
         "//:is_aarch64_linux": LINUX_LIBRARIES,
@@ -55,6 +58,8 @@ go_library(
         "//src/version",
         "@com_github_jmoiron_sqlx//:sqlx",
         "@com_github_klauspost_compress//zstd",
+        "@com_github_satori_go_uuid//:go_uuid",
+        "@org_golang_x_mod//semver",
         "@org_uber_go_zap//:zap",
         "@rules_go//go/runfiles:go_default_library",
     ],
