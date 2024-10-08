@@ -9,6 +9,7 @@ import (
 	"os/exec"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
+	"github.com/icholy/replace"
 	"github.com/jmoiron/sqlx"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/bazel"
@@ -22,6 +23,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/zap"
 	"golang.org/x/mod/semver"
+	"golang.org/x/text/transform"
 )
 
 var (
@@ -118,10 +120,10 @@ func dumpDatabase(ctx context.Context, db *pachsql.DB, w io.Writer) (retErr erro
 	if err != nil {
 		return errors.Wrap(err, "get psql/pg_dump connection string from existing database connection")
 	}
-	cmd := exec.CommandContext(ctx, pgDumpPath(), "-d", dsn, "-v", "--clean", "--if-exists")
+	cmd := exec.CommandContext(ctx, pgDumpPath(), "-d", dsn, "-v", "--clean", "--if-exists", "--serializable-deferrable")
 	cmd.Stdin = nil
-	cmd.Stdout = zw
-	cmd.Stderr = log.WriterAt(ctx, log.DebugLevel)
+	cmd.Stdout = transform.NewWriter(zw, replace.String("SET transaction_timeout = 0;", ""))
+	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "pg_dump.stderr"), log.DebugLevel)
 	cmd.Env = cmd.Environ()
 	if extra := bazel.LibraryPath(cmd.Environ(), libpq, libldap, liblber, libsasl); extra != "" {
 		cmd.Env = append(cmd.Env, "LD_LIBRARY_PATH="+extra)
@@ -238,10 +240,10 @@ func restoreDatabase(ctx context.Context, db *pachsql.DB, r io.Reader) (retErr e
 	if err != nil {
 		return errors.Wrap(err, "get psql connection string from existing database connection")
 	}
-	cmd := exec.CommandContext(ctx, psqlPath(), "-d", dsn)
+	cmd := exec.CommandContext(ctx, psqlPath(), "-d", dsn, "--single-transaction", "--set", "ON_ERROR_STOP=on")
 	cmd.Stdin = zr
-	cmd.Stdout = log.WriterAt(ctx, log.DebugLevel)
-	cmd.Stderr = log.WriterAt(ctx, log.DebugLevel)
+	cmd.Stdout = log.WriterAt(pctx.Child(ctx, "psql.stdout"), log.DebugLevel)
+	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "psql.stderr"), log.DebugLevel)
 	cmd.Env = cmd.Environ()
 	if extra := bazel.LibraryPath(cmd.Environ(), libpq, libldap, liblber, libsasl); extra != "" {
 		cmd.Env = append(cmd.Env, "LD_LIBRARY_PATH="+extra)
@@ -323,8 +325,7 @@ func RestoreSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage, i
 	}
 	defer errors.Close(&retErr, restore, "close database dump file (opened for restore)")
 	if err := restoreDatabase(rctx, db, restore); err != nil {
-		err := errors.Wrap(err, "restore database")
-		return err
+		return errors.Wrap(err, "restore database")
 	}
 	log.Debug(rctx, "finished restoring database")
 
