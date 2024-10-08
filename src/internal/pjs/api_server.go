@@ -33,17 +33,17 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	if request.Input == nil {
 		return nil, status.Errorf(codes.InvalidArgument, "missing data input")
 	}
-	program, err := fileset.ParseID(request.Program)
+	program, err := fileset.ParseHandle(request.Program)
 	if err != nil {
 		return nil, errors.Wrap(err, "parse program id")
 	}
 	var inputs []fileset.PinnedFileset
 	for _, input := range request.Input {
-		inputID, err := fileset.ParseID(input)
+		handle, err := fileset.ParseHandle(input)
 		if err != nil {
-			return nil, errors.Wrap(err, "parse input id")
+			return nil, errors.Wrap(err, "parse input handle")
 		}
-		inputs = append(inputs, fileset.PinnedFileset(*inputID))
+		inputs = append(inputs, fileset.PinnedFileset(handle.Token()))
 	}
 	var parent pjsdb.JobID
 	if request.Context != "" {
@@ -62,7 +62,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	}
 	req := pjsdb.CreateJobRequest{
 		Parent:      parent,
-		Program:     fileset.PinnedFileset(*program),
+		Program:     fileset.PinnedFileset(program.Token()),
 		ProgramHash: hash,
 		Inputs:      inputs,
 	}
@@ -170,20 +170,20 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 			}
 			return err
 		}
-		var inputsID []fileset.ID
+		var inputHandles []*fileset.Handle
 		if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 			job, err := pjsdb.GetJob(ctx, sqlTx, jobID)
 			if err != nil {
 				return errors.Wrap(err, "get job")
 			}
-			inputsID = job.Inputs
+			inputHandles = job.Inputs
 			return nil
 		}, dbutil.WithReadOnly()); err != nil {
 			return errors.Wrap(err, "with tx")
 		}
 		var inputs []string
-		for _, filesetID := range inputsID {
-			inputs = append(inputs, filesetID.HexString())
+		for _, handle := range inputHandles {
+			inputs = append(inputs, handle.HexString())
 		}
 		if err := srv.Send(&pjs.ProcessQueueResponse{
 			Context: hex.EncodeToString(jobCtx.Token),
@@ -383,7 +383,8 @@ func (a *apiServer) ListJob(req *pjs.ListJobRequest, srv pjs.API_ListJobServer) 
 		return errors.Wrap(err, "with tx")
 	}
 	for i, job := range jobs {
-		jobInfo, err := toJobInfo(job)
+		// TODO: toJobInfo isn't defined, so why was it referenced here?
+		jobInfo, err := pjsdb.ToJobInfo(job)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("to job info, iteration=%d/%d", i, len(jobs)))
 		}

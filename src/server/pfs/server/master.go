@@ -339,7 +339,7 @@ func (m *Master) compactAndValidateCommit(ctx context.Context, commit *pfsdb.Com
 		if err != nil {
 			return errors.Wrap(err, "post process commit")
 		}
-		if err = m.validateCommit(ctx, taskDoer, resp.totalId, compactor, resp.CommitInfo_Details); err != nil {
+		if err = m.validateCommit(ctx, taskDoer, resp.totalHandle, compactor, resp.CommitInfo_Details); err != nil {
 			return m.finishCommit(ctx, commit, err.Error(), resp.CommitInfo_Details)
 		}
 		return m.finishCommit(ctx, commit, "", resp.CommitInfo_Details)
@@ -348,26 +348,26 @@ func (m *Master) compactAndValidateCommit(ctx context.Context, commit *pfsdb.Com
 
 type compactResp struct {
 	*pfs.CommitInfo_Details
-	diffId, totalId *fileset.ID
+	diffHandle, totalHandle *fileset.Handle
 }
 
 func (m *Master) compactCommit(ctx context.Context, compactor *compactor, taskDoer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*compactResp, error) {
 	start := time.Now()
 	var (
-		diffId  *fileset.ID // currently unused, but may be needed later.
-		totalId *fileset.ID
-		err     error
+		diffHandle  *fileset.Handle // currently unused, but may be needed later.
+		totalHandle *fileset.Handle
+		err         error
 	)
 	// Compacting the diff before getting the total allows us to compose the
 	// total file set so that it includes the compacted diff.
 	if err := log.LogStep(ctx, "compactDiffFileSet", func(ctx context.Context) error {
-		diffId, err = m.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
+		diffHandle, err = m.compactDiffFileSet(ctx, compactor, taskDoer, renewer, commit)
 		return err
 	}); err != nil {
 		return nil, errors.Wrap(err, "compact commit")
 	}
 	if err := log.LogStep(ctx, "compactTotalFileSet", func(ctx context.Context) error {
-		totalId, err = m.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
+		totalHandle, err = m.compactTotalFileSet(ctx, compactor, taskDoer, renewer, commit)
 		return err
 	}); err != nil {
 		return nil, errors.Wrap(err, "compact commit")
@@ -376,17 +376,17 @@ func (m *Master) compactCommit(ctx context.Context, compactor *compactor, taskDo
 		CommitInfo_Details: &pfs.CommitInfo_Details{
 			CompactingTime: durationpb.New(time.Since(start)),
 		},
-		diffId:  diffId,
-		totalId: totalId,
+		diffHandle:  diffHandle,
+		totalHandle: totalHandle,
 	}, nil
 }
 
-func (m *Master) validateCommit(ctx context.Context, taskDoer task.Doer, totalId *fileset.ID, compactor *compactor, details *pfs.CommitInfo_Details) error {
+func (m *Master) validateCommit(ctx context.Context, taskDoer task.Doer, totalHandle *fileset.Handle, compactor *compactor, details *pfs.CommitInfo_Details) error {
 	start := time.Now()
 	var validationError string
 	if err := log.LogStep(ctx, "validateCommit", func(ctx context.Context) error {
 		var err error
-		validationError, details.SizeBytes, err = compactor.Validate(ctx, taskDoer, *totalId)
+		validationError, details.SizeBytes, err = compactor.Validate(ctx, taskDoer, totalHandle)
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "validate commit")

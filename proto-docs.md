@@ -10572,7 +10572,7 @@ WellKnownRegex contain some well-known patterns.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [string](#string) |  |  |
+| handle | [string](#string) |  |  |
 
 
 
@@ -10602,7 +10602,7 @@ WellKnownRegex contain some well-known patterns.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [string](#string) |  |  |
+| handle | [string](#string) |  |  |
 
 
 
@@ -10618,7 +10618,7 @@ WellKnownRegex contain some well-known patterns.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | URL | [string](#string) |  |  |
-| Fileset | [string](#string) |  |  |
+| handle | [string](#string) |  |  |
 | path_range | [pfs_v2.PathRange](#pfs_v2-PathRange) |  |  |
 
 
@@ -10680,7 +10680,7 @@ WellKnownRegex contain some well-known patterns.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [string](#string) |  |  |
+| handle | [string](#string) |  |  |
 
 
 
@@ -10726,7 +10726,7 @@ WellKnownRegex contain some well-known patterns.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [string](#string) |  |  |
+| handle | [string](#string) |  |  |
 | path_range | [PathRange](#pfsserver-PathRange) |  |  |
 
 
