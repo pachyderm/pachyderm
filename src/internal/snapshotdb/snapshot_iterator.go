@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
@@ -52,9 +51,9 @@ type SnapshotsIterator struct {
 	extCtx    sqlx.ExtContext
 }
 
-var _ stream.Iterator[snapshot.Snapshot] = &SnapshotsIterator{} // catch changes that break the interface.
+var _ stream.Iterator[Snapshot] = &SnapshotsIterator{} // catch changes that break the interface.
 
-func (i *SnapshotsIterator) Next(ctx context.Context, dst *snapshot.Snapshot) error {
+func (i *SnapshotsIterator) Next(ctx context.Context, dst *Snapshot) error {
 	if dst == nil {
 		return errors.Errorf("dst snapshot row cannot be nil")
 	}
@@ -86,17 +85,17 @@ func NewSnapshotsIterator(extCtx sqlx.ExtContext, req IterateSnapshotsRequest) *
 	}
 }
 
-func ForEachSnapshot(ctx context.Context, db *pachsql.DB, req IterateSnapshotsRequest, cb func(job snapshot.Snapshot) error) error {
+func ForEachSnapshot(ctx context.Context, db *pachsql.DB, req IterateSnapshotsRequest, cb func(job Snapshot) error) error {
 	ctx = pctx.Child(ctx, "forEachSnapshot")
-	if err := stream.ForEach[snapshot.Snapshot](ctx, NewSnapshotsIterator(db, req), cb); err != nil {
+	if err := stream.ForEach[Snapshot](ctx, NewSnapshotsIterator(db, req), cb); err != nil {
 		return errors.Wrap(err, "for each snapshot")
 	}
 	return nil
 }
 
-func ForEachSnapshotTxByFilter(ctx context.Context, tx *pachsql.Tx, req IterateSnapshotsRequest, cb func(job snapshot.Snapshot) error) error {
+func ForEachSnapshotTxByFilter(ctx context.Context, tx *pachsql.Tx, req IterateSnapshotsRequest, cb func(job Snapshot) error) error {
 	ctx = pctx.Child(ctx, "forEachSnapshotTxByFilter")
-	if err := stream.ForEach[snapshot.Snapshot](ctx, NewSnapshotsIterator(tx, req), func(job snapshot.Snapshot) error {
+	if err := stream.ForEach[Snapshot](ctx, NewSnapshotsIterator(tx, req), func(job Snapshot) error {
 		return cb(job)
 	}); err != nil {
 		return errors.Wrap(err, "for each snapshot tx by filter")

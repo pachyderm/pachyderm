@@ -1,28 +1,65 @@
 package snapshot
 
-//import (
-//	"context"
-//	"testing"
-//
-//	"github.com/jmoiron/sqlx"
-//	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-//	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-//	"github.com/pachyderm/pachyderm/v2/src/version"
-//)
-//
-//type SnapshotID int64
-//
-//func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (result SnapshotID, _ error) {
-//	chunksetID, err := s.CreateChunkSet(ctx, tx)
-//	if err != nil {
-//		return 0, errors.Wrap(err, "create chunkset")
-//	}
-//	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version) values ($1, $2) returning id`, chunksetID, version.Version.String()); err != nil {
-//		return 0, errors.Wrap(err, "create snapshot row")
-//	}
-//	return result, nil
-//}
-//
-//func TestListSnapshot(t *testing.T) {
-//
-//}
+import (
+	"context"
+	"io"
+	"testing"
+	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/snapshot"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+func TestCreateSnapshot(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	c := NewTestClient(t)
+	metadata := map[string]string{"key": "value"}
+	resp, err := c.CreateSnapshot(ctx, &snapshot.CreateSnapshotRequest{
+		Metadata: metadata,
+	})
+	if err != nil {
+		t.Fatalf("create snapshot RPC: %v", err)
+	}
+	t.Log(resp)
+}
+
+func TestListSnapshot(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	c := NewTestClient(t)
+	createSnapshots(t, ctx, c)
+	time.Sleep(2 * time.Second)
+	since := time.Now().Add(-1 * time.Second)
+	createSnapshots(t, ctx, c)
+	// list the last 5
+	listClient, err := c.ListSnapshot(ctx, &snapshot.ListSnapshotRequest{
+		Since: timestamppb.New(since),
+	})
+	if err != nil {
+		t.Fatalf("list snapshot RPC: %v", err)
+	}
+	expect := []int64{6, 7, 8, 9, 10}
+	var actual []int64
+	for {
+		resp, err := listClient.Recv()
+		if err != nil {
+			if errors.As(err, io.EOF) {
+				break
+			}
+			require.NoError(t, err)
+		}
+		actual = append(actual, resp.Info.Id)
+	}
+	require.NoDiff(t, expect, actual, nil)
+}
+
+func createSnapshots(t *testing.T, ctx context.Context, c snapshot.APIClient) {
+	for i := 0; i < 5; i++ {
+		_, err := c.CreateSnapshot(ctx, &snapshot.CreateSnapshotRequest{})
+		if err != nil {
+			t.Fatalf("create snapshot RPC in iteration %d: %v", i, err)
+		}
+	}
+}
