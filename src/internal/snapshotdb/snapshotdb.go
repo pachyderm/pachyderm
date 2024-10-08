@@ -50,7 +50,7 @@ type Snapshot struct {
 	CreatedAt        time.Time
 }
 
-func (s Snapshot) ToSnapshotInfo() snapshotserver.SnapshotInfo {
+func (s Snapshot) ToSnapshotInfo() *snapshotserver.SnapshotInfo {
 	info := snapshotserver.SnapshotInfo{
 		Id:               int64(s.ID),
 		ChunksetId:       int64(s.ChunksetID),
@@ -61,5 +61,5 @@ func (s Snapshot) ToSnapshotInfo() snapshotserver.SnapshotInfo {
 	if s.SQLDumpFilesetID != nil {
 		info.SqlDumpFilesetId = s.SQLDumpFilesetID.String()
 	}
-	return info
+	return &info
 }

@@ -62,7 +62,7 @@ func (a *apiServer) ListSnapshot(req *snapshot.ListSnapshotRequest, srv snapshot
 	for i, s := range snapshots {
 		info := s.ToSnapshotInfo()
 		resp := &snapshot.ListSnapshotResponse{
-			Info: &info,
+			Info: info,
 		}
 		if err := srv.Send(resp); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("send, iteration=%d/%d", i, len(snapshots)))
