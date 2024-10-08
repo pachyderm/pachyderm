@@ -36,9 +36,10 @@ type Iterable interface {
 }
 
 type IteratorConfiguration struct {
-	StartPage uint64
-	PageSize  uint64          // defaults to 100 if not set
-	OrderBys  []OrderByColumn // defaults to id ASC if not set.
+	EntryLimit uint64
+	StartPage  uint64
+	PageSize   uint64          // defaults to 100 if not set
+	OrderBys   []OrderByColumn // defaults to id ASC if not set.
 }
 
 func (c *IteratorConfiguration) orderBy() string {
@@ -59,16 +60,19 @@ type pageIterator[T Iterable] struct {
 	page                    []T
 	pageIndex               int
 	pagesSeen               int
+	entryRetrieved          uint64
+	maxEntries              uint64
 }
 
 // if maxPages == 0, then interpret as unlimited pages
-func newPageIterator[T Iterable](query string, values []any, startPage, pageSize, maxPages uint64) pageIterator[T] {
+func newPageIterator[T Iterable](query string, values []any, startPage, pageSize, maxPages, maxEntries uint64) pageIterator[T] {
 	return pageIterator[T]{
-		query:    query,
-		values:   values,
-		limit:    pageSize,
-		offset:   startPage * pageSize,
-		maxPages: maxPages,
+		query:      query,
+		values:     values,
+		limit:      pageSize,
+		offset:     startPage * pageSize,
+		maxPages:   maxPages,
+		maxEntries: maxEntries,
 	}
 }
 
@@ -96,6 +100,9 @@ func (i *pageIterator[T]) hasNext() bool {
 }
 
 func (i *pageIterator[T]) next(ctx context.Context, extCtx sqlx.ExtContext) (*T, error) {
+	if i.maxEntries != 0 && i.entryRetrieved == i.maxEntries {
+		return nil, stream.EOS()
+	}
 	if !i.hasNext() {
 		if err := i.nextPage(ctx, extCtx); err != nil {
 			return nil, err
@@ -103,5 +110,6 @@ func (i *pageIterator[T]) next(ctx context.Context, extCtx sqlx.ExtContext) (*T,
 	}
 	t := i.page[i.pageIndex]
 	i.pageIndex++
+	i.entryRetrieved++
 	return &t, nil
 }

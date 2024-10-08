@@ -33,14 +33,14 @@ func TestListSnapshot(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	since := time.Now().Add(-1 * time.Second)
 	createSnapshots(t, ctx, c)
-	// list the last 5
 	listClient, err := c.ListSnapshot(ctx, &snapshot.ListSnapshotRequest{
 		Since: timestamppb.New(since),
+		Limit: 3,
 	})
 	if err != nil {
 		t.Fatalf("list snapshot RPC: %v", err)
 	}
-	expect := []int64{6, 7, 8, 9, 10}
+	expect := []int64{6, 7, 8}
 	var actual []int64
 	for {
 		resp, err := listClient.Recv()

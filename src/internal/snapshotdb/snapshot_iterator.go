@@ -80,7 +80,7 @@ func NewSnapshotsIterator(extCtx sqlx.ExtContext, req IterateSnapshotsRequest) *
 		req.PageSize = defaultPageSize
 	}
 	return &SnapshotsIterator{
-		paginator: newPageIterator[snapshotRecord](query, values, req.StartPage, req.PageSize, 0),
+		paginator: newPageIterator[snapshotRecord](query, values, req.StartPage, req.PageSize, 0, req.EntryLimit),
 		extCtx:    extCtx,
 	}
 }

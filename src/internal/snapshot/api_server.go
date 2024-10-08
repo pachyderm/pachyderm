@@ -47,11 +47,13 @@ func (a *apiServer) ListSnapshot(req *snapshot.ListSnapshotRequest, srv snapshot
 
 	var snapshots []snapshotdb.Snapshot
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		snapshots, err = snapshotdb.ListSnapshotTxByFilter(ctx, sqlTx, snapshotdb.IterateSnapshotsRequest{
+		iterReq := snapshotdb.IterateSnapshotsRequest{
 			Filter: snapshotdb.IterateSnapshotsFilter{
 				CreatedAfter: req.Since.AsTime(),
 			},
-		})
+		}
+		iterReq.EntryLimit = uint64(req.Limit)
+		snapshots, err = snapshotdb.ListSnapshotTxByFilter(ctx, sqlTx, iterReq)
 		return errors.Wrap(err, "list snapshot in snapshotdb")
 	}, dbutil.WithReadOnly()); err != nil {
 		return errors.Wrap(err, "with tx")
