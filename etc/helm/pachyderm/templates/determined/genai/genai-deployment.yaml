@@ -37,7 +37,7 @@ spec:
         imagePullPolicy: "Always"
         env:
           - name: DET_MASTER
-            value: {{ include "determined.genai.detMasterScheme" . }}://determined-master-service-{{ .Release.Name }}.{{ .Release.Namespace }}:{{ determined.masterPort }}
+            value: {{ include "determined.genai.detMasterScheme" . }}://determined-master-service-{{ .Release.Name }}.{{ .Release.Namespace }}:{{ include "determined.masterPort" . }}
           - name: DB_NAME
             value: lore
           - name: DB_USER
