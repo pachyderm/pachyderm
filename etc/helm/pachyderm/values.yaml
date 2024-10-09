@@ -147,8 +147,8 @@ determined:
 
   # Allow specifying annotations that will be put on the master service.
   # masterService:
-    # annotations:
-    #   a: b
+  # annotations:
+  #   a: b
 
   # Enable route support for Openshift by setting enabled to true. Configure tls termination (i.e edge) if needed.
   # openshiftRoute:
@@ -408,11 +408,11 @@ determined:
 
   ## Authentication and TLS options for making the connection to Elasticsearch.
   # security:
-    # username: <username>
-    # password: <password>
-    # tls:
-      # enabled: true
-      # skipVerify: false
+  # username: <username>
+  # password: <password>
+  # tls:
+  # enabled: true
+  # skipVerify: false
 
   ## The name to use when verifying the certificate, if different from the name used to connect.
   # certificateName: <name>
@@ -432,7 +432,7 @@ determined:
   # defaultComputeResourcePool: default
 
   ## Configure the initial user password for the cluster
-  # initialUserPassword: 
+  # initialUserPassword:
 
   # additional_resource_managers:
   #   - resource_manager:
