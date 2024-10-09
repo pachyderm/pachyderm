@@ -60,6 +60,14 @@ grpc://pachd.{{ .Release.Namespace }}.svc.cluster.local:30650
     {{- end -}}
 {{- end -}}
 
+{{- define "determined.genai.detMasterScheme" -}}
+    {{- if (and (not .Values.determined.useNodePortForMaster) .Values.determined.tlsSecret) }}
+        {{- "https" }}
+    {{- else }}
+        {{- "http" }}
+    {{- end }}
+{{- end }}
+
 {{- define "determined.genai.allResourcePoolNames" -}}
     {{- $orig_resource_pool_data := (required "A valid .Values.determined.resourcePools entry required!" .Values.determined.resourcePools) }}
     {{- $resource_pools := list -}}
@@ -69,12 +77,3 @@ grpc://pachd.{{ .Release.Namespace }}.svc.cluster.local:30650
     {{ toJson $resource_pools }}
 {{- end }}
 
-{{- /* Necessary because of the way that useNodePortForMaster makes a LoadBalancer that only allows */ -}}
-{{- /* https connections through */ -}}
-{{- define "determined.genai.detMasterScheme" -}}
-    {{- if (and (not .Values.determined.useNodePortForMaster) .Values.determined.tlsSecret) }}
-        {{- "https" }}
-    {{- else }}
-        {{- "http" }}
-    {{- end }}
-{{- end }}
