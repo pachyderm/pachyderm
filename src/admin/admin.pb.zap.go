@@ -53,3 +53,17 @@ func (x *WebResource) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("create_pipeline_request_json_schema_url", x.CreatePipelineRequestJsonSchemaUrl)
 	return nil
 }
+
+func (x *RestartPachydermRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	return nil
+}
+
+func (x *RestartPachydermResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	return nil
+}

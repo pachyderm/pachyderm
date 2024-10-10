@@ -44,6 +44,10 @@ message WebResource {
   string create_pipeline_request_json_schema_url = 2;
 }
 
+message RestartPachydermRequest {}
+message RestartPachydermResponse {}
+
 service API {
   rpc InspectCluster(InspectClusterRequest) returns (ClusterInfo) {}
+  rpc RestartPachyderm(RestartPachydermRequest) returns (RestartPachydermResponse) {}
 }
