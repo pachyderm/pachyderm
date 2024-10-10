@@ -1,0 +1,46 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/InspectSnapshotResponse",
+    "definitions": {
+        "InspectSnapshotResponse": {
+            "properties": {
+                "info": {
+                    "$ref": "#/definitions/snapshot.SnapshotInfo",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Inspect Snapshot Response"
+        },
+        "snapshot.SnapshotInfo": {
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
+                },
+                "chunksetId": {
+                    "type": "integer"
+                },
+                "sqlDumpFilesetId": {
+                    "type": "string"
+                },
+                "pachydermVersion": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Snapshot Info"
+        }
+    }
+}
