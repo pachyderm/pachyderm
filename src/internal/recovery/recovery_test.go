@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	"github.com/pachyderm/pachyderm/v2/src/version"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -30,10 +29,10 @@ func validateDumpFileset(ctx context.Context, t *testing.T, s *fileset.Storage, 
 	if err != nil {
 		t.Fatalf("open fileset (%v): %v", fsid.HexString(), err)
 	}
-	var buf bytes.Buffer
+	var lines []string
 	if err := fs.Iterate(ctx, func(f fileset.File) error {
 		if got, want := f.Index().Path, "dump.sql.zst"; got != want {
-			return errors.Errorf("invalid file in filest:\n  got: %v\n want: %v", got, want)
+			return errors.Errorf("invalid file in fileset:\n  got: %v\n want: %v", got, want)
 		}
 		r, w := io.Pipe()
 		zr, err := zstd.NewReader(r)
@@ -42,8 +41,11 @@ func validateDumpFileset(ctx context.Context, t *testing.T, s *fileset.Storage, 
 		}
 		doneCh := make(chan error)
 		go func() {
-			_, err := io.Copy(&buf, zr)
-			doneCh <- err
+			s := bufio.NewScanner(zr)
+			for s.Scan() {
+				lines = append(lines, s.Text())
+			}
+			doneCh <- s.Err()
 			close(doneCh)
 		}()
 		if err := f.Content(ctx, w); err != nil {
@@ -58,13 +60,12 @@ func validateDumpFileset(ctx context.Context, t *testing.T, s *fileset.Storage, 
 	}); err != nil {
 		t.Errorf("iterate over fileset: %v", err)
 	}
+	if len(lines) < 10 {
+		t.Fatalf("too few lines in buf:\n%v", strings.Join(lines, "\n"))
+	}
 	var looksLikeDump bool
-	scan := bufio.NewScanner(&buf)
 	for i := 0; i < 10; i++ {
-		if !scan.Scan() {
-			t.Fatal("too few lines in buf")
-		}
-		line := scan.Text()
+		line := lines[i]
 		t.Logf("database dump line: %v", line)
 		if strings.Contains(line, "-- PostgreSQL database dump") {
 			looksLikeDump = true
@@ -80,6 +81,15 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	db := dockertestenv.NewMigratedTestDB(t, clusterstate.DesiredClusterState)
 	tracker := track.NewPostgresTracker(db)
 	storage := fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunk.NewStorage(kv.NewMemStore(), nil, db, tracker))
+	w := storage.NewWriter(ctx)
+	if err := w.Add("test", "", strings.NewReader("this is a test")); err != nil {
+		t.Fatalf("add test file: %v", err)
+	}
+	testDataFilesetID, err := w.Close()
+	if err != nil {
+		t.Fatalf("close testdata fileset: %v", err)
+	}
+
 	s := &Snapshotter{DB: db, Storage: storage}
 
 	snapID, err := s.CreateSnapshot(ctx)
@@ -90,7 +100,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	var got, want snapshot
 	want.ID = snapID
 	want.ChunksetID = 1
-	want.PachydermVersion = version.Version.String()
+	want.PachydermVersion = "v0.0.0"
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
 		got, err = getSnapshotRow(ctx, tx, snapID)
@@ -102,6 +112,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		t.Fatalf("WithTx: %v", err)
 	}
 	fsid := fileset.ID(got.SQLDumpFileSetID)
+	t.Logf("fileset id: %v", fsid.HexString())
 	got.SQLDumpFileSetID = uuid.UUID{}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("snapshot row (-want +got):\n%s", diff)
@@ -122,6 +133,23 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		t.Fatalf("WithTx: %v", err)
 	}
 	validateDumpFileset(ctx, t, storage, fileset.ID(got.SQLDumpFileSetID))
+
+	fs, err := storage.Open(ctx, []fileset.ID{*testDataFilesetID})
+	if err != nil {
+		t.Fatalf("open testdata fileset: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := fs.Iterate(ctx, func(f fileset.File) error {
+		if err := f.Content(ctx, &buf); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("read testdata filest: %v", err)
+	}
+	if got, want := buf.String(), "this is a test"; got != want {
+		t.Errorf("test data in snapshotted fileset:\n  got: %v\n want: %v", got, want)
+	}
 }
 
 func TestVersionCompatibility(t *testing.T) {
