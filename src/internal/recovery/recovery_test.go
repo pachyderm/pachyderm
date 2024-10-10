@@ -79,9 +79,10 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewMigratedTestDB(t, clusterstate.DesiredClusterState)
 	tracker := track.NewPostgresTracker(db)
-	s := fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunk.NewStorage(kv.NewMemStore(), nil, db, tracker))
+	storage := fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunk.NewStorage(kv.NewMemStore(), nil, db, tracker))
+	s := &Snapshotter{DB: db, Storage: storage}
 
-	snapID, err := CreateSnapshot(ctx, db, s)
+	snapID, err := s.CreateSnapshot(ctx)
 	if err != nil {
 		t.Fatalf("CreateSnapshot: %v", err)
 	}
@@ -105,9 +106,9 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("snapshot row (-want +got):\n%s", diff)
 	}
-	validateDumpFileset(ctx, t, s, fsid)
+	validateDumpFileset(ctx, t, storage, fsid)
 
-	if err := RestoreSnapshot(ctx, db, s, snapID, RestoreSnapshotOptions{}); err != nil {
+	if err := s.RestoreSnapshot(ctx, snapID, RestoreSnapshotOptions{}); err != nil {
 		t.Errorf("snapshot not restorable: %v", err)
 	}
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
@@ -120,5 +121,5 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
 	}
-	validateDumpFileset(ctx, t, s, fileset.ID(got.SQLDumpFileSetID))
+	validateDumpFileset(ctx, t, storage, fileset.ID(got.SQLDumpFileSetID))
 }

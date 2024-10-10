@@ -13,14 +13,17 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/bazel"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	uuid "github.com/satori/go.uuid"
+	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"golang.org/x/mod/semver"
 	"golang.org/x/text/transform"
@@ -134,18 +137,25 @@ func dumpDatabase(ctx context.Context, db *pachsql.DB, w io.Writer) (retErr erro
 	return nil
 }
 
+// Snapshotter can take and restore Pachyderm snapshots.
+type Snapshotter struct {
+	DB         *pachsql.DB      // Databaase connection.
+	Storage    *fileset.Storage // Fileset storage.
+	EtcdClient *etcd.Client     // etcd client (for running migrations).
+}
+
 // CreateSnapshot creates a snapshot.
 //
 // TODO(jrockway): Clean up the half-created snapshot if we return with an error.
-func CreateSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage) (id SnapshotID, retErr error) {
+func (s *Snapshotter) CreateSnapshot(rctx context.Context) (id SnapshotID, retErr error) {
 	rctx, done := log.SpanContext(rctx, "CreateSnapshot")
 	defer done(log.Errorp(&retErr))
 
 	// Add snapshot row.
 	log.Debug(rctx, "adding snapshot row")
-	if err := dbutil.WithTx(rctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
-		id, err = createSnapshotRow(ctx, tx, s)
+		id, err = createSnapshotRow(ctx, tx, s.Storage)
 		if err != nil {
 			return errors.Wrap(err, "createSnapshotRow")
 		}
@@ -165,7 +175,7 @@ func CreateSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage) (i
 	go func(ctx context.Context) {
 		defer close(doneCh)
 		defer cancel()
-		err := dumpDatabase(ctx, db, w)
+		err := dumpDatabase(ctx, s.DB, w)
 		w.CloseWithError(err) //nolint:errcheck
 		select {
 		case doneCh <- errors.Wrap(err, "dumpDatabase"):
@@ -176,7 +186,7 @@ func CreateSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage) (i
 
 	// Upload the database dump bytes as they arrive.
 	var closedFileSet bool
-	fw := s.NewWriter(rctx)
+	fw := s.Storage.NewWriter(rctx)
 	defer func() {
 		if closedFileSet {
 			return
@@ -211,7 +221,7 @@ func CreateSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage) (i
 
 	// Adjust the snapshot to reference this fileset.
 	log.Debug(rctx, "adjusting snapshot to reference database dump fileset", zap.Stringer("snapshot", id), zap.String("fileset_id", fsID.HexString()))
-	if err := dbutil.WithTx(rctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		if err := addDatabaseDump(ctx, tx, id, *fsID); err != nil {
 			return errors.Wrapf(err, "addDatabaseDump(%v)", fsID.HexString())
 		}
@@ -262,13 +272,13 @@ type RestoreSnapshotOptions struct {
 // RestoreSnapshot restores the database state to that represented by the provided snapshot.  After
 // the restore, the snapshot will remain restorable, even though it did not technically exist at the
 // time it was created ;)
-func RestoreSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage, id SnapshotID, opts RestoreSnapshotOptions) (retErr error) {
+func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts RestoreSnapshotOptions) (retErr error) {
 	rctx, done := log.SpanContext(rctx, "RestoreSnapshot")
 	defer done(log.Errorp(&retErr))
 
 	log.Debug(rctx, "reading snapshot metadata")
 	var snap snapshot
-	if err := dbutil.WithTx(rctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
 		snap, err = getSnapshotRow(ctx, tx, id)
 		if err != nil {
@@ -290,7 +300,7 @@ func RestoreSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage, i
 	}
 
 	log.Debug(rctx, "downloading database dump to temporary file")
-	fs, err := s.Open(rctx, []fileset.ID{fileset.ID(snap.SQLDumpFileSetID)})
+	fs, err := s.Storage.Open(rctx, []fileset.ID{fileset.ID(snap.SQLDumpFileSetID)})
 	if err != nil {
 		return errors.Wrapf(err, "open sql dump fileset %s", snap.SQLDumpFileSetID)
 	}
@@ -298,7 +308,7 @@ func RestoreSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage, i
 	if err := fs.Iterate(rctx, func(f fileset.File) (retErr error) {
 		path := f.Index().Path
 		log.Debug(rctx, "reading file from database dump fileset", zap.Stringer("fileset_id", snap.SQLDumpFileSetID), zap.String("path", path))
-		if got, want := path, "dump.sql.zst"; got != want {
+		if got, want := path, SQLDumpFilename; got != want {
 			return errors.Errorf("unexpected file in database dump fileset %s: got %v want %v", snap.SQLDumpFileSetID, got, want)
 		}
 		fh, err := os.CreateTemp("", fmt.Sprintf("snapshot-%v-*", id))
@@ -324,10 +334,20 @@ func RestoreSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage, i
 		return errors.Wrap(err, "open database dump (to restore)")
 	}
 	defer errors.Close(&retErr, restore, "close database dump file (opened for restore)")
-	if err := restoreDatabase(rctx, db, restore); err != nil {
+	if err := restoreDatabase(rctx, s.DB, restore); err != nil {
 		return errors.Wrap(err, "restore database")
 	}
 	log.Debug(rctx, "finished restoring database")
+
+	log.Debug(rctx, "running migrations")
+	menv := migrations.Env{
+		WithTableLocks: true,
+		EtcdClient:     s.EtcdClient,
+	}
+	if err := migrations.ApplyMigrations(rctx, s.DB, menv, clusterstate.DesiredClusterState); err != nil {
+		return errors.Wrap(err, "apply database migrations from snapshot version to running version")
+	}
+	log.Debug(rctx, "ran migrations ok")
 
 	log.Debug(rctx, "saving database dump to PFS")
 	save, err := os.Open(tmp)
@@ -335,7 +355,7 @@ func RestoreSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage, i
 		return errors.Wrap(err, "open database dump (to save)")
 	}
 	defer errors.Close(&retErr, save, "close database dump file (opened to save)")
-	fw := s.NewWriter(rctx)
+	fw := s.Storage.NewWriter(rctx)
 	if err := fw.Add(SQLDumpFilename, "", save); err != nil {
 		if _, closeErr := fw.Close(); closeErr != nil {
 			errors.JoinInto(&err, errors.Wrap(closeErr, "close fileset writer"))
@@ -349,7 +369,7 @@ func RestoreSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage, i
 	log.Debug(rctx, "saved databse dump to PFS ok", zap.String("fileset_id", fsID.HexString()))
 
 	log.Debug(rctx, "adding dump fileset to newly-restored snapshot row")
-	if err := dbutil.WithTx(rctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		if err := addDatabaseDump(ctx, tx, id, *fsID); err != nil {
 			return errors.Wrapf(err, "edit snapshot id=%v to contain fileset %s", id, snap.SQLDumpFileSetID)
 		}
