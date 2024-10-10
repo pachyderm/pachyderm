@@ -1833,6 +1833,7 @@ Permission represents the ability to perform a given operation on a Resource
 | CLUSTER_EDIT_CLUSTER_METADATA | 151 |  |
 | CLUSTER_DELETE_ALL | 138 |  |
 | CLUSTER_SNAPSHOTTER | 152 |  |
+| CLUSTER_RESTART_PACHYDERM | 153 |  |
 | REPO_READ | 200 |  |
 | REPO_WRITE | 201 |  |
 | REPO_MODIFY_BINDINGS | 202 |  |

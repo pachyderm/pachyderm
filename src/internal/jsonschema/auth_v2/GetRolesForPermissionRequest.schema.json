@@ -56,6 +56,7 @@
                         "CLUSTER_EDIT_CLUSTER_METADATA",
                         "CLUSTER_DELETE_ALL",
                         "CLUSTER_SNAPSHOTTER",
+                        "CLUSTER_RESTART_PACHYDERM",
                         "REPO_READ",
                         "REPO_WRITE",
                         "REPO_MODIFY_BINDINGS",
