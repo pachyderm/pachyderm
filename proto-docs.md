@@ -7,6 +7,8 @@
     - [ClusterInfo](#admin_v2-ClusterInfo)
     - [ClusterInfo.MetadataEntry](#admin_v2-ClusterInfo-MetadataEntry)
     - [InspectClusterRequest](#admin_v2-InspectClusterRequest)
+    - [RestartPachydermRequest](#admin_v2-RestartPachydermRequest)
+    - [RestartPachydermResponse](#admin_v2-RestartPachydermResponse)
     - [WebResource](#admin_v2-WebResource)
   
     - [API](#admin_v2-API)
@@ -820,6 +822,26 @@
 
 
 
+<a name="admin_v2-RestartPachydermRequest"></a>
+
+### RestartPachydermRequest
+
+
+
+
+
+
+
+<a name="admin_v2-RestartPachydermResponse"></a>
+
+### RestartPachydermResponse
+
+
+
+
+
+
+
 <a name="admin_v2-WebResource"></a>
 
 ### WebResource
@@ -850,6 +872,7 @@ WebResource contains URL prefixes of common HTTP functions.
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
 | InspectCluster | [InspectClusterRequest](#admin_v2-InspectClusterRequest) | [ClusterInfo](#admin_v2-ClusterInfo) |  |
+| RestartPachyderm | [RestartPachydermRequest](#admin_v2-RestartPachydermRequest) | [RestartPachydermResponse](#admin_v2-RestartPachydermResponse) |  |
 
  
 

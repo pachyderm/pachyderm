@@ -204,6 +204,28 @@
           ]
         },
         {
+          "name": "RestartPachydermRequest",
+          "longName": "RestartPachydermRequest",
+          "fullName": "admin_v2.RestartPachydermRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
+          "name": "RestartPachydermResponse",
+          "longName": "RestartPachydermResponse",
+          "fullName": "admin_v2.RestartPachydermResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
           "name": "WebResource",
           "longName": "WebResource",
           "fullName": "admin_v2.WebResource",
@@ -257,6 +279,18 @@
               "responseType": "ClusterInfo",
               "responseLongType": "ClusterInfo",
               "responseFullType": "admin_v2.ClusterInfo",
+              "responseStreaming": false
+            },
+            {
+              "name": "RestartPachyderm",
+              "description": "",
+              "requestType": "RestartPachydermRequest",
+              "requestLongType": "RestartPachydermRequest",
+              "requestFullType": "admin_v2.RestartPachydermRequest",
+              "requestStreaming": false,
+              "responseType": "RestartPachydermResponse",
+              "responseLongType": "RestartPachydermResponse",
+              "responseFullType": "admin_v2.RestartPachydermResponse",
               "responseStreaming": false
             }
           ]

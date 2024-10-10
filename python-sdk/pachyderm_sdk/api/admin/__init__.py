@@ -85,6 +85,16 @@ class WebResource(betterproto.Message):
     """
 
 
+@dataclass(eq=False, repr=False)
+class RestartPachydermRequest(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
+class RestartPachydermResponse(betterproto.Message):
+    pass
+
+
 class ApiStub:
 
     def __init__(self, channel: "grpc.Channel"):
@@ -92,6 +102,11 @@ class ApiStub:
             "/admin_v2.API/InspectCluster",
             request_serializer=InspectClusterRequest.SerializeToString,
             response_deserializer=ClusterInfo.FromString,
+        )
+        self.__rpc_restart_pachyderm = channel.unary_unary(
+            "/admin_v2.API/RestartPachyderm",
+            request_serializer=RestartPachydermRequest.SerializeToString,
+            response_deserializer=RestartPachydermResponse.FromString,
         )
 
     def inspect_cluster(
@@ -108,3 +123,9 @@ class ApiStub:
             request.current_project = current_project
 
         return self.__rpc_inspect_cluster(request)
+
+    def restart_pachyderm(self) -> "RestartPachydermResponse":
+
+        request = RestartPachydermRequest()
+
+        return self.__rpc_restart_pachyderm(request)

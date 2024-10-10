@@ -29,8 +29,17 @@ export type WebResource = {
   createPipelineRequestJsonSchemaUrl?: string
 }
 
+export type RestartPachydermRequest = {
+}
+
+export type RestartPachydermResponse = {
+}
+
 export class API {
   static InspectCluster(req: InspectClusterRequest, initReq?: fm.InitReq): Promise<ClusterInfo> {
     return fm.fetchReq<InspectClusterRequest, ClusterInfo>(`/admin_v2.API/InspectCluster`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static RestartPachyderm(req: RestartPachydermRequest, initReq?: fm.InitReq): Promise<RestartPachydermResponse> {
+    return fm.fetchReq<RestartPachydermRequest, RestartPachydermResponse>(`/admin_v2.API/RestartPachyderm`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
 }
