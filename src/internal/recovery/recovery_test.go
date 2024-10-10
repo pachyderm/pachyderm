@@ -123,3 +123,37 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	}
 	validateDumpFileset(ctx, t, storage, fileset.ID(got.SQLDumpFileSetID))
 }
+
+func TestVersionCompatibility(t *testing.T) {
+	testData := []struct {
+		snapshot, running string
+		ok                bool
+	}{
+		{"", "", true},
+		{"foo", "bar", true},
+		{"bar", "foo", true},
+		{"", "v1.2.3", true},
+		{"v1.2.3", "", true},
+		{"v2.12.1", "v2.12.0", false},
+		{"v2.12.0", "v2.12.1", true},
+		{"v2.13.0", "v2.12.0", false},
+		{"v2.12.0", "v2.13.0", true},
+		{"v2.12.0-pre.gb26915d9b7", "v2.12.0-pre.gb26915d9b7", true},
+		{"v2.12.0-pre.gffffffffff", "v2.12.0-pre.g0000000000", true},
+		{"v2.12.0-pre.g0000000000", "v2.12.0-pre.gaaaaaaaaaa", true},
+		{"v2.12.0-pre.gb26915d9b7", "v2.12.0", true},
+		{"v2.12.0-pre.gb26915d9b7", "v2.12.1", true},
+		{"v2.12.0-pre.gb26915d9b7", "v2.13.0", true},
+		{"v2.12.0", "v2.12.0-pre.gb26915d9b7", false},
+		{"v2.12.1", "v2.12.0-pre.gb26915d9b7", false},
+		{"v2.13.0", "v2.12.0-pre.gb26915d9b7", false},
+		{"v2.12.0-pre.abc123", "v2.13.0-pre.123abc", true},
+	}
+
+	for _, test := range testData {
+		err := checkVersionCompatibility(test.snapshot, test.running)
+		if got, want := err == nil, test.ok; got != want {
+			t.Errorf("restore %v onto %v:\n  got: %v (%v)\n want: %v", test.snapshot, test.running, got, err, want)
+		}
+	}
+}

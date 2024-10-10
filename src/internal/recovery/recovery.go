@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
+	"strings"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/icholy/replace"
@@ -79,7 +81,7 @@ func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (re
 	if err != nil {
 		return 0, errors.Wrap(err, "create chunkset")
 	}
-	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version) values ($1, $2) returning id`, chunksetID, version.Version.String()); err != nil {
+	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version) values ($1, $2) returning id`, chunksetID, version.Version.Canonical()); err != nil {
 		return 0, errors.Wrap(err, "create snapshot row")
 	}
 	return result, nil
@@ -264,6 +266,23 @@ func restoreDatabase(ctx context.Context, db *pachsql.DB, r io.Reader) (retErr e
 	return nil
 }
 
+var removeGitVersion = regexp.MustCompile(`-pre.g([0-9a-f]{10})$`)
+
+func checkVersionCompatibility(snapshot, running string) error {
+	if !strings.HasPrefix(snapshot, "v") || !strings.HasPrefix(running, "v") {
+		// No version information available.
+		return nil
+	}
+	// semver.Compare treats -pre.g<commit> as something that's ordered, but it's not.
+	snapshot = removeGitVersion.ReplaceAllString(snapshot, "-pre.gXXX")
+	running = removeGitVersion.ReplaceAllString(running, "-pre.gXXX")
+	switch semver.Compare(snapshot, running) {
+	case 1:
+		return errors.Errorf("pachyderm version of snapshot (%v) is newer than the current running version (%v)", snapshot, running)
+	}
+	return nil
+}
+
 // RestoreSnapshotOptions controls the behavior of the RestoreSnapshot function.
 type RestoreSnapshotOptions struct {
 	IgnoreVersionCompatibility bool // If true, allow restoring newer database dumps into an older Pachyderm.
@@ -291,10 +310,8 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 	log.Debug(rctx, "got metadata", zap.String("pachyderm_version", snap.PachydermVersion), zap.Int64("chunkset_id", snap.ChunksetID), zap.Stringer("sql_dump_fileset_id", snap.SQLDumpFileSetID))
 
 	if !opts.IgnoreVersionCompatibility {
-		switch semver.Compare(snap.PachydermVersion, version.Version.String()) {
-		// TODO(jrockway): Handle v0.0.0.
-		case 1:
-			return errors.Errorf("pachyderm version of snapshot %v is newer than the current running version %v", snap.PachydermVersion, version.Version.String())
+		if err := checkVersionCompatibility(snap.PachydermVersion, version.Version.Canonical()); err != nil {
+			return err
 		}
 		log.Debug(rctx, "database dump is compatible with running pachyderm", zap.String("snapshot_version", snap.PachydermVersion), zap.Stringer("running_version", version.Version))
 	}
