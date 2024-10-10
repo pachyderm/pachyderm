@@ -2,11 +2,13 @@ package snapshotdb
 
 import (
 	"context"
+	"time"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	snapshotpb "github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
@@ -15,53 +17,44 @@ const (
 	insertSnapshot       = `
 		insert into recovery.snapshots (chunkset_id, pachyderm_version, metadata) 
 		values ($1, $2, $3) returning id`
-	insertSnapshotWithoutMetadata = `
-		insert into recovery.snapshots (chunkset_id, pachyderm_version) 
-		values ($1, $2) returning id`
+	selectSnapshots = `select * from recovery.snapshots where created_at > $1 order by created_at desc limit $2`
+	defaultLimit    = 10000
 )
 
-func CreateSnapshot(ctx context.Context, tx *pachsql.Tx, s *fileset.Storage, metadata []byte) (SnapshotID, error) {
+func CreateSnapshot(ctx context.Context, tx *pachsql.Tx, s *fileset.Storage, metadata map[string]string) (int64, error) {
 	chunksetID, err := s.CreateChunkSet(ctx, tx)
 	if err != nil {
 		return 0, errors.Wrap(err, "create chunkset")
 	}
-	var id SnapshotID
-	if len(metadata) == 0 {
-		if err := tx.GetContext(ctx, &id, insertSnapshotWithoutMetadata,
-			chunksetID, version.Version.String()); err != nil {
-			return 0, errors.Wrap(err, "create snapshot row without metadata")
-		}
-	} else {
-		if err := tx.GetContext(ctx, &id, insertSnapshot,
-			chunksetID, version.Version.String(), metadata); err != nil {
-			return 0, errors.Wrap(err, "create snapshot row")
-		}
+	var id snapshotID
+	if err := tx.GetContext(ctx, &id, insertSnapshot,
+		chunksetID, version.Version.String(), metadata); err != nil {
+		return 0, errors.Wrap(err, "create snapshot row")
 	}
-	return id, nil
+	return int64(id), nil
 }
 
-func GetSnapshot(ctx context.Context, tx *pachsql.Tx, id SnapshotID) (Snapshot, error) {
+func GetSnapshot(ctx context.Context, tx *pachsql.Tx, id int64) (*snapshotpb.SnapshotInfo, error) {
 	record := snapshotRecord{}
 	if err := sqlx.GetContext(ctx, tx, &record, selectSnapshotPrefix+`
-	WHERE recovery.snapshots.id = $1`, id); err != nil {
-		return Snapshot{}, errors.Wrap(err, "get snapshot row")
+	WHERE recovery.snapshots.id = $1`, snapshotID(id)); err != nil {
+		return nil, errors.Wrap(err, "get snapshot row")
 	}
-	st, err := record.toSnapshot()
-	if err != nil {
-		return Snapshot{}, errors.Wrap(err, "create snapshot row")
-	}
-	return st, nil
+	st := record.toSnapshot()
+	return st.toSnapshotInfo(), nil
 }
 
-func ListSnapshotTxByFilter(ctx context.Context, tx *pachsql.Tx, req IterateSnapshotsRequest) ([]Snapshot, error) {
-	ctx = pctx.Child(ctx, "listSnapshotTxByFilter")
-	var snapshots []Snapshot
-	if err := ForEachSnapshotTxByFilter(ctx, tx, req, func(s Snapshot) error {
-		s_ := s
-		snapshots = append(snapshots, s_)
-		return nil
-	}); err != nil {
-		return nil, errors.Wrap(err, "list snapshots tx by filter")
+func ListSnapshot(ctx context.Context, tx *pachsql.Tx, since time.Time, limit int32) ([]*snapshotpb.SnapshotInfo, error) {
+	if limit == 0 {
+		limit = defaultLimit
 	}
-	return snapshots, nil
+	snapshots := make([]snapshotRecord, 0)
+	if err := sqlx.SelectContext(ctx, tx, &snapshots, selectSnapshots, since, limit); err != nil {
+		return nil, errors.Wrap(err, "list snapshots")
+	}
+	var ret []*snapshotpb.SnapshotInfo
+	for _, s := range snapshots {
+		ret = append(ret, s.toSnapshot().toSnapshotInfo())
+	}
+	return ret, nil
 }

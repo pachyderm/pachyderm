@@ -1,8 +1,9 @@
-package snapshotdb_test
+package snapshotdb
 
 import (
 	"context"
-	"path/filepath"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
@@ -14,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 )
 
@@ -36,22 +36,17 @@ func DB(t testing.TB) (context.Context, *pachsql.DB) {
 
 func FilesetStorage(t testing.TB, db *pachsql.DB) *fileset.Storage {
 	t.Helper()
-	store := kv.NewFSStore(filepath.Join(t.TempDir(), "obj-store"), 512, chunk.DefaultMaxChunkSize)
-	tr := track.NewPostgresTracker(db)
-	return fileset.NewStorage(fileset.NewPostgresStore(db), tr, chunk.NewStorage(store, nil, db, tr))
-}
-
-func withTx(t testing.TB, ctx context.Context, db *pachsql.DB, s *fileset.Storage, f func(d dependencies)) {
-	t.Helper()
-	tx, err := db.BeginTxx(ctx, nil)
-	require.NoError(t, err)
-	f(dependencies{ctx: ctx, db: db, tx: tx, s: s})
-	require.NoError(t, tx.Commit())
+	tracker := track.NewPostgresTracker(db)
+	s := fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunk.NewStorage(kv.NewMemStore(), nil, db, tracker))
+	return s
 }
 
 func withDependencies(t *testing.T, f func(d dependencies)) {
 	ctx, db := DB(t)
-	withTx(t, ctx, db, FilesetStorage(t, db), func(d dependencies) {
-		f(d)
+	s := FilesetStorage(t, db)
+	err := dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		f(dependencies{ctx: ctx, db: db, tx: sqlTx, s: s})
+		return nil
 	})
+	require.NoError(t, err)
 }

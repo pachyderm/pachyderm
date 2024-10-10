@@ -2,40 +2,30 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "snapshot",
-    srcs = [
-        "api_server.go",
-        "server.go",
-        "util.go",
-    ],
+    srcs = ["api_server.go"],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/snapshot",
     visibility = ["//src:__subpackages__"],
     deps = [
-        "//src/internal/clusterstate",
         "//src/internal/dbutil",
-        "//src/internal/dockertestenv",
         "//src/internal/errors",
-        "//src/internal/grpcutil",
         "//src/internal/log",
         "//src/internal/pachsql",
         "//src/internal/snapshotdb",
-        "//src/internal/storage/chunk",
         "//src/internal/storage/fileset",
-        "//src/internal/storage/kv",
-        "//src/internal/storage/track",
         "//src/snapshot",
-        "@org_golang_google_grpc//:grpc",
     ],
 )
 
 go_test(
     name = "snapshot_test",
     srcs = ["server_internal_test.go"],
-    embed = [":snapshot"],
     deps = [
-        "//src/internal/errors",
+        "//src/internal/grpcutil",
+        "//src/internal/pachd",
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/snapshot",
-        "@org_golang_google_protobuf//types/known/timestamppb",
+        "@com_github_google_go_cmp//cmp",
+        "@org_golang_google_protobuf//testing/protocmp",
     ],
 )

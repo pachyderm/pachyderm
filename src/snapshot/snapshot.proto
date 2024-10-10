@@ -29,10 +29,10 @@ message DeleteSnapshotResponse {}
 message SnapshotInfo {
   int64 id = 1;
   map <string, string> metadata = 2;
-  int64 chunkset_id = 4;
-  string sql_dump_fileset_id = 5;
-  string pachyderm_version = 6;
-  google.protobuf.Timestamp created_at = 7;
+  int64 chunkset_id = 3;
+  string sql_dump_fileset_id = 4;
+  string pachyderm_version = 5;
+  google.protobuf.Timestamp created_at = 6;
 }
 
 message InspectSnapshotRequest {

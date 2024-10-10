@@ -1,25 +1,26 @@
-package snapshotdb_test
+package snapshotdb
 
 import (
-	"encoding/json"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/snapshotdb"
+	"context"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	snapshotpb "github.com/pachyderm/pachyderm/v2/src/snapshot"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestCreateAndGetJob(t *testing.T) {
 	withDependencies(t, func(d dependencies) {
 		metadata := map[string]string{"key": "value"}
-		jsonData, err := json.Marshal(metadata)
-		if err != nil {
-			t.Fatalf("marshal metadata: %v", err)
-		}
-		id, err := snapshotdb.CreateSnapshot(d.ctx, d.tx, d.s, jsonData)
+		id, err := CreateSnapshot(d.ctx, d.tx, d.s, metadata)
 		if err != nil {
 			t.Fatalf("create snapshot in database: %v", err)
 		}
-		snpshot, err := snapshotdb.GetSnapshot(d.ctx, d.tx, id)
+		snpshot, err := GetSnapshot(d.ctx, d.tx, id)
 		if err != nil {
 			t.Fatalf("get snapshot %d from database: %v", id, err)
 		}
@@ -30,39 +31,45 @@ func TestCreateAndGetJob(t *testing.T) {
 func TestListSnapshotTxByFilter(t *testing.T) {
 	ctx, db := DB(t)
 	fs := FilesetStorage(t, db)
-	expected := make([]snapshotdb.Snapshot, 0)
-	withTx(t, ctx, db, fs, func(d dependencies) {
-		_, err := snapshotdb.CreateSnapshot(d.ctx, d.tx, d.s, []byte{})
+	want := make([]*snapshotpb.SnapshotInfo, 0)
+	err := dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		_, err := CreateSnapshot(ctx, sqlTx, fs, map[string]string{})
 		if err != nil {
 			t.Fatalf("create snapshot in iteration 1: %v", err)
 		}
+		return nil
 	})
-	time.Sleep(3 * time.Second)
-	withTx(t, ctx, db, fs, func(d dependencies) {
+	if err != nil {
+		t.Fatalf("with tx: %v", err)
+	}
+	// only snapshots 2 to 5 are expected
+	since := time.Now()
+	err = dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		for i := 0; i < 4; i++ {
-			id, err := snapshotdb.CreateSnapshot(d.ctx, d.tx, d.s, []byte{})
+			id, err := CreateSnapshot(ctx, sqlTx, fs, map[string]string{})
 			if err != nil {
 				t.Fatalf("create snapshot in iteration %d: %v", i+1, err)
 			}
-			s, err := snapshotdb.GetSnapshot(d.ctx, d.tx, id)
+			s, err := GetSnapshot(ctx, sqlTx, id)
 			if err != nil {
 				t.Fatalf("get snapshot struct in iteration %d: %v", i+1, err)
 			}
-			expected = append(expected, s)
+			want = append(want, s)
 		}
+		return nil
 	})
-	// only snapshots 2 to 5 are expected
-	createdAfter := time.Now().Add(-1 * time.Second)
-	withTx(t, ctx, db, fs, func(d dependencies) {
-		snapshots, err := snapshotdb.ListSnapshotTxByFilter(d.ctx, d.tx,
-			snapshotdb.IterateSnapshotsRequest{
-				Filter: snapshotdb.IterateSnapshotsFilter{
-					CreatedAfter: createdAfter,
-				},
-			})
+	if err != nil {
+		t.Fatalf("with tx: %v", err)
+	}
+	err = dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		got, err := ListSnapshot(ctx, sqlTx, since, 0)
 		if err != nil {
 			t.Fatalf("list snapshot by filter: %v", err)
 		}
-		require.NoDiff(t, expected, snapshots, nil)
+		require.NoDiff(t, want, got, []cmp.Option{protocmp.Transform()})
+		return nil
 	})
+	if err != nil {
+		t.Fatalf("with tx: %v", err)
+	}
 }
