@@ -137,7 +137,10 @@ require github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af
 
 require github.com/nishanths/exhaustive v0.12.0
 
-require github.com/golangci/gofmt v0.0.0-20240816233607-d8596aa466a9
+require (
+	github.com/golangci/gofmt v0.0.0-20240816233607-d8596aa466a9
+	github.com/icholy/replace v0.6.0
+)
 
 require (
 	github.com/containerd/containerd v1.6.26 // indirect

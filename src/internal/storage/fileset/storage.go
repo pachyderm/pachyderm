@@ -2,12 +2,13 @@ package fileset
 
 import (
 	"context"
-	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	units "github.com/docker/go-units"
 	"golang.org/x/sync/semaphore"
@@ -484,6 +485,9 @@ func (s *Storage) Pin(tx *pachsql.Tx, fs ID) (PinnedFileset, error) {
 
 type ChunkSetID uint64
 
+// CreateChunkSet creates a new chunkset.  If you change how this code works, make sure to update
+// the database dump / snapshotting code.  It relies on the exact details of this function to create
+// a restorable database.
 func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, error) {
 	ctx = pctx.Child(ctx, "createChunkset")
 	// Insert ChunkSet into ChunkSet table.
