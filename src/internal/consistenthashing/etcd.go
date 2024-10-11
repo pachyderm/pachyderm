@@ -1,3 +1,6 @@
+// Package consistenthashing needs to be documented.
+//
+// TODO: document
 package consistenthashing
 
 import (

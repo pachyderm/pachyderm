@@ -1,3 +1,4 @@
+// Package pretty provides pretty-printing.
 package pretty
 
 import (

@@ -1,4 +1,9 @@
 //nolint:wrapcheck
+
+// Package client implements a gRPC client for Pachyderm.
+//
+// Before using this package, give serious thought to just using the generated
+// gRPC interface directly.
 package client
 
 import (
@@ -730,8 +735,8 @@ func NewInWorker(options ...Option) (*APIClient, error) {
 	return NewInWorkerContext(pctx.TODO(), options...)
 }
 
-// NewInWorker constructs a new APIClient intended to be used from a worker
-// to talk to the sidecar pachd container
+// NewInWorkerContext constructs a new APIClient intended to be used from a
+// worker to talk to the sidecar pachd container
 func NewInWorkerContext(ctx context.Context, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read(false, true)
 	if err != nil {

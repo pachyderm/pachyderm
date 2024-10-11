@@ -1,15 +1,15 @@
 package pjsdb_test
 
 import (
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"math"
 	"strings"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 )
 
 func createRootJob(t *testing.T, d dependencies) pjsdb.JobID {
@@ -57,9 +57,9 @@ func TestCreateAndGetJob(t *testing.T) {
 			require.NoError(t, err)
 			hash := hasher.Sum(nil)
 			_, err = d.tx.ExecContext(d.ctx, `
-				INSERT INTO pjs.job_cache (job_id, job_hash, cache_read, cache_write) 
-				VALUES ($1, $2, true, true);`,
-				id, hash)
+				UPDATE pjs.job_cache SET job_hash = $1, cache_read=true, cache_write=true
+				WHERE job_id = $2;`,
+				hash, id)
 			require.NoError(t, err)
 			j, err := pjsdb.GetJob(d.ctx, d.tx, id)
 			require.NoError(t, err)

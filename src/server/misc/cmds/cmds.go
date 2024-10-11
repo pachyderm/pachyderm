@@ -1,3 +1,4 @@
+// Package cmds implements miscellaneous pachctl commands.
 package cmds
 
 import (

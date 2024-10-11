@@ -1,3 +1,4 @@
+// Package bidichk aliases github.com/breml/bidichk/pkg/bidichk.
 package bidichk
 
 import "github.com/breml/bidichk/pkg/bidichk"

@@ -115,8 +115,9 @@ func GetRepoID(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoT
 	return row.ID, nil
 }
 
-// todo(fahad): rewrite branch related code during the branches migration.
 // GetRepo retrieves an entry from the pfs.repos table by using the row id.
+//
+// TODO(fahad): rewrite branch related code during the branches migration.
 func GetRepo(ctx context.Context, tx *pachsql.Tx, id RepoID) (*pfs.RepoInfo, error) {
 	if id == 0 {
 		return nil, errors.New("invalid id: 0")

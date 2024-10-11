@@ -1,5 +1,8 @@
-// TODO: the s2 library checks the type of the error to decide how to handle it,
-// which doesn't work properly with wrapped errors
+// Package s3 needs to be documented.
+//
+//   - TODO: the s2 library checks the type of the error to decide how to handle it,
+//     which doesn't work properly with wrapped errors.
+//   - TODO: document.
 package s3
 
 import (
@@ -75,7 +78,7 @@ func (c *controller) requestClient(r *http.Request) *client.APIClient {
 
 // Router creates an http server like object that serves an S3-like API for PFS. This allows you to
 // use s3 clients to access PFS contents.
-
+//
 // `inputBuckets` specifies which buckets should be served, referencing
 // specific commit IDs. If nil, all PFS branches will be served as separate
 // buckets, of the form `<branch name>.<bucket name>`. Some s3 features are
@@ -108,7 +111,7 @@ func Router(ctx context.Context, driver Driver, clientFactory ClientFactory) *mu
 
 // S3Server wraps an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to access PFS contents.
-
+//
 // In addition to providing the http server itself, S3Server exposes methods
 // to configure handlers (mux.Routers) corresponding to different request URI hostnames.
 // This way one http Server can respond differently and accordingly to each specific job.

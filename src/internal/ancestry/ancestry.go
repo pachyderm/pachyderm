@@ -1,3 +1,4 @@
+// Package ancestry implements git-like ancestry references.
 package ancestry
 
 import (

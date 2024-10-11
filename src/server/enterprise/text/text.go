@@ -1,7 +1,6 @@
-package text
-
-// This package contains strings to be used in error messages and calls to
+// Package text contains strings to be used in error messages and calls to
 // action for the enterprise product.
+package text
 
 const (
 	// OpenSourceProduct is the name of opensource Pachyderm.

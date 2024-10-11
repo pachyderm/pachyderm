@@ -3,22 +3,22 @@ package fileset
 import (
 	"context"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-
 	units "github.com/docker/go-units"
-	"golang.org/x/sync/semaphore"
-
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -493,4 +493,51 @@ func (s *Storage) Pin(tx *pachsql.Tx, handle *Handle) (PinnedFileset, error) {
 		return PinnedFileset{}, errors.Wrap(err, "pin")
 	}
 	return PinnedFileset(handle.token), nil
+}
+
+type ChunkSetID uint64
+
+func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, error) {
+	ctx = pctx.Child(ctx, "createChunkset")
+	// Insert ChunkSet into ChunkSet table.
+	var chunksetID ChunkSetID
+	if err := tx.GetContext(ctx, &chunksetID, `INSERT INTO storage.chunksets DEFAULT VALUES RETURNING id`); err != nil {
+		return 0, errors.Wrapf(err, "get chunk set id")
+	}
+
+	// encode chunkset into string for tracker
+	chunksetStrID := chunksetStringID(chunksetID)
+
+	// List all of the filesets.
+	var pointsTo []string
+	if err := tx.SelectContext(ctx, &pointsTo, `SELECT str_id FROM storage.tracker_objects WHERE str_id LIKE 'fileset/%'`); err != nil {
+		return 0, errors.Wrap(err, "get filesets from db")
+	}
+	if err := s.tracker.CreateTx(tx, chunksetStrID, pointsTo, track.NoTTL); err != nil {
+		return 0, errors.Wrap(err, "create tracker object and references")
+	}
+
+	return chunksetID, nil
+}
+
+func (s *Storage) DropChunkSet(ctx context.Context, tx *sqlx.Tx, id ChunkSetID) error {
+	result, err := tx.Exec("DELETE FROM storage.chunksets WHERE id = $1", id)
+	if err != nil {
+		return errors.Wrap(err, "delete chunkset in db")
+	}
+	// Check the number of affected rows
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "rows effected")
+	}
+	if rowsAffected == 0 {
+		return errors.Errorf("no chunkset found with the given id: %d", id)
+	}
+	// encode chunkset into string for tracker
+	strID := chunksetStringID(id)
+	return errors.Wrap(s.tracker.DeleteTx(tx, strID), "delete tracker object and references")
+}
+
+func chunksetStringID(id ChunkSetID) string {
+	return "chunkset/" + strconv.FormatUint(uint64(id), 10)
 }

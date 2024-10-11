@@ -1,3 +1,4 @@
+// Package server implements the identity service gRPC server.
 package server
 
 import (

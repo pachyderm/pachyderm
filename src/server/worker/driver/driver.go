@@ -1,3 +1,6 @@
+// Package driver needs to be documented.
+//
+// TODO: document
 package driver
 
 import (

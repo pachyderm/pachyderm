@@ -29,9 +29,9 @@ func Test(ctx context.Context, t testing.TB, opts ...zaptest.LoggerOption) conte
 	return ctx
 }
 
-// Test returns a new Context appropriate for use in parallel tests, at the cost of not logging
-// messages sent to the global logger.  This function is only public so that pctx.TestContext(t) can
-// call it, and you should use that.
+// TestParallel returns a new Context appropriate for use in parallel tests, at
+// the cost of not logging messages sent to the global logger.  This function is
+// only public so that pctx.TestContext(t) can call it, and you should use that.
 func TestParallel(ctx context.Context, t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 	lvl := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	opts = append(opts,

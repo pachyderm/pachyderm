@@ -1,3 +1,4 @@
+// Package pager implements paging based on the PAGER environment variable.
 package pager
 
 import (

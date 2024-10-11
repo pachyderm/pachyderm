@@ -1,3 +1,4 @@
+// Package config implements pachctl configuration.
 package config
 
 import (

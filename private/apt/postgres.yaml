@@ -1,0 +1,21 @@
+# Any time this file is changed, the lockfile needs to be regenerated.
+#
+# To generate the postgres.lock.json run the following command:
+#
+#     bazel run @postgres//:lock
+version: 1
+
+sources:
+    - channel: bookworm-pgdg-snapshot main
+      url: https://apt.postgresql.org/pub/repos/apt
+    - channel: bookworm main
+      url: https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z
+    - channel: bookworm-security main
+      url: https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z
+
+archs:
+    - "amd64"
+    - "arm64"
+
+packages:
+    - "postgresql-client-17"

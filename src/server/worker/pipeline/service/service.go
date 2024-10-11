@@ -1,3 +1,6 @@
+// Package service needs to be documented.
+//
+// TODO: document
 package service
 
 import (

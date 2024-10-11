@@ -1,3 +1,6 @@
+// Package minikubetestenv needs to be documented.
+//
+// TODO: document
 package minikubetestenv
 
 import (
@@ -599,7 +602,8 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	}, backoff.RetryEvery(5*time.Second).For(2*time.Minute)))
 }
 
-// returns the Nodeport url for accessing the determined service via REST/HTTP with an empty Path
+// DetNodeportHttpUrl returns the Nodeport url for accessing the determined
+// service via REST/HTTP with an empty Path
 func DetNodeportHttpUrl(t testing.TB, namespace string) *url.URL {
 	ctx := context.Background()
 	kube := testutil.GetKubeClient(t)
@@ -1020,7 +1024,7 @@ func LeaseNamespace(t testing.TB, namespace string) bool {
 	}
 }
 
-// Creates a Namespace if it doesn't exist. If it does exist, does nothing.
+// PutNamespace creates a Namespace if it doesn't exist. If it does exist, does nothing.
 func PutNamespace(t testing.TB, namespace string) {
 	kube := testutil.GetKubeClient(t)
 	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{}); err != nil {
@@ -1037,13 +1041,13 @@ func PutNamespace(t testing.TB, namespace string) {
 	}
 }
 
-// Deploy pachyderm using a `helm upgrade ...`
+// UpgradeRelease deploys pachyderm using a `helm upgrade ...`
 // returns an API Client corresponding to the deployment
 func UpgradeRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
 	return putRelease(t, ctx, namespace, kubeClient, true, opts)
 }
 
-// Deploy pachyderm using a `helm install ...`
+// InstallRelease deploys pachyderm using a `helm install ...`
 // returns an API Client corresponding to the deployment
 func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
 	return putRelease(t, ctx, namespace, kubeClient, false, opts)

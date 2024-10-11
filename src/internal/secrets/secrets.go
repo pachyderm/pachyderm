@@ -1,3 +1,5 @@
+// Package secrets implements a type whose value is not printed when
+// stringified.  It is meant to obscure secrets in logs and elsewhere.
 package secrets
 
 import "fmt"

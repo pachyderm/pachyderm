@@ -1,3 +1,6 @@
+// Package randutil provides random utilities.
+//
+// TODO: Document: why, intended usage etc.
 package randutil
 
 import (

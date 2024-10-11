@@ -1,4 +1,5 @@
-// package dockertestenv provides test environment where service dependencies are docker containers
+// Package dockertestenv provides test environment where service dependencies
+// are docker containers.
 package dockertestenv
 
 import (
@@ -13,10 +14,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"go.uber.org/zap"
 )
@@ -190,6 +193,15 @@ func NewTestDB(t testing.TB) *pachsql.DB {
 	return testutil.OpenDB(t, cfg.PGBouncer.DBOptions()...)
 }
 
+// NewMigratedTestDB creates a new database connection with migrations applied.
+func NewMigratedTestDB(t testing.TB, state migrations.State) *pachsql.DB {
+	ctx := pctx.TestContext(t)
+	db := NewTestDB(t)
+	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, state), "should be able to set up tables")
+	return db
+}
+
 func NewTestDirectDB(t testing.TB) *pachsql.DB {
 	cfg := NewTestDBConfig(t)
 	return testutil.OpenDB(t, cfg.Direct.DBOptions()...)
@@ -204,9 +216,12 @@ func NewEphemeralPostgresDB(ctx context.Context, t testing.TB) (*pachsql.DB, str
 
 var spawnLock sync.Mutex
 
-// TODO: use the docker client, instead of the bash script
-// TODO: use the bitnami pg_bouncer image
-// TODO: look into https://github.com/ory/dockertest
+// EnsureDBEnv is not properly documented.
+//
+//   - TODO: use the docker client, instead of the bash script.
+//   - TODO: use the bitnami pg_bouncer image.
+//   - TODO: look into https://github.com/ory/dockertest.
+//   - TODO: document.
 func EnsureDBEnv(ctx context.Context) (retErr error) {
 	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
 	if got, want := os.Getenv("SKIP_DOCKER_POSTGRES_CREATE"), "1"; got == want {

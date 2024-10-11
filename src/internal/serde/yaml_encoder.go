@@ -1,15 +1,4 @@
-// yaml_encoder.go is the reverse of decoder.go. It applies the same steps in
-// the opposite order:
-//  1. Serialize structs to JSON using encoding/json or, in the case of
-//     protobufs, using Google's 'protojson' library
-//  2. Deserialize that text into a generic interface{}
-//  3. Serialize that interface using gopkg.in/yaml.v3
-//
-// This allows for correct handling of timestamps and such. It also allows data
-// that has already been deserialized into a generic interface{} to be written
-// out. Finally, it allows for transformations to be applied to the interface{}
-// in a structured way (e.g. if the struct being serialized in step 1 contains
-// embedded json).
+// Package serde implements intelligent encoding and decoding.
 package serde
 
 import (
@@ -24,7 +13,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// YAMLEncoder is an implementation of serde.Encoder that operates on YAML data
+// YAMLEncoder is an implementation of serde.Encoder that operates on YAML data.
+//
+// A YAMLEncoder performs the reverse of Decode. It applies the same steps in
+// the opposite order:
+//
+//  1. Serialize structs to JSON using encoding/json or, in the case of
+//     protobufs, using Google's 'protojson' library
+//  2. Deserialize that text into a generic interface{}
+//  3. Serialize that interface using gopkg.in/yaml.v3
+//
+// This allows for correct handling of timestamps and such. It also allows data
+// that has already been deserialized into a generic interface{} to be written
+// out. Finally, it allows for transformations to be applied to the interface{}
+// in a structured way (e.g. if the struct being serialized in step 1 contains
+// embedded json).
 type YAMLEncoder struct {
 	e *yaml.Encoder
 

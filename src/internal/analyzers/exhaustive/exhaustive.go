@@ -1,3 +1,4 @@
+// Package exhaustive provides an analyzer from github.com/nishanths/exhaustive.
 package exhaustive
 
 import "github.com/nishanths/exhaustive"

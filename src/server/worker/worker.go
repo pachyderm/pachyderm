@@ -1,3 +1,6 @@
+// Package worker needs to be documented.
+//
+// TODO: document
 package worker
 
 import (

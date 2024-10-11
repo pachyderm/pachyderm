@@ -4,6 +4,7 @@ go_library(
     name = "pacherr",
     srcs = [
         "common.go",
+        "doc.go",
         "transient.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pacherr",

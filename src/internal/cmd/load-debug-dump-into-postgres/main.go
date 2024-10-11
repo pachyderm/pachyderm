@@ -239,8 +239,8 @@ func parsePgBouncerLine(line []byte) (ts time.Time, fields map[string]any, ok bo
 	return t, result, true
 }
 
-// copied from jlog:
-// DefaultTimeParser treats numbers as seconds since the Unix epoch and strings as RFC3339 timestamps.
+// DefaultTimeParser treats numbers as seconds since the Unix epoch and strings
+// as RFC3339 timestamps.  It is copied from jlog.
 func DefaultTimeParser(in interface{}) (time.Time, error) {
 	float64AsTime := func(x float64) time.Time {
 		return time.Unix(int64(math.Floor(x)), int64(1_000_000_000*(x-math.Floor(x))))

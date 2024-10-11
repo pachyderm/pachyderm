@@ -189,7 +189,7 @@ func ReflectList[T any](xs []T) *starlark.List {
 	return starlark.NewList(values)
 }
 
-// ToGo is an interface for starlark.Values that can turn themselves into Go.
+// ToGoer is an interface for starlark.Values that can turn themselves into Go.
 type ToGoer interface {
 	ToGo() any
 }

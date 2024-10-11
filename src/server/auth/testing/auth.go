@@ -1,3 +1,8 @@
+// Package testing has something to do with auth testing.
+//
+//   - TODO: document.
+//   - TODO: naming.
+//   - TODO: why doesn’t it seem to have anything to do with testing?
 package testing
 
 import (
@@ -60,7 +65,7 @@ func (a *InactiveAPIServer) AddPipelineWriterToSourceRepoInTransaction(txnCtx *t
 	return auth.ErrNotActivated
 }
 
-// RemovePipelineReaderToRepoInTransaction implements the RemovePipelineReaderToRepoInTransaction internal API
+// RemovePipelineReaderFromRepoInTransaction implements the RemovePipelineReaderFromRepoInTransaction internal API
 func (a *InactiveAPIServer) RemovePipelineReaderFromRepoInTransaction(txnCtx *txncontext.TransactionContext, sourceRepo *pfs.Repo, pipeline *pps.Pipeline) error {
 	return auth.ErrNotActivated
 }
@@ -85,7 +90,7 @@ func (a *InactiveAPIServer) GetPermissions(context.Context, *auth.GetPermissions
 	return nil, auth.ErrNotActivated
 }
 
-// GetPermissions implements the GetPermissions RPC, but just returns NotActivatedError
+// GetPermissionsInTransaction implements the GetPermissionsInTransaction RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetPermissionsInTransaction(*txncontext.TransactionContext, *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {
 	return nil, auth.ErrNotActivated
 }

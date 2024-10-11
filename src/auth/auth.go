@@ -239,8 +239,8 @@ func (e *ErrNotAuthorized) Error() string {
 	return fmt.Sprintf("%v is %v - needs permissions %v on %v %v. Run `pachctl auth roles-for-permission` to find roles that grant a given permission.", e.Subject, errNotAuthorizedMsg, e.Required, e.Resource.Type, e.Resource.Name)
 }
 
-// Implement the interface expected by status.FromError.  An ErrNotAuthorized is
-// a permission-denied status.
+// GRPCStatus implements the interface expected by status.FromError.  An
+// ErrNotAuthorized is a permission-denied status.
 func (e *ErrNotAuthorized) GRPCStatus() *status.Status {
 	return status.New(codes.PermissionDenied, e.Error())
 }

@@ -1,3 +1,4 @@
+// Package authdb implements auth-related PostgreSQL collections.
 package authdb
 
 import (

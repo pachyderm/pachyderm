@@ -1,21 +1,3 @@
-// decoder.go implements general-purpose decoding for hand-written Pachyderm
-// data (e.g. pipeline specs, identity/auth configs, pachctl configs, etc). We
-// use YAML as our markup language for all such data; yaml is a superset of
-// json, so this allows users to write these configs using, effectively, either
-// of two common markup languages.
-//
-// In general, the way Pachyderm decodes a struct from YAML is to:
-// 1) Parse YAML to a generic interface{}
-// 2) Serialize that interface{} to JSON
-// 3) Parse the JSON using encoding/json or, in the case of protobufs, using
-//    Google's 'protojson' library.
-//
-// This approach works around a lot of Go's inherent deserialization quirks
-// (e.g. generated protobuf structs including 'json' struct tags but not 'yaml'
-// struct tags; see https://web.archive.org/web/20190722213934/http://ghodss.com/2014/the-right-way-to-handle-yaml-in-golang/).
-// Using jsonpb for step 3 also allows this library to correctly handle complex
-// protobuf corner cases, such as parsing timestamps.
-
 package serde
 
 import (
@@ -32,6 +14,24 @@ import (
 
 // Decode is a convenience function that decodes the serialized YAML in
 // 'yamlData' into the non-proto object 'v'
+//
+// Decoder implements general-purpose decoding for hand-written Pachyderm
+// data (e.g. pipeline specs, identity/auth configs, pachctl configs, etc). We
+// use YAML as our markup language for all such data; yaml is a superset of
+// json, so this allows users to write these configs using, effectively, either
+// of two common markup languages.
+//
+// In general, the way Pachyderm decodes a struct from YAML is to:
+//  1. Parse YAML to a generic interface{}
+//  2. Serialize that interface{} to JSON
+//  3. Parse the JSON using encoding/json or, in the case of protobufs, using
+//     Google's 'protojson' library.
+//
+// This approach works around a lot of Go's inherent deserialization quirks
+// (e.g. generated protobuf structs including 'json' struct tags but not 'yaml'
+// struct tags; see https://web.archive.org/web/20190722213934/http://ghodss.com/2014/the-right-way-to-handle-yaml-in-golang/).
+// Using jsonpb for step 3 also allows this library to correctly handle complex
+// protobuf corner cases, such as parsing timestamps.
 func Decode(yamlData []byte, v interface{}) error {
 	var holder interface{}
 	err := yaml.Unmarshal(yamlData, &holder)

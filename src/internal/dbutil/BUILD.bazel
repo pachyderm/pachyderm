@@ -4,6 +4,7 @@ go_library(
     name = "dbutil",
     srcs = [
         "db.go",
+        "doc.go",
         "errors.go",
         "option.go",
         "tx.go",

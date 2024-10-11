@@ -1,3 +1,4 @@
+// Package cleanup provides an abstraction to clean up resources.
 package cleanup
 
 import (

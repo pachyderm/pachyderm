@@ -1,3 +1,4 @@
+// Package pfsfile implements path canonicalization.
 package pfsfile
 
 import (

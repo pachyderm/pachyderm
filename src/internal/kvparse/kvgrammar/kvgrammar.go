@@ -1,3 +1,4 @@
+// Package kvgrammar provides key-value parsing for metadata.
 package kvgrammar
 
 import (

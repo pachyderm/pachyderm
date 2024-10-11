@@ -1,3 +1,5 @@
+// Package gofmt provides an analyzer which checks that files have been run
+// through gofmt.
 package gofmt
 
 import (

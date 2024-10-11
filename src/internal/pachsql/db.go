@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/go-sql-driver/mysql"
-	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"go.uber.org/zap"
@@ -142,4 +142,38 @@ func copyParams(x map[string]string) map[string]string {
 		y[k] = v
 	}
 	return y
+}
+
+// ConnStringFromConn returns a postgres commandline -compatible connection string from the provided
+// DB.  If is not a pgx connection, an error will be returned.
+func ConnStringFromConn(ctx context.Context, db *DB) (result string, retErr error) {
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "create new connection")
+	}
+	defer errors.Close(&retErr, conn, "close tmp connection")
+	if err := conn.Raw(func(dc any) error {
+		sc, ok := dc.(*stdlib.Conn)
+		if !ok {
+			return errors.New("not a stdlib.Conn; this method only works on pgx connections")
+		}
+		var b strings.Builder
+		for _, p := range strings.Split(sc.Conn().Config().ConnString(), " ") {
+			// Remove non-Postgres options.  See pgx-specific options here:
+			// https://pkg.go.dev/github.com/jackc/pgx/v4#ParseConfig
+			switch {
+			case strings.HasPrefix(p, "statement_cache_capacity="):
+			case strings.HasPrefix(p, "statement_cache_mode="):
+			case strings.HasPrefix(p, "prefer_simple_protocol="):
+			default:
+				b.WriteString(p)
+				b.WriteRune(' ')
+			}
+		}
+		result = strings.TrimSpace(b.String())
+		return nil
+	}); err != nil {
+		return "", errors.Wrap(err, "attempt to extract connection string from raw connection")
+	}
+	return
 }

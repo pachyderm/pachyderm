@@ -1,3 +1,4 @@
+// Package server implements the logs service gRPC server.
 package server
 
 import (

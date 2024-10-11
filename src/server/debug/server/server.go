@@ -1,3 +1,6 @@
+// Package server needs to be documented.
+//
+// TODO: document
 package server
 
 import (

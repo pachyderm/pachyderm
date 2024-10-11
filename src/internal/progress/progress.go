@@ -1,4 +1,6 @@
 //nolint:wrapcheck
+
+// Package progress provides TTY progress bars.
 package progress
 
 import (
@@ -18,6 +20,8 @@ import (
 // them. The standard library does not unwrap errors which means that things
 // like io.Copy will start breaking if this returns wrapped versions of io.EOF
 // instead of the real io.EOF.
+//
+// TODO: see if this is still true
 
 var (
 	containerInit sync.Once

@@ -3,6 +3,7 @@ package fuse
 import (
 	"bytes"
 	"crypto/sha256"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,11 +15,8 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -30,15 +28,14 @@ const (
 )
 
 func TestBasic(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
 	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
-	err := env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
+	err := pachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
-	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
+	err = pachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
-	withMount(t, env.PachClient, nil, func(mountPoint string) {
+	withMount(t, pachClient, nil, func(mountPoint string) {
 		repos, err := os.ReadDir(mountPoint)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(repos))
@@ -62,12 +59,11 @@ func TestBasic(t *testing.T) {
 }
 
 func TestChunkSize(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
-	err := env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	err := pachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
 	require.NoError(t, err)
-	withMount(t, env.PachClient, nil, func(mountPoint string) {
+	withMount(t, pachClient, nil, func(mountPoint string) {
 		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "file"))
 		require.NoError(t, err)
 		require.Equal(t, int(pfs.ChunkSize), len(data))
@@ -75,14 +71,13 @@ func TestChunkSize(t *testing.T) {
 }
 
 func TestLargeFile(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
 	random.SeedRand(123)
 	src := random.String(GB + 17)
-	err := env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "file", strings.NewReader(src))
+	err := pachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "file", strings.NewReader(src))
 	require.NoError(t, err)
-	withMount(t, env.PachClient, nil, func(mountPoint string) {
+	withMount(t, pachClient, nil, func(mountPoint string) {
 		data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "file"))
 		require.NoError(t, err)
 		require.Equal(t, sha256.Sum256([]byte(src)), sha256.Sum256(data))
@@ -90,16 +85,15 @@ func TestLargeFile(t *testing.T) {
 }
 
 func BenchmarkLargeFile(b *testing.B) {
-	ctx := pctx.TestContext(b)
-	env := realenv.NewRealEnv(ctx, b, dockertestenv.NewTestDBConfig(b).PachConfigOption)
-	require.NoError(b, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	pachClient := pachd.NewTestPachd(b)
+	require.NoError(b, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
 	random.SeedRand(123)
 	src := random.String(GB)
-	err := env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "file", strings.NewReader(src))
+	err := pachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "file", strings.NewReader(src))
 	require.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		withMount(b, env.PachClient, nil, func(mountPoint string) {
+		withMount(b, pachClient, nil, func(mountPoint string) {
 			data, err := os.ReadFile(filepath.Join(mountPoint, "repo", "file"))
 			require.NoError(b, err)
 			require.Equal(b, GB, len(data))
@@ -109,13 +103,12 @@ func BenchmarkLargeFile(b *testing.B) {
 }
 
 func TestSeek(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
 	data := strings.Repeat("foo", MB)
-	err := env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "file", strings.NewReader(data))
+	err := pachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "file", strings.NewReader(data))
 	require.NoError(t, err)
-	withMount(t, env.PachClient, nil, func(mountPoint string) {
+	withMount(t, pachClient, nil, func(mountPoint string) {
 		f, err := os.Open(filepath.Join(mountPoint, "repo", "file"))
 		require.NoError(t, err)
 		defer func() {
@@ -138,11 +131,10 @@ func TestSeek(t *testing.T) {
 }
 
 func TestHeadlessBranch(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
-	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "repo", "master", "", "", nil))
-	withMount(t, env.PachClient, nil, func(mountPoint string) {
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, "repo", "master", "", "", nil))
+	withMount(t, pachClient, nil, func(mountPoint string) {
 		fis, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		// Headless branches display with 0 files.
@@ -151,10 +143,9 @@ func TestHeadlessBranch(t *testing.T) {
 }
 
 func TestReadOnly(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
-	withMount(t, env.PachClient, &Options{
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	withMount(t, pachClient, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
@@ -166,12 +157,11 @@ func TestReadOnly(t *testing.T) {
 }
 
 func TestWrite(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
 	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
 	// First, create a file
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
@@ -183,11 +173,11 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(mountPoint, "repo", "dir", "foo"), []byte("foo\n"), 0644))
 	})
 	var b bytes.Buffer
-	require.NoError(t, env.PachClient.GetFile(commit, "dir/foo", &b))
+	require.NoError(t, pachClient.GetFile(commit, "dir/foo", &b))
 	require.Equal(t, "foo\n", b.String())
 
 	// Now append to the file
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
@@ -209,11 +199,11 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, err)
 	})
 	b.Reset()
-	require.NoError(t, env.PachClient.GetFile(commit, "dir/foo", &b))
+	require.NoError(t, pachClient.GetFile(commit, "dir/foo", &b))
 	require.Equal(t, "foo\nfoo\n", b.String())
 
 	// Now overwrite that file
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
@@ -225,11 +215,11 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(mountPoint, "repo", "dir", "foo"), []byte("bar\n"), 0644))
 	})
 	b.Reset()
-	require.NoError(t, env.PachClient.GetFile(commit, "dir/foo", &b))
+	require.NoError(t, pachClient.GetFile(commit, "dir/foo", &b))
 	require.Equal(t, "bar\n", b.String())
 
 	// Now link it to another location
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
@@ -241,14 +231,14 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, os.Symlink(filepath.Join(mountPoint, "repo", "dir", "foo"), filepath.Join(mountPoint, "repo", "dir", "buzz")))
 	})
 	b.Reset()
-	require.NoError(t, env.PachClient.GetFile(commit, "dir/bar", &b))
+	require.NoError(t, pachClient.GetFile(commit, "dir/bar", &b))
 	require.Equal(t, "bar\n", b.String())
 	b.Reset()
-	require.NoError(t, env.PachClient.GetFile(commit, "dir/buzz", &b))
+	require.NoError(t, pachClient.GetFile(commit, "dir/buzz", &b))
 	require.Equal(t, "bar\n", b.String())
 
 	// Now delete it
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
@@ -259,11 +249,11 @@ func TestWrite(t *testing.T) {
 		require.NoError(t, os.Remove(filepath.Join(mountPoint, "repo", "dir", "foo")))
 	})
 	b.Reset()
-	require.YesError(t, env.PachClient.GetFile(commit, "dir/foo", &b))
+	require.YesError(t, pachClient.GetFile(commit, "dir/foo", &b))
 
 	// Try writing to two repos at once
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo2"))
-	withMount(t, env.PachClient, &Options{
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo2"))
+	withMount(t, pachClient, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
@@ -277,15 +267,14 @@ func TestWrite(t *testing.T) {
 }
 
 func TestRepoOpts(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo1"))
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo2"))
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo3"))
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo1"))
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo2"))
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo3"))
 	file := client.NewFile(pfs.DefaultProjectName, "repo1", "master", "", "")
-	err := env.PachClient.PutFile(file.Commit, "foo", strings.NewReader("foo\n"))
+	err := pachClient.PutFile(file.Commit, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
@@ -303,7 +292,7 @@ func TestRepoOpts(t *testing.T) {
 		require.Equal(t, "foo\n", string(data))
 		require.YesError(t, os.WriteFile(filepath.Join(mountPoint, "repo1", "bar"), []byte("bar\n"), 0644))
 	})
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		Write: true,
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
@@ -323,9 +312,9 @@ func TestRepoOpts(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(mountPoint, "repo1", "bar"), []byte("bar\n"), 0644))
 	})
 	stagingCommit := client.NewCommit(pfs.DefaultProjectName, "repo1", "staging", "")
-	err = env.PachClient.PutFile(stagingCommit, "buzz", strings.NewReader("buzz\n"))
+	err = pachClient.PutFile(stagingCommit, "buzz", strings.NewReader("buzz\n"))
 	require.NoError(t, err)
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		Write: true,
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
@@ -347,21 +336,20 @@ func TestRepoOpts(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(mountPoint, "repo1", "fizz"), []byte("fizz\n"), 0644))
 	})
 	var b bytes.Buffer
-	require.NoError(t, env.PachClient.GetFile(stagingCommit, "fizz", &b))
+	require.NoError(t, pachClient.GetFile(stagingCommit, "fizz", &b))
 	require.Equal(t, "fizz\n", b.String())
 }
 
 func TestOpenCommit(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "in"))
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
-	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
-	require.NoError(t, env.PachClient.FinishCommit(pfs.DefaultProjectName, "out", "master", ""))
-	_, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "in", "master")
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "in"))
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "out"))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
+	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, "out", "master", ""))
+	_, err := pachClient.StartCommit(pfs.DefaultProjectName, "in", "master")
 	require.NoError(t, err)
 
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		Fuse: &fs.Options{
 			MountOptions: fuse.MountOptions{
 				Debug: true,
@@ -395,19 +383,18 @@ func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id
 }
 
 func TestMountCommit(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
-	c1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "master")
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	c1, err := pachClient.StartCommit(pfs.DefaultProjectName, "repo", "master")
 	require.NoError(t, err)
-	require.NoError(t, env.PachClient.PutFile(c1, "foo", strings.NewReader("foo")))
-	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.Id))
-	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "repo", "dev", "master", "", nil))
-	c2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "repo", "dev")
+	require.NoError(t, pachClient.PutFile(c1, "foo", strings.NewReader("foo")))
+	require.NoError(t, finishProjectCommit(pachClient, pfs.DefaultProjectName, "repo", "", c1.Id))
+	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, "repo", "dev", "master", "", nil))
+	c2, err := pachClient.StartCommit(pfs.DefaultProjectName, "repo", "dev")
 	require.NoError(t, err)
-	require.NoError(t, env.PachClient.PutFile(c2, "bar", strings.NewReader("bar")))
-	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, "repo", "", c1.Id))
-	withMount(t, env.PachClient, &Options{
+	require.NoError(t, pachClient.PutFile(c2, "bar", strings.NewReader("bar")))
+	require.NoError(t, finishProjectCommit(pachClient, pfs.DefaultProjectName, "repo", "", c1.Id))
+	withMount(t, pachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
@@ -430,7 +417,7 @@ func TestMountCommit(t *testing.T) {
 		require.Equal(t, "foo", string(data))
 	})
 
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
@@ -455,13 +442,12 @@ func TestMountCommit(t *testing.T) {
 }
 
 func TestMountFile(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
-	require.NoError(t, env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "foo", strings.NewReader("foo")))
-	require.NoError(t, env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "bar", strings.NewReader("bar")))
-	require.NoError(t, env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "buzz", strings.NewReader("buzz")))
-	withMount(t, env.PachClient, &Options{
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	require.NoError(t, pachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "foo", strings.NewReader("foo")))
+	require.NoError(t, pachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "bar", strings.NewReader("bar")))
+	require.NoError(t, pachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), "buzz", strings.NewReader("buzz")))
+	withMount(t, pachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
@@ -484,7 +470,7 @@ func TestMountFile(t *testing.T) {
 		require.Equal(t, "foo", string(data))
 	})
 
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
@@ -509,10 +495,9 @@ func TestMountFile(t *testing.T) {
 }
 
 func TestMountDir(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
-	err := env.PachClient.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), func(mf client.ModifyFile) error {
+	pachClient := pachd.NewTestPachd(t)
+	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+	err := pachClient.WithModifyFileClient(client.NewCommit(pfs.DefaultProjectName, "repo", "master", ""), func(mf client.ModifyFile) error {
 		if err := mf.PutFile("dir/foo", strings.NewReader("foo")); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -522,7 +507,7 @@ func TestMountDir(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
@@ -550,7 +535,7 @@ func TestMountDir(t *testing.T) {
 		require.Equal(t, "foo", string(data))
 	})
 
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",
@@ -578,7 +563,7 @@ func TestMountDir(t *testing.T) {
 		require.Equal(t, "bar", string(data))
 	})
 
-	withMount(t, env.PachClient, &Options{
+	withMount(t, pachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
 				Name: "repo",

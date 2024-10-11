@@ -1,3 +1,4 @@
+// Package pretty implements pretty-printing for the transaction service.
 package pretty
 
 import (

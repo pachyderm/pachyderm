@@ -1,3 +1,4 @@
+// Package license implements the license server.
 package license
 
 import (
@@ -7,7 +8,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
-// CreateClustersTable sets up the postgres table which tracks active clusters
+// CreateClustersTableV0 sets up the postgres table which tracks active clusters.
+//
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func CreateClustersTableV0(ctx context.Context, tx *pachsql.Tx) error {
@@ -25,6 +27,8 @@ CREATE TABLE license.clusters (
 	return errors.EnsureStack(err)
 }
 
+// AddUserContextsToClustersTable adds user contexts to the clusters table.
+//
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func AddUserContextsToClustersTable(ctx context.Context, tx *pachsql.Tx) error {
@@ -37,6 +41,8 @@ func AddUserContextsToClustersTable(ctx context.Context, tx *pachsql.Tx) error {
 	return errors.EnsureStack(err)
 }
 
+// AddClusterClientIdColumn adds a client ID column to the clusters table.
+//
 // DO NOT MODIFY THIS FUNCTION
 // IT HAS BEEN USED IN A RELEASED MIGRATION
 func AddClusterClientIdColumn(ctx context.Context, tx *pachsql.Tx) error {

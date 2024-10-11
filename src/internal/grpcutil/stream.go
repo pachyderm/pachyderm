@@ -197,17 +197,6 @@ func (r ReaderWrapper) Read(p []byte) (int, error) {
 	return res, errors.EnsureStack(err)
 }
 
-// TODO: Unused. Remove?
-// WriteToStreamingBytesServer writes the data from the io.Reader to the StreamingBytesServer.
-func WriteToStreamingBytesServer(reader io.Reader, server StreamingBytesServer) error {
-	return WithStreamingBytesWriter(server, func(w io.Writer) error {
-		buf := GetBuffer()
-		defer PutBuffer(buf)
-		_, err := io.CopyBuffer(w, ReaderWrapper{reader}, buf)
-		return errors.EnsureStack(err)
-	})
-}
-
 // WriteFromStreamingBytesClient writes from the StreamingBytesClient to the io.Writer.
 func WriteFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, writer io.Writer) error {
 	for bytesValue, err := streamingBytesClient.Recv(); !errors.Is(err, io.EOF); bytesValue, err = streamingBytesClient.Recv() {

@@ -1,4 +1,5 @@
-// Profileutil contains functionality to export performance information to external systems.
+// Package profileutil contains functionality to export performance information
+// to external systems.
 package profileutil
 
 import (

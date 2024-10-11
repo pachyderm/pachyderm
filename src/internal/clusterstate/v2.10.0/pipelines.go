@@ -258,7 +258,11 @@ type jobRow struct {
 	Proto []byte `db:"proto"`
 }
 
+// VersionKey is not properly documented.
+//
 // COPIED from src/internal/ppsdb/ppsdb.go
+//
+// TODO: document.
 func VersionKey(project, pipeline string, version uint64) string {
 	// zero pad in case we want to sort
 	return fmt.Sprintf("%s/%s@%08d", project, pipeline, version)

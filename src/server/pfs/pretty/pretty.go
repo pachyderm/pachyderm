@@ -1,3 +1,4 @@
+// Package pretty implements pretty-printing for PFS.
 package pretty
 
 import (
@@ -195,7 +196,7 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 	return errors.EnsureStack(template.Execute(os.Stdout, branchInfo))
 }
 
-// PrintDetailedProjectInfo pretty-prints detailed project info.
+// PrintDetailedInspectProjectV2Response pretty-prints detailed project info.
 func PrintDetailedInspectProjectV2Response(resp *pfs.InspectProjectV2Response) error {
 	template, err := template.New("ProjectInfo").Funcs(funcMap).Parse(
 		`Name: {{ .Info.Project.Name }}

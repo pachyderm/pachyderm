@@ -1,3 +1,6 @@
+// Package testing needs to be documented.
+//
+// TODO: document
 package testing
 
 import (

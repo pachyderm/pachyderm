@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "addr.go",
         "buffer.go",
+        "doc.go",
         "error.go",
         "iter.go",
         "server.go",

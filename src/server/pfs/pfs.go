@@ -1,3 +1,6 @@
+// Package pfs needs to be documented.
+//
+// TODO: document.
 package pfs
 
 import (
@@ -371,8 +374,8 @@ func IsCommitFinishedErr(err error) bool {
 	return commitFinishedRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }
 
-// IsCommitError returns true of 'err' has an error message that matches
-// ErrCommitError
+// IsCommitErrorErr returns true of 'err' has an error message that matches
+// ErrCommitErrorErr.
 func IsCommitErrorErr(err error) bool {
 	if err == nil {
 		return false

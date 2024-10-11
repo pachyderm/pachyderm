@@ -1,3 +1,6 @@
+// Package pfsutil needs to be documented.
+//
+// TODO: document
 package pfsutil
 
 import (

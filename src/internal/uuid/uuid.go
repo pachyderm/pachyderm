@@ -1,3 +1,4 @@
+// Package uuid implement hyphenless UUIDs.
 package uuid
 
 import (

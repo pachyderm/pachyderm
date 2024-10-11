@@ -1,3 +1,4 @@
+// Package heap implements a min-heap.
 package heap
 
 // Heap is a min-heap, implemented using a slice

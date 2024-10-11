@@ -3,9 +3,12 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "v2_12_0",
     srcs = [
+        "chunkset.go",
         "clusterstate.go",
+        "doc.go",
         "pfs.go",
         "pjs.go",
+        "snapshot.go",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.12.0",
     visibility = ["//src:__subpackages__"],

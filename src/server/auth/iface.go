@@ -1,3 +1,6 @@
+// Package auth defines (or implements?) an auth server.
+//
+// TODO: document.
 package auth
 
 import (

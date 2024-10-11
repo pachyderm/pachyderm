@@ -1,3 +1,6 @@
+// Package fuse implements a FUSE server for PFS.
+//
+// TODO: document
 package fuse
 
 import (

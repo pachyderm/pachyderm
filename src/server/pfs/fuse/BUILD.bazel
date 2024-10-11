@@ -49,11 +49,9 @@ go_test(
     ],  # fusermount cannot run in bazel test sandbox or docker
     deps = [
         "//src/internal/client",
-        "//src/internal/dockertestenv",
         "//src/internal/errors",
-        "//src/internal/pctx",
+        "//src/internal/pachd",
         "//src/internal/require",
-        "//src/internal/testpachd/realenv",
         "//src/internal/testutil/random",
         "//src/pfs",
         "//src/server/pfs",

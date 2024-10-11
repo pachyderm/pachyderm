@@ -1,4 +1,6 @@
 //nolint:wrapcheck
+
+// Package client implements a Pachyderm client.
 package client
 
 import (
@@ -6,13 +8,14 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
