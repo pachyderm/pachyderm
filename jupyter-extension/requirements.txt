@@ -1,5 +1,5 @@
 pyyaml>=6.0,<7.0
-jupyter_server>=2.7.0,<2.12
+jupyter_server>=2.14.1,<2.15
 pachyderm_sdk>=2.10.1,<2.11.0
 
 
