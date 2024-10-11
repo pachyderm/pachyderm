@@ -2,6 +2,7 @@ package snapshotdb
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"testing"
 	"time"
 
@@ -31,13 +32,10 @@ func TestCreateAndGetJob(t *testing.T) {
 func TestListSnapshotTxByFilter(t *testing.T) {
 	ctx, db := DB(t)
 	fs := FilesetStorage(t, db)
-	want := make([]*snapshotpb.SnapshotInfo, 0)
+	var want []*snapshotpb.SnapshotInfo
 	err := dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		_, err := CreateSnapshot(ctx, sqlTx, fs, map[string]string{})
-		if err != nil {
-			t.Fatalf("create snapshot in iteration 1: %v", err)
-		}
-		return nil
+		return errors.Wrap(err, "create snapshot")
 	})
 	if err != nil {
 		t.Fatalf("with tx: %v", err)
@@ -48,11 +46,11 @@ func TestListSnapshotTxByFilter(t *testing.T) {
 		for i := 0; i < 4; i++ {
 			id, err := CreateSnapshot(ctx, sqlTx, fs, map[string]string{})
 			if err != nil {
-				t.Fatalf("create snapshot in iteration %d: %v", i+1, err)
+				return errors.Wrapf(err, "create snapshot in iteration %d: %v", i+1, err)
 			}
 			s, err := GetSnapshot(ctx, sqlTx, id)
 			if err != nil {
-				t.Fatalf("get snapshot struct in iteration %d: %v", i+1, err)
+				return errors.Wrapf(err, "get snapshot struct in iteration %d: %v", i+1, err)
 			}
 			want = append(want, s)
 		}
