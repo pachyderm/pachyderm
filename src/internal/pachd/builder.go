@@ -289,7 +289,6 @@ func (b *builder) registerSnapshotServer(ctx context.Context) error {
 	}
 	apiServer := snapshot_server.APIServer{DB: b.env.GetDBClient(), Store: store}
 	b.forGRPCServer(func(s *grpc.Server) { snapshot.RegisterAPIServer(s, &apiServer) })
-	b.env.SetSnapshotServer(apiServer)
 	return nil
 }
 

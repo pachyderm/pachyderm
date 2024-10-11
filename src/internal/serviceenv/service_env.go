@@ -38,7 +38,6 @@ import (
 	mlc "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
-	snapshot_server "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -63,7 +62,6 @@ type ServiceEnv interface {
 	SetAuthServer(auth_server.APIServer)
 	SetIdentityServer(identity.APIServer)
 	SetPfsServer(pfs_server.APIServer)
-	SetSnapshotServer(snapshot_server.APIServer)
 	SetPpsServer(pps_server.APIServer)
 	SetEnterpriseServer(enterprise_server.APIServer)
 	SetKubeClient(kube.Interface)
@@ -144,7 +142,6 @@ type NonblockingServiceEnv struct {
 	identityServer   identity.APIServer
 	ppsServer        pps_server.APIServer
 	pfsServer        pfs_server.APIServer
-	snapshotServer   snapshot_server.APIServer
 	enterpriseServer enterprise_server.APIServer
 
 	// ctx is the background context for the environment that will be canceled
@@ -623,10 +620,6 @@ func (env *NonblockingServiceEnv) PfsServer() pfs_server.APIServer {
 // SetPfsServer registers a Pfs APIServer with this service env
 func (env *NonblockingServiceEnv) SetPfsServer(s pfs_server.APIServer) {
 	env.pfsServer = s
-}
-
-func (env *NonblockingServiceEnv) SetSnapshotServer(s snapshot_server.APIServer) {
-	env.snapshotServer = s
 }
 
 // EnterpriseServer returns the registered PFS APIServer
