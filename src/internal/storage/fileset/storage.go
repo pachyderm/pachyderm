@@ -157,7 +157,7 @@ func (s *Storage) Compose(ctx context.Context, handles []*Handle, ttl time.Durat
 // other than ensuring that they exist.
 func (s *Storage) ComposeTx(tx *pachsql.Tx, handles []*Handle, ttl time.Duration) (*Handle, error) {
 	c := &Composite{
-		Layers: HandlesToHexStrings(handles),
+		Layers: handlesToTokenHexStrings(handles),
 	}
 	return s.newCompositeTx(tx, c, ttl)
 }

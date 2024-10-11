@@ -164,11 +164,10 @@ func (h *Handle) Token() Token {
 // HexString returns the handle encoded with the hex alphabet.
 func (h *Handle) HexString() string {
 	hexStr := h.token.HexString()
-	// TODO: Layers strings vs external strings?
-	//defaultId := ID{}
-	//if h.id != defaultId {
-	//	hexStr += "." + h.id.HexString()
-	//}
+	defaultId := ID{}
+	if h.id != defaultId {
+		hexStr += "." + h.id.HexString()
+	}
 	return hexStr
 }
 
@@ -199,6 +198,14 @@ func HandlesToHexStrings(handles []*Handle) []string {
 	var hexStrs []string
 	for _, handle := range handles {
 		hexStrs = append(hexStrs, handle.HexString())
+	}
+	return hexStrs
+}
+
+func handlesToTokenHexStrings(handles []*Handle) []string {
+	var hexStrs []string
+	for _, handle := range handles {
+		hexStrs = append(hexStrs, handle.token.HexString())
 	}
 	return hexStrs
 }

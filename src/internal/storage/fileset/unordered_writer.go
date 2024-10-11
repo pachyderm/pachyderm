@@ -202,6 +202,6 @@ func (uw *UnorderedWriter) Close(ctx context.Context) (*Handle, error) {
 		return nil, err
 	}
 	return uw.storage.newComposite(uw.ctx, &Composite{
-		Layers: HandlesToHexStrings(uw.handles),
+		Layers: handlesToTokenHexStrings(uw.handles),
 	}, uw.ttl)
 }
