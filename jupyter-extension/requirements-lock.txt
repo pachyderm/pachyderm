@@ -265,9 +265,9 @@ jupyter-events==0.10.0 \
     --hash=sha256:4b72130875e59d57716d327ea70d3ebc3af1944d3717e5a498b8a06c6c159960 \
     --hash=sha256:670b8229d3cc882ec782144ed22e0d29e1c2d639263f92ca8383e66682845e22
     # via jupyter-server
-jupyter-server==2.11.2 \
-    --hash=sha256:0c548151b54bcb516ca466ec628f7f021545be137d01b5467877e87f6fff4374 \
-    --hash=sha256:0c99f9367b0f24141e527544522430176613f9249849be80504c6d2b955004bb
+jupyter-server==2.14.2 \
+    --hash=sha256:47ff506127c2f7851a17bf4713434208fc490955d0e8632e95014a9a9afbeefd \
+    --hash=sha256:66095021aa9638ced276c248b1d81862e4c50f292d575920bbe960de1c56b12b
     # via -r jupyter-extension/requirements.txt
 jupyter-server-terminals==0.5.3 \
     --hash=sha256:41ee0d7dc0ebf2809c668e0fc726dfaf258fcd3e769568996ca731b6194ae9aa \
