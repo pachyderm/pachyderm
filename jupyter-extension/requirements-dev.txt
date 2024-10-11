@@ -26,4 +26,5 @@ requests>=2.32.0
 setuptools>=70.0.0
 tornado>=6.4.1
 tqdm!=4.66.2
+urllib3!=2.2.0,!=2.2.1
 zipp>=3.19.1
