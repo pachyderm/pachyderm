@@ -162,6 +162,20 @@ func (s *Storage) ComposeTx(tx *pachsql.Tx, handles []*Handle, ttl time.Duration
 	return s.newCompositeTx(tx, c, ttl)
 }
 
+// Clone creates a new fileset, identical to the fileset at id, but with the specified ttl.
+// The ttl can be ignored by using track.NoTTL
+func (s *Storage) Clone(ctx context.Context, handle *Handle, ttl time.Duration) (*Handle, error) {
+	var result *Handle
+	if err := dbutil.WithTx(ctx, s.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
+		var err error
+		result, err = s.CloneTx(tx, handle, ttl)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // CloneTx creates a new fileset, identical to the fileset at id, but with the specified ttl.
 // The ttl can be ignored by using track.NoTTL
 func (s *Storage) CloneTx(tx *pachsql.Tx, handle *Handle, ttl time.Duration) (*Handle, error) {
