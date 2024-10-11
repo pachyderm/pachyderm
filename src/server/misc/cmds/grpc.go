@@ -35,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -58,6 +59,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		logs.File_logs_logs_proto,
 		metadata.File_metadata_metadata_proto,
 		pfs.File_pfs_pfs_proto,
+		snapshot.File_snapshot_snapshot_proto,
 		pps.File_pps_pps_proto,
 		proxy.File_proxy_proxy_proto,
 		storage.File_storage_fileset_proto,
