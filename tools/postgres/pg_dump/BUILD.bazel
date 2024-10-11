@@ -1,0 +1,13 @@
+load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
+
+native_binary(
+    name = "pg_dump",
+    src = select({
+        "//:is_x86_64_linux": "//private/apt:pg_dump",
+        "//:is_aarch64_linux": "//private/apt:pg_dump",
+        "//:is_x86_64_macos": "@com_enterprisedb_get_postgresql_macos//:bin/pg_dump",
+        "//:is_aarch64_macos": "@com_enterprisedb_get_postgresql_macos//:bin/pg_dump",
+    }),
+    out = "pg_dump",
+    visibility = ["//:__subpackages__"],
+)

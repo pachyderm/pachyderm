@@ -1,0 +1,72 @@
+genrule(
+    name = "pg_dump_genrule",
+    srcs = select({
+        "//:is_x86_64_linux": ["@postgres//postgresql-client-17/amd64:data"],
+        "//:is_aarch64_linux": ["@postgres//postgresql-client-17/arm64:data"],
+    }),
+    outs = ["pg_dump"],
+    cmd = "$(BSDTAR_BIN) --extract --strip-components 6 --file $< usr/lib/postgresql/17/bin/pg_dump; mv pg_dump $@",
+    executable = True,
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    visibility = ["//tools/postgres/pg_dump:__pkg__"],
+)
+
+genrule(
+    name = "libpq_genrule",
+    srcs = select({
+        "//:is_x86_64_linux": ["@postgres//libpq5/amd64:data"],
+        "//:is_aarch64_linux": ["@postgres//libpq5/arm64:data"],
+    }),
+    outs = ["libpq.so.5"],
+    cmd = "$(BSDTAR_BIN) --extract --strip-components 4 --file $< usr/lib/" + select({
+        "//:is_x86_64_linux": "x86_64-linux-gnu",
+        "//:is_aarch64_linux": "aarch64-linux-gnu",
+    }) + "/libpq.so.5.17; mv libpq.so.5.17 $@",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    visibility = ["//:__subpackages__"],
+)
+
+genrule(
+    name = "libldap_genrule",
+    srcs = select({
+        "//:is_x86_64_linux": ["@postgres//libldap-2.5-0/amd64:data"],
+        "//:is_aarch64_linux": ["@postgres//libldap-2.5-0/arm64:data"],
+    }),
+    outs = ["libldap-2.5.so.0"],
+    cmd = "$(BSDTAR_BIN) --extract --strip-components 4 --file $< usr/lib/" + select({
+        "//:is_x86_64_linux": "x86_64-linux-gnu",
+        "//:is_aarch64_linux": "aarch64-linux-gnu",
+    }) + "/libldap-2.5.so.0.1.8; mv libldap-2.5.so.0.1.8 $@",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    visibility = ["//:__subpackages__"],
+)
+
+genrule(
+    name = "liblber_genrule",
+    srcs = select({
+        "//:is_x86_64_linux": ["@postgres//libldap-2.5-0/amd64:data"],
+        "//:is_aarch64_linux": ["@postgres//libldap-2.5-0/arm64:data"],
+    }),
+    outs = ["liblber-2.5.so.0"],
+    cmd = "$(BSDTAR_BIN) --extract --strip-components 4 --file $< usr/lib/" + select({
+        "//:is_x86_64_linux": "x86_64-linux-gnu",
+        "//:is_aarch64_linux": "aarch64-linux-gnu",
+    }) + "/liblber-2.5.so.0.1.8; mv liblber-2.5.so.0.1.8 $@",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    visibility = ["//:__subpackages__"],
+)
+
+genrule(
+    name = "libsasl_genrule",
+    srcs = select({
+        "//:is_x86_64_linux": ["@postgres//libsasl2-2/amd64:data"],
+        "//:is_aarch64_linux": ["@postgres//libsasl2-2/arm64:data"],
+    }),
+    outs = ["libsasl2.so.2"],
+    cmd = "$(BSDTAR_BIN) --extract --strip-components 4 --file $< usr/lib/" + select({
+        "//:is_x86_64_linux": "x86_64-linux-gnu",
+        "//:is_aarch64_linux": "aarch64-linux-gnu",
+    }) + "/libsasl2.so.2.0.25; mv libsasl2.so.2.0.25 $@",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    visibility = ["//:__subpackages__"],
+)
