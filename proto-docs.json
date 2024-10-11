@@ -524,6 +524,11 @@
               "description": ""
             },
             {
+              "name": "CLUSTER_SNAPSHOTTER",
+              "number": "152",
+              "description": ""
+            },
+            {
               "name": "REPO_READ",
               "number": "200",
               "description": ""

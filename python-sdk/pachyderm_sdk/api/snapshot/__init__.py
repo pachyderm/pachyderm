@@ -49,10 +49,10 @@ class SnapshotInfo(betterproto.Message):
     metadata: Dict[str, str] = betterproto.map_field(
         2, betterproto.TYPE_STRING, betterproto.TYPE_STRING
     )
-    chunkset_id: int = betterproto.int64_field(4)
-    sql_dump_fileset_id: str = betterproto.string_field(5)
-    pachyderm_version: str = betterproto.string_field(6)
-    created_at: datetime = betterproto.message_field(7)
+    chunkset_id: int = betterproto.int64_field(3)
+    sql_dump_fileset_id: str = betterproto.string_field(4)
+    pachyderm_version: str = betterproto.string_field(5)
+    created_at: datetime = betterproto.message_field(6)
 
 
 @dataclass(eq=False, repr=False)
