@@ -264,3 +264,5 @@ alias(
     name = "pnpm",
     actual = "@pnpm//:pnpm",
 )
+
+# kick off the bazel tests
