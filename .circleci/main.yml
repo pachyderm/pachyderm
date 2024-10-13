@@ -1719,9 +1719,9 @@ workflows:
   functional-tests:
     when:
       or:
-        << pipeline.parameters.run-core-jobs >>
-        << pipeline.parameters.run-jupyter-jobs >>
-        << pipeline.parameters.run-console-jobs >>
+        - << pipeline.parameters.run-core-jobs >>
+        - << pipeline.parameters.run-jupyter-jobs >>
+        - << pipeline.parameters.run-console-jobs >>
     jobs:
       - build-docker-images
       - build-docker-images:
