@@ -1,6 +1,5 @@
 import {JupyterFrontEndPlugin} from '@jupyterlab/application';
 
-import telemetry from './plugins/telemetry';
 import help from './plugins/help';
 import examples from './plugins/examples';
 import mount from './plugins/mount';
