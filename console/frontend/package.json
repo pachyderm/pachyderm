@@ -95,8 +95,7 @@
     "react-transition-group": "4.4.5",
     "react-virtualized-auto-sizer": "1.0.24",
     "react-window": "1.8.8",
-    "remark-gfm": "3.0.1",
-    "rudder-sdk-js": "2.20.0"
+    "remark-gfm": "3.0.1"
   },
   "devDependencies": {
     "@babel/runtime": "7.25.0",

@@ -233,9 +233,6 @@ dependencies:
   remark-gfm:
     specifier: 3.0.1
     version: 3.0.1
-  rudder-sdk-js:
-    specifier: 2.20.0
-    version: 2.20.0
 
 devDependencies:
   '@babel/runtime':
@@ -11118,11 +11115,6 @@ packages:
     optionalDependencies:
       fsevents: 2.3.3
     dev: true
-
-  /rudder-sdk-js@2.20.0:
-    resolution: {integrity: sha512-faYlnAZmmOMixghbQdLwwAGVAt250yxvtiZVFspqm/XqYqftOvj1CmzC/ELq2UYR2aUXviqww6LqcWV8AwDozw==}
-    deprecated: This package is deprecated. Please switch to the latest @rudderstack/analytics-js package for improved features and support. For more details visit, https://www.rudderstack.com/docs/sources/event-streams/sdks/rudderstack-javascript-sdk/.
-    dev: false
 
   /run-async@2.4.1:
     resolution: {integrity: sha512-tvVnVv01b8c1RrA6Ep7JkStj85Guv/YrMcwqYQnwjsAS2cTmmPGBBjAjpCW7RrSodNSoE2/qg9O4bceNvUuDgQ==}
