@@ -39,7 +39,8 @@ RUN mkdir /home/appuser && \
 USER appuser
 
 # Needed to run npm start
-RUN npm i module-alias
+RUN npm i module-alias --prefix ./console/backend
+# RUN npm cache clean --force 
 
 CMD ["npm", "start", "--prefix", "./console/backend"]
 EXPOSE 4000
