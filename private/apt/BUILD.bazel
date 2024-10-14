@@ -12,6 +12,19 @@ genrule(
 )
 
 genrule(
+    name = "psql_genrule",
+    srcs = select({
+        "//:is_x86_64_linux": ["@postgres//postgresql-client-17/amd64:data"],
+        "//:is_aarch64_linux": ["@postgres//postgresql-client-17/arm64:data"],
+    }),
+    outs = ["psql"],
+    cmd = "$(BSDTAR_BIN) --extract --strip-components 6 --file $< usr/lib/postgresql/17/bin/psql; mv psql $@",
+    executable = True,
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+    visibility = ["//tools/postgres/psql:__pkg__"],
+)
+
+genrule(
     name = "libpq_genrule",
     srcs = select({
         "//:is_x86_64_linux": ["@postgres//libpq5/amd64:data"],
