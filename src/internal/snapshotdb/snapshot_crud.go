@@ -67,5 +67,5 @@ func ListSnapshot(ctx context.Context, tx *pachsql.Tx, since time.Time, limit in
 
 func DeleteSnapshot(ctx context.Context, tx *pachsql.Tx, id int64) error {
 	var sid []snapshotID
-	return sqlx.SelectContext(ctx, tx, &sid, deleteSnapshot, id)
+	return errors.Wrap(sqlx.SelectContext(ctx, tx, &sid, deleteSnapshot, id), "delete snapshot")
 }
