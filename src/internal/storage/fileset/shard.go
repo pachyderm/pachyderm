@@ -10,8 +10,8 @@ import (
 // Shard shards the file set into path ranges.
 // TODO This should be extended to be more configurable (different criteria
 // for creating shards).
-func (s *Storage) Shard(ctx context.Context, ids []ID, pathRange *index.PathRange) ([]*index.PathRange, error) {
-	fs, err := s.Open(ctx, ids)
+func (s *Storage) Shard(ctx context.Context, handles []*Handle, pathRange *index.PathRange) ([]*index.PathRange, error) {
+	fs, err := s.Open(ctx, handles)
 	if err != nil {
 		return nil, err
 	}

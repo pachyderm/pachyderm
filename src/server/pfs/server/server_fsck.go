@@ -397,7 +397,7 @@ func compare(s1, s2 stream.Stream) int {
 func (a *apiServer) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb func(*pfs.FsckResponse) error) error {
 	log.Info(ctx, "checking for zombie data", log.Proto("outputCommit", outputCommit))
 	// generate fileset that groups output files by datum
-	id, err := a.createFileSet(ctx, func(w *fileset.UnorderedWriter) error {
+	handle, err := a.createFileSet(ctx, func(w *fileset.UnorderedWriter) error {
 		_, fs, err := a.openCommit(ctx, outputCommit)
 		if err != nil {
 			return err
@@ -414,10 +414,10 @@ func (a *apiServer) detectZombie(ctx context.Context, outputCommit *pfs.Commit, 
 	}
 	// now merge with the meta commit to look for extra datums in the output commit
 	return a.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, r *fileset.Renewer) error {
-		if err := r.Add(ctx, *id); err != nil {
+		if err := r.Add(ctx, handle); err != nil {
 			return err
 		}
-		datumsFS, err := a.storage.Filesets.Open(ctx, []fileset.ID{*id})
+		datumsFS, err := a.storage.Filesets.Open(ctx, []*fileset.Handle{handle})
 		if err != nil {
 			return err
 		}

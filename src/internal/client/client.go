@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/pjs"
-
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -73,6 +73,8 @@ type PfsAPIClient pfs.APIClient
 
 type PjsAPIClient pjs.APIClient
 
+type SnapshotAPIClient snapshot.APIClient
+
 // FilesetClient is an alias for storage.FilesetClient.
 type FilesetClient storage.FilesetClient
 
@@ -107,6 +109,7 @@ type MetadataClient metadata.APIClient
 type APIClient struct {
 	PfsAPIClient
 	PjsAPIClient
+	SnapshotAPIClient
 	FilesetClient
 	PpsAPIClient
 	AuthAPIClient
@@ -867,6 +870,7 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PjsAPIClient = pjs.NewAPIClient(clientConn)
+	c.SnapshotAPIClient = snapshot.NewAPIClient(clientConn)
 	c.FilesetClient = storage.NewFilesetClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)

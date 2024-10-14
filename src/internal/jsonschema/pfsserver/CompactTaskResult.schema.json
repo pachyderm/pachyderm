@@ -4,7 +4,7 @@
     "definitions": {
         "CompactTaskResult": {
             "properties": {
-                "id": {
+                "handle": {
                     "type": "string"
                 }
             },

@@ -3,11 +3,12 @@ package pjsdb_test
 import (
 	"bytes"
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"math/rand"
 	"path/filepath"
 	"strconv"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -62,14 +63,14 @@ func withDependencies(t *testing.T, f func(d dependencies)) {
 }
 
 func mockFileset(t testing.TB, d dependencies, path, value string) fileset.PinnedFileset {
-	var id *fileset.ID
+	var handle *fileset.Handle
 	uw, err := d.s.NewUnorderedWriter(d.ctx)
 	require.NoError(t, err)
 	err = uw.Put(d.ctx, path, "", true, bytes.NewReader([]byte(value)))
 	require.NoError(t, err)
-	id, err = uw.Close(d.ctx)
+	handle, err = uw.Close(d.ctx)
 	require.NoError(t, err)
-	pin, err := d.s.Pin(d.tx, *id)
+	pin, err := d.s.Pin(d.tx, handle)
 	require.NoError(t, err)
 	return pin
 }

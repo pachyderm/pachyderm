@@ -51,14 +51,14 @@ type FilesetReader interface {
 	ReadFileset(context.Context, *storage.ReadFilesetRequest, ...grpc.CallOption) (storage.Fileset_ReadFilesetClient, error)
 }
 
-// HashFileset hashes the fileset identified by ID as read from a FilesetReader.
-func HashFileset(ctx context.Context, fr FilesetReader, id string) ([]byte, error) {
+// HashFileset hashes the fileset identified by handle as read from a FilesetReader.
+func HashFileset(ctx context.Context, fr FilesetReader, handle string) ([]byte, error) {
 	var h hasher
 	cc, err := fr.ReadFileset(ctx, &storage.ReadFilesetRequest{
-		FilesetId: id,
+		FilesetId: handle,
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "read fileset %s", id)
+		return nil, errors.Wrapf(err, "read fileset %s", handle)
 	}
 	for {
 		r, err := cc.Recv()

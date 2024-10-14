@@ -36,7 +36,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	if request.Input == nil {
 		return nil, status.Errorf(codes.InvalidArgument, "missing data input")
 	}
-	program, err := fileset.ParseID(request.Program)
+	program, err := fileset.ParseHandle(request.Program)
 	if err != nil {
 		return nil, errors.Wrap(err, "parse program id")
 	}
@@ -54,14 +54,14 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	var inputs []fileset.PinnedFileset
 	var inputHashes [][]byte
 	for i, input := range request.Input {
-		inputID, err := fileset.ParseID(input)
+		handle, err := fileset.ParseHandle(input)
 		if err != nil {
 			return nil, errors.Wrap(err, "parse input id")
 		}
-		inputs = append(inputs, fileset.PinnedFileset(*inputID))
-		hash, err := HashFileset(authedCtx, a.env.GetStorageClient(ctx), inputID.HexString())
+		inputs = append(inputs, fileset.PinnedFileset(handle.Token()))
+		hash, err := HashFileset(authedCtx, a.env.GetStorageClient(ctx), handle.HexString())
 		if err != nil {
-			return nil, errors.Wrapf(err, "hashing input fileset: %q, (%d/%d)", inputID.HexString(), i, len(request.Input))
+			return nil, errors.Wrapf(err, "hashing input fileset: %q, (%d/%d)", handle.HexString(), i, len(request.Input))
 		}
 		inputHashes = append(inputHashes, hash)
 	}
@@ -71,7 +71,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	}
 	req := pjsdb.CreateJobRequest{
 		Parent:            parent,
-		Program:           fileset.PinnedFileset(*program),
+		Program:           fileset.PinnedFileset(program.Token()),
 		ProgramHash:       hash,
 		Inputs:            inputs,
 		InputHashes:       inputHashes,
@@ -183,9 +183,9 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 			return err
 		}
 		var (
-			inputsID    []fileset.ID
-			inputHashes [][]byte
-			programHash []byte
+			inputHandles []*fileset.Handle
+			inputHashes  [][]byte
+			programHash  []byte
 		)
 		if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 			job, err := pjsdb.GetJob(ctx, sqlTx, jobID)
@@ -193,17 +193,19 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 				return errors.Wrap(err, "get job")
 			}
 			programHash = job.ProgramHash
-			inputsID = job.Inputs
+			for _, input := range job.Inputs {
+				inputHandles = append(inputHandles, fileset.NewHandle(input))
+			}
 			return nil
 		}, dbutil.WithReadOnly()); err != nil {
 			return errors.Wrap(err, "with tx")
 		}
 		var inputs []string
-		for i, filesetID := range inputsID {
-			inputs = append(inputs, filesetID.HexString())
-			hash, err := HashFileset(ctx, a.env.GetStorageClient(ctx), filesetID.HexString())
+		for i, handle := range inputHandles {
+			inputs = append(inputs, handle.HexString())
+			hash, err := HashFileset(ctx, a.env.GetStorageClient(ctx), handle.HexString())
 			if err != nil {
-				return errors.Wrapf(err, "hashing input fileset: %q, (%d/%d)", filesetID.HexString(), i, len(inputsID))
+				return errors.Wrapf(err, "hashing input fileset: %q, (%d/%d)", handle.HexString(), i, len(inputHandles))
 			}
 			inputHashes = append(inputHashes, hash)
 		}
@@ -408,6 +410,7 @@ func (a *apiServer) ListJob(req *pjs.ListJobRequest, srv pjs.API_ListJobServer) 
 		return errors.Wrap(err, "with tx")
 	}
 	for i, job := range jobs {
+		// TODO: toJobInfo isn't defined, so why was it referenced here?
 		jobInfo, err := pjsdb.ToJobInfo(job)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("to job info, iteration=%d/%d", i, len(jobs)))
