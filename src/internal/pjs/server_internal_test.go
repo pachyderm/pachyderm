@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -799,7 +800,9 @@ func createFileSet(t testing.TB, fc storage.FilesetClient, files map[string][]by
 	}
 	resp, err := createFileClient.CloseAndRecv()
 	require.NoError(t, err)
-	return resp.FilesetId
+	handle, err := fileset.ParseHandle(resp.FilesetId)
+	require.NoError(t, err)
+	return handle.Token().HexString()
 }
 
 func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.APIClient, fc storage.FilesetClient) {
