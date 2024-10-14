@@ -117,7 +117,7 @@ func computeId(tx *pachsql.Tx, store MetadataStore, md *Metadata) (ID, error) {
 	case *Metadata_Primitive:
 		data, err := proto.Marshal(v.Primitive)
 		if err != nil {
-			return ID{}, err
+			return ID{}, errors.EnsureStack(err)
 		}
 		return pachhash.Sum(data), nil
 	case *Metadata_Composite:
@@ -144,7 +144,6 @@ func computeId(tx *pachsql.Tx, store MetadataStore, md *Metadata) (ID, error) {
 	default:
 		return ID{}, errors.Errorf("cannot compute id of type %T", md.Value)
 	}
-	return ID{}, nil
 }
 
 type Handle struct {
@@ -153,6 +152,7 @@ type Handle struct {
 	id ID
 }
 
+// NewHandle creates a fileset handle with the provided token.
 // TODO: Remove NewHandle and Token when Pin is implemented.
 func NewHandle(token Token) *Handle {
 	return &Handle{token: token}
