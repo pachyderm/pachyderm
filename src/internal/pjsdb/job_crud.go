@@ -4,14 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/jmoiron/sqlx"
+
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/pjs"
-	"strings"
 )
 
 const (
@@ -97,13 +99,13 @@ func (req CreateJobRequest) IsSanitized(ctx context.Context, tx *pachsql.Tx) err
 }
 
 func (req CreateJobRequest) sanitize(ctx context.Context, tx *pachsql.Tx) (createJobRequest, error) {
-	defaultID := fileset.PinnedFileset{}
-	if req.Program == defaultID {
+	defaultPin := fileset.PinnedFileset{}
+	if req.Program == defaultPin {
 		return createJobRequest{}, errors.New("program cannot be nil")
 	}
 	sanitizedReq := createJobRequest{
-		Program:           []byte(fileset.ID(req.Program).HexString()), // there aren't real pins as of yet.
-		ProgramHash:       req.ProgramHash,                             // eventually the ID will be a hash.
+		Program:           []byte(fileset.Token(req.Program).HexString()), // there aren't real pins as of yet.
+		ProgramHash:       req.ProgramHash,                                // eventually the ID will be a hash.
 		InputHashes:       req.InputHashes,
 		CacheReadEnabled:  req.CacheReadEnabled,
 		CacheWriteEnabled: req.CacheWriteEnabled,
@@ -121,14 +123,14 @@ func (req CreateJobRequest) sanitize(ctx context.Context, tx *pachsql.Tx) (creat
 		sanitizedReq.Parent.Valid = true
 	}
 	for i, input := range req.Inputs {
-		if input == defaultID {
+		if input == defaultPin {
 			continue
 		}
 		sanitizedReq.Inputs = append(sanitizedReq.Inputs, jobFilesetsRow{
 			JobID:         0, // the job id is not known until the job row is inserted in create job.
 			Type:          "input",
 			ArrayPosition: i,
-			Fileset:       []byte(fileset.ID(input).HexString()),
+			Fileset:       []byte(fileset.Token(input).HexString()),
 		})
 	}
 	return sanitizedReq, nil

@@ -65,7 +65,7 @@ func (x *CompactTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.Id)
+	enc.AddString("handle", x.Handle)
 	return nil
 }
 
@@ -87,7 +87,7 @@ func (x *ConcatTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.Id)
+	enc.AddString("handle", x.Handle)
 	return nil
 }
 
@@ -95,7 +95,7 @@ func (x *ValidateTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.Id)
+	enc.AddString("handle", x.Handle)
 	enc.AddObject("path_range", x.PathRange)
 	return nil
 }
@@ -134,7 +134,7 @@ func (x *PutFileURLTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-	enc.AddString("id", x.Id)
+	enc.AddString("handle", x.Handle)
 	return nil
 }
 
@@ -143,7 +143,7 @@ func (x *GetFileURLTask) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("URL", x.URL)
-	enc.AddString("Fileset", x.Fileset)
+	enc.AddString("handle", x.Handle)
 	enc.AddObject("path_range", x.PathRange)
 	return nil
 }

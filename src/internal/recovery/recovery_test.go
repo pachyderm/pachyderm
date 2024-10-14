@@ -36,9 +36,9 @@ func TestCreateSnaphot(t *testing.T) {
 	}
 
 	var got, want struct {
-		ChunksetID       int64     `db:"chunkset_id"`
-		PachydermVersion string    `db:"pachyderm_version"`
-		SQLDumpFileSetID uuid.UUID `db:"sql_dump_fileset_id"`
+		ChunksetID          int64     `db:"chunkset_id"`
+		PachydermVersion    string    `db:"pachyderm_version"`
+		SQLDumpFilesetToken uuid.UUID `db:"sql_dump_fileset_id"`
 	}
 	want.ChunksetID = 1
 	want.PachydermVersion = version.Version.String()
@@ -50,15 +50,15 @@ func TestCreateSnaphot(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
 	}
-	fsid := fileset.ID(got.SQLDumpFileSetID[:])
-	got.SQLDumpFileSetID = uuid.UUID{}
+	fsToken := fileset.Token(got.SQLDumpFilesetToken[:])
+	got.SQLDumpFilesetToken = uuid.UUID{}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("snapshot row (-want +got):\n%s", diff)
 	}
 
-	fs, err := s.Open(ctx, []fileset.ID{fsid})
+	fs, err := s.Open(ctx, []*fileset.Handle{fileset.NewHandle(fsToken)})
 	if err != nil {
-		t.Fatalf("open fileset (%v): %v", got.SQLDumpFileSetID.String(), err)
+		t.Fatalf("open fileset (%v): %v", got.SQLDumpFilesetToken.String(), err)
 	}
 	var buf bytes.Buffer
 	if err := fs.Iterate(ctx, func(f fileset.File) error {

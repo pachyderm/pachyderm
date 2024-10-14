@@ -2,6 +2,11 @@ package fileset_test
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
@@ -12,10 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
-	"path/filepath"
-	"strings"
-	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -29,10 +30,10 @@ func TestCreateChunkset(t *testing.T) {
 	gc := s.NewGC(5 * time.Second)
 	w := s.NewWriter(ctx, fileset.WithTTL(time.Hour))
 	require.NoError(t, w.Add("a.txt", "datum1", strings.NewReader("test data")))
-	id, err := w.Close()
+	handle, err := w.Close()
 	require.NoError(t, err)
 	// expire it
-	require.NoError(t, s.Drop(ctx, *id))
+	require.NoError(t, s.Drop(ctx, handle))
 	// run the gc
 	countDeleted, err := gc.RunOnce(ctx)
 	require.NoError(t, err)
@@ -42,7 +43,7 @@ func TestCreateChunkset(t *testing.T) {
 	// create fileset and rerun gc.
 	w = s.NewWriter(ctx, fileset.WithTTL(time.Hour))
 	require.NoError(t, w.Add("b.txt", "datum2", strings.NewReader("test data2")))
-	id, err = w.Close()
+	handle, err = w.Close()
 	require.NoError(t, err)
 	// create a chunkset
 	err = dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
@@ -51,7 +52,7 @@ func TestCreateChunkset(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// expire it
-	require.NoError(t, s.Drop(ctx, *id))
+	require.NoError(t, s.Drop(ctx, handle))
 	// run the gc
 	countDeleted, err = gc.RunOnce(ctx)
 	require.NoError(t, err)
@@ -84,7 +85,7 @@ func TestDropChunkset(t *testing.T) {
 		gc := s.NewGC(5 * time.Second)
 		w := s.NewWriter(ctx, fileset.WithTTL(time.Hour))
 		require.NoError(t, w.Add("a.txt", "datum1", strings.NewReader("test data")))
-		filesetID, err := w.Close()
+		handle, err := w.Close()
 		require.NoError(t, err)
 		// create a chunkset
 		var chunkSetID fileset.ChunkSetID
@@ -100,7 +101,7 @@ func TestDropChunkset(t *testing.T) {
 		})
 		require.NoError(t, err)
 		// expire it
-		require.NoError(t, s.Drop(ctx, *filesetID))
+		require.NoError(t, s.Drop(ctx, handle))
 		// run the gc
 		countDeleted, err := gc.RunOnce(ctx)
 		require.NoError(t, err)

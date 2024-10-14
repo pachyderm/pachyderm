@@ -60,8 +60,8 @@ func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (re
 }
 
 // addDatabaseDump updates a snapshot row to contain a reference to a database dump.
-func addDatabaseDump(ctx context.Context, tx *sqlx.Tx, snapshotID SnapshotID, filesetID fileset.ID) error {
-	result, err := tx.ExecContext(ctx, `update recovery.snapshots set sql_dump_fileset_id=$1 where id=$2`, filesetID[:], snapshotID)
+func addDatabaseDump(ctx context.Context, tx *sqlx.Tx, snapshotID SnapshotID, filesetToken fileset.Token) error {
+	result, err := tx.ExecContext(ctx, `update recovery.snapshots set sql_dump_fileset_id=$1 where id=$2`, filesetToken[:], snapshotID)
 	if err != nil {
 		return errors.Wrap(err, "update snapshot to contain database dump fileset")
 	}
@@ -172,19 +172,19 @@ func CreateSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage) (i
 		}
 	}
 	closedFileSet = true
-	fsID, err := fw.Close()
+	fsHandle, err := fw.Close()
 	if err != nil {
 		return 0, errors.Wrap(err, "close finished database dump fileset")
 	}
-	if fsID == nil {
-		return 0, errors.New("fileset ID was nil")
+	if fsHandle == nil {
+		return 0, errors.New("fileset handle was nil")
 	}
 
 	// Adjust the snapshot to reference this fileset.
-	log.Debug(rctx, "adjusting snapshot to reference database dump fileset", zap.Stringer("snapshot", id), zap.String("fileset_id", fsID.HexString()))
+	log.Debug(rctx, "adjusting snapshot to reference database dump fileset", zap.Stringer("snapshot", id), zap.String("fileset_token", fsHandle.Token().HexString()))
 	if err := dbutil.WithTx(rctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-		if err := addDatabaseDump(ctx, tx, id, *fsID); err != nil {
-			return errors.Wrapf(err, "addDatabaseDump(%v)", fsID.HexString())
+		if err := addDatabaseDump(ctx, tx, id, fsHandle.Token()); err != nil {
+			return errors.Wrapf(err, "addDatabaseDump(%v)", fsHandle.Token().HexString())
 		}
 		return nil
 	}); err != nil {
