@@ -8,7 +8,7 @@ import (
 )
 
 // localhostIdentityServerAddress is the URL we can reach the embedded identity server at
-const localhostIdentityServerAddress = "http://localhost:1658/"
+const externalIdentityServerAddress = "http://dex-test.default.svc.cluster.local:5556/"
 
 // RewriteRoundTripper replaces the expected hostname with a new hostname.
 // If a scheme is specified it's also replaced.
@@ -31,9 +31,9 @@ func LocalhostRewriteClient(expected string) (*http.Client, error) {
 		return nil, errors.Errorf("unable to parse URL %q: %w", expected, err)
 	}
 
-	rewriteURL, err := url.Parse(localhostIdentityServerAddress)
+	rewriteURL, err := url.Parse(externalIdentityServerAddress)
 	if err != nil {
-		return nil, errors.Errorf("unable to parse URL %q: %w", localhostIdentityServerAddress, err)
+		return nil, errors.Errorf("unable to parse URL %q: %w", externalIdentityServerAddress, err)
 	}
 
 	if rewriteURL.Host == "" || rewriteURL.Scheme == "" {
