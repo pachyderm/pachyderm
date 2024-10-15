@@ -63,7 +63,7 @@ global:
 
 determined:
   enabled: false
-  detVersion: "0.35.0"
+  detVersion: "0.37.0"
   # The image registry to be used to pull the Master image.
   # Determined OSS edition uses the determinedai repository in DockerHub.
   imageRegistry: determinedai
@@ -92,14 +92,11 @@ determined:
     # default Kube Scheduler image
     kubeScheduler: "k8s.gcr.io/scheduler-plugins/kube-scheduler:v0.18.9"
 
-    # Kube Scheduler used when the K8s default scheduler is set to preemption
-    # when, defaultScheduler: preemption
-    kubeSchedulerPreemption: "determinedai/kube-scheduler:0.17.0"
-
     # default images for CPU and GPU environments
 
-    cpuImage: "determinedai/pytorch-ngc:0.35.0"
-    gpuImage: "determinedai/pytorch-ngc:0.35.0"
+    cpuImage: "determinedai/pytorch-ngc:0.37.0"
+    gpuImage: "determinedai/pytorch-ngc:0.37.0"
+    rocmImage: "determinedai/environments:rocm-5.6-pytorch-1.3-tf-2.10-rocm-mpich-0736b6d"
 
   # Install Determined enterprise edition.
   enterpriseEdition: false
@@ -148,6 +145,11 @@ determined:
   # load-balancer.
   useNodePortForMaster: false
 
+  # Allow specifying annotations that will be put on the master service.
+  # masterService:
+  # annotations:
+  #   a: b
+
   # Enable route support for Openshift by setting enabled to true. Configure tls termination (i.e edge) if needed.
   # openshiftRoute:
   # enabled:
@@ -192,6 +194,11 @@ determined:
     groupsAttributeName: ""
     displayNameAttributeName: ""
     alwaysRedirect: false
+    agentUidAttributeName: ""
+    agentGidAttributeName: ""
+    agentUserNameAttributeName: ""
+    agentGroupNameAttributeName: ""
+    excludeGroupsScope: false
 
   # scim (EE-only) enables System for Cross-domain Identity Management (SCIM) integration, which is
   # only available if enterpriseEdition is true. It allows administrators to easily and securely
@@ -322,6 +329,11 @@ determined:
     # cpuPodSpec:
     # gpuPodSpec:
 
+    # Configure a custom CheckpointGC pod spec for experiments. When a custom CheckpointGC pod spec
+    # is defined, it takes precedence over the default experiment pod specifications. See
+    # https://docs:determined.ai/latest/topic-guides/custom-pod-specs.html for more details.
+    # checkpointGcPodSpec:
+
     # Configure default Docker images for all GPU tasks (experiments, notebooks, commands) and
     # CPU tasks (CPU notebooks, TensorBoards, zero-slot commands). If a Docker image is defined
     # for an individual task, that image will replace the default one that is defined here.
@@ -410,9 +422,8 @@ determined:
   # certificate: <certificate contents>
 
   ## Configure the default Determined scheduler
-  ## Currently supports "coscheduler" for gang scheduling and "preemption" for priority based
-  ## scheduling with preemption
-  # defaultScheduler: preemption
+  ## Currently supports "coscheduler" for gang scheduling.
+  # defaultScheduler: coscheduler
 
   ## Configure the resource pools in the Determined cluster.
   resourcePools:
@@ -421,7 +432,7 @@ determined:
   # defaultComputeResourcePool: default
 
   ## Configure the initial user password for the cluster
-  # initialUserPassword
+  # initialUserPassword:
 
   # additional_resource_managers:
   #   - resource_manager:
@@ -435,6 +446,14 @@ determined:
   #       determined_master_port: 8080
   #     resource_pools:
   #       - pool_name: additional_pool
+
+  ## Configure the retention policy for trial logs.
+  # retentionPolicy:
+  ## Specifies the number of days to retain logs for by default.
+  #   logRetentionDays: 7
+  ## Schedule for cleaning up logs. This also accepts a cron expression. For example to run retention every Sunday at 2 am, use "0 2 * * 0"
+  #   schedule: "24h"
+
   resourceManager:
     # Specifies the namespace in a given Kubernetes compute cluster where all workload pods will be sent by default.
     defaultNamespace: ""
