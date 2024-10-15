@@ -14,36 +14,36 @@ type Renewer struct {
 }
 
 func newRenewer(ctx context.Context, storage *Storage, ttl time.Duration) *Renewer {
-	rf := func(ctx context.Context, id string, ttl time.Duration) error {
-		fsid, err := ParseID(id)
+	rf := func(ctx context.Context, handleStr string, ttl time.Duration) error {
+		handle, err := ParseHandle(handleStr)
 		if err != nil {
 			return err
 		}
-		_, err = storage.SetTTL(ctx, *fsid, ttl)
+		_, err = storage.SetTTL(ctx, handle, ttl)
 		return err
 	}
-	cf := func(ctx context.Context, ids []string, ttl time.Duration) (string, error) {
-		var fsids []ID
-		for _, id := range ids {
-			fsid, err := ParseID(id)
+	cf := func(ctx context.Context, handleStrs []string, ttl time.Duration) (string, error) {
+		var handles []*Handle
+		for _, handleStr := range handleStrs {
+			handle, err := ParseHandle(handleStr)
 			if err != nil {
 				return "", err
 			}
-			fsids = append(fsids, *fsid)
+			handles = append(handles, handle)
 		}
-		fsid, err := storage.Compose(ctx, fsids, ttl)
+		handle, err := storage.Compose(ctx, handles, ttl)
 		if err != nil {
 			return "", err
 		}
-		return fsid.HexString(), nil
+		return handle.HexString(), nil
 	}
 	return &Renewer{
 		r: renew.NewStringSet(ctx, ttl, rf, cf),
 	}
 }
 
-func (r *Renewer) Add(ctx context.Context, id ID) error {
-	return r.r.Add(ctx, id.HexString())
+func (r *Renewer) Add(ctx context.Context, handle *Handle) error {
+	return r.r.Add(ctx, handle.HexString())
 }
 
 func (r *Renewer) Context() context.Context {

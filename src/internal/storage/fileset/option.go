@@ -60,12 +60,12 @@ func WithRenewal(ttl time.Duration, r *Renewer) UnorderedWriterOption {
 	}
 }
 
-// WithParentID sets a factory for the parent fileset ID for the unordered writer.
+// WithParentHandle sets a factory for the parent fileset handle for the unordered writer.
 // This is used for converting directory deletions into a set of point
 // deletes for the files contained within the directory.
-func WithParentID(getParentID func() (*ID, error)) UnorderedWriterOption {
+func WithParentHandle(getParentHandle func() (*Handle, error)) UnorderedWriterOption {
 	return func(uw *UnorderedWriter) {
-		uw.getParentID = getParentID
+		uw.getParentHandle = getParentHandle
 	}
 }
 

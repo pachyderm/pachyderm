@@ -109,7 +109,7 @@ func getOrCreateKey(ctx context.Context, keyStore chunk.KeyStore, name string) (
 
 func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error {
 	ctx := server.Context()
-	var id *fileset.ID
+	var handle *fileset.Handle
 	if err := s.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		opts := []fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(ValidateFilename)}
 		uw, err := s.Filesets.NewUnorderedWriter(ctx, opts...)
@@ -139,22 +139,22 @@ func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error
 				}
 			}
 		}
-		id, err = uw.Close(ctx)
+		handle, err = uw.Close(ctx)
 		return err
 	}); err != nil {
 		return err
 	}
 	return server.SendAndClose(&storage.CreateFilesetResponse{
-		FilesetId: id.HexString(),
+		FilesetId: handle.HexString(),
 	})
 }
 
 func (s *Server) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, msg *storage.CopyFile) error {
-	id, err := fileset.ParseID(msg.FilesetId)
+	handle, err := fileset.ParseHandle(msg.FilesetId)
 	if err != nil {
 		return err
 	}
-	fs, err := s.Filesets.Open(ctx, []fileset.ID{*id})
+	fs, err := s.Filesets.Open(ctx, []*fileset.Handle{handle})
 	if err != nil {
 		return err
 	}
@@ -199,11 +199,11 @@ func (s *Server) ReadFileset(request *storage.ReadFilesetRequest, server storage
 
 // TODO: Add file filter error types.
 func (s *Server) readFileset(ctx context.Context, request *storage.ReadFilesetRequest, cb func(fileset.File) error) error {
-	id, err := fileset.ParseID(request.FilesetId)
+	handle, err := fileset.ParseHandle(request.FilesetId)
 	if err != nil {
 		return err
 	}
-	fs, err := s.Filesets.Open(ctx, []fileset.ID{*id})
+	fs, err := s.Filesets.Open(ctx, []*fileset.Handle{handle})
 	if err != nil {
 		return err
 	}
@@ -314,7 +314,7 @@ func (s *Server) ReadFilesetCDR(request *storage.ReadFilesetRequest, server stor
 //   - TODO: We should be able to use this and potentially others directly in PFS.
 //   - TODO: Document.
 func (s *Server) RenewFileset(ctx context.Context, request *storage.RenewFilesetRequest) (*emptypb.Empty, error) {
-	id, err := fileset.ParseID(request.FilesetId)
+	handle, err := fileset.ParseHandle(request.FilesetId)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +326,7 @@ func (s *Server) RenewFileset(ctx context.Context, request *storage.RenewFileset
 	}
 	// NOTE: no need to explicitly check overflow because of the bounds checks above.
 	ttl := time.Duration(request.TtlSeconds) * time.Second
-	_, err = s.Filesets.SetTTL(ctx, *id, ttl)
+	_, err = s.Filesets.SetTTL(ctx, handle, ttl)
 	if err != nil {
 		return nil, err
 	}
@@ -334,30 +334,30 @@ func (s *Server) RenewFileset(ctx context.Context, request *storage.RenewFileset
 }
 
 func (s *Server) ComposeFileset(ctx context.Context, request *storage.ComposeFilesetRequest) (*storage.ComposeFilesetResponse, error) {
-	var ids []fileset.ID
-	for _, id := range request.FilesetIds {
-		id, err := fileset.ParseID(id)
+	var handles []*fileset.Handle
+	for _, handle := range request.FilesetIds {
+		handle, err := fileset.ParseHandle(handle)
 		if err != nil {
 			return nil, err
 		}
-		ids = append(ids, *id)
+		handles = append(handles, handle)
 	}
 	ttl := time.Duration(request.TtlSeconds) * time.Second
-	id, err := s.Filesets.Compose(ctx, ids, ttl)
+	handle, err := s.Filesets.Compose(ctx, handles, ttl)
 	if err != nil {
 		return nil, err
 	}
 	return &storage.ComposeFilesetResponse{
-		FilesetId: id.HexString(),
+		FilesetId: handle.HexString(),
 	}, nil
 }
 
 func (s *Server) ShardFileset(ctx context.Context, request *storage.ShardFilesetRequest) (*storage.ShardFilesetResponse, error) {
-	id, err := fileset.ParseID(request.FilesetId)
+	handle, err := fileset.ParseHandle(request.FilesetId)
 	if err != nil {
 		return nil, err
 	}
-	fs, err := s.Filesets.Open(ctx, []fileset.ID{*id})
+	fs, err := s.Filesets.Open(ctx, []*fileset.Handle{handle})
 	if err != nil {
 		return nil, err
 	}

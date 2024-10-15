@@ -1,6 +1,7 @@
 package pachd
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -171,6 +172,25 @@ func PPSEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter 
 		BackgroundContext: pctx.Child(senv.Context(), "PPS"),
 		Config:            *senv.Config(),
 	}
+}
+
+func SnapshotEnv(env serviceenv.ServiceEnv) (*fileset.Storage, error) {
+	cfg := env.Config()
+	db := env.GetDBClient()
+	bucket, err := obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "new bucket")
+	}
+	storageEnv := storage.Env{
+		DB:     db,
+		Bucket: bucket,
+		Config: cfg.StorageConfiguration,
+	}
+	storageServer, err := storage.New(env.Context(), storageEnv)
+	if err != nil {
+		return nil, errors.Wrap(err, "new storage")
+	}
+	return storageServer.Filesets, nil
 }
 
 func DebugEnv(env serviceenv.ServiceEnv) debug_server.Env {

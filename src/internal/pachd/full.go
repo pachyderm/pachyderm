@@ -34,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
+	snapshot_server "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	storage_server "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -60,6 +61,7 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxy_server "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version_server "github.com/pachyderm/pachyderm/v2/src/version"
@@ -136,6 +138,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.maybeRegisterIdentityServer,
 		fb.registerAuthServer,
 		fb.registerPFSServer,
+		fb.registerSnapshotServer,
 		fb.registerStorageServer,
 		fb.registerPPSServer,
 		fb.registerTransactionServer,
@@ -203,6 +206,7 @@ type Full struct {
 	authServer       auth.APIServer
 	pfsServer        pfs.APIServer
 	pjsServer        pjs.APIServer
+	snapshotServer   snapshot.APIServer
 	storageServer    *storage_server.Server
 	ppsServer        pps.APIServer
 	metadataServer   metadata.APIServer
@@ -506,6 +510,25 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 				return nil
 			},
 		},
+		setupStep{
+			Name: "initSnapshotServer",
+			Fn: func(ctx context.Context) error {
+				storageEnv := storage_server.Env{
+					DB:     env.DB,
+					Bucket: env.Bucket,
+					Config: config.StorageConfiguration,
+				}
+				storageServer, err := storage_server.New(ctx, storageEnv)
+				if err != nil {
+					return errors.Wrap(err, "new storage")
+				}
+				pd.snapshotServer = &snapshot_server.APIServer{
+					DB:    env.DB,
+					Store: storageServer.Filesets,
+				}
+				return nil
+			},
+		},
 
 		// Workers
 		initPFSWorker(&pd.pfsWorker, config.StorageConfiguration, func() pfs_server.WorkerEnv {
@@ -540,6 +563,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 		metadata.RegisterAPIServer(gs, pd.metadataServer)
 		pfs.RegisterAPIServer(gs, pd.pfsServer)
 		pjs.RegisterAPIServer(gs, pd.pjsServer)
+		snapshot.RegisterAPIServer(gs, pd.snapshotServer)
 		storage.RegisterFilesetServer(gs, pd.storageServer)
 		transaction.RegisterAPIServer(gs, pd.txnServer)
 		pps.RegisterAPIServer(gs, pd.ppsServer)
