@@ -11,6 +11,8 @@ go_library(
         "//src/internal/errors",
         "//src/internal/grpcutil",
         "//src/internal/pachctl",
+        "//src/internal/snapshot/pretty",
+        "//src/internal/tabwriter",
         "//src/server/transaction/cmds",
         "//src/snapshot",
         "@com_github_spf13_cobra//:cobra",
