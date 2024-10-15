@@ -296,6 +296,9 @@
                         "clientSecretName": {
                             "type": "string"
                         },
+                        "deployDex": {
+                          "type": "boolean"
+                        },
                         "displayNameAttributeName": {
                             "type": "string"
                         },
