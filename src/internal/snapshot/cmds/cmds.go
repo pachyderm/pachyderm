@@ -1,3 +1,4 @@
+// Package cmds implements commands for snapshot
 package cmds
 
 import (
