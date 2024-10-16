@@ -25,11 +25,11 @@ type Job struct {
 	ID     JobID
 	Parent JobID
 
-	Inputs      []*fileset.Handle
-	Program     *fileset.Handle
+	Inputs      []fileset.Token
+	Program     fileset.Token
 	ProgramHash []byte
 	ContextHash []byte
-	Outputs     []*fileset.Handle
+	Outputs     []fileset.Token
 
 	Error string
 
@@ -114,14 +114,14 @@ func (r jobRecord) toJob() (Job, error) {
 	if err != nil {
 		return Job{}, errors.Wrap(err, "to job")
 	}
-	job.Program = program
+	job.Program = program.Token()
 	return job, nil
 }
 
 // Queue is the internal representation of a queue.
 type Queue struct {
 	ID       QueueID
-	Programs []*fileset.Handle
+	Programs []fileset.Token
 	Jobs     []JobID
 	Size     uint64
 	// additional fields or metadata that would be computed would go here.
@@ -154,7 +154,7 @@ func (r *queueRecord) toQueue() (Queue, error) {
 	}
 	return queue, nil
 }
-func (r *queueRecord) parsePrograms() ([]*fileset.Handle, error) {
+func (r *queueRecord) parsePrograms() ([]fileset.Token, error) {
 	return parseFilesets(r.Programs)
 }
 
@@ -186,16 +186,16 @@ func withoutHexPrefix(fs string) string {
 
 // the input filesets should be hex code of a string, in string format :)
 // Use this function when the input string is read with functions like ARRAY_AGG.
-// For example, if the fileset handle looks like e4fddb03882481d2fd47cff01b0ca753, you should use fileset.ParseHandle.
+// For example, if the fileset token looks like e4fddb03882481d2fd47cff01b0ca753, you should use fileset.ParseHandle.
 // If handle looks like \\x6534666464623033383832343831643266643437636666303162306361373533
 // then use this function instead. The latter is the hex interpretation of the former.
-func parseFilesets(handleStrs string) ([]*fileset.Handle, error) {
-	var handles []*fileset.Handle
-	for _, handleStr := range inArrayAgg(handleStrs) {
-		if handleStr == "" { // can happen if the array aggregate was empty '{}'
+func parseFilesets(tokenStrs string) ([]fileset.Token, error) {
+	var tokens []fileset.Token
+	for _, tokenStr := range inArrayAgg(tokenStrs) {
+		if tokenStr == "" { // can happen if the array aggregate was empty '{}'
 			continue
 		}
-		decoded, err := hex.DecodeString(withoutHexPrefix(handleStr))
+		decoded, err := hex.DecodeString(withoutHexPrefix(tokenStr))
 		if err != nil {
 			return nil, errors.Wrap(err, "parse ids")
 		}
@@ -203,9 +203,9 @@ func parseFilesets(handleStrs string) ([]*fileset.Handle, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "parse handles")
 		}
-		handles = append(handles, handle)
+		tokens = append(tokens, handle.Token())
 	}
-	return handles, nil
+	return tokens, nil
 }
 
 func ToJobInfo(job Job) (*pjs.JobInfo, error) {

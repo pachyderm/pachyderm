@@ -3,11 +3,12 @@ package clusterstate
 import (
 	"context"
 	"database/sql"
-	"github.com/gruntwork-io/terratest/modules/random"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gruntwork-io/terratest/modules/random"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 
@@ -162,7 +163,7 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 		require.NoError(t, err)
 
 		// add multiple diff file sets randomly.
-		diffFileset := newFilesetId()
+		diffFileset := newFilesetToken()
 		d3 := random.Random(0, 3)
 		for i := 0; i < d3; i++ {
 			_, err = tx.ExecContext(ctx, `INSERT INTO pfs.commit_diffs (commit_id, num, fileset_id) VALUES ($1, $2, $3)`, commitInfo.Commit.Key(), i, diffFileset)
@@ -172,7 +173,7 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 		d4 := random.Random(1, 4)
 		if d4 != 4 {
 			// 1 in 4 chance we don't add a total file set for a given commit, so we can test logic that should skip if not found.
-			totalFileset := newFilesetId()
+			totalFileset := newFilesetToken()
 			_, err = tx.ExecContext(ctx, `INSERT INTO storage.filesets (id, metadata_pb) VALUES ($1, $2) ON CONFLICT DO NOTHING`, totalFileset, emptyMdBytes)
 			require.NoError(t, err)
 			_, err = tx.ExecContext(ctx, `INSERT INTO pfs.commit_totals (commit_id, fileset_id) VALUES ($1, $2)`, commitInfo.Commit.Key(), totalFileset)

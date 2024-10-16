@@ -12,7 +12,6 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"

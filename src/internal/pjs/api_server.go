@@ -193,7 +193,9 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 				return errors.Wrap(err, "get job")
 			}
 			programHash = job.ProgramHash
-			inputHandles = job.Inputs
+			for _, input := range job.Inputs {
+				inputHandles = append(inputHandles, fileset.NewHandle(input))
+			}
 			return nil
 		}, dbutil.WithReadOnly()); err != nil {
 			return errors.Wrap(err, "with tx")

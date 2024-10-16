@@ -1,0 +1,22 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ListSnapshotRequest",
+    "definitions": {
+        "ListSnapshotRequest": {
+            "properties": {
+                "since": {
+                    "type": "string",
+                    "description": "exclusive; nil = start at the present",
+                    "format": "date-time"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "0 = no limit"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "List Snapshot Request"
+        }
+    }
+}

@@ -44,7 +44,7 @@
     "@floating-ui/react": "^0.26.3",
     "@lezer/common": "^1.2.1",
     "@lezer/highlight": "1.2.0",
-    "@sentry/browser": "7.64.0",
+    "@sentry/browser": "7.119.1",
     "@sentry/react": "7.64.0",
     "@sentry/tracing": "7.64.0",
     "@tanstack/react-query": "5.14.2",
