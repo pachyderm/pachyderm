@@ -557,6 +557,8 @@ go_library(
         "snapshot/ListSnapshotRequest.schema.json",
         "snapshot/ListSnapshotResponse.schema.json",
         "snapshot/SnapshotInfo.schema.json",
+        "admin_v2/RestartPachydermRequest.schema.json",
+        "admin_v2/RestartPachydermResponse.schema.json",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/jsonschema",
     visibility = ["//src:__subpackages__"],

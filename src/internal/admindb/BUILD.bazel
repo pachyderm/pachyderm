@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "admindb",
+    srcs = ["admindb.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/admindb",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "@com_github_jmoiron_sqlx//:sqlx",
+    ],
+)
+
+go_test(
+    name = "admindb_test",
+    srcs = ["admindb_test.go"],
+    embed = [":admindb"],
+    deps = [
+        "//src/internal/clusterstate",
+        "//src/internal/dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_jmoiron_sqlx//:sqlx",
+    ],
+)

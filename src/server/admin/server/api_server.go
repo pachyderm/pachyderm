@@ -152,3 +152,7 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 
 	return response, nil
 }
+
+func (a *apiServer) RestartPachyderm(ctx context.Context, req *admin.RestartPachydermRequest) (*admin.RestartPachydermResponse, error) {
+	return nil, nil
+}
