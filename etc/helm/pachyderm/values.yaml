@@ -1462,7 +1462,7 @@ preflightCheckJob:
   disableLogSampling: false
 restoreSnapshot:
   # if enabled, install a one-off Kubernetes job to revert an existing snapshot.
-  enabled: true
+  enabled: false
   snapshot_id: 0
 
   # The version to preflight.  It is totally fine if this is newer than the currently-running pachd
