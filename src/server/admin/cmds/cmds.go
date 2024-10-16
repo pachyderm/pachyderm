@@ -47,6 +47,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	inspectCluster.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectCluster, "inspect cluster"))
 
+	var reason string
 	restartPachyderm := &cobra.Command{
 		Short: "Schedules all Pachyderm pods to restart as soon as possible.",
 		Long: "Schedules all Pachyderm pods to restart as soon as possible.  " +
@@ -58,13 +59,16 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 				return err
 			}
 			defer errors.Close(&retErr, c, "close client")
-			if _, err := c.AdminAPIClient.RestartPachyderm(ctx, &admin.RestartPachydermRequest{}); err != nil {
+			if _, err := c.AdminAPIClient.RestartPachyderm(ctx, &admin.RestartPachydermRequest{
+				Reason: reason,
+			}); err != nil {
 				return errors.Wrap(err, "call RestartPachyderm")
 			}
 			fmt.Fprintf(os.Stderr, "restart requested ok\n")
 			return nil
 		}),
 	}
+	restartPachyderm.Flags().StringVarP(&reason, "reason", "r", "", "The reason that you're restarting Pachyderm.")
 	commands = append(commands, cmdutil.CreateAlias(restartPachyderm, "restart cluster"))
 
 	return commands

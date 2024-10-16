@@ -17,6 +17,8 @@ export type ClusterInfo = {
   paused?: boolean
   webResources?: WebResource
   metadata?: {[key: string]: string}
+  pendingRestart?: boolean
+  restartInfo?: string
 }
 
 export type InspectClusterRequest = {
@@ -30,6 +32,7 @@ export type WebResource = {
 }
 
 export type RestartPachydermRequest = {
+  reason?: string
 }
 
 export type RestartPachydermResponse = {

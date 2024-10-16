@@ -784,6 +784,8 @@
 | paused | [bool](#bool) |  | True if this pachd is in &#34;paused&#34; mode. |
 | web_resources | [WebResource](#admin_v2-WebResource) |  | Any HTTP links that the client might want to be aware of. |
 | metadata | [ClusterInfo.MetadataEntry](#admin_v2-ClusterInfo-MetadataEntry) | repeated | Cluster-level metadata. |
+| pending_restart | [bool](#bool) |  | If true, the cluster is going to restart soon. |
+| restart_info | [string](#string) |  | Information about pending restarts. |
 
 
 
@@ -826,6 +828,11 @@
 
 ### RestartPachydermRequest
 
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| reason | [string](#string) |  | The reason that you&#39;re requesting a restart of the cluster. |
 
 
 
@@ -872,7 +879,7 @@ WebResource contains URL prefixes of common HTTP functions.
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
 | InspectCluster | [InspectClusterRequest](#admin_v2-InspectClusterRequest) | [ClusterInfo](#admin_v2-ClusterInfo) |  |
-| RestartPachyderm | [RestartPachydermRequest](#admin_v2-RestartPachydermRequest) | [RestartPachydermResponse](#admin_v2-RestartPachydermResponse) |  |
+| RestartPachyderm | [RestartPachydermRequest](#admin_v2-RestartPachydermRequest) | [RestartPachydermResponse](#admin_v2-RestartPachydermResponse) | RestartPachyderm schedules this cluster to be restarted. |
 
  
 
