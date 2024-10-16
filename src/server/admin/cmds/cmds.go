@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
@@ -45,6 +46,26 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	}
 	inspectCluster.Flags().AddFlagSet(outputFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectCluster, "inspect cluster"))
+
+	restartPachyderm := &cobra.Command{
+		Short: "Schedules all Pachyderm pods to restart as soon as possible.",
+		Long: "Schedules all Pachyderm pods to restart as soon as possible.  " +
+			"All ongoing work will be lost.",
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
+			ctx := cmd.Context()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
+			if err != nil {
+				return err
+			}
+			defer errors.Close(&retErr, c, "close client")
+			if _, err := c.AdminAPIClient.RestartPachyderm(ctx, &admin.RestartPachydermRequest{}); err != nil {
+				return errors.Wrap(err, "call RestartPachyderm")
+			}
+			fmt.Fprintf(os.Stderr, "restart requested ok\n")
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(restartPachyderm, "restart cluster"))
 
 	return commands
 }

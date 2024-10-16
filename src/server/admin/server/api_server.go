@@ -4,17 +4,23 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/admindb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/weblinker"
@@ -153,6 +159,25 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 	return response, nil
 }
 
+// RestartPachyderm implements admin.APIServer.
 func (a *apiServer) RestartPachyderm(ctx context.Context, req *admin.RestartPachydermRequest) (*admin.RestartPachydermResponse, error) {
+	var b strings.Builder
+	if me := authmw.GetWhoAmI(ctx); me != "" {
+		b.WriteString(me)
+	} else {
+		b.WriteString("<unknown>")
+	}
+	if peer, ok := peer.FromContext(ctx); ok && peer.Addr.String() != "" {
+		b.WriteRune('@')
+		b.WriteString(peer.Addr.String())
+	}
+	if err := dbutil.WithTx(ctx, a.db, func(ctx context.Context, tx *pachsql.Tx) error {
+		if err := admindb.ScheduleRestart(ctx, tx, time.Now(), "", b.String()); err != nil {
+			return errors.Wrap(err, "ScheduleRestart")
+		}
+		return nil
+	}); err != nil {
+		return nil, status.Errorf(codes.Unavailable, "WithTx: %v", err)
+	}
 	return nil, nil
 }

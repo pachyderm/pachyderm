@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "cmds",
@@ -6,9 +6,26 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/server/admin/cmds",
     visibility = ["//visibility:public"],
     deps = [
+        "//src/admin",
         "//src/internal/cmdutil",
         "//src/internal/errors",
         "//src/internal/pachctl",
         "@com_github_spf13_cobra//:cobra",
+    ],
+)
+
+go_test(
+    name = "cmds_test",
+    srcs = ["cmds_test.go"],
+    embed = [":cmds"],
+    deps = [
+        "//src/internal/admindb",
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/pachd",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testutil",
     ],
 )
