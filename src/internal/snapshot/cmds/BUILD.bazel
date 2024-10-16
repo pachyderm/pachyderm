@@ -24,10 +24,8 @@ go_test(
     srcs = ["cmds_test.go"],
     embed = [":cmds"],
     deps = [
-        "//src/admin",
-        "//src/internal/dockertestenv",
+        "//src/internal/pachd",
         "//src/internal/pctx",
-        "//src/internal/testpachd/realenv",
         "//src/internal/testutil",
     ],
 )

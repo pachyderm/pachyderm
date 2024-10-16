@@ -25,3 +25,6 @@ func TestListSnapshot(t *testing.T) {
 		t.Fatalf("list snapshot RPC: %v", err)
 	}
 }
+
+// there are no tests for delete. because delete gRPC implementation has not been
+// merged into master
