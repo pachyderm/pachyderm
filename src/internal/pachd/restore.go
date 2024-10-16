@@ -6,7 +6,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/preflight"
 )
 
 type RestoreSnapshotEnv struct {
@@ -26,12 +25,6 @@ func NewRestoreSnapshot(env RestoreSnapshotEnv, config pachconfig.PachdRestoreSn
 	rs.addSetup(
 		printVersion(),
 		awaitDB(env.DB),
-		setupStep{
-			Name: "testMigrations",
-			Fn: func(ctx context.Context) error {
-				return preflight.TestMigrations(ctx, rs.env.DB)
-			},
-		},
 		setupStep{
 			Name: "HelloWorld",
 			Fn: func(ctx context.Context) error {
