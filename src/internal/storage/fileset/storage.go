@@ -183,13 +183,17 @@ func (s *Storage) CloneTx(tx *pachsql.Tx, handle *Handle, ttl time.Duration) (*H
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	return s.newHandle(tx, md, ttl)
+}
+
+func (s *Storage) newHandle(tx *pachsql.Tx, md *Metadata, ttl time.Duration) (*Handle, error) {
 	switch x := md.Value.(type) {
 	case *Metadata_Primitive:
 		return s.newPrimitiveTx(tx, x.Primitive, ttl)
 	case *Metadata_Composite:
 		return s.newCompositeTx(tx, x.Composite, ttl)
 	default:
-		return nil, errors.Errorf("cannot clone type %T", md.Value)
+		return nil, errors.Errorf("cannot create handle for type %T", md.Value)
 	}
 }
 
@@ -493,20 +497,6 @@ func (d *deleter) DeleteTx(tx *pachsql.Tx, oid string) error {
 		return err
 	}
 	return d.store.DeleteTx(tx, token)
-}
-
-type PinnedFileset Token
-
-// Pin clones a fileset, keeping it alive forever.
-/* 	TODO(Fahad): Replace cloning with a Pin that is a big int.
-	A pin will point to a fileset ID, where the ID is a stable hash of the root index.
-   	Fileset trees must be convergent in order to achieve this. */
-func (s *Storage) Pin(tx *pachsql.Tx, handle *Handle) (PinnedFileset, error) {
-	handle, err := s.CloneTx(tx, handle, track.NoTTL)
-	if err != nil {
-		return PinnedFileset{}, errors.Wrap(err, "pin")
-	}
-	return PinnedFileset(handle.token), nil
 }
 
 type ChunkSetID uint64
