@@ -42,6 +42,7 @@
     },
     "/admin_v2.API/RestartPachyderm": {
       "post": {
+        "summary": "RestartPachyderm schedules this cluster to be restarted.",
         "operationId": "API_RestartPachyderm",
         "responses": {
           "200": {
@@ -6462,6 +6463,14 @@
             "type": "string"
           },
           "description": "Cluster-level metadata."
+        },
+        "pendingRestart": {
+          "type": "boolean",
+          "description": "If true, the cluster is going to restart soon."
+        },
+        "restartInfo": {
+          "type": "string",
+          "description": "Information about pending restarts."
         }
       }
     },
@@ -6479,7 +6488,13 @@
       }
     },
     "admin_v2RestartPachydermRequest": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "description": "The reason that you're requesting a restart of the cluster."
+        }
+      }
     },
     "admin_v2RestartPachydermResponse": {
       "type": "object"

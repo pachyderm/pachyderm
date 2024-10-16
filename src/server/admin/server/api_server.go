@@ -29,6 +29,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
+var startup = time.Now()
+
 // Env is the set of dependencies required by an APIServer
 type Env struct {
 	ClusterID string
@@ -149,9 +151,20 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 				return errors.Wrap(err, "get cluster metadata")
 			}
 			response.Metadata = md
+
+			restarts, message, err := admindb.ShouldRestart(ctx, tx, startup, time.Now())
+			if err != nil {
+				return errors.Wrap(err, "get pending restarts")
+			}
+			response.PendingRestart = restarts
+			response.RestartInfo = message
 			return nil
 		}); err != nil {
-			response.Metadata = nil // Since the transaction might have rolled back, we can't trust the metadata added above.
+			// Since the transaction might have rolled back, we can't trust the response
+			// data added above.
+			response.Metadata = nil
+			response.PendingRestart = false
+			response.RestartInfo = ""
 			response.Warnings = append(response.Warnings, fmt.Sprintf(fmtGetClusterMetadataError, err))
 		}
 	}
@@ -172,7 +185,7 @@ func (a *apiServer) RestartPachyderm(ctx context.Context, req *admin.RestartPach
 		b.WriteString(peer.Addr.String())
 	}
 	if err := dbutil.WithTx(ctx, a.db, func(ctx context.Context, tx *pachsql.Tx) error {
-		if err := admindb.ScheduleRestart(ctx, tx, time.Now(), "", b.String()); err != nil {
+		if err := admindb.ScheduleRestart(ctx, tx, time.Now(), req.GetReason(), b.String()); err != nil {
 			return errors.Wrap(err, "ScheduleRestart")
 		}
 		return nil

@@ -33,6 +33,8 @@ func (x *ClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
+	enc.AddBool("pending_restart", x.PendingRestart)
+	enc.AddString("restart_info", x.RestartInfo)
 	return nil
 }
 
@@ -58,6 +60,7 @@ func (x *RestartPachydermRequest) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	if x == nil {
 		return nil
 	}
+	enc.AddString("reason", x.Reason)
 	return nil
 }
 

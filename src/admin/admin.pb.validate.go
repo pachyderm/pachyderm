@@ -100,6 +100,10 @@ func (m *ClusterInfo) validate(all bool) error {
 
 	// no validation rules for Metadata
 
+	// no validation rules for PendingRestart
+
+	// no validation rules for RestartInfo
+
 	if len(errors) > 0 {
 		return ClusterInfoMultiError(errors)
 	}
@@ -461,6 +465,8 @@ func (m *RestartPachydermRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	// no validation rules for Reason
 
 	if len(errors) > 0 {
 		return RestartPachydermRequestMultiError(errors)

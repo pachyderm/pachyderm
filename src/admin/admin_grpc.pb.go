@@ -28,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type APIClient interface {
 	InspectCluster(ctx context.Context, in *InspectClusterRequest, opts ...grpc.CallOption) (*ClusterInfo, error)
+	// RestartPachyderm schedules this cluster to be restarted.
 	RestartPachyderm(ctx context.Context, in *RestartPachydermRequest, opts ...grpc.CallOption) (*RestartPachydermResponse, error)
 }
 
@@ -62,6 +63,7 @@ func (c *aPIClient) RestartPachyderm(ctx context.Context, in *RestartPachydermRe
 // for forward compatibility
 type APIServer interface {
 	InspectCluster(context.Context, *InspectClusterRequest) (*ClusterInfo, error)
+	// RestartPachyderm schedules this cluster to be restarted.
 	RestartPachyderm(context.Context, *RestartPachydermRequest) (*RestartPachydermResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
