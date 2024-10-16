@@ -53,13 +53,12 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Long: "Schedules all Pachyderm pods to restart as soon as possible.  " +
 			"All ongoing work will be lost.",
 		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
-			ctx := cmd.Context()
-			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
 			defer errors.Close(&retErr, c, "close client")
-			if _, err := c.AdminAPIClient.RestartPachyderm(ctx, &admin.RestartPachydermRequest{
+			if _, err := c.AdminAPIClient.RestartPachyderm(c.Ctx(), &admin.RestartPachydermRequest{
 				Reason: reason,
 			}); err != nil {
 				return errors.Wrap(err, "call RestartPachyderm")
