@@ -242,7 +242,7 @@ func (PachdPreflightConfiguration) isPachConfig() {}
 // PachdRestoreSnapshotConfiguration is configuration for the restoring from a snapshot.
 type PachdRestoreSnapshotConfiguration struct {
 	PostgresConfiguration
-	SnapshotID int64 `env:SNAPSHOT_ID`
+	SnapshotID int64 `env:"SNAPSHOT_ID"`
 }
 
 func (p PachdRestoreSnapshotConfiguration) isPachConfig() {}
