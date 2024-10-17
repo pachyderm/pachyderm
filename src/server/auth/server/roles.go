@@ -286,6 +286,7 @@ func init() {
 				auth.Permission_CLUSTER_SET_DEFAULTS,
 				auth.Permission_CLUSTER_EDIT_CLUSTER_METADATA,
 				auth.Permission_CLUSTER_SNAPSHOTTER,
+				auth.Permission_CLUSTER_RESTART_PACHYDERM,
 			}),
 	})
 }

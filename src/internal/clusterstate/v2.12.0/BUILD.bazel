@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "v2_12_0",
     srcs = [
+        "admin.go",
         "chunkset.go",
         "clusterstate.go",
         "doc.go",

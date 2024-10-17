@@ -1,0 +1,17 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/RestartPachydermRequest",
+    "definitions": {
+        "RestartPachydermRequest": {
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": "The reason that you're requesting a restart of the cluster."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Restart Pachyderm Request"
+        }
+    }
+}

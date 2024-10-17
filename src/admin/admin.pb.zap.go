@@ -33,6 +33,8 @@ func (x *ClusterInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
+	enc.AddBool("pending_restart", x.PendingRestart)
+	enc.AddString("restart_info", x.RestartInfo)
 	return nil
 }
 
@@ -51,5 +53,20 @@ func (x *WebResource) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddString("archive_download_base_url", x.ArchiveDownloadBaseUrl)
 	enc.AddString("create_pipeline_request_json_schema_url", x.CreatePipelineRequestJsonSchemaUrl)
+	return nil
+}
+
+func (x *RestartPachydermRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("reason", x.Reason)
+	return nil
+}
+
+func (x *RestartPachydermResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
 	return nil
 }

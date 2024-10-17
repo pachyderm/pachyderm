@@ -40,6 +40,36 @@
         ]
       }
     },
+    "/admin_v2.API/RestartPachyderm": {
+      "post": {
+        "summary": "RestartPachyderm schedules this cluster to be restarted.",
+        "operationId": "API_RestartPachyderm",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/admin_v2RestartPachydermResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/admin_v2RestartPachydermRequest"
+            }
+          }
+        ]
+      }
+    },
     "/auth_v2.API/Activate": {
       "post": {
         "summary": "Activate/Deactivate the auth API. 'Activate' sets an initial set of admins\nfor the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and\nadmins from the Pachyderm cluster, making all data publicly accessable",
@@ -6433,6 +6463,14 @@
             "type": "string"
           },
           "description": "Cluster-level metadata."
+        },
+        "pendingRestart": {
+          "type": "boolean",
+          "description": "If true, the cluster is going to restart soon."
+        },
+        "restartInfo": {
+          "type": "string",
+          "description": "Information about pending restarts."
         }
       }
     },
@@ -6448,6 +6486,18 @@
           "description": "If CurrentProject is set, then InspectCluster will return an error if the\nproject does not exist."
         }
       }
+    },
+    "admin_v2RestartPachydermRequest": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "description": "The reason that you're requesting a restart of the cluster."
+        }
+      }
+    },
+    "admin_v2RestartPachydermResponse": {
+      "type": "object"
     },
     "admin_v2WebResource": {
       "type": "object",
@@ -6875,6 +6925,7 @@
         "CLUSTER_EDIT_CLUSTER_METADATA",
         "CLUSTER_DELETE_ALL",
         "CLUSTER_SNAPSHOTTER",
+        "CLUSTER_RESTART_PACHYDERM",
         "REPO_READ",
         "REPO_WRITE",
         "REPO_MODIFY_BINDINGS",

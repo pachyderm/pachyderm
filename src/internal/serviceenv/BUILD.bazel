@@ -24,7 +24,6 @@ go_library(
         "//src/internal/pachsql",
         "//src/internal/pctx",
         "//src/internal/promutil",
-        "//src/internal/snapshot",
         "//src/internal/task",
         "//src/internal/uuid",
         "//src/proxy",

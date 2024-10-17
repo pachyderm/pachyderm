@@ -63,6 +63,7 @@ func (eb *enterpriseBuilder) buildAndRun(ctx context.Context) error {
 		eb.initJaeger,
 		eb.initKube,
 		eb.setupDB,
+		eb.restartOnSignal,
 		eb.maybeInitDexDB,
 		eb.initInternalServer,
 		eb.initExternalServer,

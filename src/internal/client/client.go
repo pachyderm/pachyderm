@@ -8,13 +8,14 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"os"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/snapshot"
 
 	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"go.uber.org/zap"
@@ -662,6 +663,11 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	if os.Getenv("PACHYDERM_IGNORE_PAUSED_MODE") == "" {
 		if clusterInfo.GetPaused() {
 			log.Info(ctx, "NOTE: This pachd instance is currently paused, which prevents many commands from working.")
+		}
+	}
+	if os.Getenv("PACHYDERM_IGNORE_PENDING_RESTART") == "" {
+		if clusterInfo.GetPendingRestart() {
+			log.Info(ctx, "NOTE: This cluster is about to restart, which will briefly interrupt ongoing commands.  Reason: "+clusterInfo.GetRestartInfo())
 		}
 	}
 	if context.ClusterDeploymentId != clusterInfo.DeploymentId {

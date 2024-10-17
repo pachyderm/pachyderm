@@ -44,6 +44,14 @@
                     },
                     "type": "object",
                     "description": "Cluster-level metadata."
+                },
+                "pendingRestart": {
+                    "type": "boolean",
+                    "description": "If true, the cluster is going to restart soon."
+                },
+                "restartInfo": {
+                    "type": "string",
+                    "description": "Information about pending restarts."
                 }
             },
             "additionalProperties": false,

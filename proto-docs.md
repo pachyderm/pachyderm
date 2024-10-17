@@ -7,6 +7,8 @@
     - [ClusterInfo](#admin_v2-ClusterInfo)
     - [ClusterInfo.MetadataEntry](#admin_v2-ClusterInfo-MetadataEntry)
     - [InspectClusterRequest](#admin_v2-InspectClusterRequest)
+    - [RestartPachydermRequest](#admin_v2-RestartPachydermRequest)
+    - [RestartPachydermResponse](#admin_v2-RestartPachydermResponse)
     - [WebResource](#admin_v2-WebResource)
   
     - [API](#admin_v2-API)
@@ -782,6 +784,8 @@
 | paused | [bool](#bool) |  | True if this pachd is in &#34;paused&#34; mode. |
 | web_resources | [WebResource](#admin_v2-WebResource) |  | Any HTTP links that the client might want to be aware of. |
 | metadata | [ClusterInfo.MetadataEntry](#admin_v2-ClusterInfo-MetadataEntry) | repeated | Cluster-level metadata. |
+| pending_restart | [bool](#bool) |  | If true, the cluster is going to restart soon. |
+| restart_info | [string](#string) |  | Information about pending restarts. |
 
 
 
@@ -820,6 +824,31 @@
 
 
 
+<a name="admin_v2-RestartPachydermRequest"></a>
+
+### RestartPachydermRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| reason | [string](#string) |  | The reason that you&#39;re requesting a restart of the cluster. |
+
+
+
+
+
+
+<a name="admin_v2-RestartPachydermResponse"></a>
+
+### RestartPachydermResponse
+
+
+
+
+
+
+
 <a name="admin_v2-WebResource"></a>
 
 ### WebResource
@@ -850,6 +879,7 @@ WebResource contains URL prefixes of common HTTP functions.
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
 | InspectCluster | [InspectClusterRequest](#admin_v2-InspectClusterRequest) | [ClusterInfo](#admin_v2-ClusterInfo) |  |
+| RestartPachyderm | [RestartPachydermRequest](#admin_v2-RestartPachydermRequest) | [RestartPachydermResponse](#admin_v2-RestartPachydermResponse) | RestartPachyderm schedules this cluster to be restarted. |
 
  
 
@@ -1810,6 +1840,7 @@ Permission represents the ability to perform a given operation on a Resource
 | CLUSTER_EDIT_CLUSTER_METADATA | 151 |  |
 | CLUSTER_DELETE_ALL | 138 |  |
 | CLUSTER_SNAPSHOTTER | 152 |  |
+| CLUSTER_RESTART_PACHYDERM | 153 |  |
 | REPO_READ | 200 |  |
 | REPO_WRITE | 201 |  |
 | REPO_MODIFY_BINDINGS | 202 |  |
