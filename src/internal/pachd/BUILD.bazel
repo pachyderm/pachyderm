@@ -13,6 +13,7 @@ go_library(
         "paused.go",
         "preflight.go",
         "prometheus.go",
+        "restore.go",
         "s3.go",
         "setup.go",
         "sidecar.go",
