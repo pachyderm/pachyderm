@@ -1,0 +1,26 @@
+# TODO Maybe merge this with the pachyderm-identity-config file
+connectors:
+  - id: mock
+    name: Example
+    type: mockCallback
+enablePasswordDB: true
+grpc:
+  addr: 127.0.0.1:5557
+issuer: http://pachyderm.local/dex
+staticClients:
+  - id: example-app
+    name: Example App
+    redirectURIs:
+      - http://127.0.0.1:5555/callback
+    secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+staticPasswords:
+  - email: admin@example.com
+    hash: $2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W
+    userID: 08a8684b-db88-4b73-90a9-3cd1661f5466
+    username: admin
+storage:
+  type: memory
+telemetry:
+  http: 127.0.0.1:5558
+web:
+  http: 127.0.0.1:5556
