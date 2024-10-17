@@ -1,14 +1,14 @@
 Thank you for installing {{ .Chart.Name }}. Your release is named: {{ .Release.Name }}.
 It may take several minutes for your deployment to start up.
 
-{{- if .Values.useNodePortForMaster }}
+{{- if .Values.determined.useNodePortForMaster }}
 
 You have configured Determined to deploy the master with a NodePort service. To make the
 Determined master accessible from outside the cluster you will likely need to configure
 an Ingress for: determined-master-service-{{ .Release.Name }}.
 
 To have Determined configure an externally accessible load balancer for the
-maser, please set "Values.useNodePortForMaster" to false.
+master, please set "Values.determined.useNodePortForMaster" to false.
 {{ else }}
 
 The IP address of the Determined master is the external IP of determined-master-service-{{ .Release.Name }},
@@ -19,15 +19,15 @@ kubectl get service determined-master-service-{{ .Release.Name }} -n {{ .Release
 {{ end -}}
 
 {{ $httpOrHttps := "http" }}
-{{- if .Values.tlsSecret -}}
+{{- if .Values.determined.tlsSecret -}}
   {{ $httpOrHttps = "https" }}
-  {{ $secret := (lookup "v1" "Secret" .Release.Namespace (.Values.tlsSecret | toString) ) }}
+  {{ $secret := (lookup "v1" "Secret" .Release.Namespace (.Values.determined.tlsSecret | toString) ) }}
   {{- if eq (len $secret) 0 }}
-ERROR: Secret {{ .Values.tlsSecret }} does not exist in namespace: {{ .Release.Namespace }}. Please update ".Values.tlsSecret".
+ERROR: Secret {{ .Values.determined.tlsSecret }} does not exist in namespace: {{ .Release.Namespace }}. Please update ".Values.determined.tlsSecret".
   {{ end }}
 {{ end -}}
 
-{{- if (and (not .Values.detVersion) (contains "dev" .Chart.AppVersion)) }}
+{{- if (and (not .Values.determined.detVersion) (contains "dev" .Chart.AppVersion)) }}
 ERROR: Installing a non-released version of Determined: {{ .Chart.AppVersion }}.
 Determined does not publish Docker images for non-release version; attempts to
 install a non-release version will lead to a `ImagePullBackOff` error.
@@ -36,13 +36,12 @@ format X.Y.Z (e.g., 0.13.6).
 
 {{ end -}}
 
-{{- if .Values.defaultScheduler }}
-      {{- $schedulerType := .Values.defaultScheduler | trim}}
-      {{- if not (or (eq $schedulerType "coscheduler") (eq $schedulerType "preemption"))}}
+{{- if .Values.determined.defaultScheduler }}
+  {{- if eq (.Values.determined.defaultScheduler | trim ) "coscheduler"}}
 WARNING: defaultScheduler has been set to an unsupported value. The cluster default scheduler will be set to the Kubernetes scheduler.
-      {{ end }}
+  {{ end }}
 {{ end -}}
 
-Once you have the IP address, configure master address locally by running: `export DET_MASTER=<ip address>:{{ .Values.masterPort }}`.
+Once you have the IP address, configure master address locally by running: `export DET_MASTER=<ip address>:{{ .Values.determined.masterPort }}`.
 To submit experiments please install the Determined CLI locally: `pip install determined`.
-To access the WebUI go to: {{ $httpOrHttps }}://<ip address>:{{ .Values.masterPort }}.
+To access the WebUI go to: {{ $httpOrHttps }}://<ip address>:{{ .Values.determined.masterPort }}.

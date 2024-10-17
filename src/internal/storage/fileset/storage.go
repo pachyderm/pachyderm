@@ -183,13 +183,17 @@ func (s *Storage) CloneTx(tx *pachsql.Tx, handle *Handle, ttl time.Duration) (*H
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	return s.newHandle(tx, md, ttl)
+}
+
+func (s *Storage) newHandle(tx *pachsql.Tx, md *Metadata, ttl time.Duration) (*Handle, error) {
 	switch x := md.Value.(type) {
 	case *Metadata_Primitive:
 		return s.newPrimitiveTx(tx, x.Primitive, ttl)
 	case *Metadata_Composite:
 		return s.newCompositeTx(tx, x.Composite, ttl)
 	default:
-		return nil, errors.Errorf("cannot clone type %T", md.Value)
+		return nil, errors.Errorf("cannot create handle for type %T", md.Value)
 	}
 }
 

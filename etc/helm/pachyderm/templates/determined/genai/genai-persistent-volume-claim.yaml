@@ -1,5 +1,5 @@
 {{- if .Values.determined.genai }}
-{{- if (and .Values.determined.genai.version (not .Values.determined.genai.sharedPVCName)) }}
+{{- if (and .Values.determined.genai.version (not .Values.determined.genai.sharedPVCName) (not .Values.determined.genai.sharedFSHostPath)) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
