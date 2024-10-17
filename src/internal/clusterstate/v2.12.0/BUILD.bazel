@@ -16,5 +16,6 @@ go_library(
         "//src/internal/errors",
         "//src/internal/migrations",
         "//src/internal/pctx",
+        "//src/internal/storage/fileset",
     ],
 )
