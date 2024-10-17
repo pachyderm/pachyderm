@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type Pin = int64
+type Pin int64
 
 func (s *Storage) PinTx(ctx context.Context, tx *sqlx.Tx, handle *Handle) (Pin, error) {
 	handle, err := s.CloneTx(tx, handle, track.ExpireNow)
