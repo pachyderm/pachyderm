@@ -32,7 +32,7 @@ func (s *Storage) PinTx(ctx context.Context, tx *sqlx.Tx, handle *Handle) (Pin, 
 	}
 	rootPb, err := proto.Marshal(md)
 	if err != nil {
-		return 0, err
+		return 0, errors.EnsureStack(err)
 	}
 	var pin Pin
 	if err := tx.GetContext(ctx, &pin, `
@@ -56,7 +56,7 @@ func pinTrackerID(pin Pin) string {
 
 func (s *Storage) DeletePinTx(ctx context.Context, tx *pachsql.Tx, pin Pin) error {
 	if _, err := tx.ExecContext(ctx, "DELETE FROM storage.fileset_pins WHERE id = $1", pin); err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	return s.tracker.DeleteTx(tx, pinTrackerID(pin))
 }
@@ -71,11 +71,11 @@ func (s *Storage) GetPinHandleTx(ctx context.Context, tx *pachsql.Tx, pin Pin, t
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, pacherr.NewNotExist("pin", strconv.FormatInt(int64(pin), 10))
 		}
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	md := &Metadata{}
 	if err := proto.Unmarshal(rootPb, md); err != nil {
-		return nil, err
+		return nil, errors.EnsureStack(err)
 	}
 	return s.newHandle(tx, md, ttl)
 }
