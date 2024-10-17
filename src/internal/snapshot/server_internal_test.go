@@ -2,6 +2,10 @@ package snapshot_test
 
 import (
 	"context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
@@ -9,8 +13,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/snapshot"
 	snapshotpb "github.com/pachyderm/pachyderm/v2/src/snapshot"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 	"google.golang.org/protobuf/testing/protocmp"
-	"testing"
 )
 
 func TestCreateSnapshot(t *testing.T) {
@@ -48,6 +52,50 @@ func TestListSnapshot(t *testing.T) {
 	// the returned snapshots are in desc order.
 	// So sinceSecondSnapshot should be 5,4,3 and allRows are 5,4,3,2,1
 	require.NoDiff(t, allRows[:3], sinceSecondSnapshot, []cmp.Option{protocmp.Transform()})
+}
+
+func TestInspectSnapshot(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	c := pachd.NewTestPachd(t)
+	createResp, err := c.CreateSnapshot(ctx, &snapshot.CreateSnapshotRequest{})
+	if err != nil {
+		t.Fatalf("create snapshot RPC: %v", err)
+	}
+	inspectResp, err := c.InspectSnapshot(ctx, &snapshot.InspectSnapshotRequest{Id: createResp.Id})
+	if err != nil {
+		t.Fatalf("inspect snapshot RPC: %v", err)
+	}
+	info := inspectResp.Info
+	if info == nil || info.CreatedAt == nil {
+		t.Fatalf("snapshot info and timestamp should not be nil")
+	}
+	if info.PachydermVersion != version.Version.String() {
+		t.Fatalf("pachyderm version got %s, want %s", info.PachydermVersion, version.Version.String())
+	}
+	if info.Id != createResp.Id {
+		t.Fatalf("snapshot id got %d, want 1", info.Id)
+	}
+	if info.ChunksetId != 1 {
+		t.Fatalf("chunkset id got %d, want 1", info.ChunksetId)
+	}
+}
+
+func TestDeleteSnapshot(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	c := pachd.NewTestPachd(t)
+	createResp, err := c.CreateSnapshot(ctx, &snapshot.CreateSnapshotRequest{})
+	if err != nil {
+		t.Fatalf("create snapshot RPC: %v", err)
+	}
+	_, err = c.DeleteSnapshot(ctx, &snapshot.DeleteSnapshotRequest{Id: createResp.Id})
+	if err != nil {
+		t.Fatalf("delete snapshot RPC: %v", err)
+	}
+	// sanity check. we cannot inspect the deleted snapshot
+	_, err = c.InspectSnapshot(ctx, &snapshot.InspectSnapshotRequest{Id: createResp.Id})
+	if err == nil || status.Convert(err).Code() != codes.NotFound {
+		t.Fatalf("want error code not found")
+	}
 }
 
 func createSnapshots(t *testing.T, ctx context.Context, c snapshot.APIClient) {
