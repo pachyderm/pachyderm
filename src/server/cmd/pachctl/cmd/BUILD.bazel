@@ -15,6 +15,7 @@ go_library(
         "//src/internal/metrics",
         "//src/internal/pachctl",
         "//src/internal/signals",
+        "//src/internal/snapshot/cmds",
         "//src/internal/task/cmds",
         "//src/pps",
         "//src/server/admin/cmds",

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	snapshotcmds "github.com/pachyderm/pachyderm/v2/src/internal/snapshot/cmds"
 	"io"
 	"os"
 	"os/signal"
@@ -886,6 +887,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, misccmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, logscmds.Cmds(pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, metadatacmds.Cmds(pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, snapshotcmds.Cmds(pachctlCfg)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 

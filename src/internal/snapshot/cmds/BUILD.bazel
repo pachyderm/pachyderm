@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "cmds",
+    srcs = ["cmds.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/snapshot/cmds",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/cmdutil",
+        "//src/internal/errors",
+        "//src/internal/grpcutil",
+        "//src/internal/pachctl",
+        "//src/internal/snapshot/pretty",
+        "//src/internal/tabwriter",
+        "//src/server/transaction/cmds",
+        "//src/snapshot",
+        "@com_github_spf13_cobra//:cobra",
+    ],
+)
+
+go_test(
+    name = "cmds_test",
+    srcs = ["cmds_test.go"],
+    embed = [":cmds"],
+    deps = [
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "//src/internal/testutil",
+    ],
+)
