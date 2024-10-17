@@ -117,6 +117,7 @@ func (sb *sidecarBuilder) buildAndRun(ctx context.Context) error {
 		sb.setupProfiling,
 		sb.initJaeger,
 		sb.initKube,
+		sb.restartOnSignal,
 		sb.initInternalServer,
 		sb.registerAuthServer,
 		sb.registerPFSServer,

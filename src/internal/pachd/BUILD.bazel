@@ -53,6 +53,7 @@ go_library(
         "//src/internal/preflight",
         "//src/internal/profileutil",
         "//src/internal/require",
+        "//src/internal/restart",
         "//src/internal/serviceenv",
         "//src/internal/snapshot",
         "//src/internal/storage",

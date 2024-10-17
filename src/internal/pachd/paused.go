@@ -86,6 +86,7 @@ func (pb *pausedBuilder) buildAndRun(ctx context.Context) error {
 		pb.initJaeger,
 		pb.initKube,
 		pb.waitForDBState,
+		pb.restartOnSignal,
 		pb.maybeInitDexDB,
 		pb.initInternalServer,
 		pb.initExternalServer,
