@@ -1460,3 +1460,34 @@ preflightCheckJob:
   # logging settings
   sqlQueryLogs: false
   disableLogSampling: false
+restoreSnapshot:
+  # if enabled, install a one-off Kubernetes job to revert an existing snapshot.
+  enabled: false
+  snapshot_id: 0
+
+  # The version to preflight.  It is totally fine if this is newer than the currently-running pachd
+  # version.
+  image:
+    repository: "pachyderm/pachd"
+    pullPolicy: "IfNotPresent"
+    tag: ""
+
+  # misc k8s settings
+  affinity: {}
+  annotations: {}
+  resources:
+    {}
+    #limits:
+    #  cpu: "1"
+    #  memory: "2G"
+    #requests:
+    #  cpu: "1"
+  #  memory: "2G"
+  priorityClassName: ""
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+
+  # logging settings
+  sqlQueryLogs: false
+  disableLogSampling: false
