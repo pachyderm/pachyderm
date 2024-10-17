@@ -8,6 +8,9 @@ metadata:
     app: determined-master-{{ .Release.Name }}
     determined.ai/master-service: "true"
     release: {{ .Release.Name }}
+    {{- if (.Values.determined.masterService).annotations }}
+    annotations: {{- toYaml .Values.determined.masterService.annotations | nindent 4 }}
+    {{- end }}
 spec:
   ports:
   - port: {{ required "A valid Values.determined.masterPort entry required!" .Values.determined.masterPort }}

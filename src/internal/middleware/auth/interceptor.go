@@ -300,6 +300,14 @@ var authHandlers = map[string]authHandler{
 	// Metadata API
 	//
 	"/metadata.API/EditMetadata": authDisabledOr(authenticated),
+
+	//
+	// Snapshot API
+	//
+	"/snapshot.API/CreateSnapshot":  authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_SNAPSHOTTER)),
+	"/snapshot.API/ListSnapshot":    authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_SNAPSHOTTER)),
+	"/snapshot.API/InspectSnapshot": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_SNAPSHOTTER)),
+	"/snapshot.API/DeleteSnapshot":  authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_SNAPSHOTTER)),
 }
 
 // NewInterceptor instantiates a new Interceptor

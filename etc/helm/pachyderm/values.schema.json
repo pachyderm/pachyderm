@@ -224,10 +224,10 @@
                         "kubeScheduler": {
                             "type": "string"
                         },
-                        "kubeSchedulerPreemption": {
+                        "postgreSQL": {
                             "type": "string"
                         },
-                        "postgreSQL": {
+                        "rocmImage": {
                             "type": "string"
                         }
                     }
@@ -278,6 +278,18 @@
                 "oidc": {
                     "type": "object",
                     "properties": {
+                        "agentGidAttributeName": {
+                            "type": "string"
+                        },
+                        "agentGroupNameAttributeName": {
+                            "type": "string"
+                        },
+                        "agentUidAttributeName": {
+                            "type": "string"
+                        },
+                        "agentUserNameAttributeName": {
+                            "type": "string"
+                        },
                         "alwaysRedirect": {
                             "type": "boolean"
                         },
@@ -300,6 +312,9 @@
                             "type": "string"
                         },
                         "enabled": {
+                            "type": "boolean"
+                        },
+                        "excludeGroupsScope": {
                             "type": "boolean"
                         },
                         "groupsAttributeName": {

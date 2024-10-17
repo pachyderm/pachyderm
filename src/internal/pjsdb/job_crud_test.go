@@ -302,7 +302,7 @@ func TestListJobTxByFilter(t *testing.T) {
 				expected = append(expected, included)
 			}
 			jobs, err := pjsdb.ListJobTxByFilter(d.ctx, d.tx,
-				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Program: []byte(fileset.ID(targetFs).HexString())}})
+				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Program: []byte(fileset.Token(targetFs).HexString())}})
 			require.NoError(t, err)
 			require.NoDiff(t, expected, jobs, nil)
 		})

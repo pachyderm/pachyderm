@@ -48,12 +48,10 @@ spec:
           - bash
           - -exc
           - |
-            apt-get update -y && apt-get install acl -y;
             echo "whoami: $(whoami)";
             chmod 2775 /shared_fs;
             GROUP_ID={{ (required "A valid .Values.determined.genai.agentGroupID entry required!" .Values.determined.genai.agentGroupID) }};
             chgrp +${GROUP_ID} /shared_fs;
-            setfacl -d -m g::rwX /shared_fs;
             ls -l / | grep shared_fs;
       volumes:
         - name: genai-pvc-storage

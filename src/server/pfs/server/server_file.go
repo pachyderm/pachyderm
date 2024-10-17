@@ -31,12 +31,12 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func (a *apiServer) getCompactedDiffFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
+func (a *apiServer) getCompactedDiffFileSet(ctx context.Context, commit *pfsdb.Commit) (*fileset.Handle, error) {
 	diff, err := a.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	isCompacted, err := a.storage.Filesets.IsCompacted(ctx, *diff)
+	isCompacted, err := a.storage.Filesets.IsCompacted(ctx, diff)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -77,15 +77,15 @@ func (a *apiServer) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb
 			if commitID != "" {
 				return pfsserver.ErrCommitFinished{Commit: commit.Commit}
 			}
-			return a.oneOffModifyFile(ctx, renewer, branch, cb, fileset.WithParentID(func() (*fileset.ID, error) {
-				parentID, err := a.getFileset(ctx, commit)
+			return a.oneOffModifyFile(ctx, renewer, branch, cb, fileset.WithParentHandle(func() (*fileset.Handle, error) {
+				parentHandle, err := a.getFileset(ctx, commit)
 				if err != nil {
 					return nil, err
 				}
-				if err := renewer.Add(ctx, *parentID); err != nil {
+				if err := renewer.Add(ctx, parentHandle); err != nil {
 					return nil, err
 				}
-				return parentID, nil
+				return parentHandle, nil
 			}))
 		}
 		return a.withCommitUnorderedWriter(ctx, renewer, commit, cb)
@@ -93,7 +93,7 @@ func (a *apiServer) modifyFile(ctx context.Context, commitHandle *pfs.Commit, cb
 }
 
 func (a *apiServer) oneOffModifyFile(ctx context.Context, renewer *fileset.Renewer, branch *pfs.Branch, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) error {
-	id, err := withUnorderedWriter(ctx, a.storage, renewer, cb, opts...)
+	handle, err := withUnorderedWriter(ctx, a.storage, renewer, cb, opts...)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func (a *apiServer) oneOffModifyFile(ctx context.Context, renewer *fileset.Renew
 		if err != nil {
 			return err
 		}
-		if err := a.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, *id); err != nil {
+		if err := a.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, handle); err != nil {
 			return errors.EnsureStack(err)
 		}
 		return a.finishCommit(ctx, txnCtx, commit, "", "", false)
@@ -175,23 +175,23 @@ func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.D
 
 // withCommitWriter calls cb with an unordered writer. All data written to cb is added to the commit, or an error is returned.
 func (a *apiServer) withCommitUnorderedWriter(ctx context.Context, renewer *fileset.Renewer, commit *pfsdb.Commit, cb func(*fileset.UnorderedWriter) error) error {
-	id, err := withUnorderedWriter(ctx, a.storage, renewer, cb, fileset.WithParentID(func() (*fileset.ID, error) {
-		parentID, err := a.getFileset(ctx, commit)
+	handle, err := withUnorderedWriter(ctx, a.storage, renewer, cb, fileset.WithParentHandle(func() (*fileset.Handle, error) {
+		parentHandle, err := a.getFileset(ctx, commit)
 		if err != nil {
 			return nil, err
 		}
-		if err := renewer.Add(ctx, *parentID); err != nil {
+		if err := renewer.Add(ctx, parentHandle); err != nil {
 			return nil, err
 		}
-		return parentID, nil
+		return parentHandle, nil
 	}))
 	if err != nil {
 		return err
 	}
-	return errors.Wrap(a.commitStore.AddFileSet(ctx, commit, *id), "with commit unordered writer")
+	return errors.Wrap(a.commitStore.AddFileSet(ctx, commit, handle), "with commit unordered writer")
 }
 
-func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.ID, error) {
+func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *fileset.Renewer, cb func(*fileset.UnorderedWriter) error, opts ...fileset.UnorderedWriterOption) (*fileset.Handle, error) {
 	opts = append([]fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(ValidateFilename)}, opts...)
 	uw, err := storage.Filesets.NewUnorderedWriter(ctx, opts...)
 	if err != nil {
@@ -200,14 +200,14 @@ func withUnorderedWriter(ctx context.Context, storage *storage.Server, renewer *
 	if err := cb(uw); err != nil {
 		return nil, err
 	}
-	id, err := uw.Close(ctx)
+	handle, err := uw.Close(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := renewer.Add(ctx, *id); err != nil {
+	if err := renewer.Add(ctx, handle); err != nil {
 		return nil, err
 	}
-	return id, nil
+	return handle, nil
 }
 
 func (a *apiServer) copyFile(ctx context.Context, uw *fileset.UnorderedWriter, dst string, src *pfs.File, appendFile bool, tag string) (retErr error) {
@@ -598,32 +598,32 @@ func (a *apiServer) diffFile(ctx context.Context, oldFile, newFile *pfs.File, cb
 }
 
 // createFileSet creates a new temporary fileset and returns it.
-func (a *apiServer) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWriter) error) (*fileset.ID, error) {
-	var id *fileset.ID
+func (a *apiServer) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWriter) error) (*fileset.Handle, error) {
+	var handle *fileset.Handle
 	if err := a.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var err error
-		id, err = withUnorderedWriter(ctx, a.storage, renewer, cb)
+		handle, err = withUnorderedWriter(ctx, a.storage, renewer, cb)
 		return err
 	}); err != nil {
 		return nil, err
 	}
-	return id, nil
+	return handle, nil
 }
 
-func (a *apiServer) getFileset(ctx context.Context, commit *pfsdb.Commit) (*fileset.ID, error) {
+func (a *apiServer) getFileset(ctx context.Context, commit *pfsdb.Commit) (*fileset.Handle, error) {
 	// Get the total file set if the commit has been finished.
 	if commit.Finished != nil && commit.Error == "" {
-		id, err := a.commitStore.GetTotalFileSet(ctx, commit)
+		handle, err := a.commitStore.GetTotalFileSet(ctx, commit)
 		if err != nil {
 			if errors.Is(err, errNoTotalFileSet) {
 				return nil, errors.Errorf("the commit is forgotten")
 			}
 			return nil, errors.EnsureStack(err)
 		}
-		return id, nil
+		return handle, nil
 	}
 	// Compose the base file set with the diffs.
-	var ids []fileset.ID
+	var handles []*fileset.Handle
 	baseCommitHandle := commit.ParentCommit
 	for baseCommitHandle != nil {
 		baseCommit, err := a.pickCommit(ctx, baseCommitHandle)
@@ -638,25 +638,25 @@ func (a *apiServer) getFileset(ctx context.Context, commit *pfsdb.Commit) (*file
 				}
 			}
 			// ¯\_(ツ)_/¯
-			baseId, err := a.getFileset(ctx, baseCommit)
+			baseHandle, err := a.getFileset(ctx, baseCommit)
 			if err != nil {
 				return nil, err
 			}
-			ids = append(ids, *baseId)
+			handles = append(handles, baseHandle)
 			break
 		}
 		baseCommitHandle = baseCommit.ParentCommit
 	}
-	id, err := a.commitStore.GetDiffFileSet(ctx, commit)
+	handle, err := a.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	ids = append(ids, *id)
-	return a.storage.Filesets.Compose(ctx, ids, defaultTTL)
+	handles = append(handles, handle)
+	return a.storage.Filesets.Compose(ctx, handles, defaultTTL)
 }
 
-func (a *apiServer) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles, sizeBytes int64) ([]*pfs.PathRange, error) {
-	fs, err := a.storage.Filesets.Open(ctx, []fileset.ID{fsid})
+func (a *apiServer) shardFileSet(ctx context.Context, handle *fileset.Handle, numFiles, sizeBytes int64) ([]*pfs.PathRange, error) {
+	fs, err := a.storage.Filesets.Open(ctx, []*fileset.Handle{handle})
 	if err != nil {
 		return nil, err
 	}
@@ -681,7 +681,7 @@ func (a *apiServer) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles,
 	return pathRanges, nil
 }
 
-func (a *apiServer) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, filesetID fileset.ID) error {
+func (a *apiServer) addFileSet(ctx context.Context, txnCtx *txncontext.TransactionContext, commitHandle *pfs.Commit, handle *fileset.Handle) error {
 	commit, err := a.pickCommitTx(ctx, txnCtx.SqlTx, commitHandle)
 	if err != nil {
 		return err
@@ -690,68 +690,68 @@ func (a *apiServer) addFileSet(ctx context.Context, txnCtx *txncontext.Transacti
 	if commit.Finishing != nil {
 		return pfsserver.ErrCommitFinished{Commit: commit.Commit}
 	}
-	return errors.Wrap(a.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, filesetID), "add file set")
+	return errors.Wrap(a.commitStore.AddFileSetTx(txnCtx.SqlTx, commit, handle), "add file set")
 }
 
-func (a *apiServer) renewFileSet(ctx context.Context, id fileset.ID, ttl time.Duration) error {
+func (a *apiServer) renewFileSet(ctx context.Context, handle *fileset.Handle, ttl time.Duration) error {
 	if ttl < time.Second {
 		return errors.Errorf("ttl (%d) must be at least one second", ttl)
 	}
 	if ttl > maxTTL {
 		return errors.Errorf("ttl (%d) exceeds max ttl (%d)", ttl, maxTTL)
 	}
-	_, err := a.storage.Filesets.SetTTL(ctx, id, ttl)
+	_, err := a.storage.Filesets.SetTTL(ctx, handle, ttl)
 	return err
 }
 
-func (a *apiServer) composeFileSet(ctx context.Context, ids []fileset.ID, ttl time.Duration, compact bool) (*fileset.ID, error) {
+func (a *apiServer) composeFileSet(ctx context.Context, handles []*fileset.Handle, ttl time.Duration, compact bool) (*fileset.Handle, error) {
 	if compact {
 		compactor := newCompactor(a.storage.Filesets, a.env.StorageConfig.StorageCompactionMaxFanIn)
 		taskDoer := a.env.TaskService.NewDoer(StorageTaskNamespace, uuid.NewWithoutDashes(), nil)
-		return compactor.Compact(ctx, taskDoer, ids, ttl)
+		return compactor.Compact(ctx, taskDoer, handles, ttl)
 	}
-	return a.storage.Filesets.Compose(ctx, ids, ttl)
+	return a.storage.Filesets.Compose(ctx, handles, ttl)
 }
 
-func (a *apiServer) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
-	id, err := a.commitStore.GetDiffFileSet(ctx, commit)
+func (a *apiServer) compactDiffFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.Handle, error) {
+	handle, err := a.commitStore.GetDiffFileSet(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if err := renewer.Add(ctx, *id); err != nil {
+	if err := renewer.Add(ctx, handle); err != nil {
 		return nil, err
 	}
-	diffId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
+	diffHandle, err := compactor.Compact(ctx, doer, []*fileset.Handle{handle}, defaultTTL)
 	if err != nil {
 		return nil, err
 	}
-	return diffId, errors.EnsureStack(a.commitStore.SetDiffFileSet(ctx, commit, *diffId))
+	return diffHandle, errors.EnsureStack(a.commitStore.SetDiffFileSet(ctx, commit, diffHandle))
 }
 
-func (a *apiServer) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.ID, error) {
-	id, err := a.getFileset(ctx, commit)
+func (a *apiServer) compactTotalFileSet(ctx context.Context, compactor *compactor, doer task.Doer, renewer *fileset.Renewer, commit *pfsdb.Commit) (*fileset.Handle, error) {
+	handle, err := a.getFileset(ctx, commit)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	if err := renewer.Add(ctx, *id); err != nil {
+	if err := renewer.Add(ctx, handle); err != nil {
 		return nil, err
 	}
-	totalId, err := compactor.Compact(ctx, doer, []fileset.ID{*id}, defaultTTL)
+	totalHandle, err := compactor.Compact(ctx, doer, []*fileset.Handle{handle}, defaultTTL)
 	if err != nil {
 		return nil, err
 	}
-	if err := errors.EnsureStack(a.commitStore.SetTotalFileSet(ctx, commit, *totalId)); err != nil {
+	if err := errors.EnsureStack(a.commitStore.SetTotalFileSet(ctx, commit, totalHandle)); err != nil {
 		return nil, err
 	}
-	return totalId, nil
+	return totalHandle, nil
 }
 
 func (a *apiServer) commitSizeUpperBound(ctx context.Context, commit *pfsdb.Commit) (int64, error) {
-	fsid, err := a.getFileset(ctx, commit)
+	handle, err := a.getFileset(ctx, commit)
 	if err != nil {
 		return 0, err
 	}
-	return a.storage.Filesets.SizeUpperBound(ctx, *fsid)
+	return a.storage.Filesets.SizeUpperBound(ctx, handle)
 }
 
 func newFileNotFound(commitID string, path string) pacherr.ErrNotExist {

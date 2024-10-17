@@ -550,7 +550,7 @@ func (m *CompactTaskResult) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Id
+	// no validation rules for Handle
 
 	if len(errors) > 0 {
 		return CompactTaskResultMultiError(errors)
@@ -753,7 +753,7 @@ func (m *ConcatTaskResult) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Id
+	// no validation rules for Handle
 
 	if len(errors) > 0 {
 		return ConcatTaskResultMultiError(errors)
@@ -855,7 +855,7 @@ func (m *ValidateTask) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Id
+	// no validation rules for Handle
 
 	if all {
 		switch v := interface{}(m.GetPathRange()).(type) {
@@ -1259,7 +1259,7 @@ func (m *PutFileURLTaskResult) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Id
+	// no validation rules for Handle
 
 	if len(errors) > 0 {
 		return PutFileURLTaskResultMultiError(errors)
@@ -1365,7 +1365,7 @@ func (m *GetFileURLTask) validate(all bool) error {
 
 	// no validation rules for URL
 
-	// no validation rules for Fileset
+	// no validation rules for Handle
 
 	if all {
 		switch v := interface{}(m.GetPathRange()).(type) {

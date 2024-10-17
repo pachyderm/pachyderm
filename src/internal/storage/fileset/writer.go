@@ -159,7 +159,7 @@ func (w *Writer) Copy(file File, datum string) error {
 }
 
 // Close closes the writer.
-func (w *Writer) Close() (*ID, error) {
+func (w *Writer) Close() (*Handle, error) {
 	// The uploader writes to the additive index, so close it first.
 	if err := w.uploader.Close(); err != nil {
 		return nil, err

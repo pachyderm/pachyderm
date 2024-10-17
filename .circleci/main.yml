@@ -1717,7 +1717,11 @@ jobs:
           command: docker manifest push pachyderm/haberdashery:${CIRCLE_TAG:1}
 workflows:
   functional-tests:
-    when: << pipeline.parameters.run-core-jobs >>
+    when:
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - << pipeline.parameters.run-jupyter-jobs >>
+        - << pipeline.parameters.run-console-jobs >>
     jobs:
       - build-docker-images
       - build-docker-images:

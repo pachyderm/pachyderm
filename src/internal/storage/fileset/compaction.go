@@ -18,11 +18,11 @@ import (
 )
 
 // IsCompacted returns true if the file sets are already in a compacted form.
-func (s *Storage) IsCompacted(ctx context.Context, id ID) (bool, error) {
+func (s *Storage) IsCompacted(ctx context.Context, handle *Handle) (bool, error) {
 	var prev *Primitive
 	compacted := true
-	if err := s.Flatten(ctx, []ID{id}, func(fsId ID) error {
-		curr, err := s.getPrimitive(ctx, fsId)
+	if err := s.Flatten(ctx, []*Handle{handle}, func(handle *Handle) error {
+		curr, err := s.getPrimitive(ctx, handle)
 		if err != nil {
 			return err
 		}
@@ -100,9 +100,9 @@ func compactionScore(prim *Primitive) int64 {
 // Compact always returns the ID of a primitive file set.
 // Compact does not renew ids.
 // It is the responsibility of the caller to renew ids.  In some cases they may be permanent and not require renewal.
-func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts ...index.Option) (*ID, error) {
+func (s *Storage) Compact(ctx context.Context, handles []*Handle, ttl time.Duration, opts ...index.Option) (*Handle, error) {
 	w := s.newWriter(ctx, WithTTL(ttl))
-	fs, err := s.Open(ctx, ids)
+	fs, err := s.Open(ctx, handles)
 	if err != nil {
 		return nil, err
 	}
@@ -117,39 +117,39 @@ func (s *Storage) Compact(ctx context.Context, ids []ID, ttl time.Duration, opts
 }
 
 // CompactCallback is the standard callback signature for a compaction operation.
-type CompactCallback func(context.Context, []ID, time.Duration) (*ID, error)
+type CompactCallback func(context.Context, []*Handle, time.Duration) (*Handle, error)
 
 // CompactLevelBased performs a level-based compaction on the passed in file sets.
-func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
-	ids, err := s.FlattenAll(ctx, ids)
+func (s *Storage) CompactLevelBased(ctx context.Context, handles []*Handle, maxFanIn int, ttl time.Duration, compact CompactCallback) (*Handle, error) {
+	handles, err := s.FlattenAll(ctx, handles)
 	if err != nil {
 		return nil, err
 	}
-	prims, err := s.getPrimitives(ctx, ids)
+	prims, err := s.getPrimitives(ctx, handles)
 	if err != nil {
 		return nil, err
 	}
 	if s.isCompacted(prims) {
-		return s.Compose(ctx, ids, ttl)
+		return s.Compose(ctx, handles, ttl)
 	}
-	var id *ID
+	var handle *Handle
 	if err := s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
 		i := s.indexOfCompactedOptimized(prims)
 		if err := log.LogStep(ctx, "compactLevels", func(ctx context.Context) error {
-			id, err = s.compactLevels(ctx, ids[i:], maxFanIn, ttl, compact)
+			handle, err = s.compactLevels(ctx, handles[i:], maxFanIn, ttl, compact)
 			if err != nil {
 				return err
 			}
-			return renewer.Add(ctx, *id)
-		}, zap.Int("indexOfCompactedOptimized", i), zap.Int("ids", len(ids))); err != nil {
+			return renewer.Add(ctx, handle)
+		}, zap.Int("indexOfCompactedOptimized", i), zap.Int("handles", len(handles))); err != nil {
 			return err
 		}
-		id, err = s.CompactLevelBased(ctx, append(ids[:i], *id), maxFanIn, ttl, compact)
+		handle, err = s.CompactLevelBased(ctx, append(handles[:i], handle), maxFanIn, ttl, compact)
 		return err
 	}); err != nil {
 		return nil, err
 	}
-	return id, nil
+	return handle, nil
 }
 
 // compactLevels compacts a list of levels.
@@ -159,72 +159,72 @@ func (s *Storage) CompactLevelBased(ctx context.Context, ids []ID, maxFanIn int,
 // For each step, this process is repeated until there are no more ranges eligible for compaction in the step.
 // The file sets being compacted must be contiguous because the file operation order matters.
 // This algorithm ensures that we compact file sets with lower scores together first before compacting higher score file sets.
-func (s *Storage) compactLevels(ctx context.Context, ids []ID, maxFanIn int, ttl time.Duration, compact CompactCallback) (*ID, error) {
-	var id *ID
+func (s *Storage) compactLevels(ctx context.Context, handles []*Handle, maxFanIn int, ttl time.Duration, compact CompactCallback) (*Handle, error) {
+	var handle *Handle
 	if err := s.WithRenewer(ctx, ttl, func(ctx context.Context, renewer *Renewer) error {
-		for step := 0; len(ids) > maxFanIn; step++ {
+		for step := 0; len(handles) > maxFanIn; step++ {
 			if err := log.LogStep(ctx, "compactLevels.step", func(ctx context.Context) error {
 				stepScore := s.stepScore(step)
 				var emptyStep bool
 				for !emptyStep {
 					emptyStep = true
-					nextIds := make([]ID, 0, len(ids))
-					var compactIds []ID
+					nextHandles := make([]*Handle, 0, len(handles))
+					var compactHandles []*Handle
 					eg, ctx := errgroup.WithContext(ctx)
-					for _, id := range ids {
-						prim, err := s.getPrimitive(ctx, id)
+					for _, handle := range handles {
+						prim, err := s.getPrimitive(ctx, handle)
 						if err != nil {
 							return err
 						}
-						compactIds = append(compactIds, id)
+						compactHandles = append(compactHandles, handle)
 						if compactionScore(prim) > stepScore {
-							nextIds = append(nextIds, compactIds...)
-							compactIds = nil
+							nextHandles = append(nextHandles, compactHandles...)
+							compactHandles = nil
 							continue
 						}
-						if len(compactIds) == maxFanIn {
+						if len(compactHandles) == maxFanIn {
 							emptyStep = false
-							ids := compactIds
-							i := len(nextIds)
-							nextIds = append(nextIds, ID{})
+							handles := compactHandles
+							i := len(nextHandles)
+							nextHandles = append(nextHandles, &Handle{})
 							eg.Go(func() error {
 								return log.LogStep(ctx, "compactBatch", func(ctx context.Context) error {
-									id, err := compact(ctx, ids, ttl)
+									handle, err := compact(ctx, handles, ttl)
 									if err != nil {
 										return err
 									}
-									if err := renewer.Add(ctx, *id); err != nil {
+									if err := renewer.Add(ctx, handle); err != nil {
 										return err
 									}
-									nextIds[i] = *id
+									nextHandles[i] = handle
 									return nil
 								}, zap.String("batch", uuid.NewWithoutDashes()))
 							})
-							compactIds = nil
+							compactHandles = nil
 						}
 					}
-					nextIds = append(nextIds, compactIds...)
+					nextHandles = append(nextHandles, compactHandles...)
 					if err := eg.Wait(); err != nil {
 						return errors.EnsureStack(err)
 					}
-					ids = nextIds
+					handles = nextHandles
 				}
 				return nil
 			}, zap.Int("step", step)); err != nil {
 				return err
 			}
 		}
-		if len(ids) == 1 {
-			id = &ids[0]
+		if len(handles) == 1 {
+			handle = handles[0]
 			return nil
 		}
 		var err error
-		id, err = compact(pctx.Child(ctx, "compact", pctx.WithFields(zap.String("batch", uuid.NewWithoutDashes()))), ids, ttl)
+		handle, err = compact(pctx.Child(ctx, "compact", pctx.WithFields(zap.String("batch", uuid.NewWithoutDashes()))), handles, ttl)
 		return err
 	}); err != nil {
 		return nil, err
 	}
-	return id, nil
+	return handle, nil
 }
 
 func (s *Storage) stepScore(step int) int64 {

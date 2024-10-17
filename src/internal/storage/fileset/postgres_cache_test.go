@@ -30,11 +30,11 @@ func TestPostgresCache(t *testing.T) {
 	storage := NewTestStorage(ctx, t, db, tr)
 	maxSize := 5
 	cache := newTestCache(t, db, tr, maxSize)
-	ids := make([]ID, maxSize+1)
+	handles := make([]*Handle, maxSize+1)
 	put := func(i int) {
-		id, err := storage.newWriter(ctx, WithTTL(track.ExpireNow)).Close()
+		handle, err := storage.newWriter(ctx, WithTTL(track.ExpireNow)).Close()
 		require.NoError(t, err)
-		valueProto := &TestCacheValue{FileSetId: id.HexString()}
+		valueProto := &TestCacheValue{FileSetId: handle.HexString()}
 		data, err := proto.Marshal(valueProto)
 		require.NoError(t, err)
 		value := &anypb.Any{
@@ -45,23 +45,23 @@ func TestPostgresCache(t *testing.T) {
 		if i%2 == 0 {
 			tag = "even"
 		}
-		require.NoError(t, cache.Put(ctx, strconv.Itoa(i), value, []ID{*id}, tag))
-		ids[i] = *id
+		require.NoError(t, cache.Put(ctx, strconv.Itoa(i), value, []*Handle{handle}, tag))
+		handles[i] = handle
 	}
 	checkExists := func(i int) {
 		value, err := cache.Get(ctx, strconv.Itoa(i))
 		require.NoError(t, err)
 		valueProto := &TestCacheValue{}
 		require.NoError(t, value.UnmarshalTo(valueProto))
-		require.Equal(t, ids[i].HexString(), valueProto.FileSetId)
-		exists, err := storage.exists(ctx, ids[i])
+		require.Equal(t, handles[i].HexString(), valueProto.FileSetId)
+		exists, err := storage.exists(ctx, handles[i])
 		require.NoError(t, err)
 		require.True(t, exists)
 	}
 	checkNotExists := func(i int) {
 		_, err := cache.Get(ctx, strconv.Itoa(i))
 		require.YesError(t, err)
-		exists, err := storage.exists(ctx, ids[i])
+		exists, err := storage.exists(ctx, handles[i])
 		require.NoError(t, err)
 		require.False(t, exists)
 	}

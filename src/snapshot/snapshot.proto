@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package snapshot;
+
+import "google/protobuf/timestamp.proto";
+import "protoextensions/validate.proto";
+
+option go_package = "github.com/pachyderm/pachyderm/v2/src/snapshot";
+
+service API {
+  rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse) {}
+  rpc DeleteSnapshot(DeleteSnapshotRequest) returns (DeleteSnapshotResponse) {}
+  rpc InspectSnapshot(InspectSnapshotRequest) returns (InspectSnapshotResponse) {}
+  rpc ListSnapshot(ListSnapshotRequest) returns (stream ListSnapshotResponse) {}
+}
+
+message CreateSnapshotRequest {
+  map <string, string> metadata = 1 [(validate.rules).map.keys.string.min_len = 1];
+}
+message CreateSnapshotResponse {
+  int64 id = 1 [(validate.rules).int64.gte = 1];
+}
+
+message DeleteSnapshotRequest {
+  int64 id = 1  [(validate.rules).int64.gte = 1];
+}
+message DeleteSnapshotResponse {}
+
+message SnapshotInfo {
+  int64 id = 1;
+  map <string, string> metadata = 2;
+  int64 chunkset_id = 3;
+  string sql_dump_fileset_id = 4;
+  string pachyderm_version = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message InspectSnapshotRequest {
+  int64 id = 1 [(validate.rules).int64.gte = 1];
+}
+message InspectSnapshotResponse {
+  SnapshotInfo info = 1;
+}
+
+message ListSnapshotRequest {
+  google.protobuf.Timestamp since = 1; // exclusive; nil = start at the present
+  int32 limit = 2; // 0 = no limit
+}
+message ListSnapshotResponse {
+  SnapshotInfo info = 1;
+}

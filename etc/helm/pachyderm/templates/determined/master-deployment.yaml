@@ -72,11 +72,7 @@ spec:
             mountPath: {{ include "determined.secretPath" . }}{{ $index }}/
             readOnly: true
           {{- end }}
-          {{- if .Values.determined.db.certResourceName }}
-          - name: database-cert
-            mountPath: {{ include "determined.secretPath" . }}
-            readOnly: true
-          {{- end }}
+          {{- include "determined.dbCertVolumeMount" . | nindent 10 }}
           # Additional volume mount for ca.crt or boundle to perform the ca cert injection
           {{- if .Values.determined.externalCaCertSecretName }}
           - name: etc-ssl-certs
@@ -145,17 +141,7 @@ spec:
           secret:
             secretName: {{ required "for each additional_resource_managers, resource_manager.kubeconfig_secret_name must be specified" $manager.resource_manager.kubeconfig_secret_name }}
         {{- end }}
-        {{- if .Values.determined.db.sslMode }}
-        - name: database-cert
-          {{- $resourceType := (required "A valid .Values.determined.db.resourceType entry required!" .Values.determined.db.resourceType | trim)}}
-          {{- if eq $resourceType "configMap"}}
-          configMap:
-            name: {{ required  "A valid Values.db.certResourceName entry is required!" .Values.determined.db.certResourceName }}
-          {{- else }}
-          secret:
-            secretName: {{ required  "A valid Values.db.certResourceName entry is required!" .Values.determined.db.certResourceName }}
-          {{- end }}
-        {{- end }}
+        {{- include "determined.dbCertVolume" . | nindent 8 }}
         # Additional volumes for ca.crt or ca boundle injection
         {{- if .Values.determined.externalCaCertSecretName }}
         - name: usr-local-share-ca-certificates

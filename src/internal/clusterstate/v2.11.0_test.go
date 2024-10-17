@@ -2,13 +2,14 @@ package clusterstate
 
 import (
 	"crypto/rand"
+	"testing"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
-	"testing"
 )
 
 func Test_v2_11_0_ClusterState(t *testing.T) {
@@ -26,10 +27,10 @@ func Test_v2_11_0_ClusterState(t *testing.T) {
 	require.NoError(t, migrations.BlockUntil(ctx, db, state_2_11_0))
 }
 
-func newFilesetId() fileset.ID {
-	id := fileset.ID{}
-	if _, err := rand.Read(id[:]); err != nil {
+func newFilesetToken() fileset.Token {
+	token := fileset.Token{}
+	if _, err := rand.Read(token[:]); err != nil {
 		panic(err)
 	}
-	return id
+	return token
 }

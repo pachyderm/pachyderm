@@ -120,8 +120,23 @@ stringData:
       {{- if .Values.determined.oidc.displayNameAttributeName }}
       display_name_attribute_name: {{ .Values.determined.oidc.displayNameAttributeName }}
       {{- end }}
+      {{- if .Values.determined.oidc.agentUidAttributeName }}
+      agent_uid_attribute_name: {{ .Values.determined.oidc.agentUidAttributeName }}
+      {{- end }}
+      {{- if .Values.determined.oidc.agentGidAttributeName }}
+      agent_gid_attribute_name: {{ .Values.determined.oidc.agentGidAttributeName }}
+      {{- end }}
+      {{- if .Values.determined.oidc.agentUserNameAttributeName }}
+      agent_user_name_attribute_name: {{ .Values.determined.oidc.agentUserNameAttributeName }}
+      {{- end }}
+      {{- if .Values.determined.oidc.agentGroupNameAttributeName }}
+      agent_group_name_attribute_name: {{ .Values.determined.oidc.agentGroupNameAttributeName }}
+      {{- end }}
       {{- if .Values.determined.oidc.alwaysRedirect }}
       always_redirect: {{ .Values.determined.oidc.alwaysRedirect }}
+      {{- end }}
+      {{- if .Values.determined.oidc.excludeGroupsScope }}
+      exclude_groups_scope: {{ .Values.determined.oidc.excludeGroupsScope }}
       {{- end }}
     {{- end }}
 
@@ -169,9 +184,8 @@ stringData:
       {{- end }}
       master_service_name: determined-master-service-{{ .Release.Name }}
       {{- if .Values.determined.defaultScheduler}}
-      {{- $schedulerType := .Values.determined.defaultScheduler | trim}}
-      {{- if or (eq $schedulerType "coscheduler") (eq $schedulerType "preemption")}}
-      default_scheduler: {{ $schedulerType }}
+      {{- if eq (.Values.determined.defaultScheduler | trim ) "coscheduler"}}
+      default_scheduler: "coscheduler"
       {{- end }}
       {{- end }}
       {{- if (ne (default "gpu" .Values.determined.slotType) "gpu") }}
@@ -227,19 +241,22 @@ stringData:
       log_policies:
         {{- toYaml .Values.determined.taskContainerDefaults.logPolicies | nindent 8}}
       {{- end }}
-      {{- if and .Values.determined.taskContainerDefaults.cpuImage .Values.determined.taskContainerDefaults.gpuImage }}
       image:
+        {{- if .Values.determined.taskContainerDefaults.cpuImage }}
          cpu: {{ .Values.determined.taskContainerDefaults.cpuImage | quote }}
-         gpu: {{ .Values.determined.taskContainerDefaults.gpuImage | quote }}
-      {{- else }}
-      image:
+        {{- else }}
          cpu: {{ .Values.determined.defaultImages.cpuImage | quote }}
+        {{- end }}
+        {{- if .Values.determined.taskContainerDefaults.gpuImage }}
+         gpu: {{ .Values.determined.taskContainerDefaults.gpuImage | quote }}
+        {{- else }}
          gpu: {{ .Values.determined.defaultImages.gpuImage | quote }}
-      {{- if or .Values.determined.taskContainerDefaults.cpuImage .Values.determined.taskContainerDefaults.gpuImage }}
-        {{ required "A valid .Values.determined.taskContainerDefaults.cpuImage entry is required if setting .Values.determined.taskContainerDefaults.gpuImage!" .Values.determined.taskContainerDefaults.cpuImage }}
-        {{ required "A valid .Values.determined.taskContainerDefaults.gpuImage entry is required if setting .Values.determined.taskContainerDefaults.cpuImage!" .Values.determined.taskContainerDefaults.gpuImage }}
-      {{- end }}
-      {{- end }}
+        {{- end }}
+        {{- if .Values.determined.taskContainerDefaults.rocmImage }}
+         rocm: {{ .Values.determined.taskContainerDefaults.rocmImage | quote }}
+        {{- else }}
+         rocm: {{ .Values.determined.defaultImages.rocmImage | quote }}
+        {{- end }}
       {{- if .Values.determined.taskContainerDefaults.forcePullImage }}
       force_pull_image: {{ .Values.determined.taskContainerDefaults.forcePullImage }}
       {{- end }}
@@ -248,6 +265,7 @@ stringData:
       image:
          cpu: {{ .Values.determined.defaultImages.cpuImage | quote }}
          gpu: {{ .Values.determined.defaultImages.gpuImage | quote }}
+         rocm: {{ .Values.determined.defaultImages.rocmImage | quote }}
     {{ end }}
 
     {{- if .Values.determined.telemetry }}

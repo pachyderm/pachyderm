@@ -90,7 +90,7 @@ func (a *apiServer) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Tran
 		if err != nil {
 			return nil, err
 		}
-		if err := a.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commit, *total); err != nil {
+		if err := a.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commit, total); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 	}
@@ -346,11 +346,11 @@ func (a *apiServer) findCommits(ctx context.Context, request *pfs.FindCommitsReq
 }
 
 func (a *apiServer) isPathModifiedInCommit(ctx context.Context, commit *pfsdb.Commit, filePath string) (bool, error) {
-	diffID, err := a.getCompactedDiffFileSet(ctx, commit)
+	diffHandle, err := a.getCompactedDiffFileSet(ctx, commit)
 	if err != nil {
 		return false, err
 	}
-	diffFileSet, err := a.storage.Filesets.Open(ctx, []fileset.ID{*diffID})
+	diffFileSet, err := a.storage.Filesets.Open(ctx, []*fileset.Handle{diffHandle})
 	if err != nil {
 		return false, err
 	}
@@ -904,11 +904,11 @@ func (a *apiServer) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*
 		return nil, nil, errors.New("nil repo or branch.repo in commit")
 	}
 	if commitHandle.AccessRepo().Name == fileSetsRepo {
-		fsid, err := fileset.ParseID(commitHandle.Id)
+		handle, err := fileset.ParseHandle(commitHandle.Id)
 		if err != nil {
 			return nil, nil, err
 		}
-		fs, err := a.storage.Filesets.Open(ctx, []fileset.ID{*fsid})
+		fs, err := a.storage.Filesets.Open(ctx, []*fileset.Handle{handle})
 		if err != nil {
 			return nil, nil, err
 		}
@@ -927,11 +927,11 @@ func (a *apiServer) openCommit(ctx context.Context, commitHandle *pfs.Commit) (*
 			return nil, nil, err
 		}
 	}
-	id, err := a.getFileset(ctx, commit)
+	handle, err := a.getFileset(ctx, commit)
 	if err != nil {
 		return nil, nil, err
 	}
-	fs, err := a.storage.Filesets.Open(ctx, []fileset.ID{*id})
+	fs, err := a.storage.Filesets.Open(ctx, []*fileset.Handle{handle})
 	if err != nil {
 		return nil, nil, err
 	}

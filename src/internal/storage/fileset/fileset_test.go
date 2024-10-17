@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"io"
 	"math/rand"
 	"sort"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 
 	units "github.com/docker/go-units"
 
@@ -38,14 +39,14 @@ type testFile struct {
 	data  []byte
 }
 
-func writeFileSet(ctx context.Context, t *testing.T, s *Storage, files []*testFile) ID {
+func writeFileSet(ctx context.Context, t *testing.T, s *Storage, files []*testFile) *Handle {
 	w := s.NewWriter(ctx)
 	for _, file := range files {
 		require.NoError(t, w.Add(file.path, file.datum, bytes.NewReader(file.data)))
 	}
-	id, err := w.Close()
+	handle, err := w.Close()
 	require.NoError(t, err)
-	return *id
+	return handle
 }
 
 func checkFile(ctx context.Context, t *testing.T, f File, tf *testFile) {
@@ -90,10 +91,10 @@ func TestWriteThenRead(t *testing.T) {
 	}
 
 	// Write the files to the fileset.
-	id := writeFileSet(ctx, t, storage, files)
+	handle := writeFileSet(ctx, t, storage, files)
 
 	// Read the files from the fileset, checking against the recorded files.
-	fs, err := storage.Open(ctx, []ID{id})
+	fs, err := storage.Open(ctx, []*Handle{handle})
 	require.NoError(t, err)
 	fileIter := files
 	err = fs.Iterate(ctx, func(f File) error {
@@ -132,8 +133,8 @@ func TestWriteThenReadFuzz(t *testing.T) {
 	// Confirm that all of the content and hashes other than the changed file remain the same.
 	for i := 0; i < 10; i++ {
 		// Write the files to the fileset.
-		id := writeFileSet(ctx, t, storage, files)
-		r, err := storage.Open(ctx, []ID{id})
+		handle := writeFileSet(ctx, t, storage, files)
+		r, err := storage.Open(ctx, []*Handle{handle})
 		require.NoError(t, err)
 		filesIter := files
 		require.NoError(t, r.Iterate(ctx, func(f File) error {
@@ -148,7 +149,7 @@ func TestWriteThenReadFuzz(t *testing.T) {
 			datum: files[idx].datum,
 			data:  data,
 		}
-		require.NoError(t, storage.Drop(ctx, id))
+		require.NoError(t, storage.Drop(ctx, handle))
 	}
 }
 
@@ -174,18 +175,18 @@ func TestCopy(t *testing.T) {
 			})
 		}
 	}
-	originalID := writeFileSet(ctx, t, fileSets, files)
+	originalHandle := writeFileSet(ctx, t, fileSets, files)
 
 	initialChunkCount := countChunks(t, fileSets)
 	// Copy intial fileset to a new copy fileset.
-	r := fileSets.newReader(originalID)
+	r := fileSets.newReader(originalHandle)
 	wCopy := fileSets.newWriter(context.Background())
 	require.NoError(t, CopyFiles(ctx, wCopy, r))
-	copyID, err := wCopy.Close()
+	copyHandle, err := wCopy.Close()
 	require.NoError(t, err)
 
 	// Compare initial fileset and copy fileset.
-	rCopy := fileSets.newReader(*copyID)
+	rCopy := fileSets.newReader(copyHandle)
 	require.NoError(t, rCopy.Iterate(ctx, func(f File) error {
 		checkFile(ctx, t, f, files[0])
 		files = files[1:]
@@ -292,24 +293,24 @@ func oldRandomBytes(random *rand.Rand, n int) []byte {
 
 func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, msg string, compact bool) {
 	storage := newTestStorage(ctx, t)
-	var ids []ID
+	var handles []*Handle
 	write := func(data []byte) {
 		w := storage.NewWriter(ctx)
 		require.NoError(t, w.Add("test", DefaultFileDatum, bytes.NewReader(data)), msg)
-		id, err := w.Close()
+		handle, err := w.Close()
 		require.NoError(t, err, msg)
-		ids = append(ids, *id)
+		handles = append(handles, handle)
 	}
 	getHash := func() []byte {
 		if compact {
-			compactFunc := func(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-				return storage.Compact(ctx, ids, ttl)
+			compactFunc := func(ctx context.Context, handles []*Handle, ttl time.Duration) (*Handle, error) {
+				return storage.Compact(ctx, handles, ttl)
 			}
-			id, err := storage.CompactLevelBased(ctx, ids, 10, time.Minute, compactFunc)
+			handle, err := storage.CompactLevelBased(ctx, handles, 10, time.Minute, compactFunc)
 			require.NoError(t, err)
-			ids = []ID{*id}
+			handles = []*Handle{handle}
 		}
-		fs, err := storage.Open(ctx, ids)
+		fs, err := storage.Open(ctx, handles)
 		require.NoError(t, err, msg)
 		var found bool
 		var hash []byte
@@ -335,26 +336,87 @@ func testStableHash(ctx context.Context, t *testing.T, data, expected []byte, ms
 		require.True(t, bytes.Equal(expected, stableHash))
 	}
 	// Compute hash after writing to two writers.
-	ids = nil
+	handles = nil
 	size := len(data) / 2
 	for offset := 0; offset < len(data); offset += size {
 		write(data[offset : offset+size])
 	}
 	require.True(t, bytes.Equal(stableHash, getHash()), msg)
 	// Compute hash after writing to ten writers.
-	ids = nil
+	handles = nil
 	size = len(data) / 10
 	for offset := 0; offset < len(data); offset += size {
 		write(data[offset : offset+size])
 	}
 	require.True(t, bytes.Equal(stableHash, getHash()), msg)
 	// Compute hash after writing to one hundred writers.
-	ids = nil
+	handles = nil
 	size = len(data) / 100
 	for offset := 0; offset < len(data); offset += size {
 		write(data[offset : offset+size])
 	}
 	require.True(t, bytes.Equal(stableHash, getHash()), msg)
+}
+
+func TestStableID(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	storage := newTestStorage(ctx, t)
+	seed := int64(1648577872380609229)
+	random := rand.New(rand.NewSource(seed))
+	num := 10
+	size := units.KB
+	var testFiles []*testFile
+	for i := 0; i < num; i++ {
+		tf := &testFile{
+			path: fmt.Sprintf("/%v", i),
+			data: randutil.Bytes(random, size),
+		}
+		testFiles = append(testFiles, tf)
+	}
+	primitiveHandle := writeFileSet(ctx, t, storage, testFiles)
+	var handles []*Handle
+	for _, tf := range testFiles {
+		handles = append(handles, writeFileSet(ctx, t, storage, []*testFile{tf}))
+	}
+	compositeHandle, err := storage.Compose(ctx, handles, track.NoTTL)
+	require.NoError(t, err)
+	// Check that the primitive and composite handles have different tokens and IDs.
+	// The IDs should be different because of the different layering.
+	require.NotEqual(t, primitiveHandle.token, compositeHandle.token)
+	require.NotEqual(t, primitiveHandle.id, compositeHandle.id)
+	// Check that creating filesets with the same content and layering produce the same id.
+	t.Run("Create", func(t *testing.T) {
+		t.Run("Primitive", func(t *testing.T) {
+			handle := writeFileSet(ctx, t, storage, testFiles)
+			require.NotEqual(t, handle.token, primitiveHandle.token)
+			require.Equal(t, handle.id, primitiveHandle.id)
+		})
+		t.Run("Composite", func(t *testing.T) {
+			var handles []*Handle
+			for _, tf := range testFiles {
+				handles = append(handles, writeFileSet(ctx, t, storage, []*testFile{tf}))
+			}
+			handle, err := storage.Compose(ctx, handles, track.NoTTL)
+			require.NoError(t, err)
+			require.NotEqual(t, handle.token, compositeHandle.token)
+			require.Equal(t, handle.id, compositeHandle.id)
+		})
+	})
+	// Check that cloning filesets produce the same id.
+	t.Run("Clone", func(t *testing.T) {
+		t.Run("Primitive", func(t *testing.T) {
+			handle, err := storage.Clone(ctx, primitiveHandle, track.NoTTL)
+			require.NoError(t, err)
+			require.NotEqual(t, handle.token, primitiveHandle.token)
+			require.Equal(t, handle.id, primitiveHandle.id)
+		})
+		t.Run("Composite", func(t *testing.T) {
+			handle, err := storage.Clone(ctx, compositeHandle, track.NoTTL)
+			require.NoError(t, err)
+			require.NotEqual(t, handle.token, compositeHandle.token)
+			require.Equal(t, handle.id, compositeHandle.id)
+		})
+	})
 }
 
 func TestPin(t *testing.T) {
@@ -369,7 +431,7 @@ func TestPin(t *testing.T) {
 		require.NoError(t, err)
 		return nil
 	}))
-	pinFs, err := storage.Open(ctx, []ID{ID(pin)})
+	pinFs, err := storage.Open(ctx, []*Handle{NewHandle(Token(pin))})
 	require.NoError(t, err)
 	// validate pinned fileset is the same.
 	var files []File

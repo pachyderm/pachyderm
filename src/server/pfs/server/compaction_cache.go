@@ -29,7 +29,7 @@ func (c *cache) Get(ctx context.Context, key string) (*anypb.Any, error) {
 }
 
 func (c *cache) Put(ctx context.Context, key string, output *anypb.Any) error {
-	var fileSetIds []string
+	var handleStrs []string
 	switch {
 	case output.MessageIs(&ShardTaskResult{}):
 	case output.MessageIs(&CompactTaskResult{}):
@@ -37,34 +37,34 @@ func (c *cache) Put(ctx context.Context, key string, output *anypb.Any) error {
 		if err != nil {
 			return err
 		}
-		fileSetIds = append(fileSetIds, ct.Id)
+		handleStrs = append(handleStrs, ct.Handle)
 	case output.MessageIs(&ConcatTaskResult{}):
 		ct, err := deserializeConcatTaskResult(output)
 		if err != nil {
 			return err
 		}
-		fileSetIds = append(fileSetIds, ct.Id)
+		handleStrs = append(handleStrs, ct.Handle)
 	case output.MessageIs(&ValidateTaskResult{}):
 	default:
 		return errors.Errorf("unrecognized any type (%v) in compaction cache", output.TypeUrl)
 	}
-	var fsids []fileset.ID
-	for _, id := range fileSetIds {
-		fsid, err := fileset.ParseID(id)
+	var handles []*fileset.Handle
+	for _, handleStr := range handleStrs {
+		handle, err := fileset.ParseHandle(handleStr)
 		if err != nil {
 			return err
 		}
-		fsids = append(fsids, *fsid)
+		handles = append(handles, handle)
 	}
-	return c.putCache(ctx, key, output, fsids, c.tag)
+	return c.putCache(ctx, key, output, handles, c.tag)
 }
 
 func (c *cache) clear(ctx context.Context) error {
 	return c.clearCache(ctx, c.tag)
 }
 
-func (a *apiServer) putCache(ctx context.Context, key string, value *anypb.Any, fileSetIds []fileset.ID, tag string) error {
-	return a.cache.Put(ctx, key, value, fileSetIds, tag)
+func (a *apiServer) putCache(ctx context.Context, key string, value *anypb.Any, handles []*fileset.Handle, tag string) error {
+	return a.cache.Put(ctx, key, value, handles, tag)
 }
 
 func (a *apiServer) getCache(ctx context.Context, key string) (*anypb.Any, error) {

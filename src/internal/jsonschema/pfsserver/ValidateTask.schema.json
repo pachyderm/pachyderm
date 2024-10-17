@@ -4,7 +4,7 @@
     "definitions": {
         "ValidateTask": {
             "properties": {
-                "id": {
+                "handle": {
                     "type": "string"
                 },
                 "pathRange": {
