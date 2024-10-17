@@ -806,7 +806,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 
 // CreateFileSet implements the pfs.CreateFileset RPC
 func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr error) {
-	fsID, err := a.createFileSet(server.Context(), func(uw *fileset.UnorderedWriter) error {
+	handle, err := a.createFileSet(server.Context(), func(uw *fileset.UnorderedWriter) error {
 		_, err := a.modifyFileFromSource(server.Context(), uw, server)
 		return err
 	})
@@ -814,7 +814,7 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 		return err
 	}
 	return errors.EnsureStack(server.SendAndClose(&pfs.CreateFileSetResponse{
-		FileSetId: fsID.HexString(),
+		FileSetId: handle.HexString(),
 	}))
 }
 
@@ -843,11 +843,11 @@ func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) 
 }
 
 func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetRequest) (*pfs.ShardFileSetResponse, error) {
-	fsid, err := fileset.ParseID(req.FileSetId)
+	handle, err := fileset.ParseHandle(req.FileSetId)
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.shardFileSet(ctx, *fsid, req.NumFiles, req.SizeBytes)
+	shards, err := a.shardFileSet(ctx, handle, req.NumFiles, req.SizeBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -866,23 +866,20 @@ func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) 
 }
 
 func (a *apiServer) AddFileSetInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.AddFileSetRequest) error {
-	fsid, err := fileset.ParseID(request.FileSetId)
+	handle, err := fileset.ParseHandle(request.FileSetId)
 	if err != nil {
 		return err
 	}
-	if err := a.addFileSet(ctx, txnCtx, request.Commit, *fsid); err != nil {
-		return err
-	}
-	return nil
+	return a.addFileSet(ctx, txnCtx, request.Commit, handle)
 }
 
 // RenewFileSet implements the pfs.RenewFileSet RPC
-func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest) (_ *emptypb.Empty, retErr error) {
-	fsid, err := fileset.ParseID(req.FileSetId)
+func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetRequest) (*emptypb.Empty, error) {
+	handle, err := fileset.ParseHandle(req.FileSetId)
 	if err != nil {
 		return nil, err
 	}
-	if err := a.renewFileSet(ctx, *fsid, time.Duration(req.TtlSeconds)*time.Second); err != nil {
+	if err := a.renewFileSet(ctx, handle, time.Duration(req.TtlSeconds)*time.Second); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
@@ -890,20 +887,20 @@ func (a *apiServer) RenewFileSet(ctx context.Context, req *pfs.RenewFileSetReque
 
 // ComposeFileSet implements the pfs.ComposeFileSet RPC
 func (a *apiServer) ComposeFileSet(ctx context.Context, req *pfs.ComposeFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	var fsids []fileset.ID
-	for _, id := range req.FileSetIds {
-		fsid, err := fileset.ParseID(id)
+	var handles []*fileset.Handle
+	for _, handleStr := range req.FileSetIds {
+		handle, err := fileset.ParseHandle(handleStr)
 		if err != nil {
 			return nil, err
 		}
-		fsids = append(fsids, *fsid)
+		handles = append(handles, handle)
 	}
-	filesetID, err := a.composeFileSet(ctx, fsids, time.Duration(req.TtlSeconds)*time.Second, req.Compact)
+	handle, err := a.composeFileSet(ctx, handles, time.Duration(req.TtlSeconds)*time.Second, req.Compact)
 	if err != nil {
 		return nil, err
 	}
 	return &pfs.CreateFileSetResponse{
-		FileSetId: filesetID.HexString(),
+		FileSetId: handle.HexString(),
 	}, nil
 }
 
@@ -919,15 +916,15 @@ func (a *apiServer) CheckStorage(ctx context.Context, req *pfs.CheckStorageReque
 }
 
 func (a *apiServer) PutCache(ctx context.Context, req *pfs.PutCacheRequest) (resp *emptypb.Empty, retErr error) {
-	var fsids []fileset.ID
-	for _, id := range req.FileSetIds {
-		fsid, err := fileset.ParseID(id)
+	var handles []*fileset.Handle
+	for _, handleStr := range req.FileSetIds {
+		handle, err := fileset.ParseHandle(handleStr)
 		if err != nil {
 			return nil, err
 		}
-		fsids = append(fsids, *fsid)
+		handles = append(handles, handle)
 	}
-	if err := a.putCache(ctx, req.Key, req.Value, fsids, req.Tag); err != nil {
+	if err := a.putCache(ctx, req.Key, req.Value, handles, req.Tag); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil

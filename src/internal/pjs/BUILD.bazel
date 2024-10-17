@@ -50,6 +50,7 @@ go_test(
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/storage",
+        "//src/internal/storage/fileset",
         "//src/internal/testetcd",
         "//src/internal/testutil",
         "//src/pjs",

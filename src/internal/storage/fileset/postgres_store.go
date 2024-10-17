@@ -21,21 +21,21 @@ var _ MetadataStore = &postgresStore{}
 
 type postgresStore struct {
 	db      *pachsql.DB
-	cache   *lru.Cache[ID, *Metadata]
-	deduper *miscutil.WorkDeduper[ID]
+	cache   *lru.Cache[Token, *Metadata]
+	deduper *miscutil.WorkDeduper[Token]
 }
 
 // NewPostgresStore returns a Store backed by db
 // TODO: Expose configuration for cache size?
 func NewPostgresStore(db *pachsql.DB) MetadataStore {
-	mc, err := lru.New[ID, *Metadata](100)
+	mc, err := lru.New[Token, *Metadata](100)
 	if err != nil {
 		panic(err)
 	}
 	return &postgresStore{
 		db:      db,
 		cache:   mc,
-		deduper: &miscutil.WorkDeduper[ID]{},
+		deduper: &miscutil.WorkDeduper[Token]{},
 	}
 }
 
@@ -43,7 +43,7 @@ func (s *postgresStore) DB() *pachsql.DB {
 	return s.db
 }
 
-func (s *postgresStore) SetTx(tx *pachsql.Tx, id ID, md *Metadata) error {
+func (s *postgresStore) SetTx(tx *pachsql.Tx, id Token, md *Metadata) error {
 	if md == nil {
 		md = &Metadata{}
 	}
@@ -69,7 +69,7 @@ func (s *postgresStore) SetTx(tx *pachsql.Tx, id ID, md *Metadata) error {
 	return nil
 }
 
-func (s *postgresStore) get(ctx context.Context, q sqlx.QueryerContext, id ID) (*Metadata, error) {
+func (s *postgresStore) get(ctx context.Context, q sqlx.QueryerContext, id Token) (*Metadata, error) {
 	var mdData []byte
 	if err := sqlx.GetContext(ctx, q, &mdData, `SELECT metadata_pb FROM storage.filesets WHERE id = $1`, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -84,7 +84,7 @@ func (s *postgresStore) get(ctx context.Context, q sqlx.QueryerContext, id ID) (
 	return md, nil
 }
 
-func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
+func (s *postgresStore) Get(ctx context.Context, id Token) (*Metadata, error) {
 	md, err := s.getFromCache(id)
 	if err == nil {
 		return md, err
@@ -113,7 +113,7 @@ func (s *postgresStore) Get(ctx context.Context, id ID) (*Metadata, error) {
 	return md, nil
 }
 
-func (s *postgresStore) getFromCache(id ID) (*Metadata, error) {
+func (s *postgresStore) getFromCache(id Token) (*Metadata, error) {
 	md, ok := s.cache.Get(id)
 	if !ok {
 		return nil, pacherr.NewNotExist("memory-filesets", id.HexString())
@@ -121,21 +121,21 @@ func (s *postgresStore) getFromCache(id ID) (*Metadata, error) {
 	return proto.Clone(md).(*Metadata), nil
 }
 
-func (s *postgresStore) putInCache(id ID, md *Metadata) {
+func (s *postgresStore) putInCache(id Token, md *Metadata) {
 	md = proto.Clone(md).(*Metadata)
 	s.cache.Add(id, md)
 }
 
-func (s *postgresStore) GetTx(tx *pachsql.Tx, id ID) (*Metadata, error) {
+func (s *postgresStore) GetTx(tx *pachsql.Tx, id Token) (*Metadata, error) {
 	return s.get(context.Background(), tx, id)
 }
 
-func (s *postgresStore) DeleteTx(tx *pachsql.Tx, id ID) error {
+func (s *postgresStore) DeleteTx(tx *pachsql.Tx, id Token) error {
 	_, err := tx.Exec(`DELETE FROM storage.filesets WHERE id = $1`, id)
 	return errors.EnsureStack(err)
 }
 
-func (s *postgresStore) Exists(ctx context.Context, id ID) (bool, error) {
+func (s *postgresStore) Exists(ctx context.Context, id Token) (bool, error) {
 	_, err := s.get(ctx, s.db, id)
 	if err != nil {
 		if errors.Is(err, ErrFileSetNotExists) {

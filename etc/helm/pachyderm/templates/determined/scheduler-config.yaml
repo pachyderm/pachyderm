@@ -1,6 +1,5 @@
 {{- if .Values.determined.defaultScheduler}}
-{{- $schedulerType := .Values.determined.defaultScheduler | trim}}
-{{- if or (eq $schedulerType "coscheduler") (eq $schedulerType "preemption")}}
+{{- if eq (.Values.determined.defaultScheduler | trim ) "coscheduler"}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,18 +12,13 @@ data:
     leaderElection:
       leaderElect: false
     profiles:
-    - schedulerName: {{ $schedulerType }}
+    - schedulerName: {{ .Values.determined.defaultScheduler }}
       plugins:
         queueSort:
           enabled:
             - name: Coscheduling
           disabled:
             - name: "*"
-        {{- if eq $schedulerType "preemption"}}
-        preFilter:
-          enabled:
-            - name: Coscheduling
-        {{- end }}
         permit:
           enabled:
             - name: Coscheduling

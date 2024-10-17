@@ -52,34 +52,33 @@ func NewCache(db *pachsql.DB, tracker track.Tracker, maxSize int) *Cache {
 	}
 }
 
-func (c *Cache) Put(ctx context.Context, key string, value *anypb.Any, ids []ID, tag string) error {
+func (c *Cache) Put(ctx context.Context, key string, value *anypb.Any, handles []*Handle, tag string) error {
 	data, err := proto.Marshal(value)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	return dbutil.WithTx(ctx, c.db, func(ctx context.Context, tx *pachsql.Tx) error {
-		if err := c.put(tx, key, data, ids, tag); err != nil {
+		if err := c.put(tx, key, data, handles, tag); err != nil {
 			return err
 		}
 		return c.applyEvictionPolicy(tx)
 	})
 }
 
-func (c *Cache) put(tx *pachsql.Tx, key string, value []byte, ids []ID, tag string) error {
-	if ids == nil {
-		ids = []ID{}
+func (c *Cache) put(tx *pachsql.Tx, key string, value []byte, handles []*Handle, tag string) error {
+	tokens := []Token{}
+	var pointsTo []string
+	for _, handle := range handles {
+		tokens = append(tokens, handle.Token())
+		pointsTo = append(pointsTo, handle.Token().TrackerID())
 	}
 	_, err := tx.Exec(`
 		INSERT INTO storage.cache (key, value_pb, ids, tag)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (key) DO NOTHING
-	`, key, value, ids, tag)
+	`, key, value, tokens, tag)
 	if err != nil {
 		return errors.EnsureStack(err)
-	}
-	var pointsTo []string
-	for _, id := range ids {
-		pointsTo = append(pointsTo, id.TrackerID())
 	}
 	return errors.EnsureStack(c.tracker.CreateTx(tx, cacheTrackerKey(key), pointsTo, track.NoTTL))
 }

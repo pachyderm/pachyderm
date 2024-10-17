@@ -1,0 +1,135 @@
+{{- /*
+SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
+SPDX-License-Identifier: Apache-2.0
+*/ -}}
+{{- if .Values.restoreSnapshot.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pachyderm-restore-snapshot
+  namespace: {{ .Release.Namespace }}
+spec:
+  completions: 1
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.restoreSnapshot.annotations -}}
+        {{ toYaml .Values.restoreSnapshot.annotations | nindent 8 }}
+        {{- end }}
+      labels:
+        app: restore-snapshot
+        suite: pachyderm
+        {{- if .Values.restoreSnapshot.podLabels }}
+        {{- toYaml .Values.restoreSnapshot.podLabels | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.restoreSnapshot.priorityClassName }}
+      priorityClassName: {{ .Values.restoreSnapshot.priorityClassName }}
+      {{- end }}
+      {{-  if .Values.restoreSnapshot.affinity }}
+      affinity: {{ toYaml .Values.restoreSnapshot.affinity | nindent 8 }}
+      {{- end }}
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      {{-  if .Values.restoreSnapshot.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.restoreSnapshot.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{-  if .Values.restoreSnapshot.tolerations }}
+      tolerations: {{ toYaml .Values.restoreSnapshot.tolerations | nindent 8 }}
+      {{- end }}
+      containers:
+      - command:
+        - /pachd
+        args:
+        - --mode
+        - restore
+        env:
+        - name: POSTGRES_HOST
+          value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
+        - name: POSTGRES_PORT
+          value:  {{ required "postgresql port required" .Values.global.postgresql.postgresqlPort | quote }}
+        - name: POSTGRES_USER
+          value: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
+        - name: POSTGRES_DATABASE
+          value: {{ required "postgresql database name required" .Values.global.postgresql.postgresqlDatabase | quote }}
+        {{- if .Values.global.postgresql.ssl }}
+        - name: POSTGRES_SSL
+          value: "require"
+        {{- end }}
+        {{- if .Values.cloudsqlAuthProxy.iamLogin }}
+        - name: POSTGRES_PASSWORD
+          value: "Using-iamLogin"
+        {{- else }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.global.postgresql.postgresqlExistingSecretName | default "postgres" }}
+              key: {{ .Values.global.postgresql.postgresqlExistingSecretKey | default "postgresql-password" }}
+        {{- end }}
+        - name: PG_BOUNCER_HOST
+          value: pg-bouncer # Must match pgbouncer service name
+        - name: PG_BOUNCER_PORT
+          value: "5432" # Must match pbouncer service port
+        {{- if .Values.restoreSnapshot.disableLogSampling }}
+        - name: PACHYDERM_DISABLE_LOG_SAMPLING
+          value: "1"
+        {{- end }}
+        {{- if .Values.restoreSnapshot.sqlQueryLogs }}
+        - name: POSTGRES_QUERY_LOGGING
+          value: "1"
+        {{- end }}
+        {{ if .Values.global.proxy }}
+        - name: http_proxy
+          value: {{ .Values.global.proxy }}
+        - name: https_proxy
+          value:  {{.Values.global.proxy}}
+        - name: HTTP_PROXY
+          value:  {{.Values.global.proxy}}
+        - name: HTTPS_PROXY
+          value:  {{.Values.global.proxy}}
+        {{ end }}
+        {{ if .Values.global.noProxy }}
+        - name: no_proxy
+          value:  {{.Values.global.noProxy}}
+        - name: NO_PROXY
+          value:  {{.Values.global.noProxy}}
+        {{ end }}
+        - name: K8S_MEMORY_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              containerName: pachd
+              resource: requests.memory
+        - name: K8S_MEMORY_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: pachd
+              resource: limits.memory
+        image: "{{ .Values.restoreSnapshot.image.repository }}:{{ default .Chart.AppVersion .Values.restoreSnapshot.image.tag }}"
+        imagePullPolicy: {{ .Values.restoreSnapshot.image.pullPolicy }}
+        name: pachd
+        {{- if .Values.restoreSnapshot.resources }}
+        resources: {{ toYaml .Values.restoreSnapshot.resources | nindent 10 }}
+        {{- end }}
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+              drop:
+              - all
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp
+status: {}
+{{- end -}}

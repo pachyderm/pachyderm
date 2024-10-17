@@ -26,7 +26,7 @@ export type CompactTask = {
 }
 
 export type CompactTaskResult = {
-  id?: string
+  handle?: string
 }
 
 export type ConcatTask = {
@@ -34,11 +34,11 @@ export type ConcatTask = {
 }
 
 export type ConcatTaskResult = {
-  id?: string
+  handle?: string
 }
 
 export type ValidateTask = {
-  id?: string
+  handle?: string
   pathRange?: PathRange
 }
 
@@ -59,12 +59,12 @@ export type PutFileURLTask = {
 }
 
 export type PutFileURLTaskResult = {
-  id?: string
+  handle?: string
 }
 
 export type GetFileURLTask = {
   uRL?: string
-  fileset?: string
+  handle?: string
   pathRange?: Pfs_v2Pfs.PathRange
 }
 

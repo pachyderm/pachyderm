@@ -38,28 +38,28 @@ func TestIsCompacted(t *testing.T) {
 			SizeBytes: 1000 * units.KB,
 		},
 	}
-	id1, err := s.newPrimitive(ctx, prim1, track.NoTTL)
+	handle1, err := s.newPrimitive(ctx, prim1, track.NoTTL)
 	require.NoError(t, err)
-	id2, err := s.newPrimitive(ctx, prim2, track.NoTTL)
+	handle2, err := s.newPrimitive(ctx, prim2, track.NoTTL)
 	require.NoError(t, err)
-	id3, err := s.newPrimitive(ctx, prim3, track.NoTTL)
+	handle3, err := s.newPrimitive(ctx, prim3, track.NoTTL)
 	require.NoError(t, err)
 	// Basic failure case
-	id, err := s.Compose(ctx, []ID{*id1, *id2}, track.NoTTL)
+	handle, err := s.Compose(ctx, []*Handle{handle1, handle2}, track.NoTTL)
 	require.NoError(t, err)
-	isCompacted, err := s.IsCompacted(ctx, *id)
+	isCompacted, err := s.IsCompacted(ctx, handle)
 	require.NoError(t, err)
 	require.False(t, isCompacted)
 	// Basic success case
-	id, err = s.Compose(ctx, []ID{*id2, *id1}, track.NoTTL)
+	handle, err = s.Compose(ctx, []*Handle{handle2, handle1}, track.NoTTL)
 	require.NoError(t, err)
-	isCompacted, err = s.IsCompacted(ctx, *id)
+	isCompacted, err = s.IsCompacted(ctx, handle)
 	require.NoError(t, err)
 	require.True(t, isCompacted)
 	// Success case with composites
-	complexId, err := s.Compose(ctx, []ID{*id3, *id}, track.NoTTL)
+	complexHandle, err := s.Compose(ctx, []*Handle{handle3, handle}, track.NoTTL)
 	require.NoError(t, err)
-	isCompacted, err = s.IsCompacted(ctx, *complexId)
+	isCompacted, err = s.IsCompacted(ctx, complexHandle)
 	require.NoError(t, err)
 	require.True(t, isCompacted)
 }
@@ -76,7 +76,7 @@ func TestCompactLevelBasedFuzz(t *testing.T) {
 	}
 	// Create file sets in runs of maxFanIn to ensure compactions occur at each step.
 	var totalScore int64
-	var ids []ID
+	var handles []*Handle
 	for i := 0; i < numFileSets/maxFanIn; i++ {
 		stepBase := stepBases[rand.Intn(len(stepBases))]
 		for j := 0; j < maxFanIn; j++ {
@@ -90,21 +90,21 @@ func TestCompactLevelBasedFuzz(t *testing.T) {
 				},
 			}
 			totalScore += compactionScore(prim)
-			id, err := s.newPrimitive(ctx, prim, track.NoTTL)
+			handle, err := s.newPrimitive(ctx, prim, track.NoTTL)
 			require.NoError(t, err)
-			ids = append(ids, *id)
+			handles = append(handles, handle)
 		}
 	}
 	// Simulate compaction by accumulating the number of files and byte size.
 	var count int
-	compact := func(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
-		if len(ids) > maxFanIn {
-			return nil, errors.Errorf("number of file sets being compacted (%v) greater than max fan-in (%v)", len(ids), maxFanIn)
+	compact := func(ctx context.Context, handles []*Handle, ttl time.Duration) (*Handle, error) {
+		if len(handles) > maxFanIn {
+			return nil, errors.Errorf("number of file sets being compacted (%v) greater than max fan-in (%v)", len(handles), maxFanIn)
 		}
 		count++
 		additive, deletive := &index.Index{}, &index.Index{}
-		for _, id := range ids {
-			prim, err := s.getPrimitive(ctx, id)
+		for _, handle := range handles {
+			prim, err := s.getPrimitive(ctx, handle)
 			if err != nil {
 				return nil, err
 			}
@@ -117,10 +117,10 @@ func TestCompactLevelBasedFuzz(t *testing.T) {
 			Deletive: deletive,
 		}, ttl)
 	}
-	id, err := s.CompactLevelBased(ctx, ids, maxFanIn, time.Minute, compact)
+	handle, err := s.CompactLevelBased(ctx, handles, maxFanIn, time.Minute, compact)
 	require.NoError(t, err)
 	// Check the compaction score of the final file set to ensure no file sets were lost.
-	prims, err := s.flattenPrimitives(ctx, []ID{*id})
+	prims, err := s.flattenPrimitives(ctx, []*Handle{handle})
 	require.NoError(t, err)
 	var checkScore int64
 	for _, prim := range prims {
@@ -150,27 +150,27 @@ func TestCompactLevelBasedRenewal(t *testing.T) {
 	})
 	numFileSets := 1000
 	maxFanIn := 10
-	var id *ID
+	var handle *Handle
 	eg.Go(func() error {
 		defer cancel()
-		var ids []ID
+		var handles []*Handle
 		for i := 0; i < numFileSets; i++ {
 			prim := &Primitive{
 				Additive: &index.Index{
 					NumFiles: 1,
 				},
 			}
-			id, err := s.newPrimitive(ctx, prim, track.NoTTL)
+			handle, err := s.newPrimitive(ctx, prim, track.NoTTL)
 			if err != nil {
 				return err
 			}
-			ids = append(ids, *id)
+			handles = append(handles, handle)
 		}
-		compact := func(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
+		compact := func(ctx context.Context, handles []*Handle, ttl time.Duration) (*Handle, error) {
 			time.Sleep(3 * ttl)
 			additive := &index.Index{}
-			for _, id := range ids {
-				prim, err := s.getPrimitive(ctx, id)
+			for _, handle := range handles {
+				prim, err := s.getPrimitive(ctx, handle)
 				if err != nil {
 					return nil, err
 				}
@@ -181,12 +181,12 @@ func TestCompactLevelBasedRenewal(t *testing.T) {
 			}, ttl)
 		}
 		var err error
-		id, err = s.CompactLevelBased(ctx, ids, maxFanIn, ttl, compact)
+		handle, err = s.CompactLevelBased(ctx, handles, maxFanIn, ttl, compact)
 		return err
 	})
 	require.NoError(t, eg.Wait())
 	ctx = pctx.TestContext(t)
-	prims, err := s.flattenPrimitives(ctx, []ID{*id})
+	prims, err := s.flattenPrimitives(ctx, []*Handle{handle})
 	require.NoError(t, err)
 	var numFiles int64
 	for _, prim := range prims {

@@ -524,6 +524,11 @@
               "description": ""
             },
             {
+              "name": "CLUSTER_SNAPSHOTTER",
+              "number": "152",
+              "description": ""
+            },
+            {
               "name": "REPO_READ",
               "number": "200",
               "description": ""
@@ -28478,7 +28483,7 @@
           "extensions": [],
           "fields": [
             {
-              "name": "id",
+              "name": "handle",
               "description": "",
               "label": "",
               "type": "string",
@@ -28526,7 +28531,7 @@
           "extensions": [],
           "fields": [
             {
-              "name": "id",
+              "name": "handle",
               "description": "",
               "label": "",
               "type": "string",
@@ -28562,7 +28567,7 @@
               "defaultValue": ""
             },
             {
-              "name": "Fileset",
+              "name": "handle",
               "description": "",
               "label": "",
               "type": "string",
@@ -28729,7 +28734,7 @@
           "extensions": [],
           "fields": [
             {
-              "name": "id",
+              "name": "handle",
               "description": "",
               "label": "",
               "type": "string",
@@ -28813,7 +28818,7 @@
           "extensions": [],
           "fields": [
             {
-              "name": "id",
+              "name": "handle",
               "description": "",
               "label": "",
               "type": "string",

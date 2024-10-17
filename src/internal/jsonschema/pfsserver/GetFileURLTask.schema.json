@@ -7,7 +7,7 @@
                 "URL": {
                     "type": "string"
                 },
-                "Fileset": {
+                "handle": {
                     "type": "string"
                 },
                 "pathRange": {

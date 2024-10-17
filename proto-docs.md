@@ -1809,6 +1809,7 @@ Permission represents the ability to perform a given operation on a Resource
 | SECRET_INSPECT | 146 |  |
 | CLUSTER_EDIT_CLUSTER_METADATA | 151 |  |
 | CLUSTER_DELETE_ALL | 138 |  |
+| CLUSTER_SNAPSHOTTER | 152 |  |
 | REPO_READ | 200 |  |
 | REPO_WRITE | 201 |  |
 | REPO_MODIFY_BINDINGS | 202 |  |
@@ -10572,7 +10573,7 @@ WellKnownRegex contain some well-known patterns.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [string](#string) |  |  |
+| handle | [string](#string) |  |  |
 
 
 
@@ -10602,7 +10603,7 @@ WellKnownRegex contain some well-known patterns.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [string](#string) |  |  |
+| handle | [string](#string) |  |  |
 
 
 
@@ -10618,7 +10619,7 @@ WellKnownRegex contain some well-known patterns.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | URL | [string](#string) |  |  |
-| Fileset | [string](#string) |  |  |
+| handle | [string](#string) |  |  |
 | path_range | [pfs_v2.PathRange](#pfs_v2-PathRange) |  |  |
 
 
@@ -10680,7 +10681,7 @@ WellKnownRegex contain some well-known patterns.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [string](#string) |  |  |
+| handle | [string](#string) |  |  |
 
 
 
@@ -10726,7 +10727,7 @@ WellKnownRegex contain some well-known patterns.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [string](#string) |  |  |
+| handle | [string](#string) |  |  |
 | path_range | [PathRange](#pfsserver-PathRange) |  |  |
 
 

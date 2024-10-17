@@ -4,7 +4,7 @@
     "definitions": {
         "ConcatTaskResult": {
             "properties": {
-                "id": {
+                "handle": {
                     "type": "string"
                 }
             },

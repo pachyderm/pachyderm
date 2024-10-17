@@ -59,6 +59,7 @@
                             "SECRET_INSPECT",
                             "CLUSTER_EDIT_CLUSTER_METADATA",
                             "CLUSTER_DELETE_ALL",
+                            "CLUSTER_SNAPSHOTTER",
                             "REPO_READ",
                             "REPO_WRITE",
                             "REPO_MODIFY_BINDINGS",

@@ -15,3 +15,11 @@ func NewPreflightEnv(ctx context.Context, config pachconfig.PachdPreflightConfig
 	}
 	return &pachd.PreFlightEnv{DB: db}, nil
 }
+
+func NewRestoreSnapshotEnv(ctx context.Context, config pachconfig.PachdRestoreSnapshotConfiguration) (*pachd.RestoreSnapshotEnv, error) {
+	db, err := openDirectDB(ctx, config.PostgresConfiguration)
+	if err != nil {
+		return nil, err
+	}
+	return &pachd.RestoreSnapshotEnv{DB: db}, nil
+}

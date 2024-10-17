@@ -66,7 +66,7 @@ func (w *Worker) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 	result := &PutFileURLTaskResult{}
 	if err := log.LogStep(ctx, "putFileURLTask", func(ctx context.Context) error {
 		return w.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-			id, err := withUnorderedWriter(ctx, w.storage, renewer, func(uw *fileset.UnorderedWriter) error {
+			handle, err := withUnorderedWriter(ctx, w.storage, renewer, func(uw *fileset.UnorderedWriter) error {
 				startOffset := task.StartOffset
 				length := int64(-1) // -1 means to read until end of file.
 				for i, path := range task.Paths {
@@ -92,7 +92,7 @@ func (w *Worker) processPutFileURLTask(ctx context.Context, task *PutFileURLTask
 			if err != nil {
 				return err
 			}
-			result.Id = id.HexString()
+			result.Handle = handle.HexString()
 			return nil
 		})
 	}); err != nil {
@@ -116,11 +116,11 @@ func (w *Worker) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 	defer errors.Close(&retErr, bucket, "close bucket")
 
 	if err := log.LogStep(ctx, "getFileURLTask", func(ctx context.Context) error {
-		fsid, err := fileset.ParseID(task.Fileset)
+		handle, err := fileset.ParseHandle(task.Handle)
 		if err != nil {
 			return err
 		}
-		fs, err := w.storage.Filesets.Open(ctx, []fileset.ID{*fsid})
+		fs, err := w.storage.Filesets.Open(ctx, []*fileset.Handle{handle})
 		if err != nil {
 			return err
 		}

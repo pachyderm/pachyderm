@@ -26,7 +26,7 @@ message CompactTask {
 }
 
 message CompactTaskResult {
-  string id = 1;
+  string handle = 1;
 }
 
 message ConcatTask {
@@ -34,11 +34,11 @@ message ConcatTask {
 }
 
 message ConcatTaskResult {
-  string id = 1;
+  string handle = 1;
 }
 
 message ValidateTask {
-  string id = 1;
+  string handle = 1;
   PathRange path_range = 2;
 }
 
@@ -59,12 +59,12 @@ message PutFileURLTask {
 }
 
 message PutFileURLTaskResult {
-  string id = 1;
+  string handle = 1;
 }
 
 message GetFileURLTask {
   string URL = 1;
-  string Fileset = 4;
+  string handle = 4;
   pfs_v2.PathRange path_range = 3;
   reserved 2;
 }

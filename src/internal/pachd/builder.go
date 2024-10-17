@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	snapshot_server "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -56,6 +57,7 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	proxyserver "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	transactionserver "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -277,6 +279,16 @@ func (b *builder) registerPFSServer(ctx context.Context) error {
 	}
 	b.forGRPCServer(func(s *grpc.Server) { pfs.RegisterAPIServer(s, apiServer) })
 	b.env.SetPfsServer(apiServer)
+	return nil
+}
+
+func (b *builder) registerSnapshotServer(ctx context.Context) error {
+	store, err := SnapshotEnv(b.env)
+	if err != nil {
+		return errors.Wrap(err, "get fileset storage from Snapshot env")
+	}
+	apiServer := snapshot_server.APIServer{DB: b.env.GetDBClient(), Store: store}
+	b.forGRPCServer(func(s *grpc.Server) { snapshot.RegisterAPIServer(s, &apiServer) })
 	return nil
 }
 
