@@ -51,7 +51,7 @@ func (s *Storage) PinTx(ctx context.Context, tx *sqlx.Tx, handle *Handle) (Pin, 
 const pinTrackerPrefix = "pin/"
 
 func pinTrackerID(pin Pin) string {
-	return pinTrackerPrefix + strconv.FormatInt(pin, 10)
+	return pinTrackerPrefix + strconv.FormatInt(int64(pin), 10)
 }
 
 func (s *Storage) DeletePinTx(ctx context.Context, tx *pachsql.Tx, pin Pin) error {
@@ -69,7 +69,7 @@ func (s *Storage) GetPinHandleTx(ctx context.Context, tx *pachsql.Tx, pin Pin, t
 		WHERE id = $1
 	`, pin); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, pacherr.NewNotExist("pin", strconv.FormatInt(pin, 10))
+			return nil, pacherr.NewNotExist("pin", strconv.FormatInt(int64(pin), 10))
 		}
 		return nil, err
 	}
