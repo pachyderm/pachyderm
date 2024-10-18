@@ -55,13 +55,13 @@ func NewRestoreSnapshot(env RestoreSnapshotEnv, config pachconfig.PachdRestoreSn
 				if err := s.RestoreSnapshot(ctx, snapshotID, recovery.RestoreSnapshotOptions{}); err != nil {
 					return errors.Wrapf(err, "could not restore snapshot %s", snapshotID)
 				}
-				dbutil.WithTx(ctx, env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+				return errors.Wrap(dbutil.WithTx(ctx, env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 					hostname, err := os.Hostname()
 					if err != nil {
 						hostname = "un-named pod"
 					}
 					return errors.Wrap(admindb.ScheduleRestart(ctx, tx, time.Now(), "restored Pachyderm", hostname), "ScheduleRestart")
-				})
+				}), "WithTx")
 				return nil
 			},
 		},
