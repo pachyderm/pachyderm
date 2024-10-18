@@ -1,0 +1,15 @@
+FROM determinedai/environments:cuda-11.8-pytorch-2.0-gpu-mpi-0.24.0
+
+ENV PFS_MOUNT_DIR=/pfs
+ENV MOUNT_SERVER_LOG_DIR=/tmp/mount-server.log
+
+RUN mkdir -p /pfs /mnt/pfs 
+RUN apt-get update && apt-get -y install curl fuse
+# RUN echo "user_allow_other" | tee -a /etc/fuse.conf > /dev/null
+
+COPY ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+COPY ./dist-pach/mount-server/mount-server_linux_amd64_v1/mount-server/ /usr/local/bin/mount-server
+
+COPY dist dist
+RUN pip install `find /app/dist/ -name \*.whl` nbgitpuller
+RUN pip install determined==0.23.4

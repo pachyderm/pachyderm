@@ -987,6 +987,26 @@ jobs:
           name: Docker push
           command: docker push pachyderm/notebooks-user:$CIRCLE_SHA1
 
+  jupyter-extension-docker-build-transformers:
+    executor: python
+    working_directory: ~/project/jupyter-extension
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - setup_remote_docker:
+          version: 19.03.13
+      - run:
+          name: docker login
+          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Build Docker image
+          command: docker build -t pachyderm/notebooks-user-transformers:$CIRCLE_SHA1 -f Dockerfile.transformers .
+      - run:
+          name: Docker push
+          command: docker push pachyderm/notebooks-user-transformers:$CIRCLE_SHA1
+
   jupyter-extension-docker-push-tag:
     executor: python
     working_directory: ~/project/jupyter-extension
@@ -1893,6 +1913,10 @@ workflows:
             - jupyter-extension-build
       - jupyter-extension-build
       - jupyter-extension-docker-build:
+          requires:
+            - jupyter-extension-build
+            - build-pachctl-bin
+      - jupyter-extension-docker-build-transformers:
           requires:
             - jupyter-extension-build
             - build-pachctl-bin
