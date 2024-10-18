@@ -2,6 +2,7 @@ package pachd
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -55,7 +56,11 @@ func NewRestoreSnapshot(env RestoreSnapshotEnv, config pachconfig.PachdRestoreSn
 					return errors.Wrapf(err, "could not restore snapshot %s", snapshotID)
 				}
 				dbutil.WithTx(ctx, env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-					return errors.Wrap(admindb.ScheduleRestart(ctx, tx, time.Now(), "restored Pachyderm", "pachroot"), "ScheduleRestart")
+					hostname, err := os.Hostname()
+					if err != nil {
+						hostname = "un-named pod"
+					}
+					return errors.Wrap(admindb.ScheduleRestart(ctx, tx, time.Now(), "restored Pachyderm", hostname), "ScheduleRestart")
 				})
 				return nil
 			},
