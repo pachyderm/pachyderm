@@ -374,7 +374,7 @@ func checkCommit(c *pfs.Commit) error {
 	if c.Repo == nil {
 		return errors.Errorf("commit must have a repo")
 	}
-	c.GetBranch().GetRepo().EnsureProject()
+	c.Branch = nil
 	c.GetRepo().EnsureProject()
 	return nil
 }
