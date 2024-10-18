@@ -14,7 +14,7 @@ bazel_dep(name = "jsonnet_go", version = "0.20.0")
 bazel_dep(name = "rules_distroless", version = "0.3.8")
 bazel_dep(name = "rules_go", version = "0.49.0")
 bazel_dep(name = "rules_nodejs", version = "6.2.0")
-bazel_dep(name = "rules_oci", version = "1.8.0")
+bazel_dep(name = "rules_oci", version = "2.0.1")
 bazel_dep(name = "rules_python", version = "0.35.0")
 bazel_dep(name = "rules_python_gazelle_plugin", version = "0.35.0")  # Same version as rules_python
 
@@ -413,7 +413,7 @@ oci.pull(
     digest = "sha256:370582183d29bf3b3604251d63cda48cb44c55e9622c8c13c605cba5f1b6cb21",
     image = "ghcr.io/project-zot/zot-linux-arm64",
 )
-use_repo(oci, "distroless", "pause", "zot_amd64", "zot_arm64")
+use_repo(oci, "distroless", "distroless_linux_amd64", "distroless_linux_arm64_v8", "pause", "pause_linux_amd64", "pause_linux_arm64", "zot_amd64", "zot_arm64")
 
 # Python
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
