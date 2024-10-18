@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/restart"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	snapshot_server "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
@@ -568,4 +569,17 @@ func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration
 
 func (b *builder) newDebugServer() debugclient.DebugServer {
 	return debugserver.NewDebugServer(DebugEnv(b.env))
+}
+
+func (b *builder) restartOnSignal(ctx context.Context) error {
+	r, err := restart.New(ctx, b.env.GetDBClient(), b.env.GetPostgresListener())
+	if err != nil {
+		return errors.Wrap(err, "restart.New")
+	}
+	go func() {
+		if err := r.RestartWhenRequired(ctx); err != nil {
+			log.Error(ctx, "restart notifier failed", zap.Error(err))
+		}
+	}()
+	return nil
 }

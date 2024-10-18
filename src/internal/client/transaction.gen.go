@@ -36,6 +36,10 @@ func (c *unsupportedAdminBuilderClient) InspectCluster(_ context.Context, _ *adm
 	return nil, unsupportedError("InspectCluster")
 }
 
+func (c *unsupportedAdminBuilderClient) RestartPachyderm(_ context.Context, _ *admin_v2.RestartPachydermRequest, opts ...grpc.CallOption) (*admin_v2.RestartPachydermResponse, error) {
+	return nil, unsupportedError("RestartPachyderm")
+}
+
 type unsupportedAuthBuilderClient struct{}
 
 func (c *unsupportedAuthBuilderClient) Activate(_ context.Context, _ *auth_v2.ActivateRequest, opts ...grpc.CallOption) (*auth_v2.ActivateResponse, error) {
