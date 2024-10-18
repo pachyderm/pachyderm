@@ -78,13 +78,15 @@ func (id SnapshotID) String() string {
 
 // createSnapshotRow creates a snapshot row containing a chunkset referencing all live data.
 func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (result SnapshotID, sql string, _ error) {
-	var b strings.Builder
+	var b strings.Builder // b contains SQL to recreate this function call inside a psql script.
 
 	// Create (and dump) chunkset.
 	chunksetID, err := s.CreateChunkSet(ctx, tx)
 	if err != nil {
 		return 0, "", errors.Wrap(err, "create chunkset")
 	}
+	// Write out psql to create only this chunkset.  (Pre-existing chunksets and the primary key
+	// sequence are handled by pg_dump.)
 	b.WriteRune('\n')
 	b.WriteString("COPY storage.chunksets (id) FROM stdin;\n")
 	fmt.Fprintf(&b, "%v\n", int64(chunksetID))
@@ -94,9 +96,12 @@ func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (re
 	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version) values ($1, $2) returning id`, chunksetID, version.Version.Canonical()); err != nil {
 		return 0, "", errors.Wrap(err, "create snapshot row")
 	}
+	// Write out psql to create only this snapshot row.  (Pre-existing snapshot rows are dumped
+	// by pg_dump.)
 	b.WriteString("COPY recovery.snapshots (id, chunkset_id, pachyderm_version) FROM stdin;\n")
 	fmt.Fprintf(&b, "%v\t%v\t%v\n", int64(result), int64(chunksetID), version.Version.Canonical())
 	b.WriteString(`\.` + "\n\n")
+
 	return result, b.String(), nil
 }
 
