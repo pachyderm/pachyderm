@@ -129,6 +129,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	if err := s.RestoreSnapshot(ctx, snapID, RestoreSnapshotOptions{}); err != nil {
 		t.Errorf("snapshot not restorable: %v", err)
 	}
+	got.SQLDumpFileSetToken = uuid.UUID{}
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
 		got, err = getSnapshotRow(ctx, tx, snapID)
@@ -140,7 +141,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		t.Fatalf("WithTx: %v", err)
 	}
 	// Validate the database backup fileset created during restoration.
-	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fsToken))
+	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fileset.Token(got.SQLDumpFileSetToken)))
 
 	// Drop the chunkset that's keeping the backed up chunks alive (if the restore failed), just
 	// to make sure that it's the original references that are keeping the backed up filesets
