@@ -375,3 +375,11 @@ Then view `genhtml/index.html` in your browser:
 ```
 chrome genhtml/index.html
 ```
+
+### Log span
+
+Building container images might print a bunch of messages like:
+
+    time="2024-10-18T18:38:38-04:00" level=warning msg="Changing credential host for registry" host=docker.io new="https://registry-1.docker.io" orig="https://index.docker.io/v1/"
+
+You can make this go away by deleting one of those entries from ~/.docker/config.json. Sigh!
