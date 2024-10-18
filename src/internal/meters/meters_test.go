@@ -1,14 +1,19 @@
 package meters
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/zeebo/blake3"
 	"go.uber.org/zap"
 )
 
@@ -216,5 +221,44 @@ func BenchmarkAggregatedGauge(b *testing.B) {
 	<-doneCh
 	if w.Load() == 0 {
 		b.Fatal("no bytes added to logger")
+	}
+}
+
+func TestWriter(t *testing.T) {
+	ctx, h := log.TestWithCapture(t)
+	ctx, c := context.WithCancel(ctx)
+
+	doneCh := make(chan struct{})
+	gotHash, wantHash := blake3.New(), blake3.New()
+	var gotBytes, wantBytes int64
+	start := time.Now()
+
+	w := NewWriter(ctx, "written_bytes", gotHash, WithFlushInterval(time.Millisecond), withDoneCh(doneCh))
+	for time.Since(start) < 10*time.Millisecond {
+		n, err := io.Copy(w, io.TeeReader(io.LimitReader(rand.Reader, 16384), wantHash))
+		if err != nil {
+			t.Fatalf("copy: %v", err)
+		}
+		wantBytes += n
+	}
+	c()
+	<-doneCh
+
+	if got, want := gotHash.Sum(nil), wantHash.Sum(nil); !bytes.Equal(got, want) {
+		t.Errorf("hash of data written thru writer:\n  got: %v\n want: %v", hex.EncodeToString(got), hex.EncodeToString(want))
+	}
+
+	h.HasALog(t)
+	for i, l := range h.Logs() {
+		t.Logf("log: %v", l.String())
+		raw, ok := l.Keys["delta"]
+		if !ok {
+			t.Fatalf("log %v: no delta", i)
+		}
+		d := raw.(float64)
+		gotBytes += int64(d)
+	}
+	if got, want := gotBytes, wantBytes; got != want {
+		t.Errorf("byte count:\n  got: %v\n want: %v", got, want)
 	}
 }
