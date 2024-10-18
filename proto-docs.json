@@ -128,6 +128,30 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "pending_restart",
+              "description": "If true, the cluster is going to restart soon.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "restart_info",
+              "description": "Information about pending restarts.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -204,6 +228,41 @@
           ]
         },
         {
+          "name": "RestartPachydermRequest",
+          "longName": "RestartPachydermRequest",
+          "fullName": "admin_v2.RestartPachydermRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "reason",
+              "description": "The reason that you're requesting a restart of the cluster.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RestartPachydermResponse",
+          "longName": "RestartPachydermResponse",
+          "fullName": "admin_v2.RestartPachydermResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
           "name": "WebResource",
           "longName": "WebResource",
           "fullName": "admin_v2.WebResource",
@@ -257,6 +316,18 @@
               "responseType": "ClusterInfo",
               "responseLongType": "ClusterInfo",
               "responseFullType": "admin_v2.ClusterInfo",
+              "responseStreaming": false
+            },
+            {
+              "name": "RestartPachyderm",
+              "description": "RestartPachyderm schedules this cluster to be restarted.",
+              "requestType": "RestartPachydermRequest",
+              "requestLongType": "RestartPachydermRequest",
+              "requestFullType": "admin_v2.RestartPachydermRequest",
+              "requestStreaming": false,
+              "responseType": "RestartPachydermResponse",
+              "responseLongType": "RestartPachydermResponse",
+              "responseFullType": "admin_v2.RestartPachydermResponse",
               "responseStreaming": false
             }
           ]
@@ -526,6 +597,11 @@
             {
               "name": "CLUSTER_SNAPSHOTTER",
               "number": "152",
+              "description": ""
+            },
+            {
+              "name": "CLUSTER_RESTART_PACHYDERM",
+              "number": "153",
               "description": ""
             },
             {

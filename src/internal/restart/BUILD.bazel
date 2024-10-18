@@ -1,0 +1,39 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "restart",
+    srcs = ["restart.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/restart",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/admindb",
+        "//src/internal/collection",
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "restart_test",
+    srcs = ["restart_test.go"],
+    embed = [":restart"],
+    deps = [
+        "//src/internal/admindb",
+        "//src/internal/clusterstate",
+        "//src/internal/collection",
+        "//src/internal/dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/migrations",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testetcd",
+        "//src/internal/testutil",
+        "@org_uber_go_atomic//:atomic",
+    ],
+)
