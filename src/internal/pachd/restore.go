@@ -4,8 +4,14 @@ import (
 	"context"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/recovery"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 )
 
 type RestoreSnapshotEnv struct {
@@ -28,7 +34,13 @@ func NewRestoreSnapshot(env RestoreSnapshotEnv, config pachconfig.PachdRestoreSn
 		setupStep{
 			Name: "HelloWorld",
 			Fn: func(ctx context.Context) error {
-				log.Info(ctx, "Hello, you would have just restored a snapshot")
+				tracker := track.NewPostgresTracker(env.DB)
+				storage := fileset.NewStorage(fileset.NewPostgresStore(env.DB), tracker, chunk.NewStorage(kv.NewMemStore(), nil, env.DB, tracker))
+				s := &recovery.Snapshotter{DB: env.DB, Storage: storage}
+				snapshotID := recovery.SnapshotID(config.SnapshotID)
+				if err := s.RestoreSnapshot(ctx, snapshotID, recovery.RestoreSnapshotOptions{}); err != nil {
+					return errors.Wrapf(err, "could not restore snapshot %s", snapshotID)
+				}
 				return nil
 			},
 		},
