@@ -4,14 +4,12 @@ package recovery
 import (
 	"bufio"
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/icholy/replace"
@@ -125,17 +123,23 @@ func getSnapshotRow(ctx context.Context, tx *sqlx.Tx, id SnapshotID) (result sna
 	return
 }
 
-// dumpDatabase runs pg_dump on the provided database, writing the content to w.  Note: we manually
-// dump storage.tracker_refs and storage.tracker_objects.
-func dumpDatabase(ctx context.Context, db *pachsql.DB, snapshot string, w io.Writer) (retErr error) {
+// Snapshotter can take and restore Pachyderm snapshots.
+type Snapshotter struct {
+	DB         *pachsql.DB      // Databaase connection.
+	Storage    *fileset.Storage // Fileset storage.
+	EtcdClient *etcd.Client     // etcd client (for running migrations).
+}
+
+// dumpDatabase runs pg_dump on the provided database, writing the content to w.
+func (s *Snapshotter) dumpDatabase(ctx context.Context, snapshot string, w io.Writer) (retErr error) {
 	ctx, done := log.SpanContext(ctx, "dumpDatabase")
 	defer done(log.Errorp(&retErr))
 
-	dsn, err := pachsql.ConnStringFromConn(ctx, db)
+	dsn, err := pachsql.ConnStringFromConn(ctx, s.DB)
 	if err != nil {
 		return errors.Wrap(err, "get psql/pg_dump connection string from existing database connection")
 	}
-	cmd := exec.CommandContext(ctx, pgDumpPath(), "-d", dsn, "-v", "--clean", "--if-exists", "--snapshot", snapshot, "--exclude-table-data=storage.tracker_objects|tracker_refs")
+	cmd := exec.CommandContext(ctx, pgDumpPath(), "-d", dsn, "-v", "--clean", "--if-exists", "--snapshot", snapshot, "--exclude-table-data="+s.Storage.DumpTrackerTablePattern())
 	cmd.Stdin = nil
 	tw := transform.NewWriter(w, replace.String("SET transaction_timeout = 0;", ""))
 	defer errors.Close(&retErr, tw, "close transform writer")
@@ -151,68 +155,11 @@ func dumpDatabase(ctx context.Context, db *pachsql.DB, snapshot string, w io.Wri
 	return nil
 }
 
-// Snapshotter can take and restore Pachyderm snapshots.
-type Snapshotter struct {
-	DB         *pachsql.DB      // Databaase connection.
-	Storage    *fileset.Storage // Fileset storage.
-	EtcdClient *etcd.Client     // etcd client (for running migrations).
-}
-
-const postgresTime = "2006-01-02 15:04:05.999999"
-
-func dumpTrackerObjects(ctx context.Context, tx *pachsql.Tx, w io.Writer) (retErr error) {
-	fmt.Fprintf(w, "\n\nCOPY storage.tracker_objects (int_id, str_id, created_at, expires_at) FROM stdin;\n")
-	rows, err := tx.QueryxContext(ctx, `select int_id, str_id, created_at, expires_at from storage.tracker_objects`)
-	if err != nil {
-		return errors.Wrap(err, "select")
-	}
-	defer errors.Close(&retErr, rows, "close rows")
-	var intID int64
-	var strID sql.NullString
-	var createdAt time.Time
-	var expiresAt sql.NullTime
-	for rows.Next() {
-		if err := rows.Scan(&intID, &strID, &createdAt, &expiresAt); err != nil {
-			return errors.Wrap(err, "scan")
-		}
-		if !strID.Valid {
-			strID.String = `\N`
-		}
-		created := createdAt.Format(postgresTime)
-		expires := expiresAt.Time.Format(postgresTime)
-		if !expiresAt.Valid {
-			expires = `\N`
-		}
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", intID, strID.String, created, expires)
-	}
-	if err := rows.Err(); err != nil {
-		return errors.Wrap(err, "check final error")
-	}
-	fmt.Fprintf(w, `\.`+"\n")
-	return nil
-}
-
-func dumpTrackerRefs(ctx context.Context, tx *pachsql.Tx, w io.Writer) (retErr error) {
-	fmt.Fprintf(w, "\n\nCOPY storage.tracker_refs (from_id, to_id) FROM stdin;\n")
-	rows, err := tx.QueryxContext(ctx, `select from_id, to_id from storage.tracker_refs`)
-	if err != nil {
-		return errors.Wrap(err, "select")
-	}
-	defer errors.Close(&retErr, rows, "close rows")
-	var fromID, toID int64
-	for rows.Next() {
-		if err := rows.Scan(&fromID, &toID); err != nil {
-			return errors.Wrap(err, "scan")
-		}
-		fmt.Fprintf(w, "%v\t%v\n", fromID, toID)
-	}
-	if err := rows.Err(); err != nil {
-		return errors.Wrap(err, "check final error")
-	}
-	fmt.Fprintf(w, `\.`+"\n")
-	return nil
-}
-
+// dumpTx dumps the database in a single transaction.  It creates a chunkset, dumps the database
+// with pg_dump in the same transaction, dumps the sql to create the chunkset (which pg_dump can't
+// see, because it can't read writes in this txn), and dumps the storage tracker (for the same
+// reason).  This yields a completely atomic snapshot; no tracker entries or chunks can change
+// during the dump.  (If they do, the txn rolls back with a serialization error.)
 func (s *Snapshotter) dumpTx(ctx context.Context, tx *pachsql.Tx) (id SnapshotID, dumpFile *os.File, retErr error) {
 	ctx, done := log.SpanContext(ctx, "snapshotTx")
 	defer done(log.Errorp(&retErr))
@@ -249,25 +196,23 @@ func (s *Snapshotter) dumpTx(ctx context.Context, tx *pachsql.Tx) (id SnapshotID
 	}
 	defer errors.Close(&retErr, zw, "close zstd encoder")
 
-	// Dump the database.
+	// Dump the database, starting at the same postgres snapshot as this transaction is using.
 	log.Debug(ctx, "dumping database", zap.Stringer("snapshot_id", id), zap.String("pg_snapshot", snapshot))
-	if err := dumpDatabase(ctx, s.DB, snapshot, zw); err != nil {
+	if err := s.dumpDatabase(ctx, snapshot, zw); err != nil {
 		return 0, nil, errors.Wrap(err, "dump database")
 	}
 	log.Debug(ctx, "database dump finished ok", zap.String("dump_file", fh.Name()))
 
-	// Add new information added in this tx to the dump.  Also storage.tracker_refs and
-	// storage.tracker_objects.
+	// Add new information added in this tx (by this package) to the dump.
 	log.Debug(ctx, "adding this tx to the dump")
 	if _, err := io.Copy(zw, strings.NewReader(snapshotSQL)); err != nil {
 		return 0, nil, errors.Wrap(err, "add footer")
 	}
+
+	// Add new information added in this tx (by the storage system) to the dump.
 	buf := bufio.NewWriter(zw)
-	if err := dumpTrackerObjects(ctx, tx, buf); err != nil {
-		return 0, nil, errors.Wrap(err, "add tracker objects")
-	}
-	if err := dumpTrackerRefs(ctx, tx, buf); err != nil {
-		return 0, nil, errors.Wrap(err, "add tracker refs")
+	if err := s.Storage.DumpTracker(ctx, tx, buf); err != nil {
+		return 0, nil, errors.Wrap(err, "dump tracker")
 	}
 	if err := buf.Flush(); err != nil {
 		return 0, nil, errors.Wrap(err, "flush buffer")

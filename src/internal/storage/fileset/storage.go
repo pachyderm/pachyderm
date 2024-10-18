@@ -583,15 +583,13 @@ func (s *Storage) DumpTracker(ctx context.Context, tx *pachsql.Tx, w io.Writer) 
 	return nil
 }
 
-// DumpTrackerTableNames returns a list of tables that DumpTracker is responsible for dumping.  If
-// dumping the entire database, data in these tables should be skipped, as DumpTracker() handles
-// dumping them.
-func (s *Storage) DumpTrackerTableNames() []string {
+// DumpTrackerTablePattern returns a postgres pattern that matches the tables DumpTracker will dump.
+func (s *Storage) DumpTrackerTablePattern() string {
 	t, ok := s.tracker.(track.Dumper)
 	if !ok {
-		return nil
+		return ""
 	}
-	return t.DumpTrackerTableNames()
+	return t.DumpTrackerTablePattern()
 }
 
 // Storage implements track.Dumper.

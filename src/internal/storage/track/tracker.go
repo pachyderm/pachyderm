@@ -235,13 +235,15 @@ func NewTestTracker(t testing.TB, db *pachsql.DB) Tracker {
 // transaction, but the writes on the tracker side are not visible to the dumping side.  Thus, this
 // runs on the dumping side and ensures that we read our (yet-to-be-committed) writes for the dump.
 //
-// See SET TRANSACTION SNAPSHOT docs: https://www.postgresql.org/docs/17/sql-set-transaction.html
+// See SET TRANSACTION SNAPSHOT docs: https://www.postgresql.org/docs/current/sql-set-transaction.html
 type Dumper interface {
 	// DumpTracker dumps the state of the tracker as a psql-format SQL script.  The best writer
 	// to use is a bufio.Writer, since the dump may make many small writes.
 	DumpTracker(context.Context, *pachsql.Tx, io.Writer) error
-	// DumpTrackerTableNames returns the names of tables that DumpTracker creates.
-	DumpTrackerTableNames() []string
+	// DumpTrackerTablePattern returns a postgres Pattern that matches the tables DumpTracker
+	// will dump.  Postgres patterns:
+	// https://www.postgresql.org/docs/current/app-psql.html#APP-PSQL-PATTERNS
+	DumpTrackerTablePattern() string
 }
 
 // The postgres tracker is dumpable.
