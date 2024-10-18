@@ -27,6 +27,7 @@ go_library(
         "//src/debug",
         "//src/enterprise",
         "//src/identity",
+        "//src/internal/admindb",
         "//src/internal/cleanup",
         "//src/internal/client",
         "//src/internal/clusterstate",
