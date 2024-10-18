@@ -241,9 +241,19 @@ func (c *Cluster) InstallPachyderm(ctx context.Context, install *HelmConfig) err
 	}
 
 	// Now wait for pachd.
-	if err := c.WaitForPachd(ctx, install.Namespace); err != nil {
+	if version.AppVersion == "0.0.0" || version.AppVersion == "" {
+		// If unstamped, the version comparison will end too early.  Do a `kubectl rollout
+		// status` first to ensure that k8s has at least started the new code.
+		if err := k.KubectlCommand(ctx, "--namespace="+install.Namespace, "rollout", "status", "deployment", "pachd").Run(); err != nil {
+			log.Error(ctx, "problem waiting for the pachd deployment; manually check that your code rolled out ok", zap.Error(err))
+		} else {
+			log.Info(ctx, "pachd is rolled out, but might not be serving traffic yet; verify with kubectl")
+		}
+	}
+	if err := c.WaitForPachdVersion(ctx, install.Namespace); err != nil {
 		return errors.Wrap(err, "wait for pachd to be ready")
 	}
+
 	return nil
 }
 
@@ -296,7 +306,7 @@ func (c *Cluster) ConfigurePachctl(ctx context.Context, namespace string, activa
 	return nil
 }
 
-func (c *Cluster) WaitForPachd(ctx context.Context, namespace string) error {
+func (c *Cluster) WaitForPachdVersion(ctx context.Context, namespace string) error {
 	addr, err := c.PachdAddress(ctx, namespace)
 	if err != nil {
 		return errors.Wrap(err, "get pachd address")
