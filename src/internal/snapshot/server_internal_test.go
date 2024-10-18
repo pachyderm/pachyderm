@@ -2,7 +2,6 @@ package snapshot_test
 
 import (
 	"context"
-	"go/version"
 	"testing"
 
 	"google.golang.org/grpc/codes"
@@ -13,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/snapshot"
 	snapshotpb "github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -72,9 +70,10 @@ func TestInspectSnapshot(t *testing.T) {
 	want := &snapshot.SnapshotInfo{
 		Id:               createResp.Id,
 		ChunksetId:       1,
+		CreatedAt:        inspectResp.Info.CreatedAt, // the created time is not compared
 		PachydermVersion: version.Version.String(),
 	}
-	require.NoDiff(t, want, got)
+	require.NoDiff(t, want, got, []cmp.Option{protocmp.Transform()})
 }
 
 func TestDeleteSnapshot(t *testing.T) {
