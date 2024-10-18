@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "pretty",
+    srcs = ["pretty.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/snapshot/pretty",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/pretty",
+        "//src/snapshot",
+    ],
+)
