@@ -32,8 +32,6 @@ func NewRestoreSnapshot(env RestoreSnapshotEnv, config pachconfig.PachdRestoreSn
 		setupStep{
 			Name: "restore",
 			Fn: func(ctx context.Context) error {
-				//tracker := track.NewPostgresTracker(env.DB)
-
 				bucket, err := obj.NewBucket(ctx, config.StorageBackend, config.StorageRoot, config.StorageURL)
 				if err != nil {
 					return errors.Wrap(err, "storage env")
