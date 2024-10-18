@@ -283,7 +283,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 		setupStep{
 			Name: "setup restarter",
 			Fn: func(ctx context.Context) error {
-				r, err := restart.New(env.DB, pd.dbListener)
+				r, err := restart.New(ctx, env.DB, pd.dbListener)
 				if err != nil {
 					return errors.Wrap(err, "restart.New")
 				}

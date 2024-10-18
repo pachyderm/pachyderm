@@ -572,7 +572,7 @@ func (b *builder) newDebugServer() debugclient.DebugServer {
 }
 
 func (b *builder) restartOnSignal(ctx context.Context) error {
-	r, err := restart.New(b.env.GetDBClient(), b.env.GetPostgresListener())
+	r, err := restart.New(ctx, b.env.GetDBClient(), b.env.GetPostgresListener())
 	if err != nil {
 		return errors.Wrap(err, "restart.New")
 	}

@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var startupTime = time.Now()
+var rawStartupTime = time.Now().Truncate(time.Microsecond)
 
 // checkFn is a function that checks if pachd needs to restart right now, returning whether to
 // restart and the reason for restarting.
@@ -27,18 +27,34 @@ type restartFn func(ctx context.Context, reason string)
 
 // Restarter is an object that manages restarting Pachyderm.
 type Restarter struct {
-	ch      listenerChan
-	check   checkFn
-	restart restartFn
+	startupTime time.Time
+	ch          listenerChan
+	check       checkFn
+	restart     restartFn
 }
 
 // New returns a restarter suitable for use in K8s.
-func New(db *pachsql.DB, listener collection.PostgresListener) (*Restarter, error) {
+func New(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener) (*Restarter, error) {
 	ch := make(listenerChan)
 	if err := listener.Register(ch); err != nil {
 		return nil, errors.Wrap(err, "register restart listener")
 	}
+
+	// Figure out how much clock skew there is between the postgres server and this process.
+	// The time it takes to run a query and read the result is counted as clock skew, though it
+	// is technically not.  We get the host time before the query so that errors tend to push
+	// the startup time backwards, which makes this instance eligible for more restarts.
+	var postgresTime time.Time
+	now := time.Now().Truncate(time.Microsecond)
+	if err := db.GetContext(ctx, &postgresTime, `select now()`); err != nil {
+		return nil, errors.Wrap(err, "get current database time")
+	}
+	skew := now.Sub(postgresTime)
+	log.Debug(ctx, "adjusting restarter for host<->postgres clock skew", zap.Duration("host_minus_postgres_duration", skew))
+	startupTime := rawStartupTime.Add(skew)
+
 	return &Restarter{
+		startupTime: startupTime,
 		check: func(ctx context.Context) (restart bool, reason string, err error) {
 			if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 				var err error

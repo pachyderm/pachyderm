@@ -56,7 +56,7 @@ func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 	profileutil.StartCloudProfiler(ctx, "pachyderm-worker", env.Config())
 
 	// Enable restart watcher.
-	r, err := restart.New(env.GetDBClient(), env.GetPostgresListener())
+	r, err := restart.New(ctx, env.GetDBClient(), env.GetPostgresListener())
 	if err != nil {
 		return errors.Wrap(err, "restart.New")
 	}

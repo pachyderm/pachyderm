@@ -46,7 +46,9 @@ func message(messages ...restartMessage) string {
 	return strings.Join(parts, "; ")
 }
 
-// ShouldRestart returns true (and the reason) if a pod that started at `startup` should restart.  It also cleans up outdated restart requests (90 days old).
+// ShouldRestart returns true (and the reason) if a pod that started at `startup` should restart.
+// All times are compared from the perspective of the database server.  It also cleans up outdated
+// restart requests (90 days since `now`).
 func ShouldRestart(ctx context.Context, tx *pachsql.Tx, startup, now time.Time) (restart bool, msg string, _ error) {
 	var result []restartMessage
 	if err := sqlx.SelectContext(ctx, tx, &result,

@@ -2,6 +2,7 @@ package restart
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -70,9 +71,13 @@ func TestRestart(t *testing.T) {
 	listener := collection.NewPostgresListener(dsn)
 
 	doneCh := make(chan string)
-	r, err := New(db, listener)
+	now := time.Now().Truncate(time.Microsecond)
+	r, err := New(ctx, db, listener)
 	if err != nil {
 		t.Fatalf("setup restarter: %v", err)
+	}
+	if math.Abs(now.Sub(r.startupTime).Seconds()) > 30 {
+		t.Errorf("too much clock skew between host and postgres:\n      now: %v\n postgres: %v", now.Format(time.RFC3339Nano), r.startupTime.Format(time.RFC3339Nano))
 	}
 	r.restart = func(_ context.Context, reason string) {
 		doneCh <- reason
