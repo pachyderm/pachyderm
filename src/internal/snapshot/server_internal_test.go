@@ -2,15 +2,18 @@ package snapshot_test
 
 import (
 	"context"
+	"go/version"
+	"testing"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/snapshot"
 	snapshotpb "github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -65,19 +68,13 @@ func TestInspectSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("inspect snapshot RPC: %v", err)
 	}
-	info := inspectResp.Info
-	if info == nil || info.CreatedAt == nil {
-		t.Fatalf("snapshot info and timestamp should not be nil")
+	got := inspectResp.Info
+	want := &snapshot.SnapshotInfo{
+		Id:               createResp.Id,
+		ChunksetId:       1,
+		PachydermVersion: version.Version.String(),
 	}
-	if info.PachydermVersion != version.Version.String() {
-		t.Fatalf("pachyderm version got %s, want %s", info.PachydermVersion, version.Version.String())
-	}
-	if info.Id != createResp.Id {
-		t.Fatalf("snapshot id got %d, want 1", info.Id)
-	}
-	if info.ChunksetId != 1 {
-		t.Fatalf("chunkset id got %d, want 1", info.ChunksetId)
-	}
+	require.NoDiff(t, want, got)
 }
 
 func TestDeleteSnapshot(t *testing.T) {
