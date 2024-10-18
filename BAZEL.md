@@ -222,13 +222,16 @@ printed instructions.
 To run pachctl, `bazel run //:pachctl`.
 
 If you want to install `pachctl` from this source tree, run
-`bazel run //src/server/cmd/pachctl:install` or `bazel run //src/serer/cmd/pachctl:install_nostamp`.
-The `nostamp` variant doesn't have a version number baked into it, much like a normal
-`go install ./src/server/cmd/pachctl`. This avoids it printing a message when it's not the same
-version as pachd. From a release tag, you probably want the stamped version. From a random working
-copy, you probably want the nostamp version. (The warning about version mismatches is annoying, but
-important if you're working on pachd and pachctl at the same time; it probably means you forgot to
-restart pachd after your change, so it potentially reminds you.)
+`bazel run --stamp //src/server/cmd/pachctl:install` or `bazel run //src/serer/cmd/pachctl:install`.
+`--stamp` causes a version number to be baked into the installed binary, which enables server/client
+compatability checks. Without `--stamp`, the installed binary behaves like
+`go install ./src/server/cmd/pachctl`. From a release tag, you probably want the stamped version.
+
+It can be confusing to install an unstamped pachctl binary, because you won't know how new the
+pachctl is and whether the error you're seeing is something introduced in a random branch you're
+working on or if it's a bug in the released version, but you'll probably figure it out. `install`
+prioritizes wiping out whatever's first in $PATH, so... you can fix the problem by reinstalling from
+a known branch.
 
 ## Hints
 
