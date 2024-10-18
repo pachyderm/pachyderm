@@ -1,12 +1,15 @@
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_files")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load(":transition.bzl", "multi_arch")
 
 NONROOT = "65532.65532"
 
 NONROOT_USERNAME = "nonroot.nonroot"
+
+PLATFORMS = ["//:x86_64_linux", "//:aarch64_linux"]
 
 pkg_tar(
     name = "dex_assets_tar",
@@ -228,4 +231,48 @@ container_structure_test(
     size = "small",
     configs = ["worker_image_test.yaml"],
     image = ":worker_image",
+)
+
+multi_arch(
+    name = "worker_multiarch",
+    image = "worker_image",
+    platforms = PLATFORMS,
+)
+
+oci_image_index(
+    name = "worker",
+    images = ["worker_multiarch"],
+)
+
+multi_arch(
+    name = "pachd_multiarch",
+    image = "pachd_image",
+    platforms = PLATFORMS,
+)
+
+oci_image_index(
+    name = "pachd",
+    images = ["pachd_multiarch"],
+)
+
+multi_arch(
+    name = "pachd_coverage_multiarch",
+    image = "pachd_coverage_image",
+    platforms = PLATFORMS,
+)
+
+oci_image_index(
+    name = "pachd_coverage",
+    images = ["pachd_coverage_multiarch"],
+)
+
+multi_arch(
+    name = "pachctl_multiarch",
+    image = "pachctl_image",
+    platforms = PLATFORMS,
+)
+
+oci_image_index(
+    name = "pachctl",
+    images = ["pachctl_multiarch"],
 )

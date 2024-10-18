@@ -70,11 +70,21 @@ genrule(
 )
 
 genrule(
+    name = "gen_goenv",
+    outs = ["goenv.txt"],
+    cmd = select({
+        "//:is_x86_64": "echo GOARCH=amd64 > $@",
+        "//:is_aarch64": "echo GOARCH=arm64 > $@",
+    }),
+)
+
+genrule(
     name = "gen_pachd_coverage",
     srcs = [
         "pachd_gopath",
         "additional_version.txt",
         "app_version.txt",
+        "goenv.txt",
     ],
     outs = ["pachd_coverage"],
     cmd = """
@@ -84,7 +94,8 @@ genrule(
         -out $@ \
         -gopath $(location pachd_gopath) \
         -app_version=$$(cat $(location app_version.txt)) \
-        -additional_version=$$(cat $(location additional_version.txt))
+        -additional_version=$$(cat $(location additional_version.txt)) \
+        -goenv=$$(cat $(location goenv.txt))
     """,
     tools = [
         "//src/cmd/compile-with-coverage",
