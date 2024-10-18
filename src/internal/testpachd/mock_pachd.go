@@ -46,6 +46,8 @@ type restartPachydermFunc func(context.Context, *admin.RestartPachydermRequest) 
 
 type mockRestartPachyderm struct{ handler restartPachydermFunc }
 
+func (mock *mockRestartPachyderm) Use(cb restartPachydermFunc) { mock.handler = cb }
+
 type adminServerAPI struct {
 	admin.UnsafeAPIServer
 	mock *mockAdminServer
