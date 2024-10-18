@@ -296,9 +296,9 @@ func (t *postgresTracker) DumpTracker(ctx context.Context, tx *pachsql.Tx, w io.
 	return nil
 }
 
-// DumpTrackerTableNames implements Dumper.
-func (t *postgresTracker) DumpTrackerTableNames() []string {
-	return []string{"storage.tracker_objects", "storage.tracker_refs"}
+// DumpTrackerTablePattern implements Dumper.
+func (t *postgresTracker) DumpTrackerTablePattern() string {
+	return "storage.tracker_objects|tracker_refs"
 }
 
 func dumpTrackerObjects(ctx context.Context, tx *pachsql.Tx, w io.Writer) (retErr error) {

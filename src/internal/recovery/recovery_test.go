@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/klauspost/compress/zstd"
@@ -81,6 +82,8 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	db := dockertestenv.NewMigratedTestDB(t, clusterstate.DesiredClusterState)
 	tracker := track.NewPostgresTracker(db)
 	storage := fileset.NewStorage(fileset.NewPostgresStore(db), tracker, chunk.NewStorage(kv.NewMemStore(), nil, db, tracker))
+
+	// Create a fileset so we have some data to backup.
 	w := storage.NewWriter(ctx)
 	if err := w.Add("test", "", strings.NewReader("this is a test")); err != nil {
 		t.Fatalf("add test file: %v", err)
@@ -90,6 +93,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		t.Fatalf("close testdata fileset: %v", err)
 	}
 
+	// Create a snapshot.
 	s := &Snapshotter{DB: db, Storage: storage}
 
 	snapID, err := s.CreateSnapshot(ctx)
@@ -97,6 +101,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		t.Fatalf("CreateSnapshot: %v", err)
 	}
 
+	// Check that we can read the snapshot we just made.
 	var got, want snapshot
 	want.ID = snapID
 	want.ChunksetID = 1
@@ -117,8 +122,10 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("snapshot row (-want +got):\n%s", diff)
 	}
+	// Validate the database dump fileset we created in CreateSnapshot.
 	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fsToken))
 
+	// Restore the snapshot.
 	if err := s.RestoreSnapshot(ctx, snapID, RestoreSnapshotOptions{}); err != nil {
 		t.Errorf("snapshot not restorable: %v", err)
 	}
@@ -132,8 +139,32 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
 	}
+	// Validate the database backup fileset created during restoration.
 	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fsToken))
 
+	// Drop the chunkset that's keeping the backed up chunks alive (if the restore failed), just
+	// to make sure that it's the original references that are keeping the backed up filesets
+	// around.
+	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `truncate table recovery.snapshots`); err != nil {
+			return errors.Wrap(err, "truncate snapshots table")
+		}
+		if err := storage.DropChunkSet(ctx, tx, fileset.ChunkSetID(got.ChunksetID)); err != nil {
+			return errors.Wrapf(err, "DropChunkSet(%v)", got.ChunksetID)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("WithTx: %v", err)
+	}
+
+	// GC to ensure our dropped refs drop the chunks; if chunks are dropped, then the read below
+	// will fail.
+	if err := storage.NewGC(time.Second).RunUntilEmpty(ctx); err != nil {
+		t.Errorf("gc: %v", err)
+	}
+
+	// Check that the fileset created at the beginning of the test is fully readable after
+	// restoring.
 	fs, err := storage.Open(ctx, []*fileset.Handle{testDataFsHandle})
 	if err != nil {
 		t.Fatalf("open testdata fileset: %v", err)
