@@ -53,6 +53,7 @@ go_library(
         "//src/internal/pjs",
         "//src/internal/preflight",
         "//src/internal/profileutil",
+        "//src/internal/recovery",
         "//src/internal/require",
         "//src/internal/serviceenv",
         "//src/internal/snapshot",
