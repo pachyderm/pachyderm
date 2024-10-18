@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "snapshotdb",
     srcs = [
+        "errors.go",
         "snapshot_crud.go",
         "snapshotdb.go",
     ],
@@ -16,6 +17,8 @@ go_library(
         "//src/snapshot",
         "//src/version",
         "@com_github_jmoiron_sqlx//:sqlx",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
         "@org_golang_google_protobuf//types/known/timestamppb",
     ],
 )
