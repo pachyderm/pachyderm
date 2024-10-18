@@ -73,6 +73,8 @@ func New(ctx context.Context, db *pachsql.DB, listener collection.PostgresListen
 			select {
 			case <-time.After(10 * time.Second):
 			case <-ctx.Done():
+				log.Error(ctx, "context cancelled before restart timer; assuming process is shutting down some other way", zap.Error(context.Cause(ctx)))
+				return
 			}
 			if err := os.WriteFile("/dev/termination-log", []byte("automatic restart: "+reason), 0o777); err != nil {
 				log.Debug(ctx, "problem writing restart reason to /dev/termination-log", zap.Error(err))
