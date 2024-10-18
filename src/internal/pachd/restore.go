@@ -2,12 +2,16 @@ package pachd
 
 import (
 	"context"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/admindb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/recovery"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 )
@@ -50,6 +54,9 @@ func NewRestoreSnapshot(env RestoreSnapshotEnv, config pachconfig.PachdRestoreSn
 				if err := s.RestoreSnapshot(ctx, snapshotID, recovery.RestoreSnapshotOptions{}); err != nil {
 					return errors.Wrapf(err, "could not restore snapshot %s", snapshotID)
 				}
+				dbutil.WithTx(ctx, env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+					return errors.Wrap(admindb.ScheduleRestart(ctx, tx, time.Now(), "restored Pachyderm", "pachroot"), "ScheduleRestart")
+				})
 				return nil
 			},
 		},
