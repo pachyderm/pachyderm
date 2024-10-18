@@ -15,5 +15,6 @@ func Migrate(state migrations.State) migrations.State {
 		Apply("Create snapshot schema", createSnapshotSchema).
 		Apply("Create storage.fileset_pins Table", func(ctx context.Context, env migrations.Env) error {
 			return fileset.CreatePinsTable(ctx, env.Tx)
-		})
+		}).
+		Apply("Create admin schema + restarts table", createPachydermRestartSchema)
 }

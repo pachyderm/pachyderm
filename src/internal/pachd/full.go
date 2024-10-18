@@ -7,6 +7,7 @@ import (
 	"path"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -25,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	lokiclient "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	clientlog_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
@@ -34,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/restart"
 	snapshot_server "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	storage_server "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
@@ -129,6 +132,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.initJaeger,
 		fb.initKube,
 		fb.setupDB,
+		fb.restartOnSignal,
 		fb.maybeInitDexDB,
 		fb.maybeInitReporter,
 		fb.initInternalServer,
@@ -273,6 +277,21 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 			Name: "setup listener",
 			Fn: func(ctx context.Context) error {
 				pd.dbListener = collection.NewPostgresListener(env.DBListenerConfig)
+				return nil
+			},
+		},
+		setupStep{
+			Name: "setup restarter",
+			Fn: func(ctx context.Context) error {
+				r, err := restart.New(ctx, env.DB, pd.dbListener)
+				if err != nil {
+					return errors.Wrap(err, "restart.New")
+				}
+				go func() {
+					if err := r.RestartWhenRequired(ctx); err != nil {
+						log.Error(ctx, "restart notifier failed", zap.Error(err))
+					}
+				}()
 				return nil
 			},
 		},
