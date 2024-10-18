@@ -62,7 +62,6 @@ func NewRestoreSnapshot(env RestoreSnapshotEnv, config pachconfig.PachdRestoreSn
 					}
 					return errors.Wrap(admindb.ScheduleRestart(ctx, tx, time.Now(), "restored Pachyderm", hostname), "ScheduleRestart")
 				}), "WithTx")
-				return nil
 			},
 		},
 	)
