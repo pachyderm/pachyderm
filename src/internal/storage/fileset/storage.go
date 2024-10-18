@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"io"
 	"math"
 	"strconv"
 	"strings"
@@ -562,3 +563,36 @@ func (s *Storage) DropChunkSet(ctx context.Context, tx *sqlx.Tx, id ChunkSetID) 
 func chunksetStringID(id ChunkSetID) string {
 	return "chunkset/" + strconv.FormatUint(uint64(id), 10)
 }
+
+// DumpTracker dumps the state of the tracker to w in a format compatible with piping into `psql`.
+//
+// The format looks like:
+//
+//	COPY <table> (col1, col2, ...) FROM stdin;
+//	<col1> <tab> <col2> <newline>
+//	...
+//	\.
+func (s *Storage) DumpTracker(ctx context.Context, tx *pachsql.Tx, w io.Writer) error {
+	t, ok := s.tracker.(track.Dumper)
+	if !ok {
+		return errors.New("underlying tracker cannot be dumped to SQL")
+	}
+	if err := t.DumpTracker(ctx, tx, w); err != nil {
+		return errors.Wrapf(err, "DumpTracker(%T)", s.tracker)
+	}
+	return nil
+}
+
+// DumpTrackerTableNames returns a list of tables that DumpTracker is responsible for dumping.  If
+// dumping the entire database, data in these tables should be skipped, as DumpTracker() handles
+// dumping them.
+func (s *Storage) DumpTrackerTableNames() []string {
+	t, ok := s.tracker.(track.Dumper)
+	if !ok {
+		return nil
+	}
+	return t.DumpTrackerTableNames()
+}
+
+// Storage implements track.Dumper.
+var _ track.Dumper = (*Storage)(nil)
