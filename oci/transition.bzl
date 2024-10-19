@@ -2,7 +2,7 @@
 
 # This is from: https://github.com/bazel-contrib/rules_oci/blob/main/examples/multi_architecture_image/transition.bzl
 
-def _multiarch_transition(settings, attr):
+def _multiarch_transition(_, attr):
     return [
         {"//command_line_option:platforms": str(platform)}
         for platform in attr.platforms
