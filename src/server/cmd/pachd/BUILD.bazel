@@ -56,7 +56,6 @@ genrule(
     version=$$(grep ^STABLE_APP_VERSION bazel-out/stable-status.txt | cut -d' ' -f2); \
     printf '%s' $$version > $@
     """,
-    stamp = 1,
 )
 
 genrule(
@@ -66,7 +65,6 @@ genrule(
     version=$$(grep ^STABLE_ADDITIONAL_VERSION bazel-out/stable-status.txt | cut -d' ' -f2); \
     printf '%s' $$version > $@
     """,
-    stamp = 1,
 )
 
 genrule(

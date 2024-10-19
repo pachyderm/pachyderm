@@ -1,6 +1,7 @@
+load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
-load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_push")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_files")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load(":transition.bzl", "multi_arch")
@@ -266,4 +267,75 @@ multi_arch(
 oci_image_index(
     name = "pachctl",
     images = ["pachctl_multiarch"],
+)
+
+expand_template(
+    name = "labels",
+    out = "_labels.txt",
+    template = [
+        "local",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",  # during builds without --stamp, this is the tag
+        "0.0.0",
+    ],
+    stamp_substitutions = {
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz": "{{COMMIT_SHA}}",  # but with --stamp, it gets replaced
+        "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
+    },
+)
+
+expand_template(
+    name = "coverage_labels",
+    out = "_coverage_labels.txt",
+    template = [
+        "cover-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    ],
+    stamp_substitutions = {
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz": "{{COMMIT_SHA}}",
+    },
+)
+
+oci_push(
+    name = "push_pachd",
+    image = "pachd",
+    repository = "docker.io/pachyderm/pachd",
+    remote_tags = "labels",
+)
+
+oci_push(
+    name = "push_worker",
+    image = "worker",
+    repository = "docker.io/pachyderm/worker",
+    remote_tags = "labels",
+)
+
+oci_push(
+    name = "push_pachctl",
+    image = "pachctl",
+    repository = "docker.io/pachyderm/pachctl",
+    remote_tags = "labels",
+)
+
+oci_push(
+    name = "push_pachd_coverage",
+    image = "pachd_coverage",
+    repository = "docker.io/pachyderm/pachd",
+    remote_tags = "coverage_labels",
+)
+
+oci_push(
+    # This rule is a misnomer; there is no worker coverage image.  This is maintained for tests
+    # that expect to use the same tag for all 3 containers.
+    name = "push_worker_coverage",
+    image = "worker",
+    repository = "docker.io/pachyderm/worker",
+    remote_tags = "coverage_labels",
+)
+
+oci_push(
+    # This rule is a misnomer; there is no pachctl coverage image.  This is maintained for tests
+    # that expect to use the same tag for all 3 containers.
+    name = "push_pachctl_coverage",
+    image = "pachctl",
+    repository = "docker.io/pachyderm/pachctl",
+    remote_tags = "coverage_labels",
 )
