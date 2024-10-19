@@ -616,6 +616,7 @@ jobs:
             sudo apt update
             sudo apt install binfmt-support qemu-user-static
       - install-go-releaser
+      - install-bazel
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -626,25 +627,18 @@ jobs:
             v=<< parameters.appVersion >>
             additional=${v%%-*}
             index=${#additional}
+            make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+
             if << parameters.enableCoverage >>
             then
-              make docker-build-coverage VERSION=${v} VERSION_ADDITIONAL=${v:index}
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push
             else
-              make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push_coverage
             fi
       - persist_to_workspace:
           root: ../
           paths:
             - dist-pach/docker/*
-      - run:
-          name: Push docker
-          command: |-
-            if << parameters.enableCoverage >>
-            then
-              make docker-push VERSION=cover-${CIRCLE_SHA1}
-            else
-              make docker-push VERSION=${CIRCLE_SHA1}
-            fi
   build-pachctl-bin:
     parameters:
       version:
