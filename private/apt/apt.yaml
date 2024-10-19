@@ -2,7 +2,7 @@
 #
 # To generate the postgres.lock.json run the following command:
 #
-#     bazel run @postgres//:lock
+#     bazel run @apt//:lock
 version: 1
 
 sources:

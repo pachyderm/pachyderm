@@ -475,12 +475,12 @@ use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
 
-# Apt (for Postgres binaries, etc)
+# Apt (for Postgres binaries, cacerts, etc)
 apt = use_extension("@rules_distroless//apt:extensions.bzl", "apt")
 apt.install(
-    name = "postgres",
-    lock = "//private/apt:postgres.lock.json",
-    manifest = "//private/apt:postgres.yaml",
+    name = "apt",
+    lock = "//private/apt:apt.lock.json",
+    manifest = "//private/apt:apt.yaml",
     resolve_transitive = True,
 )
-use_repo(apt, "postgres")
+use_repo(apt, "apt")
