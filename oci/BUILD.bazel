@@ -1,6 +1,7 @@
 load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
+load("@rules_multirun//:defs.bzl", "command", "multirun")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_push")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_files")
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
@@ -315,6 +316,11 @@ oci_push(
     remote_tags = "labels",
 )
 
+multirun(
+    name = "push",
+    commands = ["push_pachd", "push_worker", "push_pachctl"],
+)
+
 oci_push(
     name = "push_pachd_coverage",
     image = "pachd_coverage",
@@ -338,4 +344,9 @@ oci_push(
     image = "pachctl",
     repository = "docker.io/pachyderm/pachctl",
     remote_tags = "coverage_labels",
+)
+
+multirun(
+    name = "push_coverage",
+    commands = ["push_pachd_coverage", "push_worker_coverage", "push_pachctl_coverage"],
 )
