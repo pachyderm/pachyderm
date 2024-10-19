@@ -93,9 +93,6 @@ release-pachctl:
 docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELDEBUG) --skip-validate --skip-publish --clean -f goreleaser/docker.yml
 
-docker-build-amd:
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --clean -f goreleaser/docker-amd.yml
-
 docker-build-netcat:
 	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
 
