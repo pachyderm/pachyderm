@@ -18,4 +18,5 @@ archs:
     - "arm64"
 
 packages:
+    - "ca-certificates"
     - "postgresql-client-17"

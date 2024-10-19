@@ -1,6 +1,7 @@
 load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
+load("@rules_distroless//distroless:defs.bzl", "cacerts")
 load("@rules_multirun//:defs.bzl", "multirun")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_push")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_files")
@@ -15,6 +16,14 @@ PLATFORMS = [
     "//:x86_64_linux",
     "//:aarch64_linux",
 ]
+
+cacerts(
+    name = "cacerts",
+    package = select({
+        "@platforms//cpu:arm64": "@apt//ca-certificates/arm64:data",
+        "@platforms//cpu:x86_64": "@apt//ca-certificates/amd64:data",
+    }),
+)
 
 pkg_tar(
     name = "dex_assets_tar",
@@ -78,6 +87,7 @@ oci_image(
     base = "@distroless",
     entrypoint = ["/pachd"],
     tars = [
+        ":cacerts",
         ":licenses_tar",
         ":dex_assets_tar",
         ":pachd_linux_tar",
