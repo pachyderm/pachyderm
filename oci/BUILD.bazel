@@ -11,7 +11,10 @@ NONROOT = "65532.65532"
 
 NONROOT_USERNAME = "nonroot.nonroot"
 
-PLATFORMS = ["//:x86_64_linux", "//:aarch64_linux"]
+PLATFORMS = [
+    "//:x86_64_linux",
+    "//:aarch64_linux",
+]
 
 pkg_tar(
     name = "dex_assets_tar",
@@ -273,59 +276,63 @@ oci_image_index(
 expand_template(
     name = "labels",
     out = "_labels.txt",
+    stamp_substitutions = {
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz": "{{COMMIT_SHA}}",  # but with --stamp, it gets replaced
+        "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
+    },
     template = [
         "local",
         "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",  # during builds without --stamp, this is the tag
         "0.0.0",
     ],
-    stamp_substitutions = {
-        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz": "{{COMMIT_SHA}}",  # but with --stamp, it gets replaced
-        "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
-    },
 )
 
 expand_template(
     name = "coverage_labels",
     out = "_coverage_labels.txt",
-    template = [
-        "cover-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-    ],
     stamp_substitutions = {
         "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz": "{{COMMIT_SHA}}",
     },
+    template = [
+        "cover-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    ],
 )
 
 oci_push(
     name = "push_pachd",
     image = "pachd",
-    repository = "docker.io/pachyderm/pachd",
     remote_tags = "labels",
+    repository = "docker.io/pachyderm/pachd",
 )
 
 oci_push(
     name = "push_worker",
     image = "worker",
-    repository = "docker.io/pachyderm/worker",
     remote_tags = "labels",
+    repository = "docker.io/pachyderm/worker",
 )
 
 oci_push(
     name = "push_pachctl",
     image = "pachctl",
-    repository = "docker.io/pachyderm/pachctl",
     remote_tags = "labels",
+    repository = "docker.io/pachyderm/pachctl",
 )
 
 multirun(
     name = "push",
-    commands = ["push_pachd", "push_worker", "push_pachctl"],
+    commands = [
+        "push_pachd",
+        "push_worker",
+        "push_pachctl",
+    ],
 )
 
 oci_push(
     name = "push_pachd_coverage",
     image = "pachd_coverage",
-    repository = "docker.io/pachyderm/pachd",
     remote_tags = "coverage_labels",
+    repository = "docker.io/pachyderm/pachd",
 )
 
 oci_push(
@@ -333,8 +340,8 @@ oci_push(
     # that expect to use the same tag for all 3 containers.
     name = "push_worker_coverage",
     image = "worker",
-    repository = "docker.io/pachyderm/worker",
     remote_tags = "coverage_labels",
+    repository = "docker.io/pachyderm/worker",
 )
 
 oci_push(
@@ -342,11 +349,15 @@ oci_push(
     # that expect to use the same tag for all 3 containers.
     name = "push_pachctl_coverage",
     image = "pachctl",
-    repository = "docker.io/pachyderm/pachctl",
     remote_tags = "coverage_labels",
+    repository = "docker.io/pachyderm/pachctl",
 )
 
 multirun(
     name = "push_coverage",
-    commands = ["push_pachd_coverage", "push_worker_coverage", "push_pachctl_coverage"],
+    commands = [
+        "push_pachd_coverage",
+        "push_worker_coverage",
+        "push_pachctl_coverage",
+    ],
 )
