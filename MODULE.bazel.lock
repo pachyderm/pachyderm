@@ -4131,7 +4131,7 @@
     "@@rules_oci~//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "WuV2/AGU7WUciFhynI73G30FaJCDCC6KgAJaLW5EI9A=",
-        "usagesDigest": "HlEhiOZCfx2Qj/DHrdHp5Qfrrm8UoSH/T4N5yKy602o=",
+        "usagesDigest": "kBPtFyeuC/C44VCve7ShTkP67KWwKq0uOaqmk+6NuRM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -4239,7 +4239,7 @@
               "scheme": "https",
               "registry": "gcr.io",
               "repository": "distroless/static-debian12",
-              "identifier": "sha256:39ae7f0201fee13b777a3e4a5a9326a8889269172c8b4f4289d9f19c831f45f4",
+              "identifier": "sha256:26f9b99f2463f55f20db19feb4d96eb88b056e0f1be7016bb9296a464a89d772",
               "platform": "linux/arm64/v8",
               "target_name": "distroless_linux_arm64_v8",
               "bazel_tags": []
@@ -4313,10 +4313,27 @@
               "scheme": "https",
               "registry": "gcr.io",
               "repository": "distroless/static-debian12",
-              "identifier": "sha256:39ae7f0201fee13b777a3e4a5a9326a8889269172c8b4f4289d9f19c831f45f4",
+              "identifier": "sha256:26f9b99f2463f55f20db19feb4d96eb88b056e0f1be7016bb9296a464a89d772",
               "platform": "linux/amd64",
               "target_name": "distroless_linux_amd64",
               "bazel_tags": []
+            }
+          },
+          "debian-slim": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_alias",
+            "attributes": {
+              "target_name": "debian-slim",
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/debian",
+              "identifier": "sha256:36e591f228bb9b99348f584e83f16e012c33ba5cad44ef5981a1d7c0a93eca22",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@debian-slim_linux_amd64",
+                "@@platforms//cpu:arm64": "@debian-slim_linux_arm64_v8"
+              },
+              "bzlmod_repository": "debian-slim",
+              "reproducible": true
             }
           },
           "oci_regctl_windows_amd64": {
@@ -4393,6 +4410,19 @@
             "ruleClassName": "bsdtar_binary_repo",
             "attributes": {
               "platform": "linux_amd64"
+            }
+          },
+          "debian-slim_linux_arm64_v8": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_pull",
+            "attributes": {
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/debian",
+              "identifier": "sha256:36e591f228bb9b99348f584e83f16e012c33ba5cad44ef5981a1d7c0a93eca22",
+              "platform": "linux/arm64/v8",
+              "target_name": "debian-slim_linux_arm64_v8",
+              "bazel_tags": []
             }
           },
           "oci_crane_windows_amd64": {
@@ -4600,6 +4630,19 @@
               "user_repository_name": "bsd_tar"
             }
           },
+          "debian-slim_linux_amd64": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_pull",
+            "attributes": {
+              "scheme": "https",
+              "registry": "index.docker.io",
+              "repository": "library/debian",
+              "identifier": "sha256:36e591f228bb9b99348f584e83f16e012c33ba5cad44ef5981a1d7c0a93eca22",
+              "platform": "linux/amd64",
+              "target_name": "debian-slim_linux_amd64",
+              "bazel_tags": []
+            }
+          },
           "distroless": {
             "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
             "ruleClassName": "oci_alias",
@@ -4608,7 +4651,7 @@
               "scheme": "https",
               "registry": "gcr.io",
               "repository": "distroless/static-debian12",
-              "identifier": "sha256:39ae7f0201fee13b777a3e4a5a9326a8889269172c8b4f4289d9f19c831f45f4",
+              "identifier": "sha256:26f9b99f2463f55f20db19feb4d96eb88b056e0f1be7016bb9296a464a89d772",
               "platforms": {
                 "@@platforms//cpu:x86_64": "@distroless_linux_amd64",
                 "@@platforms//cpu:arm64": "@distroless_linux_arm64_v8"
@@ -4664,6 +4707,9 @@
             "distroless",
             "distroless_linux_amd64",
             "distroless_linux_arm64_v8",
+            "debian-slim",
+            "debian-slim_linux_amd64",
+            "debian-slim_linux_arm64_v8",
             "pause",
             "pause_linux_amd64",
             "pause_linux_arm64",

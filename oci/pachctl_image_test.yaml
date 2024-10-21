@@ -16,5 +16,5 @@ fileExistenceTests:
     - name: "tmp"
       path: "/tmp"
       shouldExist: true
-    - name: "cacerts"
-      path: "/etc/ssl/certs/ca-certificates.crt"
+    - name: "bash"
+      path: "/bin/bash"
