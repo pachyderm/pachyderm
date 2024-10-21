@@ -376,7 +376,7 @@ Then view `genhtml/index.html` in your browser:
 chrome genhtml/index.html
 ```
 
-### Log span
+### Log spam
 
 Building container images might print a bunch of messages like:
 
