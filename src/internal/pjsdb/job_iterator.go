@@ -65,7 +65,7 @@ func (f IterateJobsFilter) apply() (where string, values []any) {
 	}
 	// from pjs.job_filesets
 	if f.HasInput != nil {
-		conditions = append(conditions, "jf_input.fileset IN (?)")
+		conditions = append(conditions, "jf_input.fileset_pin IN (?)")
 		values = append(values, f.HasInput)
 	}
 	if f.HasOutput != nil {

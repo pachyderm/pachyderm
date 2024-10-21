@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func NewTestFilesetServer(t testing.TB, db *pachsql.DB) *Server {
+func NewTestServer(t testing.TB, db *pachsql.DB) *Server {
 	ctx := pctx.TestContext(t)
 	b, buckURL := dockertestenv.NewTestBucket(ctx, t)
 	t.Log("bucket", buckURL)
@@ -29,8 +29,7 @@ func NewTestFilesetServer(t testing.TB, db *pachsql.DB) *Server {
 	return s
 }
 
-func NewTestFilesetClient(t testing.TB, db *pachsql.DB) storage.FilesetClient {
-	s := NewTestFilesetServer(t, db)
+func NewTestFilesetClient(t testing.TB, s *Server) storage.FilesetClient {
 	gc := grpcutil.NewTestClient(t, func(gs *grpc.Server) {
 		storage.RegisterFilesetServer(gs, s)
 	})

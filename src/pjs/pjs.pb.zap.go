@@ -72,13 +72,7 @@ func (x *QueueInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("queue", x.Queue)
-	programArrMarshaller := func(enc zapcore.ArrayEncoder) error {
-		for _, v := range x.Program {
-			enc.AppendString(v)
-		}
-		return nil
-	}
-	enc.AddArray("program", zapcore.ArrayMarshalerFunc(programArrMarshaller))
+	enc.AddString("program", x.Program)
 	return nil
 }
 

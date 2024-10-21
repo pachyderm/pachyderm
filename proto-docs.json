@@ -17817,8 +17817,8 @@
             },
             {
               "name": "program",
-              "description": "The current storage system supports cloned filesets with the same content hash.",
-              "label": "repeated",
+              "description": "",
+              "label": "",
               "type": "string",
               "longType": "string",
               "fullType": "string",
