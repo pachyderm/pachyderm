@@ -5,11 +5,10 @@ building everything here with [Bazel](https://bazel.build/), so that day 1 setup
 so that test tooling can be shared between languages. We also want to cache tests so that editing
 README.md doesn't involve running all of our Go tests.
 
-Currently, Bazel is only for environment setup, `make proto`, and Go tests that don't require
-Kubernetes. Because people depend on installing `github.com/pachyderm/pachyderm/v2` with "go get",
-we can never fully convert to only using Bazel as the build system. Rather, we will use both Bazel
-and `go.mod` for the foreseeable future. Hence, we check in all of our generated code, and you can
-use `go test` for everything if you hate Bazel for some reason.
+Because people depend on installing `github.com/pachyderm/pachyderm/v2` with "go get", we can never
+fully convert to only using Bazel as the build system. Rather, we will use both Bazel and `go.mod`
+for the foreseeable future. Hence, we check in all of our generated code (eschewing Bazel's proto
+generation rules, etc.).
 
 ## Setup
 
@@ -154,10 +153,28 @@ If you'd like to invoke the version of Go used internally, run `bazel run //:go`
 ## Build containers
 
 The containers are defined in the `oci/` directory. `bazel build //oci:pachd_image`, for example,
-will build a container image compiled for linux on your host machine's architecture. You can copy
-this into a registry to pull with `skopeo copy oci:bazel-bin/oci/pachd_image ...`.
+will build a container image compiled for linux on your host machine's architecture. You can
+manipulate this image with `skopeo inspect oci:bazel-bin/oci/pachd_image ...`.
+[Skopeo](https://github.com/containers/skopeo/blob/main/docs/skopeo.1.md) is available from
+`//tools/skopeo`, or you can grab it from your package manager. (It's just a suggestion to use this;
+it's not needed for building or anything.)
 
-Very soon, pushing to a dev environment will be automated.
+There are a few targets that build the containers; `pachd_image`, `pachctl_image`, and
+`worker_image` are images targeting the architecture of the build machine (or
+[--cpu](https://bazel.build/docs/user-manual#cpu) bazel flag). `pachd`, `pachctl`, and `worker` are
+multi-arch "image indexes".
+
+To push containers to your local docker daemon (for `docker run`), run `bazel run //oci:load` or
+just `load_pachctl`, etc. `pachctl` is the only container that's easy to run locally with Docker,
+the rest require databases and all that good stuff, so you'll likely never need this.
+
+To push containers to production (for releases), run `bazel run --stamp //oci:push`. This writes to
+DockerHub as the user in your `~/.docker/config.json` file. If you aren't careful, you could
+silently overwrite production images with garbage. Only CI should be running this command, but if
+you know what you're doing, you can run it.
+
+A program called `pachdev` manages local development environments, so you should never need to
+manually load or push containers. See [LOCAL.md](LOCAL.md) for details.
 
 ## Run Tests
 

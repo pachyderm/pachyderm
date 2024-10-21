@@ -25,6 +25,20 @@ cacerts(
     }),
 )
 
+expand_template(
+    name = "annotations",
+    out = "_annotations.txt",
+    stamp_substitutions = {
+        "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
+    },
+    template = [
+        "name=Pachyderm",
+        "vendor=Pachyderm",
+        "version=0.0.0",
+        "release=0.0.0",
+    ],
+)
+
 pkg_tar(
     name = "dex_assets_tar",
     srcs = ["//dex-assets"],
@@ -84,8 +98,10 @@ platform_transition_filegroup(
 
 oci_image(
     name = "pachd_image",
+    annotations = "annotations",
     base = "@distroless",
     entrypoint = ["/pachd"],
+    labels = "annotations",
     tars = [
         ":cacerts",
         ":licenses_tar",
@@ -97,8 +113,10 @@ oci_image(
 
 oci_image(
     name = "pachd_coverage_image",
+    annotations = "annotations",
     base = "@distroless",
     entrypoint = ["/pachd"],
+    labels = "annotations",
     tars = [
         ":licenses_tar",
         ":dex_assets_tar",
@@ -157,19 +175,15 @@ platform_transition_filegroup(
 
 oci_image(
     name = "pachctl_image",
+    annotations = "annotations",
     base = "@debian-slim",
+    labels = "annotations",
     tars = [
         ":cacerts",
         ":licenses_tar",
         ":pachctl_self_linux_tar",
     ],
     visibility = ["//visibility:public"],
-)
-
-oci_load(
-    name = "pachctl_local",
-    image = "pachctl_image",
-    repo_tags = ["pachyderm/pachctl:local"],
 )
 
 container_structure_test(
@@ -226,8 +240,10 @@ pkg_tar(
 
 oci_image(
     name = "worker_image",
+    annotations = "annotations",
     base = "@distroless",
     entrypoint = ["/app/init"],
+    labels = "annotations",
     tars = [
         ":dumb_init_linux_tar",
         ":worker_init_linux_tar",
@@ -290,13 +306,15 @@ oci_image_index(
 )
 
 expand_template(
-    name = "labels",
-    out = "_labels.txt",
+    name = "tags",
+    out = "_tags.txt",
     stamp_substitutions = {
         "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz": "{{COMMIT_SHA}}",  # but with --stamp, it gets replaced
         "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
     },
     template = [
+        # it seems like some CI jobs might rely on being able to pull images tagged :local, even
+        # though that's not local at all
         "local",
         "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",  # during builds without --stamp, this is the tag
         "0.0.0",
@@ -304,8 +322,8 @@ expand_template(
 )
 
 expand_template(
-    name = "coverage_labels",
-    out = "_coverage_labels.txt",
+    name = "coverage_tags",
+    out = "_coverage_tags.txt",
     stamp_substitutions = {
         "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz": "{{COMMIT_SHA}}",
     },
@@ -317,24 +335,50 @@ expand_template(
 oci_push(
     name = "push_pachd",
     image = "pachd",
-    remote_tags = "labels",
+    remote_tags = "tags",
     repository = "docker.io/pachyderm/pachd",
+)
+
+oci_load(
+    name = "load_pachd",
+    image = "pachd_image",
+    repo_tags = ["pachyderm/pachd:local"],
 )
 
 oci_push(
     name = "push_worker",
     image = "worker",
-    remote_tags = "labels",
+    remote_tags = "tags",
     repository = "docker.io/pachyderm/worker",
+)
+
+oci_load(
+    name = "load_worker",
+    image = "worker_image",
+    repo_tags = [
+        "pachyderm/worker:local",
+        "pachyderm/worker:cover-local",
+    ],
 )
 
 oci_push(
     name = "push_pachctl",
     image = "pachctl",
-    remote_tags = "labels",
+    remote_tags = "tags",
     repository = "docker.io/pachyderm/pachctl",
 )
 
+oci_load(
+    name = "load_pachctl",
+    image = "pachctl_image",
+    repo_tags = [
+        "pachyderm/pachctl:local",
+        "pachyderm/pachctl:cover-local",
+    ],
+)
+
+# bazel run --stamp //oci:push will push all (tagged) container images to docker hub.  This requires
+# that you have docker credentials.
 multirun(
     name = "push",
     commands = [
@@ -344,11 +388,29 @@ multirun(
     ],
 )
 
+# bazel run //oci:load will load all container images into the local docker daemon.  This is not
+# particularly useful for anything except pachctl (since the worker and pachd aren't going to run
+# under pure docker easily), and `bazel run //oci:load_pachctl` will handle that.
+multirun(
+    name = "load",
+    commands = [
+        "load_pachd",
+        "load_worker",
+        "load_pachctl",
+    ],
+)
+
 oci_push(
     name = "push_pachd_coverage",
     image = "pachd_coverage",
-    remote_tags = "coverage_labels",
+    remote_tags = "coverage_tags",
     repository = "docker.io/pachyderm/pachd",
+)
+
+oci_load(
+    name = "load_pachd_coverage",
+    image = "pachd_coverage_image",
+    repo_tags = ["pachyderm/pachd:cover-local"],
 )
 
 oci_push(
@@ -356,16 +418,18 @@ oci_push(
     # that expect to use the same tag for all 3 containers.
     name = "push_worker_coverage",
     image = "worker",
-    remote_tags = "coverage_labels",
+    remote_tags = "coverage_tags",
     repository = "docker.io/pachyderm/worker",
 )
 
+# bazel run --stamp //oci:push_coverage will push all container images to docker hub.  This requires
+# that you have docker credentials.
 oci_push(
     # This rule is a misnomer; there is no pachctl coverage image.  This is maintained for tests
     # that expect to use the same tag for all 3 containers.
     name = "push_pachctl_coverage",
     image = "pachctl",
-    remote_tags = "coverage_labels",
+    remote_tags = "coverage_tags",
     repository = "docker.io/pachyderm/pachctl",
 )
 
@@ -375,5 +439,14 @@ multirun(
         "push_pachd_coverage",
         "push_worker_coverage",
         "push_pachctl_coverage",
+    ],
+)
+
+multirun(
+    name = "load_coverage",
+    commands = [
+        "load_pachd_coverage",
+        "load_worker",
+        "load_pachctl",
     ],
 )
