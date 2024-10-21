@@ -160,6 +160,7 @@ oci_image(
     base = "@distroless",
     entrypoint = ["/usr/local/bin/pachctl"],
     tars = [
+        ":cacerts",
         ":licenses_tar",
         ":pachctl_self_linux_tar",
     ],
