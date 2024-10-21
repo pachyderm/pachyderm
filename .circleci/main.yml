@@ -605,7 +605,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
       docker_layer_caching: true
-    resource_class: xlarge
+    resource_class: 2xlarge
     steps:
       - go/install:
           version: << pipeline.parameters.go-version >>
@@ -631,9 +631,9 @@ jobs:
 
             if << parameters.enableCoverage >>
             then
-              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push
-            else
               bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push_coverage
+            else
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push
             fi
       - persist_to_workspace:
           root: ../
