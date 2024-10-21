@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail -x
+set -euo pipefail
 
 commit_sha=$(git rev-parse HEAD)
 echo "COMMIT_SHA $commit_sha"
