@@ -42,14 +42,21 @@ type mockInspectCluster struct{ handler inspectClusterFunc }
 
 func (mock *mockInspectCluster) Use(cb inspectClusterFunc) { mock.handler = cb }
 
+type restartPachydermFunc func(context.Context, *admin.RestartPachydermRequest) (*admin.RestartPachydermResponse, error)
+
+type mockRestartPachyderm struct{ handler restartPachydermFunc }
+
+func (mock *mockRestartPachyderm) Use(cb restartPachydermFunc) { mock.handler = cb }
+
 type adminServerAPI struct {
 	admin.UnsafeAPIServer
 	mock *mockAdminServer
 }
 
 type mockAdminServer struct {
-	api            adminServerAPI
-	InspectCluster mockInspectCluster
+	api              adminServerAPI
+	InspectCluster   mockInspectCluster
+	RestartPachyderm mockRestartPachyderm
 }
 
 func (api *adminServerAPI) InspectCluster(ctx context.Context, req *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
@@ -57,6 +64,13 @@ func (api *adminServerAPI) InspectCluster(ctx context.Context, req *admin.Inspec
 		return api.mock.InspectCluster.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock admin.InspectCluster")
+}
+
+func (api *adminServerAPI) RestartPachyderm(ctx context.Context, req *admin.RestartPachydermRequest) (*admin.RestartPachydermResponse, error) {
+	if api.mock.RestartPachyderm.handler != nil {
+		return api.mock.RestartPachyderm.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock admin.RestartPachyderm")
 }
 
 /* Auth Server Mocks */

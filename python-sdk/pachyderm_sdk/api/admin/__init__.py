@@ -51,6 +51,12 @@ class ClusterInfo(betterproto.Message):
     )
     """Cluster-level metadata."""
 
+    pending_restart: bool = betterproto.bool_field(10)
+    """If true, the cluster is going to restart soon."""
+
+    restart_info: str = betterproto.string_field(11)
+    """Information about pending restarts."""
+
 
 @dataclass(eq=False, repr=False)
 class InspectClusterRequest(betterproto.Message):
@@ -85,6 +91,17 @@ class WebResource(betterproto.Message):
     """
 
 
+@dataclass(eq=False, repr=False)
+class RestartPachydermRequest(betterproto.Message):
+    reason: str = betterproto.string_field(1)
+    """The reason that you're requesting a restart of the cluster."""
+
+
+@dataclass(eq=False, repr=False)
+class RestartPachydermResponse(betterproto.Message):
+    pass
+
+
 class ApiStub:
 
     def __init__(self, channel: "grpc.Channel"):
@@ -92,6 +109,11 @@ class ApiStub:
             "/admin_v2.API/InspectCluster",
             request_serializer=InspectClusterRequest.SerializeToString,
             response_deserializer=ClusterInfo.FromString,
+        )
+        self.__rpc_restart_pachyderm = channel.unary_unary(
+            "/admin_v2.API/RestartPachyderm",
+            request_serializer=RestartPachydermRequest.SerializeToString,
+            response_deserializer=RestartPachydermResponse.FromString,
         )
 
     def inspect_cluster(
@@ -108,3 +130,10 @@ class ApiStub:
             request.current_project = current_project
 
         return self.__rpc_inspect_cluster(request)
+
+    def restart_pachyderm(self, *, reason: str = "") -> "RestartPachydermResponse":
+
+        request = RestartPachydermRequest()
+        request.reason = reason
+
+        return self.__rpc_restart_pachyderm(request)

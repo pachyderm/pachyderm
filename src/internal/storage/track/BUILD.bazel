@@ -27,9 +27,11 @@ go_test(
     srcs = ["postgres_tracker_test.go"],
     deps = [
         ":track",
+        "//src/internal/clusterstate",
         "//src/internal/dbutil",
         "//src/internal/dockertestenv",
         "//src/internal/pachsql",
+        "//src/internal/pctx",
         "//src/internal/require",
     ],
 )

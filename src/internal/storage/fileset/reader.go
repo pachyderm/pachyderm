@@ -2,8 +2,9 @@ package fileset
 
 import (
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"io"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
@@ -15,15 +16,15 @@ type Reader struct {
 	store    MetadataStore
 	chunks   *chunk.Storage
 	idxCache *index.Cache
-	id       ID
+	handle   *Handle
 }
 
-func newReader(store MetadataStore, chunks *chunk.Storage, idxCache *index.Cache, id ID) *Reader {
+func newReader(store MetadataStore, chunks *chunk.Storage, idxCache *index.Cache, handle *Handle) *Reader {
 	return &Reader{
 		store:    store,
 		chunks:   chunks,
 		idxCache: idxCache,
-		id:       id,
+		handle:   handle,
 	}
 }
 
@@ -41,13 +42,13 @@ func (r *Reader) Iterate(ctx context.Context, cb func(File) error, opts ...index
 }
 
 func (r *Reader) getPrimitive(ctx context.Context) (*Primitive, error) {
-	md, err := r.store.Get(ctx, r.id)
+	md, err := r.store.Get(ctx, r.handle.token)
 	if err != nil {
 		return nil, err
 	}
 	prim := md.GetPrimitive()
 	if prim == nil {
-		return nil, errors.Errorf("file set %v is not primitive", r.id)
+		return nil, errors.Errorf("file set %v is not primitive", r.handle.token)
 	}
 	return prim, nil
 }

@@ -20,8 +20,8 @@ type UnorderedWriter struct {
 	buffer                     *Buffer
 	ttl                        time.Duration
 	renewer                    *Renewer
-	ids                        []ID
-	getParentID                func() (*ID, error)
+	handles                    []*Handle
+	getParentHandle            func() (*Handle, error)
 	validator                  func(string) error
 }
 
@@ -118,13 +118,13 @@ func (uw *UnorderedWriter) withWriter(cb func(*Writer) error) error {
 	if err := cb(w); err != nil {
 		return err
 	}
-	id, err := w.Close()
+	handle, err := w.Close()
 	if err != nil {
 		return err
 	}
-	uw.ids = append(uw.ids, *id)
+	uw.handles = append(uw.handles, handle)
 	if uw.renewer != nil {
-		if err := uw.renewer.Add(uw.ctx, *id); err != nil {
+		if err := uw.renewer.Add(uw.ctx, handle); err != nil {
 			return err
 		}
 	}
@@ -145,15 +145,15 @@ func (uw *UnorderedWriter) Delete(ctx context.Context, p, datum string) error {
 	p = Clean(p, IsDir(p))
 	if IsDir(p) {
 		uw.buffer.Delete(p, datum)
-		var ids []ID
-		if uw.getParentID != nil {
-			parentID, err := uw.getParentID()
+		var handles []*Handle
+		if uw.getParentHandle != nil {
+			parentHandle, err := uw.getParentHandle()
 			if err != nil {
 				return err
 			}
-			ids = []ID{*parentID}
+			handles = []*Handle{parentHandle}
 		}
-		fs, err := uw.storage.Open(uw.ctx, append(ids, uw.ids...))
+		fs, err := uw.storage.Open(uw.ctx, append(handles, uw.handles...))
 		if err != nil {
 			return err
 		}
@@ -184,24 +184,24 @@ func (uw *UnorderedWriter) Copy(ctx context.Context, fs FileSet, datum string, a
 	}, opts...)
 }
 
-func (uw *UnorderedWriter) AddFileSet(ctx context.Context, id ID) error {
+func (uw *UnorderedWriter) AddFileSet(ctx context.Context, handle *Handle) error {
 	if err := uw.serialize(ctx); err != nil {
 		return err
 	}
-	uw.ids = append(uw.ids, id)
+	uw.handles = append(uw.handles, handle)
 	if uw.renewer != nil {
-		return uw.renewer.Add(uw.ctx, id)
+		return uw.renewer.Add(uw.ctx, handle)
 	}
 	return nil
 }
 
 // Close closes the writer.
-func (uw *UnorderedWriter) Close(ctx context.Context) (*ID, error) {
+func (uw *UnorderedWriter) Close(ctx context.Context) (*Handle, error) {
 	defer uw.storage.filesetSem.Release(1)
 	if err := uw.serialize(ctx); err != nil {
 		return nil, err
 	}
 	return uw.storage.newComposite(uw.ctx, &Composite{
-		Layers: idsToHex(uw.ids),
+		Layers: handlesToTokenHexStrings(uw.handles),
 	}, uw.ttl)
 }

@@ -3,13 +3,16 @@ package fileset
 import (
 	"archive/tar"
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"go.uber.org/zap"
 	"io"
 	"path"
 	"strings"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -25,6 +28,7 @@ import (
 func NewTestStorage(ctx context.Context, t testing.TB, db *pachsql.DB, tr track.Tracker, opts ...StorageOption) *Storage {
 	_, chunks := chunk.NewTestStorage(t, db, tr)
 	store := NewTestStore(ctx, t, db)
+	require.NoError(t, dbutil.WithTx(ctx, db, CreatePinsTable))
 	return NewStorage(store, tr, chunks, opts...)
 }
 

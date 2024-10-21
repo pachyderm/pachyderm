@@ -6,6 +6,7 @@ package track
 import (
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"testing"
 	"time"
@@ -228,3 +229,22 @@ func NewTestTracker(t testing.TB, db *pachsql.DB) Tracker {
 	db.MustExec(schema)
 	return NewPostgresTracker(db)
 }
+
+// Dumper is a tracker that can dump its state as a SQL dump.  This exists because creating a
+// snapshot of the cluster involves creating tracker entries and dumping the database in the same
+// transaction, but the writes on the tracker side are not visible to the dumping side.  Thus, this
+// runs on the dumping side and ensures that we read our (yet-to-be-committed) writes for the dump.
+//
+// See SET TRANSACTION SNAPSHOT docs: https://www.postgresql.org/docs/current/sql-set-transaction.html
+type Dumper interface {
+	// DumpTracker dumps the state of the tracker as a psql-format SQL script.  The best writer
+	// to use is a bufio.Writer, since the dump may make many small writes.
+	DumpTracker(context.Context, *pachsql.Tx, io.Writer) error
+	// DumpTrackerTablePattern returns a postgres Pattern that matches the tables DumpTracker
+	// will dump.  Postgres patterns:
+	// https://www.postgresql.org/docs/current/app-psql.html#APP-PSQL-PATTERNS
+	DumpTrackerTablePattern() string
+}
+
+// The postgres tracker is dumpable.
+var _ Dumper = (*postgresTracker)(nil)

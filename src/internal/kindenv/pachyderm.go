@@ -104,6 +104,8 @@ func (c *Cluster) helmFlags(ctx context.Context, install *HelmConfig) ([]string,
 			"pachd.worker.image.tag=" + workerVersion,
 			// Configure the external hostname.
 			"proxy.host=" + cfg.Hostname,
+			"restoreSnapshot.image.repository=" + path.Join(cfg.ImagePullPath, "pachd"),
+			"restoreSnapshot.image.tag=" + pachdVersion,
 		}, ","),
 	}
 	// Configure console.

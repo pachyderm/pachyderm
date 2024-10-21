@@ -216,6 +216,7 @@ use_repo(
     "com_github_hashicorp_golang_lru_v2",
     "com_github_iancoleman_orderedmap",
     "com_github_iancoleman_strcase",
+    "com_github_icholy_replace",
     "com_github_instrumenta_kubeval",
     "com_github_itchyny_gojq",
     "com_github_jackc_pgconn",
