@@ -13,6 +13,8 @@ go_library(
         "//src/internal/snapshotdb",
         "//src/internal/storage/fileset",
         "//src/snapshot",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
     ],
 )
 
@@ -25,7 +27,10 @@ go_test(
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/snapshot",
+        "//src/version",
         "@com_github_google_go_cmp//cmp",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
         "@org_golang_google_protobuf//testing/protocmp",
     ],
 )
