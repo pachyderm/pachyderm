@@ -127,12 +127,12 @@ flatten(
 
 genrule(
     name = "postgres",
-    outs = ["postgres.tar.zst"],
     srcs = ["postgres_raw"],
-    tools = ["//src/cmd/dedupe-tar"],
+    outs = ["postgres.tar.zst"],
     cmd = """
     $(location //src/cmd/dedupe-tar) < $(location :postgres_raw) > $@
     """,
+    tools = ["//src/cmd/dedupe-tar"],
 )
 
 oci_image(
