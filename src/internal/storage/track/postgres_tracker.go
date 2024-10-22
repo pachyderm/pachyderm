@@ -3,6 +3,8 @@ package track
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"io"
 	"sort"
 	"time"
 
@@ -278,6 +280,78 @@ func removeDuplicates(xs []string) []string {
 		}
 	}
 	return xs[:len(xs)-countDeleted]
+}
+
+// postgresTime is a time format that `psql` can read.
+const postgresTime = "2006-01-02 15:04:05.999999"
+
+// DumpTracker implements Dumper.
+func (t *postgresTracker) DumpTracker(ctx context.Context, tx *pachsql.Tx, w io.Writer) error {
+	if err := dumpTrackerObjects(ctx, tx, w); err != nil {
+		return errors.Wrap(err, "dump tracker objects")
+	}
+	if err := dumpTrackerRefs(ctx, tx, w); err != nil {
+		return errors.Wrap(err, "dump tracker refs")
+	}
+	return nil
+}
+
+// DumpTrackerTablePattern implements Dumper.
+func (t *postgresTracker) DumpTrackerTablePattern() string {
+	return "storage.tracker_objects|tracker_refs"
+}
+
+func dumpTrackerObjects(ctx context.Context, tx *pachsql.Tx, w io.Writer) (retErr error) {
+	fmt.Fprintf(w, "\n\nCOPY storage.tracker_objects (int_id, str_id, created_at, expires_at) FROM stdin;\n")
+	rows, err := tx.QueryxContext(ctx, `select int_id, str_id, created_at, expires_at from storage.tracker_objects order by int_id asc`)
+	if err != nil {
+		return errors.Wrap(err, "select")
+	}
+	defer errors.Close(&retErr, rows, "close rows")
+	var intID int64
+	var strID sql.NullString
+	var createdAt time.Time
+	var expiresAt sql.NullTime
+	for rows.Next() {
+		if err := rows.Scan(&intID, &strID, &createdAt, &expiresAt); err != nil {
+			return errors.Wrap(err, "scan")
+		}
+		if !strID.Valid {
+			strID.String = `\N`
+		}
+		created := createdAt.Format(postgresTime)
+		expires := expiresAt.Time.Format(postgresTime)
+		if !expiresAt.Valid {
+			expires = `\N`
+		}
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", intID, strID.String, created, expires)
+	}
+	if err := rows.Err(); err != nil {
+		return errors.Wrap(err, "check final error")
+	}
+	fmt.Fprintf(w, `\.`+"\n")
+	return nil
+}
+
+func dumpTrackerRefs(ctx context.Context, tx *pachsql.Tx, w io.Writer) (retErr error) {
+	fmt.Fprintf(w, "\n\nCOPY storage.tracker_refs (from_id, to_id) FROM stdin;\n")
+	rows, err := tx.QueryxContext(ctx, `select from_id, to_id from storage.tracker_refs order by (from_id, to_id) asc`)
+	if err != nil {
+		return errors.Wrap(err, "select")
+	}
+	defer errors.Close(&retErr, rows, "close rows")
+	var fromID, toID int64
+	for rows.Next() {
+		if err := rows.Scan(&fromID, &toID); err != nil {
+			return errors.Wrap(err, "scan")
+		}
+		fmt.Fprintf(w, "%v\t%v\n", fromID, toID)
+	}
+	if err := rows.Err(); err != nil {
+		return errors.Wrap(err, "check final error")
+	}
+	fmt.Fprintf(w, `\.`+"\n")
+	return nil
 }
 
 // SetupPostgresTrackerV0 sets up the table for the postgres tracker

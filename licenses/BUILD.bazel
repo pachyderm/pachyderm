@@ -1,5 +1,8 @@
 filegroup(
     name = "licenses",
-    srcs = glob(["**"]),
+    srcs = glob(
+        ["**"],
+        exclude = ["BUILD.bazel"],
+    ),
     visibility = ["//oci:__subpackages__"],
 )

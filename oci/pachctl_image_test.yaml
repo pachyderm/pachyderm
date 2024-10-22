@@ -16,3 +16,10 @@ fileExistenceTests:
     - name: "tmp"
       path: "/tmp"
       shouldExist: true
+    - name: "bash"
+      path: "/bin/bash"
+commandTests:
+    - name: "pachctl"
+      command: "/usr/local/bin/pachctl"
+      args: ["version", "--client-only", "--print-architecture"]
+      expectedOutput: ["GOARCH", "linux", "0.0.0"]

@@ -592,9 +592,9 @@ jobs:
       - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
-  # build pachctl and push to GCS bucket, so that it can be bundled into the
-  # Jupyter-Pachyderm extension
   build-docker-images:
+    # This builds a tree that can be released, and then builds and pushes docker images.  The name
+    # is kept for compatability but it is wrong.
     parameters:
       appVersion:
         type: string
@@ -605,7 +605,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
       docker_layer_caching: true
-    resource_class: xlarge
+    resource_class: 2xlarge
     steps:
       - go/install:
           version: << pipeline.parameters.go-version >>
@@ -616,6 +616,7 @@ jobs:
             sudo apt update
             sudo apt install binfmt-support qemu-user-static
       - install-go-releaser
+      - install-bazel
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -626,24 +627,43 @@ jobs:
             v=<< parameters.appVersion >>
             additional=${v%%-*}
             index=${#additional}
+            make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+
             if << parameters.enableCoverage >>
             then
-              make docker-build-coverage VERSION=${v} VERSION_ADDITIONAL=${v:index}
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push_coverage
             else
-              make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push
             fi
       - persist_to_workspace:
           root: ../
           paths:
             - dist-pach/docker/*
+  build-only-docker-images:
+    # This builds only docker images, no dist-pach bundle.
+    parameters:
+      enableCoverage:
+        type: boolean
+        default: false
+    machine:
+      image: << pipeline.parameters.machine_image >>
+      docker_layer_caching: true
+    resource_class: 2xlarge
+    steps:
+      - checkout
+      - install-bazel
       - run:
-          name: Push docker
-          command: |-
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+      - run:
+          name: Build Docker
+          command: |
             if << parameters.enableCoverage >>
             then
-              make docker-push VERSION=cover-${CIRCLE_SHA1}
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push_coverage
             else
-              make docker-push VERSION=${CIRCLE_SHA1}
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push
             fi
   build-pachctl-bin:
     parameters:
@@ -1723,8 +1743,8 @@ workflows:
         - << pipeline.parameters.run-jupyter-jobs >>
         - << pipeline.parameters.run-console-jobs >>
     jobs:
-      - build-docker-images
-      - build-docker-images:
+      - build-only-docker-images
+      - build-only-docker-images:
           enableCoverage: true
       - bazel-tests
       - bazel-privileged-tests
@@ -1884,7 +1904,7 @@ workflows:
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
-      - build-docker-images
+      - build-only-docker-images
       - jupyter-extension-test
       - jupyter-extension-frontend-test
       - jupyter-extension-integration-test
@@ -1906,10 +1926,10 @@ workflows:
     jobs:
       - test-python-sdk:
           requires:
-            - build-docker-images
+            - build-only-docker-images
             - build-pachctl-bin
             - python-sdk-testing-docker-build
-      - build-docker-images
+      - build-only-docker-images
       - python-sdk-build
       - python-sdk-testing-docker-build:
           requires:
@@ -1924,10 +1944,10 @@ workflows:
     jobs:
       - test-label-studio:
           requires:
-            - build-docker-images
+            - build-only-docker-images
             - build-pachctl-bin
             - build-label-studio-ci-testing-image
-      - build-docker-images
+      - build-only-docker-images
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
       - build-label-studio-ci-testing-image
