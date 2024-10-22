@@ -32,6 +32,7 @@ go_library(
         "//src/logs",
         "//src/metadata",
         "//src/pfs",
+        "//src/pjs",
         "//src/pps",
         "//src/proxy",
         "//src/snapshot",

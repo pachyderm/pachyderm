@@ -2,6 +2,8 @@ package pachd
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
+
 	"math"
 	"path"
 	"runtime/debug"
@@ -32,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/internal/restart"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	snapshot_server "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
@@ -280,6 +283,22 @@ func (b *builder) registerPFSServer(ctx context.Context) error {
 	}
 	b.forGRPCServer(func(s *grpc.Server) { pfs.RegisterAPIServer(s, apiServer) })
 	b.env.SetPfsServer(apiServer)
+	return nil
+}
+
+func (b *builder) registerPJSServer(ctx context.Context) error {
+	apiServer := pjs_server.NewAPIServer(pjs_server.Env{
+		DB:               b.env.GetDBClient(),
+		GetPermissionser: b.env.AuthServer(),
+		GetAuthToken:     auth.GetAuthToken,
+		// TODO: figure out how to set this.
+		GetStorageClient: func(ctx context.Context) storage.FilesetClient {
+			pachClient := b.env.GetPachClient(ctx)
+			return pachClient.FilesetClient
+		},
+	})
+	b.forGRPCServer(func(s *grpc.Server) { pjs.RegisterAPIServer(s, apiServer) })
+	b.env.SetPjsServer(apiServer)
 	return nil
 }
 
