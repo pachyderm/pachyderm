@@ -2,10 +2,19 @@ package pachd
 
 import (
 	"context"
+	"os"
+	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/admindb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/recovery"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 )
 
 type RestoreSnapshotEnv struct {
@@ -26,10 +35,33 @@ func NewRestoreSnapshot(env RestoreSnapshotEnv, config pachconfig.PachdRestoreSn
 		printVersion(),
 		awaitDB(env.DB),
 		setupStep{
-			Name: "HelloWorld",
+			Name: "restore",
 			Fn: func(ctx context.Context) error {
-				log.Info(ctx, "Hello, you would have just restored a snapshot")
-				return nil
+				bucket, err := obj.NewBucket(ctx, config.StorageBackend, config.StorageRoot, config.StorageURL)
+				if err != nil {
+					return errors.Wrap(err, "storage env")
+				}
+				sEnv := storage.Env{
+					Bucket: bucket,
+					DB:     env.DB,
+					Config: config.StorageConfiguration,
+				}
+				storage, err := storage.New(ctx, sEnv)
+				if err != nil {
+					return errors.Wrapf(err, "could not configure new storage")
+				}
+				s := &recovery.Snapshotter{DB: env.DB, Storage: storage.Filesets}
+				snapshotID := recovery.SnapshotID(config.SnapshotID)
+				if err := s.RestoreSnapshot(ctx, snapshotID, recovery.RestoreSnapshotOptions{}); err != nil {
+					return errors.Wrapf(err, "could not restore snapshot %s", snapshotID)
+				}
+				return errors.Wrap(dbutil.WithTx(ctx, env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+					hostname, err := os.Hostname()
+					if err != nil {
+						hostname = "un-named pod"
+					}
+					return errors.Wrap(admindb.ScheduleRestart(ctx, tx, time.Now(), "restored Pachyderm", hostname), "ScheduleRestart")
+				}), "WithTx")
 			},
 		},
 	)
