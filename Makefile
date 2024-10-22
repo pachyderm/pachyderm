@@ -93,14 +93,8 @@ release-pachctl:
 docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 $(GORELDEBUG) --skip-validate --skip-publish --clean -f goreleaser/docker.yml
 
-docker-build-amd:
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --clean -f goreleaser/docker-amd.yml
-
 docker-build-netcat:
 	docker build --network=host -f etc/test-images/Dockerfile.netcat -t pachyderm/ubuntuplusnetcat:local .
-
-docker-build-coverage:
-	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-cover.yml
 
 docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
@@ -404,7 +398,6 @@ check-bazel:
 	release-docker-images \
 	release-pachctl \
 	docker-build \
-	docker-build-coverage \
 	docker-build-gpu \
 	docker-build-netcat \
 	docker-push-gpu \

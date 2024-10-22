@@ -13,9 +13,12 @@ from .api.debug.extension import ApiStub as _DebugStub
 from .api.enterprise import ApiStub as _EnterpriseStub
 from .api.identity import ApiStub as _IdentityStub
 from .api.license import ApiStub as _LicenseStub
+from .api.logs import ApiStub as _LogsStub
 from .api.metadata import ApiStub as _MetadataApiStub
+from .api.pjs import ApiStub as _PjsStub
 from .api.pfs.extension import ApiStub as _PfsStub
 from .api.pps.extension import ApiStub as _PpsStub
+from .api.snapshot import ApiStub as _SnapshotStub
 from .api.storage.extension import ApiStub as _StorageStub
 from .api.transaction.extension import ApiStub as _TransactionStub
 from .api.version import ApiStub as _VersionStub, Version
@@ -121,12 +124,15 @@ class Client:
         self.enterprise = _EnterpriseStub(self._channel)
         self.identity = _IdentityStub(self._channel)
         self.license = _LicenseStub(self._channel)
+        self.logs = _LogsStub(self._channel)
         self.metadata = _MetadataApiStub(self._channel)
+        self.pjs = _PjsStub(self._channel)
         self.pfs = _PfsStub(
             self._channel,
             get_transaction_id=lambda: self.transaction_id,
         )
         self.pps = _PpsStub(self._channel)
+        self.snapshot = _SnapshotStub(self._channel)
         self.storage = _StorageStub(self._channel)
         self.transaction = _TransactionStub(
             self._channel,

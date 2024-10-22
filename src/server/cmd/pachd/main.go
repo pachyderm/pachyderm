@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/signal"
+	"runtime"
 
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -18,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/setupenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	_ "github.com/pachyderm/pachyderm/v2/src/internal/task/taskprotos"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 var (
@@ -83,6 +85,10 @@ func main() {
 			pd := pachd.NewRestoreSnapshot(*env, *config)
 			return pd.Run(ctx)
 		}, &pachconfig.PachdRestoreSnapshotConfiguration{})
+	case mode == "version":
+		fmt.Println(runtime.GOARCH)
+		fmt.Println(runtime.GOOS)
+		fmt.Println(version.PrettyPrintVersion(version.Version))
 	default:
 		log.Error(ctx, "pachd: unrecognized mode", zap.String("mode", mode))
 		fmt.Printf("unrecognized mode: %s\n", mode)
