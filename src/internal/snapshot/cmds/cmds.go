@@ -117,7 +117,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	deleteSnapshot.Flags().StringVar(&idStr, "snapshot", idStr, "Specify the snapshot(by id) to delete.")
+	deleteSnapshot.Flags().StringVar(&idStr, "snapshot", idStr, "Specify the snapshot (by id) to delete.")
 	commands = append(commands, cmdutil.CreateAliases(deleteSnapshot, "delete snapshot", snapshots))
 	return commands
 }
