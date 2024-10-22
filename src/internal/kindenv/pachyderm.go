@@ -212,6 +212,10 @@ func (c *Cluster) InstallPachyderm(ctx context.Context, install *HelmConfig) err
 		return errors.Wrap(err, "get kubeconfig")
 	}
 
+	if err := k.KubectlCommand(ctx, "delete", "job", "--ignore-not-found=true", "pachyderm-restore-snapshot").Run(); err != nil {
+		log.Error(ctx, "problem deleting existing snapshot-restore job; continuing anyway", zap.Error(err))
+	}
+
 	// Helm upgrade.
 	log.Info(ctx, "running helm upgrade --install")
 	log.Debug(ctx, "helm flags", zap.Strings("flags", flags))
