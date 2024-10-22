@@ -1,3 +1,4 @@
+// Package testutilpachctl contains utilities for running pachctl commands directly.
 package testutilpachctl
 
 import (
