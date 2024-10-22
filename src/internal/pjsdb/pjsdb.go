@@ -3,16 +3,12 @@
 package pjsdb
 
 import (
-	"context"
 	"database/sql"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 )
 
@@ -198,63 +194,4 @@ func parseFilesets(pinStrs string) ([]fileset.Pin, error) {
 		pins = append(pins, fileset.Pin(pin))
 	}
 	return pins, nil
-}
-
-func ToJobInfo(ctx context.Context, tx *pachsql.Tx, storage *fileset.Storage, job Job) (*pjs.JobInfo, error) {
-	jobInfo := &pjs.JobInfo{
-		Job: &pjs.Job{
-			Id: int64(job.ID),
-		},
-		ParentJob: &pjs.Job{
-			Id: int64(job.Parent),
-		},
-	}
-	programHandle, err := storage.GetPinHandleTx(ctx, tx, job.Program, 15*time.Minute)
-	if err != nil {
-		return nil, err
-	}
-	jobInfo.Program = programHandle.HexString()
-	for _, input := range job.Inputs {
-		handle, err := storage.GetPinHandleTx(ctx, tx, input, 15*time.Minute)
-		if err != nil {
-			return nil, err
-		}
-		jobInfo.Input = append(jobInfo.Input, handle.HexString())
-	}
-	switch {
-	case job.Done != time.Time{}:
-		jobInfo.State = pjs.JobState_DONE
-		jobInfo.Result = &pjs.JobInfo_Error{
-			Error: enumStringToErrorCode[job.Error],
-		}
-		if len(job.Outputs) != 0 {
-			jobInfoSuccess := pjs.JobInfo_Success{}
-			for _, output := range job.Outputs {
-				handle, err := storage.GetPinHandleTx(ctx, tx, output, 15*time.Minute)
-				if err != nil {
-					return nil, err
-				}
-				jobInfoSuccess.Output = append(jobInfoSuccess.Output, handle.HexString())
-			}
-			jobInfo.Result = &pjs.JobInfo_Success_{Success: &jobInfoSuccess}
-		}
-	case job.Processing != time.Time{}:
-		jobInfo.State = pjs.JobState_PROCESSING
-	default:
-		jobInfo.State = pjs.JobState_QUEUED
-	}
-	return jobInfo, nil
-}
-
-func ToQueueInfo(ctx context.Context, tx *pachsql.Tx, storage *fileset.Storage, queue Queue) (*pjs.QueueInfo, error) {
-	handle, err := storage.GetPinHandleTx(ctx, tx, queue.Program, 15*time.Minute)
-	if err != nil {
-		return nil, err
-	}
-	return &pjs.QueueInfo{
-		Queue: &pjs.Queue{
-			Id: queue.ID,
-		},
-		Program: handle.HexString(),
-	}, nil
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,7 +24,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 )
 
-const DefaultRPCTimeout time.Duration = 60 * time.Second
+const (
+	DefaultRPCTimeout time.Duration = 60 * time.Second
+	defaultTTL                      = client.DefaultTTL
+)
 
 type apiServer struct {
 	pjs.UnimplementedAPIServer
@@ -52,7 +56,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 	if err != nil {
 		return nil, errors.Wrap(err, "adding auth token to ctx")
 	}
-	// TODO: 1 minute timeout?
+	// Compact the program fileset to get a stable fileset id based only on the content.
 	programHandle, err = a.env.Storage.Filesets.Compact(ctx, []*fileset.Handle{programHandle}, time.Minute)
 	if err != nil {
 		return nil, err
@@ -152,7 +156,7 @@ func (a *apiServer) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) 
 			}
 			return errors.Wrap(err, "get job")
 		}
-		jobInfo, err = pjsdb.ToJobInfo(ctx, tx, a.env.Storage.Filesets, job)
+		jobInfo, err = ToJobInfo(ctx, tx, a.env.Storage.Filesets, job)
 		if err != nil {
 			return errors.Wrap(err, "inspect job")
 		}
@@ -219,8 +223,7 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 		var inputHandles []string
 		for _, input := range inputs {
 			if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-				// TODO: TTL?
-				handle, err := a.env.Storage.Filesets.GetPinHandleTx(ctx, tx, input, 15*time.Minute)
+				handle, err := a.env.Storage.Filesets.GetPinHandleTx(ctx, tx, input, defaultTTL)
 				if err != nil {
 					return err
 				}
@@ -321,7 +324,7 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 	for i, job := range jobs {
 		var jobInfo *pjs.JobInfo
 		if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-			jobInfo, err = pjsdb.ToJobInfo(ctx, tx, a.env.Storage.Filesets, job)
+			jobInfo, err = ToJobInfo(ctx, tx, a.env.Storage.Filesets, job)
 			return err
 		}); err != nil {
 			return err
@@ -371,7 +374,7 @@ func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.Awai
 					}
 					return errors.Wrap(err, "get job")
 				}
-				jobInfo, err := pjsdb.ToJobInfo(ctx, tx, a.env.Storage.Filesets, job)
+				jobInfo, err := ToJobInfo(ctx, tx, a.env.Storage.Filesets, job)
 				if err != nil {
 					return errors.Wrapf(err, "toJobInfo(%d)", id)
 				}
@@ -396,7 +399,7 @@ func (a *apiServer) InspectQueue(ctx context.Context, req *pjs.InspectQueueReque
 		if err != nil {
 			return errors.Wrap(err, "get queue")
 		}
-		handle, err := a.env.Storage.Filesets.GetPinHandleTx(ctx, tx, q.Program, 15*time.Minute)
+		handle, err := a.env.Storage.Filesets.GetPinHandleTx(ctx, tx, q.Program, defaultTTL)
 		if err != nil {
 			return err
 		}
@@ -452,7 +455,7 @@ func (a *apiServer) ListJob(req *pjs.ListJobRequest, srv pjs.API_ListJobServer) 
 	for i, job := range jobs {
 		var jobInfo *pjs.JobInfo
 		if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-			jobInfo, err = pjsdb.ToJobInfo(ctx, tx, a.env.Storage.Filesets, job)
+			jobInfo, err = ToJobInfo(ctx, tx, a.env.Storage.Filesets, job)
 			return err
 		}); err != nil {
 			return err
@@ -485,7 +488,7 @@ func (a *apiServer) ListQueue(req *pjs.ListQueueRequest, srv pjs.API_ListQueueSe
 	for i, queue := range queues {
 		var queueInfo *pjs.QueueInfo
 		if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-			queueInfo, err = pjsdb.ToQueueInfo(ctx, tx, a.env.Storage.Filesets, queue)
+			queueInfo, err = ToQueueInfo(ctx, tx, a.env.Storage.Filesets, queue)
 			if err != nil {
 				return errors.Wrap(err, fmt.Sprintf("to queue info, iteration=%d/%d", i, len(queues)))
 			}

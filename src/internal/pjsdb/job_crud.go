@@ -50,12 +50,12 @@ const (
 
 var (
 	errorCodeToEnumString map[pjs.JobErrorCode]string
-	enumStringToErrorCode map[string]pjs.JobErrorCode
+	EnumStringToErrorCode map[string]pjs.JobErrorCode
 )
 
 func init() {
 	errorCodeToEnumString = make(map[pjs.JobErrorCode]string)
-	enumStringToErrorCode = make(map[string]pjs.JobErrorCode)
+	EnumStringToErrorCode = make(map[string]pjs.JobErrorCode)
 	// auto-generated errors are capitalized. This converts them into database error format
 	for code, name := range pjs.JobErrorCode_name {
 		if code == 0 {
@@ -63,7 +63,7 @@ func init() {
 		}
 		lower := strings.ToLower(name)
 		errorCodeToEnumString[pjs.JobErrorCode(code)] = lower
-		enumStringToErrorCode[lower] = pjs.JobErrorCode(code)
+		EnumStringToErrorCode[lower] = pjs.JobErrorCode(code)
 	}
 }
 
