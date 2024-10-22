@@ -66,10 +66,10 @@ expand_template(
     name = "gen_additional_version",
     out = "additional_version.txt",
     stamp_substitutions = {
-        "unstamped": "{{STABLE_ADDITIONAL_VERSION}}",
+        "-pre.0": "{{STABLE_ADDITIONAL_VERSION}}",
     },
     template = [
-        "unstamped",
+        "-pre.0",
     ],
 )
 
