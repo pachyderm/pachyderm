@@ -1,31 +1,5 @@
 load("@rules_go//go:def.bzl", "go_library", "go_test")
-
-LINUX_LIBRARIES = [
-    "//private/apt:libpq.so.5",
-    "//private/apt:libldap-2.5.so.0",
-    "//private/apt:liblber-2.5.so.0",
-    "//private/apt:libsasl2.so.2",
-]
-
-LINUX_VARS = {
-    "pgdump": "$(rlocationpath //tools/postgres/pg_dump)",
-    "psql": "$(rlocationpath //tools/postgres/psql)",
-    "libpq": "$(rlocationpath //private/apt:libpq.so.5)",
-    "libldap": "$(rlocationpath //private/apt:libldap-2.5.so.0)",
-    "liblber": "$(rlocationpath //private/apt:liblber-2.5.so.0)",
-    "libsasl": "$(rlocationpath //private/apt:libsasl2.so.2)",
-}
-
-MAC_LIBRARIES = [
-    "@com_enterprisedb_get_postgresql_macos//:lib/libpq.5.dylib",
-    "@com_enterprisedb_get_postgresql_macos//:lib/libpq.dylib",
-]
-
-MAC_VARS = {
-    "pgdump": "$(rlocationpath //tools/postgres/pg_dump)",
-    "psql": "$(rlocationpath //tools/postgres/psql)",
-    "libpq": "$(rlocationpath @com_enterprisedb_get_postgresql_macos//:lib/libpq.5.dylib)",
-}
+load(":defs.bzl", "snapshot_data", "snapshot_x_defs")
 
 # Binaries that need to run CreateSnapshot or RestoreSnapshot should install the apt packages in
 # their container image.  We do this in //oci:pachd_image.
@@ -70,18 +44,9 @@ go_test(
         "recovery_test.go",
         "server_internal_test.go",
     ],
-    data = [
-        "//tools/postgres/pg_dump",
-        "//tools/postgres/psql",
-    ] + select({
-        "@platforms//os:linux": LINUX_LIBRARIES,
-        "@platforms//os:macos": MAC_LIBRARIES,
-    }),
+    data = snapshot_data,
     embed = [":snapshot"],
-    x_defs = select({
-        "@platforms//os:linux": LINUX_VARS,
-        "@platforms//os:macos": MAC_VARS,
-    }),
+    x_defs = snapshot_x_defs,
     deps = [
         "//src/internal/clusterstate",
         "//src/internal/dbutil",

@@ -1,4 +1,5 @@
 load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("//src/internal/snapshot:defs.bzl", "snapshot_data", "snapshot_x_defs")
 
 go_library(
     name = "testpachd_lib",
@@ -34,7 +35,8 @@ go_test(
     srcs = ["main_test.go"],
     data = [
         "testpachd",
-    ],
+    ] + snapshot_data,
+    x_defs = snapshot_x_defs,
     deps = [
         "//src/internal/client",
         "//src/internal/grpcutil",
