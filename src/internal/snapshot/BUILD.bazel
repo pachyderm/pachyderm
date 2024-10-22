@@ -27,25 +27,16 @@ MAC_VARS = {
     "libpq": "$(rlocationpath @com_enterprisedb_get_postgresql_macos//:lib/libpq.5.dylib)",
 }
 
+# Binaries that need to run CreateSnapshot or RestoreSnapshot should install the apt packages in
+# their container image.  We do this in //oci:pachd_image.
 go_library(
     name = "snapshot",
     srcs = [
         "api_server.go",
         "recovery.go",
     ],
-    data = [
-        "//tools/postgres/pg_dump",
-        "//tools/postgres/psql",
-    ] + select({
-        "@platforms//os:linux": LINUX_LIBRARIES,
-        "@platforms//os:macos": MAC_LIBRARIES,
-    }),
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/snapshot",
     visibility = ["//src:__subpackages__"],
-    x_defs = select({
-        "@platforms//os:linux": LINUX_VARS,
-        "@platforms//os:macos": MAC_VARS,
-    }),
     deps = [
         "//src/internal/bazel",
         "//src/internal/clusterstate",
@@ -80,7 +71,18 @@ go_test(
         "recovery_test.go",
         "server_internal_test.go",
     ],
+    data = [
+        "//tools/postgres/pg_dump",
+        "//tools/postgres/psql",
+    ] + select({
+        "@platforms//os:linux": LINUX_LIBRARIES,
+        "@platforms//os:macos": MAC_LIBRARIES,
+    }),
     embed = [":snapshot"],
+    x_defs = select({
+        "@platforms//os:linux": LINUX_VARS,
+        "@platforms//os:macos": MAC_VARS,
+    }),
     deps = [
         "//src/internal/clusterstate",
         "//src/internal/dbutil",
