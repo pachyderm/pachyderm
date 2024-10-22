@@ -85,7 +85,7 @@ func TestRun(t *testing.T) {
 				t.Fatalf("copy data into %v: %v", h.Name, err)
 			}
 			if got, want := n, h.Size; got != want {
-				t.Errorf("copy data into %v: byte count:\n  got: %v\n want: %v", got, want)
+				t.Errorf("copy data into %v: byte count:\n  got: %v\n want: %v", h.Name, got, want)
 			}
 		}
 	}
