@@ -54,7 +54,7 @@ func (b *base) Run(ctx context.Context) error {
 	for _, step := range b.setup {
 		endf := log.Span(ctx, step.Name)
 		if err := step.Fn(ctx); err != nil {
-			return errors.Errorf("during setup step %s: %w", step.Name, err)
+			return errors.Errorf("during setup step %s: %v", step.Name, err)
 		}
 		endf()
 	}
