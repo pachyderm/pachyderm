@@ -1,8 +1,8 @@
 # Any time this file is changed, the lockfile needs to be regenerated.
 #
-# To generate the postgres.lock.json run the following command:
+# To generate the apt.lock.json run the following command:
 #
-#     bazel run @postgres//:lock
+#     bazel run @apt//:lock
 version: 1
 
 sources:
@@ -18,4 +18,5 @@ archs:
     - "arm64"
 
 packages:
+    - "ca-certificates"
     - "postgresql-client-17"

@@ -3,7 +3,7 @@ module(
     repo_name = "com_github_pachyderm_pachyderm",
 )
 
-bazel_dep(name = "aspect_bazel_lib", version = "2.8.1")  # Needed for arm64 jq and rules_oci/#425.
+bazel_dep(name = "aspect_bazel_lib", version = "2.8.1")
 bazel_dep(name = "aspect_rules_jest", version = "0.22.0")
 bazel_dep(name = "aspect_rules_js", version = "2.0.1")
 bazel_dep(name = "aspect_rules_ts", version = "3.0.0")
@@ -13,8 +13,9 @@ bazel_dep(name = "gazelle", version = "0.38.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
 bazel_dep(name = "rules_distroless", version = "0.3.8")
 bazel_dep(name = "rules_go", version = "0.49.0")
+bazel_dep(name = "rules_multirun", version = "0.9.0")
 bazel_dep(name = "rules_nodejs", version = "6.2.0")
-bazel_dep(name = "rules_oci", version = "1.8.0")
+bazel_dep(name = "rules_oci", version = "2.0.1")
 bazel_dep(name = "rules_python", version = "0.35.0")
 bazel_dep(name = "rules_python_gazelle_plugin", version = "0.35.0")  # Same version as rules_python
 
@@ -380,11 +381,33 @@ use_repo(
 
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 
-# Base of release images.
+# Base of pachd release images.  Note: contains libc for postgres utilities we bundle.
 oci.pull(
     name = "distroless",
-    digest = "sha256:39ae7f0201fee13b777a3e4a5a9326a8889269172c8b4f4289d9f19c831f45f4",
+    digest = "sha256:e5260be292def77bc70d03003f788f3d32c0796972ea1412d72cc0c843ab139a",
+    image = "gcr.io/distroless/base-debian12",  # nonroot tag
+    platforms = [
+        "linux/amd64",
+        "linux/arm64/v8",
+    ],
+)
+
+# Base of worker release images.
+oci.pull(
+    name = "distroless-static",
+    digest = "sha256:26f9b99f2463f55f20db19feb4d96eb88b056e0f1be7016bb9296a464a89d772",
     image = "gcr.io/distroless/static-debian12",  # nonroot tag
+    platforms = [
+        "linux/amd64",
+        "linux/arm64/v8",
+    ],
+)
+
+# Base of pachctl image.
+oci.pull(
+    name = "debian-slim",
+    digest = "sha256:36e591f228bb9b99348f584e83f16e012c33ba5cad44ef5981a1d7c0a93eca22",
+    image = "docker.io/library/debian",  # 12-slim tag
     platforms = [
         "linux/amd64",
         "linux/arm64/v8",
@@ -413,7 +436,7 @@ oci.pull(
     digest = "sha256:370582183d29bf3b3604251d63cda48cb44c55e9622c8c13c605cba5f1b6cb21",
     image = "ghcr.io/project-zot/zot-linux-arm64",
 )
-use_repo(oci, "distroless", "pause", "zot_amd64", "zot_arm64")
+use_repo(oci, "debian-slim", "debian-slim_linux_amd64", "debian-slim_linux_arm64_v8", "distroless", "distroless-static", "distroless-static_linux_amd64", "distroless-static_linux_arm64_v8", "distroless_linux_amd64", "distroless_linux_arm64_v8", "pause", "pause_linux_amd64", "pause_linux_arm64", "zot_amd64", "zot_arm64")
 
 # Python
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
@@ -474,12 +497,12 @@ use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 register_toolchains("@bsd_tar_toolchains//:all")
 
-# Apt (for Postgres binaries, etc)
+# Apt (for Postgres binaries, cacerts, etc)
 apt = use_extension("@rules_distroless//apt:extensions.bzl", "apt")
 apt.install(
-    name = "postgres",
-    lock = "//private/apt:postgres.lock.json",
-    manifest = "//private/apt:postgres.yaml",
+    name = "apt",
+    lock = "//private/apt:apt.lock.json",
+    manifest = "//private/apt:apt.yaml",
     resolve_transitive = True,
 )
-use_repo(apt, "postgres")
+use_repo(apt, "apt")
