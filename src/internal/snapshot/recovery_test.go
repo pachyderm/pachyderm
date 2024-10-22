@@ -1,4 +1,4 @@
-package recovery
+package snapshot
 
 import (
 	"bufio"
@@ -96,7 +96,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	// Create a snapshot.
 	s := &Snapshotter{DB: db, Storage: storage}
 
-	snapID, err := s.CreateSnapshot(ctx)
+	snapID, err := s.CreateSnapshot(ctx, CreateSnapshotOptions{})
 	if err != nil {
 		t.Fatalf("CreateSnapshot: %v", err)
 	}

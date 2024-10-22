@@ -1,5 +1,4 @@
-// Package recovery implements subsystem-independent disaster recovery.
-package recovery
+package snapshot
 
 import (
 	"bufio"
@@ -23,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	uuid "github.com/satori/go.uuid"
@@ -77,7 +77,7 @@ func (id SnapshotID) String() string {
 }
 
 // createSnapshotRow creates a snapshot row containing a chunkset referencing all live data.
-func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (result SnapshotID, sql string, _ error) {
+func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage, metadata pgjsontypes.StringMap) (result SnapshotID, sql string, _ error) {
 	var b strings.Builder // b contains SQL to recreate this function call inside a psql script.
 
 	// Create (and dump) chunkset.
@@ -93,13 +93,14 @@ func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (re
 	b.WriteString(`\.` + "\n\n")
 
 	// Create (and dump) snapshot row.
-	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version) values ($1, $2) returning id`, chunksetID, version.Version.Canonical()); err != nil {
+	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version, metadata) values ($1, $2, $3) returning id`, chunksetID, version.Version.Canonical(), metadata); err != nil {
 		return 0, "", errors.Wrap(err, "create snapshot row")
 	}
 	// Write out psql to create only this snapshot row.  (Pre-existing snapshot rows are dumped
 	// by pg_dump.)
-	b.WriteString("COPY recovery.snapshots (id, chunkset_id, pachyderm_version) FROM stdin;\n")
-	fmt.Fprintf(&b, "%v\t%v\t%v\n", int64(result), int64(chunksetID), version.Version.Canonical())
+	b.WriteString("COPY recovery.snapshots (id, chunkset_id, pachyderm_version, metadata) FROM stdin;\n")
+	js := `{}` // TODO(MLDM-142): escape JSON for this
+	fmt.Fprintf(&b, "%v\t%v\t%v\t%s\n", int64(result), int64(chunksetID), version.Version.Canonical(), js)
 	b.WriteString(`\.` + "\n\n")
 
 	return result, b.String(), nil
@@ -165,13 +166,13 @@ func (s *Snapshotter) dumpDatabase(ctx context.Context, snapshot string, w io.Wr
 // see, because it can't read writes in this txn), and dumps the storage tracker (for the same
 // reason).  This yields a completely atomic snapshot; no tracker entries or chunks can change
 // during the dump.  (If they do, the txn rolls back with a serialization error.)
-func (s *Snapshotter) dumpTx(ctx context.Context, tx *pachsql.Tx) (id SnapshotID, dumpFile *os.File, retErr error) {
+func (s *Snapshotter) dumpTx(ctx context.Context, tx *pachsql.Tx, opts CreateSnapshotOptions) (id SnapshotID, dumpFile *os.File, retErr error) {
 	ctx, done := log.SpanContext(ctx, "snapshotTx")
 	defer done(log.Errorp(&retErr))
 
 	// Add snapshot row.
 	log.Debug(ctx, "adding snapshot row")
-	id, snapshotSQL, err := createSnapshotRow(ctx, tx, s.Storage)
+	id, snapshotSQL, err := createSnapshotRow(ctx, tx, s.Storage, opts.Metadata)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "createSnapshotRow")
 	}
@@ -226,8 +227,13 @@ func (s *Snapshotter) dumpTx(ctx context.Context, tx *pachsql.Tx) (id SnapshotID
 	return id, fh, nil
 }
 
+// CreateSnapshotOptions controls snapshotting behavior.
+type CreateSnapshotOptions struct {
+	Metadata pgjsontypes.StringMap // Metadata to add to the snapshot.
+}
+
 // CreateSnapshot creates a snapshot.
-func (s *Snapshotter) CreateSnapshot(rctx context.Context) (_ SnapshotID, retErr error) {
+func (s *Snapshotter) CreateSnapshot(rctx context.Context, opts CreateSnapshotOptions) (_ SnapshotID, retErr error) {
 	rctx, done := log.SpanContext(rctx, "CreateSnapshot")
 	defer done(log.Errorp(&retErr))
 
@@ -241,7 +247,7 @@ func (s *Snapshotter) CreateSnapshot(rctx context.Context) (_ SnapshotID, retErr
 	}()
 	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) (retErr error) {
 		var err error
-		id, fh, err = s.dumpTx(ctx, tx)
+		id, fh, err = s.dumpTx(ctx, tx, opts)
 		if err != nil {
 			return errors.Wrap(err, "dumpTx")
 		}

@@ -23,6 +23,8 @@ const (
 	defaultLimit    = 10000
 )
 
+// CreateSnapshot creates a snapshot database row.  Note: you want to use snapshot.CreateSnapshot
+// instead, which actually takes a snapshot.
 func CreateSnapshot(ctx context.Context, tx *pachsql.Tx, s *fileset.Storage, metadata map[string]string) (int64, error) {
 	chunksetID, err := s.CreateChunkSet(ctx, tx)
 	if err != nil {
