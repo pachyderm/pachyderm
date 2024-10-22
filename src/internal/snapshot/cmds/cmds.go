@@ -90,7 +90,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 
 	var idStr string
 	deleteSnapshot := &cobra.Command{
-		Short: "delete a snapshot",
+		Short: "Delete a snapshot",
 		Long:  "This command deletes a snapshot",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			ctx := cmd.Context()
