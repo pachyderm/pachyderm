@@ -1,16 +1,17 @@
 // Command dedupe-tar removes duplicate files from the tar provided on stdin, writing a
-// zstd-compressed tar to stdout.  This is necessary for some container registries to accept the
-// output of @rules_distroless#flatten.
+// zstd-compressed tar to stdout.  This is necessary for some container engines to accept the output
+// of @rules_distroless#flatten.
 //
 // It starts with a list of files to not touch in common.txt.  This is specifically for dealing with
-// Debian packages, which create their parent directories, but shouldn't.  It is not a big deal if
-// it gets slightly out of sync, the important things never change (like /var and friends).
+// Debian packages, which create their parent directories in each tarball, but shouldn't, as those
+// directories already exist in previous layers.  It is not a big deal if this file gets slightly
+// out of sync, the important things never change (like /var and friends).  We mostly want to avoid
+// overwriting symlinks with regular files.
 package main
 
 import (
 	"archive/tar"
 	"bufio"
-	"context"
 	_ "embed"
 	"io"
 	"os"
@@ -32,7 +33,7 @@ func fixName(x string) string {
 	return x
 }
 
-func run(ctx context.Context, r io.Reader, w io.Writer) (retErr error) {
+func run(r io.Reader, w io.Writer) (retErr error) {
 	tr := tar.NewReader(r)
 
 	zw, err := zstd.NewWriter(w)
@@ -91,7 +92,7 @@ func main() {
 	ctx, c := pctx.Interactive()
 	defer c()
 
-	if err := run(ctx, os.Stdin, os.Stdout); err != nil {
+	if err := run(os.Stdin, os.Stdout); err != nil {
 		log.Exit(ctx, "run failed", zap.Error(err))
 	}
 }
