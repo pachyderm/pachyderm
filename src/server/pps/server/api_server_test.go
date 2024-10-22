@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"html/template"
 	"io"
 	"strconv"
@@ -132,7 +133,7 @@ func TestListDatum(t *testing.T) {
 func TestCreateDatum(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	pachClient := pachd.NewTestPachd(t)
-	repo := tu.UniqueString("TestCreateDatum")
+	repo := uuid.UniqueString("TestCreateDatum")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
 	input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
@@ -494,12 +495,12 @@ func TestParseLokiLine(t *testing.T) {
 func TestDeletePipelines(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	pachClient := pachd.NewTestPachd(t)
-	inputRepo := tu.UniqueString("repo")
+	inputRepo := uuid.UniqueString("repo")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, inputRepo))
 	// pipeline1 is in default project and takes inputRepo as input
 	// pipeline2 is in a non-default project, and takes pipeline1 as input
-	project := tu.UniqueString("project-")
-	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
+	project := uuid.UniqueString("project-")
+	pipeline1, pipeline2 := uuid.UniqueString("pipeline1-"), uuid.UniqueString("pipeline2-")
 	require.NoError(t, pachClient.CreateProject(project))
 	require.NoError(t, pachClient.CreatePipeline(
 		pfs.DefaultProjectName,
@@ -619,8 +620,8 @@ func TestSetClusterDefaults(t *testing.T) {
 		err = json.Unmarshal([]byte(getResp.GetClusterDefaultsJson()), &originalDefaults)
 		require.NoError(t, err, "unmarshal retrieved cluster defaults")
 
-		repo := tu.UniqueString("input")
-		pipeline := tu.UniqueString("pipeline")
+		repo := uuid.UniqueString("input")
+		pipeline := uuid.UniqueString("pipeline")
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 		var pipelineTemplate = `{
 		"pipeline": {
@@ -682,8 +683,8 @@ func TestSetClusterDefaults(t *testing.T) {
 	t.Run("ValidDetails", func(t *testing.T) {
 		err := env.PachClient.DeleteAll(env.PachClient.Ctx())
 		require.NoError(t, err)
-		repo := tu.UniqueString("input")
-		pipeline := tu.UniqueString("pipeline")
+		repo := uuid.UniqueString("input")
+		pipeline := uuid.UniqueString("pipeline")
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 		var pipelineTemplate = `{
 		"pipeline": {
@@ -1153,8 +1154,8 @@ func TestCreatePipeline(t *testing.T) {
 }
 
 func testCreatedBy(t testing.TB, c *client.APIClient, username string) (string, string) {
-	repo := tu.UniqueString("input")
-	pipeline := tu.UniqueString("pipeline")
+	repo := uuid.UniqueString("input")
+	pipeline := uuid.UniqueString("pipeline")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 	resp, err := c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
 		CreatePipelineRequestJson: fmt.Sprintf(`{
@@ -1262,14 +1263,14 @@ func TestCreatedByInTransaction(t *testing.T) {
 	t.Parallel()
 	c := at.EnvWithAuth(t).PachClient
 	aliceName, alice := tu.RandomRobot(t, c, "alice")
-	repo := tu.UniqueString("input")
+	repo := uuid.UniqueString("input")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, c.ModifyRepoRoleBinding(c.Ctx(), pfs.DefaultProjectName, repo, aliceName, []string{"repoReader"}), "ModifyRepoRoleBinding")
 
 	txn, err := c.StartTransaction()
 	require.NoError(t, err, "StartTransaction")
 	tc := c.WithTransaction(txn)
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := uuid.UniqueString("pipeline")
 	_, err = tc.PpsAPIClient.CreatePipelineV2(tc.Ctx(), &pps.CreatePipelineV2Request{
 		CreatePipelineRequestJson: fmt.Sprintf(`{
 		"pipeline": {
@@ -1313,9 +1314,9 @@ func TestPipelineUniqueness(t *testing.T) {
 	t.Parallel()
 	c := pachd.NewTestPachd(t)
 
-	repo := tu.UniqueString("data")
+	repo := uuid.UniqueString("data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
-	pipelineName := tu.UniqueString("pipeline")
+	pipelineName := uuid.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 		pipelineName,
 		"",
@@ -1347,7 +1348,7 @@ func TestPipelineUniqueness(t *testing.T) {
 // Checks that "time to first datum" for CreateDatum is faster than ListDatum
 func BenchmarkCreateDatum(b *testing.B) {
 	c := pachd.NewTestPachd(b)
-	repo := tu.UniqueString("BenchmarkCreateDatum")
+	repo := uuid.UniqueString("BenchmarkCreateDatum")
 	require.NoError(b, c.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// Need multiple shards worth of files to see benefit of CreateDatum
@@ -1413,7 +1414,7 @@ func BenchmarkCreateDatum(b *testing.B) {
 func TestSelfReferentialPipeline(t *testing.T) {
 	t.Parallel()
 	c := pachd.NewTestPachd(t)
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := uuid.UniqueString("pipeline")
 	require.YesError(t, c.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
@@ -1430,11 +1431,11 @@ func TestPipelineDescription(t *testing.T) {
 	t.Parallel()
 	c := pachd.NewTestPachd(t)
 
-	dataRepo := tu.UniqueString("TestPipelineDescription_data")
+	dataRepo := uuid.UniqueString("TestPipelineDescription_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 	description := "pipeline description"
-	pipeline := tu.UniqueString("TestPipelineDescription")
+	pipeline := uuid.UniqueString("TestPipelineDescription")
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
@@ -1453,10 +1454,10 @@ func TestPipelineVersions(t *testing.T) {
 	t.Parallel()
 	c := pachd.NewTestPachd(t)
 
-	dataRepo := tu.UniqueString("TestPipelineVersions_data")
+	dataRepo := uuid.UniqueString("TestPipelineVersions_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
-	pipeline := tu.UniqueString("TestPipelineVersions")
+	pipeline := uuid.UniqueString("TestPipelineVersions")
 	nVersions := 5
 	for i := 0; i < nVersions; i++ {
 		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -1491,7 +1492,7 @@ func TestCreatePipelineErrorNoPipeline(t *testing.T) {
 	c := pachd.NewTestPachd(t)
 
 	// Create input repo
-	dataRepo := tu.UniqueString(t.Name() + "-data")
+	dataRepo := uuid.UniqueString(t.Name() + "-data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 	// Create pipeline w/ no pipeline field--make sure we get a response
@@ -1516,12 +1517,12 @@ func TestCreatePipelineError(t *testing.T) {
 	c := pachd.NewTestPachd(t)
 
 	// Create input repo
-	dataRepo := tu.UniqueString(t.Name() + "-data")
+	dataRepo := uuid.UniqueString(t.Name() + "-data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 	// Create pipeline w/ no transform--make sure we get a response (& make sure
 	// it explains the problem)
-	pipeline := tu.UniqueString("no-transform-")
+	pipeline := uuid.UniqueString("no-transform-")
 	_, err := c.PpsAPIClient.CreatePipelineV2(
 		context.Background(),
 		&pps.CreatePipelineV2Request{
@@ -1538,12 +1539,12 @@ func TestCreatePipelineErrorNoCmd(t *testing.T) {
 	c := pachd.NewTestPachd(t)
 
 	// Create input data
-	dataRepo := tu.UniqueString(t.Name() + "-data")
+	dataRepo := uuid.UniqueString(t.Name() + "-data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", ""), "file", strings.NewReader("foo"), client.WithAppendPutFile()))
 
 	// create pipeline
-	pipeline := tu.UniqueString("no-cmd-")
+	pipeline := uuid.UniqueString("no-cmd-")
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
@@ -1662,7 +1663,7 @@ func TestMalformedPipeline(t *testing.T) {
 	t.Parallel()
 	c := pachd.NewTestPachd(t)
 
-	pipelineName := tu.UniqueString("MalformedPipeline")
+	pipelineName := uuid.UniqueString("MalformedPipeline")
 
 	var err error
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{})
@@ -1710,7 +1711,7 @@ func TestMalformedPipeline(t *testing.T) {
 	require.YesError(t, err)
 	require.ErrorContains(t, err, "cannot pick commit")
 
-	dataRepo := tu.UniqueString("TestMalformedPipeline_data")
+	dataRepo := uuid.UniqueString("TestMalformedPipeline_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
@@ -1823,10 +1824,10 @@ func TestInterruptedUpdatePipelineInTransaction(t *testing.T) {
 
 	t.Parallel()
 	c := pachd.NewTestPachd(t)
-	inputA := tu.UniqueString("A")
-	inputB := tu.UniqueString("B")
-	inputC := tu.UniqueString("C")
-	pipeline := tu.UniqueString("pipeline")
+	inputA := uuid.UniqueString("A")
+	inputB := uuid.UniqueString("B")
+	inputC := uuid.UniqueString("C")
+	pipeline := uuid.UniqueString("pipeline")
 
 	createPipeline := func(c *client.APIClient, input string, update bool) error {
 		return c.CreatePipeline(pfs.DefaultProjectName,
@@ -1884,10 +1885,10 @@ func TestPipelineAncestry(t *testing.T) {
 	t.Parallel()
 	c := pachd.NewTestPachd(t)
 
-	dataRepo := tu.UniqueString(t.Name())
+	dataRepo := uuid.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := uuid.UniqueString("pipeline")
 	base := basicPipelineReq(pipeline, dataRepo)
 	base.Autoscaling = true
 
@@ -1944,7 +1945,7 @@ func TestProjectDefaultsCreatedBy(t *testing.T) {
 
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
 	aliceName, alice := tu.RandomRobot(t, c, "alice")
-	adminProject := tu.UniqueString("adminProject")
+	adminProject := uuid.UniqueString("adminProject")
 	require.NoError(t, admin.CreateProject(adminProject))
 	_, err := admin.PpsAPIClient.SetProjectDefaults(admin.Ctx(), &pps.SetProjectDefaultsRequest{
 		Project:             &pfs.Project{Name: adminProject},
@@ -1955,7 +1956,7 @@ func TestProjectDefaultsCreatedBy(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "pach:root", resp.CreatedBy)
 
-	aliceProject := tu.UniqueString("aliceProject")
+	aliceProject := uuid.UniqueString("aliceProject")
 	require.NoError(t, alice.CreateProject(aliceProject))
 	_, err = alice.PpsAPIClient.SetProjectDefaults(alice.Ctx(), &pps.SetProjectDefaultsRequest{
 		Project:             &pfs.Project{Name: aliceProject},

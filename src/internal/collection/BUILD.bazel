@@ -70,7 +70,6 @@ go_test(
         "//src/internal/require",
         "//src/internal/testetcd",
         "//src/internal/testpachd/realenv",
-        "//src/internal/testutil",
         "//src/internal/testutil/random",
         "//src/internal/uuid",
         "//src/internal/watch",

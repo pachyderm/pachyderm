@@ -3,6 +3,7 @@ package server_test
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"net/http"
 	"strconv"
 	"testing"
@@ -81,7 +82,7 @@ func TestAuthNotActivated(t *testing.T) {
 
 // TestUserNotAdmin checks that no RPCs can be made by non-admin users
 func TestUserNotAdmin(t *testing.T) {
-	alice := tu.UniqueString("robot:alice")
+	alice := uuid.UniqueString("robot:alice")
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))

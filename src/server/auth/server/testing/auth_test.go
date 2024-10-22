@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -45,11 +46,11 @@ import (
 func TestGetSetBasic(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	repoName := tu.UniqueString(t.Name())
+	repoName := uuid.UniqueString(t.Name())
 	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t,
@@ -161,11 +162,11 @@ func TestGetSetBasic(t *testing.T) {
 func TestGetSetReverse(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	repoName := tu.UniqueString(t.Name())
+	repoName := uuid.UniqueString(t.Name())
 	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
@@ -283,11 +284,11 @@ func TestGetSetReverse(t *testing.T) {
 func TestCreateAndUpdateRepo(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString(t.Name())
+	dataRepo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, dataRepo))
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
@@ -334,11 +335,11 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 func TestCreateRepoWithUpdateFlag(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString(t.Name())
+	dataRepo := uuid.UniqueString(t.Name())
 	/// alice creates the repo with Update set
 	_, err := aliceClient.PfsAPIClient.CreateRepo(aliceClient.Ctx(), &pfs.CreateRepoRequest{
 		Repo:   client.NewRepo(pfs.DefaultProjectName, dataRepo),
@@ -376,18 +377,18 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 			args.update,
 		)
 	}
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString(t.Name())
+	dataRepo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, dataRepo))
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 
 	// alice can create a pipeline (she owns the input repo)
-	pipeline := tu.UniqueString("alice-pipeline")
+	pipeline := uuid.UniqueString("alice-pipeline")
 	require.NoError(t, createPipeline(createArgs{
 		client: aliceClient,
 		name:   pipeline,
@@ -399,7 +400,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, pipeline))
 
 	// Make sure alice's pipeline runs successfully
-	err := aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
+	err := aliceClient.PutFile(dataCommit, uuid.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
@@ -408,7 +409,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 
 	// bob can't create a pipeline
-	badPipeline := tu.UniqueString("bob-bad")
+	badPipeline := uuid.UniqueString("bob-bad")
 	err = createPipeline(createArgs{
 		client: bobClient,
 		name:   badPipeline,
@@ -422,7 +423,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceClient.Ctx(), pfs.DefaultProjectName, dataRepo, bob, []string{auth.RepoReaderRole}))
 
 	// now bob can create a pipeline
-	goodPipeline := tu.UniqueString("bob-good")
+	goodPipeline := uuid.UniqueString("bob-good")
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
 		name:   goodPipeline,
@@ -434,7 +435,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		tu.BuildBindings(bob, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, goodPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(bobClient.Ctx(), t, bobClient, pfs.DefaultProjectName, goodPipeline))
 
 	// Make sure bob's pipeline runs successfully
-	err = aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
+	err = aliceClient.PutFile(dataCommit, uuid.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 4*time.Minute, func() error {
@@ -537,7 +538,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	}
 
 	// Make sure the updated pipeline runs successfully
-	err = aliceClient.PutFile(dataCommit, tu.UniqueString("/file"),
+	err = aliceClient.PutFile(dataCommit, uuid.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
@@ -567,12 +568,12 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			args.update,
 		)
 	}
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// create two repos, and check that alice is the owner of the new repos
-	dataRepo1 := tu.UniqueString(t.Name())
-	dataRepo2 := tu.UniqueString(t.Name())
+	dataRepo1 := uuid.UniqueString(t.Name())
+	dataRepo2 := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, dataRepo1))
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, dataRepo2))
 	require.Equal(t,
@@ -581,7 +582,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, dataRepo2))
 
 	// alice can create a cross-pipeline with both inputs
-	aliceCrossPipeline := tu.UniqueString("alice-cross")
+	aliceCrossPipeline := uuid.UniqueString("alice-cross")
 	require.NoError(t, createPipeline(createArgs{
 		client: aliceClient,
 		name:   aliceCrossPipeline,
@@ -596,7 +597,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, aliceCrossPipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, aliceCrossPipeline))
 
 	// alice can create a union-pipeline with both inputs
-	aliceUnionPipeline := tu.UniqueString("alice-union")
+	aliceUnionPipeline := uuid.UniqueString("alice-union")
 	require.NoError(t, createPipeline(createArgs{
 		client: aliceClient,
 		name:   aliceUnionPipeline,
@@ -614,7 +615,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceClient.Ctx(), pfs.DefaultProjectName, dataRepo1, bob, []string{auth.RepoReaderRole}))
 
 	// bob cannot create a cross-pipeline with both inputs
-	bobCrossPipeline := tu.UniqueString("bob-cross")
+	bobCrossPipeline := uuid.UniqueString("bob-cross")
 	err := createPipeline(createArgs{
 		client: bobClient,
 		name:   bobCrossPipeline,
@@ -628,7 +629,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoneEquals(t, bobCrossPipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 
 	// bob cannot create a union-pipeline with both inputs
-	bobUnionPipeline := tu.UniqueString("bob-union")
+	bobUnionPipeline := uuid.UniqueString("bob-union")
 	err = createPipeline(createArgs{
 		client: bobClient,
 		name:   bobUnionPipeline,
@@ -725,16 +726,16 @@ func TestPipelineMultipleInputs(t *testing.T) {
 func TestStopAndDeletePipeline(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
 
 	// alice creates a pipeline
-	pipeline := tu.UniqueString("alice-pipeline")
+	pipeline := uuid.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
@@ -769,12 +770,12 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.Nil(t, tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo).Entries)
 
 	// alice creates another repo
-	repo = tu.UniqueString(t.Name())
+	repo = uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
 
 	// alice creates another pipeline
-	pipeline = tu.UniqueString("alice-pipeline")
+	pipeline = uuid.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
@@ -853,11 +854,11 @@ func TestStopAndDeletePipeline(t *testing.T) {
 func TestStopJob(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
@@ -865,7 +866,7 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, err)
 
 	// alice creates a pipeline
-	pipeline := tu.UniqueString("alice-pipeline")
+	pipeline := uuid.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
@@ -916,25 +917,25 @@ func TestStopJob(t *testing.T) {
 func TestListAndInspectRepo(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo and makes Bob a writer
-	repoWriter := tu.UniqueString("repoWriter")
+	repoWriter := uuid.UniqueString("repoWriter")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoWriter))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceClient.Ctx(), pfs.DefaultProjectName, repoWriter, bob, []string{auth.RepoWriterRole}))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoWriterRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoWriter))
 
 	// alice creates a repo and makes Bob a reader
-	repoReader := tu.UniqueString("repoReader")
+	repoReader := uuid.UniqueString("repoReader")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoReader))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceClient.Ctx(), pfs.DefaultProjectName, repoReader, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoReader))
 
 	// alice creates a repo and gives Bob no access privileges
-	repoNone := tu.UniqueString("repoNone")
+	repoNone := uuid.UniqueString("repoNone")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoNone))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoNone))
@@ -944,7 +945,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	// bob creates a repo, and becomes its owner
-	repoOwner := tu.UniqueString("repoOwner")
+	repoOwner := uuid.UniqueString("repoOwner")
 	require.NoError(t, bobClient.CreateRepo(pfs.DefaultProjectName, repoOwner))
 	require.Equal(t, tu.BuildBindings(bob, auth.RepoOwnerRole), tu.GetRepoRoleBinding(bobClient.Ctx(), t, bobClient, pfs.DefaultProjectName, repoOwner))
 
@@ -1020,11 +1021,11 @@ func TestListAndInspectRepo(t *testing.T) {
 func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
@@ -1041,11 +1042,11 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 func TestListRepoNotLoggedInError(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	client := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, anonClient := tu.AuthenticateClient(t, client, alice), tu.UnauthenticatedPachClient(t, client)
 
 	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t,
 		tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
@@ -1066,12 +1067,12 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	c := env.PachClient
 	// Dont't run this test in parallel, since it deactivates the auth system
 	// globally, so any tests running concurrently will fail
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	infos, err := bobClient.ListRepo()
@@ -1107,11 +1108,11 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// bob creates the same repo, and should get an error to the effect that the
@@ -1129,7 +1130,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	anonClient := tu.UnauthenticatedPachClient(t, c)
 
 	// anonClient tries and fails to create a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	err := anonClient.CreateRepo(pfs.DefaultProjectName, repo)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
@@ -1143,7 +1144,7 @@ func TestProjectWriter(t *testing.T) {
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
 	aliceName, alice := tu.RandomRobot(t, c, "alice")
 
-	project, repo := tu.UniqueString("project"), tu.UniqueString("repo")
+	project, repo := uuid.UniqueString("project"), uuid.UniqueString("repo")
 
 	// Without ProjectWriter's PROJECT_CREATE_REPO permission, Alice cannot create a repo in project
 	require.NoError(t, admin.CreateProject(project))
@@ -1168,14 +1169,14 @@ func TestProjectWriter(t *testing.T) {
 func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
-	inputRepo := tu.UniqueString(t.Name())
+	inputRepo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, inputRepo))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceClient.Ctx(), pfs.DefaultProjectName, inputRepo, bob, []string{auth.RepoReaderRole}))
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := uuid.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, pipeline))
 
 	// bob creates a pipeline, and should get an "access denied" error
@@ -1213,11 +1214,11 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 func TestAuthorizedEveryone(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// alice is authorized as `OWNER`
@@ -1274,15 +1275,15 @@ func TestAuthorizedEveryone(t *testing.T) {
 func TestDeleteAllRepos(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// admin creates a repo
-	adminRepo := tu.UniqueString(t.Name())
+	adminRepo := uuid.UniqueString(t.Name())
 	require.NoError(t, adminClient.CreateRepo(pfs.DefaultProjectName, adminRepo))
 
 	// alice creates a repo
-	aliceRepo := tu.UniqueString(t.Name())
+	aliceRepo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, aliceRepo))
 
 	// alice tries to delete all repos, but is not allowed to delete admin's repo
@@ -1305,15 +1306,15 @@ func TestDeleteAllRepos(t *testing.T) {
 func TestListJob(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// alice creates a pipeline
-	pipeline := tu.UniqueString("alice-pipeline")
+	pipeline := uuid.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
@@ -1376,16 +1377,16 @@ func TestListJob(t *testing.T) {
 func TestInspectDatum(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// alice creates a pipeline (we must enable stats for InspectDatum, which
 	// means calling the grpc client function directly)
-	pipeline := tu.UniqueString("alice-pipeline")
+	pipeline := uuid.UniqueString("alice-pipeline")
 	_, err := aliceClient.PpsAPIClient.CreatePipeline(aliceClient.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: &pps.Pipeline{Name: pipeline},
@@ -1429,13 +1430,13 @@ func TestInspectDatum(t *testing.T) {
 func TestPipelineNewInput(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// alice creates three repos and commits to them
 	var repo []string
 	for i := 0; i < 3; i++ {
-		repo = append(repo, tu.UniqueString(fmt.Sprint("TestPipelineNewInput-", i, "-")))
+		repo = append(repo, uuid.UniqueString(fmt.Sprint("TestPipelineNewInput-", i, "-")))
 		require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo[i]))
 		require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo[i]))
 
@@ -1446,7 +1447,7 @@ func TestPipelineNewInput(t *testing.T) {
 	}
 
 	// alice creates a pipeline
-	pipeline := tu.UniqueString("alice-pipeline")
+	pipeline := uuid.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
@@ -1512,11 +1513,11 @@ func TestPipelineNewInput(t *testing.T) {
 func TestModifyMembers(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
-	bob := tu.Robot(tu.UniqueString("bob"))
-	organization := tu.UniqueString("organization")
-	engineering := tu.UniqueString("engineering")
-	security := tu.UniqueString("security")
+	alice := tu.Robot(uuid.UniqueString("alice"))
+	bob := tu.Robot(uuid.UniqueString("bob"))
+	organization := uuid.UniqueString("organization")
+	engineering := uuid.UniqueString("engineering")
+	security := uuid.UniqueString("security")
 
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -1634,10 +1635,10 @@ func TestModifyMembers(t *testing.T) {
 func TestSetGroupsForUser(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
-	organization := tu.UniqueString("organization")
-	engineering := tu.UniqueString("engineering")
-	security := tu.UniqueString("security")
+	alice := tu.Robot(uuid.UniqueString("alice"))
+	organization := uuid.UniqueString("organization")
+	engineering := uuid.UniqueString("engineering")
+	security := uuid.UniqueString("security")
 
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -1721,10 +1722,10 @@ func TestSetGroupsForUser(t *testing.T) {
 func TestGetOwnGroups(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
-	organization := tu.UniqueString("organization")
-	engineering := tu.UniqueString("engineering")
-	security := tu.UniqueString("security")
+	alice := tu.Robot(uuid.UniqueString("alice"))
+	organization := uuid.UniqueString("organization")
+	engineering := uuid.UniqueString("engineering")
+	security := uuid.UniqueString("security")
 
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -1749,11 +1750,11 @@ func TestGetOwnGroups(t *testing.T) {
 func TestGetJobsBugFix(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, anonClient := tu.AuthenticateClient(t, c, alice), tu.UnauthenticatedPachClient(t, c)
 
 	// alice creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
@@ -1761,7 +1762,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.NoError(t, err)
 
 	// alice creates a pipeline
-	pipeline := tu.UniqueString("alice-pipeline")
+	pipeline := uuid.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
@@ -1799,18 +1800,18 @@ func TestGetJobsBugFix(t *testing.T) {
 func TestDeleteFailedPipeline(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// Create input repo w/ initial commit
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := uuid.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"does-not-exist", // nonexistant image
@@ -1840,18 +1841,18 @@ func TestDeleteFailedPipeline(t *testing.T) {
 func TestDeletePipelineMissingRepos(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// Create input repo w/ initial commit
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	err := aliceClient.PutFile(commit, "/file", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := uuid.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"does-not-exist", // nonexistant image
@@ -1942,10 +1943,10 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	c := env.PachClient
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
-	alice := tu.UniqueString("robot:alice")
+	alice := uuid.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
-	repo := tu.UniqueString("TestRotateAuthToken")
+	repo := uuid.UniqueString("TestRotateAuthToken")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// Admin can list repos
@@ -2002,7 +2003,7 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 func TestRolesForPermission(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.UniqueString("robot:alice")
+	alice := uuid.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	resp, err := aliceClient.GetRolesForPermission(aliceClient.Ctx(), &auth.GetRolesForPermissionRequest{Permission: auth.Permission_REPO_READ})
 	require.NoError(t, err)
@@ -2022,7 +2023,7 @@ func TestRolesForPermission(t *testing.T) {
 func TestLoad(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.UniqueString("robot:alice")
+	alice := uuid.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	resp, err := aliceClient.DebugClient.RunPFSLoadTest(aliceClient.Ctx(), &debug.RunPFSLoadTestRequest{
 		Spec: `count: 1
@@ -2056,7 +2057,7 @@ fileSources:
 func TestPutFileURL(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.UniqueString("robot:alice")
+	alice := uuid.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	ctx := aliceClient.Ctx()
 	repo := "repo"
@@ -2110,7 +2111,7 @@ func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id
 func TestGetFileURL(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.UniqueString("robot:alice")
+	alice := uuid.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	ctx := aliceClient.Ctx()
 	repo := "repo"
@@ -2159,11 +2160,11 @@ func TestGetPermissions(t *testing.T) {
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice creates a repo and makes Bob a writer
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceClient.Ctx(), pfs.DefaultProjectName, repo, bob, []string{auth.RepoWriterRole}))
 
@@ -2203,11 +2204,11 @@ func TestGetPermissions_Project(t *testing.T) {
 	tu.ActivateAuthClient(t, c, peerPort)
 
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
-	project := tu.UniqueString("project-")
+	project := uuid.UniqueString("project-")
 	err := rootClient.CreateProject(project)
 	require.NoError(t, err, "should create project")
 
-	repo := tu.UniqueString("repo-")
+	repo := uuid.UniqueString("repo-")
 	err = rootClient.CreateRepo(project, repo)
 	require.NoError(t, err, "should create repo")
 
@@ -2233,7 +2234,7 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// admin makes alice an fs admin
@@ -2257,7 +2258,7 @@ func TestExtractAuthToken(t *testing.T) {
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice can't extract auth tokens because she's not an admin
@@ -2313,7 +2314,7 @@ func TestRestoreAuthToken(t *testing.T) {
 		},
 	}
 
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice can't restore auth tokens because she's not an admin
@@ -2378,18 +2379,18 @@ func TestPipelineFailingWithOpenCommit(t *testing.T) {
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Create input repo w/ initial commit
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	err := aliceClient.PutFile(commit, "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := uuid.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
@@ -2428,10 +2429,10 @@ func TestGetRobotTokenErrorNonAdminUser(t *testing.T) {
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	resp, err := aliceClient.GetRobotToken(aliceClient.Ctx(), &auth.GetRobotTokenRequest{
-		Robot: tu.UniqueString("t-1000"),
+		Robot: uuid.UniqueString("t-1000"),
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)
@@ -2445,11 +2446,11 @@ func TestDeleteAll(t *testing.T) {
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// admin creates a repo
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, adminClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// alice calls DeleteAll, but it fails
@@ -2476,11 +2477,11 @@ func TestDeleteAll(t *testing.T) {
 
 func TestCreateProject(t *testing.T) {
 	client := at.EnvWithAuth(t).PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, client, alice)
 
 	// create a project and check the caller is the owner
-	projectName := tu.UniqueString("project" + t.Name())
+	projectName := uuid.UniqueString("project" + t.Name())
 	require.NoError(t, aliceClient.CreateProject(projectName))
 	require.Equal(t, tu.BuildBindings(alice, auth.ProjectOwnerRole), tu.GetProjectRoleBinding(aliceClient.Ctx(), t, aliceClient, projectName))
 
@@ -2498,8 +2499,8 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 	clusterAdmin := tu.AuthenticateClient(t, c, auth.RootUser)
 	_, aliceClient := tu.RandomRobot(t, c, "alice")
 	bob, bobClient := tu.RandomRobot(t, c, "bob")
-	project1, project2 := tu.UniqueString("project1"), tu.UniqueString("project2")
-	repo1, repo2 := tu.UniqueString("repo1"), tu.UniqueString("repo2")
+	project1, project2 := uuid.UniqueString("project1"), uuid.UniqueString("project2")
+	repo1, repo2 := uuid.UniqueString("repo1"), uuid.UniqueString("repo2")
 	// alice owns project1 and project1/repo1
 	// bob owns project2 and project1/repo2
 	require.NoError(t, aliceClient.CreateProject(project1))
@@ -2605,7 +2606,7 @@ func TestPreAuthProjects(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient
-	project := tu.UniqueString("project")
+	project := uuid.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
 
 	// activate enterprise + auth
@@ -2648,9 +2649,9 @@ func TestDeleteProject(t *testing.T) {
 
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	project := tu.UniqueString("project")
+	project := uuid.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
-	alice := tu.AuthenticateClient(t, c, tu.Robot(tu.UniqueString("alice")))
+	alice := tu.AuthenticateClient(t, c, tu.Robot(uuid.UniqueString("alice")))
 
 	require.ErrorContains(t, alice.DeleteProject(project, false), "not authorized")
 	require.NoError(t, c.DeleteProject(project, false))
@@ -2661,10 +2662,10 @@ func TestDeleteProject(t *testing.T) {
 func TestDeleteRepos(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
-	projectName := tu.UniqueString("project")
+	projectName := uuid.UniqueString("project")
 	require.NoError(t, aliceClient.CreateProject(projectName))
 
 	// create repoA, and check that alice is its owner
@@ -2712,7 +2713,7 @@ func TestListRepoWithProjectAccessControl(t *testing.T) {
 	aliceName, alice := tu.RandomRobot(t, c, "alice")
 	bobName, bob := tu.RandomRobot(t, c, "bob")
 	// create projects and repos
-	project1, project2 := tu.UniqueString("project1-"), tu.UniqueString("project2-")
+	project1, project2 := uuid.UniqueString("project1-"), uuid.UniqueString("project2-")
 	repo1, repo2 := "repo1", "repo2"
 	require.NoError(t, admin.CreateRepo(pfs.DefaultProjectName, repo1))
 	require.NoError(t, admin.CreateRepo(pfs.DefaultProjectName, repo2))
@@ -2796,14 +2797,14 @@ func TestListPipelinesWithProjectAccessControl(t *testing.T) {
 	aliceName, alice := tu.RandomRobot(t, c, "alice")
 	bobName, bob := tu.RandomRobot(t, c, "bob")
 	// create projects and pipelines
-	project1, project2 := tu.UniqueString("project1-"), tu.UniqueString("project2-")
+	project1, project2 := uuid.UniqueString("project1-"), uuid.UniqueString("project2-")
 	require.NoError(t, admin.CreateProject(project1))
 	require.NoError(t, admin.CreateProject(project2))
 	// create input repo in default project
-	inputRepo := tu.UniqueString("input")
+	inputRepo := uuid.UniqueString("input")
 	require.NoError(t, admin.CreateRepo(pfs.DefaultProjectName, inputRepo))
 	// create 3 pipelines, one in each project
-	defaultPipeline, pipeline1, pipeline2 := tu.UniqueString("pipeline-default"), tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
+	defaultPipeline, pipeline1, pipeline2 := uuid.UniqueString("pipeline-default"), uuid.UniqueString("pipeline1-"), uuid.UniqueString("pipeline2-")
 	createPipeline(admin, pfs.DefaultProjectName, defaultPipeline, &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: inputRepo, Glob: "/*"})
 	createPipeline(admin, project1, pipeline1, &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: inputRepo, Glob: "/*"})
 	createPipeline(admin, project2, pipeline2, &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: inputRepo, Glob: "/*"})
@@ -2856,8 +2857,8 @@ func TestListProjectWithAuth(t *testing.T) {
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
 	_, alice := tu.RandomRobot(t, c, "alice")
 
-	adminProject := tu.UniqueString("adminProject")
-	aliceProject := tu.UniqueString("aliceProject")
+	adminProject := uuid.UniqueString("adminProject")
+	aliceProject := uuid.UniqueString("aliceProject")
 	require.NoError(t, admin.CreateProject(adminProject))
 	require.NoError(t, alice.CreateProject(aliceProject))
 
@@ -2893,9 +2894,9 @@ func TestSetProjectDefaults(t *testing.T) {
 
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
 	_, alice := tu.RandomRobot(t, c, "alice")
-	adminProject := tu.UniqueString("adminProject")
+	adminProject := uuid.UniqueString("adminProject")
 	require.NoError(t, admin.CreateProject(adminProject))
-	aliceProject := tu.UniqueString("aliceProject")
+	aliceProject := uuid.UniqueString("aliceProject")
 	require.NoError(t, alice.CreateProject(aliceProject))
 	ctx := c.Ctx()
 	_, err := admin.SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{Project: &pfs.Project{Name: adminProject}, ProjectDefaultsJson: `{}`})
@@ -2913,9 +2914,9 @@ func TestCreatedBy(t *testing.T) {
 
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
 	aliceName, alice := tu.RandomRobot(t, c, "alice")
-	adminProject := tu.UniqueString("adminProject")
+	adminProject := uuid.UniqueString("adminProject")
 	require.NoError(t, admin.CreateProject(adminProject))
-	aliceProject := tu.UniqueString("aliceProject")
+	aliceProject := uuid.UniqueString("aliceProject")
 	require.NoError(t, alice.CreateProject(aliceProject))
 	pi, err := admin.InspectProject(adminProject)
 	require.NoError(t, err)
@@ -2944,7 +2945,7 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	var address string
 	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken), pachd.WithS3Server(t, &address))
 	t.Logf("s3 gateway at %v", address)
-	alice := tu.UniqueString("alice")
+	alice := uuid.UniqueString("alice")
 	authResp, err := c.GetRobotToken(c.Ctx(), &auth.GetRobotTokenRequest{
 		Robot: alice,
 	})
@@ -2978,7 +2979,7 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 
 func TestListFileNils(t *testing.T) {
 	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 	repo := "foo"
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))

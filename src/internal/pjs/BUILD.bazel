@@ -52,7 +52,7 @@ go_test(
         "//src/internal/storage",
         "//src/internal/storage/fileset",
         "//src/internal/testetcd",
-        "//src/internal/testutil",
+        "//src/internal/uuid",
         "//src/pjs",
         "//src/storage",
         "@io_k8s_apimachinery//pkg/util/rand",

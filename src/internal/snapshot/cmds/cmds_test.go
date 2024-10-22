@@ -2,10 +2,10 @@ package cmds
 
 import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestListSnapshot(t *testing.T) {

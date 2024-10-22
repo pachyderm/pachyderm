@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"io/fs"
 	"math"
 	"net/http"
@@ -36,7 +37,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/testloki"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 type testPublisher struct {
@@ -92,7 +92,7 @@ func TestGetProjectLogs(t *testing.T) {
 	var (
 		ctx             = pctx.TestContext(t)
 		foundQuery      bool
-		projectName     = testutil.UniqueString("pipelineProject")
+		projectName     = uuid.UniqueString("pipelineProject")
 		datumMiddleware = func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 				q := req.URL.Query()

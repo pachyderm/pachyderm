@@ -7,10 +7,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"google.golang.org/protobuf/testing/protocmp"
 	"testing"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -132,7 +131,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestDependency", func(t *testing.T) {
 		t.Parallel()
 		pachClient := pachd.NewTestPachd(t)
-		project := testutil.UniqueString("p-")
+		project := uuid.UniqueString("p-")
 		txn, err := pachClient.StartTransaction()
 		require.NoError(t, err)
 
@@ -197,7 +196,7 @@ func TestTransactions(suite *testing.T) {
 		repo := "foo"
 		branchA := "master"
 		branchB := "bar"
-		project := testutil.UniqueString("prj-")
+		project := uuid.UniqueString("prj-")
 
 		require.NoError(t, pachClient.CreateProject(project))
 		require.NoError(t, pachClient.CreateRepo(project, repo))
@@ -270,7 +269,7 @@ func TestTransactions(suite *testing.T) {
 		t.Parallel()
 		pachClient := pachd.NewTestPachd(t)
 
-		project := testutil.UniqueString("prj_")
+		project := uuid.UniqueString("prj_")
 		err := pachClient.CreateProject(project)
 		require.NoError(t, err)
 

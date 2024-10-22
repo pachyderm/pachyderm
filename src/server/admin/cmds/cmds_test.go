@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 var startup = time.Now()
@@ -44,6 +44,6 @@ func TestRestartPachyderm(t *testing.T) {
 	})
 	ctx := pctx.TestContext(t)
 	assertPendingRestart(ctx, t, db, false)
-	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `pachctl restart cluster`).Run(), "cmd should run")
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl restart cluster`).Run(), "cmd should run")
 	assertPendingRestart(ctx, t, db, true)
 }

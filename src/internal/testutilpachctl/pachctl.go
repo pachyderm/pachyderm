@@ -1,4 +1,5 @@
-package testutil
+// Package testutilpachctl contains utilities for running pachctl commands directly.
+package testutilpachctl
 
 import (
 	"bytes"
@@ -16,6 +17,7 @@ import (
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 const contextName = "test-context"
@@ -89,7 +91,7 @@ func (p Pachctl) bashPrelude(w io.Writer) error {
 // writeTemplate dedents the given script, parses it as a Go template and writes
 // the filled-in template to w.
 func writeTemplate(w io.Writer, s string, data any) error {
-	tmpl, err := template.New(UniqueString("template")).Parse(dedent(s))
+	tmpl, err := template.New(uuid.UniqueString("template")).Parse(dedent(s))
 	if err != nil {
 		return errors.Wrap(err, "could not create new template")
 	}

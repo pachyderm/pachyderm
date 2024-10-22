@@ -30,6 +30,7 @@ go_test(
         "//src/internal/client",
         "//src/internal/pachd",
         "//src/internal/require",
-        "//src/internal/testutil",
+        "//src/internal/testutilpachctl",
+        "//src/internal/uuid",
     ],
 )

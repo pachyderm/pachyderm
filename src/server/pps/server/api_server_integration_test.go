@@ -4,6 +4,7 @@ package server_test
 
 import (
 	"bytes"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"strings"
 	"testing"
 	"text/template"
@@ -20,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestRerunPipeline(t *testing.T) {

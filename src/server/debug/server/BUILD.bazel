@@ -101,7 +101,7 @@ go_test(
         "//src/internal/pachd",
         "//src/internal/require",
         "//src/internal/tarutil",
-        "//src/internal/testutil",
+        "//src/internal/uuid",
         "//src/pfs",
     ],
 )

@@ -6,6 +6,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"net"
 	"testing"
 	"time"
@@ -40,7 +41,7 @@ func TestSpoutPachctl(t *testing.T) {
 		c = tu.AuthenticatedPachClient(t, c, auth.RootUser)
 
 		// create a spout pipeline
-		pipeline := tu.UniqueString("pipelinespoutauth")
+		pipeline := uuid.UniqueString("pipelinespoutauth")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
@@ -100,7 +101,7 @@ func TestSpoutPachctl(t *testing.T) {
 		c, _ := minikubetestenv.AcquireCluster(t)
 
 		// create a spout pipeline
-		pipeline := tu.UniqueString("pipelinespoutauthenabledafter")
+		pipeline := uuid.UniqueString("pipelinespoutauthenabledafter")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
@@ -203,7 +204,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 	t.Run("SpoutBasic", func(t *testing.T) {
 		// create a spout pipeline
-		pipeline := tu.UniqueString("pipelinespoutbasic")
+		pipeline := uuid.UniqueString("pipelinespoutbasic")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
@@ -251,7 +252,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 		require.NoError(t, c.DropCommitSet(commitInfo.Commit.Id))
 
 		// and make sure we can attach a downstream pipeline
-		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
+		downstreamPipeline := uuid.UniqueString("pipelinespoutdownstream")
 		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 			downstreamPipeline,
 			"",
@@ -292,7 +293,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 	})
 
 	t.Run("SpoutOverwrite", func(t *testing.T) {
-		pipeline := tu.UniqueString("pipelinespoutoverwrite")
+		pipeline := uuid.UniqueString("pipelinespoutoverwrite")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
@@ -349,7 +350,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 	t.Run("SpoutProvenance", func(t *testing.T) {
 		// create a pipeline
-		pipeline := tu.UniqueString("pipelinespoutprovenance")
+		pipeline := uuid.UniqueString("pipelinespoutprovenance")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
@@ -427,7 +428,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 
 		var netcatCommand string
 
-		pipeline := tu.UniqueString("pipelinespoutservice")
+		pipeline := uuid.UniqueString("pipelinespoutservice")
 		if usePachctl {
 			netcatCommand = fmt.Sprintf("netcat -l -s 0.0.0.0 -p 8000  | tar -x --to-command 'pachctl put file -a %s@master:$TAR_FILENAME'", pipeline)
 		} else {
@@ -529,10 +530,10 @@ func testSpout(t *testing.T, usePachctl bool) {
 	})
 
 	t.Run("SpoutInputValidation", func(t *testing.T) {
-		dataRepo := tu.UniqueString("TestSpoutInputValidation_data")
+		dataRepo := uuid.UniqueString("TestSpoutInputValidation_data")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
-		pipeline := tu.UniqueString("pipelinespoutinputvalidation")
+		pipeline := uuid.UniqueString("pipelinespoutinputvalidation")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{
@@ -562,7 +563,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 	})
 
 	t.Run("SpoutRestart", func(t *testing.T) {
-		pipeline := tu.UniqueString("pipeline")
+		pipeline := uuid.UniqueString("pipeline")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
 			&pps.CreatePipelineRequest{

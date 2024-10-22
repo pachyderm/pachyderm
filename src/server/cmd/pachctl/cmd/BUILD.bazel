@@ -53,7 +53,7 @@ go_test(
         "//src/internal/config",
         "//src/internal/grpcutil",
         "//src/internal/require",
-        "//src/internal/testutil",
+        "//src/internal/testutilpachctl",
         "//src/internal/uuid",
         "@com_github_spf13_cobra//:cobra",
     ],
