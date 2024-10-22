@@ -129,6 +129,14 @@ expand_template(
     stamp_substitutions = {
         "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
     },
+    substitutions = select({
+        "//:is_x86_64": {
+            "GOARCH": "amd64",
+        },
+        "//:is_aarch64": {
+            "GOARCH": "arm64",
+        },
+    }),
     template = "pachd_image_test.yaml",
 )
 

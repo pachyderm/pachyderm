@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/signal"
+	"runtime"
 
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -85,6 +86,7 @@ func main() {
 			return pd.Run(ctx)
 		}, &pachconfig.PachdRestoreSnapshotConfiguration{})
 	case mode == "version":
+		fmt.Println(runtime.GOARCH)
 		fmt.Println(version.PrettyPrintVersion(version.Version))
 	default:
 		log.Error(ctx, "pachd: unrecognized mode", zap.String("mode", mode))

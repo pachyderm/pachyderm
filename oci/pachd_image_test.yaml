@@ -23,4 +23,4 @@ commandTests:
     - name: "pachd"
       command: "/pachd"
       args: ["--mode", "version"]
-      expectedOutput: ["0.0.0"]
+      expectedOutput: ["GOARCH", "0.0.0"]
