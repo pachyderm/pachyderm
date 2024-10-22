@@ -54,8 +54,14 @@ spec:
         - --mode
         - restore
         env:
+        - name: STORAGE_URL
+          value: {{ required "storage URL required" .Values.pachd.storage.storageURL | quote }}
+        - name: PACH_ROOT
+          value: "/pach"
+        - name: STORAGE_BACKEND
+          value: {{ required "storage backend required" .Values.pachd.storage.backend | quote }}
         - name: SNAPSHOT_ID
-          value: {{ required "snapshot ID required" .Values.restoreSnapshot.snapshot_id }}
+          value: {{ required "snapshot ID required" .Values.restoreSnapshot.snapshot_id | quote }}
         - name: POSTGRES_HOST
           value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
         - name: POSTGRES_PORT
