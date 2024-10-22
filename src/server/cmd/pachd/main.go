@@ -87,6 +87,7 @@ func main() {
 		}, &pachconfig.PachdRestoreSnapshotConfiguration{})
 	case mode == "version":
 		fmt.Println(runtime.GOARCH)
+		fmt.Println(runtime.GOOS)
 		fmt.Println(version.PrettyPrintVersion(version.Version))
 	default:
 		log.Error(ctx, "pachd: unrecognized mode", zap.String("mode", mode))

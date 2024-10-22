@@ -42,6 +42,7 @@ func main() {
 	ctx := pctx.Child(pctx.Background(""), "", pctx.WithFields(pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv))))
 	if len(os.Args) == 2 && os.Args[1] == "version" {
 		fmt.Println(runtime.GOARCH)
+		fmt.Println(runtime.GOOS)
 		fmt.Println(version.PrettyPrintVersion(version.Version))
 		os.Exit(0)
 	}
