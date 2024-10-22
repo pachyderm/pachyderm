@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
+	"runtime"
 	"time"
 
 	etcd "go.etcd.io/etcd/client/v3"
@@ -38,6 +40,12 @@ import (
 func main() {
 	log.InitWorkerLogger()
 	ctx := pctx.Child(pctx.Background(""), "", pctx.WithFields(pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv))))
+	if len(os.Args) == 2 && os.Args[1] == "version" {
+		fmt.Println(runtime.GOARCH)
+		fmt.Println(runtime.GOOS)
+		fmt.Println(version.PrettyPrintVersion(version.Version))
+		os.Exit(0)
+	}
 	go log.WatchDroppedLogs(ctx, time.Minute)
 	go proc.MonitorSelf(ctx)
 	log.Debug(ctx, "version info", log.Proto("versionInfo", version.Version))

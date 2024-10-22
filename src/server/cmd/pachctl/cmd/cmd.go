@@ -7,16 +7,18 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	snapshotcmds "github.com/pachyderm/pachyderm/v2/src/internal/snapshot/cmds"
 	"io"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
 	"text/template"
 	"time"
 	"unicode"
+
+	snapshotcmds "github.com/pachyderm/pachyderm/v2/src/internal/snapshot/cmds"
 
 	"go.uber.org/zap/zapcore"
 
@@ -356,6 +358,7 @@ func PachctlCmd() (*cobra.Command, error) {
 	var subcommands []*cobra.Command
 
 	var clientOnly bool
+	var printArch bool
 	var timeoutFlag string
 	var enterprise bool
 	var compare bool
@@ -368,6 +371,10 @@ func PachctlCmd() (*cobra.Command, error) {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
 
+			if printArch {
+				fmt.Println(runtime.GOARCH)
+				fmt.Println(runtime.GOOS)
+			}
 			if clientOnly {
 				if raw {
 					return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(version.Version))
@@ -448,6 +455,8 @@ func PachctlCmd() (*cobra.Command, error) {
 	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+
 		"only print pachctl's version, but don't make any RPCs to pachd. Useful "+
 		"if pachd is unavailable")
+	versionCmd.Flags().BoolVar(&printArch, "print-architecture", false, "If set, "+
+		"print the GOARCH and GOOS values used to build this pachctl binary.")
 	versionCmd.Flags().StringVar(&timeoutFlag, "timeout", "default", "If set, "+
 		"'pachctl version' will timeout after the given duration (formatted as a "+
 		"golang time duration--a number followed by ns, us, ms, s, m, or h). If "+

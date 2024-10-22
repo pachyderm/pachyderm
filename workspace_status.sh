@@ -20,7 +20,7 @@ if command -v shasum &> /dev/null; then
     SHA256SUM="shasum -a 256"
 fi
 
-additional_version=$(git describe --exact-match 2>/dev/null | cut -d - -f 2- || echo "pre.$(git describe --long --dirty=".$(git diff HEAD | $SHA256SUM | cut -c 1-10)" | rev | cut -d - -f 1 | rev)")
+additional_version=$(git describe --exact-match 2>/dev/null | cut -s -d - -f 2- || echo "pre.$(git describe --long --dirty=".$(git diff HEAD | $SHA256SUM | cut -c 1-10)" | rev | cut -d - -f 1 | rev)")
 echo "STABLE_ADDITIONAL_VERSION -$additional_version"
 
 ci_runner_image_version="$(date +%Y%m%d)-${commit_sha}"
