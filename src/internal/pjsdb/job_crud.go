@@ -119,10 +119,6 @@ func (req CreateJobRequest) sanitize(ctx context.Context, tx *pachsql.Tx) (creat
 		sanitizedReq.Parent.Valid = true
 	}
 	for i, input := range req.Inputs {
-		// TODO: Why is this here?
-		if input == 0 {
-			continue
-		}
 		sanitizedReq.Inputs = append(sanitizedReq.Inputs, jobFilesetsRow{
 			JobID:         0, // the job id is not known until the job row is inserted in create job.
 			Type:          "input",
