@@ -54,6 +54,10 @@ spec:
         - --mode
         - restore
         env:
+        - name: STORAGE_URL
+          value: {{ required "storage URL required" .Values.pachd.storage.storageURL | quote }}
+        - name: PACH_ROOT
+          value: "/pach"
         - name: STORAGE_BACKEND
           value: {{ required "storage backend required" .Values.pachd.storage.backend | quote }}
         - name: SNAPSHOT_ID
