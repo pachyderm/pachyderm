@@ -420,10 +420,27 @@ oci_image(
     visibility = ["//visibility:public"],
 )
 
+expand_template(
+    name = "worker_image_test_templated",
+    out = "worker_image_test_templated.yaml",
+    stamp_substitutions = {
+        "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
+    },
+    substitutions = select({
+        "//:is_x86_64": {
+            "GOARCH": "amd64",
+        },
+        "//:is_aarch64": {
+            "GOARCH": "arm64",
+        },
+    }),
+    template = "worker_image_test.yaml",
+)
+
 container_structure_test(
     name = "worker_image_test",
     size = "small",
-    configs = ["worker_image_test.yaml"],
+    configs = ["worker_image_test_templated.yaml"],
     image = ":worker_image",
 )
 
