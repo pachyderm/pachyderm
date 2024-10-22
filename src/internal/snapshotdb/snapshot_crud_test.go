@@ -71,3 +71,20 @@ func TestListSnapshotTxByFilter(t *testing.T) {
 		t.Fatalf("with tx: %v", err)
 	}
 }
+
+func TestDeleteSnapshot(t *testing.T) {
+	ctx, db := DB(t)
+	fs := FilesetStorage(t, db)
+	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		_, err := CreateSnapshot(ctx, sqlTx, fs, map[string]string{})
+		return errors.Wrap(err, "create snapshot")
+	}); err != nil {
+		t.Fatalf("with tx: %v", err)
+	}
+	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+		err := DeleteSnapshot(ctx, sqlTx, 1)
+		return errors.Wrap(err, "delete snapshot")
+	}); err != nil {
+		t.Fatalf("with tx: %v", err)
+	}
+}

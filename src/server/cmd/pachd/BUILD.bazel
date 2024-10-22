@@ -1,3 +1,4 @@
+load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
 load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_path")
 
 go_library(
@@ -19,6 +20,7 @@ go_library(
         "//src/internal/setupenv",
         "//src/internal/signals",
         "//src/internal/task/taskprotos",
+        "//src/version",
         "@com_github_spf13_pflag//:pflag",
         "@org_uber_go_zap//:zap",
     ] + select({
@@ -49,24 +51,35 @@ go_path(
     deps = ["pachd"],
 )
 
-genrule(
+expand_template(
     name = "gen_app_version",
-    outs = ["app_version.txt"],
-    cmd_bash = """
-    version=$$(grep ^STABLE_APP_VERSION bazel-out/stable-status.txt | cut -d' ' -f2); \
-    printf '%s' $$version > $@
-    """,
-    stamp = 1,
+    out = "app_version.txt",
+    stamp_substitutions = {
+        "0.0.0": "{{STABLE_APP_VERSION}}",
+    },
+    template = [
+        "0.0.0",
+    ],
+)
+
+expand_template(
+    name = "gen_additional_version",
+    out = "additional_version.txt",
+    stamp_substitutions = {
+        "-pre.0": "{{STABLE_ADDITIONAL_VERSION}}",
+    },
+    template = [
+        "-pre.0",
+    ],
 )
 
 genrule(
-    name = "gen_additional_version",
-    outs = ["additional_version.txt"],
-    cmd_bash = """
-    version=$$(grep ^STABLE_ADDITIONAL_VERSION bazel-out/stable-status.txt | cut -d' ' -f2); \
-    printf '%s' $$version > $@
-    """,
-    stamp = 1,
+    name = "gen_goenv",
+    outs = ["goenv.txt"],
+    cmd = select({
+        "//:is_x86_64": "echo GOARCH=amd64 > $@",
+        "//:is_aarch64": "echo GOARCH=arm64 > $@",
+    }),
 )
 
 genrule(
@@ -75,6 +88,7 @@ genrule(
         "pachd_gopath",
         "additional_version.txt",
         "app_version.txt",
+        "goenv.txt",
     ],
     outs = ["pachd_coverage"],
     cmd = """
@@ -84,7 +98,8 @@ genrule(
         -out $@ \
         -gopath $(location pachd_gopath) \
         -app_version=$$(cat $(location app_version.txt)) \
-        -additional_version=$$(cat $(location additional_version.txt))
+        -additional_version=$$(cat $(location additional_version.txt)) \
+        -goenv=$$(cat $(location goenv.txt))
     """,
     tools = [
         "//src/cmd/compile-with-coverage",
