@@ -1,4 +1,5 @@
 load("@rules_go//go:def.bzl", "go_library", "go_test")
+load("//src/internal/snapshot:defs.bzl", "snapshot_data", "snapshot_x_defs")
 
 go_library(
     name = "cmds",
@@ -22,7 +23,9 @@ go_library(
 go_test(
     name = "cmds_test",
     srcs = ["cmds_test.go"],
+    data = snapshot_data,
     embed = [":cmds"],
+    x_defs = snapshot_x_defs,
     deps = [
         "//src/internal/pachd",
         "//src/internal/pctx",
