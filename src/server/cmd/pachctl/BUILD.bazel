@@ -27,31 +27,9 @@ go_binary(
     },
 )
 
-# This is a pachctl binary that only depends on its source code, not the git commit or branch name
-# (major.minor version of pachyderm).  This is used in tests, so that those test results can be
-# cached.  (We could also do this by running without --stamp during CI, but since we intend to
-# produce images that the public can pull from every CI run, that's not quite what we want.)
-go_binary(
-    name = "pachctl_nostamp",
-    out = "pachctl",
-    embed = [":pachctl_lib"],
-    pure = "on",
-    visibility = ["//visibility:public"],
-)
-
-# This installs a pachctl binary into your $PATH.  It has the version built into it, so when you're
-# installing from a commit that's not tagged with a release, it's going to whine at you every time
-# you run it unless your pachd is the same exact version.
+# Running this target installs a pachctl binary into your $PATH.
 installable_binary(
     name = "install",
     installed_name = "pachctl",
     target = ":pachctl",
-)
-
-# This installs a pachctl binary into your $PATH.  It does not have the version built into it, so
-# the whining about incompatibility is suppressed.  Here be dragons and all that.
-installable_binary(
-    name = "install_nostamp",
-    installed_name = "pachctl",
-    target = ":pachctl_nostamp",
 )

@@ -1,8 +1,8 @@
 genrule(
     name = "pg_dump_genrule",
     srcs = select({
-        "//:is_x86_64_linux": ["@postgres//postgresql-client-17/amd64:data"],
-        "//:is_aarch64_linux": ["@postgres//postgresql-client-17/arm64:data"],
+        "//:is_x86_64_linux": ["@apt//postgresql-client-17/amd64:data"],
+        "//:is_aarch64_linux": ["@apt//postgresql-client-17/arm64:data"],
     }),
     outs = ["pg_dump"],
     cmd = "$(BSDTAR_BIN) --extract --strip-components 6 --file $< usr/lib/postgresql/17/bin/pg_dump; mv pg_dump $@",
@@ -14,8 +14,8 @@ genrule(
 genrule(
     name = "psql_genrule",
     srcs = select({
-        "//:is_x86_64_linux": ["@postgres//postgresql-client-17/amd64:data"],
-        "//:is_aarch64_linux": ["@postgres//postgresql-client-17/arm64:data"],
+        "//:is_x86_64_linux": ["@apt//postgresql-client-17/amd64:data"],
+        "//:is_aarch64_linux": ["@apt//postgresql-client-17/arm64:data"],
     }),
     outs = ["psql"],
     cmd = "$(BSDTAR_BIN) --extract --strip-components 6 --file $< usr/lib/postgresql/17/bin/psql; mv psql $@",
@@ -27,8 +27,8 @@ genrule(
 genrule(
     name = "libpq_genrule",
     srcs = select({
-        "//:is_x86_64_linux": ["@postgres//libpq5/amd64:data"],
-        "//:is_aarch64_linux": ["@postgres//libpq5/arm64:data"],
+        "//:is_x86_64_linux": ["@apt//libpq5/amd64:data"],
+        "//:is_aarch64_linux": ["@apt//libpq5/arm64:data"],
     }),
     outs = ["libpq.so.5"],
     cmd = "$(BSDTAR_BIN) --extract --strip-components 4 --file $< usr/lib/" + select({
@@ -42,8 +42,8 @@ genrule(
 genrule(
     name = "libldap_genrule",
     srcs = select({
-        "//:is_x86_64_linux": ["@postgres//libldap-2.5-0/amd64:data"],
-        "//:is_aarch64_linux": ["@postgres//libldap-2.5-0/arm64:data"],
+        "//:is_x86_64_linux": ["@apt//libldap-2.5-0/amd64:data"],
+        "//:is_aarch64_linux": ["@apt//libldap-2.5-0/arm64:data"],
     }),
     outs = ["libldap-2.5.so.0"],
     cmd = "$(BSDTAR_BIN) --extract --strip-components 4 --file $< usr/lib/" + select({
@@ -57,8 +57,8 @@ genrule(
 genrule(
     name = "liblber_genrule",
     srcs = select({
-        "//:is_x86_64_linux": ["@postgres//libldap-2.5-0/amd64:data"],
-        "//:is_aarch64_linux": ["@postgres//libldap-2.5-0/arm64:data"],
+        "//:is_x86_64_linux": ["@apt//libldap-2.5-0/amd64:data"],
+        "//:is_aarch64_linux": ["@apt//libldap-2.5-0/arm64:data"],
     }),
     outs = ["liblber-2.5.so.0"],
     cmd = "$(BSDTAR_BIN) --extract --strip-components 4 --file $< usr/lib/" + select({
@@ -72,8 +72,8 @@ genrule(
 genrule(
     name = "libsasl_genrule",
     srcs = select({
-        "//:is_x86_64_linux": ["@postgres//libsasl2-2/amd64:data"],
-        "//:is_aarch64_linux": ["@postgres//libsasl2-2/arm64:data"],
+        "//:is_x86_64_linux": ["@apt//libsasl2-2/amd64:data"],
+        "//:is_aarch64_linux": ["@apt//libsasl2-2/arm64:data"],
     }),
     outs = ["libsasl2.so.2"],
     cmd = "$(BSDTAR_BIN) --extract --strip-components 4 --file $< usr/lib/" + select({

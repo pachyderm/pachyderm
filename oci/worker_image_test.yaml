@@ -22,3 +22,8 @@ fileExistenceTests:
     - name: "other_licenses"
       path: "/licenses/apache_v2.0.txt"
       shouldExist: true
+commandTests:
+    - name: "worker"
+      command: "/app/worker"
+      args: ["version"]
+      expectedOutput: ["GOARCH", "linux", "0.0.0"]
