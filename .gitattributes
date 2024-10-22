@@ -5,3 +5,4 @@ MODULE.bazel.lock linguist-generated=true
 src/openapi/pachyderm_api.swagger.json linguist-generated=true
 src/typescript/*/*.pb.ts linguist-generated=true
 src/server/logs/testdata/*.txt linguist-generated=true
+private/apt/apt.lock.json linguist-generated=true
