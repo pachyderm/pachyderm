@@ -10,11 +10,11 @@ import (
 func Migrate(state migrations.State) migrations.State {
 	return state.
 		Apply("Create PJS Schema", createPJSSchema).
-		Apply("Alter Branch Provenance Table", alterBranchProvenanceTable).
-		Apply("Create Chunkset Schema", createChunksetSchema).
-		Apply("Create snapshot schema", createSnapshotSchema).
+		Apply("Alter Branch Provenance Table", alterBranchProvenanceTable, migrations.Squash).
+		Apply("Create Chunkset Schema", createChunksetSchema, migrations.Squash).
+		Apply("Create snapshot schema", createSnapshotSchema, migrations.Squash).
 		Apply("Create storage.fileset_pins Table", func(ctx context.Context, env migrations.Env) error {
 			return fileset.CreatePinsTable(ctx, env.Tx)
-		}).
-		Apply("Create admin schema + restarts table", createPachydermRestartSchema)
+		}, migrations.Squash).
+		Apply("Create admin schema + restarts table", createPachydermRestartSchema, migrations.Squash)
 }
