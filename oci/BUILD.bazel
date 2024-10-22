@@ -118,12 +118,21 @@ dpkg_status(
 )
 
 flatten(
-    name = "postgres",
-    compress = "zstd",
+    name = "postgres_raw",
     tars = select({
         "//:is_x86_64": ["@apt//postgresql-client-17/amd64"],
         "//:is_aarch64": ["@apt//postgresql-client-17/arm64"],
     }) + ["postgres_dpkg_status"],
+)
+
+genrule(
+    name = "postgres",
+    outs = ["postgres.tar.zst"],
+    srcs = ["postgres_raw"],
+    tools = ["//src/cmd/dedupe-tar"],
+    cmd = """
+    $(location //src/cmd/dedupe-tar) < $(location :postgres_raw) > $@
+    """,
 )
 
 oci_image(
@@ -137,7 +146,6 @@ oci_image(
         ":licenses_tar",
         ":dex_assets_tar",
         ":postgres",
-    ] + [
         ":pachd_linux_tar",
     ],
     visibility = ["//visibility:public"],
@@ -196,6 +204,7 @@ oci_image(
     tars = [
         ":licenses_tar",
         ":dex_assets_tar",
+        ":postgres",
         ":pachd_linux_coverage_tar",
     ],
     visibility = ["//visibility:public"],

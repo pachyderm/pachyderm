@@ -19,8 +19,20 @@ fileExistenceTests:
     - name: "tmp"
       path: "/tmp"
       shouldExist: true
+    - name: "pg_dump"
+      path: "/usr/lib/postgresql/17/bin/pg_dump"
+    - name: "psql"
+      path: "/usr/lib/postgresql/17/bin/psql"
 commandTests:
     - name: "pachd"
       command: "/pachd"
       args: ["--mode", "version"]
       expectedOutput: ["GOARCH", "linux", "0.0.0"]
+    - name: "pg_dump"
+      command: "pg_dump"
+      args: ["--version"]
+      expectedOutput: ["^pg_dump \\(PostgreSQL\\) 17.*"]
+    - name: "psql"
+      command: "psql"
+      args: ["--version"]
+      expectedOutput: ["^psql \\(PostgreSQL\\) 17.*"]
