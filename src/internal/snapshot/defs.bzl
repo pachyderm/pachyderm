@@ -7,13 +7,15 @@ LINUX_LIBRARIES = [
     "//private/apt:libsasl2.so.2",
 ]
 
+us = "github.com/pachyderm/pachyderm/v2/src/internal/snapshot."
+
 LINUX_VARS = {
-    "pgdump": "$(rlocationpath //tools/postgres/pg_dump)",
-    "psql": "$(rlocationpath //tools/postgres/psql)",
-    "libpq": "$(rlocationpath //private/apt:libpq.so.5)",
-    "libldap": "$(rlocationpath //private/apt:libldap-2.5.so.0)",
-    "liblber": "$(rlocationpath //private/apt:liblber-2.5.so.0)",
-    "libsasl": "$(rlocationpath //private/apt:libsasl2.so.2)",
+    us + "pgdump": "$(rlocationpath //tools/postgres/pg_dump)",
+    us + "psql": "$(rlocationpath //tools/postgres/psql)",
+    us + "libpq": "$(rlocationpath //private/apt:libpq.so.5)",
+    us + "libldap": "$(rlocationpath //private/apt:libldap-2.5.so.0)",
+    us + "liblber": "$(rlocationpath //private/apt:liblber-2.5.so.0)",
+    us + "libsasl": "$(rlocationpath //private/apt:libsasl2.so.2)",
 }
 
 MAC_LIBRARIES = [
@@ -22,9 +24,9 @@ MAC_LIBRARIES = [
 ]
 
 MAC_VARS = {
-    "pgdump": "$(rlocationpath //tools/postgres/pg_dump)",
-    "psql": "$(rlocationpath //tools/postgres/psql)",
-    "libpq": "$(rlocationpath @com_enterprisedb_get_postgresql_macos//:lib/libpq.5.dylib)",
+    us + "pgdump": "$(rlocationpath //tools/postgres/pg_dump)",
+    us + "psql": "$(rlocationpath //tools/postgres/psql)",
+    us + "libpq": "$(rlocationpath @com_enterprisedb_get_postgresql_macos//:lib/libpq.5.dylib)",
 }
 
 snapshot_x_defs = select({
