@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 )
 
 func createRootJob(t *testing.T, d dependencies) pjsdb.JobID {
@@ -302,7 +301,7 @@ func TestListJobTxByFilter(t *testing.T) {
 				expected = append(expected, included)
 			}
 			jobs, err := pjsdb.ListJobTxByFilter(d.ctx, d.tx,
-				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Program: []byte(fileset.Token(targetFs).HexString())}})
+				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Program: targetFs}})
 			require.NoError(t, err)
 			require.NoDiff(t, expected, jobs, nil)
 		})

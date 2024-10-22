@@ -75,7 +75,7 @@ func TestForEachJobTxByFilter(t *testing.T) {
 			expected := make(map[pjsdb.JobID]bool)
 			targetFs, targetHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
 			withForEachJob(t, d, expected,
-				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Program: []byte(fileset.Token(targetFs).HexString())}},
+				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Program: targetFs}},
 				func(expected map[pjsdb.JobID]bool) {
 					for i := 0; i < 25; i++ {
 						included := createJobWithFilesets(t, d, 0, targetFs, targetHash)
@@ -91,7 +91,8 @@ func TestForEachJobTxByFilter(t *testing.T) {
 			expected := make(map[pjsdb.JobID]bool)
 			targetFs := mockFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
 			withForEachJob(t, d, expected,
-				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Program: []byte(fileset.Token(targetFs).HexString())}},
+
+				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{Program: targetFs}},
 				func(expected map[pjsdb.JobID]bool) {
 					for i := 0; i < 25; i++ {
 						_, err := createJob(t, d, 0)
@@ -105,7 +106,7 @@ func TestForEachJobTxByFilter(t *testing.T) {
 			expected := make(map[pjsdb.JobID]bool)
 			targetInput := mockFileset(t, d, "/inputs/0.txt", "fake data")
 			withForEachJob(t, d, expected,
-				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{HasInput: []byte(fileset.Token(targetInput).HexString())}},
+				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{HasInput: targetInput}},
 				func(expected map[pjsdb.JobID]bool) {
 					for i := 0; i < 25; i++ {
 						program, programHash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
@@ -126,8 +127,8 @@ func TestForEachJobTxByFilter(t *testing.T) {
 			otherInput := mockFileset(t, d, "/inputs/1.txt", "more fake data")
 			withForEachJob(t, d, expected,
 				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{
-					Program:  []byte(fileset.Token(targetProgram).HexString()),
-					HasInput: []byte(fileset.Token(targetInput).HexString())}},
+					Program:  targetProgram,
+					HasInput: targetInput}},
 				func(expected map[pjsdb.JobID]bool) {
 					for i := 0; i < 25; i++ {
 						included := createJobWithFilesets(t, d, 0, targetProgram, targetHash, targetInput)
@@ -149,8 +150,8 @@ func TestForEachJobTxByFilter(t *testing.T) {
 			withForEachJob(t, d, expected,
 				pjsdb.IterateJobsRequest{Filter: pjsdb.IterateJobsFilter{
 					Operation: pjsdb.FilterOperationOR,
-					Program:   []byte(fileset.Token(targetProgram).HexString()),
-					HasInput:  []byte(fileset.Token(targetInput).HexString())}},
+					Program:   targetProgram,
+					HasInput:  targetInput}},
 				func(expected map[pjsdb.JobID]bool) {
 					for i := 0; i < 25; i++ {
 						expected[createJobWithFilesets(t, d, 0, targetProgram, targetHash, targetInput)] = true
@@ -166,9 +167,9 @@ func TestForEachJobTxByFilter(t *testing.T) {
 func TestIterateJobsFilterIsEmpty(t *testing.T) {
 	filter := pjsdb.IterateJobsFilter{}
 	require.True(t, filter.IsEmpty())
-	filter.HasInput = []byte("") // empty, but non-nil slices should also be considered empty.
+	filter.HasInput = fileset.Pin(0) // empty, but non-nil slices should also be considered empty.
 	require.True(t, filter.IsEmpty())
-	filter.HasInput = []byte("dummy-input")
+	filter.HasInput = fileset.Pin(1)
 	require.False(t, filter.IsEmpty())
 }
 

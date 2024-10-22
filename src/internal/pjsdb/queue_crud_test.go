@@ -2,10 +2,10 @@ package pjsdb_test
 
 import (
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"golang.org/x/sync/errgroup"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjsdb"
@@ -16,10 +16,12 @@ import (
 func TestForEachQueue(t *testing.T) {
 	ctx, db := DB(t)
 	s := FilesetStorage(t, db)
+	var prog1, prog2, prog3 fileset.Pin
 	withTx(t, ctx, db, s, func(d dependencies) {
-		prog1, prog1Hash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
-		prog2, prog2Hash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hi';")
-		prog3, prog3Hash := mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hey';")
+		var prog1Hash, prog2Hash, prog3Hash []byte
+		prog1, prog1Hash = mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hello';")
+		prog2, prog2Hash = mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hi';")
+		prog3, prog3Hash = mockAndHashFileset(t, d, "/program", "#!/bin/bash; echo 'hey';")
 		for i := 0; i < 25; i++ {
 			createJobWithFilesets(t, d, 0, prog1, prog1Hash)
 			createJobWithFilesets(t, d, 0, prog2, prog2Hash)
@@ -27,12 +29,17 @@ func TestForEachQueue(t *testing.T) {
 		}
 	})
 	num := 0
+	notSeen := map[fileset.Pin]bool{
+		prog1: true,
+		prog2: true,
+		prog3: true,
+	}
 	err := pjsdb.ForEachQueue(ctx, db, pjsdb.IterateQueuesRequest{}, func(queue pjsdb.Queue) error {
 		num++
-		require.Len(t, queue.Jobs, 25)
-		require.Len(t, queue.Programs, 25)
+		delete(notSeen, queue.Program)
 		return nil
 	})
+	require.NoDiff(t, notSeen, map[fileset.Pin]bool{}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 3, num)
 }
@@ -40,7 +47,7 @@ func TestForEachQueue(t *testing.T) {
 func TestDequeue(t *testing.T) {
 	ctx, db := DB(t)
 	s := FilesetStorage(t, db)
-	var prog1, prog2, prog3 fileset.PinnedFileset
+	var prog1, prog2, prog3 fileset.Pin
 	var prog1Hash, prog2Hash, prog3Hash []byte
 	// create 3 queues and put in 25 jobs in each queue
 	const NumOfPrograms = 25
@@ -76,7 +83,6 @@ func TestDequeue(t *testing.T) {
 		withTx(t, ctx, db, s, func(d dependencies) {
 			err := pjsdb.ForEachQueue(ctx, db, pjsdb.IterateQueuesRequest{}, func(queue pjsdb.Queue) error {
 				require.Len(t, queue.Jobs, NumOfPrograms-int(dequeued)/3)
-				require.Len(t, queue.Programs, NumOfPrograms-int(dequeued)/3)
 				return nil
 			})
 			require.NoError(t, err)

@@ -18,6 +18,7 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/internal/log",
+        "//src/internal/pacherr",
         "//src/internal/pachhash",
         "//src/internal/pachsql",
         "//src/internal/pctx",
