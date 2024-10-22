@@ -5,16 +5,11 @@ load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_distroless//distroless:defs.bzl", "cacerts", "group", "home", "passwd")
 load("@rules_multirun//:defs.bzl", "multirun")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_load", "oci_push")
-load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load(":transition.bzl", "multi_arch")
 
 NONROOT = "65532"
 
 NONROOT_USERNAME = "nonroot"
-
-NONROOT_FULL = "65532.65532"
-
-NONROOT_USERNAME_FULL = "nonroot.nonroot"
 
 PLATFORMS = [
     "//:x86_64_linux",
@@ -299,12 +294,20 @@ container_structure_test(
     image = ":pachctl_image",
 )
 
-pkg_tar(
+mtree_mutate(
+    name = "pachctl_worker_host_mtree",
+    awk_script = "adjust_pachctl.awk",
+    mtree = "pachctl_raw_mtree",
+    owner = NONROOT,
+    package_dir = "app",
+    strip_prefix = "src/server/cmd/pachctl/pachctl_",
+)
+
+tar(
     name = "pachctl_worker_host_tar",
     srcs = ["//src/server/cmd/pachctl"],
-    owner = NONROOT_FULL,
-    ownername = NONROOT_USERNAME_FULL,
-    package_dir = "/app",
+    compress = "zstd",
+    mtree = "pachctl_worker_host_mtree",
 )
 
 platform_transition_filegroup(
@@ -316,12 +319,25 @@ platform_transition_filegroup(
     }),
 )
 
-pkg_tar(
+mtree_spec(
+    name = "worker_init_host_raw_mtree",
+    srcs = ["//etc/worker:init"],
+)
+
+mtree_mutate(
+    name = "worker_init_host_mtree",
+    awk_script = "adjust_worker_init.awk",
+    mtree = "worker_init_host_raw_mtree",
+    owner = NONROOT,
+    package_dir = "app",
+    strip_prefix = "etc/worker/init_",
+)
+
+tar(
     name = "worker_init_host_tar",
     srcs = ["//etc/worker:init"],
-    owner = NONROOT_FULL,
-    ownername = NONROOT_USERNAME_FULL,
-    package_dir = "/app",
+    compress = "zstd",
+    mtree = "worker_init_host_mtree",
 )
 
 platform_transition_filegroup(
@@ -333,12 +349,25 @@ platform_transition_filegroup(
     }),
 )
 
-pkg_tar(
+mtree_spec(
+    name = "worker_host_raw_mtree",
+    srcs = ["//src/server/cmd/worker"],
+)
+
+mtree_mutate(
+    name = "worker_host_mtree",
+    awk_script = "adjust_worker.awk",
+    mtree = "worker_host_raw_mtree",
+    owner = NONROOT,
+    package_dir = "app",
+    strip_prefix = "src/server/cmd/worker/worker_",
+)
+
+tar(
     name = "worker_host_tar",
     srcs = ["//src/server/cmd/worker"],
-    owner = NONROOT_FULL,
-    ownername = NONROOT_USERNAME_FULL,
-    package_dir = "/app",
+    compress = "zstd",
+    mtree = "worker_host_mtree",
 )
 
 platform_transition_filegroup(
@@ -350,15 +379,29 @@ platform_transition_filegroup(
     }),
 )
 
-pkg_tar(
+mtree_spec(
+    name = "dumb_init_linux_raw_mtree",
+    srcs = select({
+        "//:is_x86_64": ["@com_github_yelp_dumb_init_x86_64_linux//file:dumb-init"],
+        "//:is_aarch64": ["@com_github_yelp_dumb_init_aarch64_linux//file:dumb-init"],
+    }),
+)
+
+mtree_mutate(
+    name = "dumb_init_linux_mtree",
+    awk_script = "adjust_dumb_init.awk",
+    mtree = "dumb_init_linux_raw_mtree",
+    package_dir = "app",
+)
+
+tar(
     name = "dumb_init_linux_tar",
     srcs = select({
         "//:is_x86_64": ["@com_github_yelp_dumb_init_x86_64_linux//file:dumb-init"],
         "//:is_aarch64": ["@com_github_yelp_dumb_init_aarch64_linux//file:dumb-init"],
     }),
-    owner = NONROOT_FULL,
-    ownername = NONROOT_USERNAME_FULL,
-    package_dir = "/app",
+    compress = "zstd",
+    mtree = "dumb_init_linux_mtree",
 )
 
 oci_image(
