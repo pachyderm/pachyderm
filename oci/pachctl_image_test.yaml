@@ -18,3 +18,8 @@ fileExistenceTests:
       shouldExist: true
     - name: "bash"
       path: "/bin/bash"
+commandTests:
+    - name: "pachctl"
+      command: "/usr/local/bin/pachctl"
+      args: ["version", "--client-only"]
+      expectedOutput: ["0.0.0"]
