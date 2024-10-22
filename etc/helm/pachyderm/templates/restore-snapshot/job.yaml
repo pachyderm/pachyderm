@@ -54,6 +54,8 @@ spec:
         - --mode
         - restore
         env:
+        - name: SNAPSHOT_ID
+          value: {{ required "snapshot ID required" .Values.restoreSnapshot.snapshot_id }}
         - name: POSTGRES_HOST
           value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
         - name: POSTGRES_PORT
