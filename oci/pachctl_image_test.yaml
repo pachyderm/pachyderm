@@ -21,5 +21,5 @@ fileExistenceTests:
 commandTests:
     - name: "pachctl"
       command: "/usr/local/bin/pachctl"
-      args: ["version", "--client-only"]
-      expectedOutput: ["0.0.0"]
+      args: ["version", "--client-only", "--print-architecture"]
+      expectedOutput: ["GOARCH", "linux", "0.0.0"]
