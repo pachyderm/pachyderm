@@ -1,4 +1,4 @@
-package testutil_test
+package testutilpachctl_test
 
 import (
 	"path/filepath"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	tup "github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
 )
 
 func TestPachctl(t *testing.T) {
@@ -15,7 +15,7 @@ func TestPachctl(t *testing.T) {
 
 	dirPath := t.TempDir()
 	configPath := filepath.Join(dirPath, "test-config.json")
-	p, err := testutil.NewPachctl(ctx, c, configPath)
+	p, err := tup.NewPachctl(ctx, c, configPath)
 	if err != nil {
 		t.Fatal(err)
 	}

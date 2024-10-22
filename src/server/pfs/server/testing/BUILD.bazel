@@ -18,7 +18,7 @@ go_test(
         "//src/internal/client",
         "//src/internal/pachd",
         "//src/internal/require",
-        "//src/internal/testutil",
+        "//src/internal/uuid",
         "//src/pfs",
         "//src/server/pfs",
         "@org_golang_google_protobuf//types/known/emptypb",

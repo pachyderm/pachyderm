@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"strings"
 	"testing"
 	"time"
@@ -90,7 +91,7 @@ func TestActivateKnownToken(t *testing.T) {
 func TestSuperAdminRWO(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -100,7 +101,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
 	// alice creates a repoName (that only she owns) and puts a file
-	repoName := tu.UniqueString("TestAdminRWO")
+	repoName := uuid.UniqueString("TestAdminRWO")
 	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
@@ -190,7 +191,7 @@ func TestSuperAdminRWO(t *testing.T) {
 func TestFSAdminRWO(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -200,7 +201,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
 	// alice creates a repoName (that only she owns) and puts a file
-	repoName := tu.UniqueString("TestAdminRWO")
+	repoName := uuid.UniqueString("TestAdminRWO")
 	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
@@ -290,12 +291,12 @@ func TestFSAdminRWO(t *testing.T) {
 func TestFSAdminFixBrokenRepo(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice creates a repoName (that only she owns) and puts a file
-	repoName := tu.UniqueString("TestAdmin")
+	repoName := uuid.UniqueString("TestAdmin")
 	repo := client.NewRepo(pfs.DefaultProjectName, repoName)
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoName))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repoName))
@@ -338,7 +339,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 func TestCannotRemoveRootAdmin(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Check that the initial set of admins is just "admin"
@@ -375,7 +376,7 @@ func TestCannotRemoveRootAdmin(t *testing.T) {
 func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Deactivate auth
@@ -392,8 +393,8 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// alice creates a pipeline
-	repo := tu.UniqueString("TestPreActivationPipelinesKeepRunningAfterActivation")
-	pipeline := tu.UniqueString("alice-pipeline")
+	repo := uuid.UniqueString("TestPreActivationPipelinesKeepRunningAfterActivation")
+	pipeline := uuid.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
@@ -463,13 +464,13 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
-	project := tu.UniqueString("project")
+	project := uuid.UniqueString("project")
 	require.NoError(t, aliceClient.CreateProject(project))
-	repo := tu.UniqueString("repo")
+	repo := uuid.UniqueString("repo")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.CreateRepo(project, repo))
 
@@ -496,7 +497,7 @@ func TestGetIndefiniteRobotToken(t *testing.T) {
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Generate auth credentials
-	robotUser := tu.UniqueString("rock-em-sock-em")
+	robotUser := uuid.UniqueString("rock-em-sock-em")
 	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
 	token1 := resp.Token
@@ -517,7 +518,7 @@ func TestGetTemporaryRobotToken(t *testing.T) {
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Generate auth credentials
-	robotUser := tu.UniqueString("rock-em-sock-em")
+	robotUser := uuid.UniqueString("rock-em-sock-em")
 	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{Robot: robotUser, Ttl: 600})
 	require.NoError(t, err)
 	token1 := resp.Token
@@ -541,7 +542,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := tu.UniqueString("r2d2")
+	robotUser := uuid.UniqueString("r2d2")
 	resp, err := rootClient.GetRobotToken(rootClient.Ctx(),
 		&auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
@@ -560,11 +561,11 @@ func TestRobotUserWhoAmI(t *testing.T) {
 func TestRobotUserACL(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := tu.UniqueString("voltron")
+	robotUser := uuid.UniqueString("voltron")
 	resp, err := rootClient.GetRobotToken(rootClient.Ctx(),
 		&auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
@@ -573,7 +574,7 @@ func TestRobotUserACL(t *testing.T) {
 	robotClient.SetAuthToken(resp.Token)
 
 	// robotUser creates a repo and adds alice as a writer
-	repo := tu.UniqueString("TestRobotUserACL")
+	repo := uuid.UniqueString("TestRobotUserACL")
 	require.NoError(t, robotClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser), auth.RepoOwnerRole), tu.GetRepoRoleBinding(robotClient.Ctx(), t, robotClient, pfs.DefaultProjectName, repo))
 
@@ -586,7 +587,7 @@ func TestRobotUserACL(t *testing.T) {
 	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// Now alice creates a repo, and adds robotUser as a writer
-	repo2 := tu.UniqueString("TestRobotUserACL")
+	repo2 := uuid.UniqueString("TestRobotUserACL")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo2))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo2))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceClient.Ctx(), pfs.DefaultProjectName, repo2, tu.Robot(robotUser), []string{auth.RepoWriterRole}))
@@ -603,12 +604,12 @@ func TestRobotUserACL(t *testing.T) {
 func TestGroupRoleBinding(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
-	group := tu.Group(tu.UniqueString("testGroup"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
+	group := tu.Group(uuid.UniqueString("testGroup"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// root creates a repo and adds a group writer access
-	repo := tu.UniqueString("TestGroupRoleBinding")
+	repo := uuid.UniqueString("TestGroupRoleBinding")
 	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, rootClient.ModifyRepoRoleBinding(rootClient.Ctx(), pfs.DefaultProjectName, repo, group, []string{auth.RepoWriterRole}))
 	require.Equal(t, tu.BuildBindings(group, auth.RepoWriterRole, auth.RootUser, auth.RepoOwnerRole), tu.GetRepoRoleBinding(rootClient.Ctx(), t, rootClient, pfs.DefaultProjectName, repo))
@@ -634,12 +635,12 @@ func TestGroupRoleBinding(t *testing.T) {
 func TestRobotUserAdmin(t *testing.T) {
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := tu.UniqueString("bender")
+	robotUser := uuid.UniqueString("bender")
 	resp, err := rootClient.GetRobotToken(rootClient.Ctx(),
 		&auth.GetRobotTokenRequest{Robot: robotUser})
 	require.NoError(t, err)
@@ -655,7 +656,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.Equal(t, tu.BuildClusterBindings(tu.Robot(robotUser), auth.ClusterAdminRole), bindings)
 
 	// robotUser mints a token for robotUser2
-	robotUser2 := tu.UniqueString("robocop")
+	robotUser2 := uuid.UniqueString("robocop")
 	resp, err = robotClient.GetRobotToken(robotClient.Ctx(), &auth.GetRobotTokenRequest{
 		Robot: robotUser2,
 	})
@@ -665,7 +666,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	robotClient2.SetAuthToken(resp.Token)
 
 	// robotUser2 creates a repo, and robotUser commits to it
-	repo := tu.UniqueString("TestRobotUserAdmin")
+	repo := uuid.UniqueString("TestRobotUserAdmin")
 	require.NoError(t, robotClient2.CreateRepo(pfs.DefaultProjectName, repo))
 	commit, err := robotClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err) // admin privs means robotUser can commit
@@ -690,10 +691,10 @@ func TestTokenRevoke(t *testing.T) {
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Create repo (so alice has something to list)
-	repo := tu.UniqueString("TestTokenRevoke")
+	repo := uuid.UniqueString("TestTokenRevoke")
 	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 
-	alice := tu.UniqueString("alice")
+	alice := uuid.UniqueString("alice")
 	resp, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{
 		Robot: alice,
 	})
@@ -734,11 +735,11 @@ func TestRevokeTokensForUser(t *testing.T) {
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Create repo (so alice has something to list)
-	repo := tu.UniqueString("TestTokenRevoke")
+	repo := uuid.UniqueString("TestTokenRevoke")
 	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 
-	alice := tu.UniqueString("robot:alice")
-	bob := tu.UniqueString("robot:bob")
+	alice := uuid.UniqueString("robot:alice")
+	bob := uuid.UniqueString("robot:bob")
 
 	// mint two tokens for Alice
 	aliceTokenA, err := rootClient.GetRobotToken(rootClient.Ctx(), &auth.GetRobotTokenRequest{
@@ -815,7 +816,7 @@ func TestRotateRootToken(t *testing.T) {
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// create a repo for the purpose of testing access
-	repo := tu.UniqueString("TestRotateRootToken")
+	repo := uuid.UniqueString("TestRotateRootToken")
 	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// rotate token after creating the repo

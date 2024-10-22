@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -8,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -564,11 +564,11 @@ func TestEditMetadata(t *testing.T) {
 		pachctl create repo test
 		echo 'hi' | pachctl put file test@master:/hi.txt
 	`
-	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, setup).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, setup).Run())
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := pctx.TestContext(t)
-			require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, test.code).Run())
+			require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, test.code).Run())
 		})
 	}
 }

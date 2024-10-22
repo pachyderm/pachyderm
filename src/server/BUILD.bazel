@@ -23,6 +23,7 @@ go_test(
         "//src/internal/require",
         "//src/internal/testpachd/realenv",
         "//src/internal/testutil",
+        "//src/internal/uuid",
         "//src/license",
         "//src/pfs",
         "//src/pps",

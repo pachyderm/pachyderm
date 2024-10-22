@@ -4,6 +4,7 @@ package dockertestenv
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"os"
 	"sync"
 	"testing"
@@ -87,7 +88,7 @@ func NewTestDBConfig(t testing.TB) DBConfig {
 	var (
 		ctx     = pctx.TestContext(t)
 		dbName  = testutil.GenerateEphemeralDBName()
-		dexName = testutil.UniqueString("dex")
+		dexName = uuid.UniqueString("dex")
 	)
 	err := backoff.Retry(func() error {
 		return EnsureDBEnv(ctx)
@@ -130,7 +131,7 @@ func NewTestDBConfig(t testing.TB) DBConfig {
 func NewTestDBConfigCtx(ctx context.Context) (config DBConfig, cleaner *cleanup.Cleaner, _ error) {
 	var (
 		dbName  = testutil.GenerateEphemeralDBName()
-		dexName = testutil.UniqueString("dex")
+		dexName = uuid.UniqueString("dex")
 	)
 	cleaner = new(cleanup.Cleaner)
 	if err := backoff.Retry(func() error {

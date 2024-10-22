@@ -5,6 +5,8 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/fuse"
 )
@@ -68,7 +69,7 @@ func TestCommit(t *testing.T) {
 	mockInspectCluster(env)
 	c := env.PachClient
 
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo {{.repo}}
 
 		# Create a commit and put some data in it
@@ -136,7 +137,7 @@ func TestPutFileFullPathNoFilePath(t *testing.T) {
 	repoName := tu.UniqueString("TestPutFileFullPathNoFilePath")
 
 	// Create repo and put file with fullPath flag, and verify
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
         pachctl create repo {{.repo}}
         pachctl put file {{.repo}}@master -f {{.filePath}} --full-path
         pachctl get file "{{.repo}}@master:{{.filePath}}" \
@@ -169,7 +170,7 @@ func TestPutFileFullPathWithFilePath(t *testing.T) {
 	targetFilePath := "specific/target/file.txt"
 
 	// Create repo, put file with file.Path and fullPath flag, and verify
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
         pachctl create repo {{.repo}}
         pachctl put file {{.repo}}@master:{{.targetFilePath}} -f {{.filePath}} --full-path
         pachctl get file "{{.repo}}@master:{{.targetFilePath}}" \
@@ -202,7 +203,7 @@ func TestPutFileFullPathWithFilePathEndingSlash(t *testing.T) {
 	targetPrefix := "nested/dir/"
 
 	// Create repo, put file with file.Path ending with '/' and fullPath flag, and verify
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
         pachctl create repo {{.repo}}
         pachctl put file {{.repo}}@master:{{.targetPrefix}} -f {{.filePath}} --full-path
         pachctl get file "{{.repo}}@master:{{.targetPrefix}}{{.filePath}}" \
@@ -231,7 +232,7 @@ func TestPutFileFilePathEndsWithSlashSingleSource(t *testing.T) {
 	targetPrefix := "dir/"
 
 	// Create repo, put file with file.Path ending with '/', and verify
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
         pachctl create repo {{.repo}}
         pachctl put file {{.repo}}@master:{{.targetPrefix}} -f {{.fileName}}
         pachctl get file "{{.repo}}@master:{{.targetPrefix}}{{.baseFileName}}" \
@@ -260,7 +261,7 @@ func TestPutFileFilePathWithoutSlashSingleSource(t *testing.T) {
 	targetFilePath := "specific/target/path/file.txt"
 
 	// Create repo, put file with file.Path without ending '/', and verify
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
         pachctl create repo {{.repo}}
         pachctl put file {{.repo}}@master:{{.targetFilePath}} -f {{.fileName}}
         pachctl get file "{{.repo}}@master:{{.targetFilePath}}" \
@@ -296,7 +297,7 @@ func TestPutFileRecursiveFullPathWithFilePathOfSlash(t *testing.T) {
 	targetPrefix := "/"
 
 	// Create repo, put file with recursive and fullPath flag, and verify
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
         pachctl create repo {{.repo}}
         pachctl put file {{.repo}}@master:{{.targetPrefix}} -r -f {{.nestedDir}} --full-path
         pachctl get file "{{.repo}}@master:{{.filePath1}}" \
@@ -334,7 +335,7 @@ func TestPutFileRecursiveWithFilePathOfSlash(t *testing.T) {
 	targetPrefix := "/"
 
 	// Create repo, put file with recursive and fullPath flag, and verify
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
         pachctl create repo {{.repo}}
         pachctl put file {{.repo}}@master:{{.targetPrefix}} -r -f {{.nestedDir}}
         pachctl get file "{{.repo}}@master:{{.filePath1}}" \
@@ -364,7 +365,7 @@ func TestPutFileTAR(t *testing.T) {
 		}))
 
 		name := f.Name()
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo {{.repo}}
 		pachctl put file {{.repo}}@master -f {{.name}} --untar
 		pachctl get file "{{.repo}}@master:/0" \
@@ -388,7 +389,7 @@ func TestPutFileTAR(t *testing.T) {
 		}))
 		require.NoError(t, gw.Close())
 		name := f.Name()
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo {{.repo}}
 		pachctl put file {{.repo}}@master -f {{.name}} --untar
 		pachctl get file "{{.repo}}@master:/0" \
@@ -415,7 +416,7 @@ func TestPutFileNonexistentRepo(t *testing.T) {
 	// repo-existence check.  If you are seeing this test fail after
 	// restructuring `pachctl put file`, then that is probably why; either
 	// restore the order or adopt a different test.
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
                 (pachctl put file {{.repo}}@master:random -f nonexistent-file 2>&1 || true) \
                   | match "repo default/{{.repo}} not found"
 `,
@@ -461,7 +462,7 @@ func TestDiffFile(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	mockInspectCluster(env)
 	c := env.PachClient
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create project {{.project}}
 		pachctl create repo {{.repo}} --project {{.project}}
 
@@ -496,7 +497,7 @@ func TestGetFileError(t *testing.T) {
 	c := env.PachClient
 
 	repo := tu.UniqueString(t.Name())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo {{.repo}}
 
 		pachctl put file {{.repo}}@master:/dir/foo <<EOF
@@ -512,7 +513,7 @@ func TestGetFileError(t *testing.T) {
 
 	checkError := func(branch, path, message string) {
 		req := fmt.Sprintf("%s@%s:%s", repo, branch, path)
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		(pachctl get file "{{.req}}" 2>&1 || true) | match "{{.message}}"
 		`,
 			"req", req,
@@ -551,7 +552,7 @@ func TestSynonyms(t *testing.T) {
 		for _, verb := range verbs {
 			synonymCommand := strings.ReplaceAll(withResources, "{{VERB}}", verb)
 			t.Logf("Testing %s %s -h\n", verb, resource)
-			require.NoError(t, tu.BashCmd(synonymCommand).Run())
+			require.NoError(t, testutilpachctl.BashCmd(synonymCommand).Run())
 		}
 	}
 }
@@ -576,7 +577,7 @@ func TestSynonymsDocs(t *testing.T) {
 		synonymCommand := strings.ReplaceAll(withResource, "{{RESOURCE_SYNONYM}}", synonyms[resource])
 
 		t.Logf("Testing %s -h\n", resource)
-		require.NoError(t, tu.BashCmd(synonymCommand).Run())
+		require.NoError(t, testutilpachctl.BashCmd(synonymCommand).Run())
 	}
 }
 
@@ -592,27 +593,27 @@ func TestProject(t *testing.T) {
 	// env := realenv.NewRealEnv(t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	// c := env.PachClient
 	// using xargs to trim newlines
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
                 pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default ([^-]+ ago) -$'
                 pachctl create project foo
                 pachctl list project | match "foo     ([^-]+ ago) -"
 		`,
 	).Run())
-	require.YesError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.YesError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
                 pachctl create project foo
                 `,
 	).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
                 pachctl update project foo -d "bar"
                 pachctl inspect project foo | xargs | match "Name: foo Description: bar"
                 pachctl delete project foo
                 `,
 	).Run())
-	require.YesError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.YesError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
                 pachctl inspect project foo
                 `,
 	).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
                 pachctl list project | xargs | match '^ACTIVE PROJECT CREATED DESCRIPTION \* default ([^-]+ ago) -$'
                 pachctl create project foo
                 `,
@@ -649,7 +650,7 @@ func TestDeleteAllRepos(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	mockInspectCluster(env)
 	c := env.PachClient
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create project {{.project}}
 		pachctl create repo {{.repo}}
 		pachctl create repo {{.repo}}a --project {{.project}}
@@ -669,7 +670,7 @@ func TestDeleteNonExistRepo(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	mockInspectCluster(env)
 	c := env.PachClient
-	require.YesError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.YesError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create project {{.project}}
 		pachctl delete repo {{.repo}},
 		`,
@@ -686,7 +687,7 @@ func TestDeleteRepo(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	mockInspectCluster(env)
 	c := env.PachClient
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 			pachctl create project {{.project}}
 			pachctl create repo {{.repo}} --project {{.project}}
 			pachctl delete repo {{.repo}} --project {{.project}} 2>&1 | match 'Repo deleted.'
@@ -704,7 +705,7 @@ func TestDeleteAllReposAllProjects(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	mockInspectCluster(env)
 	c := env.PachClient
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create project {{.project}}
 		pachctl create repo {{.repo}}
 		pachctl create repo {{.repo}}a --project {{.project}}
@@ -731,11 +732,11 @@ func TestCmdListRepo(t *testing.T) {
 	project := tu.UniqueString("project")
 	repo1, repo2 := tu.UniqueString("repo1"), tu.UniqueString("repo2")
 
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, "pachctl create project {{.project}}", "project", project).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, "pachctl create repo --project default {{.repo}}", "repo", repo1).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, "pachctl create repo --project {{.project}} {{.repo}}", "project", project, "repo", repo2).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, "pachctl create project {{.project}}", "project", project).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, "pachctl create repo --project default {{.repo}}", "repo", repo1).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, "pachctl create repo --project {{.project}} {{.repo}}", "project", project, "repo", repo2).Run())
 
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl list repo | match {{.repo1}}
 		pachctl list repo | match -v {{.repo2}}
 		pachctl list repo --project {{.project}} | match {{.repo2}}
@@ -756,7 +757,7 @@ func TestBranchNotFound(t *testing.T) {
 	project := tu.UniqueString("project")
 	repo := tu.UniqueString("repo")
 
-	if err := tu.PachctlBashCmdCtx(ctx, t, c, `
+	if err := testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create project {{.project}}
 		pachctl create repo {{.repo}} --project {{.project}}
 		(pachctl list file {{.repo}}@master --project {{.project}} 2>&1 && exit 1; true) | match 'branch "master" not found in repo {{.project}}/{{.repo}}'
@@ -775,16 +776,16 @@ func TestBranchDelete(t *testing.T) {
 	pc := env.PachClient
 
 	repo := tu.UniqueString("repo")
-	if err := tu.PachctlBashCmdCtx(ctx, t, pc, `
+	if err := testutilpachctl.PachctlBashCmdCtx(ctx, t, pc, `
 		pachctl create repo {{.repo}}
 		pachctl create branch {{.repo}}@foo
 	`, "repo", repo).Run(); err != nil {
 		t.Fatal(err)
 	}
-	if err := tu.PachctlBashCmdCtx(ctx, t, pc, `pachctl delete branch {{.repo}}@foo`, "repo", repo).Run(); err != nil {
+	if err := testutilpachctl.PachctlBashCmdCtx(ctx, t, pc, `pachctl delete branch {{.repo}}@foo`, "repo", repo).Run(); err != nil {
 		t.Fatal(err)
 	}
-	if err := tu.PachctlBashCmdCtx(ctx, t, pc, `pachctl delete branch {{.repo}}@foo`, "repo", repo).Run(); err == nil {
+	if err := testutilpachctl.PachctlBashCmdCtx(ctx, t, pc, `pachctl delete branch {{.repo}}@foo`, "repo", repo).Run(); err == nil {
 		t.Error("want error for deleting a non-existent branch")
 	}
 }
@@ -800,7 +801,7 @@ func TestCopyFile(t *testing.T) {
 
 	// copy within default project
 	srcRepo, destRepo := tu.UniqueString("srcRepo"), tu.UniqueString("destRepo")
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, env.PachClient, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, env.PachClient, `
 		pachctl create repo {{.srcRepo}}
 		pachctl create repo {{.destRepo}}
 		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file
@@ -813,7 +814,7 @@ func TestCopyFile(t *testing.T) {
 
 	// copy within a user specified project
 	project := tu.UniqueString("project")
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, env.PachClient, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, env.PachClient, `
 		pachctl create project {{.project}}
 		pachctl create repo --project {{.project}} {{.srcRepo}}
 		pachctl create repo --project {{.project}} {{.destRepo}}
@@ -827,7 +828,7 @@ func TestCopyFile(t *testing.T) {
 		"destRepo", destRepo).Run())
 
 	// copy between projects
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, env.PachClient, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, env.PachClient, `
 		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file2
 		echo "Lorem ipsum" | pachctl put file {{.srcRepo}}@master:/file3
 
@@ -851,7 +852,7 @@ func TestDeleteProject(t *testing.T) {
 	mockInspectCluster(env)
 	c := env.PachClient
 	project := tu.UniqueString("project")
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create project {{.project}}
 		pachctl create repo {{.repo}} --project {{.project}}
 		pachctl put file --project {{.project}} {{.repo}}@master:/file <<<"This is a test"
@@ -888,7 +889,7 @@ func TestInspectProject(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	mockInspectCluster(env)
 	c := env.PachClient
-	p, err := tu.NewPachctl(ctx, c, fmt.Sprintf("%s/test-pach-config-%s.json", t.TempDir(), t.Name()))
+	p, err := testutilpachctl.NewPachctl(ctx, c, fmt.Sprintf("%s/test-pach-config-%s.json", t.TempDir(), t.Name()))
 	require.NoError(t, err, "NewPachctl must succeed")
 
 	output, err := p.RunCommand(ctx, "pachctl inspect project default")

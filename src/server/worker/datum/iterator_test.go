@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -32,7 +31,7 @@ func TestIterators(t *testing.T) {
 	taskDoer := createTaskDoer(t, env)
 	c := env.PachClient
 	pfsC := c.PfsAPIClient
-	dataRepo := tu.UniqueString(t.Name() + "_data")
+	dataRepo := uuid.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	// Put files in structured in a way so that there are many ways to glob it.
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
@@ -330,8 +329,8 @@ func TestJoinTrailingSlash(t *testing.T) {
 
 	c := env.PachClient
 	repo := []string{ // singular name b/c we only refer to individual elements
-		tu.UniqueString(t.Name() + "_0"),
-		tu.UniqueString(t.Name() + "_1"),
+		uuid.UniqueString(t.Name() + "_0"),
+		uuid.UniqueString(t.Name() + "_1"),
 	}
 	input := []*pps.Input{ // singular name b/c only use individual elements
 		client.NewPFSInputOpts("", pfs.DefaultProjectName, repo[0],
@@ -431,7 +430,7 @@ func TestStreamingIterator(t *testing.T) {
 	c := env.PachClient
 	pfsC := c.PfsAPIClient
 
-	repo := tu.UniqueString("TestStreamingIterator")
+	repo := uuid.UniqueString("TestStreamingIterator")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 	numFiles := 2 * datum.ShardNumFiles
 	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")

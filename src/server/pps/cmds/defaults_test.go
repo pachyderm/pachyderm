@@ -4,13 +4,12 @@ package cmds_test
 
 import (
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -23,7 +22,7 @@ func TestCreatePipeline_noDefaults(t *testing.T) {
 
 	cluster, _ := minikubetestenv.AcquireCluster(t)
 	ctx := pctx.TestContext(t)
-	p, err := testutil.NewPachctl(ctx, cluster, fmt.Sprintf("%s/test-pach-config-%s.json", t.TempDir(), t.Name()))
+	p, err := testutilpachctl.NewPachctl(ctx, cluster, fmt.Sprintf("%s/test-pach-config-%s.json", t.TempDir(), t.Name()))
 	require.NoError(t, err, "must create Pachyderm client")
 	output, err := p.RunCommand(ctx, "pachctl create repo input")
 	require.NoError(t, err, "must create input repo: %v", output)
@@ -70,7 +69,7 @@ func TestCreatePipeline_defaults(t *testing.T) {
 	cluster, _ := minikubetestenv.AcquireCluster(t)
 	ctx := pctx.TestContext(t)
 
-	p, err := testutil.NewPachctl(ctx, cluster, fmt.Sprintf("%s/test-pach-config-%s.json", t.TempDir(), t.Name()))
+	p, err := testutilpachctl.NewPachctl(ctx, cluster, fmt.Sprintf("%s/test-pach-config-%s.json", t.TempDir(), t.Name()))
 	require.NoError(t, err, "must create Pachyderm client")
 
 	output, err := p.RunCommand(ctx, `pachctl create defaults --cluster <<EOF
@@ -170,7 +169,7 @@ func TestCreatePipeline_regenerate(t *testing.T) {
 	}
 
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create defaults --cluster <<EOF
 		{
 			"create_pipeline_request": {
@@ -247,7 +246,7 @@ func TestCreatePipeline_delete(t *testing.T) {
 	}
 
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create defaults --cluster <<EOF
 		{
 			"create_pipeline_request": {
@@ -309,7 +308,7 @@ func TestCreatePipeline_yaml(t *testing.T) {
 	}
 
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create defaults --cluster <<EOF
 		create_pipeline_request:
 		  datumTries: 17
@@ -364,7 +363,7 @@ func TestCreatePipeline_leading_zero(t *testing.T) {
 	}
 
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create defaults --cluster <<EOF
 		{
 			"create_pipeline_request": {
@@ -423,7 +422,7 @@ func TestSetProjectDefaults(t *testing.T) {
 
 	cluster, _ := minikubetestenv.AcquireCluster(t)
 	ctx := pctx.TestContext(t)
-	p, err := testutil.NewPachctl(ctx, cluster, fmt.Sprintf("%s/test-pach-config-%s.json", t.TempDir(), t.Name()))
+	p, err := testutilpachctl.NewPachctl(ctx, cluster, fmt.Sprintf("%s/test-pach-config-%s.json", t.TempDir(), t.Name()))
 	require.NoError(t, err, "must create Pachyderm client")
 	output, err := p.RunCommand(ctx, `pachctl create defaults --project default <<EOF
 {"createPipelineRequest":{"datum_tries": "37"}}

@@ -2,6 +2,8 @@ package cmds
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -33,7 +34,7 @@ func TestMount(t *testing.T) {
 	eg, ctx := errgroup.WithContext(ctx)
 	repoName := tu.UniqueString("TestMount-repo")
 	configDir := t.TempDir()
-	p, err := tu.NewPachctl(ctx, c, filepath.Join(configDir, "config.json"))
+	p, err := testutilpachctl.NewPachctl(ctx, c, filepath.Join(configDir, "config.json"))
 	require.NoError(t, err)
 	defer p.Close() //nolint:errcheck
 	for _, projectName := range []string{tu.UniqueString("TestMount-project1"), tu.UniqueString("TestMount-project2")} {
