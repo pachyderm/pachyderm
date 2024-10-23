@@ -166,6 +166,29 @@ go_deps.module(
     sum = "h1:05I4QRnGpI0m37iZQRuskXh+w77mr6Z41lwQzuHLwW0=",
     version = "v0.2.0",
 )
+
+# These are dependencies necessary for running a local dex instance.
+# Similar reasoning to above -- we need these to run //:dex
+go_deps.module(
+    path = "ariga.io/atlas",
+    sum = "h1:GwdJbXydHCYPedeeLt4x/lrlIISQ4JTH1mRWuE5ZZ14=",
+    version = "v0.19.1-0.20240203083654-5948b60a8e43",
+)
+go_deps.module(
+    path = "entgo.io/ent",
+    sum = "h1:EO3Z9aZ5bXJatJeGqu/EVdnNr6K4mRq3rWe5owt0MC4=",
+    version = "v0.14.0",
+)
+go_deps.module(
+    path = "github.com/go-openapi/inflect",
+    sum = "h1:9jCH9scKIbHeV9m12SmPilScz6krDxKRasNNSNPXu/4=",
+    version = "v0.19.0",
+)
+go_deps.module(
+    path = "github.com/oklog/run",
+    sum = "h1:GEenZ1cK0+q0+wsJew9qUg/DyD8k3JzYsZAi5gYi2mA=",
+    version = "v1.1.0",
+)
 use_repo(
     go_deps,
     "co_honnef_go_tools",
@@ -199,6 +222,7 @@ use_repo(
     "com_github_fsnotify_fsnotify",
     "com_github_fsouza_go_dockerclient",
     "com_github_go_logr_zapr",
+    "com_github_go_openapi_inflect",
     "com_github_go_sql_driver_mysql",
     "com_github_golang_protobuf",
     "com_github_golangci_gofmt",
@@ -235,6 +259,7 @@ use_repo(
     "com_github_minio_minio_go_v7",
     "com_github_modern_go_reflect2",
     "com_github_nishanths_exhaustive",
+    "com_github_oklog_run",
     "com_github_opencontainers_image_spec",
     "com_github_openpeedeep_depguard_v2",
     "com_github_opentracing_contrib_go_grpc",
@@ -272,6 +297,8 @@ use_repo(
     "dev_gocloud",
     "in_gopkg_yaml_v2",
     "in_gopkg_yaml_v3",
+    "io_ariga_atlas",
+    "io_entgo_ent",
     "io_etcd_go_etcd_api_v3",
     "io_etcd_go_etcd_client_v3",
     "io_etcd_go_etcd_server_v3",
