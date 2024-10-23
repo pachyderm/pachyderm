@@ -13,6 +13,7 @@ spec:
   template:
     metadata:
       annotations:
+        "helm.sh/hook-delete-policy": before-hook-creation
         {{- if .Values.restoreSnapshot.annotations -}}
         {{ toYaml .Values.restoreSnapshot.annotations | nindent 8 }}
         {{- end }}
