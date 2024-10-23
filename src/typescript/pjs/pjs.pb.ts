@@ -66,7 +66,7 @@ export type Queue = {
 
 export type QueueInfo = {
   queue?: Queue
-  program?: string[]
+  program?: string
 }
 
 export type QueueInfoDetails = {

@@ -3,8 +3,10 @@ package pjsdb
 import (
 	"context"
 	"database/sql"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
@@ -70,10 +72,7 @@ func GetQueue(ctx context.Context, tx *pachsql.Tx, queueId []byte) (Queue, error
 		 AND queues.program_hash = $1`+groupQueuePostfix, queueId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Queue{
-				Size: 0,
-				ID:   record.ID,
-			}, nil
+			return Queue{}, pacherr.NewNotExist("queue", string(queueId))
 		}
 		return Queue{}, errors.Wrap(err, "get queue sql")
 	}

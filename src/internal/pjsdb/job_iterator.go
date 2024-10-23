@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
@@ -26,8 +27,8 @@ type IterateJobsFilter struct {
 	// fields to filter on
 	NullParent  bool
 	Parent      JobID
-	HasInput    []byte
-	Program     []byte
+	HasInput    fileset.Pin
+	Program     fileset.Pin
 	ProgramHash []byte
 	HasOutput   []byte
 	Error       string
@@ -51,7 +52,7 @@ func (f IterateJobsFilter) apply() (where string, values []any) {
 		conditions = append(conditions, "j.parent = ?")
 		values = append(values, f.Parent)
 	}
-	if f.Program != nil {
+	if f.Program != 0 {
 		conditions = append(conditions, "j.program = ?")
 		values = append(values, f.Program)
 	}
@@ -64,8 +65,8 @@ func (f IterateJobsFilter) apply() (where string, values []any) {
 		values = append(values, f.Error)
 	}
 	// from pjs.job_filesets
-	if f.HasInput != nil {
-		conditions = append(conditions, "jf_input.fileset IN (?)")
+	if f.HasInput != fileset.Pin(0) {
+		conditions = append(conditions, "jf_input.fileset_pin IN (?)")
 		values = append(values, f.HasInput)
 	}
 	if f.HasOutput != nil {

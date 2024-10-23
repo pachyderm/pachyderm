@@ -62,7 +62,7 @@ func withDependencies(t *testing.T, f func(d dependencies)) {
 	})
 }
 
-func mockFileset(t testing.TB, d dependencies, path, value string) fileset.PinnedFileset {
+func mockFileset(t testing.TB, d dependencies, path, value string) fileset.Pin {
 	var handle *fileset.Handle
 	uw, err := d.s.NewUnorderedWriter(d.ctx)
 	require.NoError(t, err)
@@ -70,12 +70,12 @@ func mockFileset(t testing.TB, d dependencies, path, value string) fileset.Pinne
 	require.NoError(t, err)
 	handle, err = uw.Close(d.ctx)
 	require.NoError(t, err)
-	pin, err := d.s.Pin(d.tx, handle)
+	pin, err := d.s.PinTx(d.ctx, d.tx, handle)
 	require.NoError(t, err)
 	return pin
 }
 
-func mockAndHashFileset(t testing.TB, d dependencies, path, value string) (fileset.PinnedFileset, []byte) {
+func mockAndHashFileset(t testing.TB, d dependencies, path, value string) (fileset.Pin, []byte) {
 	fs := mockFileset(t, d, path, value)
 	hasher := pachhash.New()
 	_, err := hasher.Write([]byte(path))
@@ -92,7 +92,7 @@ func makeReq(t *testing.T, d dependencies, parent pjsdb.JobID, mutate func(req *
 	program := `!#/bin/bash; ls /input/;`
 	programFileset, hash := mockAndHashFileset(t, d, "/program.py", program)
 	numInputs := rand.Intn(10) + 1
-	inputs := make([]fileset.PinnedFileset, 0)
+	inputs := make([]fileset.Pin, 0)
 	inputHashes := make([][]byte, 0)
 	for i := 0; i < numInputs; i++ {
 		inputFileset, inputHash := mockAndHashFileset(t, d, "/input/"+strconv.Itoa(i)+".txt", `pachyderm`)
@@ -114,8 +114,8 @@ func makeReq(t *testing.T, d dependencies, parent pjsdb.JobID, mutate func(req *
 	return *createRequest
 }
 
-func createJobWithFilesets(t testing.TB, d dependencies, parent pjsdb.JobID, program fileset.PinnedFileset,
-	targetHash []byte, inputs ...fileset.PinnedFileset) pjsdb.JobID {
+func createJobWithFilesets(t testing.TB, d dependencies, parent pjsdb.JobID, program fileset.Pin,
+	targetHash []byte, inputs ...fileset.Pin) pjsdb.JobID {
 	createRequest := pjsdb.CreateJobRequest{
 		Program:     program,
 		ProgramHash: targetHash,

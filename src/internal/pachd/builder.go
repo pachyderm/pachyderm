@@ -2,6 +2,7 @@ package pachd
 
 import (
 	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/pjs"
 
 	"math"
@@ -287,15 +288,19 @@ func (b *builder) registerPFSServer(ctx context.Context) error {
 }
 
 func (b *builder) registerPJSServer(ctx context.Context) error {
+	env, err := StorageEnv(b.env)
+	if err != nil {
+		return err
+	}
+	storage, err := storageserver.New(ctx, *env)
+	if err != nil {
+		return err
+	}
 	apiServer := pjs_server.NewAPIServer(pjs_server.Env{
 		DB:               b.env.GetDBClient(),
 		GetPermissionser: b.env.AuthServer(),
 		GetAuthToken:     auth.GetAuthToken,
-		// TODO: figure out how to set this.
-		GetStorageClient: func(ctx context.Context) storage.FilesetClient {
-			pachClient := b.env.GetPachClient(ctx)
-			return pachClient.FilesetClient
-		},
+		Storage:          storage,
 	})
 	b.forGRPCServer(func(s *grpc.Server) { pjs.RegisterAPIServer(s, apiServer) })
 	b.env.SetPjsServer(apiServer)

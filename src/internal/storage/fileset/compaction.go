@@ -100,6 +100,7 @@ func compactionScore(prim *Primitive) int64 {
 // Compact always returns the ID of a primitive file set.
 // Compact does not renew ids.
 // It is the responsibility of the caller to renew ids.  In some cases they may be permanent and not require renewal.
+// TODO: Add fast path for single handle.
 func (s *Storage) Compact(ctx context.Context, handles []*Handle, ttl time.Duration, opts ...index.Option) (*Handle, error) {
 	w := s.newWriter(ctx, WithTTL(ttl))
 	fs, err := s.Open(ctx, handles)

@@ -4,12 +4,9 @@ package pjsdb
 
 import (
 	"database/sql"
-	"encoding/hex"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -25,11 +22,10 @@ type Job struct {
 	ID     JobID
 	Parent JobID
 
-	Inputs      []fileset.Token
-	Program     fileset.Token
-	ProgramHash []byte
-	ContextHash []byte
-	Outputs     []fileset.Token
+	Program         fileset.Pin
+	ProgramHash     []byte
+	Inputs, Outputs []fileset.Pin
+	ContextHash     []byte
 
 	Error string
 
@@ -52,7 +48,7 @@ type jobRow struct {
 	ID     JobID         `db:"id"`
 	Parent sql.NullInt64 `db:"parent"`
 
-	Program     []byte `db:"program"`
+	Program     int64  `db:"program"`
 	ProgramHash []byte `db:"program_hash"`
 	ContextHash []byte `db:"context_hash"`
 
@@ -68,7 +64,7 @@ type jobFilesetsRow struct {
 	JobID         JobID  `db:"job_id"`
 	Type          string `db:"fileset_type"`
 	ArrayPosition int    `db:"array_position"`
-	Fileset       []byte `db:"fileset"`
+	Pin           int64  `db:"fileset_pin"`
 }
 
 // jobCacheRow models a single row in the pjs.job_cache table.
@@ -110,20 +106,16 @@ func (r jobRecord) toJob() (Job, error) {
 	if job.Outputs, err = parseFilesets(r.Outputs); err != nil {
 		return Job{}, errors.Wrap(err, "to job")
 	}
-	program, err := fileset.ParseHandle(string(r.Program))
-	if err != nil {
-		return Job{}, errors.Wrap(err, "to job")
-	}
-	job.Program = program.Token()
+	job.Program = fileset.Pin(r.Program)
 	return job, nil
 }
 
 // Queue is the internal representation of a queue.
 type Queue struct {
-	ID       QueueID
-	Programs []fileset.Token
-	Jobs     []JobID
-	Size     uint64
+	ID      QueueID
+	Program fileset.Pin
+	Jobs    []JobID
+	Size    uint64
 	// additional fields or metadata that would be computed would go here.
 }
 
@@ -147,14 +139,14 @@ func (r *queueRecord) toQueue() (Queue, error) {
 		return Queue{}, errors.Wrap(err, "to queue")
 	}
 	queue := Queue{
-		ID:       r.ID,
-		Programs: programs,
-		Jobs:     jobs,
-		Size:     r.Size,
+		ID:      r.ID,
+		Program: programs[0],
+		Jobs:    jobs,
+		Size:    r.Size,
 	}
 	return queue, nil
 }
-func (r *queueRecord) parsePrograms() ([]fileset.Token, error) {
+func (r *queueRecord) parsePrograms() ([]fileset.Pin, error) {
 	return parseFilesets(r.Programs)
 }
 
@@ -189,68 +181,17 @@ func withoutHexPrefix(fs string) string {
 // For example, if the fileset token looks like e4fddb03882481d2fd47cff01b0ca753, you should use fileset.ParseHandle.
 // If handle looks like \\x6534666464623033383832343831643266643437636666303162306361373533
 // then use this function instead. The latter is the hex interpretation of the former.
-func parseFilesets(tokenStrs string) ([]fileset.Token, error) {
-	var tokens []fileset.Token
-	for _, tokenStr := range inArrayAgg(tokenStrs) {
-		if tokenStr == "" { // can happen if the array aggregate was empty '{}'
+func parseFilesets(pinStrs string) ([]fileset.Pin, error) {
+	var pins []fileset.Pin
+	for _, pinStr := range inArrayAgg(pinStrs) {
+		if pinStr == "" { // can happen if the array aggregate was empty '{}'
 			continue
 		}
-		decoded, err := hex.DecodeString(withoutHexPrefix(tokenStr))
+		pin, err := strconv.ParseInt(string(pinStr), 10, 64)
 		if err != nil {
-			return nil, errors.Wrap(err, "parse ids")
+			return nil, errors.EnsureStack(err)
 		}
-		handle, err := fileset.ParseHandle(string(decoded))
-		if err != nil {
-			return nil, errors.Wrap(err, "parse handles")
-		}
-		tokens = append(tokens, handle.Token())
+		pins = append(pins, fileset.Pin(pin))
 	}
-	return tokens, nil
-}
-
-func ToJobInfo(job Job) (*pjs.JobInfo, error) {
-	jobInfo := &pjs.JobInfo{
-		Job: &pjs.Job{
-			Id: int64(job.ID),
-		},
-		ParentJob: &pjs.Job{
-			Id: int64(job.Parent),
-		},
-		Program: job.Program.HexString(),
-	}
-	for _, filesetID := range job.Inputs {
-		jobInfo.Input = append(jobInfo.Input, filesetID.HexString())
-	}
-	switch {
-	case job.Done != time.Time{}:
-		jobInfo.State = pjs.JobState_DONE
-		jobInfo.Result = &pjs.JobInfo_Error{
-			Error: enumStringToErrorCode[job.Error],
-		}
-		if len(job.Outputs) != 0 {
-			jobInfoSuccess := pjs.JobInfo_Success{}
-			for _, filesetID := range job.Outputs {
-				jobInfoSuccess.Output = append(jobInfoSuccess.Output, filesetID.HexString())
-			}
-			jobInfo.Result = &pjs.JobInfo_Success_{Success: &jobInfoSuccess}
-		}
-	case job.Processing != time.Time{}:
-		jobInfo.State = pjs.JobState_PROCESSING
-	default:
-		jobInfo.State = pjs.JobState_QUEUED
-	}
-	return jobInfo, nil
-}
-
-func ToQueueInfo(queue Queue) (*pjs.QueueInfo, error) {
-	var programs []string
-	for _, p := range queue.Programs {
-		programs = append(programs, p.HexString())
-	}
-	return &pjs.QueueInfo{
-		Queue: &pjs.Queue{
-			Id: queue.ID,
-		},
-		Program: programs,
-	}, nil
+	return pins, nil
 }

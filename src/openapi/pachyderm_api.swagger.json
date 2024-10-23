@@ -10286,7 +10286,8 @@
       "type": "object",
       "properties": {
         "id": {
-          "$ref": "#/definitions/pjsJob"
+          "$ref": "#/definitions/pjsJob",
+          "title": "TODO: id -\u003e job"
         }
       }
     },
@@ -10544,11 +10545,7 @@
           "title": "queue is the Queue's identity"
         },
         "program": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "The current storage system supports cloned filesets with the same content hash."
+          "type": "string"
         }
       },
       "title": "QueueInfo describes a Queue"
