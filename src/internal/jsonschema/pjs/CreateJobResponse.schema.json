@@ -6,7 +6,8 @@
             "properties": {
                 "id": {
                     "$ref": "#/definitions/pjs.Job",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "TODO: id -\u003e job"
                 }
             },
             "additionalProperties": false,

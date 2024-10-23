@@ -191,6 +191,7 @@ class CreateJobRequest(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class CreateJobResponse(betterproto.Message):
     id: "Job" = betterproto.message_field(1)
+    """TODO: id -> job"""
 
 
 @dataclass(eq=False, repr=False)
