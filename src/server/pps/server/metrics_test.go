@@ -5,6 +5,7 @@ package server_test
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
 	"io"
 	"net/http"
 	"os"
@@ -15,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestContainerMetrics(t *testing.T) {
@@ -26,7 +26,7 @@ func TestContainerMetrics(t *testing.T) {
 
 	docsDir := t.TempDir()
 	tmpDir := t.TempDir()
-	cmd := testutil.PachctlBashCmdCtx(ctx, t, c, `
+	cmd := testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 # run a pipeline in order to have a container to scrape metrics from
 pachctl create project video-to-frame-traces
 pachctl create repo raw_videos_and_images

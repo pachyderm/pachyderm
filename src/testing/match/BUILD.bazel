@@ -20,6 +20,6 @@ go_test(
     embed = [":match_lib"],
     deps = [
         "//src/internal/require",
-        "//src/internal/testutil",
+        "//src/internal/testutilpachctl",
     ],
 )

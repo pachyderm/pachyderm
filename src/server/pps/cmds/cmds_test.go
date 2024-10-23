@@ -27,6 +27,8 @@
 package cmds
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"testing"
 	"time"
 
@@ -34,7 +36,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestRawFullPipelineInfo(t *testing.T) {
@@ -42,10 +43,10 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 	`).Run())
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create project my_project
 		pachctl create repo data --project my_project
 		pachctl put file data@master:/file <<<"This is a test" --project my_project
@@ -66,7 +67,7 @@ func TestRawFullPipelineInfo(t *testing.T) {
 		EOF
 		`,
 		"pipeline", tu.UniqueString("p-")).Run())
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl wait commit data@master --project my_project
 
 		# make sure the results have the full pipeline info, including version
@@ -81,11 +82,11 @@ func TestUnrunnableJobInfo(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	ctx := pctx.TestContext(t)
-	require.NoErrorWithinTRetry(t, 2*time.Minute, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoErrorWithinTRetry(t, 2*time.Minute, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		yes | pachctl delete all
 	`).Run)
 	pipeline1 := tu.UniqueString("p-")
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/file <<<"This is a test"
 		pachctl create pipeline <<EOF
@@ -106,7 +107,7 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		`,
 		"pipeline", pipeline1).Run())
 	pipeline2 := tu.UniqueString("p-")
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create pipeline <<EOF
 		  {
 		    "pipeline": {"name": "{{.pipeline}}"},
@@ -125,7 +126,7 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		`,
 		"pipeline", pipeline2, "inputPipeline", pipeline1).Run())
 	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
-		return errors.EnsureStack(tu.PachctlBashCmdCtx(ctx, t, c, `
+		return errors.EnsureStack(testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl wait commit data@master
 
 		# make sure that there is a not-run job
@@ -145,7 +146,7 @@ func TestJSONMultiplePipelines(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 		pachctl create repo input
 		pachctl create pipeline -f - <<EOF
@@ -197,7 +198,7 @@ func TestJSONMultiplePipelines(t *testing.T) {
 		pachctl get file second@master:/baz | match baz
 		`,
 	).Run())
-	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl list pipeline`).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `pachctl list pipeline`).Run())
 }
 
 // TestJSONStringifiedNumberstests that JSON pipelines may use strings to
@@ -208,7 +209,7 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 		pachctl create repo input
 		pachctl create pipeline -f - <<EOF
@@ -245,7 +246,7 @@ func TestJSONStringifiedNumbers(t *testing.T) {
 		pachctl get file first@master:/baz | match baz
 		`,
 	).Run())
-	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl list pipeline`).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `pachctl list pipeline`).Run())
 }
 
 // TestYAMLPipelineSpec tests creating a pipeline with a YAML pipeline spec
@@ -256,7 +257,7 @@ func TestYAMLPipelineSpec(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	// Note that BashCmd dedents all lines below including the YAML (which
 	// wouldn't parse otherwise)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 		pachctl create project P
 		pachctl create repo input --project P
@@ -305,11 +306,11 @@ func TestListPipelineFilter(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 	`).Run())
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
-	out, err := tu.PachctlBashCmdCtx(pctx.TestContext(t), t, c, `
+	out, err := testutilpachctl.PachctlBashCmdCtx(pctx.TestContext(t), t, c, `
 		yes | pachctl delete all
 		pachctl create project myProject
 		pachctl create repo input
@@ -390,13 +391,13 @@ func TestInspectWaitJob(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 	`).Run())
 	pipeline1 := tu.UniqueString("pipeline1-")
 	project := tu.UniqueString("myNewProject")
 
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create project {{ .project }}
 		pachctl create repo input --project {{ .project }}
 		pachctl create pipeline -f - <<EOF
@@ -436,7 +437,7 @@ func TestInspectWaitJob(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl inspect job {{ .pipeline1 }}@{{ .job }} --project {{ .project }} | match {{ .job }}
 		pachctl wait job {{ .pipeline1 }}@{{ .job }} --project {{ .project }}
 		pachctl inspect job {{ .pipeline1 }}@{{ .job }} --project {{ .project }} --no-color | match "State: success"
@@ -456,7 +457,7 @@ func TestYAMLSecret(t *testing.T) {
 	c, ns := minikubetestenv.AcquireCluster(t)
 	// Note that BashCmd dedents all lines below including the YAML (which
 	// wouldn't parse otherwise)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 
 		# kubectl get secrets >&2
@@ -492,15 +493,15 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 	`).Run())
 
 	// prevent new pods from being scheduled
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		kubectl cordon minikube
 	`).Run())
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create repo data
 		pachctl create pipeline <<EOF
 		  pipeline:
@@ -517,7 +518,7 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 		`).Run())
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		return errors.EnsureStack(tu.PachctlBashCmd(t, c, `
+		return errors.EnsureStack(testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl list pipeline \
 		| match my-pipeline \
 		| match crashing
@@ -525,12 +526,12 @@ func TestPipelineCrashingRecovers(t *testing.T) {
 	})
 
 	// allow new pods to be scheduled
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		kubectl uncordon minikube
 	`).Run())
 
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		return errors.EnsureStack(tu.PachctlBashCmd(t, c, `
+		return errors.EnsureStack(testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl list pipeline \
 		| match my-pipeline \
 		| match running
@@ -543,10 +544,10 @@ func TestJsonnetPipelineTemplate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 	`).Run())
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/foo <<<"foo-data"
 		pachctl create pipeline --jsonnet - --arg name=foo --arg output=bar <<EOF
@@ -576,10 +577,10 @@ func TestJsonnetPipelineTemplateMulti(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		yes | pachctl delete all
 	`).Run())
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/foo <<<"foo-data"
 		pachctl create pipeline --jsonnet - \
@@ -625,7 +626,7 @@ func TestJobDatumCount(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/foo <<<"foo-data"
 		pachctl create pipeline <<EOF
@@ -647,16 +648,16 @@ func TestJobDatumCount(t *testing.T) {
 	// need some time for the pod to spin up
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		//nolint:wrapcheck
-		return tu.PachctlBashCmd(t, c, `
+		return testutilpachctl.PachctlBashCmd(t, c, `
 pachctl list job -x | match ' / 1'
 `).Run()
 	}, "expected to see one datum")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl put file data@master:/bar <<<"bar-data"`).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `pachctl put file data@master:/bar <<<"bar-data"`).Run())
 	// with the new datum, should see the pipeline run another job with two datums
 
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 		//nolint:wrapcheck
-		return tu.PachctlBashCmd(t, c, `
+		return testutilpachctl.PachctlBashCmd(t, c, `
 pachctl list job -x | match ' / 2'
 `).Run()
 	}, "expected to see two datums")
@@ -667,14 +668,14 @@ func TestListJobWithProject(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, "yes | pachctl delete all").Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, "yes | pachctl delete all").Run())
 
 	// Two projects, where pipeline1 is in the default project, while pipeline2 is in a different project.
 	// pipeline2 takes the output of pipeline1 so that we can generate jobs across both projects.
 	// We leverage the job's pipeline name to determine whether the filtering is working.
 	projectName := tu.UniqueString("project-")
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create repo data
 
 		pachctl create pipeline <<EOF
@@ -726,7 +727,7 @@ func TestListJobWithProject(t *testing.T) {
 	).Run())
 
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
-		return errors.Wrap(tu.PachctlBashCmd(t, c, `
+		return errors.Wrap(testutilpachctl.PachctlBashCmd(t, c, `
 			pachctl list job --raw --all-projects | match {{.pipeline1}} | match {{.pipeline2}}
 			pachctl list job --raw | match {{.pipeline1}} | match -v {{.pipeline2}}
 			pachctl list job --raw --project {{.project}} | match {{.pipeline2}} | match -v {{.pipeline1}}
@@ -752,7 +753,7 @@ func TestRerunPipeline(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	pipelineName := tu.UniqueString("p-")
 	projectName := tu.UniqueString("proj")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/file <<<"This is a test"
 		pachctl create pipeline <<EOF
@@ -793,7 +794,7 @@ func TestRerunPipeline(t *testing.T) {
 	).Run())
 
 	// Should rerun pipeine
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl rerun pipeline {{.pipeline}}
 		pachctl inspect pipeline {{.pipeline}} --raw | grep '"version"' | match '"2"'
 	`,
@@ -804,7 +805,7 @@ func TestRerunPipeline(t *testing.T) {
 	jobs, err := c.ListJob(projectName, pipelineName, nil, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl wait job {{.pipeline}}@{{.job}} --project {{.project}}
 		pachctl inspect job {{.pipeline}}@{{.job}} --project {{.project}} | match {{.job}}
 		pachctl inspect pipeline {{.pipeline}} --raw --project {{.project}} | grep '"version"' | match '"1"'
@@ -817,7 +818,7 @@ func TestRerunPipeline(t *testing.T) {
 	).Run())
 
 	//Should rerun pipeine in the specified project.
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl rerun pipeline {{.pipeline}} --project {{.project}}
 	`,
 		"project", projectName,
@@ -826,7 +827,7 @@ func TestRerunPipeline(t *testing.T) {
 	jobs, err = c.ListJob(projectName, pipelineName, nil, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl wait job {{.pipeline}}@{{.job}} --project {{.project}}
 		pachctl inspect job {{.pipeline}}@{{.job}} --project {{.project}} | match {{.job}}
 		pachctl inspect pipeline {{.pipeline}} --raw --project {{.project}} | grep '"version"' | match '"2"'
@@ -839,7 +840,7 @@ func TestRerunPipeline(t *testing.T) {
 	).Run())
 
 	// Should reprocess all datums if flag is used.
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl rerun pipeline {{.pipeline}} --reprocess --project {{.project}}
 	`,
 		"project", projectName,
@@ -849,7 +850,7 @@ func TestRerunPipeline(t *testing.T) {
 	jobs, err = c.ListJob(projectName, pipelineName, nil, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl wait job {{.pipeline}}@{{.job}} --project {{.project}}
 		pachctl inspect job {{.pipeline}}@{{.job}} --project {{.project}} | match {{.job}}
 		pachctl inspect pipeline {{.pipeline}} --raw --project {{.project}} | grep '"version"' | match '"3"'

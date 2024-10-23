@@ -26,6 +26,6 @@ go_test(
         "//src/internal/pachsql",
         "//src/internal/pctx",
         "//src/internal/require",
-        "//src/internal/testutil",
+        "//src/internal/testutilpachctl",
     ],
 )

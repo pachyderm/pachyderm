@@ -3,6 +3,8 @@
 package cmds
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -16,7 +18,7 @@ func TestConnectorCRUD(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		echo '{"id": "{{.id}}", "name": "testconn", "type": "github", "config": {"id": 1234}}' | pachctl idp create-connector 
 		pachctl idp list-connector | match '{{.id}}'
 		pachctl idp get-connector {{.id}} \
@@ -38,7 +40,7 @@ func TestConnectorCRUD(t *testing.T) {
 		  | match '    client_id: a'
 		pachctl idp delete-connector {{.id}}
 		`,
-		"id", tu.UniqueString("connector"),
+		"id", uuid.UniqueString("connector"),
 	).Run())
 }
 
@@ -48,7 +50,7 @@ func TestClientCRUD(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		echo '{"id": "{{.id}}", "name": "testclient", "secret": "a secret", "redirect_uris": ["https://localhost:1234"]}' | pachctl idp create-client  \
 		  | match 'secret: "a secret"'
 		pachctl idp list-client | match '{{.id}}'
@@ -67,7 +69,7 @@ func TestClientCRUD(t *testing.T) {
 		  | match '  - z' 
 		pachctl idp delete-client {{.id}}
 		`,
-		"id", tu.UniqueString("client"),
+		"id", uuid.UniqueString("client"),
 	).Run())
 }
 
@@ -77,10 +79,10 @@ func TestGetSetConfig(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		echo '{"issuer": "http://example.com:1234"}' | pachctl idp set-config 
 		pachctl idp get-config | match 'issuer: http://example.com:1234' 
 		`,
-		"id", tu.UniqueString("connector"),
+		"id", uuid.UniqueString("connector"),
 	).Run())
 }

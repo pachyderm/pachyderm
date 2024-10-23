@@ -31,6 +31,7 @@ go_library(
 go_test(
     name = "pjs_test",
     srcs = [
+        "hash_test.go",
         "server_internal_test.go",
         "server_test.go",
     ],
@@ -49,6 +50,7 @@ go_test(
         "//src/internal/storage",
         "//src/internal/storage/fileset",
         "//src/internal/testetcd",
+        "//src/internal/uuid",
         "//src/pjs",
         "//src/storage",
         "@io_k8s_apimachinery//pkg/util/rand",

@@ -2,6 +2,7 @@ package s3_test
 
 import (
 	"fmt"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"io"
 	"os"
 	"strings"
@@ -19,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func projectMasterListBuckets(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {

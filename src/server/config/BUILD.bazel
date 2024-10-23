@@ -26,6 +26,6 @@ go_test(
     deps = [
         "//src/internal/errors",
         "//src/internal/require",
-        "//src/internal/testutil",
+        "//src/internal/testutilpachctl",
     ],
 )

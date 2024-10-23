@@ -2,6 +2,7 @@ package s3_test
 
 import (
 	"fmt"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"os"
 	"strings"
 	"testing"
@@ -16,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 type workerTestState struct {

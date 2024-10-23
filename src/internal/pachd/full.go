@@ -142,6 +142,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.maybeRegisterIdentityServer,
 		fb.registerAuthServer,
 		fb.registerPFSServer,
+		fb.registerPJSServer,
 		fb.registerSnapshotServer,
 		fb.registerStorageServer,
 		fb.registerPPSServer,

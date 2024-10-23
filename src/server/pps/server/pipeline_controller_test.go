@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -123,7 +122,7 @@ func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, 
 
 func TestBasic(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
-	pipelineName := tu.UniqueString(t.Name())
+	pipelineName := uuid.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: pipeline,
@@ -145,7 +144,7 @@ func TestBasic(t *testing.T) {
 
 func TestDeletePipeline(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
-	pipelineName := tu.UniqueString(t.Name())
+	pipelineName := uuid.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
@@ -180,7 +179,7 @@ func TestDeletePipeline(t *testing.T) {
 
 func TestDeleteRC(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
-	pipelineName := tu.UniqueString(t.Name())
+	pipelineName := uuid.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
@@ -216,7 +215,7 @@ func TestDeleteRC(t *testing.T) {
 
 func TestAutoscalingBasic(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 1)
-	pipelineName := tu.UniqueString(t.Name())
+	pipelineName := uuid.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	done := mockJobRunning(mockPachd, 1)
 	defer close(done)
@@ -247,7 +246,7 @@ func TestAutoscalingBasic(t *testing.T) {
 
 func TestAutoscalingManyCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 1)
-	pipelineName := tu.UniqueString(t.Name())
+	pipelineName := uuid.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	done := mockJobRunning(mockPachd, 100)
 	defer close(done)
@@ -285,7 +284,7 @@ func TestAutoscalingManyCommits(t *testing.T) {
 
 func TestAutoscalingManyTasks(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 100)
-	pipelineName := tu.UniqueString(t.Name())
+	pipelineName := uuid.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	done := mockJobRunning(mockPachd, 1)
 	defer close(done)
@@ -329,7 +328,7 @@ func TestAutoscalingManyTasks(t *testing.T) {
 
 func TestAutoscalingNoCommits(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 0)
-	pipelineName := tu.UniqueString(t.Name())
+	pipelineName := uuid.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	done := mockJobRunning(mockPachd, 0)
 	defer close(done)
@@ -358,7 +357,7 @@ func TestAutoscalingNoCommits(t *testing.T) {
 
 func TestPause(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
-	pipelineName := tu.UniqueString(t.Name())
+	pipelineName := uuid.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
@@ -398,7 +397,7 @@ func TestPause(t *testing.T) {
 
 func TestPauseAutoscaling(t *testing.T) {
 	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 1)
-	pipelineName := tu.UniqueString(t.Name())
+	pipelineName := uuid.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	done := mockJobRunning(mockPachd, 1)
 	defer close(done)
@@ -457,7 +456,7 @@ func TestPauseAutoscaling(t *testing.T) {
 
 func TestStaleRestart(t *testing.T) {
 	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
-	pipelineName := tu.UniqueString(t.Name())
+	pipelineName := uuid.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,

@@ -12,6 +12,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"io"
 	"math/big"
 	"net"
@@ -122,7 +123,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 		// that it won't fit in a single message.
 		testText = append(testText, (byte(i)%26)+'A')
 	}
-	testRepo := testutil.UniqueString("TestProxy")
+	testRepo := uuid.UniqueString("TestProxy")
 	t.Logf("testRepo=%s", testRepo)
 
 	// Test GRPC API.

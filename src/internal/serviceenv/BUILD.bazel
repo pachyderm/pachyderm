@@ -26,6 +26,7 @@ go_library(
         "//src/internal/promutil",
         "//src/internal/task",
         "//src/internal/uuid",
+        "//src/pjs",
         "//src/proxy",
         "//src/server/auth",
         "//src/server/enterprise",
