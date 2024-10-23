@@ -73,7 +73,7 @@ func TestInspectSnapshot(t *testing.T) {
 		CreatedAt:        inspectResp.Info.CreatedAt, // the created time is not compared
 		PachydermVersion: version.Version.Canonical(),
 	}
-	got.SqlDumpFilesetId = ""
+	got.SqlDumpFilesetPinId = 0
 	require.NoDiff(t, want, got, []cmp.Option{protocmp.Transform()})
 }
 

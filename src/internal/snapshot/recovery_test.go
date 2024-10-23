@@ -26,8 +26,19 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func validateDumpFileset(ctx context.Context, t *testing.T, s *fileset.Storage, fsHandle *fileset.Handle) {
+func validateDumpFileset(ctx context.Context, t *testing.T, db *pachsql.DB, s *fileset.Storage, pin fileset.Pin) {
 	t.Helper()
+	var fsHandle *fileset.Handle
+	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+		var err error
+		fsHandle, err = s.GetPinHandleTx(ctx, tx, pin, time.Hour)
+		if err != nil {
+			return errors.Wrap(err, "GetPinHandleTx")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("resolve pin (%v): %v", pin)
+	}
 	fs, err := s.Open(ctx, []*fileset.Handle{fsHandle})
 	if err != nil {
 		t.Fatalf("open fileset (%v): %v", fsHandle.HexString(), err)
@@ -109,6 +120,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	want.Id = int64(snapID)
 	want.ChunksetId = 1
 	want.PachydermVersion = "v0.0.0"
+	want.SqlDumpFilesetPinId = 1
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
 		got, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
@@ -119,18 +131,12 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
 	}
-	t.Logf("fileset handle: %v", got.GetSqlDumpFilesetId())
-	var fsToken fileset.Token
-	if err := fsToken.Scan(got.GetSqlDumpFilesetId()); err != nil {
-		t.Fatalf("parse token %v: %v", got.GetSqlDumpFilesetId(), err)
-	}
 	got.CreatedAt = nil
-	got.SqlDumpFilesetId = ""
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("snapshot row (-want +got):\n%s", diff)
 	}
 	// Validate the database dump fileset we created in CreateSnapshot.
-	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fsToken))
+	validateDumpFileset(ctx, t, db, storage, fileset.Pin(got.GetSqlDumpFilesetPinId()))
 
 	// Restore the snapshot.
 	if err := s.RestoreSnapshot(ctx, snapID, RestoreSnapshotOptions{}); err != nil {
@@ -148,11 +154,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		t.Fatalf("WithTx: %v", err)
 	}
 	// Validate the database backup fileset created during restoration.
-	fsToken = fileset.Token{}
-	if err := fsToken.Scan(got.GetSqlDumpFilesetId()); err != nil {
-		t.Fatalf("parse token %v: %v", got.GetSqlDumpFilesetId(), err)
-	}
-	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fsToken))
+	validateDumpFileset(ctx, t, db, storage, fileset.Pin(got.GetSqlDumpFilesetPinId()))
 
 	// Drop the chunkset that's keeping the backed up chunks alive (if the restore failed), just
 	// to make sure that it's the original references that are keeping the backed up filesets
