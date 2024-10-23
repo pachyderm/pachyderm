@@ -180,6 +180,11 @@ spec:
               containerName: pachw
               divisor: "0"
               resource: limits.memory
+        - name: PJS_WORKER_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: pachyderm-pjs-worker-authentication
+              key: pjsWorkerAuthToken
         envFrom:
         - secretRef:
             name: pachyderm-storage-secret
