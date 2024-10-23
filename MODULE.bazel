@@ -21,6 +21,11 @@ bazel_dep(name = "rules_python_gazelle_plugin", version = "0.35.0")  # Same vers
 
 bazel_dep(name = "buildifier_prebuilt", version = "7.3.1", dev_dependency = True)
 
+local_path_override(
+    module_name = "rules_distroless",
+    path = "/home/jrockway/tmp/rules_distroless",
+)
+
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.nogo(nogo = "//:nogo")
 go_sdk.download(
