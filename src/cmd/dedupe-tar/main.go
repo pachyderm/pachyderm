@@ -16,6 +16,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -77,6 +78,12 @@ func run(r io.Reader, w io.Writer) (retErr error) {
 		got[name] = struct{}{}
 		h.Uname = "" // avoid contaminating output with host's uid->username mapping
 		h.Gname = ""
+		if name == "var/lib/dpkg/status" {
+			// This is needed for a reproducible output until
+			// https://github.com/GoogleContainerTools/rules_distroless/pull/105 is
+			// merged.
+			h.ModTime = time.Unix(1672560000, 0)
+		}
 		if err := tw.WriteHeader(h); err != nil {
 			return errors.Wrapf(err, "write header for %v (%v)", name, orig)
 		}
