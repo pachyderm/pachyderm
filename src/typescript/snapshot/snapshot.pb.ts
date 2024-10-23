@@ -25,7 +25,7 @@ export type SnapshotInfo = {
   id?: string
   metadata?: {[key: string]: string}
   chunksetId?: string
-  sqlDumpFilesetId?: string
+  sqlDumpFilesetPinId?: string
   pachydermVersion?: string
   createdAt?: GoogleProtobufTimestamp.Timestamp
 }

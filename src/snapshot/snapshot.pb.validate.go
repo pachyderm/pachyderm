@@ -520,7 +520,7 @@ func (m *SnapshotInfo) validate(all bool) error {
 
 	// no validation rules for ChunksetId
 
-	// no validation rules for SqlDumpFilesetId
+	// no validation rules for SqlDumpFilesetPinId
 
 	// no validation rules for PachydermVersion
 

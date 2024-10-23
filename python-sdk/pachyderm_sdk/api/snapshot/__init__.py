@@ -50,7 +50,7 @@ class SnapshotInfo(betterproto.Message):
         2, betterproto.TYPE_STRING, betterproto.TYPE_STRING
     )
     chunkset_id: int = betterproto.int64_field(3)
-    sql_dump_fileset_id: str = betterproto.string_field(4)
+    sql_dump_fileset_pin_id: int = betterproto.int64_field(4)
     pachyderm_version: str = betterproto.string_field(5)
     created_at: datetime = betterproto.message_field(6)
 
