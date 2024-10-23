@@ -13,7 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/recovery"
+	"github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 )
 
@@ -50,9 +50,9 @@ func NewRestoreSnapshot(env RestoreSnapshotEnv, config pachconfig.PachdRestoreSn
 				if err != nil {
 					return errors.Wrapf(err, "could not configure new storage")
 				}
-				s := &recovery.Snapshotter{DB: env.DB, Storage: storage.Filesets}
-				snapshotID := recovery.SnapshotID(config.SnapshotID)
-				if err := s.RestoreSnapshot(ctx, snapshotID, recovery.RestoreSnapshotOptions{}); err != nil {
+				s := &snapshot.Snapshotter{DB: env.DB, Storage: storage.Filesets}
+				snapshotID := snapshot.SnapshotID(config.SnapshotID)
+				if err := s.RestoreSnapshot(ctx, snapshotID, snapshot.RestoreSnapshotOptions{}); err != nil {
 					return errors.Wrapf(err, "could not restore snapshot %s", snapshotID)
 				}
 				return errors.Wrap(dbutil.WithTx(ctx, env.DB, func(ctx context.Context, tx *pachsql.Tx) error {

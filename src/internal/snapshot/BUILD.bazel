@@ -1,34 +1,71 @@
 load("@rules_go//go:def.bzl", "go_library", "go_test")
+load(":defs.bzl", "snapshot_data", "snapshot_x_defs")
 
+# Binaries that need to run CreateSnapshot or RestoreSnapshot should install the apt packages in
+# their container image.  We do this in //oci:pachd_image.
 go_library(
     name = "snapshot",
-    srcs = ["api_server.go"],
+    srcs = [
+        "api_server.go",
+        "recovery.go",
+    ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/snapshot",
     visibility = ["//src:__subpackages__"],
     deps = [
+        "//src/internal/bazel",
+        "//src/internal/clusterstate",
         "//src/internal/dbutil",
         "//src/internal/errors",
         "//src/internal/log",
+        "//src/internal/migrations",
         "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/pgjsontypes",
         "//src/internal/snapshotdb",
         "//src/internal/storage/fileset",
         "//src/snapshot",
+        "//src/version",
+        "@com_github_icholy_replace//:replace",
+        "@com_github_jmoiron_sqlx//:sqlx",
+        "@com_github_klauspost_compress//zstd",
+        "@io_etcd_go_etcd_client_v3//:client",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
+        "@org_golang_x_mod//semver",
+        "@org_golang_x_text//transform",
+        "@org_uber_go_zap//:zap",
+        "@rules_go//go/runfiles:go_default_library",
     ],
 )
 
 go_test(
     name = "snapshot_test",
-    srcs = ["server_internal_test.go"],
+    srcs = [
+        "recovery_test.go",
+        "server_internal_test.go",
+    ],
+    data = snapshot_data,
+    embed = [":snapshot"],
+    x_defs = snapshot_x_defs,
     deps = [
+        "//src/internal/clusterstate",
+        "//src/internal/dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
         "//src/internal/grpcutil",
         "//src/internal/pachd",
+        "//src/internal/pachsql",
         "//src/internal/pctx",
         "//src/internal/require",
+        "//src/internal/snapshotdb",
+        "//src/internal/storage/chunk",
+        "//src/internal/storage/fileset",
+        "//src/internal/storage/kv",
+        "//src/internal/storage/track",
         "//src/snapshot",
         "//src/version",
         "@com_github_google_go_cmp//cmp",
+        "@com_github_klauspost_compress//zstd",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
         "@org_golang_google_protobuf//testing/protocmp",

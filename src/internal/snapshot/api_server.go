@@ -4,10 +4,12 @@ package snapshot
 import (
 	"context"
 	"fmt"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"github.com/pachyderm/pachyderm/v2/src/internal/snapshotdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	snapshotpb "github.com/pachyderm/pachyderm/v2/src/snapshot"
@@ -25,15 +27,18 @@ var _ snapshotpb.APIServer = &APIServer{}
 
 func (a *APIServer) CreateSnapshot(ctx context.Context, request *snapshotpb.CreateSnapshotRequest) (*snapshotpb.CreateSnapshotResponse, error) {
 	var ret snapshotpb.CreateSnapshotResponse
-	if err := dbutil.WithTx(ctx, a.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		snapshotID, err := snapshotdb.CreateSnapshot(ctx, sqlTx, a.Store, request.Metadata)
-		if err != nil {
-			return errors.Wrap(err, "create job")
-		}
-		ret.Id = snapshotID
-		return nil
-	}); err != nil {
-		return nil, err
+	s := &Snapshotter{
+		DB:      a.DB,
+		Storage: a.Store,
+	}
+	id, err := s.CreateSnapshot(ctx, CreateSnapshotOptions{
+		Metadata: pgjsontypes.StringMap{
+			Data: request.Metadata,
+		},
+	})
+	ret.Id = int64(id)
+	if err != nil {
+		return &ret, errors.Wrap(err, "create snapshot")
 	}
 	return &ret, nil
 }

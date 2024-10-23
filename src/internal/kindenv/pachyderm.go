@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,13 +100,17 @@ func (c *Cluster) helmFlags(ctx context.Context, install *HelmConfig) ([]string,
 		strings.Join([]string{
 			// Configure images.
 			"pachd.image.repository=" + path.Join(cfg.ImagePullPath, "pachd"),
+			"restoreSnapshot.image.repository=" + path.Join(cfg.ImagePullPath, "pachd"),
+			"preflightCheckJob.image.repository=" + path.Join(cfg.ImagePullPath, "pachd"),
 			"pachd.worker.image.repository=" + path.Join(cfg.ImagePullPath, "worker"),
+
 			"pachd.image.tag=" + pachdVersion,
+			"restoreSnapshot.image.tag=" + pachdVersion,
+			"preflightCheckJob.image.tag=" + pachdVersion,
 			"pachd.worker.image.tag=" + workerVersion,
+
 			// Configure the external hostname.
 			"proxy.host=" + cfg.Hostname,
-			"restoreSnapshot.image.repository=" + path.Join(cfg.ImagePullPath, "pachd"),
-			"restoreSnapshot.image.tag=" + pachdVersion,
 		}, ","),
 	}
 	// Configure console.
@@ -206,6 +211,7 @@ func (c *Cluster) InstallPachyderm(ctx context.Context, install *HelmConfig) err
 		return errors.Wrap(err, "compute helm flags")
 	}
 	flags = append(flags, moreFlags...)
+	flags = append(flags, "--set", "restoreSnapshot.enabled=false")
 
 	k, err := c.GetKubeconfig(ctx)
 	if err != nil {
@@ -254,6 +260,34 @@ func (c *Cluster) InstallPachyderm(ctx context.Context, install *HelmConfig) err
 		return errors.Wrap(err, "wait for pachd to be ready")
 	}
 
+	return nil
+}
+
+func (c *Cluster) RestorePachyderm(ctx context.Context, namespace string, id int64) error {
+	var flags []string
+	flags = append(flags, "upgrade", "--install", "--set", "restoreSnapshot.enabled=true,restoreSnapshot.snapshot_id="+strconv.FormatInt(id, 10))
+	moreFlags, err := c.helmFlags(ctx, &HelmConfig{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return errors.Wrap(err, "compute helm flags")
+	}
+	flags = append(flags, moreFlags...)
+
+	k, err := c.GetKubeconfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "get kubeconfig")
+	}
+
+	// Helm upgrade.
+	log.Info(ctx, "running helm upgrade --install")
+	log.Debug(ctx, "helm flags", zap.Strings("flags", flags))
+	cmd := k.HelmCommand(ctx, flags...)
+	if err := cmd.Run(); err != nil {
+		return errors.Wrapf(err, "helm %v", flags)
+	}
+
+	log.Info(ctx, "the restore job has been started; `pachdev push` to get pachd back when it's done")
 	return nil
 }
 

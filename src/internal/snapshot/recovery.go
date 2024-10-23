@@ -1,5 +1,4 @@
-// Package recovery implements subsystem-independent disaster recovery.
-package recovery
+package snapshot
 
 import (
 	"bufio"
@@ -23,9 +22,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
+	"github.com/pachyderm/pachyderm/v2/src/internal/snapshotdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
+	"github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/version"
-	uuid "github.com/satori/go.uuid"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
 	"golang.org/x/mod/semver"
@@ -59,13 +60,6 @@ func psqlPath() string {
 
 type SnapshotID int64
 
-type snapshot struct {
-	ID                  SnapshotID `db:"id"`
-	ChunksetID          int64      `db:"chunkset_id"`
-	PachydermVersion    string     `db:"pachyderm_version"`
-	SQLDumpFileSetToken uuid.UUID  `db:"sql_dump_fileset_id"`
-}
-
 // String implements fmt.Stringer.
 func (id SnapshotID) String() string {
 	var invalid string
@@ -77,7 +71,7 @@ func (id SnapshotID) String() string {
 }
 
 // createSnapshotRow creates a snapshot row containing a chunkset referencing all live data.
-func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (result SnapshotID, sql string, _ error) {
+func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage, metadata pgjsontypes.StringMap) (result SnapshotID, sql string, _ error) {
 	var b strings.Builder // b contains SQL to recreate this function call inside a psql script.
 
 	// Create (and dump) chunkset.
@@ -93,13 +87,14 @@ func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (re
 	b.WriteString(`\.` + "\n\n")
 
 	// Create (and dump) snapshot row.
-	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version) values ($1, $2) returning id`, chunksetID, version.Version.Canonical()); err != nil {
+	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version, metadata) values ($1, $2, $3) returning id`, chunksetID, version.Version.Canonical(), metadata); err != nil {
 		return 0, "", errors.Wrap(err, "create snapshot row")
 	}
 	// Write out psql to create only this snapshot row.  (Pre-existing snapshot rows are dumped
 	// by pg_dump.)
-	b.WriteString("COPY recovery.snapshots (id, chunkset_id, pachyderm_version) FROM stdin;\n")
-	fmt.Fprintf(&b, "%v\t%v\t%v\n", int64(result), int64(chunksetID), version.Version.Canonical())
+	b.WriteString("COPY recovery.snapshots (id, chunkset_id, pachyderm_version, metadata) FROM stdin;\n")
+	js := `{}` // TODO(MLDM-142): escape JSON for this
+	fmt.Fprintf(&b, "%v\t%v\t%v\t%s\n", int64(result), int64(chunksetID), version.Version.Canonical(), js)
 	b.WriteString(`\.` + "\n\n")
 
 	return result, b.String(), nil
@@ -119,13 +114,6 @@ func addDatabaseDump(ctx context.Context, tx *sqlx.Tx, snapshotID SnapshotID, fi
 		return errors.Errorf("rows affected by snapshot update: got %v want 1", got)
 	}
 	return nil
-}
-
-func getSnapshotRow(ctx context.Context, tx *sqlx.Tx, id SnapshotID) (result snapshot, _ error) {
-	if err := sqlx.GetContext(ctx, tx, &result, `select id, chunkset_id, pachyderm_version, sql_dump_fileset_id from recovery.snapshots where id=$1`, id); err != nil {
-		return snapshot{}, errors.Wrap(err, "select row")
-	}
-	return
 }
 
 // Snapshotter can take and restore Pachyderm snapshots.
@@ -165,13 +153,13 @@ func (s *Snapshotter) dumpDatabase(ctx context.Context, snapshot string, w io.Wr
 // see, because it can't read writes in this txn), and dumps the storage tracker (for the same
 // reason).  This yields a completely atomic snapshot; no tracker entries or chunks can change
 // during the dump.  (If they do, the txn rolls back with a serialization error.)
-func (s *Snapshotter) dumpTx(ctx context.Context, tx *pachsql.Tx) (id SnapshotID, dumpFile *os.File, retErr error) {
+func (s *Snapshotter) dumpTx(ctx context.Context, tx *pachsql.Tx, opts CreateSnapshotOptions) (id SnapshotID, dumpFile *os.File, retErr error) {
 	ctx, done := log.SpanContext(ctx, "snapshotTx")
 	defer done(log.Errorp(&retErr))
 
 	// Add snapshot row.
 	log.Debug(ctx, "adding snapshot row")
-	id, snapshotSQL, err := createSnapshotRow(ctx, tx, s.Storage)
+	id, snapshotSQL, err := createSnapshotRow(ctx, tx, s.Storage, opts.Metadata)
 	if err != nil {
 		return 0, nil, errors.Wrap(err, "createSnapshotRow")
 	}
@@ -226,8 +214,13 @@ func (s *Snapshotter) dumpTx(ctx context.Context, tx *pachsql.Tx) (id SnapshotID
 	return id, fh, nil
 }
 
+// CreateSnapshotOptions controls snapshotting behavior.
+type CreateSnapshotOptions struct {
+	Metadata pgjsontypes.StringMap // Metadata to add to the snapshot.
+}
+
 // CreateSnapshot creates a snapshot.
-func (s *Snapshotter) CreateSnapshot(rctx context.Context) (_ SnapshotID, retErr error) {
+func (s *Snapshotter) CreateSnapshot(rctx context.Context, opts CreateSnapshotOptions) (_ SnapshotID, retErr error) {
 	rctx, done := log.SpanContext(rctx, "CreateSnapshot")
 	defer done(log.Errorp(&retErr))
 
@@ -241,7 +234,7 @@ func (s *Snapshotter) CreateSnapshot(rctx context.Context) (_ SnapshotID, retErr
 	}()
 	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) (retErr error) {
 		var err error
-		id, fh, err = s.dumpTx(ctx, tx)
+		id, fh, err = s.dumpTx(ctx, tx, opts)
 		if err != nil {
 			return errors.Wrap(err, "dumpTx")
 		}
@@ -355,10 +348,10 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 	defer done(log.Errorp(&retErr))
 
 	log.Debug(rctx, "reading snapshot metadata")
-	var snap snapshot
+	var snap *snapshot.SnapshotInfo
 	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
-		snap, err = getSnapshotRow(ctx, tx, id)
+		snap, err = snapshotdb.GetSnapshot(ctx, tx, int64(id))
 		if err != nil {
 			return errors.Wrap(err, "get snapshot row")
 		}
@@ -366,7 +359,7 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 	}); err != nil {
 		return errors.Wrap(err, "read metadata: WithTx")
 	}
-	log.Debug(rctx, "got metadata", zap.String("pachyderm_version", snap.PachydermVersion), zap.Int64("chunkset_id", snap.ChunksetID), zap.Stringer("sql_dump_fileset_token", snap.SQLDumpFileSetToken))
+	log.Debug(rctx, "got metadata", log.Proto("snapshot", snap))
 
 	if !opts.IgnoreVersionCompatibility {
 		if err := checkVersionCompatibility(snap.PachydermVersion, version.Version.Canonical()); err != nil {
@@ -375,17 +368,22 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 		log.Debug(rctx, "database dump is compatible with running pachyderm", zap.String("snapshot_version", snap.PachydermVersion), zap.String("running_version", version.Version.Canonical()))
 	}
 
+	var token fileset.Token
+	if err := token.Scan(snap.GetSqlDumpFilesetId()); err != nil {
+		return errors.Wrapf(err, "parse fileset token %v", snap.GetSqlDumpFilesetId())
+	}
+
 	log.Debug(rctx, "downloading database dump to temporary file")
-	fs, err := s.Storage.Open(rctx, []*fileset.Handle{fileset.NewHandle(fileset.Token(snap.SQLDumpFileSetToken[:]))})
+	fs, err := s.Storage.Open(rctx, []*fileset.Handle{fileset.NewHandle(token)})
 	if err != nil {
-		return errors.Wrapf(err, "open sql dump fileset %s", snap.SQLDumpFileSetToken)
+		return errors.Wrapf(err, "open sql dump fileset %s", snap.GetSqlDumpFilesetId())
 	}
 	var tmp string
 	if err := fs.Iterate(rctx, func(f fileset.File) (retErr error) {
 		path := f.Index().Path
-		log.Debug(rctx, "reading file from database dump fileset", zap.Stringer("fileset_id", snap.SQLDumpFileSetToken), zap.String("path", path))
+		log.Debug(rctx, "reading file from database dump fileset", zap.String("fileset_id", snap.GetSqlDumpFilesetId()), zap.String("path", path))
 		if got, want := path, SQLDumpFilename; got != want {
-			return errors.Errorf("unexpected file in database dump fileset %s: got %v want %v", snap.SQLDumpFileSetToken, got, want)
+			return errors.Errorf("unexpected file in database dump fileset %s: got %v want %v", snap.GetSqlDumpFilesetId(), got, want)
 		}
 		fh, err := os.CreateTemp("", fmt.Sprintf("snapshot-%v-*", id))
 		if err != nil {
@@ -399,7 +397,7 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 		tmp = fh.Name()
 		return nil
 	}); err != nil {
-		return errors.Wrapf(err, "iterate over sql dump fileset %s", snap.SQLDumpFileSetToken)
+		return errors.Wrapf(err, "iterate over sql dump fileset %s", snap.GetSqlDumpFilesetId())
 	}
 	defer errors.Invoke1(&retErr, os.Remove, tmp, "cleanup database dump tmp file")
 	log.Debug(rctx, "downloaded database dump ok", zap.String("path", tmp))
@@ -447,7 +445,7 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 	log.Debug(rctx, "adding dump fileset to newly-restored snapshot row")
 	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		if err := addDatabaseDump(ctx, tx, id, fsHandle.Token()); err != nil {
-			return errors.Wrapf(err, "edit snapshot id=%v to contain fileset %s", id, snap.SQLDumpFileSetToken)
+			return errors.Wrapf(err, "edit snapshot id=%v to contain fileset %s", id, snap.GetSqlDumpFilesetId())
 		}
 		return nil
 	}); err != nil {

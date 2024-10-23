@@ -64,25 +64,29 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			snapshots, err := grpcutil.Collect[*snapshot.ListSnapshotResponse](snapshotClient, 100)
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
+
 			if raw {
 				encoder := cmdutil.Encoder(output, os.Stdout)
-				for _, info := range snapshots {
-					if err := encoder.EncodeProto(info.Info); err != nil {
+				if err := grpcutil.ForEach(snapshotClient, func(res *snapshot.ListSnapshotResponse) error {
+					if err := encoder.EncodeProto(res); err != nil {
 						return errors.Wrap(err, "encode proto")
 					}
+					return nil
+				}); err != nil {
+					return grpcutil.ScrubGRPC(err)
 				}
-				return nil
+
+			} else {
+				writer := tabwriter.NewWriter(os.Stdout, pretty.SnapshotHeader)
+				defer errors.Invoke(&retErr, writer.Flush, "flush output")
+				if err := grpcutil.ForEach(snapshotClient, func(res *snapshot.ListSnapshotResponse) error {
+					pretty.PrintSnapshotInfo(writer, res.GetInfo())
+					return nil
+				}); err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
 			}
-			header := pretty.SnapshotHeader
-			writer := tabwriter.NewWriter(os.Stdout, header)
-			for _, snapshotInfo := range snapshots {
-				pretty.PrintSnapshotInfo(writer, snapshotInfo.Info)
-			}
-			return writer.Flush()
+			return nil
 		}),
 	}
 	listSnapshot.Flags().AddFlagSet(outputFlags)
@@ -117,7 +121,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	deleteSnapshot.Flags().StringVar(&idStr, "snapshot", idStr, "Specify the snapshot(by id) to delete.")
+	deleteSnapshot.Flags().StringVar(&idStr, "snapshot", idStr, "Specify the snapshot (by id) to delete.")
 	commands = append(commands, cmdutil.CreateAliases(deleteSnapshot, "delete snapshot", snapshots))
 	return commands
 }

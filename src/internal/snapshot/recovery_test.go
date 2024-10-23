@@ -1,4 +1,4 @@
-package recovery
+package snapshot
 
 import (
 	"bufio"
@@ -17,11 +17,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/snapshotdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	uuid "github.com/satori/go.uuid"
+	"github.com/pachyderm/pachyderm/v2/src/snapshot"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func validateDumpFileset(ctx context.Context, t *testing.T, s *fileset.Storage, fsHandle *fileset.Handle) {
@@ -96,30 +98,35 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	// Create a snapshot.
 	s := &Snapshotter{DB: db, Storage: storage}
 
-	snapID, err := s.CreateSnapshot(ctx)
+	snapID, err := s.CreateSnapshot(ctx, CreateSnapshotOptions{})
 	if err != nil {
 		t.Fatalf("CreateSnapshot: %v", err)
 	}
 
 	// Check that we can read the snapshot we just made.
-	var got, want snapshot
-	want.ID = snapID
-	want.ChunksetID = 1
+	var got *snapshot.SnapshotInfo
+	want := new(snapshot.SnapshotInfo)
+	want.Id = int64(snapID)
+	want.ChunksetId = 1
 	want.PachydermVersion = "v0.0.0"
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
-		got, err = getSnapshotRow(ctx, tx, snapID)
+		got, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
 		if err != nil {
-			return errors.Wrap(err, "getSnapshotRow")
+			return errors.Wrap(err, "GetSnapshot")
 		}
 		return nil
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
 	}
-	fsToken := fileset.Token(got.SQLDumpFileSetToken[:])
-	t.Logf("fileset handle: %v", fsToken.HexString())
-	got.SQLDumpFileSetToken = uuid.UUID{}
-	if diff := cmp.Diff(want, got); diff != "" {
+	t.Logf("fileset handle: %v", got.GetSqlDumpFilesetId())
+	var fsToken fileset.Token
+	if err := fsToken.Scan(got.GetSqlDumpFilesetId()); err != nil {
+		t.Fatalf("parse token %v: %v", got.GetSqlDumpFilesetId(), err)
+	}
+	got.CreatedAt = nil
+	got.SqlDumpFilesetId = ""
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("snapshot row (-want +got):\n%s", diff)
 	}
 	// Validate the database dump fileset we created in CreateSnapshot.
@@ -129,19 +136,23 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	if err := s.RestoreSnapshot(ctx, snapID, RestoreSnapshotOptions{}); err != nil {
 		t.Errorf("snapshot not restorable: %v", err)
 	}
-	got.SQLDumpFileSetToken = uuid.UUID{}
+	got = nil
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
-		got, err = getSnapshotRow(ctx, tx, snapID)
+		got, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
 		if err != nil {
-			return errors.Wrap(err, "getSnapshotRow (after restore)")
+			return errors.Wrap(err, "GetSnapshot (after restore)")
 		}
 		return nil
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
 	}
 	// Validate the database backup fileset created during restoration.
-	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fileset.Token(got.SQLDumpFileSetToken)))
+	fsToken = fileset.Token{}
+	if err := fsToken.Scan(got.GetSqlDumpFilesetId()); err != nil {
+		t.Fatalf("parse token %v: %v", got.GetSqlDumpFilesetId(), err)
+	}
+	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fsToken))
 
 	// Drop the chunkset that's keeping the backed up chunks alive (if the restore failed), just
 	// to make sure that it's the original references that are keeping the backed up filesets
@@ -150,8 +161,8 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		if _, err := tx.ExecContext(ctx, `truncate table recovery.snapshots`); err != nil {
 			return errors.Wrap(err, "truncate snapshots table")
 		}
-		if err := storage.DropChunkSet(ctx, tx, fileset.ChunkSetID(got.ChunksetID)); err != nil {
-			return errors.Wrapf(err, "DropChunkSet(%v)", got.ChunksetID)
+		if err := storage.DropChunkSet(ctx, tx, fileset.ChunkSetID(got.ChunksetId)); err != nil {
+			return errors.Wrapf(err, "DropChunkSet(%v)", got.ChunksetId)
 		}
 		return nil
 	}); err != nil {

@@ -157,6 +157,41 @@ func PushPachydermCmd() *cobra.Command {
 	return cmd
 }
 
+func RestorePachydermCmd() *cobra.Command {
+	var namespace string
+	var id int64
+	cmd := &cobra.Command{
+		Use:   "restore [<cluster name>] --id=<snapshot id>",
+		Short: "Restore restores a Pachyderm snapshot into the named cluster",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
+			var name string
+			if len(args) > 0 {
+				name = args[0]
+			}
+			if id < 1 {
+				return errors.New("invalid snapshot id; must be > 0")
+			}
+			ctx := cmd.Context()
+			cluster, err := kindenv.New(ctx, name)
+			if err != nil {
+				return errors.Wrap(err, "kindenv.New")
+			}
+			defer errors.Close(&retErr, cluster, "close cluster")
+			if err := cluster.PushPachyderm(ctx); err != nil {
+				return errors.Wrap(err, "push pachyderm")
+			}
+			if err := cluster.RestorePachyderm(ctx, namespace, id); err != nil {
+				return errors.Wrap(err, "restore pachyderm")
+			}
+			return nil
+		},
+	}
+	cmd.Flags().Int64Var(&id, "id", 0, "The snapshot ID to restore.")
+	cmd.Flags().StringVar(&namespace, "namespace", "default", "The Kubernetes namespace to install/upgrade.")
+	return cmd
+}
+
 func ServeCoverageCmd() *cobra.Command {
 	var port uint32
 	cmd := &cobra.Command{
