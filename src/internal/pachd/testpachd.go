@@ -72,6 +72,17 @@ func ActivateAuthOption(rootToken string) TestPachdOption {
 	}
 }
 
+func PJSWorkerAuthOption(pjsWorkerAuthToken string) TestPachdOption {
+	if pjsWorkerAuthToken == "" {
+		pjsWorkerAuthToken = "iamroot"
+	}
+	return TestPachdOption{
+		MutateConfig: func(config *pachconfig.PachdFullConfiguration) {
+			config.PJSWorkerAuthToken = pjsWorkerAuthToken
+		},
+	}
+}
+
 // GetK8sClient is an option that sets k to the internal fake k8s client.  Mutations made to this
 // client will be visible to Pachyderm.
 func GetK8sClient(k *kubernetes.Interface) TestPachdOption {
