@@ -189,7 +189,7 @@ func parseFilesets(pinStrs string) ([]fileset.Pin, error) {
 		}
 		pin, err := strconv.ParseInt(string(pinStr), 10, 64)
 		if err != nil {
-			return nil, err
+			return nil, errors.EnsureStack(err)
 		}
 		pins = append(pins, fileset.Pin(pin))
 	}
