@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -179,6 +180,6 @@ func Group(group string) string {
 }
 
 func RandomRobot(t *testing.T, c *client.APIClient, name string) (string, *client.APIClient) {
-	name = Robot(UniqueString(name))
+	name = Robot(uuid.UniqueString(name))
 	return name, AuthenticateClient(t, c, name)
 }

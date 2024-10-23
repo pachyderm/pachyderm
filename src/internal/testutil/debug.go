@@ -7,6 +7,7 @@ import (
 	globlib "github.com/pachyderm/ohmyglob"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
 func DebugFiles(t testing.TB, projectName, repoName string) (map[string]*globlib.Glob, []string) {
@@ -31,7 +32,7 @@ func DebugFiles(t testing.TB, projectName, repoName string) (map[string]*globlib
 	}
 	var pipelines []string
 	for i := 0; i < 3; i++ {
-		pipeline := UniqueString("TestDebug")
+		pipeline := uuid.UniqueString("TestDebug")
 		pipelines = append(pipelines, pipeline)
 		// Record glob patterns for expected pipeline files.
 		pattern := path.Join("pipelines", projectName, pipeline, "pods", "*", "describe.txt")

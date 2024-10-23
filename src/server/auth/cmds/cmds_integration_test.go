@@ -6,6 +6,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +29,7 @@ func TestActivate(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth activate --supply-root-token
 		pachctl auth whoami | match {{.user}}
 		echo 'y' | pachctl auth deactivate
@@ -47,22 +49,22 @@ func TestActivateFailureRollback(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
-	clientId := tu.UniqueString("clientId")
+	clientId := uuid.UniqueString("clientId")
 	// activation fails to activate with bad issuer URL
-	require.YesError(t, tu.PachctlBashCmd(t, c, `
+	require.YesError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth activate --issuer 'bad-url.com' --client-id {{.id}} --supply-root-token`,
 		"token", tu.RootToken,
 		"id", clientId,
 	).Run())
 
 	// the OIDC client does not exist in pachd
-	require.YesError(t, tu.PachctlBashCmd(t, c, `
+	require.YesError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl idp list-client | match '{{.id}}'`,
 		"id", clientId,
 	).Run())
 
 	// activation succeeds when passed happy-path values
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth activate --client-id {{.id}} --supply-root-token
 		pachctl auth whoami | match {{.user}}`,
 		"token", tu.RootToken,
@@ -84,7 +86,7 @@ func TestLogin(t *testing.T) {
 	require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
 		ctx, done := context.WithTimeout(pctx.Background("auth.login"), 30*time.Second)
 		defer done()
-		cmd := tu.PachctlBashCmdCtx(ctx, t, c, "echo '' | pachctl auth use-auth-token && pachctl auth login --no-browser")
+		cmd := testutilpachctl.PachctlBashCmdCtx(ctx, t, c, "echo '' | pachctl auth use-auth-token && pachctl auth login --no-browser")
 		out, err := cmd.StdoutPipe()
 		if err != nil {
 			return errors.Wrap(err, "StdoutPipe")
@@ -113,7 +115,7 @@ func TestLogin(t *testing.T) {
 		require.False(t, strings.Contains(buf.String(), "Could not inspect"), "does not inspect project when auth is enabled and no credentials are provided")
 		return nil
 	}, time.Second, "should pachctl auth login")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,
 	).Run())
@@ -131,7 +133,7 @@ func TestLoginIDToken(t *testing.T) {
 
 	// Get an ID token for a trusted peer app
 	token := tu.GetOIDCTokenForTrustedApp(t, c, false)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth login --id-token
 		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,
@@ -150,11 +152,11 @@ func TestIDTokenFromEnv(t *testing.T) {
 	require.NoError(t, tu.ConfigureOIDCProvider(t, c, false))
 	// Get an ID token for a trusted peer app
 	token := tu.GetOIDCTokenForTrustedApp(t, c, false)
-	require.YesError(t, tu.PachctlBashCmd(t, c, `
+	require.YesError(t, testutilpachctl.PachctlBashCmd(t, c, `
                 echo "" | pachctl auth use-auth-token;
 		pachctl auth whoami`,
 	).Run())
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
                 echo "" | pachctl auth use-auth-token;
                 export DEX_TOKEN={{.token}};
                 pachctl auth whoami | match user:{{.user}}`,
@@ -171,7 +173,7 @@ func TestConfig(t *testing.T) {
 	c = tu.AuthenticatedPachClient(t, c, auth.RootUser)
 	require.NoError(t, tu.ConfigureOIDCProvider(t, c, false))
 
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
         pachctl auth set-config <<EOF
         {
             "issuer": "http://pachd:1658/dex",
@@ -188,7 +190,7 @@ EOF
 		  | match '}'
 		`).Run())
 
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl auth get-config -o yaml \
 		  | match 'issuer: http://pachd:1658/dex' \
 		  | match 'localhost_issuer: true' \
@@ -207,41 +209,41 @@ func TestRotateRootToken(t *testing.T) {
 
 	sessionToken := c.AuthToken()
 
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
                pachctl auth whoami | match "pach:root"
        `).Run())
 
 	// rotate current user's token
-	token := executeCmdAndGetLastWord(t, tu.PachctlBashCmd(t, c, "pachctl auth rotate-root-token"))
+	token := executeCmdAndGetLastWord(t, testutilpachctl.PachctlBashCmd(t, c, "pachctl auth rotate-root-token"))
 
 	// current user (root) can't authenticate
-	require.YesError(t, tu.PachctlBashCmd(t, c, `
+	require.YesError(t, testutilpachctl.PachctlBashCmd(t, c, `
                pachctl auth whoami
        `).Run())
 
 	// root can authenticate once the new token is set
-	configPath := executeCmdAndGetLastWord(t, tu.PachctlBashCmd(t, c, `echo $PACH_CONFIG`))
+	configPath := executeCmdAndGetLastWord(t, testutilpachctl.PachctlBashCmd(t, c, `echo $PACH_CONFIG`))
 	require.NoError(t, config.WritePachTokenToConfigPath(token, configPath, false))
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
                pachctl auth whoami | match "pach:root"
        `).Run())
 
 	// rotate to new token and get (the same) output token
-	tu.PachctlBashCmd(t, c, "pachctl auth rotate-root-token --supply-token {{ .tok }}", "tok", sessionToken)
+	testutilpachctl.PachctlBashCmd(t, c, "pachctl auth rotate-root-token --supply-token {{ .tok }}", "tok", sessionToken)
 
-	token = executeCmdAndGetLastWord(t, tu.PachctlBashCmd(t, c, `
+	token = executeCmdAndGetLastWord(t, testutilpachctl.PachctlBashCmd(t, c, `
                pachctl auth rotate-root-token --supply-token {{ .tok }}`,
 		"tok", sessionToken))
 
 	require.Equal(t, sessionToken, token)
 
-	require.YesError(t, tu.PachctlBashCmd(t, c, `
+	require.YesError(t, testutilpachctl.PachctlBashCmd(t, c, `
                pachctl auth whoami
        `).Run())
 
 	// root can authenticate once the new token is set
 	require.NoError(t, config.WritePachTokenToConfigPath(sessionToken, configPath, false))
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
                pachctl auth whoami | match "pach:root"
        `).Run())
 }

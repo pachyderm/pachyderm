@@ -2,7 +2,10 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "uuid",
-    srcs = ["uuid.go"],
+    srcs = [
+        "naming.go",
+        "uuid.go",
+    ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/uuid",
     visibility = ["//src:__subpackages__"],
     deps = [

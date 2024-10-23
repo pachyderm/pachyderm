@@ -3,6 +3,7 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"testing"
 	"time"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -326,7 +326,7 @@ func TestBranchIterator(t *testing.T) {
 		allBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// Create 2^8-1=255 branches
-			headCommitInfo := newCommitInfo(&pfs.Repo{Project: &pfs.Project{Name: "test-project"}, Name: testutil.UniqueString("test-repo"), Type: pfs.UserRepoType}, random.String(32), nil)
+			headCommitInfo := newCommitInfo(&pfs.Repo{Project: &pfs.Project{Name: "test-project"}, Name: uuid.UniqueString("test-repo"), Type: pfs.UserRepoType}, random.String(32), nil)
 			rootBranchInfo := &pfs.BranchInfo{
 				Branch: &pfs.Branch{
 					Repo: headCommitInfo.Commit.Repo,
@@ -346,7 +346,7 @@ func TestBranchIterator(t *testing.T) {
 					allBranches[id] = parent
 					// Create 2 child for each branch in the current level
 					for j := 0; j < 2; j++ {
-						head := newCommitInfo(&pfs.Repo{Project: &pfs.Project{Name: "test-project"}, Name: testutil.UniqueString("test-repo"), Type: pfs.UserRepoType}, random.String(32), nil)
+						head := newCommitInfo(&pfs.Repo{Project: &pfs.Project{Name: "test-project"}, Name: uuid.UniqueString("test-repo"), Type: pfs.UserRepoType}, random.String(32), nil)
 						child := &pfs.BranchInfo{
 							Branch: &pfs.Branch{
 								Repo: head.Commit.Repo,

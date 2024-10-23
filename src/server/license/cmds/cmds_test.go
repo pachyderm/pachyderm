@@ -3,6 +3,8 @@
 package cmds
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -16,7 +18,7 @@ func TestClusterCRUD(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		pachctl license add-cluster --id {{.id}} --address grpc://localhost:1653
 		pachctl license list-clusters \
                   | match 'id: {{.id}}' \
@@ -32,6 +34,6 @@ func TestClusterCRUD(t *testing.T) {
 		  | match -v 'address: grpc://127.0.0.1:1650' \
 		  | match -v 'id: {{.id}}'
 		`,
-		"id", tu.UniqueString("cluster"),
+		"id", uuid.UniqueString("cluster"),
 	).Run())
 }

@@ -239,6 +239,18 @@ type PachdPreflightConfiguration struct {
 
 func (PachdPreflightConfiguration) isPachConfig() {}
 
+// PachdRestoreSnapshotConfiguration is configuration for the restoring from a snapshot.
+type PachdRestoreSnapshotConfiguration struct {
+	PostgresConfiguration
+	StorageConfiguration
+	StorageBackend string `env:"STORAGE_BACKEND,required"`
+	StorageRoot    string `env:"PACH_ROOT,default=/pach"`
+	StorageURL     string `env:"STORAGE_URL,default="`
+	SnapshotID     int64  `env:"SNAPSHOT_ID,required"`
+}
+
+func (p PachdRestoreSnapshotConfiguration) isPachConfig() {}
+
 // NewConfiguration creates a generic configuration from a specific type of configuration.
 func NewConfiguration(config any) *Configuration {
 	configuration := &Configuration{}
@@ -260,6 +272,11 @@ func NewConfiguration(config any) *Configuration {
 		configuration.EnterpriseSpecificConfiguration = &v.EnterpriseSpecificConfiguration
 		return configuration
 	case *PachdPreflightConfiguration:
+		configuration.GlobalConfiguration = &GlobalConfiguration{
+			PostgresConfiguration: v.PostgresConfiguration,
+		}
+		return configuration
+	case *PachdRestoreSnapshotConfiguration:
 		configuration.GlobalConfiguration = &GlobalConfiguration{
 			PostgresConfiguration: v.PostgresConfiguration,
 		}

@@ -3,13 +3,13 @@ package task
 import (
 	"context"
 	"fmt"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"math/rand"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"

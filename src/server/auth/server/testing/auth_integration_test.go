@@ -8,6 +8,7 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"io"
 	"path"
 	"strings"
@@ -45,17 +46,17 @@ func TestListDatum(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo
-	repoA := tu.UniqueString(t.Name())
+	repoA := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoA))
-	repoB := tu.UniqueString(t.Name())
+	repoB := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repoB))
 
 	// alice creates a pipeline
-	pipeline := tu.UniqueString("alice-pipeline")
+	pipeline := uuid.UniqueString("alice-pipeline")
 	input := client.NewCrossInput(
 		client.NewPFSInput(pfs.DefaultProjectName, repoA, "/*"),
 		client.NewPFSInput(pfs.DefaultProjectName, repoB, "/*"),
@@ -144,7 +145,7 @@ func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) 
 	// GetAuthenticatedPachClient will always re-activate auth, which
 	// causes PPS to rotate all the pipeline tokens. This makes the RCs
 	// change and recreates all the pods, which used to race with collecting logs.
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 	if projectName != "default" {
 		require.NoError(t, aliceClient.CreateProject(projectName))
@@ -226,9 +227,9 @@ func TestDebug(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions, minikubetestenv.EnableLokiOption)
 	tu.ActivateAuthClient(t, c)
-	for _, projectName := range []string{pfs.DefaultProjectName, tu.UniqueString("project")} {
+	for _, projectName := range []string{pfs.DefaultProjectName, uuid.UniqueString("project")} {
 		t.Run(projectName, func(t *testing.T) {
-			testDebug(t, c, projectName, tu.UniqueString("repo"))
+			testDebug(t, c, projectName, uuid.UniqueString("repo"))
 		})
 	}
 }
@@ -243,15 +244,15 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 	tu.ActivateAuthClient(t, c)
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
-	alice := tu.UniqueString("robot:alice")
+	alice := uuid.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
-	aliceRepo := tu.UniqueString("alice_repo")
+	aliceRepo := uuid.UniqueString("alice_repo")
 	err := aliceClient.CreateRepo(pfs.DefaultProjectName, aliceRepo)
 	require.NoError(t, err)
 
 	// create pipeline
-	alicePipeline := tu.UniqueString("pipeline_for_logs")
+	alicePipeline := uuid.UniqueString("pipeline_for_logs")
 	err = aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		alicePipeline,
 		"", // default image: DefaultUserImage
@@ -463,11 +464,11 @@ func TestPipelineRevoke(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
-	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
+	alice, bob := tu.Robot(uuid.UniqueString("alice")), tu.Robot(uuid.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
 
 	// alice creates a repo, and adds bob as a reader
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(aliceClient.Ctx(), pfs.DefaultProjectName, repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
@@ -475,7 +476,7 @@ func TestPipelineRevoke(t *testing.T) {
 	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 
 	// bob creates a pipeline
-	pipeline := tu.UniqueString("bob-pipeline")
+	pipeline := uuid.UniqueString("bob-pipeline")
 	require.NoError(t, bobClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
@@ -578,17 +579,17 @@ func TestDeleteRCInStandby(t *testing.T) {
 	}
 	c, ns := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	c = tu.AuthenticateClient(t, c, alice)
 
 	// Create input repo w/ initial commit
-	repo := tu.UniqueString(t.Name())
+	repo := uuid.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 	err := c.PutFile(client.NewCommit(pfs.DefaultProjectName, repo, "master", ""), "/file.1", strings.NewReader("1"))
 	require.NoError(t, err)
 
 	// Create pipeline
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := uuid.UniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
@@ -639,7 +640,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Deactivate auth
@@ -656,7 +657,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// alice creates a pipeline
-	pipeline1 := tu.UniqueString("cron1-")
+	pipeline1 := uuid.UniqueString("cron1-")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline1,
 		"",
@@ -667,7 +668,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 		"",
 		false,
 	))
-	pipeline2 := tu.UniqueString("cron2-")
+	pipeline2 := uuid.UniqueString("cron2-")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline2,
 		"",
@@ -728,16 +729,16 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestPipelinesRunAfterExpiration")
+	repo := uuid.UniqueString("TestPipelinesRunAfterExpiration")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
 
 	// alice creates a pipeline
-	pipeline := tu.UniqueString("alice-pipeline")
+	pipeline := uuid.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"", // default image: DefaultUserImage
@@ -755,7 +756,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	err = aliceClient.PutFile(commit, tu.UniqueString("/file1"),
+	err = aliceClient.PutFile(commit, uuid.UniqueString("/file1"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
@@ -795,7 +796,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make sure alice's pipeline still runs successfully
 	commit, err = rootClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	err = rootClient.PutFile(commit, tu.UniqueString("/file2"),
+	err = rootClient.PutFile(commit, uuid.UniqueString("/file2"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
@@ -816,12 +817,12 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	}
 	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// alice creates a pipeline
-	repo := tu.UniqueString("TestDeleteAllAfterDeactivate")
-	pipeline := tu.UniqueString("pipeline")
+	repo := uuid.UniqueString("TestDeleteAllAfterDeactivate")
+	pipeline := uuid.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,

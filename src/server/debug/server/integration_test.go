@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"testing"
 	"time"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -43,7 +43,7 @@ func TestDatabaseStats(t *testing.T) {
 		Key string `json:"key"`
 	}
 
-	repoName := testutil.UniqueString("TestDatabaseStats-repo")
+	repoName := uuid.UniqueString("TestDatabaseStats-repo")
 	branchName := "master"
 	numCommits := 100
 	buf := &bytes.Buffer{}

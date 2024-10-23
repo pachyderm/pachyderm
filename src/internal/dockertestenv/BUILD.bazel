@@ -25,6 +25,7 @@ go_library(
         "//src/internal/require",
         "//src/internal/testetcd",
         "//src/internal/testutil",
+        "//src/internal/uuid",
         "@com_github_aws_aws_sdk_go//aws",
         "@com_github_aws_aws_sdk_go//aws/credentials",
         "@com_github_aws_aws_sdk_go//aws/session",

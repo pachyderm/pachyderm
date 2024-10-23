@@ -23,6 +23,10 @@ message ClusterInfo {
   WebResource web_resources = 8;
   // Cluster-level metadata.
   map<string, string> metadata = 9;
+  // If true, the cluster is going to restart soon.
+  bool pending_restart = 10;
+  // Information about pending restarts.
+  string restart_info = 11;
 }
 
 message InspectClusterRequest {
@@ -44,6 +48,14 @@ message WebResource {
   string create_pipeline_request_json_schema_url = 2;
 }
 
+message RestartPachydermRequest {
+  // The reason that you're requesting a restart of the cluster.
+  string reason = 1;
+}
+message RestartPachydermResponse {}
+
 service API {
   rpc InspectCluster(InspectClusterRequest) returns (ClusterInfo) {}
+  // RestartPachyderm schedules this cluster to be restarted.
+  rpc RestartPachyderm(RestartPachydermRequest) returns (RestartPachydermResponse) {}
 }

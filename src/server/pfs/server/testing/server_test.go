@@ -360,32 +360,32 @@ func TestInvalidProject(t *testing.T) {
 		projectName string
 		errMatch    string // "" means no error
 	}{
-		{tu.UniqueString("my-PROJECT_0123456789"), ""},
+		{uuid.UniqueString("my-PROJECT_0123456789"), ""},
 		{"lenny", ""},
-		{tu.UniqueString("lenny123"), ""},
-		{tu.UniqueString("lenny_123"), ""},
-		{tu.UniqueString("lenny-123"), ""},
+		{uuid.UniqueString("lenny123"), ""},
+		{uuid.UniqueString("lenny_123"), ""},
+		{uuid.UniqueString("lenny-123"), ""},
 		// {tu.UniqueString("_project"), badFormatErr}, // Require CORE-1343
 		// {tu.UniqueString("project-"), badFormatErr},
 		{pfs.DefaultProjectName, "already exists"},
-		{tu.UniqueString("/repo"), badFormatErr},
-		{tu.UniqueString("lenny.123"), badFormatErr},
-		{tu.UniqueString("lenny:"), badFormatErr},
-		{tu.UniqueString("lenny,"), badFormatErr},
-		{tu.UniqueString("lenny#"), badFormatErr},
-		{tu.UniqueString("_lenny"), "must start with an alphanumeric character"},
-		{tu.UniqueString("-lenny"), "must start with an alphanumeric character"},
-		{tu.UniqueString("!project"), badFormatErr},
-		{tu.UniqueString("\""), badFormatErr},
-		{tu.UniqueString("\\"), badFormatErr},
-		{tu.UniqueString("'"), badFormatErr},
-		{tu.UniqueString("[]{}"), badFormatErr},
-		{tu.UniqueString("|"), badFormatErr},
-		{tu.UniqueString("new->project"), badFormatErr},
-		{tu.UniqueString("project?"), badFormatErr},
-		{tu.UniqueString("project:1"), badFormatErr},
-		{tu.UniqueString("project;"), badFormatErr},
-		{tu.UniqueString("project."), badFormatErr},
+		{uuid.UniqueString("/repo"), badFormatErr},
+		{uuid.UniqueString("lenny.123"), badFormatErr},
+		{uuid.UniqueString("lenny:"), badFormatErr},
+		{uuid.UniqueString("lenny,"), badFormatErr},
+		{uuid.UniqueString("lenny#"), badFormatErr},
+		{uuid.UniqueString("_lenny"), "must start with an alphanumeric character"},
+		{uuid.UniqueString("-lenny"), "must start with an alphanumeric character"},
+		{uuid.UniqueString("!project"), badFormatErr},
+		{uuid.UniqueString("\""), badFormatErr},
+		{uuid.UniqueString("\\"), badFormatErr},
+		{uuid.UniqueString("'"), badFormatErr},
+		{uuid.UniqueString("[]{}"), badFormatErr},
+		{uuid.UniqueString("|"), badFormatErr},
+		{uuid.UniqueString("new->project"), badFormatErr},
+		{uuid.UniqueString("project?"), badFormatErr},
+		{uuid.UniqueString("project:1"), badFormatErr},
+		{uuid.UniqueString("project;"), badFormatErr},
+		{uuid.UniqueString("project."), badFormatErr},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.projectName, func(t *testing.T) {
@@ -620,13 +620,13 @@ func TestCreateRepoWithSameNameAndAuthInDifferentProjects(t *testing.T) {
 	require.NoError(t, err)
 
 	// create two projects
-	project1 := tu.UniqueString("project")
-	project2 := tu.UniqueString("project")
+	project1 := uuid.UniqueString("project")
+	project2 := uuid.UniqueString("project")
 	require.NoError(t, client.CreateProject(project1))
 	require.NoError(t, client.CreateProject(project2))
 
 	// create repo with same name across both projects
-	repo := tu.UniqueString("repo")
+	repo := uuid.UniqueString("repo")
 	require.NoError(t, client.CreateRepo(project1, repo))
 	require.NoError(t, client.CreateRepo(project2, repo))
 
@@ -1414,8 +1414,8 @@ func TestDeleteRepos(t *testing.T) {
 	pachClient := pachd.NewTestPachd(t)
 	ctx := pachClient.Ctx()
 	var (
-		projectName          = tu.UniqueString("project")
-		untouchedProjectName = tu.UniqueString("project")
+		projectName          = uuid.UniqueString("project")
+		untouchedProjectName = uuid.UniqueString("project")
 		reposToDelete        = make(map[string]bool)
 		untouchedRepos       []*pfs.Repo
 	)
@@ -1456,7 +1456,7 @@ func TestDeleteRepos(t *testing.T) {
 
 	// DeleteRepos with an invalid project should not error because
 	// there will simply be no repos to delete.
-	resp, err := pachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: []*pfs.Project{{Name: tu.UniqueString("noexist")}}})
+	resp, err := pachClient.PfsAPIClient.DeleteRepos(ctx, &pfs.DeleteReposRequest{Projects: []*pfs.Project{{Name: uuid.UniqueString("noexist")}}})
 	require.NoError(t, err)
 	require.Len(t, resp.Repos, 0)
 
@@ -1568,9 +1568,9 @@ func TestInspectCommitWait(t *testing.T) {
 func TestDropCommitSet(t *testing.T) {
 	pachClient := pachd.NewTestPachd(t)
 
-	project := tu.UniqueString("prj")
+	project := uuid.UniqueString("prj")
 	require.NoError(t, pachClient.CreateProject(project))
-	repo := tu.UniqueString("test")
+	repo := uuid.UniqueString("test")
 	require.NoError(t, pachClient.CreateRepo(project, repo))
 
 	commit1, err := pachClient.StartCommit(project, repo, "master")
@@ -2969,7 +2969,7 @@ func TestRootDirectory(t *testing.T) {
 
 func TestDeleteFile(t *testing.T) {
 	pachClient := pachd.NewTestPachd(t)
-	project := tu.UniqueString("project")
+	project := uuid.UniqueString("project")
 	require.NoError(t, pachClient.CreateProject(project))
 	repo := "test"
 	require.NoError(t, pachClient.CreateRepo(project, repo))
@@ -3266,7 +3266,7 @@ func TestListCommit(t *testing.T) {
 
 func TestBranch2(t *testing.T) {
 	pachClient := pachd.NewTestPachd(t)
-	project := tu.UniqueString("project")
+	project := uuid.UniqueString("project")
 	require.NoError(t, pachClient.CreateProject(project))
 	repo := "test"
 	require.NoError(t, pachClient.CreateRepo(project, repo))
@@ -3334,7 +3334,7 @@ func TestDeleteNonexistentBranch(t *testing.T) {
 func TestSubscribeCommit(t *testing.T) {
 	pachClient := pachd.NewTestPachd(t)
 
-	project := tu.UniqueString("project")
+	project := uuid.UniqueString("project")
 	require.NoError(t, pachClient.CreateProject(project))
 
 	repo := "test"
@@ -3443,7 +3443,7 @@ func TestInspectRepoComplex(t *testing.T) {
 func TestGetFile(t *testing.T) {
 	pachClient := pachd.NewTestPachd(t)
 
-	repo := tu.UniqueString("test")
+	repo := uuid.UniqueString("test")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repo))
 	commit, err := pachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
@@ -3969,7 +3969,7 @@ func TestGlobFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	project := tu.UniqueString("prj-")
+	project := uuid.UniqueString("prj-")
 	require.NoError(t, pachClient.CreateProject(project))
 
 	repo := "test"
@@ -4436,7 +4436,7 @@ func TestPropagateBranchNever(t *testing.T) {
 	// Create a diamond shaped DAG.
 	var branches []*pfs.Branch
 	for i := 0; i < 4; i++ {
-		repo := tu.UniqueString("PropagateBranchNever")
+		repo := uuid.UniqueString("PropagateBranchNever")
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 		branches = append(branches, client.NewBranch(pfs.DefaultProjectName, repo, "master"))
 	}
@@ -5087,7 +5087,7 @@ func TestSquashCommitSetMultipleChildrenSingleCommit(t *testing.T) {
 // if appropriate
 func TestSquashCommitSetMultiLevelChildrenSimple(t *testing.T) {
 	pachClient := pachd.NewTestPachd(t)
-	project := tu.UniqueString("prj-")
+	project := uuid.UniqueString("prj-")
 	require.NoError(t, pachClient.CreateProject(project))
 	// Create main repo (will have the commit graphs above)
 	require.NoError(t, pachClient.CreateRepo(project, "repo"))
@@ -5379,11 +5379,11 @@ func TestSquashAndDropCommit(t *testing.T) {
 	pachClient := pachd.NewTestPachd(t)
 	ctx := pachClient.Ctx()
 	// Create three repos where one is provenant on the other two.
-	upstream1 := tu.UniqueString("upstream-1")
+	upstream1 := uuid.UniqueString("upstream-1")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, upstream1))
-	upstream2 := tu.UniqueString("upstream-2")
+	upstream2 := uuid.UniqueString("upstream-2")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, upstream2))
-	downstream := tu.UniqueString("downstream")
+	downstream := uuid.UniqueString("downstream")
 	require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, downstream))
 	require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, downstream, "master", "", "", []*pfs.Branch{
 		client.NewBranch(pfs.DefaultProjectName, upstream1, "master"),
@@ -5464,8 +5464,8 @@ func TestSquashAndDropCommit(t *testing.T) {
 	t.Run("Complex", func(t *testing.T) {
 		// Create two more downstream repos, each provenant on the original downstream repo.
 		for _, repoName := range []string{
-			tu.UniqueString("downstream-1"),
-			tu.UniqueString("downstream-2"),
+			uuid.UniqueString("downstream-1"),
+			uuid.UniqueString("downstream-2"),
 		} {
 			require.NoError(t, pachClient.CreateRepo(pfs.DefaultProjectName, repoName))
 			require.NoError(t, pachClient.CreateBranch(pfs.DefaultProjectName, repoName, "master", "", "", []*pfs.Branch{
@@ -6262,7 +6262,7 @@ func TestTrigger(t *testing.T) {
 
 	t.Run("Cron", func(t *testing.T) {
 		t.Parallel()
-		repo := tu.UniqueString("Cron")
+		repo := uuid.UniqueString("Cron")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
@@ -6297,7 +6297,7 @@ func TestTrigger(t *testing.T) {
 
 	t.Run("CronUpdate", func(t *testing.T) {
 		t.Parallel()
-		repo := tu.UniqueString("CronUpdate")
+		repo := uuid.UniqueString("CronUpdate")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		// Create the initial trigger for every minute, then update it to every January.
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
@@ -6332,7 +6332,7 @@ func TestTrigger(t *testing.T) {
 
 	t.Run("Count1", func(t *testing.T) {
 		t.Parallel()
-		repo := tu.UniqueString("count")
+		repo := uuid.UniqueString("count")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
@@ -6363,7 +6363,7 @@ func TestTrigger(t *testing.T) {
 
 	t.Run("Count2", func(t *testing.T) {
 		t.Parallel()
-		repo := tu.UniqueString("count")
+		repo := uuid.UniqueString("count")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
@@ -6414,7 +6414,7 @@ func TestTrigger(t *testing.T) {
 
 	t.Run("Count3", func(t *testing.T) {
 		t.Parallel()
-		repo := tu.UniqueString("count")
+		repo := uuid.UniqueString("count")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
@@ -6466,7 +6466,7 @@ func TestTrigger(t *testing.T) {
 	// Or tests that a trigger fires when any of its conditions are met.
 	t.Run("Or", func(t *testing.T) {
 		t.Parallel()
-		repo := tu.UniqueString("Or")
+		repo := uuid.UniqueString("Or")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
@@ -6544,7 +6544,7 @@ func TestTrigger(t *testing.T) {
 
 	t.Run("And", func(t *testing.T) {
 		t.Parallel()
-		repo := tu.UniqueString("And")
+		repo := uuid.UniqueString("And")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
@@ -6742,7 +6742,7 @@ func TestTrigger(t *testing.T) {
 		t.Parallel()
 		// Note that currently, moving the triggering branch doesn't activate trigger logic.
 		// This test is actually ensuring the current behavior, which is that the trigger doesn't get fired.
-		repo := tu.UniqueString("branch-movement")
+		repo := uuid.UniqueString("branch-movement")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "a", "", "", nil))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "b", "", "", nil))
@@ -7329,7 +7329,7 @@ func TestDeleteRepo(t *testing.T) {
 
 	pachClient := pachd.NewTestPachd(t)
 	c := pachClient
-	dataRepo := tu.UniqueString("TestDeleteSpecRepo_data")
+	dataRepo := uuid.UniqueString("TestDeleteSpecRepo_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 	res, err := c.PfsAPIClient.DeleteRepo(
@@ -7639,7 +7639,7 @@ func TestManyFilesSingleCommit(t *testing.T) {
 	c := pachd.NewTestPachd(t)
 
 	// create repos
-	dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
+	dataRepo := uuid.UniqueString("TestManyFilesSingleCommit_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 
@@ -7668,7 +7668,7 @@ func TestCommitDescription(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	dataRepo := tu.UniqueString("TestCommitDescription")
+	dataRepo := uuid.UniqueString("TestCommitDescription")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 	// Test putting a message in StartCommit

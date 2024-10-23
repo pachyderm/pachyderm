@@ -6,6 +6,7 @@ package serviceenv
 import (
 	"context"
 	"fmt"
+	pjs_server "github.com/pachyderm/pachyderm/v2/src/pjs"
 	"math"
 	"net"
 	"net/http"
@@ -58,11 +59,13 @@ type ServiceEnv interface {
 	IdentityServer() identity.APIServer
 	PfsServer() pfs_server.APIServer
 	PpsServer() pps_server.APIServer
+	PjsServer() pjs_server.APIServer
 	EnterpriseServer() enterprise_server.APIServer
 	SetAuthServer(auth_server.APIServer)
 	SetIdentityServer(identity.APIServer)
 	SetPfsServer(pfs_server.APIServer)
 	SetPpsServer(pps_server.APIServer)
+	SetPjsServer(s pjs_server.APIServer)
 	SetEnterpriseServer(enterprise_server.APIServer)
 	SetKubeClient(kube.Interface)
 	SetDynamicKubeClient(dynamic.Interface)
@@ -142,6 +145,7 @@ type NonblockingServiceEnv struct {
 	identityServer   identity.APIServer
 	ppsServer        pps_server.APIServer
 	pfsServer        pfs_server.APIServer
+	pjsServer        pjs_server.APIServer
 	enterpriseServer enterprise_server.APIServer
 
 	// ctx is the background context for the environment that will be canceled
@@ -615,6 +619,16 @@ func (env *NonblockingServiceEnv) SetPpsServer(s pps_server.APIServer) {
 // PfsServer returns the registered PFS APIServer
 func (env *NonblockingServiceEnv) PfsServer() pfs_server.APIServer {
 	return env.pfsServer
+}
+
+// SetPjsServer registers a Pps APIServer with this service env
+func (env *NonblockingServiceEnv) SetPjsServer(s pjs_server.APIServer) {
+	env.pjsServer = s
+}
+
+// PjsServer returns the registered PFS APIServer
+func (env *NonblockingServiceEnv) PjsServer() pjs_server.APIServer {
+	return env.pjsServer
 }
 
 // SetPfsServer registers a Pfs APIServer with this service env

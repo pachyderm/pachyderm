@@ -51,7 +51,7 @@ go_test(
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/testpachd/realenv",
-        "//src/internal/testutil",
+        "//src/internal/uuid",
         "//src/pfs",
         "@com_github_minio_minio_go_v6//:minio-go",
     ],

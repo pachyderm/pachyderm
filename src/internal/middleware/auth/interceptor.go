@@ -25,7 +25,8 @@ var authHandlers = map[string]authHandler{
 	//
 
 	// Allow InspectCluster to succeed before a user logs in
-	"/admin_v2.API/InspectCluster": unauthenticated,
+	"/admin_v2.API/InspectCluster":   unauthenticated,
+	"/admin_v2.API/RestartPachyderm": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_RESTART_PACHYDERM)),
 
 	//
 	// Auth API

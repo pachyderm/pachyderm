@@ -5,6 +5,7 @@ package testing
 import (
 	"bytes"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"strings"
 	"testing"
 
@@ -18,8 +19,8 @@ import (
 
 func TestCreatePipelineTransaction(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
-	repo := testutil.UniqueString("in")
-	pipeline := testutil.UniqueString("pipeline")
+	repo := uuid.UniqueString("in")
+	pipeline := uuid.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, txnClient.CreatePipeline(pfs.DefaultProjectName,
@@ -49,8 +50,8 @@ func TestCreatePipelineTransaction(t *testing.T) {
 
 func TestCreateProjectlessPipelineTransaction(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
-	repo := testutil.UniqueString("in")
-	pipeline := testutil.UniqueString("pipeline")
+	repo := uuid.UniqueString("in")
+	pipeline := uuid.UniqueString("pipeline")
 	_, err := c.ExecuteInTransaction(func(txnClient *client.APIClient) error {
 		require.NoError(t, txnClient.CreateRepo(pfs.DefaultProjectName, repo))
 		_, err := txnClient.PpsAPIClient.CreatePipeline(txnClient.Ctx(),

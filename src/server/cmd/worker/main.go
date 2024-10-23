@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
+	"runtime"
 	"time"
 
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
@@ -21,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/restart"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -36,6 +40,12 @@ import (
 func main() {
 	log.InitWorkerLogger()
 	ctx := pctx.Child(pctx.Background(""), "", pctx.WithFields(pps.WorkerIDField(os.Getenv(client.PPSPodNameEnv))))
+	if len(os.Args) == 2 && os.Args[1] == "version" {
+		fmt.Println(runtime.GOARCH)
+		fmt.Println(runtime.GOOS)
+		fmt.Println(version.PrettyPrintVersion(version.Version))
+		os.Exit(0)
+	}
 	go log.WatchDroppedLogs(ctx, time.Minute)
 	go proc.MonitorSelf(ctx)
 	log.Debug(ctx, "version info", log.Proto("versionInfo", version.Version))
@@ -52,6 +62,17 @@ func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 
 	// Enable cloud profilers if the configuration allows.
 	profileutil.StartCloudProfiler(ctx, "pachyderm-worker", env.Config())
+
+	// Enable restart watcher.
+	r, err := restart.New(ctx, env.GetDBClient(), env.GetPostgresListener())
+	if err != nil {
+		return errors.Wrap(err, "restart.New")
+	}
+	go func() {
+		if err := r.RestartWhenRequired(ctx); err != nil {
+			log.Error(ctx, "restart notifier failed", zap.Error(err))
+		}
+	}()
 
 	// Construct a client that connects to the sidecar.
 	pachClient := env.GetPachClient(ctx)

@@ -93,6 +93,7 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.initJaeger,
 		pachwb.initKube,
 		pachwb.waitForDBState,
+		pachwb.restartOnSignal,
 		pachwb.initInternalServer,
 		pachwb.registerEnterpriseServer,
 		pachwb.registerAuthServer,

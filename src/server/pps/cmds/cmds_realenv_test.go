@@ -3,6 +3,8 @@ package cmds
 import (
 	"bytes"
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"os"
 	"strings"
 	"testing"
@@ -15,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -65,7 +66,7 @@ func TestSynonyms(t *testing.T) {
 		for _, verb := range verbs {
 			synonymCommand := strings.ReplaceAll(withResources, "{{VERB}}", verb)
 			t.Logf("Testing %s %s -h\n", verb, resource)
-			require.NoError(t, tu.BashCmd(synonymCommand).Run())
+			require.NoError(t, testutilpachctl.BashCmd(synonymCommand).Run())
 		}
 	}
 }
@@ -95,7 +96,7 @@ func TestSynonymsDocs(t *testing.T) {
 		synonymCommand := strings.ReplaceAll(withResource, "{{RESOURCE_SYNONYM}}", synonyms[resource])
 
 		t.Logf("Testing %s -h\n", resource)
-		require.NoError(t, tu.BashCmd(synonymCommand).Run())
+		require.NoError(t, testutilpachctl.BashCmd(synonymCommand).Run())
 	}
 }
 
@@ -133,7 +134,7 @@ func TestListDatumFromFile(t *testing.T) {
 		}, nil
 	})
 
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, env.PachClient, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, env.PachClient, `
 		pachctl create project {{.project}}
 		pachctl config update context --project {{.project}}
 		pachctl create repo {{.repo1}}
@@ -185,7 +186,7 @@ func TestInspectClusterDefaults(t *testing.T) {
 			WarningsOk:   true,
 		}, nil
 	})
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, env.PachClient, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, env.PachClient, `
 		pachctl inspect defaults --cluster | match '{.*}'
 	`,
 	).Run())
@@ -201,7 +202,7 @@ func TestCreateClusterDefaults(t *testing.T) {
 			WarningsOk:   true,
 		}, nil
 	})
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, env.PachClient, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, env.PachClient, `
 		pachctl inspect defaults --cluster | match '{.*}'
 		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster -f - || exit 1
 		pachctl inspect defaults --cluster | match '{"create_pipeline_request":{"autoscaling":false}}'
@@ -219,7 +220,7 @@ func TestDeleteClusterDefaults(t *testing.T) {
 			WarningsOk:   true,
 		}, nil
 	})
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, env.PachClient, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, env.PachClient, `
 		pachctl inspect defaults --cluster | match '{.*}'
 		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster -f - || exit 1
 		pachctl inspect defaults --cluster | match '{"create_pipeline_request":{"autoscaling":false}}'
@@ -239,7 +240,7 @@ func TestUpdateClusterDefaults(t *testing.T) {
 			WarningsOk:   true,
 		}, nil
 	})
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, env.PachClient, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, env.PachClient, `
 		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster -f - || exit 1
 		pachctl inspect defaults --cluster | match '{"create_pipeline_request":{"autoscaling":false}}'
 		echo '{"create_pipeline_request": {"datum_tries": "4"}}' | pachctl update defaults --cluster -f - || exit 1
@@ -269,7 +270,7 @@ const badJSON2 = `{
 func TestSyntaxErrorsReportedCreatePipeline(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t)
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		echo -n '{{.badJSON1}}' \
 		  | ( pachctl create pipeline -f - 2>&1 || true ) \
 		  | match "malformed pipeline spec"
@@ -286,7 +287,7 @@ func TestSyntaxErrorsReportedCreatePipeline(t *testing.T) {
 func TestSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t)
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		echo -n '{{.badJSON1}}' \
 		  | ( pachctl update pipeline -f - 2>&1 || true ) \
 		  | match "malformed pipeline spec"
@@ -305,7 +306,7 @@ func TestDeletePipeline(t *testing.T) {
 	c := pachd.NewTestPachd(t)
 	pipelineName := tu.UniqueString("p-")
 	projectName := tu.UniqueString("proj")
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/file <<<"This is a test"
 		pachctl create pipeline <<EOF
@@ -377,16 +378,16 @@ func TestDeletePipeline(t *testing.T) {
 	).Run())
 	// Deleting the first default project pipeline should not error, leaving
 	// three remaining.
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl delete pipeline {{.pipeline}}`, "pipeline", pipelineName).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl delete pipeline {{.pipeline}}`, "pipeline", pipelineName).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		if [ $(pachctl list pipeline --raw --all-projects | grep '"transform"' | wc -l) -ne 3 ]
 		then
 			exit 1
 		fi
 	`).Run())
 	// Deleting all in the default project should delete one pipeline, leaving two.
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl delete pipeline --all`).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl delete pipeline --all`).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		if [ $(pachctl list pipeline --raw --all-projects | grep '"transform"' | wc -l) -ne 2 ]
 		then
 			exit 1
@@ -394,19 +395,19 @@ func TestDeletePipeline(t *testing.T) {
 	`).Run())
 	// Deleting the first non-default project pipeline should not error, leaving
 	// one remaining.
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl delete pipeline {{.pipeline}} --project {{.project}}`,
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl delete pipeline {{.pipeline}} --project {{.project}}`,
 		"pipeline", pipelineName,
 		"project", projectName,
 	).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		if [ $(pachctl list pipeline --raw --all-projects | grep '"transform"' | wc -l) -ne 1 ]
 		then
 			exit 1
 		fi
 	`).Run())
 	// Deleting all in all projects should delete one pipeline, leaving two.
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl delete pipeline --all --all-projects`).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl delete pipeline --all --all-projects`).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		if [ $(pachctl list pipeline --raw --all-projects | grep '"transform"' | wc -l) -ne 0 ]
 		then
 			exit 1
@@ -427,7 +428,7 @@ func TestYAMLError(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t)
 	// "cmd" should be a list, instead of a string
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo input
 		( pachctl create pipeline -f - 2>&1 <<EOF || true
 		pipeline:
@@ -453,7 +454,7 @@ func TestYAMLTimestamp(t *testing.T) {
 	c := pachd.NewTestPachd(t)
 	// Note that BashCmd dedents all lines below including the YAML (which
 	// wouldn't parse otherwise)
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		# If the pipeline comes up without error, then the YAML parsed
 		pachctl create pipeline -f - <<EOF
 		  pipeline:
@@ -476,7 +477,7 @@ func TestYAMLTimestamp(t *testing.T) {
 func TestEditPipeline(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t)
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo data
 		pachctl create pipeline <<EOF
 		  pipeline:
@@ -491,7 +492,7 @@ func TestEditPipeline(t *testing.T) {
 		      - "cp /pfs/data/* /pfs/out"
 		EOF
 		`).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		EDITOR="cat -u" pachctl edit pipeline my-pipeline -o yaml \
 		| match 'name: my-pipeline' \
 		| match 'repo: data' \
@@ -499,9 +500,9 @@ func TestEditPipeline(t *testing.T) {
 		| match 'cp /pfs/data/\* /pfs/out'
 		`).Run())
 	// changing the pipeline name should be an error
-	require.YesError(t, tu.PachctlBashCmdCtx(ctx, t, c, `EDITOR="sed -i -e s/my-pipeline/my-pipeline2/" pachctl edit pipeline my-pipeline -o yaml`).Run())
+	require.YesError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `EDITOR="sed -i -e s/my-pipeline/my-pipeline2/" pachctl edit pipeline my-pipeline -o yaml`).Run())
 	// changing the project name should be an error
-	require.YesError(t, tu.PachctlBashCmdCtx(ctx, t, c, `EDITOR="sed -i -e s/default/default2/" pachctl edit pipeline my-pipeline -o yaml`).Run())
+	require.YesError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `EDITOR="sed -i -e s/default/default2/" pachctl edit pipeline my-pipeline -o yaml`).Run())
 
 }
 
@@ -509,7 +510,7 @@ func TestMissingPipeline(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t)
 	// should fail because there's no pipeline object in the spec
-	require.YesError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.YesError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create pipeline <<EOF
 		  {
 		    "transform": {
@@ -530,7 +531,7 @@ func TestUnnamedPipeline(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t)
 	// should fail because there's no pipeline name
-	require.YesError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.YesError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create pipeline <<EOF
 		  {
 		    "pipeline": {},
@@ -551,13 +552,13 @@ func TestUnnamedPipeline(t *testing.T) {
 func runPipelineWithImageGetStderr(t *testing.T, c *client.APIClient, image string) (string, error) {
 	ctx := pctx.TestContext(t)
 	// reset and create some test input
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo in
 		echo "foo" | pachctl put file in@master:/file1
 		echo "bar" | pachctl put file in@master:/file2
 	`).Run())
 
-	cmd := tu.PachctlBashCmdCtx(ctx, t, c, `
+	cmd := testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create pipeline <<EOF
 		  {
 		    "pipeline": {
@@ -613,7 +614,7 @@ func TestNoWarningTagSpecified(t *testing.T) {
 func TestJsonnetPipelineTemplateError(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t)
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/foo <<<"foo-data"
 		# expect 'create pipeline' to fail, but still run 'match'
@@ -654,7 +655,7 @@ func TestJsonnetPipelineTemplateError(t *testing.T) {
 func TestPipelineWithoutSecrets(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t)
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		(
 		set +e +o pipefail
 		pachctl create repo data
@@ -693,7 +694,7 @@ func TestPipelineWithMissingSecret(t *testing.T) {
 		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		(
 		set +e +o pipefail
 		pachctl create repo data
@@ -732,7 +733,7 @@ func TestPipelineWithSecret(t *testing.T) {
 		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err)
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create project myProject
 		pachctl create repo data --project myProject
 		pachctl create pipeline --project myProject 2>&1 <<EOF
@@ -758,7 +759,7 @@ func TestProjectDefaultsMetadata(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	rootClient := pachd.NewTestPachd(t, pachd.ActivateAuthOption(""))
 	projectName := tu.UniqueString("proj")
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, rootClient, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, rootClient, `
 		pachctl create project {{.projectName}}
 		echo '{"createPipelineRequest": {"autoscaling": true}}' | pachctl create defaults --project {{.projectName}}
 		pachctl inspect defaults --project {{.projectName}} --raw | match '"createdBy":"pach:root"'

@@ -2,6 +2,7 @@ package serviceenv
 
 import (
 	"context"
+	pjs_server "github.com/pachyderm/pachyderm/v2/src/pjs"
 
 	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -48,6 +49,9 @@ type TestServiceEnv struct {
 
 	// Pfs is the registered pfs APIServer
 	Pfs pfs_server.APIServer
+
+	// Pjs is the registered pjs APIServer
+	Pjs pjs_server.APIServer
 
 	// Enterprise is the registered pfs APIServer
 	Enterprise enterprise_server.APIServer
@@ -143,6 +147,9 @@ func (env *TestServiceEnv) PfsServer() pfs_server.APIServer {
 	return env.Pfs
 }
 
+// PjsServer returns the registered PJS APIServer
+func (env *TestServiceEnv) PjsServer() pjs_server.APIServer { return env.Pjs }
+
 // SetAuthServer returns the registered Auth APIServer
 func (env *TestServiceEnv) SetAuthServer(s auth_server.APIServer) {
 	env.Auth = s
@@ -161,6 +168,11 @@ func (env *TestServiceEnv) SetPpsServer(s pps_server.APIServer) {
 // SetPfsServer returns the registered PFS APIServer
 func (env *TestServiceEnv) SetPfsServer(s pfs_server.APIServer) {
 	env.Pfs = s
+}
+
+// SetPjsServer registers a Pjs APIServer with this service env
+func (env *TestServiceEnv) SetPjsServer(s pjs_server.APIServer) {
+	env.Pjs = s
 }
 
 // EnterpriseServer returns the registered Enterprise APIServer

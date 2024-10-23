@@ -100,6 +100,10 @@ func (m *ClusterInfo) validate(all bool) error {
 
 	// no validation rules for Metadata
 
+	// no validation rules for PendingRestart
+
+	// no validation rules for RestartInfo
+
 	if len(errors) > 0 {
 		return ClusterInfoMultiError(errors)
 	}
@@ -439,3 +443,209 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = WebResourceValidationError{}
+
+// Validate checks the field values on RestartPachydermRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *RestartPachydermRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RestartPachydermRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RestartPachydermRequestMultiError, or nil if none found.
+func (m *RestartPachydermRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RestartPachydermRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Reason
+
+	if len(errors) > 0 {
+		return RestartPachydermRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// RestartPachydermRequestMultiError is an error wrapping multiple validation
+// errors returned by RestartPachydermRequest.ValidateAll() if the designated
+// constraints aren't met.
+type RestartPachydermRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RestartPachydermRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RestartPachydermRequestMultiError) AllErrors() []error { return m }
+
+// RestartPachydermRequestValidationError is the validation error returned by
+// RestartPachydermRequest.Validate if the designated constraints aren't met.
+type RestartPachydermRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RestartPachydermRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RestartPachydermRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RestartPachydermRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RestartPachydermRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RestartPachydermRequestValidationError) ErrorName() string {
+	return "RestartPachydermRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RestartPachydermRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRestartPachydermRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RestartPachydermRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RestartPachydermRequestValidationError{}
+
+// Validate checks the field values on RestartPachydermResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *RestartPachydermResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RestartPachydermResponse with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RestartPachydermResponseMultiError, or nil if none found.
+func (m *RestartPachydermResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RestartPachydermResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if len(errors) > 0 {
+		return RestartPachydermResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// RestartPachydermResponseMultiError is an error wrapping multiple validation
+// errors returned by RestartPachydermResponse.ValidateAll() if the designated
+// constraints aren't met.
+type RestartPachydermResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RestartPachydermResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RestartPachydermResponseMultiError) AllErrors() []error { return m }
+
+// RestartPachydermResponseValidationError is the validation error returned by
+// RestartPachydermResponse.Validate if the designated constraints aren't met.
+type RestartPachydermResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RestartPachydermResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RestartPachydermResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RestartPachydermResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RestartPachydermResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RestartPachydermResponseValidationError) ErrorName() string {
+	return "RestartPachydermResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RestartPachydermResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRestartPachydermResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RestartPachydermResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RestartPachydermResponseValidationError{}

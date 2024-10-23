@@ -24,6 +24,7 @@ var (
 	gobin             = flag.String("go", "", "the path to the go (compiler) binary")
 	appVersion        = flag.String("app_version", "", "the app version of the build")
 	additionalVersion = flag.String("additional_version", "", "the additional version of the build")
+	goenv             = flag.String("goenv", "", "GOARCH/GOOS variables")
 )
 
 func resolve(dir string, out string) error {
@@ -97,7 +98,7 @@ func main() {
 	}()
 	ldflags := fmt.Sprintf("-X %s=%s -X %s=%s", "github.com/pachyderm/pachyderm/v2/src/version.AppVersion", *appVersion, "github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion", *additionalVersion)
 	cmd := exec.Command(*gobin, "build", "-o", *out, "-cover", "-ldflags", ldflags, "-coverpkg=github.com/pachyderm/pachyderm/v2/...", "-covermode=atomic", *target)
-	cmd.Env = []string{"GOPATH=" + filepath.Join(resolvedGopath, *gopath), "GO111MODULE=off", "GOCACHE=" + gocache}
+	cmd.Env = []string{"CGO_ENABLED=0", *goenv, "GOOS=linux", "GOPATH=" + filepath.Join(resolvedGopath, *gopath), "GO111MODULE=off", "GOCACHE=" + gocache}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
