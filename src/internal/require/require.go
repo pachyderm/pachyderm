@@ -1,7 +1,6 @@
 // Package require implements test assertions.
 package require
 
-//nolint:printf
 import (
 	"context"
 	"reflect"
