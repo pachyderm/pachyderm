@@ -91,7 +91,7 @@ func (a *APIServer) DeleteSnapshot(ctx context.Context, req *snapshotpb.DeleteSn
 		Storage: a.Store,
 	}
 	if err := s.DropSnapshot(ctx, SnapshotID(req.GetId())); err != nil {
-		return nil, status.Errorf(codes.Unknown, "drop snapshot: %v", err)
+		return nil, errors.Wrap(err, "drop snapshot")
 	}
 	return ret, nil
 }

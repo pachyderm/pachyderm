@@ -461,7 +461,7 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 // be garbage collected.
 func (s *Snapshotter) DropSnapshot(ctx context.Context, id SnapshotID) error {
 	if err := dbutil.WithTx(ctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		row, err := snapshotdb.GetSnapshot(ctx, tx, int64(id))
+		row, internal, err := snapshotdb.GetSnapshot(ctx, tx, int64(id))
 		if err != nil {
 			return errors.Wrap(err, "get snapshot")
 		}
@@ -473,9 +473,9 @@ func (s *Snapshotter) DropSnapshot(ctx context.Context, id SnapshotID) error {
 				return errors.Wrapf(err, "drop chunkset %v", cid)
 			}
 		}
-		if pid := row.GetSqlDumpFilesetPinId(); pid > 0 {
-			if err := s.Storage.DeletePinTx(ctx, tx, fileset.Pin(pid)); err != nil {
-				return errors.Wrapf(err, "drop pin %v", pid)
+		if pin := internal.SQLDumpPin; pin > 0 {
+			if err := s.Storage.DeletePinTx(ctx, tx, pin); err != nil {
+				return errors.Wrapf(err, "drop pin %v", pin)
 			}
 		}
 		return nil
