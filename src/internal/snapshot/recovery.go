@@ -358,12 +358,13 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 	var snap *snapshot.SnapshotInfo
 	var handle *fileset.Handle
 	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		var info *snapshotdb.InternalSnapshotInfo
 		var err error
-		snap, err = snapshotdb.GetSnapshot(ctx, tx, int64(id))
+		snap, info, err = snapshotdb.GetSnapshot(ctx, tx, int64(id))
 		if err != nil {
 			return errors.Wrap(err, "get snapshot row")
 		}
-		handle, err = s.Storage.GetPinHandleTx(ctx, tx, fileset.Pin(snap.GetSqlDumpFilesetPinId()), time.Hour)
+		handle, err = s.Storage.GetPinHandleTx(ctx, tx, info.SQLDumpPin, time.Hour)
 		if err != nil {
 			return errors.Wrap(err, "get dump fileset from pin")
 		}

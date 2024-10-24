@@ -116,14 +116,14 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 
 	// Check that we can read the snapshot we just made.
 	var got *snapshot.SnapshotInfo
+	var gotInternal *snapshotdb.InternalSnapshotInfo
 	want := new(snapshot.SnapshotInfo)
 	want.Id = int64(snapID)
 	want.ChunksetId = 1
 	want.PachydermVersion = "v0.0.0"
-	want.SqlDumpFilesetPinId = 1
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
-		got, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
+		got, gotInternal, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
 		if err != nil {
 			return errors.Wrap(err, "GetSnapshot")
 		}
@@ -136,16 +136,16 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		t.Errorf("snapshot row (-want +got):\n%s", diff)
 	}
 	// Validate the database dump fileset we created in CreateSnapshot.
-	validateDumpFileset(ctx, t, db, storage, fileset.Pin(got.GetSqlDumpFilesetPinId()))
+	validateDumpFileset(ctx, t, db, storage, gotInternal.SQLDumpPin)
 
 	// Restore the snapshot.
 	if err := s.RestoreSnapshot(ctx, snapID, RestoreSnapshotOptions{}); err != nil {
 		t.Errorf("snapshot not restorable: %v", err)
 	}
-	got = nil
+	got, gotInternal = nil, nil
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
-		got, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
+		got, gotInternal, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
 		if err != nil {
 			return errors.Wrap(err, "GetSnapshot (after restore)")
 		}
@@ -154,7 +154,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		t.Fatalf("WithTx: %v", err)
 	}
 	// Validate the database backup fileset created during restoration.
-	validateDumpFileset(ctx, t, db, storage, fileset.Pin(got.GetSqlDumpFilesetPinId()))
+	validateDumpFileset(ctx, t, db, storage, gotInternal.SQLDumpPin)
 
 	// Drop the chunkset that's keeping the backed up chunks alive (if the restore failed), just
 	// to make sure that it's the original references that are keeping the backed up filesets

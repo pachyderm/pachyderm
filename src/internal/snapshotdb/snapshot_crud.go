@@ -38,18 +38,18 @@ func CreateSnapshot(ctx context.Context, tx *pachsql.Tx, s *fileset.Storage, met
 	return int64(id), nil
 }
 
-func GetSnapshot(ctx context.Context, tx *pachsql.Tx, id int64) (*snapshotpb.SnapshotInfo, error) {
+func GetSnapshot(ctx context.Context, tx *pachsql.Tx, id int64) (*snapshotpb.SnapshotInfo, *InternalSnapshotInfo, error) {
 	record := snapshotRecord{}
 	err := sqlx.GetContext(ctx, tx, &record, selectSnapshotPrefix+`
 	WHERE recovery.snapshots.id = $1`, snapshotID(id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, &SnapshotNotFoundError{ID: id}
+			return nil, nil, &SnapshotNotFoundError{ID: id}
 		}
-		return nil, errors.Wrap(err, "get snapshot row")
+		return nil, nil, errors.Wrap(err, "get snapshot row")
 	}
 	st := record.toSnapshot()
-	return st.toSnapshotInfo(), nil
+	return st.toSnapshotInfo(), st.toInteralSnapshotInfo(), nil
 }
 
 func ListSnapshot(ctx context.Context, tx *pachsql.Tx, since time.Time, limit int32) ([]*snapshotpb.SnapshotInfo, error) {

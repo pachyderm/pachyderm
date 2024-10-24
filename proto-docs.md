@@ -11433,7 +11433,6 @@ WellKnownRegex contain some well-known patterns.
 | id | [int64](#int64) |  |  |
 | metadata | [SnapshotInfo.MetadataEntry](#snapshot-SnapshotInfo-MetadataEntry) | repeated |  |
 | chunkset_id | [int64](#int64) |  |  |
-| sql_dump_fileset_pin_id | [int64](#int64) |  |  |
 | pachyderm_version | [string](#string) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 

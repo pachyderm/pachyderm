@@ -12893,10 +12893,6 @@
           "type": "string",
           "format": "int64"
         },
-        "sqlDumpFilesetPinId": {
-          "type": "string",
-          "format": "int64"
-        },
         "pachydermVersion": {
           "type": "string"
         },

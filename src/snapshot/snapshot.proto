@@ -30,9 +30,8 @@ message SnapshotInfo {
   int64 id = 1;
   map <string, string> metadata = 2;
   int64 chunkset_id = 3;
-  int64 sql_dump_fileset_pin_id = 4;
-  string pachyderm_version = 5;
-  google.protobuf.Timestamp created_at = 6;
+  string pachyderm_version = 4;
+  google.protobuf.Timestamp created_at = 5;
 }
 
 message InspectSnapshotRequest {

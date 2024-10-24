@@ -27,9 +27,6 @@
                 "chunksetId": {
                     "type": "integer"
                 },
-                "sqlDumpFilesetPinId": {
-                    "type": "integer"
-                },
                 "pachydermVersion": {
                     "type": "string"
                 },
