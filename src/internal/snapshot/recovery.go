@@ -416,7 +416,11 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 		return errors.Wrapf(err, "iterate over sql dump fileset")
 	}
 	defer func() {
-		if err := os.Remove(fh.Name()); err != nil {
+		name := fh.Name()
+		if err := fh.Close(); err != nil {
+			errors.JoinInto(&retErr, errors.Wrap(err, "close database dump tmp file"))
+		}
+		if err := os.Remove(name); err != nil {
 			errors.JoinInto(&retErr, errors.Wrap(err, "cleanup database dump tmp file"))
 		}
 	}()
