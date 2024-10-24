@@ -88,9 +88,6 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs []stri
 	for pkg, tests := range testsForShard {
 		threadLocalPkg := pkg
 		threadLocalTests := tests
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
 		eg.Go(func() error {
 			return errors.EnsureStack(runTest(threadLocalPkg, threadLocalTests, tags, gotestsumArgs, gotestArgs))
 		})

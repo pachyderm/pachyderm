@@ -112,7 +112,7 @@ func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp
 	// Allow request to override expiration in the activation code, for testing
 	if req.Expires != nil {
 		customExpiration := req.Expires.AsTime()
-		if err == nil && expiration.After(customExpiration) {
+		if expiration.After(customExpiration) {
 			expiration = customExpiration
 		}
 	}
