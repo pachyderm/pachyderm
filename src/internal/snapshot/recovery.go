@@ -456,3 +456,31 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 
 	return nil
 }
+
+// DropSnapshot deletes a snapshot and everything it references, allowing any data it closed over to
+// be garbage collected.
+func (s *Snapshotter) DropSnapshot(ctx context.Context, id SnapshotID) error {
+	if err := dbutil.WithTx(ctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		row, err := snapshotdb.GetSnapshot(ctx, tx, int64(id))
+		if err != nil {
+			return errors.Wrap(err, "get snapshot")
+		}
+		if err := snapshotdb.DeleteSnapshot(ctx, tx, int64(id)); err != nil {
+			return errors.Wrap(err, "delete snapshot")
+		}
+		if cid := row.GetChunksetId(); cid > 0 {
+			if err := s.Storage.DropChunkSet(ctx, tx, fileset.ChunkSetID(cid)); err != nil {
+				return errors.Wrapf(err, "drop chunkset %v", cid)
+			}
+		}
+		if pid := row.GetSqlDumpFilesetPinId(); pid > 0 {
+			if err := s.Storage.DeletePinTx(ctx, tx, fileset.Pin(pid)); err != nil {
+				return errors.Wrapf(err, "drop pin %v", pid)
+			}
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "WithTx")
+	}
+	return nil
+}
