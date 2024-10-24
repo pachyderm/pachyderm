@@ -40,8 +40,8 @@ USER appuser
 
 # Needed to run npm start
 RUN npm i module-alias --prefix ./console/backend --cache /home/appuser/.npm
-RUN chown -R appuser:appuser /home/appuser
-# RUN npm cache clean --force 
+# RUN chown -R appuser:appuser /home/appuser
+RUN npm cache clean --force 
 
 CMD ["npm", "start", "--prefix", "./console/backend", "--cache", "/home/appuser/.npm"]
 
