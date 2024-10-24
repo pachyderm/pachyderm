@@ -14,8 +14,8 @@ func createSnapshotSchema(ctx context.Context, env migrations.Env) error {
 	}
 	if _, err := tx.ExecContext(ctx, `create table recovery.snapshots (
 		id bigserial not null primary key,
-		chunkset_id bigint not null references storage.chunksets(id),
-		sql_dump_fileset_id uuid null references storage.filesets(id),
+		chunkset bigint not null,
+		sql_dump_pin bigint null,
 		metadata jsonb not null default '{}',
 		pachyderm_version text not null,
 		created_at timestamptz not null default now()

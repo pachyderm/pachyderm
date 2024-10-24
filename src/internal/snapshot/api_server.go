@@ -46,7 +46,7 @@ func (a *APIServer) CreateSnapshot(ctx context.Context, request *snapshotpb.Crea
 func (a *APIServer) InspectSnapshot(ctx context.Context, req *snapshotpb.InspectSnapshotRequest) (*snapshotpb.InspectSnapshotResponse, error) {
 	var ret *snapshotpb.InspectSnapshotResponse
 	if err := dbutil.WithTx(ctx, a.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		info, err := snapshotdb.GetSnapshot(ctx, sqlTx, req.Id)
+		info, _, err := snapshotdb.GetSnapshot(ctx, sqlTx, req.Id)
 		if err != nil {
 			if errors.As(err, &snapshotdb.SnapshotNotFoundError{}) {
 				return status.Errorf(codes.NotFound, "snapshot %d not found", req.Id)

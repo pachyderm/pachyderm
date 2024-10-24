@@ -30333,6 +30333,444 @@
       "services": []
     },
     {
+      "name": "snapshot/snapshot.proto",
+      "description": "",
+      "package": "snapshot",
+      "hasEnums": false,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "CreateSnapshotRequest",
+          "longName": "CreateSnapshotRequest",
+          "fullName": "snapshot.CreateSnapshotRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "metadata",
+              "description": "",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "CreateSnapshotRequest.MetadataEntry",
+              "fullType": "snapshot.CreateSnapshotRequest.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "map.keys.string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "CreateSnapshotRequest.MetadataEntry",
+          "fullName": "snapshot.CreateSnapshotRequest.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateSnapshotResponse",
+          "longName": "CreateSnapshotResponse",
+          "fullName": "snapshot.CreateSnapshotResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "int64.gte",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DeleteSnapshotRequest",
+          "longName": "DeleteSnapshotRequest",
+          "fullName": "snapshot.DeleteSnapshotRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "int64.gte",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DeleteSnapshotResponse",
+          "longName": "DeleteSnapshotResponse",
+          "fullName": "snapshot.DeleteSnapshotResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
+          "name": "InspectSnapshotRequest",
+          "longName": "InspectSnapshotRequest",
+          "fullName": "snapshot.InspectSnapshotRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "int64.gte",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "InspectSnapshotResponse",
+          "longName": "InspectSnapshotResponse",
+          "fullName": "snapshot.InspectSnapshotResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "info",
+              "description": "",
+              "label": "",
+              "type": "SnapshotInfo",
+              "longType": "SnapshotInfo",
+              "fullType": "snapshot.SnapshotInfo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ListSnapshotRequest",
+          "longName": "ListSnapshotRequest",
+          "fullName": "snapshot.ListSnapshotRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "since",
+              "description": "exclusive; nil = start at the present",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "limit",
+              "description": "0 = no limit",
+              "label": "",
+              "type": "int32",
+              "longType": "int32",
+              "fullType": "int32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ListSnapshotResponse",
+          "longName": "ListSnapshotResponse",
+          "fullName": "snapshot.ListSnapshotResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "info",
+              "description": "",
+              "label": "",
+              "type": "SnapshotInfo",
+              "longType": "SnapshotInfo",
+              "fullType": "snapshot.SnapshotInfo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "SnapshotInfo",
+          "longName": "SnapshotInfo",
+          "fullName": "snapshot.SnapshotInfo",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "SnapshotInfo.MetadataEntry",
+              "fullType": "snapshot.SnapshotInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "chunkset_id",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "pachyderm_version",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "created_at",
+              "description": "",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "SnapshotInfo.MetadataEntry",
+          "fullName": "snapshot.SnapshotInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "name": "API",
+          "longName": "API",
+          "fullName": "snapshot.API",
+          "description": "",
+          "methods": [
+            {
+              "name": "CreateSnapshot",
+              "description": "",
+              "requestType": "CreateSnapshotRequest",
+              "requestLongType": "CreateSnapshotRequest",
+              "requestFullType": "snapshot.CreateSnapshotRequest",
+              "requestStreaming": false,
+              "responseType": "CreateSnapshotResponse",
+              "responseLongType": "CreateSnapshotResponse",
+              "responseFullType": "snapshot.CreateSnapshotResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "DeleteSnapshot",
+              "description": "",
+              "requestType": "DeleteSnapshotRequest",
+              "requestLongType": "DeleteSnapshotRequest",
+              "requestFullType": "snapshot.DeleteSnapshotRequest",
+              "requestStreaming": false,
+              "responseType": "DeleteSnapshotResponse",
+              "responseLongType": "DeleteSnapshotResponse",
+              "responseFullType": "snapshot.DeleteSnapshotResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "InspectSnapshot",
+              "description": "",
+              "requestType": "InspectSnapshotRequest",
+              "requestLongType": "InspectSnapshotRequest",
+              "requestFullType": "snapshot.InspectSnapshotRequest",
+              "requestStreaming": false,
+              "responseType": "InspectSnapshotResponse",
+              "responseLongType": "InspectSnapshotResponse",
+              "responseFullType": "snapshot.InspectSnapshotResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "ListSnapshot",
+              "description": "",
+              "requestType": "ListSnapshotRequest",
+              "requestLongType": "ListSnapshotRequest",
+              "requestFullType": "snapshot.ListSnapshotRequest",
+              "requestStreaming": false,
+              "responseType": "ListSnapshotResponse",
+              "responseLongType": "ListSnapshotResponse",
+              "responseFullType": "snapshot.ListSnapshotResponse",
+              "responseStreaming": true
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "storage/fileset.proto",
       "description": "",
       "package": "storage",

@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/snapshot"
-	snapshotpb "github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -33,7 +32,7 @@ func TestListSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list snapshot RPC: %v", err)
 	}
-	allRows, err := grpcutil.Collect[*snapshotpb.ListSnapshotResponse](listClient, 100)
+	allRows, err := grpcutil.Collect(listClient, 100)
 	if err != nil {
 		t.Fatalf("grpcutil collect list response: %v", err)
 	}
@@ -46,7 +45,7 @@ func TestListSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list snapshot RPC: %v", err)
 	}
-	sinceSecondSnapshot, err := grpcutil.Collect[*snapshotpb.ListSnapshotResponse](listClient2, 100)
+	sinceSecondSnapshot, err := grpcutil.Collect(listClient2, 100)
 	if err != nil {
 		t.Fatalf("grpcutil collect list response: %v", err)
 	}
@@ -73,7 +72,6 @@ func TestInspectSnapshot(t *testing.T) {
 		CreatedAt:        inspectResp.Info.CreatedAt, // the created time is not compared
 		PachydermVersion: version.Version.Canonical(),
 	}
-	got.SqlDumpFilesetId = ""
 	require.NoDiff(t, want, got, []cmp.Option{protocmp.Transform()})
 }
 

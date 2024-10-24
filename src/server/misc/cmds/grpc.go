@@ -5,13 +5,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"io"
 	"os"
 	"os/signal"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 
 	"golang.org/x/exp/maps"
 	"google.golang.org/grpc"
@@ -61,9 +62,9 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		metadata.File_metadata_metadata_proto,
 		pfs.File_pfs_pfs_proto,
 		pjs.File_pjs_pjs_proto,
-		snapshot.File_snapshot_snapshot_proto,
 		pps.File_pps_pps_proto,
 		proxy.File_proxy_proxy_proto,
+		snapshot.File_snapshot_snapshot_proto,
 		storage.File_storage_fileset_proto,
 		transaction.File_transaction_transaction_proto,
 		versionpb.File_version_versionpb_version_proto,
