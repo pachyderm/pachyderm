@@ -37,7 +37,7 @@ func validateDumpFileset(ctx context.Context, t *testing.T, db *pachsql.DB, s *f
 		}
 		return nil
 	}); err != nil {
-		t.Fatalf("resolve pin (%v): %v", pin)
+		t.Fatalf("resolve pin (%v): %v", pin, err)
 	}
 	fs, err := s.Open(ctx, []*fileset.Handle{fsHandle})
 	if err != nil {
