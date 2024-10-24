@@ -17,7 +17,6 @@ go_library(
         "//src/snapshot",
         "//src/version",
         "@com_github_jmoiron_sqlx//:sqlx",
-        "@com_github_satori_go_uuid//:go_uuid",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
         "@org_golang_google_protobuf//types/known/timestamppb",
