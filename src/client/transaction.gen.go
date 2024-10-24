@@ -547,8 +547,8 @@ func (c *unsupportedPfsBuilderClient) WalkFile(_ context.Context, _ *pfs_v2.Walk
 
 type unsupportedPjsBuilderClient struct{}
 
-func (c *unsupportedPjsBuilderClient) Await(_ context.Context, _ *pjs.AwaitRequest, opts ...grpc.CallOption) (*pjs.AwaitResponse, error) {
-	return nil, unsupportedError("Await")
+func (c *unsupportedPjsBuilderClient) AwaitJob(_ context.Context, _ *pjs.AwaitJobRequest, opts ...grpc.CallOption) (*pjs.AwaitJobResponse, error) {
+	return nil, unsupportedError("AwaitJob")
 }
 
 func (c *unsupportedPjsBuilderClient) CancelJob(_ context.Context, _ *pjs.CancelJobRequest, opts ...grpc.CallOption) (*pjs.CancelJobResponse, error) {

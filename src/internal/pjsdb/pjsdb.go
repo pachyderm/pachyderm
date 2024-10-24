@@ -12,7 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 )
 
-type JobID uint64
+type JobID int64
 
 // QueueID is program hash for now.
 type QueueID []byte
