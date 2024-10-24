@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"strconv"
 	"strings"
 	"testing"
@@ -40,7 +41,7 @@ func initPachClient(t testing.TB, auth bool) (*client.APIClient, string, string)
 	if !auth {
 		return c, "", ns
 	}
-	c = tu.AuthenticatedPachClient(t, c, tu.UniqueString("user-"))
+	c = tu.AuthenticatedPachClient(t, c, uuid.UniqueString("user-"))
 	return c, c.AuthToken(), ns
 }
 
@@ -60,11 +61,11 @@ func TestS3PipelineErrors(t *testing.T) {
 }
 
 func testS3PipelineErrors(t *testing.T, c *client.APIClient) {
-	repo1, repo2 := tu.UniqueString(t.Name()+"_data"), tu.UniqueString(t.Name()+"_data")
+	repo1, repo2 := uuid.UniqueString(t.Name()+"_data"), uuid.UniqueString(t.Name()+"_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo1))
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo2))
 
-	pipeline := tu.UniqueString("Pipeline")
+	pipeline := uuid.UniqueString("Pipeline")
 	err := c.CreatePipeline(pfs.DefaultProjectName,
 		pipeline,
 		"",
@@ -128,13 +129,13 @@ func testS3PipelineErrors(t *testing.T, c *client.APIClient) {
 }
 
 func testS3Input(t *testing.T, c *client.APIClient, ns, projectName string) {
-	repo := tu.UniqueString("data")
+	repo := uuid.UniqueString("data")
 	require.NoError(t, c.CreateRepo(projectName, repo))
 	masterCommit := client.NewCommit(projectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
-	pipeline := tu.UniqueString("Pipeline")
+	pipeline := uuid.UniqueString("Pipeline")
 	pipelineCommit := client.NewCommit(projectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(projectName, pipeline),
@@ -228,21 +229,21 @@ func testS3InputProjects(t *testing.T, c *client.APIClient, ns string) {
 		testS3Input(t, c, ns, pfs.DefaultProjectName)
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
-		projectName := tu.UniqueString("project")
+		projectName := uuid.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
 		testS3Input(t, c, ns, projectName)
 	})
 }
 
 func testS3Chain(t *testing.T, c *client.APIClient, ns, projectName string) {
-	dataRepo := tu.UniqueString("data")
+	dataRepo := uuid.UniqueString("data")
 	require.NoError(t, c.CreateRepo(projectName, dataRepo))
 	dataCommit := client.NewCommit(projectName, dataRepo, "master", "")
 
 	numPipelines := 5
 	pipelines := make([]string, numPipelines)
 	for i := 0; i < numPipelines; i++ {
-		pipelines[i] = tu.UniqueString("pipeline")
+		pipelines[i] = uuid.UniqueString("pipeline")
 		input := dataRepo
 		if i > 0 {
 			input = pipelines[i-1]
@@ -309,7 +310,7 @@ func testS3ChainProject(t *testing.T, c *client.APIClient, ns string) {
 		testS3Chain(t, c, ns, pfs.DefaultProjectName)
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
-		projectName := tu.UniqueString("project")
+		projectName := uuid.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
 		testS3Chain(t, c, ns, projectName)
 	})
@@ -330,13 +331,13 @@ func TestNamespaceInEndpoint(t *testing.T) {
 	testNamespaceInEndpoint(t, c, ns)
 }
 func testNamespaceInEndpoint(t *testing.T, c *client.APIClient, ns string) {
-	repo := tu.UniqueString(t.Name() + "_data")
+	repo := uuid.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 	masterCommit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
-	pipeline := tu.UniqueString("Pipeline")
+	pipeline := uuid.UniqueString("Pipeline")
 	pipelineCommit := client.NewCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
@@ -389,13 +390,13 @@ func TestS3Output(t *testing.T) {
 }
 
 func testS3Output(t *testing.T, c *client.APIClient, ns, projectName string) {
-	repo := tu.UniqueString("data")
+	repo := uuid.UniqueString("data")
 	require.NoError(t, c.CreateRepo(projectName, repo))
 	masterCommit := client.NewCommit(projectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
-	pipeline := tu.UniqueString("Pipeline")
+	pipeline := uuid.UniqueString("Pipeline")
 	pipelineCommit := client.NewCommit(projectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(projectName, pipeline),
@@ -469,7 +470,7 @@ func testS3OutputProject(t *testing.T, c *client.APIClient, ns string) {
 		testS3Output(t, c, ns, pfs.DefaultProjectName)
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
-		projectName := tu.UniqueString("project")
+		projectName := uuid.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
 		testS3Output(t, c, ns, projectName)
 	})
@@ -491,13 +492,13 @@ func TestFullS3(t *testing.T) {
 }
 
 func testFullS3(t *testing.T, c *client.APIClient, ns, projectName string) {
-	repo := tu.UniqueString("data")
+	repo := uuid.UniqueString("data")
 	require.NoError(t, c.CreateRepo(projectName, repo))
 	masterCommit := client.NewCommit(projectName, repo, "master", "")
 
 	require.NoError(t, c.PutFile(masterCommit, "foo", strings.NewReader("foo")))
 
-	pipeline := tu.UniqueString("Pipeline")
+	pipeline := uuid.UniqueString("Pipeline")
 	pipelineCommit := client.NewCommit(projectName, pipeline, "master", "")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(projectName, pipeline),
@@ -572,7 +573,7 @@ func testFullS3Project(t *testing.T, c *client.APIClient, ns string) {
 		testFullS3(t, c, ns, pfs.DefaultProjectName)
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
-		projectName := tu.UniqueString("project")
+		projectName := uuid.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
 		testFullS3(t, c, ns, projectName)
 	})
@@ -629,21 +630,21 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 	}()
 
 	t.Run("S3Inputs", func(t *testing.T) {
-		s3in := tu.UniqueString("s3_data")
+		s3in := uuid.UniqueString("s3_data")
 		require.NoError(t, c.CreateRepo(projectName, s3in))
-		pfsin := tu.UniqueString("pfs_data")
+		pfsin := uuid.UniqueString("pfs_data")
 		require.NoError(t, c.CreateRepo(projectName, pfsin))
 
 		s3Commit := client.NewCommit(projectName, s3in, "master", "")
 		// Pipelines with S3 inputs should still skip datums, as long as the S3 input
 		// hasn't changed. We'll check this by reading from a repo that isn't a
 		// pipeline input
-		background := tu.UniqueString("bg_data")
+		background := uuid.UniqueString("bg_data")
 		require.NoError(t, c.CreateRepo(projectName, background))
 
 		require.NoError(t, c.PutFile(s3Commit, "file", strings.NewReader("foo")))
 
-		pipeline := tu.UniqueString("Pipeline")
+		pipeline := uuid.UniqueString("Pipeline")
 		// 'pipeline' needs access to the 'background' repo to run successfully
 		require.NoError(t, c.ModifyRepoRoleBinding(c.Ctx(), projectName, background,
 			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
@@ -809,16 +810,16 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 	})
 
 	t.Run("S3Output", func(t *testing.T) {
-		repo := tu.UniqueString("pfs_data")
+		repo := uuid.UniqueString("pfs_data")
 		require.NoError(t, c.CreateRepo(projectName, repo))
 		// Pipelines with S3 output should not skip datums, as they have no way of
 		// tracking which output data should be associated with which input data.
 		// Therefore every output file should have the same "background" value after
 		// each job finishes.
-		background := tu.UniqueString("bg_data")
+		background := uuid.UniqueString("bg_data")
 		require.NoError(t, c.CreateRepo(projectName, background))
 
-		pipeline := tu.UniqueString("Pipeline")
+		pipeline := uuid.UniqueString("Pipeline")
 		// 'pipeline' needs access to the 'background' repo to run successfully
 		require.NoError(t, c.ModifyRepoRoleBinding(c.Ctx(), projectName, background,
 			fmt.Sprintf("pipeline:%s/%s", projectName, pipeline), []string{auth.RepoReaderRole}))
@@ -897,7 +898,7 @@ func testS3SkippedDatumsProject(t *testing.T, c *client.APIClient, ns string) {
 		testS3SkippedDatums(t, c, ns, pfs.DefaultProjectName)
 	})
 	t.Run("NonDefaultProject", func(t *testing.T) {
-		projectName := tu.UniqueString("project")
+		projectName := uuid.UniqueString("project")
 		require.NoError(t, c.CreateProject(projectName))
 		testS3SkippedDatums(t, c, ns, projectName)
 	})
@@ -924,12 +925,12 @@ func TestDontDownloadData(t *testing.T) {
 	testDontDownloadData(t, c, ns)
 }
 func testDontDownloadData(t *testing.T, c *client.APIClient, ns string) {
-	repo := tu.UniqueString(t.Name() + "_data")
+	repo := uuid.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 	masterCommit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 	require.NoError(t, c.PutFile(masterCommit, "test.txt", strings.NewReader("This is a test")))
 
-	pipeline := tu.UniqueString("Pipeline")
+	pipeline := uuid.UniqueString("Pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
 		Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 		Transform: &pps.Transform{

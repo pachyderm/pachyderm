@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "v2_12_0",
     srcs = [
+        "admin.go",
         "chunkset.go",
         "clusterstate.go",
         "doc.go",
@@ -16,5 +17,6 @@ go_library(
         "//src/internal/errors",
         "//src/internal/migrations",
         "//src/internal/pctx",
+        "//src/internal/storage/fileset",
     ],
 )

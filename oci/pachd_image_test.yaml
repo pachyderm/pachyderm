@@ -19,3 +19,8 @@ fileExistenceTests:
     - name: "tmp"
       path: "/tmp"
       shouldExist: true
+commandTests:
+    - name: "pachd"
+      command: "/pachd"
+      args: ["--mode", "version"]
+      expectedOutput: ["GOARCH", "linux", "0.0.0"]

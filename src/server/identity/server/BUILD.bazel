@@ -70,6 +70,7 @@ go_test(
         "//src/internal/testetcd",
         "//src/internal/testpachd/realenv",
         "//src/internal/testutil",
+        "//src/internal/uuid",
         "//src/server/identityutil",
         "@com_github_dexidp_dex//storage",
         "@com_github_dexidp_dex//storage/memory",

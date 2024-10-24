@@ -1,0 +1,37 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "testutilpachctl",
+    testonly = 1,
+    srcs = [
+        "bash_prelude.go",
+        "cmds.go",
+        "pachctl.go",
+    ],
+    data = [
+        "//src/server/cmd/pachctl",
+        "//src/testing/match",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/uuid",
+        "@com_github_alessio_shellescape//:shellescape",
+        "@rules_go//go/tools/bazel:go_default_library",
+    ],
+)
+
+go_test(
+    name = "testutilpachctl_test",
+    srcs = ["pachctl_test.go"],
+    deps = [
+        ":testutilpachctl",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+    ],
+)

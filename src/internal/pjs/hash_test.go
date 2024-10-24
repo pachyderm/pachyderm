@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"math/big"
 	"path"
 	"testing"
@@ -12,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestHashFS(t *testing.T) {
@@ -55,10 +55,10 @@ func populateDir(fs fstest.MapFS, dirName string, max int) {
 	for i := 0; i < count; i++ {
 		// generate a file or a directory
 		if randInt(2) == 0 {
-			name := testutil.UniqueString("d")
+			name := uuid.UniqueString("d")
 			populateDir(fs, path.Join(dirName, name), max/2)
 		} else {
-			name := testutil.UniqueString("f")
+			name := uuid.UniqueString("f")
 			var buf = make([]byte, max)
 			if _, err := rand.Read(buf); err != nil {
 				panic("could not read random data") // this should never happen

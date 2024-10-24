@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"io"
 	"math"
 	"strconv"
 	"strings"
@@ -183,13 +184,17 @@ func (s *Storage) CloneTx(tx *pachsql.Tx, handle *Handle, ttl time.Duration) (*H
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	return s.newHandle(tx, md, ttl)
+}
+
+func (s *Storage) newHandle(tx *pachsql.Tx, md *Metadata, ttl time.Duration) (*Handle, error) {
 	switch x := md.Value.(type) {
 	case *Metadata_Primitive:
 		return s.newPrimitiveTx(tx, x.Primitive, ttl)
 	case *Metadata_Composite:
 		return s.newCompositeTx(tx, x.Composite, ttl)
 	default:
-		return nil, errors.Errorf("cannot clone type %T", md.Value)
+		return nil, errors.Errorf("cannot create handle for type %T", md.Value)
 	}
 }
 
@@ -511,6 +516,9 @@ func (s *Storage) Pin(tx *pachsql.Tx, handle *Handle) (PinnedFileset, error) {
 
 type ChunkSetID uint64
 
+// CreateChunkSet creates a new chunkset.  If you change how this code works, make sure to update
+// the database dump / snapshotting code.  It relies on the exact details of this function to create
+// a restorable database.
 func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, error) {
 	ctx = pctx.Child(ctx, "createChunkset")
 	// Insert ChunkSet into ChunkSet table.
@@ -535,7 +543,7 @@ func (s *Storage) CreateChunkSet(ctx context.Context, tx *sqlx.Tx) (ChunkSetID, 
 }
 
 func (s *Storage) DropChunkSet(ctx context.Context, tx *sqlx.Tx, id ChunkSetID) error {
-	result, err := tx.Exec("DELETE FROM storage.chunksets WHERE id = $1", id)
+	result, err := tx.ExecContext(ctx, "DELETE FROM storage.chunksets WHERE id = $1", id)
 	if err != nil {
 		return errors.Wrap(err, "delete chunkset in db")
 	}
@@ -555,3 +563,34 @@ func (s *Storage) DropChunkSet(ctx context.Context, tx *sqlx.Tx, id ChunkSetID) 
 func chunksetStringID(id ChunkSetID) string {
 	return "chunkset/" + strconv.FormatUint(uint64(id), 10)
 }
+
+// DumpTracker dumps the state of the tracker to w in a format compatible with piping into `psql`.
+//
+// The format looks like:
+//
+//	COPY <table> (col1, col2, ...) FROM stdin;
+//	<col1> <tab> <col2> <newline>
+//	...
+//	\.
+func (s *Storage) DumpTracker(ctx context.Context, tx *pachsql.Tx, w io.Writer) error {
+	t, ok := s.tracker.(track.Dumper)
+	if !ok {
+		return errors.New("underlying tracker cannot be dumped to SQL")
+	}
+	if err := t.DumpTracker(ctx, tx, w); err != nil {
+		return errors.Wrapf(err, "DumpTracker(%T)", s.tracker)
+	}
+	return nil
+}
+
+// DumpTrackerTablePattern returns a postgres pattern that matches the tables DumpTracker will dump.
+func (s *Storage) DumpTrackerTablePattern() string {
+	t, ok := s.tracker.(track.Dumper)
+	if !ok {
+		return ""
+	}
+	return t.DumpTrackerTablePattern()
+}
+
+// Storage implements track.Dumper.
+var _ track.Dumper = (*Storage)(nil)

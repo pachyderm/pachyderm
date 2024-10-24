@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"io"
 	"os"
 	"os/signal"
@@ -59,6 +60,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		logs.File_logs_logs_proto,
 		metadata.File_metadata_metadata_proto,
 		pfs.File_pfs_pfs_proto,
+		pjs.File_pjs_pjs_proto,
 		snapshot.File_snapshot_snapshot_proto,
 		pps.File_pps_pps_proto,
 		proxy.File_proxy_proxy_proto,

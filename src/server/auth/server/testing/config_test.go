@@ -1,6 +1,7 @@
 package testing_test
 
 import (
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"strconv"
 	"testing"
 
@@ -115,7 +116,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 
 	require.Equal(t, true, proto.Equal(&authserver.DefaultOIDCConfig, configResp.GetConfiguration()))
 
-	alice := tu.Robot(tu.UniqueString("alice"))
+	alice := tu.Robot(uuid.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
 
 	// Alice tries to set the current configuration and fails

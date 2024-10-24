@@ -1,59 +1,102 @@
+load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
+load("@aspect_bazel_lib//lib:tar.bzl", "mtree_mutate", "mtree_spec", "tar")
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
-load("@rules_oci//oci:defs.bzl", "oci_image")
-load("@rules_pkg//pkg:mappings.bzl", "pkg_files")
-load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_distroless//distroless:defs.bzl", "cacerts", "group", "home", "passwd")
+load("@rules_multirun//:defs.bzl", "multirun")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_load", "oci_push")
+load(":transition.bzl", "multi_arch")
 
-NONROOT = "65532.65532"
+NONROOT = "65532"
 
-NONROOT_USERNAME = "nonroot.nonroot"
+NONROOT_USERNAME = "nonroot"
 
-pkg_tar(
-    name = "dex_assets_tar",
-    srcs = ["//dex-assets"],
+PLATFORMS = [
+    "//:x86_64_linux",
+    "//:aarch64_linux",
+]
+
+cacerts(
+    name = "cacerts",
+    package = select({
+        "@platforms//cpu:arm64": "@apt//ca-certificates/arm64:data",
+        "@platforms//cpu:x86_64": "@apt//ca-certificates/amd64:data",
+    }),
+)
+
+expand_template(
+    name = "annotations",
+    out = "_annotations.txt",
+    stamp_substitutions = {
+        "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
+    },
+    template = [
+        "name=Pachyderm",
+        "vendor=Pachyderm",
+        "version=0.0.0",
+        "release=0.0.0",
+    ],
+)
+
+mtree_spec(
+    name = "licenses_raw_mtree",
+    srcs = [
+        "//:LICENSE",
+        "//licenses",
+    ],
+)
+
+mtree_mutate(
+    name = "licenses_mtree",
+    mtree = "licenses_raw_mtree",
     owner = NONROOT,
-    ownername = NONROOT_USERNAME,
-    strip_prefix = ".",
 )
 
-pkg_files(
-    name = "license_pkg",
-    srcs = ["//:LICENSE"],
-    strip_prefix = ".",
-)
-
-pkg_files(
-    name = "licenses_pkg",
-    srcs = ["//licenses"],
-    prefix = "/licenses",
-    strip_prefix = ".",
-)
-
-pkg_tar(
+tar(
     name = "licenses_tar",
     srcs = [
-        ":license_pkg",
-        ":licenses_pkg",
+        "//:LICENSE",
+        "//licenses",
     ],
-    owner = NONROOT,
-    ownername = NONROOT_USERNAME,
+    compress = "zstd",
+    mtree = "licenses_mtree",
 )
 
-pkg_tar(
+mtree_spec(
+    name = "dex_assets_raw_mtree",
+    srcs = ["//dex-assets"],
+)
+
+mtree_mutate(
+    name = "dex_assets_mtree",
+    mtree = "dex_assets_raw_mtree",
+    owner = NONROOT,
+)
+
+tar(
+    name = "dex_assets_tar",
+    srcs = ["//dex-assets"],
+    compress = "zstd",
+    mtree = "dex_assets_mtree",
+)
+
+mtree_spec(
+    name = "pachd_host_raw_mtree",
+    srcs = ["//src/server/cmd/pachd"],
+)
+
+mtree_mutate(
+    name = "pachd_host_mtree",
+    awk_script = "adjust_pachd.awk",
+    mtree = "pachd_host_raw_mtree",
+    strip_prefix = "src/server/cmd/pachd/pachd_",
+)
+
+tar(
     name = "pachd_host_tar",
     srcs = ["//src/server/cmd/pachd"],
-    owner = NONROOT,
-    ownername = NONROOT_USERNAME,
-)
-
-pkg_tar(
-    name = "pachd_host_coverage_tar",
-    srcs = ["//src/server/cmd/pachd:pachd_coverage"],
-    owner = NONROOT,
-    ownername = NONROOT_USERNAME,
-    remap_paths = {
-        "/pachd_coverage": "/pachd",
-    },
+    compress = "zstd",
+    mtree = "pachd_host_mtree",
 )
 
 platform_transition_filegroup(
@@ -65,20 +108,14 @@ platform_transition_filegroup(
     }),
 )
 
-platform_transition_filegroup(
-    name = "pachd_linux_coverage_tar",
-    srcs = [":pachd_host_coverage_tar"],
-    target_platform = select({
-        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
-        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
-    }),
-)
-
 oci_image(
     name = "pachd_image",
+    annotations = "annotations",
     base = "@distroless",
     entrypoint = ["/pachd"],
+    labels = "annotations",
     tars = [
+        # distroless contains cacerts
         ":licenses_tar",
         ":dex_assets_tar",
         ":pachd_linux_tar",
@@ -86,10 +123,56 @@ oci_image(
     visibility = ["//visibility:public"],
 )
 
+expand_template(
+    name = "pachd_image_test_templated",
+    out = "pachd_image_test_templated.yaml",
+    stamp_substitutions = {
+        "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
+    },
+    substitutions = select({
+        "//:is_x86_64": {
+            "GOARCH": "amd64",
+        },
+        "//:is_aarch64": {
+            "GOARCH": "arm64",
+        },
+    }),
+    template = "pachd_image_test.yaml",
+)
+
+container_structure_test(
+    name = "pachd_image_test",
+    size = "small",
+    configs = ["pachd_image_test_templated.yaml"],
+    image = ":pachd_image",
+)
+
+mtree_spec(
+    name = "pachd_linux_coverage_raw_mtree",
+    srcs = ["//src/server/cmd/pachd:pachd_coverage"],
+)
+
+mtree_mutate(
+    # TODO: add runfiles to this archive
+    name = "pachd_linux_coverage_mtree",
+    awk_script = "adjust_pachd.awk",
+    mtree = "pachd_linux_coverage_raw_mtree",
+    strip_prefix = "src/server/cmd/pachd",
+)
+
+tar(
+    name = "pachd_linux_coverage_tar",
+    srcs = ["//src/server/cmd/pachd:pachd_coverage"],
+    compress = "zstd",
+    mtree = "pachd_linux_coverage_mtree",
+)
+
 oci_image(
     name = "pachd_coverage_image",
+    annotations = "annotations",
     base = "@distroless",
     entrypoint = ["/pachd"],
+    labels = "annotations",
     tars = [
         ":licenses_tar",
         ":dex_assets_tar",
@@ -99,25 +182,31 @@ oci_image(
 )
 
 container_structure_test(
-    name = "pachd_image_test",
-    size = "small",
-    configs = ["pachd_image_test.yaml"],
-    image = ":pachd_image",
-)
-
-container_structure_test(
     name = "pachd_coverage_image_test",
     size = "small",
-    configs = ["pachd_image_test.yaml"],
+    configs = ["pachd_image_test_templated.yaml"],
     image = ":pachd_coverage_image",
 )
 
-pkg_tar(
+mtree_spec(
+    name = "pachctl_raw_mtree",
+    srcs = ["//src/server/cmd/pachctl"],
+)
+
+mtree_mutate(
+    name = "pachctl_self_host_mtree",
+    awk_script = "adjust_pachctl.awk",
+    mtree = "pachctl_raw_mtree",
+    owner = NONROOT,
+    package_dir = "usr/local/bin",
+    strip_prefix = "src/server/cmd/pachctl/pachctl_",
+)
+
+tar(
     name = "pachctl_self_host_tar",
     srcs = ["//src/server/cmd/pachctl"],
-    owner = NONROOT,
-    ownername = NONROOT_USERNAME,
-    package_dir = "/usr/local/bin",
+    compress = "zstd",
+    mtree = "pachctl_self_host_mtree",
 )
 
 platform_transition_filegroup(
@@ -129,12 +218,112 @@ platform_transition_filegroup(
     }),
 )
 
-pkg_tar(
+# The pachctl image is based off of debian slim, which doesn't have distroless' passwd and group
+# entries.  We add them here.
+
+passwd(
+    name = "nonroot_user",
+    entries = [
+        dict(
+            gecos = ["root"],
+            gid = 0,
+            home = "/root",
+            shell = "/usr/bin/bash",
+            uid = 0,
+            username = "root",
+        ),
+        dict(
+            gecos = [NONROOT_USERNAME],
+            gid = NONROOT,
+            home = "/home/nonroot",
+            shell = "/usr/bin/bash",
+            uid = NONROOT,
+            username = NONROOT_USERNAME,
+        ),
+    ],
+)
+
+group(
+    name = "nonroot_group",
+    entries = [
+        dict(
+            name = "root",
+            gid = 0,
+            users = ["root"],
+        ),
+        dict(
+            name = NONROOT_USERNAME,
+            gid = NONROOT,
+            users = [NONROOT_USERNAME],
+        ),
+    ],
+)
+
+home(
+    name = "nonroot_home",
+    dirs = [
+        {
+            "home": "/home/nonroot",
+            "uid": NONROOT,
+            "gid": NONROOT,
+        },
+    ],
+)
+
+oci_image(
+    name = "pachctl_image",
+    annotations = "annotations",
+    base = "@debian-slim",
+    labels = "annotations",
+    tars = [
+        ":nonroot_user",
+        ":nonroot_group",
+        ":nonroot_home",
+        ":cacerts",  # debian-slim does not contain cacerts.
+        ":licenses_tar",
+        ":pachctl_self_linux_tar",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+expand_template(
+    name = "pachctl_image_test_templated",
+    out = "pachctl_image_test_templated.yaml",
+    stamp_substitutions = {
+        "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
+    },
+    substitutions = select({
+        "//:is_x86_64": {
+            "GOARCH": "amd64",
+        },
+        "//:is_aarch64": {
+            "GOARCH": "arm64",
+        },
+    }),
+    template = "pachctl_image_test.yaml",
+)
+
+container_structure_test(
+    name = "pachctl_image_test",
+    size = "small",
+    configs = ["pachctl_image_test_templated.yaml"],
+    image = ":pachctl_image",
+)
+
+mtree_mutate(
+    name = "pachctl_worker_host_mtree",
+    awk_script = "adjust_pachctl.awk",
+    mtree = "pachctl_raw_mtree",
+    owner = NONROOT,
+    package_dir = "app",
+    strip_prefix = "src/server/cmd/pachctl/pachctl_",
+)
+
+tar(
     name = "pachctl_worker_host_tar",
     srcs = ["//src/server/cmd/pachctl"],
-    owner = NONROOT,
-    ownername = NONROOT_USERNAME,
-    package_dir = "/app",
+    compress = "zstd",
+    mtree = "pachctl_worker_host_mtree",
 )
 
 platform_transition_filegroup(
@@ -146,30 +335,25 @@ platform_transition_filegroup(
     }),
 )
 
-oci_image(
-    name = "pachctl_image",
-    base = "@distroless",
-    entrypoint = ["/usr/local/bin/pachctl"],
-    tars = [
-        ":licenses_tar",
-        ":pachctl_self_linux_tar",
-    ],
-    visibility = ["//visibility:public"],
+mtree_spec(
+    name = "worker_init_host_raw_mtree",
+    srcs = ["//etc/worker:init"],
 )
 
-container_structure_test(
-    name = "pachctl_image_test",
-    size = "small",
-    configs = ["pachctl_image_test.yaml"],
-    image = ":pachctl_image",
+mtree_mutate(
+    name = "worker_init_host_mtree",
+    awk_script = "adjust_worker_init.awk",
+    mtree = "worker_init_host_raw_mtree",
+    owner = NONROOT,
+    package_dir = "app",
+    strip_prefix = "etc/worker/init_",
 )
 
-pkg_tar(
+tar(
     name = "worker_init_host_tar",
     srcs = ["//etc/worker:init"],
-    owner = NONROOT,
-    ownername = NONROOT_USERNAME,
-    package_dir = "/app",
+    compress = "zstd",
+    mtree = "worker_init_host_mtree",
 )
 
 platform_transition_filegroup(
@@ -181,12 +365,25 @@ platform_transition_filegroup(
     }),
 )
 
-pkg_tar(
+mtree_spec(
+    name = "worker_host_raw_mtree",
+    srcs = ["//src/server/cmd/worker"],
+)
+
+mtree_mutate(
+    name = "worker_host_mtree",
+    awk_script = "adjust_worker.awk",
+    mtree = "worker_host_raw_mtree",
+    owner = NONROOT,
+    package_dir = "app",
+    strip_prefix = "src/server/cmd/worker/worker_",
+)
+
+tar(
     name = "worker_host_tar",
     srcs = ["//src/server/cmd/worker"],
-    owner = NONROOT,
-    ownername = NONROOT_USERNAME,
-    package_dir = "/app",
+    compress = "zstd",
+    mtree = "worker_host_mtree",
 )
 
 platform_transition_filegroup(
@@ -198,34 +395,257 @@ platform_transition_filegroup(
     }),
 )
 
-pkg_tar(
+mtree_spec(
+    name = "dumb_init_linux_raw_mtree",
+    srcs = select({
+        "//:is_x86_64": ["@com_github_yelp_dumb_init_x86_64_linux//file:dumb-init"],
+        "//:is_aarch64": ["@com_github_yelp_dumb_init_aarch64_linux//file:dumb-init"],
+    }),
+)
+
+mtree_mutate(
+    name = "dumb_init_linux_mtree",
+    awk_script = "adjust_dumb_init.awk",
+    mtree = "dumb_init_linux_raw_mtree",
+    package_dir = "app",
+)
+
+tar(
     name = "dumb_init_linux_tar",
     srcs = select({
         "//:is_x86_64": ["@com_github_yelp_dumb_init_x86_64_linux//file:dumb-init"],
         "//:is_aarch64": ["@com_github_yelp_dumb_init_aarch64_linux//file:dumb-init"],
     }),
-    owner = NONROOT,
-    ownername = NONROOT_USERNAME,
-    package_dir = "/app",
+    compress = "zstd",
+    mtree = "dumb_init_linux_mtree",
 )
 
 oci_image(
     name = "worker_image",
-    base = "@distroless",
+    annotations = "annotations",
+    base = "@distroless-static",
     entrypoint = ["/app/init"],
+    labels = "annotations",
     tars = [
+        ":licenses_tar",
         ":dumb_init_linux_tar",
         ":worker_init_linux_tar",
-        ":licenses_tar",
-        ":pachctl_worker_linux_tar",
         ":worker_linux_tar",
+        ":pachctl_worker_linux_tar",
     ],
     visibility = ["//visibility:public"],
+)
+
+expand_template(
+    name = "worker_image_test_templated",
+    out = "worker_image_test_templated.yaml",
+    stamp_substitutions = {
+        "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
+    },
+    substitutions = select({
+        "//:is_x86_64": {
+            "GOARCH": "amd64",
+        },
+        "//:is_aarch64": {
+            "GOARCH": "arm64",
+        },
+    }),
+    template = "worker_image_test.yaml",
 )
 
 container_structure_test(
     name = "worker_image_test",
     size = "small",
-    configs = ["worker_image_test.yaml"],
+    configs = ["worker_image_test_templated.yaml"],
     image = ":worker_image",
+)
+
+multi_arch(
+    name = "worker_multiarch",
+    image = "worker_image",
+    platforms = PLATFORMS,
+)
+
+oci_image_index(
+    name = "worker",
+    images = ["worker_multiarch"],
+)
+
+multi_arch(
+    name = "pachd_multiarch",
+    image = "pachd_image",
+    platforms = PLATFORMS,
+)
+
+oci_image_index(
+    name = "pachd",
+    images = ["pachd_multiarch"],
+)
+
+multi_arch(
+    name = "pachd_coverage_multiarch",
+    image = "pachd_coverage_image",
+    platforms = PLATFORMS,
+)
+
+oci_image_index(
+    name = "pachd_coverage",
+    images = ["pachd_coverage_multiarch"],
+)
+
+multi_arch(
+    name = "pachctl_multiarch",
+    image = "pachctl_image",
+    platforms = PLATFORMS,
+)
+
+oci_image_index(
+    name = "pachctl",
+    images = ["pachctl_multiarch"],
+)
+
+expand_template(
+    name = "tags",
+    out = "_tags.txt",
+    stamp_substitutions = {
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz": "{{COMMIT_SHA}}",  # but with --stamp, it gets replaced
+        "0.0.0": "{{STABLE_APP_VERSION}}{{STABLE_ADDITIONAL_VERSION}}",
+    },
+    template = [
+        # it seems like some CI jobs might rely on being able to pull images tagged :local, even
+        # though that's not local at all
+        "local",
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",  # during builds without --stamp, this is the tag
+        "0.0.0",
+    ],
+)
+
+expand_template(
+    name = "coverage_tags",
+    out = "_coverage_tags.txt",
+    stamp_substitutions = {
+        "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz": "{{COMMIT_SHA}}",
+    },
+    template = [
+        "cover-zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    ],
+)
+
+oci_push(
+    name = "push_pachd",
+    image = "pachd",
+    remote_tags = "tags",
+    repository = "docker.io/pachyderm/pachd",
+)
+
+oci_load(
+    name = "load_pachd",
+    image = "pachd_image",
+    repo_tags = ["pachyderm/pachd:local"],
+)
+
+oci_push(
+    name = "push_worker",
+    image = "worker",
+    remote_tags = "tags",
+    repository = "docker.io/pachyderm/worker",
+)
+
+oci_load(
+    name = "load_worker",
+    image = "worker_image",
+    repo_tags = [
+        "pachyderm/worker:local",
+        "pachyderm/worker:cover-local",
+    ],
+)
+
+oci_push(
+    name = "push_pachctl",
+    image = "pachctl",
+    remote_tags = "tags",
+    repository = "docker.io/pachyderm/pachctl",
+)
+
+oci_load(
+    name = "load_pachctl",
+    image = "pachctl_image",
+    repo_tags = [
+        "pachyderm/pachctl:local",
+        "pachyderm/pachctl:cover-local",
+    ],
+)
+
+# bazel run --stamp //oci:push will push all (tagged) container images to docker hub.  This requires
+# that you have docker credentials.
+multirun(
+    name = "push",
+    commands = [
+        "push_pachd",
+        "push_worker",
+        "push_pachctl",
+    ],
+)
+
+# bazel run //oci:load will load all container images into the local docker daemon.  This is not
+# particularly useful for anything except pachctl (since the worker and pachd aren't going to run
+# under pure docker easily), and `bazel run //oci:load_pachctl` will handle that.
+multirun(
+    name = "load",
+    commands = [
+        "load_pachd",
+        "load_worker",
+        "load_pachctl",
+    ],
+)
+
+oci_push(
+    name = "push_pachd_coverage",
+    image = "pachd_coverage",
+    remote_tags = "coverage_tags",
+    repository = "docker.io/pachyderm/pachd",
+)
+
+oci_load(
+    name = "load_pachd_coverage",
+    image = "pachd_coverage_image",
+    repo_tags = ["pachyderm/pachd:cover-local"],
+)
+
+oci_push(
+    # This rule is a misnomer; there is no worker coverage image.  This is maintained for tests
+    # that expect to use the same tag for all 3 containers.
+    name = "push_worker_coverage",
+    image = "worker",
+    remote_tags = "coverage_tags",
+    repository = "docker.io/pachyderm/worker",
+)
+
+# bazel run --stamp //oci:push_coverage will push all container images to docker hub.  This requires
+# that you have docker credentials.
+oci_push(
+    # This rule is a misnomer; there is no pachctl coverage image.  This is maintained for tests
+    # that expect to use the same tag for all 3 containers.
+    name = "push_pachctl_coverage",
+    image = "pachctl",
+    remote_tags = "coverage_tags",
+    repository = "docker.io/pachyderm/pachctl",
+)
+
+multirun(
+    name = "push_coverage",
+    commands = [
+        "push_pachd_coverage",
+        "push_worker_coverage",
+        "push_pachctl_coverage",
+    ],
+)
+
+multirun(
+    name = "load_coverage",
+    commands = [
+        "load_pachd_coverage",
+        "load_worker",
+        "load_pachctl",
+    ],
 )

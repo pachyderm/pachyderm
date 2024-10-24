@@ -2,11 +2,11 @@ package main
 
 import (
 	"bytes"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
 	"os"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestMatchBasic(t *testing.T) {

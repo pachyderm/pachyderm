@@ -11,15 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-
 	units "github.com/docker/go-units"
-
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pacherr"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -39,8 +38,8 @@ type testFile struct {
 	data  []byte
 }
 
-func writeFileSet(ctx context.Context, t *testing.T, s *Storage, files []*testFile) *Handle {
-	w := s.NewWriter(ctx)
+func writeFileSet(ctx context.Context, t *testing.T, s *Storage, files []*testFile, opts ...WriterOption) *Handle {
+	w := s.NewWriter(ctx, opts...)
 	for _, file := range files {
 		require.NoError(t, w.Add(file.path, file.datum, bytes.NewReader(file.data)))
 	}
@@ -422,23 +421,46 @@ func TestStableID(t *testing.T) {
 func TestPin(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	storage := newTestStorage(ctx, t)
-	tF := testFile{path: "/", datum: "default", data: []byte("test")}
-	fs := writeFileSet(ctx, t, storage, []*testFile{&tF})
-	var pin PinnedFileset
-	var err error
+	// Create a fileset with immediate expiration.
+	file := &testFile{
+		path: "/file",
+		data: []byte("data"),
+	}
+	handle := writeFileSet(ctx, t, storage, []*testFile{file}, WithTTL(track.ExpireNow))
+	// Pin the fileset and run garbage collection.
+	var pin Pin
 	require.NoError(t, dbutil.WithTx(ctx, storage.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
-		pin, err = storage.Pin(tx, fs)
-		require.NoError(t, err)
-		return nil
+		var err error
+		pin, err = storage.PinTx(ctx, tx, handle)
+		return err
 	}))
-	pinFs, err := storage.Open(ctx, []*Handle{NewHandle(Token(pin))})
+	gc := storage.NewGC(time.Minute)
+	_, err := gc.RunOnce(ctx)
 	require.NoError(t, err)
-	// validate pinned fileset is the same.
+	// Open the pinned fileset and validate it.
+	require.NoError(t, dbutil.WithTx(ctx, storage.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
+		handle, err = storage.GetPinHandleTx(ctx, tx, pin, track.NoTTL)
+		return err
+	}))
+	fs, err := storage.Open(ctx, []*Handle{handle})
+	require.NoError(t, err)
 	var files []File
-	require.NoError(t, pinFs.Iterate(ctx, func(f File) error {
+	require.NoError(t, fs.Iterate(ctx, func(f File) error {
 		files = append(files, f)
 		return nil
 	}))
 	require.Len(t, files, 1)
-	checkFile(ctx, t, files[0], &tF)
+	checkFile(ctx, t, files[0], file)
+	// Delete the pinned fileset and check that the pin and cloned handle are deleted.
+	require.NoError(t, dbutil.WithTx(ctx, storage.store.DB(), func(ctx context.Context, tx *pachsql.Tx) error {
+		if err := storage.DeletePinTx(ctx, tx, pin); err != nil {
+			return err
+		}
+		_, err = storage.GetPinHandleTx(ctx, tx, pin, track.NoTTL)
+		require.True(t, pacherr.IsNotExist(err))
+		return nil
+	}))
+	n, err := gc.RunOnce(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
 }

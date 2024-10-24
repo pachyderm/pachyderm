@@ -40,6 +40,8 @@ go_test(
         "//src/internal/require",
         "//src/internal/testpachd/realenv",
         "//src/internal/testutil",
+        "//src/internal/testutilpachctl",
+        "//src/internal/uuid",
         "//src/pfs",
     ],
 )

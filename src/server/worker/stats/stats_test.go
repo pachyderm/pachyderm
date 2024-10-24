@@ -5,6 +5,7 @@ package stats
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"os"
 	"strings"
 	"testing"
@@ -27,10 +28,10 @@ func TestPrometheusStats(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 
-	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	dataRepo := uuid.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
-	pipeline := tu.UniqueString("TestSimplePipeline")
+	pipeline := uuid.UniqueString("TestSimplePipeline")
 	// We want several commits (for multiple jobs) and several datums per job
 	// For semi meaningful time series results
 	numCommits := 5
@@ -237,10 +238,10 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 
-	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	dataRepo := uuid.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
-	pipeline := tu.UniqueString("TestSimplePipeline")
+	pipeline := uuid.UniqueString("TestSimplePipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{

@@ -1,25 +1,17 @@
-load("@rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "testutil",
     srcs = [
         "auth.go",
-        "bash_prelude.go",
-        "cmds.go",
         "db.go",
         "debug.go",
         "enterprise.go",
         "identity.go",
         "kubeclient.go",
         "logging.go",
-        "naming.go",
         "pach_client.go",
-        "pachctl.go",
         "testutil.go",
-    ],
-    data = [
-        "//src/server/cmd/pachctl:pachctl_nostamp",
-        "//src/testing/match",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/testutil",
     visibility = ["//src:__subpackages__"],
@@ -32,7 +24,6 @@ go_library(
         "//src/internal/config",
         "//src/internal/dbutil",
         "//src/internal/errors",
-        "//src/internal/log",
         "//src/internal/pachsql",
         "//src/internal/pctx",
         "//src/internal/require",
@@ -40,7 +31,6 @@ go_library(
         "//src/license",
         "//src/pfs",
         "//src/pps",
-        "@com_github_alessio_shellescape//:shellescape",
         "@com_github_pachyderm_ohmyglob//:ohmyglob",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
         "@io_k8s_client_go//kubernetes",
@@ -48,16 +38,5 @@ go_library(
         "@io_k8s_client_go//tools/clientcmd",
         "@org_golang_google_protobuf//types/known/timestamppb",
         "@org_golang_x_oauth2//:oauth2",
-        "@rules_go//go/tools/bazel:go_default_library",
-    ],
-)
-
-go_test(
-    name = "testutil_test",
-    srcs = ["pachctl_test.go"],
-    deps = [
-        ":testutil",
-        "//src/internal/pachd",
-        "//src/internal/pctx",
     ],
 )

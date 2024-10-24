@@ -2,29 +2,43 @@
 package recovery
 
 import (
-	"bytes"
+	"bufio"
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"regexp"
+	"strings"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
+	"github.com/icholy/replace"
 	"github.com/jmoiron/sqlx"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/bazel"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/version"
+	uuid "github.com/satori/go.uuid"
+	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
+	"golang.org/x/mod/semver"
+	"golang.org/x/text/transform"
 )
 
 var (
 	// Variables replaced by the linker during Bazel builds.
-	pgdump, libpq, libldap, liblber, libsasl string
+	pgdump, psql, libpq, libldap, liblber, libsasl string
+)
+
+const (
+	SQLDumpFilename = "dump.sql.zst"
 )
 
 func pgDumpPath() string {
@@ -35,7 +49,22 @@ func pgDumpPath() string {
 	return x
 }
 
+func psqlPath() string {
+	x, err := runfiles.Rlocation(psql)
+	if err != nil || pgdump == "" {
+		return "psql"
+	}
+	return x
+}
+
 type SnapshotID int64
+
+type snapshot struct {
+	ID                  SnapshotID `db:"id"`
+	ChunksetID          int64      `db:"chunkset_id"`
+	PachydermVersion    string     `db:"pachyderm_version"`
+	SQLDumpFileSetToken uuid.UUID  `db:"sql_dump_fileset_id"`
+}
 
 // String implements fmt.Stringer.
 func (id SnapshotID) String() string {
@@ -48,15 +77,32 @@ func (id SnapshotID) String() string {
 }
 
 // createSnapshotRow creates a snapshot row containing a chunkset referencing all live data.
-func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (result SnapshotID, _ error) {
+func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage) (result SnapshotID, sql string, _ error) {
+	var b strings.Builder // b contains SQL to recreate this function call inside a psql script.
+
+	// Create (and dump) chunkset.
 	chunksetID, err := s.CreateChunkSet(ctx, tx)
 	if err != nil {
-		return 0, errors.Wrap(err, "create chunkset")
+		return 0, "", errors.Wrap(err, "create chunkset")
 	}
-	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version) values ($1, $2) returning id`, chunksetID, version.Version.String()); err != nil {
-		return 0, errors.Wrap(err, "create snapshot row")
+	// Write out psql to create only this chunkset.  (Pre-existing chunksets and the primary key
+	// sequence are handled by pg_dump.)
+	b.WriteRune('\n')
+	b.WriteString("COPY storage.chunksets (id) FROM stdin;\n")
+	fmt.Fprintf(&b, "%v\n", int64(chunksetID))
+	b.WriteString(`\.` + "\n\n")
+
+	// Create (and dump) snapshot row.
+	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version) values ($1, $2) returning id`, chunksetID, version.Version.Canonical()); err != nil {
+		return 0, "", errors.Wrap(err, "create snapshot row")
 	}
-	return result, nil
+	// Write out psql to create only this snapshot row.  (Pre-existing snapshot rows are dumped
+	// by pg_dump.)
+	b.WriteString("COPY recovery.snapshots (id, chunkset_id, pachyderm_version) FROM stdin;\n")
+	fmt.Fprintf(&b, "%v\t%v\t%v\n", int64(result), int64(chunksetID), version.Version.Canonical())
+	b.WriteString(`\.` + "\n\n")
+
+	return result, b.String(), nil
 }
 
 // addDatabaseDump updates a snapshot row to contain a reference to a database dump.
@@ -75,26 +121,35 @@ func addDatabaseDump(ctx context.Context, tx *sqlx.Tx, snapshotID SnapshotID, fi
 	return nil
 }
 
-// dumpDatabase runs pg_dump on the provided database, writing the zstd-compressed content to w.
-// The writer is not closed by this function.
-func dumpDatabase(ctx context.Context, db *pachsql.DB, w io.WriteCloser) (retErr error) {
+func getSnapshotRow(ctx context.Context, tx *sqlx.Tx, id SnapshotID) (result snapshot, _ error) {
+	if err := sqlx.GetContext(ctx, tx, &result, `select id, chunkset_id, pachyderm_version, sql_dump_fileset_id from recovery.snapshots where id=$1`, id); err != nil {
+		return snapshot{}, errors.Wrap(err, "select row")
+	}
+	return
+}
+
+// Snapshotter can take and restore Pachyderm snapshots.
+type Snapshotter struct {
+	DB         *pachsql.DB      // Databaase connection.
+	Storage    *fileset.Storage // Fileset storage.
+	EtcdClient *etcd.Client     // etcd client (for running migrations).
+}
+
+// dumpDatabase runs pg_dump on the provided database, writing the content to w.
+func (s *Snapshotter) dumpDatabase(ctx context.Context, snapshot string, w io.Writer) (retErr error) {
 	ctx, done := log.SpanContext(ctx, "dumpDatabase")
 	defer done(log.Errorp(&retErr))
 
-	zw, err := zstd.NewWriter(w, zstd.WithEncoderLevel(zstd.SpeedBetterCompression))
-	if err != nil {
-		return errors.Wrap(err, "new zstd encoder")
-	}
-	defer errors.Close(&retErr, zw, "close zstd encoder")
-
-	dsn, err := pachsql.ConnStringFromConn(ctx, db)
+	dsn, err := pachsql.ConnStringFromConn(ctx, s.DB)
 	if err != nil {
 		return errors.Wrap(err, "get psql/pg_dump connection string from existing database connection")
 	}
-	cmd := exec.CommandContext(ctx, pgDumpPath(), "-d", dsn, "-v")
-	cmd.Stdin = bytes.NewReader(nil)
-	cmd.Stdout = zw
-	cmd.Stderr = log.WriterAt(ctx, log.DebugLevel)
+	cmd := exec.CommandContext(ctx, pgDumpPath(), "-d", dsn, "-v", "--clean", "--if-exists", "--snapshot", snapshot, "--exclude-table-data="+s.Storage.DumpTrackerTablePattern())
+	cmd.Stdin = nil
+	tw := transform.NewWriter(w, replace.String("SET transaction_timeout = 0;", ""))
+	defer errors.Close(&retErr, tw, "close transform writer")
+	cmd.Stdout = tw
+	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "pg_dump.stderr"), log.DebugLevel)
 	cmd.Env = cmd.Environ()
 	if extra := bazel.LibraryPath(cmd.Environ(), libpq, libldap, liblber, libsasl); extra != "" {
 		cmd.Env = append(cmd.Env, "LD_LIBRARY_PATH="+extra)
@@ -105,71 +160,115 @@ func dumpDatabase(ctx context.Context, db *pachsql.DB, w io.WriteCloser) (retErr
 	return nil
 }
 
-// CreateSnapshot creates a snapshot.
-//
-// TODO(jrockway): Clean up the half-created snapshot if we return with an error.
-func CreateSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage) (id SnapshotID, retErr error) {
-	rctx, done := log.SpanContext(rctx, "CreateSnapshot")
+// dumpTx dumps the database in a single transaction.  It creates a chunkset, dumps the database
+// with pg_dump in the same transaction, dumps the sql to create the chunkset (which pg_dump can't
+// see, because it can't read writes in this txn), and dumps the storage tracker (for the same
+// reason).  This yields a completely atomic snapshot; no tracker entries or chunks can change
+// during the dump.  (If they do, the txn rolls back with a serialization error.)
+func (s *Snapshotter) dumpTx(ctx context.Context, tx *pachsql.Tx) (id SnapshotID, dumpFile *os.File, retErr error) {
+	ctx, done := log.SpanContext(ctx, "snapshotTx")
 	defer done(log.Errorp(&retErr))
 
 	// Add snapshot row.
-	log.Debug(rctx, "adding snapshot row")
-	if err := dbutil.WithTx(rctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+	log.Debug(ctx, "adding snapshot row")
+	id, snapshotSQL, err := createSnapshotRow(ctx, tx, s.Storage)
+	if err != nil {
+		return 0, nil, errors.Wrap(err, "createSnapshotRow")
+	}
+	log.Debug(ctx, "snapshot row added; getting pg_snapshot id", zap.Stringer("snapshot_id", id))
+
+	// Get the postgres tx snapshot ID.
+	var snapshot string
+	if err := sqlx.GetContext(ctx, tx, &snapshot, `select pg_export_snapshot()`); err != nil {
+		return 0, nil, errors.Wrap(err, "select pg_export_snapshot()")
+	}
+	log.Debug(ctx, "pg_snapshot ok", zap.String("pg_snapshot", snapshot))
+
+	// Create a temp file for the database dump.
+	fh, err := os.CreateTemp("", "create-snapshot")
+	if err != nil {
+		return 0, nil, errors.Wrap(err, "create tmp file for database dump")
+	}
+	defer func() {
+		if retErr != nil {
+			errors.JoinInto(&retErr, errors.Wrap(os.Remove(fh.Name()), "delete unused tmp file"))
+			errors.JoinInto(&retErr, errors.Wrap(fh.Close(), "close unused tmp file"))
+		}
+	}()
+	zw, err := zstd.NewWriter(fh, zstd.WithEncoderLevel(zstd.SpeedBetterCompression))
+	if err != nil {
+		return 0, nil, errors.Wrap(err, "new zstd encoder")
+	}
+	defer errors.Close(&retErr, zw, "close zstd encoder")
+
+	// Dump the database, starting at the same postgres snapshot as this transaction is using.
+	log.Debug(ctx, "dumping database", zap.Stringer("snapshot_id", id), zap.String("pg_snapshot", snapshot))
+	if err := s.dumpDatabase(ctx, snapshot, zw); err != nil {
+		return 0, nil, errors.Wrap(err, "dump database")
+	}
+	log.Debug(ctx, "database dump finished ok", zap.String("dump_file", fh.Name()))
+
+	// Add new information added in this tx (by this package) to the dump.
+	log.Debug(ctx, "adding this tx to the dump")
+	if _, err := io.Copy(zw, strings.NewReader(snapshotSQL)); err != nil {
+		return 0, nil, errors.Wrap(err, "add footer")
+	}
+
+	// Add new information added in this tx (by the storage system) to the dump.
+	buf := bufio.NewWriter(zw)
+	if err := s.Storage.DumpTracker(ctx, tx, buf); err != nil {
+		return 0, nil, errors.Wrap(err, "dump tracker")
+	}
+	if err := buf.Flush(); err != nil {
+		return 0, nil, errors.Wrap(err, "flush buffer")
+	}
+	log.Debug(ctx, "added this tx to dump ok")
+	return id, fh, nil
+}
+
+// CreateSnapshot creates a snapshot.
+func (s *Snapshotter) CreateSnapshot(rctx context.Context) (_ SnapshotID, retErr error) {
+	rctx, done := log.SpanContext(rctx, "CreateSnapshot")
+	defer done(log.Errorp(&retErr))
+
+	var id SnapshotID
+	var fh *os.File
+	defer func() {
+		if fh != nil {
+			errors.JoinInto(&retErr, errors.Wrap(os.Remove(fh.Name()), "delete tmp file"))
+			errors.JoinInto(&retErr, errors.Wrap(fh.Close(), "close tmp file"))
+		}
+	}()
+	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) (retErr error) {
 		var err error
-		id, err = createSnapshotRow(ctx, tx, s)
+		id, fh, err = s.dumpTx(ctx, tx)
 		if err != nil {
-			return errors.Wrap(err, "createSnapshotRow")
+			return errors.Wrap(err, "dumpTx")
 		}
 		return nil
 	}); err != nil {
-		return 0, errors.Wrap(err, "add snapshot row")
+		return 0, errors.Wrap(err, "WithTx(snapshotBgTx)")
 	}
 
-	// Dump database and upload to PFS.
-	log.Debug(rctx, "dumping database", zap.Stringer("snapshot", id))
-	dctx, cancel := pctx.WithCancel(rctx)
-	doneCh := make(chan error)
-	r, w := io.Pipe()
-	defer r.Close() //nolint:errcheck
+	// Seek to the start of the database dump.
+	if _, err := fh.Seek(0, 0); err != nil {
+		return 0, errors.Wrap(err, "seek to start of database dump")
+	}
 
-	// Background job to feed database dump bytes into `r`.
-	go func(ctx context.Context) {
-		defer close(doneCh)
-		defer cancel()
-		err := dumpDatabase(ctx, db, w)
-		w.CloseWithError(err) //nolint:errcheck
-		select {
-		case doneCh <- errors.Wrap(err, "dumpDatabase"):
-		case <-ctx.Done():
-			log.Debug(ctx, "database dump errored after context was done", zap.Error(err))
-		}
-	}(dctx)
-
-	// Upload the database dump bytes as they arrive.
+	// Upload the database dump bytes.
+	log.Debug(rctx, "uploading database dump fileset")
 	var closedFileSet bool
-	fw := s.NewWriter(rctx)
+	fw := s.Storage.NewWriter(rctx)
 	defer func() {
 		if closedFileSet {
 			return
 		}
 		if _, err := fw.Close(); err != nil {
-			errors.JoinInto(&retErr, errors.Wrap(err, "closed abandoned fileset"))
+			errors.JoinInto(&retErr, errors.Wrap(err, "close abandoned fileset"))
 		}
 	}()
-	if err := fw.Add("dump.sql.zst", "", r); err != nil {
-		cancel() // Kill the database dumper process if it's not dead yet.
+	if err := fw.Add(SQLDumpFilename, "", fh); err != nil {
 		return 0, errors.Wrap(err, "create fileset containing database dump")
-	}
-	select {
-	case <-rctx.Done():
-		return 0, errors.Wrap(context.Cause(rctx), "context expired while waiting for dump to finish")
-	case err, ok := <-doneCh:
-		if err != nil {
-			return 0, errors.Wrap(err, "wait for database dump to complete")
-		}
-		if !ok {
-			return 0, errors.New("context expired before database dump could complete")
-		}
 	}
 	closedFileSet = true
 	fsHandle, err := fw.Close()
@@ -179,10 +278,11 @@ func CreateSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage) (i
 	if fsHandle == nil {
 		return 0, errors.New("fileset handle was nil")
 	}
+	log.Debug(rctx, "database dump fileset uploaded ok", zap.String("fileset_token", fsHandle.Token().HexString()))
 
 	// Adjust the snapshot to reference this fileset.
 	log.Debug(rctx, "adjusting snapshot to reference database dump fileset", zap.Stringer("snapshot", id), zap.String("fileset_token", fsHandle.Token().HexString()))
-	if err := dbutil.WithTx(rctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		if err := addDatabaseDump(ctx, tx, id, fsHandle.Token()); err != nil {
 			return errors.Wrapf(err, "addDatabaseDump(%v)", fsHandle.Token().HexString())
 		}
@@ -193,4 +293,167 @@ func CreateSnapshot(rctx context.Context, db *pachsql.DB, s *fileset.Storage) (i
 
 	// Done.
 	return id, nil
+}
+
+// restoreDatabase runs psql on the provided pg_dump output, reading zstd-compressed database
+// content from r.
+func restoreDatabase(ctx context.Context, db *pachsql.DB, r io.Reader) (retErr error) {
+	ctx, done := log.SpanContext(ctx, "restoreDatabase")
+	defer done(log.Errorp(&retErr))
+
+	zr, err := zstd.NewReader(r)
+	if err != nil {
+		return errors.Wrap(err, "new zstd decoder")
+	}
+	defer zr.Close() // cannot error
+
+	dsn, err := pachsql.ConnStringFromConn(ctx, db)
+	if err != nil {
+		return errors.Wrap(err, "get psql connection string from existing database connection")
+	}
+	cmd := exec.CommandContext(ctx, psqlPath(), "-d", dsn, "--single-transaction", "--set", "ON_ERROR_STOP=on")
+	cmd.Stdin = zr
+	cmd.Stdout = log.WriterAt(pctx.Child(ctx, "psql.stdout"), log.DebugLevel)
+	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "psql.stderr"), log.DebugLevel)
+	cmd.Env = cmd.Environ()
+	if extra := bazel.LibraryPath(cmd.Environ(), libpq, libldap, liblber, libsasl); extra != "" {
+		cmd.Env = append(cmd.Env, "LD_LIBRARY_PATH="+extra)
+	}
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "run psql")
+	}
+	return nil
+}
+
+var removeGitVersion = regexp.MustCompile(`-pre.g([0-9a-f]{10})$`)
+
+func checkVersionCompatibility(snapshot, running string) error {
+	if !strings.HasPrefix(snapshot, "v") || !strings.HasPrefix(running, "v") {
+		// No version information available.
+		return nil
+	}
+	// semver.Compare treats -pre.g<commit> as something that's ordered, but it's not.
+	snapshot = removeGitVersion.ReplaceAllString(snapshot, "-pre.gXXX")
+	running = removeGitVersion.ReplaceAllString(running, "-pre.gXXX")
+	switch semver.Compare(snapshot, running) {
+	case 1:
+		return errors.Errorf("pachyderm version of snapshot (%v) is newer than the current running version (%v)", snapshot, running)
+	}
+	return nil
+}
+
+// RestoreSnapshotOptions controls the behavior of the RestoreSnapshot function.
+type RestoreSnapshotOptions struct {
+	IgnoreVersionCompatibility bool // If true, allow restoring newer database dumps into an older Pachyderm.
+}
+
+// RestoreSnapshot restores the database state to that represented by the provided snapshot.  After
+// the restore, the snapshot will remain restorable, even though it did not technically exist at the
+// time it was created ;)
+func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts RestoreSnapshotOptions) (retErr error) {
+	rctx, done := log.SpanContext(rctx, "RestoreSnapshot")
+	defer done(log.Errorp(&retErr))
+
+	log.Debug(rctx, "reading snapshot metadata")
+	var snap snapshot
+	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		var err error
+		snap, err = getSnapshotRow(ctx, tx, id)
+		if err != nil {
+			return errors.Wrap(err, "get snapshot row")
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "read metadata: WithTx")
+	}
+	log.Debug(rctx, "got metadata", zap.String("pachyderm_version", snap.PachydermVersion), zap.Int64("chunkset_id", snap.ChunksetID), zap.Stringer("sql_dump_fileset_token", snap.SQLDumpFileSetToken))
+
+	if !opts.IgnoreVersionCompatibility {
+		if err := checkVersionCompatibility(snap.PachydermVersion, version.Version.Canonical()); err != nil {
+			return err
+		}
+		log.Debug(rctx, "database dump is compatible with running pachyderm", zap.String("snapshot_version", snap.PachydermVersion), zap.String("running_version", version.Version.Canonical()))
+	}
+
+	log.Debug(rctx, "downloading database dump to temporary file")
+	fs, err := s.Storage.Open(rctx, []*fileset.Handle{fileset.NewHandle(fileset.Token(snap.SQLDumpFileSetToken[:]))})
+	if err != nil {
+		return errors.Wrapf(err, "open sql dump fileset %s", snap.SQLDumpFileSetToken)
+	}
+	var tmp string
+	if err := fs.Iterate(rctx, func(f fileset.File) (retErr error) {
+		path := f.Index().Path
+		log.Debug(rctx, "reading file from database dump fileset", zap.Stringer("fileset_id", snap.SQLDumpFileSetToken), zap.String("path", path))
+		if got, want := path, SQLDumpFilename; got != want {
+			return errors.Errorf("unexpected file in database dump fileset %s: got %v want %v", snap.SQLDumpFileSetToken, got, want)
+		}
+		fh, err := os.CreateTemp("", fmt.Sprintf("snapshot-%v-*", id))
+		if err != nil {
+			return errors.Wrapf(err, "create tmp file to store database dump")
+		}
+		defer errors.Close(&retErr, fh, "close tmp database dump file")
+		if err := f.Content(rctx, fh); err != nil {
+			return errors.Wrapf(err, "read file %v content", path)
+		}
+		log.Debug(rctx, "finished reading database dump ok", zap.String("path", path))
+		tmp = fh.Name()
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "iterate over sql dump fileset %s", snap.SQLDumpFileSetToken)
+	}
+	defer errors.Invoke1(&retErr, os.Remove, tmp, "cleanup database dump tmp file")
+	log.Debug(rctx, "downloaded database dump ok", zap.String("path", tmp))
+
+	log.Debug(rctx, "restoring database")
+	restore, err := os.Open(tmp)
+	if err != nil {
+		return errors.Wrap(err, "open database dump (to restore)")
+	}
+	defer errors.Close(&retErr, restore, "close database dump file (opened for restore)")
+	if err := restoreDatabase(rctx, s.DB, restore); err != nil {
+		return errors.Wrap(err, "restore database")
+	}
+	log.Debug(rctx, "finished restoring database")
+
+	log.Debug(rctx, "running migrations")
+	menv := migrations.Env{
+		WithTableLocks: true,
+		EtcdClient:     s.EtcdClient,
+	}
+	if err := migrations.ApplyMigrations(rctx, s.DB, menv, clusterstate.DesiredClusterState); err != nil {
+		return errors.Wrap(err, "apply database migrations from snapshot version to running version")
+	}
+	log.Debug(rctx, "ran migrations ok")
+
+	log.Debug(rctx, "saving database dump to PFS")
+	save, err := os.Open(tmp)
+	if err != nil {
+		return errors.Wrap(err, "open database dump (to save)")
+	}
+	defer errors.Close(&retErr, save, "close database dump file (opened to save)")
+	fw := s.Storage.NewWriter(rctx)
+	if err := fw.Add(SQLDumpFilename, "", save); err != nil {
+		if _, closeErr := fw.Close(); closeErr != nil {
+			errors.JoinInto(&err, errors.Wrap(closeErr, "close fileset writer"))
+		}
+		return errors.Wrap(err, "add database dump fileset content")
+	}
+	fsHandle, err := fw.Close()
+	if err != nil {
+		return errors.Wrap(err, "close database dump fileset writer")
+	}
+	log.Debug(rctx, "saved databse dump to PFS ok", zap.String("fileset_token", fsHandle.Token().HexString()))
+
+	log.Debug(rctx, "adding dump fileset to newly-restored snapshot row")
+	if err := dbutil.WithTx(rctx, s.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		if err := addDatabaseDump(ctx, tx, id, fsHandle.Token()); err != nil {
+			return errors.Wrapf(err, "edit snapshot id=%v to contain fileset %s", id, snap.SQLDumpFileSetToken)
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "update snapshot: WithTx")
+	}
+	log.Debug(rctx, "snapshot state updated ok")
+
+	return nil
 }

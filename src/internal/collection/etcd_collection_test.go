@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 )
 
@@ -41,7 +40,7 @@ func TestEtcdCollections(suite *testing.T) {
 	ctx := pctx.TestContext(suite)
 	etcdEnv := testetcd.NewEnv(ctx, suite)
 	newCollection := func(ctx context.Context, t *testing.T, noIndex ...bool) (ReadCallback, WriteCallback) {
-		prefix := testutil.UniqueString("test-etcd-collections-")
+		prefix := uuid.UniqueString("test-etcd-collections-")
 		index := []*col.Index{TestSecondaryIndex}
 		if len(noIndex) > 0 && noIndex[0] {
 			index = nil

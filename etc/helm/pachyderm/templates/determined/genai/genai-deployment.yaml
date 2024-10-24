@@ -21,6 +21,14 @@ spec:
     spec:
       priorityClassName: determined-system-priority
       serviceAccount: genai-{{ .Release.Name }}
+      {{- if .Values.determined.genai.agentGroupID }}
+      {{ $gid := .Values.determined.genai.agentGroupID }}
+      securityContext:
+        runAsUser: {{ $gid }}
+        runAsGroup: {{ $gid }}
+        fsGroup: {{ $gid }}
+        fsGroupChangePolicy: "OnRootMismatch"
+      {{- end }}
       containers:
       - name: genai-{{ .Release.Name }}
         {{ $tag := (required "A valid .Values.determined.genai.version entry required!" .Values.determined.genai.version) }}
@@ -29,7 +37,7 @@ spec:
         imagePullPolicy: "Always"
         env:
           - name: DET_MASTER
-            value: determined-master-service-{{ .Release.Name }}:{{ .Values.determined.masterPort }}
+            value: {{ include "determined.genai.detMasterScheme" . }}://determined-master-service-{{ .Release.Name }}.{{ .Release.Namespace }}:{{ include "determined.masterPort" . }}
           - name: DB_NAME
             value: lore
           - name: DB_USER
@@ -40,10 +48,24 @@ spec:
             value: {{ .Values.determined.db.port | quote }}
           - name: DB_HOST
             value: {{ include "determined.dbHost" . }}
+          {{- if .Values.determined.db.sslMode }}
+          - name: DB_SSL_MODE
+            value: {{ .Values.determined.db.sslMode }}
+          {{- $rootCert := (required "A valid .Values.determined.db.sslRootCert entry required!" .Values.determined.db.sslRootCert )}}
+          - name: DB_SSL_ROOT_CERT
+            value: {{ include "determined.secretPath" . }}{{ $rootCert }}
+          {{- end }}
           - name: LORE_DOCKER_TAG_SUFFIX
-            value: {{ $tag }}
+            value: {{ $tag | quote }}
+          {{- if .Values.determined.genai.sharedFSHostPath }}
+          - name: K8S_SHARED_HOST_PATH
+            value: {{ .Values.determined.genai.sharedFSHostPath }}
+          {{- else }}
           - name: K8S_SHARED_PVC_NAME
             value: {{ include "determined.genai.PVCName" . }}
+          {{- end }}
+          - name: SHARED_FS_ROOT_PATH
+            value: {{ include "determined.genai.sharedFSMountPath" . }}
           - name: RESOURCE_POOL_EXTRA_METADATA_PATH
             value: /run/determined/workdir/rp_config/resource_pool_metadata.yaml
           - name: MESSAGE_QUEUE_HOST
@@ -59,11 +81,18 @@ spec:
             value: {{ .Values.determined.genai.imagePullSecretName }}
           {{- end}}
         volumeMounts:
+          {{- if .Values.determined.genai.sharedFSHostPath }}
+          - name: genai-shared-host-path
+            mountPath: {{ include "determined.genai.sharedFSMountPath" . }}
+          {{- else }}
           - name: genai-pvc-storage
-            mountPath: /run/determined/workdir/shared_fs
+            mountPath: {{ include "determined.genai.sharedFSMountPath" . }}
             readOnly: false
+          {{- end }}
           - name: genai-resource-pool-metadata
             mountPath: /run/determined/workdir/rp_config
+            readOnly: true
+          {{- include "determined.dbCertVolumeMount" . | nindent 10 }}
         resources:
           requests:
             {{- if .Values.determined.genai.cpuRequest }}
@@ -86,11 +115,19 @@ spec:
         - name: {{ .Values.determined.genai.imagePullSecretName }}
       {{- end}}
       volumes:
+        {{- if .Values.determined.genai.sharedFSHostPath }}
+        - name: genai-shared-host-path
+          hostPath:
+            path: {{ .Values.determined.genai.sharedFSHostPath }}
+            type: Directory
+        {{- else }}
         - name: genai-pvc-storage
           persistentVolumeClaim:
             claimName: {{ include "determined.genai.PVCName" . }}
+        {{- end }}
         - name: genai-resource-pool-metadata
           configMap:
             name: genai-resource-pool-metadata-{{ .Release.Name }}
+        {{- include "determined.dbCertVolume" . | nindent 8 }}
 {{ end }}
 {{ end }}

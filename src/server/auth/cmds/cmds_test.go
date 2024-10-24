@@ -3,6 +3,8 @@ package cmds
 import (
 	"bufio"
 	"bytes"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"os/exec"
 	"strings"
 	"testing"
@@ -41,7 +43,7 @@ func executeCmdAndGetLastWord(t *testing.T, cmd *exec.Cmd) string {
 // loginAsUser sets the auth token in the pachctl config to a token for `user`
 func loginAsUser(t *testing.T, rootClient *client.APIClient, user string) {
 	t.Helper()
-	configPath := executeCmdAndGetLastWord(t, tu.PachctlBashCmdCtx(rootClient.Ctx(), t, rootClient, `echo $PACH_CONFIG`))
+	configPath := executeCmdAndGetLastWord(t, testutilpachctl.PachctlBashCmdCtx(rootClient.Ctx(), t, rootClient, `echo $PACH_CONFIG`))
 	if user == auth.RootUser {
 		require.NoError(t, config.WritePachTokenToConfigPath(tu.RootToken, configPath, false))
 		return
@@ -55,9 +57,9 @@ func loginAsUser(t *testing.T, rootClient *client.APIClient, user string) {
 func TestWhoAmI(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
-	alice := tu.UniqueString("robot:alice")
+	alice := uuid.UniqueString("robot:alice")
 	loginAsUser(t, c, alice)
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl auth whoami | match {{.alice}}`,
 		"alice", alice,
 	).Run())
@@ -70,46 +72,46 @@ func TestCheckGetSetRepo(t *testing.T) {
 	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
 
 	// alice sets up their own project and repos so that they can run the appropriate auth commands below.
-	alice, bob := tu.UniqueString("robot:alice"), tu.UniqueString("robot:bob")
+	alice, bob := uuid.UniqueString("robot:alice"), uuid.UniqueString("robot:bob")
 	loginAsUser(t, c, alice)
-	project, repo := tu.UniqueString("project"), tu.UniqueString("repo")
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl create project {{.project}}`, "project", project).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl create repo --project {{.project}} {{.repo}}`, "project", pfs.DefaultProjectName, "repo", repo).Run())
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl create repo --project {{.project}} {{.repo}}`, "project", project, "repo", repo).Run())
+	project, repo := uuid.UniqueString("project"), uuid.UniqueString("repo")
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl create project {{.project}}`, "project", project).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl create repo --project {{.project}} {{.repo}}`, "project", pfs.DefaultProjectName, "repo", repo).Run())
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl create repo --project {{.project}} {{.repo}}`, "project", project, "repo", repo).Run())
 
 	// alice can check, get, and set permissions wrt their own repo
 	// but they can't check other users' permissions because they lack CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL
 	for _, project := range []string{pfs.DefaultProjectName, project} {
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `cat $PACH_CONFIG >/tmp/bazquux`,
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `cat $PACH_CONFIG >/tmp/bazquux`,
 			"project", project,
 			"repo", repo,
 		).Run())
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 pachctl auth check repo {{.repo}} --project {{.project}} | match repoOwner
 pachctl auth check repo {{.repo}} --project {{.project}} >/tmp/bim 2>&1`,
 			"project", project,
 			"repo", repo,
 		).Run())
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get repo {{.repo}} --project {{.project}} >/tmp/foobar 2>&1`,
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get repo {{.repo}} --project {{.project}} >/tmp/foobar 2>&1`,
 			"project", project,
 			"repo", repo,
 			"alice", alice).Run())
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.alice}}: \[repoOwner\]"`,
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.alice}}: \[repoOwner\]"`,
 			"project", project,
 			"repo", repo,
 			"alice", alice,
 		).Run())
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth set repo {{.repo}} repoReader {{.bob}} --project {{.project}}`,
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth set repo {{.repo}} repoReader {{.bob}} --project {{.project}}`,
 			"project", project,
 			"repo", repo,
 			"bob", bob,
 		).Run())
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.bob}}: \[repoReader\]"`,
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.bob}}: \[repoReader\]"`,
 			"project", project,
 			"repo", repo,
 			"bob", bob,
 		).Run())
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 			pachctl auth check repo {{.repo}} --project {{.project}} | match repoOwner
 			pachctl auth get repo {{.repo}} --project {{.project}} | match "{{.alice}}: \[repoOwner\]"
 			pachctl auth set repo {{.repo}} repoReader {{.bob}} --project {{.project}}
@@ -121,21 +123,21 @@ pachctl auth check repo {{.repo}} --project {{.project}} >/tmp/bim 2>&1`,
 			"bob", bob,
 		).Run())
 
-		require.YesError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}}`, "project", project, "repo", repo, "user", alice).Run())
+		require.YesError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}}`, "project", project, "repo", repo, "user", alice).Run())
 	}
 
 	// root user can check everyone's role bindings because they have CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL
 	loginAsUser(t, c, auth.RootUser)
 	for _, project := range []string{pfs.DefaultProjectName, project} {
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}} | match repoOwner`, "project", project, "repo", repo, "user", alice).Run())
-		require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}} | match repoReader`, "project", project, "repo", repo, "user", bob).Run())
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}} | match repoOwner`, "project", project, "repo", repo, "user", alice).Run())
+		require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth check repo {{.repo}} {{.user}} --project {{.project}} | match repoReader`, "project", project, "repo", repo, "user", bob).Run())
 	}
 }
 
 func TestCheckGetSetProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create project project
 		pachctl auth check project project | match clusterAdmin | match projectOwner
 		pachctl auth get project project | match projectOwner
@@ -153,7 +155,7 @@ func TestAdmins(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
 	// Modify the list of admins to add 'admin2'
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl auth get cluster \
 			| match "pach:root"
 		pachctl auth set cluster clusterAdmin robot:admin
@@ -173,12 +175,12 @@ func TestAdmins(t *testing.T) {
 	// (so that deactivateAuth() runs), and call 'list-admin' (to make sure it
 	// works for non-admins)
 	loginAsUser(t, c, "robot:admin2")
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl auth set cluster clusterAdmin robot:admin
 		pachctl auth set cluster none robot:admin2
 	`).Run())
 	require.NoError(t, backoff.Retry(func() error {
-		return errors.EnsureStack(tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get cluster \
+		return errors.EnsureStack(testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get cluster \
 			| match -v "robot:admin2" \
 			| match "robot:admin"
 		`).Run())
@@ -190,7 +192,7 @@ func TestGetAndUseRobotToken(t *testing.T) {
 	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
 	// Test both get-robot-token and use-auth-token; make sure that they work
 	// together with -q
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get-robot-token -q marvin \
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get-robot-token -q marvin \
 	  | pachctl auth use-auth-token
 	pachctl auth whoami \
 	  | match 'robot:marvin'
@@ -203,14 +205,14 @@ func TestGetRobotTokenTTL(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
 
-	alice := tu.UniqueString("alice")
+	alice := uuid.UniqueString("alice")
 	var tokenBuf bytes.Buffer
-	tokenCmd := tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get-robot-token {{.alice}} --ttl=1h -q`, "alice", alice)
+	tokenCmd := testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get-robot-token {{.alice}} --ttl=1h -q`, "alice", alice)
 	tokenCmd.Stdout = &tokenBuf
 	require.NoError(t, tokenCmd.Run())
 	token := strings.TrimSpace(tokenBuf.String())
 
-	login := tu.PachctlBashCmdCtx(ctx, t, c, `echo {{.token}} | pachctl auth use-auth-token
+	login := testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `echo {{.token}} | pachctl auth use-auth-token
 		pachctl auth whoami | \
 		match 'session expires: '
 	`, "token", token)
@@ -223,7 +225,7 @@ func TestGetOwnGroups(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
 
-	group := tu.UniqueString("group")
+	group := uuid.UniqueString("group")
 
 	_, err := c.ModifyMembers(c.Ctx(), &auth.ModifyMembersRequest{
 		Group: group,
@@ -231,7 +233,7 @@ func TestGetOwnGroups(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get-groups | match '{{ .group }}'`,
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get-groups | match '{{ .group }}'`,
 		"group", group).Run())
 }
 
@@ -241,8 +243,8 @@ func TestGetGroups(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
 
-	alice := auth.RobotPrefix + tu.UniqueString("alice")
-	group := tu.UniqueString("group")
+	alice := auth.RobotPrefix + uuid.UniqueString("alice")
+	group := uuid.UniqueString("group")
 
 	_, err := c.ModifyMembers(c.Ctx(), &auth.ModifyMembersRequest{
 		Group: group,
@@ -250,7 +252,7 @@ func TestGetGroups(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get-groups {{ .alice }} | match '{{ .group }}'`,
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, c, `pachctl auth get-groups {{ .alice }} | match '{{ .group }}'`,
 		"group", group, "alice", alice).Run())
 }
 
@@ -281,7 +283,7 @@ func TestSynonyms(t *testing.T) {
 		for _, verb := range verbs {
 			synonymCommand := strings.ReplaceAll(withResources, "{{VERB}}", verb)
 			t.Logf("Testing auth %s %s -h\n", verb, resource)
-			require.NoError(t, tu.BashCmd(synonymCommand).Run())
+			require.NoError(t, testutilpachctl.BashCmd(synonymCommand).Run())
 		}
 	}
 }
@@ -291,14 +293,14 @@ func TestRevokeToken(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	root := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
 
-	aliceName := auth.RobotPrefix + tu.UniqueString("alice")
+	aliceName := auth.RobotPrefix + uuid.UniqueString("alice")
 	alice := tu.AuthenticateClient(t, root, aliceName)
 
 	whoAmIResp, err := alice.WhoAmI(alice.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, aliceName, whoAmIResp.Username)
 
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, root, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, root, `
 		pachctl auth revoke --token={{.alice_token}} | match '1 auth token revoked'
 		pachctl auth revoke --token={{.alice_token}} | match '0 auth tokens revoked'
 		`,
@@ -314,7 +316,7 @@ func TestRevokeUser(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	root := pachd.NewTestPachd(t, pachd.ActivateAuthOption(tu.RootToken))
 
-	aliceName := auth.RobotPrefix + tu.UniqueString("alice")
+	aliceName := auth.RobotPrefix + uuid.UniqueString("alice")
 	aliceClients := make([]*client.APIClient, 3)
 	for i := 0; i < len(aliceClients); i++ {
 		aliceClients[i] = tu.AuthenticateClient(t, root, aliceName)
@@ -327,7 +329,7 @@ func TestRevokeUser(t *testing.T) {
 		require.Equal(t, aliceName, whoAmIResp.Username)
 	}
 
-	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, root, `
+	require.NoError(t, testutilpachctl.PachctlBashCmdCtx(ctx, t, root, `
 		pachctl auth revoke --user={{.alice}} | match '3 auth tokens revoked'
 		pachctl auth revoke --user={{.alice}} | match '0 auth tokens revoked'
 		`,

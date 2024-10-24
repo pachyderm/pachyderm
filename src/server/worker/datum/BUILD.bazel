@@ -76,7 +76,6 @@ go_test(
         "//src/internal/tarutil",
         "//src/internal/task",
         "//src/internal/testpachd/realenv",
-        "//src/internal/testutil",
         "//src/internal/uuid",
         "//src/pfs",
         "//src/pps",
