@@ -42,5 +42,5 @@ USER appuser
 RUN npm i module-alias --prefix ./console/backend
 # RUN npm cache clean --force 
 
-CMD ["npm", "start", "--prefix", "./console/backend"]
+CMD ["npm", "start", "--prefix", "./console/backend", "--cache", "/tmp" ]
 EXPOSE 4000
