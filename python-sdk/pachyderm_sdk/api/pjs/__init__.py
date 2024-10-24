@@ -160,14 +160,14 @@ class QueueInfoDetails(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class AwaitRequest(betterproto.Message):
+class AwaitJobRequest(betterproto.Message):
     context: str = betterproto.string_field(1)
-    job: int = betterproto.int64_field(2)
+    job: "Job" = betterproto.message_field(2)
     desired_state: "JobState" = betterproto.enum_field(3)
 
 
 @dataclass(eq=False, repr=False)
-class AwaitResponse(betterproto.Message):
+class AwaitJobResponse(betterproto.Message):
     actual_state: "JobState" = betterproto.enum_field(1)
 
 
@@ -190,8 +190,7 @@ class CreateJobRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class CreateJobResponse(betterproto.Message):
-    id: "Job" = betterproto.message_field(1)
-    """TODO: id -> job"""
+    job: "Job" = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -247,7 +246,7 @@ class ListJobResponse(betterproto.Message):
     and Details may not be set depending on how much information was requested.
     """
 
-    id: "Job" = betterproto.message_field(1)
+    job: "Job" = betterproto.message_field(1)
     info: "JobInfo" = betterproto.message_field(2)
     details: "JobInfoDetails" = betterproto.message_field(3)
 
@@ -268,7 +267,7 @@ class WalkJobRequest(betterproto.Message):
     algorithm: "WalkAlgorithm" = betterproto.enum_field(3)
     """A sane client should default to 'LEVEL_ORDER'."""
 
-    max_depth: int = betterproto.uint64_field(4)
+    max_depth: int = betterproto.int64_field(4)
     """
     The depth relative from the starting point to traverse to. A depth of 0 is
     interpreted as 10,000. A depth greater than 10,000 is capped at 10,000.
@@ -349,7 +348,7 @@ class ListQueueRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ListQueueResponse(betterproto.Message):
-    id: "Queue" = betterproto.message_field(1)
+    queue: "Queue" = betterproto.message_field(1)
     info: "QueueInfo" = betterproto.message_field(2)
     details: "QueueInfoDetails" = betterproto.message_field(3)
 
@@ -412,10 +411,10 @@ class ApiStub:
             request_serializer=InspectQueueRequest.SerializeToString,
             response_deserializer=InspectQueueResponse.FromString,
         )
-        self.__rpc_await_ = channel.unary_unary(
-            "/pjs.API/Await",
-            request_serializer=AwaitRequest.SerializeToString,
-            response_deserializer=AwaitResponse.FromString,
+        self.__rpc_await_job = channel.unary_unary(
+            "/pjs.API/AwaitJob",
+            request_serializer=AwaitJobRequest.SerializeToString,
+            response_deserializer=AwaitJobResponse.FromString,
         )
 
     def create_job(
@@ -527,13 +526,14 @@ class ApiStub:
 
         return self.__rpc_inspect_queue(request)
 
-    def await_(
-        self, *, context: str = "", job: int = 0, desired_state: "JobState" = None
-    ) -> "AwaitResponse":
+    def await_job(
+        self, *, context: str = "", job: "Job" = None, desired_state: "JobState" = None
+    ) -> "AwaitJobResponse":
 
-        request = AwaitRequest()
+        request = AwaitJobRequest()
         request.context = context
-        request.job = job
+        if job is not None:
+            request.job = job
         request.desired_state = desired_state
 
-        return self.__rpc_await_(request)
+        return self.__rpc_await_job(request)
