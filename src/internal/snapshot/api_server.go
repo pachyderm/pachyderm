@@ -86,14 +86,12 @@ func (a *APIServer) ListSnapshot(req *snapshotpb.ListSnapshotRequest, srv snapsh
 
 func (a *APIServer) DeleteSnapshot(ctx context.Context, req *snapshotpb.DeleteSnapshotRequest) (*snapshotpb.DeleteSnapshotResponse, error) {
 	var ret *snapshotpb.DeleteSnapshotResponse
-	if err := dbutil.WithTx(ctx, a.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		err := snapshotdb.DeleteSnapshot(ctx, sqlTx, req.Id)
-		if err != nil {
-			return errors.Wrap(err, "delete snapshot in db")
-		}
-		return nil
-	}); err != nil {
-		return nil, errors.Wrap(err, "with Tx")
+	s := &Snapshotter{
+		DB:      a.DB,
+		Storage: a.Store,
+	}
+	if err := s.DropSnapshot(ctx, SnapshotID(req.GetId())); err != nil {
+		return nil, errors.Wrap(err, "drop snapshot")
 	}
 	return ret, nil
 }

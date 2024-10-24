@@ -156,19 +156,10 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	// Validate the database backup fileset created during restoration.
 	validateDumpFileset(ctx, t, db, storage, gotInternal.SQLDumpPin)
 
-	// Drop the chunkset that's keeping the backed up chunks alive (if the restore failed), just
-	// to make sure that it's the original references that are keeping the backed up filesets
-	// around.
-	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `truncate table recovery.snapshots`); err != nil {
-			return errors.Wrap(err, "truncate snapshots table")
-		}
-		if err := storage.DropChunkSet(ctx, tx, fileset.ChunkSetID(got.ChunksetId)); err != nil {
-			return errors.Wrapf(err, "DropChunkSet(%v)", got.ChunksetId)
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("WithTx: %v", err)
+	// Drop the snapshot and run GC, to ensure that restoring the snapshot is what kept the data
+	// alive.
+	if err := s.DropSnapshot(ctx, SnapshotID(got.Id)); err != nil {
+		t.Errorf("drop snapshot: %v", err)
 	}
 
 	// GC to ensure our dropped refs drop the chunks; if chunks are dropped, then the read below
