@@ -123,5 +123,49 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	}
 	deleteSnapshot.Flags().StringVar(&idStr, "snapshot", idStr, "Specify the snapshot (by id) to delete.")
 	commands = append(commands, cmdutil.CreateAliases(deleteSnapshot, "delete snapshot", snapshots))
+
+	inspectSnapshot := &cobra.Command{
+		Short: "Return info about a snapshot.",
+		Long:  "This command returns details of the snapshot such as: `ID`, `ChunksetID`, `Fileset`, `Version` and `Created`.",
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
+			ctx := cmd.Context()
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
+			if err != nil {
+				return err
+			}
+			defer errors.Close(&retErr, c, "close client")
+
+			request := &snapshot.InspectSnapshotRequest{}
+			if len(args) == 0 {
+				return errors.Errorf("a snapshot id needs to be provided")
+			}
+			id, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return errors.Wrap(err, "parse int")
+			}
+			request.Id = id
+
+			var inspectResp *snapshot.InspectSnapshotResponse
+			if err := txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				resp, err := c.SnapshotAPIClient.InspectSnapshot(ctx, request)
+				if err != nil {
+					return errors.Wrap(err, "inspect snapshot RPC")
+				}
+				inspectResp = resp
+				return nil
+			}); err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+
+			if raw {
+				return errors.Wrap(cmdutil.Encoder(output, os.Stdout).EncodeProto(inspectResp.Info), "encoder")
+			} else if output != "" {
+				return errors.New("cannot set --output (-o) without --raw")
+			}
+			return pretty.PrintDetailedSnapshotInfo(inspectResp.GetInfo())
+		}),
+	}
+	inspectSnapshot.Flags().AddFlagSet(outputFlags)
+	commands = append(commands, cmdutil.CreateAliases(inspectSnapshot, "inspect snapshot", snapshots))
 	return commands
 }
