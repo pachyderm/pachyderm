@@ -826,6 +826,76 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		})
 	commands = append(commands, cmdutil.CreateAlias(getLogs, "logs"))
 
+	printBusy := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Print what pachd is currently doing.",
+		Long:  "Print what pachd is currently doing.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine("user")
+			if err != nil {
+				return errors.Wrap(err, "error connecting to pachd")
+			}
+			defer client.Close()
+
+			lc, err := client.PpsAPIClient.GetLogs(client.Ctx(), &ppsclient.GetLogsRequest{
+				Follow: true,
+				Since:  types.DurationProto(time.Minute),
+			})
+			if err != nil {
+				return errors.Wrap(err, "create logs client")
+			}
+			type ongoingTask struct {
+				logger string
+				fields map[string]string
+				ts     time.Time
+			}
+			var ongoing []ongoingTask
+			for {
+				l, err := lc.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						return nil
+					}
+					return errors.Wrap(err, "rpc error")
+				}
+				var msg map[string]any
+				if err := json.Unmarshal([]byte(l.Message), &msg); err != nil {
+					fmt.Fprintf(os.Stderr, "parse line: %v\n", err)
+				}
+				var ts time.Time
+				if t, ok := msg["time"]; ok {
+					ts, _ = time.Parse(time.RFC3339Nano, t.(string))
+				}
+				if rawText, ok := msg["message"]; ok {
+					text := rawText.(string)
+					logger, ok := msg["logger"].(string)
+					if !ok {
+						logger = "unknown"
+					}
+					if strings.HasSuffix(text, ": span start") {
+						ongoing = append(ongoing, ongoingTask{
+							ts:     ts,
+							logger: logger,
+						})
+					} else if strings.HasSuffix(text, ": span finished ok") || strings.HasSuffix(text, ": span failed") {
+						var newOngoing []ongoingTask
+						for _, t := range ongoing {
+							if t.logger != logger {
+								newOngoing = append(newOngoing, t)
+							}
+						}
+						ongoing = newOngoing
+					}
+				}
+				os.Stdout.Write([]byte{0x1b, 0x5b, 0x48, 0x1b, 0x5b, 0x4a, 0x1b, 0x5b, 0x33, 0x4a})
+				for _, t := range ongoing {
+					fmt.Printf("[%s] ", t.logger)
+				}
+			}
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(printBusy, "busy"))
+
 	pipelineDocs := &cobra.Command{
 		Short: "Docs for pipelines.",
 		Long: "Pipelines are a powerful abstraction for automating jobs. They take a set of repos and branches as inputs and write to a single output repo of the same name. \n" +
