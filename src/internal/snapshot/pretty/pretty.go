@@ -22,7 +22,7 @@ func PrintDetailedSnapshotInfo(info *snapshot.SnapshotInfo) error {
 	t, err := template.New("SnapshotInfo").Funcs(funcMap).Parse(
 		`ID: {{.Id}}
 Chunkset: {{.ChunksetId}}
-Created: {{prettyAgo .Created}}{{if .PachydermVersion}}
+Created: {{prettyAgo .CreatedAt}}{{if .PachydermVersion}}
 Version: {{.PachydermVersion}}{{end}}
 `)
 	if err != nil {
