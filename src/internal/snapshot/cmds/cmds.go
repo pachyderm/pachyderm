@@ -128,7 +128,6 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Short: "Return info about a snapshot.",
 		Long:  "This command returns details of the snapshot such as: `ID`, `ChunksetID`, `Fileset`, `Version` and `Created`.",
 		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
-			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -147,7 +146,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 
 			var inspectResp *snapshot.InspectSnapshotResponse
 			if err := txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				resp, err := c.SnapshotAPIClient.InspectSnapshot(ctx, request)
+				resp, err := c.SnapshotAPIClient.InspectSnapshot(c.Ctx(), request)
 				if err != nil {
 					return errors.Wrap(err, "inspect snapshot RPC")
 				}
