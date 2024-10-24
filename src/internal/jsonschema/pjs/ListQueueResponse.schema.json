@@ -4,7 +4,7 @@
     "definitions": {
         "ListQueueResponse": {
             "properties": {
-                "id": {
+                "queue": {
                     "$ref": "#/definitions/pjs.Queue",
                     "additionalProperties": false
                 },

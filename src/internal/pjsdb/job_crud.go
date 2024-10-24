@@ -268,14 +268,14 @@ const (
 )
 
 // WalkJob walks from job 'id' down to all of its children.
-func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID, algo WalkAlgorithm, depth uint64) ([]Job, error) {
+func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID, algo WalkAlgorithm, depth int64) ([]Job, error) {
 	pctx.Child(ctx, "walkJobPJSDB")
 	job, err := GetJob(ctx, tx, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "get job")
 	}
 	var records []jobRecord
-	var walker func(ctx context.Context, tx *pachsql.Tx, id JobID, maxDepth uint64) ([]jobRecord, error)
+	var walker func(ctx context.Context, tx *pachsql.Tx, id JobID, maxDepth int64) ([]jobRecord, error)
 	walkerName := ""
 	//exhaustive:enforce
 	switch algo {
@@ -309,7 +309,7 @@ func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID, algo WalkAlgorithm, 
 	return jobs, nil
 }
 
-func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
+func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth int64) (records []jobRecord, err error) {
 	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
 		INNER JOIN children c ON j.id = c.id
 		GROUP BY j.id, jc.job_hash, jc.cache_read, jc.cache_write
@@ -320,7 +320,7 @@ func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64)
 	return records, nil
 }
 
-func walkPreOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
+func walkPreOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth int64) (records []jobRecord, err error) {
 	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
 		INNER JOIN children c ON j.id = c.id
 		GROUP BY j.id, jc.job_hash, jc.cache_read, jc.cache_write, c.path
@@ -331,7 +331,7 @@ func walkPreOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (
 	return records, nil
 }
 
-func walkMirroredPostOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
+func walkMirroredPostOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth int64) (records []jobRecord, err error) {
 	if err = sqlx.SelectContext(ctx, tx, &records,
 		recursiveTraverseChildren+`,
 		post_order AS (

@@ -26,15 +26,26 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func validateDumpFileset(ctx context.Context, t *testing.T, s *fileset.Storage, fsHandle *fileset.Handle) {
+func validateDumpFileset(ctx context.Context, t *testing.T, db *pachsql.DB, s *fileset.Storage, pin fileset.Pin) {
 	t.Helper()
+	var fsHandle *fileset.Handle
+	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+		var err error
+		fsHandle, err = s.GetPinHandleTx(ctx, tx, pin, time.Hour)
+		if err != nil {
+			return errors.Wrap(err, "GetPinHandleTx")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("resolve pin (%v): %v", pin, err)
+	}
 	fs, err := s.Open(ctx, []*fileset.Handle{fsHandle})
 	if err != nil {
 		t.Fatalf("open fileset (%v): %v", fsHandle.HexString(), err)
 	}
 	var lines []string
 	if err := fs.Iterate(ctx, func(f fileset.File) error {
-		if got, want := f.Index().Path, "dump.sql.zst"; got != want {
+		if got, want := f.Index().Path, SQLDumpFilename; got != want {
 			return errors.Errorf("invalid file in fileset:\n  got: %v\n want: %v", got, want)
 		}
 		r, w := io.Pipe()
@@ -105,13 +116,14 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 
 	// Check that we can read the snapshot we just made.
 	var got *snapshot.SnapshotInfo
+	var gotInternal *snapshotdb.InternalSnapshotInfo
 	want := new(snapshot.SnapshotInfo)
 	want.Id = int64(snapID)
 	want.ChunksetId = 1
 	want.PachydermVersion = "v0.0.0"
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
-		got, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
+		got, gotInternal, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
 		if err != nil {
 			return errors.Wrap(err, "GetSnapshot")
 		}
@@ -119,27 +131,21 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
 	}
-	t.Logf("fileset handle: %v", got.GetSqlDumpFilesetId())
-	var fsToken fileset.Token
-	if err := fsToken.Scan(got.GetSqlDumpFilesetId()); err != nil {
-		t.Fatalf("parse token %v: %v", got.GetSqlDumpFilesetId(), err)
-	}
 	got.CreatedAt = nil
-	got.SqlDumpFilesetId = ""
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("snapshot row (-want +got):\n%s", diff)
 	}
 	// Validate the database dump fileset we created in CreateSnapshot.
-	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fsToken))
+	validateDumpFileset(ctx, t, db, storage, gotInternal.SQLDumpPin)
 
 	// Restore the snapshot.
 	if err := s.RestoreSnapshot(ctx, snapID, RestoreSnapshotOptions{}); err != nil {
 		t.Errorf("snapshot not restorable: %v", err)
 	}
-	got = nil
+	got, gotInternal = nil, nil
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
-		got, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
+		got, gotInternal, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
 		if err != nil {
 			return errors.Wrap(err, "GetSnapshot (after restore)")
 		}
@@ -148,25 +154,12 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		t.Fatalf("WithTx: %v", err)
 	}
 	// Validate the database backup fileset created during restoration.
-	fsToken = fileset.Token{}
-	if err := fsToken.Scan(got.GetSqlDumpFilesetId()); err != nil {
-		t.Fatalf("parse token %v: %v", got.GetSqlDumpFilesetId(), err)
-	}
-	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fsToken))
+	validateDumpFileset(ctx, t, db, storage, gotInternal.SQLDumpPin)
 
-	// Drop the chunkset that's keeping the backed up chunks alive (if the restore failed), just
-	// to make sure that it's the original references that are keeping the backed up filesets
-	// around.
-	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `truncate table recovery.snapshots`); err != nil {
-			return errors.Wrap(err, "truncate snapshots table")
-		}
-		if err := storage.DropChunkSet(ctx, tx, fileset.ChunkSetID(got.ChunksetId)); err != nil {
-			return errors.Wrapf(err, "DropChunkSet(%v)", got.ChunksetId)
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("WithTx: %v", err)
+	// Drop the snapshot and run GC, to ensure that restoring the snapshot is what kept the data
+	// alive.
+	if err := s.DropSnapshot(ctx, SnapshotID(got.Id)); err != nil {
+		t.Errorf("drop snapshot: %v", err)
 	}
 
 	// GC to ensure our dropped refs drop the chunks; if chunks are dropped, then the read below

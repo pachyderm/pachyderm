@@ -103,7 +103,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 		if err != nil {
 			return errors.Wrap(err, "create job")
 		}
-		ret.Id = &pjs.Job{Id: int64(jobID)}
+		ret.Job = &pjs.Job{Id: int64(jobID)}
 		return nil
 	}); err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pjs.CreateJobRequest
 }
 
 func (a *apiServer) DeleteJob(ctx context.Context, req *pjs.DeleteJobRequest) (*pjs.DeleteJobResponse, error) {
-	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob())
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, req *pjs.DeleteJobRequest) (*
 
 func (a *apiServer) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) (*pjs.InspectJobResponse, error) {
 	var jobInfo *pjs.JobInfo
-	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob())
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (a *apiServer) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) 
 
 func (a *apiServer) CancelJob(ctx context.Context, req *pjs.CancelJobRequest) (*pjs.CancelJobResponse, error) {
 	// handle job context and request validation.
-	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob())
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +306,7 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 	defer done(log.Errorp(&err))
 
 	// handle job context and request validation.
-	id, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+	id, err := a.resolveJob(ctx, req.Context, req.GetJob())
 	if err != nil {
 		return err
 	}
@@ -329,7 +329,7 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 		}
 
 		resp := &pjs.ListJobResponse{
-			Id:   jobInfo.Job,
+			Job:  jobInfo.Job,
 			Info: jobInfo,
 			Details: &pjs.JobInfoDetails{
 				JobInfo: jobInfo,
@@ -342,7 +342,7 @@ func (a *apiServer) WalkJob(req *pjs.WalkJobRequest, srv pjs.API_WalkJobServer) 
 	return nil
 }
 
-func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.AwaitResponse, error) {
+func (a *apiServer) AwaitJob(ctx context.Context, req *pjs.AwaitJobRequest) (*pjs.AwaitJobResponse, error) {
 	// handle job context and request validation.
 	id, err := a.resolveJob(ctx, req.Context, req.GetJob())
 	if err != nil {
@@ -382,7 +382,7 @@ func (a *apiServer) Await(ctx context.Context, req *pjs.AwaitRequest) (*pjs.Awai
 				return nil, errors.Wrapf(err, "WithTx(iteration %d)", i)
 			}
 			if stateAdvancedBeyond(currentState, req.DesiredState) {
-				return &pjs.AwaitResponse{
+				return &pjs.AwaitJobResponse{
 					ActualState: currentState,
 				}, nil
 			}
@@ -429,7 +429,7 @@ func (a *apiServer) ListJob(req *pjs.ListJobRequest, srv pjs.API_ListJobServer) 
 	var id pjsdb.JobID
 	if !noParent {
 		// handle job context and request validation.
-		jid, err := a.resolveJob(ctx, req.Context, req.GetJob().GetId())
+		jid, err := a.resolveJob(ctx, req.Context, req.GetJob())
 		if err != nil {
 			return err
 		}
@@ -459,7 +459,7 @@ func (a *apiServer) ListJob(req *pjs.ListJobRequest, srv pjs.API_ListJobServer) 
 			return err
 		}
 		resp := &pjs.ListJobResponse{
-			Id:   jobInfo.Job,
+			Job:  jobInfo.Job,
 			Info: jobInfo,
 			Details: &pjs.JobInfoDetails{
 				JobInfo: jobInfo,
@@ -495,7 +495,7 @@ func (a *apiServer) ListQueue(req *pjs.ListQueueRequest, srv pjs.API_ListQueueSe
 			return err
 		}
 		resp := &pjs.ListQueueResponse{
-			Id: &pjs.Queue{
+			Queue: &pjs.Queue{
 				Id: []byte(queue.ID),
 			},
 			Info: queueInfo,
@@ -541,7 +541,7 @@ func stateAdvancedBeyond(current pjs.JobState, desired pjs.JobState) bool {
 	return comp[current] >= comp[desired]
 }
 
-func (a *apiServer) resolveJob(ctx context.Context, jobCtx string, jobID int64) (id pjsdb.JobID, err error) {
+func (a *apiServer) resolveJob(ctx context.Context, jobCtx string, job *pjs.Job) (id pjsdb.JobID, err error) {
 	// handle job context and request validation.
 	if jobCtx != "" {
 		id, err = a.resolveJobCtx(ctx, jobCtx)
@@ -553,7 +553,7 @@ func (a *apiServer) resolveJob(ctx context.Context, jobCtx string, jobID int64) 
 	if err := a.checkPermissions(ctx); err != nil {
 		return 0, errors.Wrap(err, "check permissions")
 	}
-	return pjsdb.JobID(jobID), err
+	return pjsdb.JobID(job.Id), err
 }
 
 func (a *apiServer) checkPermissions(ctx context.Context) error {

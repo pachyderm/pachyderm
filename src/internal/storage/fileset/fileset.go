@@ -178,6 +178,9 @@ func (h *Handle) ID() ID {
 
 // HexString returns the handle encoded with the hex alphabet.
 func (h *Handle) HexString() string {
+	if h == nil {
+		return "<nil fileset.Handle>"
+	}
 	hexStr := h.token.HexString()
 	defaultId := ID{}
 	if h.id != defaultId {

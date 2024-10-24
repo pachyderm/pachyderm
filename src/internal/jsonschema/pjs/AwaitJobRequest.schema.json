@@ -1,17 +1,30 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$ref": "#/definitions/CreateJobResponse",
+    "$ref": "#/definitions/AwaitJobRequest",
     "definitions": {
-        "CreateJobResponse": {
+        "AwaitJobRequest": {
             "properties": {
+                "context": {
+                    "type": "string"
+                },
                 "job": {
                     "$ref": "#/definitions/pjs.Job",
                     "additionalProperties": false
+                },
+                "desiredState": {
+                    "enum": [
+                        "JobState_UNSPECIFIED",
+                        "QUEUED",
+                        "PROCESSING",
+                        "DONE"
+                    ],
+                    "type": "string",
+                    "title": "Job State"
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Create Job Response"
+            "title": "Await Job Request"
         },
         "pjs.Job": {
             "properties": {

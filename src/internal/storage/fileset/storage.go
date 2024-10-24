@@ -536,7 +536,7 @@ func (s *Storage) DropChunkSet(ctx context.Context, tx *sqlx.Tx, id ChunkSetID) 
 	// Check the number of affected rows
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "rows effected")
+		return errors.Wrap(err, "rows affected")
 	}
 	if rowsAffected == 0 {
 		return errors.Errorf("no chunkset found with the given id: %d", id)
