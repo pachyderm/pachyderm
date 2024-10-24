@@ -162,7 +162,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			return pretty.PrintDetailedSnapshotInfo(inspectResp.GetInfo())
+			return pretty.PrintDetailedSnapshotInfo(inspectResp)
 		}),
 	}
 	inspectSnapshot.Flags().AddFlagSet(outputFlags)
