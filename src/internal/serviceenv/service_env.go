@@ -6,12 +6,13 @@ package serviceenv
 import (
 	"context"
 	"fmt"
-	pjs_server "github.com/pachyderm/pachyderm/v2/src/pjs"
 	"math"
 	"net"
 	"net/http"
 	"os"
 	"time"
+
+	pjs_server "github.com/pachyderm/pachyderm/v2/src/pjs"
 
 	dex_storage "github.com/dexidp/dex/storage"
 	"github.com/dlmiddlecote/sqlstats"
@@ -369,9 +370,6 @@ func (env *NonblockingServiceEnv) initDirectDBClient(ctx context.Context) error 
 		return err
 	}
 	env.directDBClient = db
-	if err != nil {
-		return err
-	}
 	if err := prometheus.Register(sqlstats.NewStatsCollector("direct", env.directDBClient.DB)); err != nil {
 		log.Info(ctx, "problem registering stats collector for direct db client", zap.Error(err))
 	}

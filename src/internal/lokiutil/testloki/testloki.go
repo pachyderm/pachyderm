@@ -52,9 +52,7 @@ func New(ctx context.Context, tmp string, opts ...Option) (*TestLoki, error) {
 			errors.JoinInto(&errs, errors.Wrapf(err, "startup attempt %d", i))
 			continue
 		}
-		if err == nil {
-			return l, nil
-		}
+		return l, nil
 	}
 	return nil, errors.Wrapf(errs, "loki failed to start after %d attempts", attempts)
 }
