@@ -345,7 +345,7 @@ determined:
     # the Pachyderm notebook extension in det launched notebooks.
     startupHook: |
       if [[ -n "$PACHD_ADDRESS" && "$SKIP_PACHYDERM_INSTALL" != "true" && "$DET_TASK_TYPE" == "NOTEBOOK" ]]; then
-          proxy_dns=$(echo $PACHD_ADDRESS | sed 's/grpc:\/\/pachd/pachyderm-proxy/' | sed 's/:30650//') 
+          proxy_dns=$(echo $PACHD_ADDRESS | sed 's/grpc:\/\/pachd/pachyderm-proxy/' | sed 's/:30650//')
           version=$(curl -skLX POST -H "Content-Type: application/json" $proxy_dns/api/versionpb_v2.API/GetVersion | sed -n 's/.*"major": *\([0-9]*\), *"minor": *\([0-9]*\), *"micro": *\([0-9]*\), *"additional": *"\([^"]*\)".*/\1.\2.\3\4/p')
           jupyterlab_version=$(echo $version | sed 's/-alpha\.\([0-9]*\)/a\1/;s/-rc\.\([0-9]*\)/rc\1/')
           pip install jupyterlab-pachyderm==$jupyterlab_version
@@ -1465,8 +1465,7 @@ restoreSnapshot:
   enabled: false
   snapshot_id: 0
 
-  # The version to preflight.  It is totally fine if this is newer than the currently-running pachd
-  # version.
+  # The version to use to restore.
   image:
     repository: "pachyderm/pachd"
     pullPolicy: "IfNotPresent"
