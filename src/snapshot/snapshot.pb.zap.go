@@ -80,6 +80,7 @@ func (x *InspectSnapshotResponse) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	} else {
 		enc.AddReflected("info", x.Info)
 	}
+	enc.AddString("fileset", x.Fileset)
 	return nil
 }
 

@@ -7,6 +7,9 @@
                 "info": {
                     "$ref": "#/definitions/snapshot.SnapshotInfo",
                     "additionalProperties": false
+                },
+                "fileset": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

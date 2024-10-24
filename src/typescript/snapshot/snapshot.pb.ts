@@ -35,6 +35,7 @@ export type InspectSnapshotRequest = {
 
 export type InspectSnapshotResponse = {
   info?: SnapshotInfo
+  fileset?: string
 }
 
 export type ListSnapshotRequest = {
