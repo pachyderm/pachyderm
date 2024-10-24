@@ -13,8 +13,8 @@ import (
 
 type snapshotRecord struct {
 	ID                  int64                 `db:"id"`
-	ChunksetID          int64                 `db:"chunkset_id"`
-	SQLDumpFilesetPinID sql.NullInt64         `db:"sql_dump_fileset_pin_id"`
+	ChunksetID          int64                 `db:"chunkset"`
+	SQLDumpFilesetPinID sql.NullInt64         `db:"sql_dump_pin"`
 	Metadata            pgjsontypes.StringMap `db:"metadata"`
 	PachydermVersion    string                `db:"pachyderm_version"`
 	CreatedAt           time.Time             `db:"created_at"`

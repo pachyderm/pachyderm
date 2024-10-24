@@ -16,7 +16,7 @@ import (
 const (
 	selectSnapshotPrefix = `SELECT * FROM recovery.snapshots`
 	insertSnapshot       = `
-		insert into recovery.snapshots (chunkset_id, pachyderm_version, metadata) 
+		insert into recovery.snapshots (chunkset, pachyderm_version, metadata) 
 		values ($1, $2, $3) returning id`
 	selectSnapshots = `select * from recovery.snapshots where created_at > $1 order by created_at desc limit $2`
 	deleteSnapshot  = `DELETE FROM recovery.snapshots WHERE id = $1;`

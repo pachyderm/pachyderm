@@ -40,7 +40,7 @@ var (
 )
 
 const (
-	SQLDumpFilename = "dump.sql.zst"
+	SQLDumpFilename = "/dump.sql.zst"
 )
 
 func pgDumpPath() string {
@@ -88,12 +88,12 @@ func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage, met
 	b.WriteString(`\.` + "\n\n")
 
 	// Create (and dump) snapshot row.
-	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset_id, pachyderm_version, metadata) values ($1, $2, $3) returning id`, chunksetID, version.Version.Canonical(), metadata); err != nil {
+	if err := tx.GetContext(ctx, &result, `insert into recovery.snapshots (chunkset, pachyderm_version, metadata) values ($1, $2, $3) returning id`, chunksetID, version.Version.Canonical(), metadata); err != nil {
 		return 0, "", errors.Wrap(err, "create snapshot row")
 	}
 	// Write out psql to create only this snapshot row.  (Pre-existing snapshot rows are dumped
 	// by pg_dump.)
-	b.WriteString("COPY recovery.snapshots (id, chunkset_id, pachyderm_version, metadata) FROM stdin;\n")
+	b.WriteString("COPY recovery.snapshots (id, chunkset, pachyderm_version, metadata) FROM stdin;\n")
 	js := `{}` // TODO(MLDM-142): escape JSON for this
 	fmt.Fprintf(&b, "%v\t%v\t%v\t%s\n", int64(result), int64(chunksetID), version.Version.Canonical(), js)
 	b.WriteString(`\.` + "\n\n")
@@ -103,7 +103,7 @@ func createSnapshotRow(ctx context.Context, tx *sqlx.Tx, s *fileset.Storage, met
 
 // addDatabaseDump updates a snapshot row to contain a reference to a database dump.
 func addDatabaseDump(ctx context.Context, tx *sqlx.Tx, snapshotID SnapshotID, pinID fileset.Pin) error {
-	result, err := tx.ExecContext(ctx, `update recovery.snapshots set sql_dump_fileset_pin_id=$1 where id=$2`, int64(pinID), snapshotID)
+	result, err := tx.ExecContext(ctx, `update recovery.snapshots set sql_dump_pin=$1 where id=$2`, int64(pinID), snapshotID)
 	if err != nil {
 		return errors.Wrap(err, "update snapshot to contain database dump fileset")
 	}
@@ -219,40 +219,18 @@ func (s *Snapshotter) pinDatabaseDump(ctx context.Context, fh io.Reader, id Snap
 	ctx, done := log.SpanContext(ctx, "pinDatabaseDump")
 	defer done(log.Errorp(&retErr))
 
-	var closedFileSet, pinnedFileSet bool
-	fw := s.Storage.NewWriter(ctx)
-	defer func() {
-		if closedFileSet {
-			return
-		}
-		if _, err := fw.Close(); err != nil {
-			errors.JoinInto(&retErr, errors.Wrap(err, "close abandoned fileset"))
-		}
-	}()
-	if err := fw.Add(SQLDumpFilename, "", fh); err != nil {
+	fw, err := s.Storage.NewUnorderedWriter(ctx)
+	if err != nil {
+		return errors.Wrap(err, "new unordered writer")
+	}
+	if err := fw.Put(ctx, SQLDumpFilename, "", false, fh); err != nil {
 		return errors.Wrap(err, "create fileset containing database dump")
 	}
-	closedFileSet = true
-	fsHandle, err := fw.Close()
+	fsHandle, err := fw.Close(ctx)
 	if err != nil {
 		return errors.Wrap(err, "close finished database dump fileset")
 	}
-	if fsHandle == nil {
-		return errors.New("fileset handle was nil")
-	}
 	log.Debug(ctx, "database dump fileset uploaded ok", zap.String("fileset_token", fsHandle.HexString()))
-	defer func() {
-		// If we fail to pin, we want to delete the fileset.  If we fail because of `context
-		// canceled` this won't be possible, but in many cases it is, so attempt it.
-		if pinnedFileSet {
-			return
-		}
-		if err := s.Storage.Drop(ctx, fsHandle); err != nil {
-			errors.JoinInto(&retErr, errors.Wrapf(err, "drop unpinned fileset %v", fsHandle.HexString()))
-			return
-		}
-		log.Debug(ctx, "dropped unused database dump fileset ok", zap.String("fileset_token", fsHandle.HexString()))
-	}()
 
 	var pin fileset.Pin
 	if err := dbutil.WithTx(ctx, s.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
@@ -268,8 +246,6 @@ func (s *Snapshotter) pinDatabaseDump(ctx context.Context, fh io.Reader, id Snap
 	}); err != nil {
 		return errors.Wrap(err, "WithTx(pin)")
 	}
-	pinnedFileSet = true
-
 	log.Debug(ctx, "pinned database dump fileset ok", zap.Int64("pin", int64(pin)))
 	return nil
 }

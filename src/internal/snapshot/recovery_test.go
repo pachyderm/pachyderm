@@ -45,7 +45,7 @@ func validateDumpFileset(ctx context.Context, t *testing.T, db *pachsql.DB, s *f
 	}
 	var lines []string
 	if err := fs.Iterate(ctx, func(f fileset.File) error {
-		if got, want := f.Index().Path, "dump.sql.zst"; got != want {
+		if got, want := f.Index().Path, SQLDumpFilename; got != want {
 			return errors.Errorf("invalid file in fileset:\n  got: %v\n want: %v", got, want)
 		}
 		r, w := io.Pipe()
