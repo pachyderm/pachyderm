@@ -18,6 +18,8 @@ RUN cd console \
 
 WORKDIR /usr/src/app/console/backend
 
+# Needed to run npm start
+RUN npm i module-alias
 
 FROM node:20.11-buster-slim
 
@@ -37,10 +39,6 @@ RUN mkdir /home/appuser && \
     chown -R appuser:appuser /usr/src/app && \
     chown -R appuser:appuser /home/appuser
 USER appuser
-
-# Needed to run npm start
-RUN npm i module-alias --prefix ./console/backend
-# RUN npm cache clean --force 
 
 CMD ["npm", "start", "--prefix", "./console/backend", "--cache", "/tmp" ]
 EXPOSE 4000
