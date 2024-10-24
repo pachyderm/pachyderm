@@ -39,6 +39,7 @@ message InspectSnapshotRequest {
 }
 message InspectSnapshotResponse {
   SnapshotInfo info = 1;
+  string fileset = 2;
 }
 
 message ListSnapshotRequest {

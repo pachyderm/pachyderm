@@ -18,17 +18,18 @@ func PrintSnapshotInfo(w io.Writer, info *snapshot.SnapshotInfo) {
 	fmt.Fprintf(w, "%v\t%v\t%v\n", info.GetId(), info.GetChunksetId(), pretty.Ago(info.GetCreatedAt()))
 }
 
-func PrintDetailedSnapshotInfo(info *snapshot.SnapshotInfo) error {
+func PrintDetailedSnapshotInfo(resp *snapshot.InspectSnapshotResponse) error {
 	t, err := template.New("SnapshotInfo").Funcs(funcMap).Parse(
-		`ID: {{.Id}}
-Chunkset: {{.ChunksetId}}
-Created: {{prettyAgo .Created}}{{if .PachydermVersion}}
-Version: {{.PachydermVersion}}{{end}}
+		`ID: {{.Info.Id}}
+Chunkset: {{.Info.ChunksetId}}
+Created: {{prettyAgo .Info.CreatedAt}}{{if .Info.PachydermVersion}}
+Version: {{.Info.PachydermVersion}}{{end}}{{if .Fileset}}
+Fileset: {{.Fileset}}{{end}}
 `)
 	if err != nil {
 		return errors.Wrap(err, "parse template")
 	}
-	return errors.Wrap(t.Execute(os.Stdout, info), "execute template")
+	return errors.Wrap(t.Execute(os.Stdout, resp), "execute template")
 }
 
 var funcMap = template.FuncMap{

@@ -792,6 +792,8 @@ func (m *InspectSnapshotResponse) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for Fileset
+
 	if len(errors) > 0 {
 		return InspectSnapshotResponseMultiError(errors)
 	}

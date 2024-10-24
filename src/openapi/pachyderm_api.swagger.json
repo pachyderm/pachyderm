@@ -12848,6 +12848,9 @@
       "properties": {
         "info": {
           "$ref": "#/definitions/snapshotSnapshotInfo"
+        },
+        "fileset": {
+          "type": "string"
         }
       }
     },

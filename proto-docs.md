@@ -11385,6 +11385,7 @@ WellKnownRegex contain some well-known patterns.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | info | [SnapshotInfo](#snapshot-SnapshotInfo) |  |  |
+| fileset | [string](#string) |  |  |
 
 
 

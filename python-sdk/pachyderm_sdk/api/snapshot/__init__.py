@@ -62,6 +62,7 @@ class InspectSnapshotRequest(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class InspectSnapshotResponse(betterproto.Message):
     info: "SnapshotInfo" = betterproto.message_field(1)
+    fileset: str = betterproto.string_field(2)
 
 
 @dataclass(eq=False, repr=False)
