@@ -18,10 +18,6 @@ RUN cd console \
 
 WORKDIR /usr/src/app/console/backend
 
-# Needed to run npm start
-RUN npm i module-alias
-
-
 FROM node:20.11-buster-slim
 
 ARG DOCKER_TAG=${DOCKER_TAG:-local}
@@ -41,5 +37,12 @@ RUN mkdir /home/appuser && \
     chown -R appuser:appuser /home/appuser
 USER appuser
 
-CMD ["npm", "start", "--prefix", "./console/backend"]
+
+# Needed to run npm start
+RUN npm i module-alias --prefix ./console/backend --cache /home/appuser/.npm
+# RUN chown -R appuser:appuser /home/appuser
+RUN npm cache clean --force 
+
+CMD ["npm", "start", "--prefix", "./console/backend", "--cache", "/home/appuser/.npm"]
+
 EXPOSE 4000
