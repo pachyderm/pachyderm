@@ -1,5 +1,4 @@
 import io
-import tarfile
 from pathlib import Path
 from typing import NamedTuple
 
