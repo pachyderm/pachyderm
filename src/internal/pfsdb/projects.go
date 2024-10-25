@@ -218,9 +218,6 @@ func GetProject(ctx context.Context, tx *pachsql.Tx, projectName string) (*Proje
 
 func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*Project, error) {
 	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at, metadata, created_by, id FROM core.projects WHERE %s = $1", where), whereVal)
-	if err := row.Err(); err != nil {
-		return nil, errors.Wrap(err, "query project row")
-	}
 	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
 	id := 0
 	var createdAt time.Time
@@ -228,7 +225,7 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	metadata := &pgjsontypes.StringMap{Data: make(map[string]string)}
 	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &metadata, &createdBy, &id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {
 				return nil, &ProjectNotFoundError{Name: name}
 			}

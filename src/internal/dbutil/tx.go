@@ -179,7 +179,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 		// on the postgres side.  This one is what you can look up in pg_stat_activity, so
 		// is more useful.
 		var xactId, pid uint32
-		row := tx.QueryRowxContext(ctx, "select pg_current_xact_id(), pg_backend_pid()")
+		row := db.QueryRowxContext(ctx, "select pg_current_xact_id(), pg_backend_pid()")
 		if err := row.Scan(&xactId, &pid); err != nil {
 			log.Debug(ctx, "failed to fetch current transaction and backend ids", zap.Error(err))
 		} else {
