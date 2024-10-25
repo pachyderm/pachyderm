@@ -20,8 +20,7 @@ func TestFull(t *testing.T) {
 	t.Log(res)
 }
 
-// TODO: should this test be here or somewhere else?
-func TestPjsWorkerAuth(t *testing.T) {
+func TestPJSWorkerAuth(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	pc := NewTestPachd(t, PJSWorkerAuthOption(auth.HashToken("iampjs")))
 	pc.SetAuthToken(auth.HashToken("iampjs"))

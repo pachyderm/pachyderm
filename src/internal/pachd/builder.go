@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"math"
-	"os"
 	"path"
 	"runtime/debug"
 
@@ -560,12 +559,11 @@ func (b *builder) startDebugWorker(ctx context.Context) error {
 	return nil
 }
 
-func (b *builder) generatePJSWorkerAuthToken(ctx context.Context) error {
-	return generatePJSWorkerAuthToken(ctx, b.env.AuthServer(), b.env.GetKubeClient(), b.env.Config())
+func (b *builder) ensurePJSWorkerSecret(ctx context.Context) error {
+	return ensurePJSWorkerSecret(ctx, b.env.AuthServer(), b.env.GetKubeClient(), b.env.Config())
 }
 
-// TODO: move this function to the auth package(s) it can potentially be called again when we turn on auth.
-func generatePJSWorkerAuthToken(ctx context.Context, authServer auth.APIServer, kubeClient kubernetes.Interface,
+func ensurePJSWorkerSecret(ctx context.Context, authServer auth.APIServer, kubeClient kubernetes.Interface,
 	config *pachconfig.Configuration) error {
 	secretName := "pachyderm-pjs-worker-authentication"
 	secretKey := "pjsWorkerAuthToken"
@@ -578,9 +576,6 @@ func generatePJSWorkerAuthToken(ctx context.Context, authServer auth.APIServer, 
 			token, err := base64.StdEncoding.DecodeString(string(encodedValue))
 			if err != nil {
 				return errors.Wrap(err, "decoding from base64")
-			}
-			if err := os.Setenv("PJS_WORKER_AUTH_TOKEN", string(token)); err != nil {
-				return errors.Wrap(err, "set the token as an environment variable")
 			}
 			config.PJSWorkerAuthToken = string(token)
 			return nil
@@ -610,9 +605,6 @@ func generatePJSWorkerAuthToken(ctx context.Context, authServer auth.APIServer, 
 	_, err = kubeClient.CoreV1().Secrets(config.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil {
 		return errors.Wrap(err, "creating kubernetes secret")
-	}
-	if err := os.Setenv("PJS_WORKER_AUTH_TOKEN", tokenResp.Token); err != nil {
-		return errors.Wrap(err, "set the token as an environment variable")
 	}
 	config.PJSWorkerAuthToken = tokenResp.Token
 	return nil

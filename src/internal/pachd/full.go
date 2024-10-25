@@ -170,7 +170,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.startPFSMaster,
 		fb.startPPSWorker,
 		fb.startDebugWorker,
-		fb.generatePJSWorkerAuthToken,
+		fb.ensurePJSWorkerSecret,
 		fb.daemon.serve,
 	)
 }
