@@ -23,9 +23,8 @@ def default_project(request) -> bool:
 def client(request) -> "TestClient":
     client = TestClient(
         nodeid=request.node.nodeid,
-        host=os.environ.get("PACH_PYTHON_TEST_HOST", "localhost"),
-        port=os.environ.get("PACH_PYTHON_TEST_PORT", 80),
-        auth_token="iamroot"
+        host=os.environ.get("PACH_PYTHON_TEST_HOST"),
+        port=os.environ.get("PACH_PYTHON_TEST_PORT"),
     )
     yield client
     client.tear_down()
