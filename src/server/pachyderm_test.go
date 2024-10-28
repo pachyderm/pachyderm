@@ -8,7 +8,10 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"io"
 	"math"
 	"net"
@@ -138,6 +141,127 @@ func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, lab
 		}
 		return errors.Errorf("one pod with label %s is not yet running and ready.", label)
 	}, backoff.RetryEvery(time.Second).For(40*time.Second))
+}
+
+func TestPJSAPI(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	ctx := pctx.TestContext(t)
+	createFilesetClient, err := c.FilesetClient.CreateFileset(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error from create fileset client: %s", err.Error())
+	}
+	err = createFilesetClient.Send(&storage.CreateFilesetRequest{
+		Modification: &storage.CreateFilesetRequest_AppendFile{
+			AppendFile: &storage.AppendFile{
+				Path: "/program",
+				Data: &wrapperspb.BytesValue{
+					Value: []byte("program"),
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error from create fileset client: send: %s", err.Error())
+	}
+	createFilesetResp, err := createFilesetClient.CloseAndRecv()
+	if err != nil {
+		t.Fatalf("unexpected error from create fileset client: close and recieve: %s", err.Error())
+	}
+	createJobResp, err := c.PjsAPIClient.CreateJob(ctx, &pjs.CreateJobRequest{
+		Input:      []string{createFilesetResp.FilesetId},
+		Program:    createFilesetResp.FilesetId,
+		CacheRead:  true,
+		CacheWrite: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error from create job: %s", err.Error())
+	}
+	listJobsClient, err := c.PjsAPIClient.ListJob(ctx, &pjs.ListJobRequest{Job: createJobResp.Job})
+	if err != nil {
+		t.Fatalf("list jobs: %s", err.Error())
+	}
+	for {
+		resp, err := listJobsClient.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			t.Fatalf("unexpected error from list jobs client: %s", err.Error())
+		}
+		if resp.Job.Id != createJobResp.Job.Id {
+			t.Fatalf("job id doesn't match and we only created one job: expected: %d got: %d", createJobResp.Job.Id, resp.Job.Id)
+		}
+	}
+	listQueueClient, err := c.PjsAPIClient.ListQueue(ctx, &pjs.ListQueueRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error from list queue client: %s", err.Error())
+	}
+	listQueueResp, err := listQueueClient.Recv()
+	if err != nil {
+		t.Fatalf("unexpected error from list jobs client: %s", err.Error())
+	}
+	queue := listQueueResp.Queue
+	err = listQueueClient.CloseSend()
+	if err != nil {
+		t.Fatalf("unexpected error from list jobs client: close sende: %s", err.Error())
+	}
+	processQueueClient, err := c.PjsAPIClient.ProcessQueue(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error from process queue client: %s", err.Error())
+	}
+	if err = processQueueClient.Send(&pjs.ProcessQueueRequest{Queue: queue}); err != nil {
+		t.Fatalf("unexpected error from process queue client: send: %s", err.Error())
+	}
+	if _, err = processQueueClient.Recv(); err != nil {
+		t.Fatalf("unexpected error from process queue client: recieve: %s", err.Error())
+	}
+	if err = processQueueClient.Send(&pjs.ProcessQueueRequest{
+		Queue: queue,
+		Result: &pjs.ProcessQueueRequest_Success_{
+			Success: &pjs.ProcessQueueRequest_Success{
+				Output: []string{createFilesetResp.FilesetId},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("unexpected error from process queue client: send: %s", err.Error())
+	}
+	if err = processQueueClient.CloseSend(); err != nil {
+		t.Fatalf("unexpected error from process queue client: close send: %s", err.Error())
+	}
+	inspectResp, err := c.PjsAPIClient.InspectJob(ctx, &pjs.InspectJobRequest{
+		Job: createJobResp.Job,
+	})
+	if inspectResp.Details.JobInfo.Job.Id != createJobResp.Job.Id {
+		t.Fatalf("expect job ids to match: expected: %s got: %s", createJobResp.Job.Id, inspectResp.Details.JobInfo.Job.Id)
+	}
+	switch inspectResp.Details.JobInfo.Result.(type) {
+	case *pjs.JobInfo_Success_:
+		break
+	default:
+		jsonBytes, err := json.Marshal(inspectResp.Details.JobInfo.Result)
+		if err != nil {
+			t.Fatalf("unexpected result from inspect job: expected type *pjs.JobInfo_Success,"+
+				"couldn't marshal to json: err: %s", err.Error())
+		}
+		t.Fatalf("unexpected result from inspect job: expected type *pjs.JobInfo_Success, got: %s", string(jsonBytes))
+	}
+	awaitResp, err := c.PjsAPIClient.AwaitJob(ctx, &pjs.AwaitJobRequest{
+		Job:          createJobResp.Job,
+		DesiredState: pjs.JobState_DONE,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error calling await: %s", err.Error())
+	}
+	if awaitResp.ActualState != pjs.JobState_DONE {
+		t.Fatalf("state mismatch: job: %s expected: %s got: %s", createJobResp.Job.Id, pjs.JobState_name[int32(pjs.JobState_DONE)],
+			pjs.JobState_name[int32(awaitResp.ActualState)])
+	}
+	if _, err = c.PjsAPIClient.DeleteJob(ctx, &pjs.DeleteJobRequest{Job: createJobResp.Job}); err != nil {
+		t.Fatalf("unexpected error deleting job: %s", err.Error())
+	}
 }
 
 func TestCreatePipeline(t *testing.T) {
