@@ -1,4 +1,4 @@
-package recovery
+package snapshot
 
 import (
 	"bufio"
@@ -17,22 +17,35 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/snapshotdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/kv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
-	uuid "github.com/satori/go.uuid"
+	"github.com/pachyderm/pachyderm/v2/src/snapshot"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
-func validateDumpFileset(ctx context.Context, t *testing.T, s *fileset.Storage, fsHandle *fileset.Handle) {
+func validateDumpFileset(ctx context.Context, t *testing.T, db *pachsql.DB, s *fileset.Storage, pin fileset.Pin) {
 	t.Helper()
+	var fsHandle *fileset.Handle
+	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+		var err error
+		fsHandle, err = s.GetPinHandleTx(ctx, tx, pin, time.Hour)
+		if err != nil {
+			return errors.Wrap(err, "GetPinHandleTx")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("resolve pin (%v): %v", pin, err)
+	}
 	fs, err := s.Open(ctx, []*fileset.Handle{fsHandle})
 	if err != nil {
 		t.Fatalf("open fileset (%v): %v", fsHandle.HexString(), err)
 	}
 	var lines []string
 	if err := fs.Iterate(ctx, func(f fileset.File) error {
-		if got, want := f.Index().Path, "dump.sql.zst"; got != want {
+		if got, want := f.Index().Path, SQLDumpFilename; got != want {
 			return errors.Errorf("invalid file in fileset:\n  got: %v\n want: %v", got, want)
 		}
 		r, w := io.Pipe()
@@ -96,66 +109,57 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	// Create a snapshot.
 	s := &Snapshotter{DB: db, Storage: storage}
 
-	snapID, err := s.CreateSnapshot(ctx)
+	snapID, err := s.CreateSnapshot(ctx, CreateSnapshotOptions{})
 	if err != nil {
 		t.Fatalf("CreateSnapshot: %v", err)
 	}
 
 	// Check that we can read the snapshot we just made.
-	var got, want snapshot
-	want.ID = snapID
-	want.ChunksetID = 1
+	var got *snapshot.SnapshotInfo
+	var gotInternal *snapshotdb.InternalSnapshotInfo
+	want := new(snapshot.SnapshotInfo)
+	want.Id = int64(snapID)
+	want.ChunksetId = 1
 	want.PachydermVersion = "v0.0.0"
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
-		got, err = getSnapshotRow(ctx, tx, snapID)
+		got, gotInternal, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
 		if err != nil {
-			return errors.Wrap(err, "getSnapshotRow")
+			return errors.Wrap(err, "GetSnapshot")
 		}
 		return nil
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
 	}
-	fsToken := fileset.Token(got.SQLDumpFileSetToken[:])
-	t.Logf("fileset handle: %v", fsToken.HexString())
-	got.SQLDumpFileSetToken = uuid.UUID{}
-	if diff := cmp.Diff(want, got); diff != "" {
+	got.CreatedAt = nil
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("snapshot row (-want +got):\n%s", diff)
 	}
 	// Validate the database dump fileset we created in CreateSnapshot.
-	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fsToken))
+	validateDumpFileset(ctx, t, db, storage, gotInternal.SQLDumpPin)
 
 	// Restore the snapshot.
 	if err := s.RestoreSnapshot(ctx, snapID, RestoreSnapshotOptions{}); err != nil {
 		t.Errorf("snapshot not restorable: %v", err)
 	}
-	got.SQLDumpFileSetToken = uuid.UUID{}
+	got, gotInternal = nil, nil
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		var err error
-		got, err = getSnapshotRow(ctx, tx, snapID)
+		got, gotInternal, err = snapshotdb.GetSnapshot(ctx, tx, int64(snapID))
 		if err != nil {
-			return errors.Wrap(err, "getSnapshotRow (after restore)")
+			return errors.Wrap(err, "GetSnapshot (after restore)")
 		}
 		return nil
 	}); err != nil {
 		t.Fatalf("WithTx: %v", err)
 	}
 	// Validate the database backup fileset created during restoration.
-	validateDumpFileset(ctx, t, storage, fileset.NewHandle(fileset.Token(got.SQLDumpFileSetToken)))
+	validateDumpFileset(ctx, t, db, storage, gotInternal.SQLDumpPin)
 
-	// Drop the chunkset that's keeping the backed up chunks alive (if the restore failed), just
-	// to make sure that it's the original references that are keeping the backed up filesets
-	// around.
-	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `truncate table recovery.snapshots`); err != nil {
-			return errors.Wrap(err, "truncate snapshots table")
-		}
-		if err := storage.DropChunkSet(ctx, tx, fileset.ChunkSetID(got.ChunksetID)); err != nil {
-			return errors.Wrapf(err, "DropChunkSet(%v)", got.ChunksetID)
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("WithTx: %v", err)
+	// Drop the snapshot and run GC, to ensure that restoring the snapshot is what kept the data
+	// alive.
+	if err := s.DropSnapshot(ctx, SnapshotID(got.Id)); err != nil {
+		t.Errorf("drop snapshot: %v", err)
 	}
 
 	// GC to ensure our dropped refs drop the chunks; if chunks are dropped, then the read below

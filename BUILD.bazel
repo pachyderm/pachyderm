@@ -144,9 +144,9 @@ nogo(
         "@org_golang_x_tools//go/analysis/passes/loopclosure",
         "@org_golang_x_tools//go/analysis/passes/lostcancel",
         "@org_golang_x_tools//go/analysis/passes/nilfunc",
-        # "@org_golang_x_tools//go/analysis/passes/nilness:nilness",
+        "@org_golang_x_tools//go/analysis/passes/nilness",
         # "@org_golang_x_tools//go/analysis/passes/pkgfact:pkgfact",
-        # "@org_golang_x_tools//go/analysis/passes/printf", # TODO: reenable
+        "@org_golang_x_tools//go/analysis/passes/printf",
         # "@org_golang_x_tools//go/analysis/passes/reflectvaluecompare:reflectvaluecompare",
         # "@org_golang_x_tools//go/analysis/passes/shadow:shadow",
         "@org_golang_x_tools//go/analysis/passes/shift",

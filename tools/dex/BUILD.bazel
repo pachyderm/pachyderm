@@ -1,0 +1,4 @@
+alias(
+    name = "dex",
+    actual = "@com_github_dexidp_dex//cmd/dex:dex",
+)

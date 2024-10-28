@@ -2,7 +2,8 @@ load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
 load("@aspect_bazel_lib//lib:tar.bzl", "mtree_mutate", "mtree_spec", "tar")
 load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
-load("@rules_distroless//distroless:defs.bzl", "cacerts", "group", "home", "passwd")
+load("@rules_distroless//apt:defs.bzl", "dpkg_status")
+load("@rules_distroless//distroless:defs.bzl", "cacerts", "flatten", "group", "home", "passwd")
 load("@rules_multirun//:defs.bzl", "multirun")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index", "oci_load", "oci_push")
 load(":transition.bzl", "multi_arch")
@@ -108,6 +109,32 @@ platform_transition_filegroup(
     }),
 )
 
+dpkg_status(
+    name = "postgres_dpkg_status",
+    controls = select({
+        "//:is_x86_64": ["@apt//postgresql-client-17/amd64:control"],
+        "//:is_aarch64": ["@apt//postgresql-client-17/arm64:control"],
+    }),
+)
+
+flatten(
+    name = "postgres_raw",
+    tars = select({
+        "//:is_x86_64": ["@apt//postgresql-client-17/amd64"],
+        "//:is_aarch64": ["@apt//postgresql-client-17/arm64"],
+    }) + ["postgres_dpkg_status"],
+)
+
+genrule(
+    name = "postgres",
+    srcs = ["postgres_raw"],
+    outs = ["postgres.tar.zst"],
+    cmd = """
+    $(location //src/cmd/dedupe-tar) < $(location :postgres_raw) > $@
+    """,
+    tools = ["//src/cmd/dedupe-tar"],
+)
+
 oci_image(
     name = "pachd_image",
     annotations = "annotations",
@@ -118,6 +145,7 @@ oci_image(
         # distroless contains cacerts
         ":licenses_tar",
         ":dex_assets_tar",
+        ":postgres",
         ":pachd_linux_tar",
     ],
     visibility = ["//visibility:public"],
@@ -176,6 +204,7 @@ oci_image(
     tars = [
         ":licenses_tar",
         ":dex_assets_tar",
+        ":postgres",
         ":pachd_linux_coverage_tar",
     ],
     visibility = ["//visibility:public"],

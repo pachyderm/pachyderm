@@ -299,9 +299,6 @@ func (c APIClient) FindCommits(req *pfs.FindCommitsRequest) (*FindCommitsRespons
 		return nil, err
 	}
 	resp := &FindCommitsResponse{}
-	if err != nil {
-		return nil, err
-	}
 	if err := grpcutil.ForEach[*pfs.FindCommitsResponse](client, func(x *pfs.FindCommitsResponse) error {
 		switch x.Result.(type) {
 		case *pfs.FindCommitsResponse_LastSearchedCommit:

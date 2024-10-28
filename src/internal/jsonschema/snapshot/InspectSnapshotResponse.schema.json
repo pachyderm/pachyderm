@@ -7,6 +7,9 @@
                 "info": {
                     "$ref": "#/definitions/snapshot.SnapshotInfo",
                     "additionalProperties": false
+                },
+                "fileset": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,
@@ -26,9 +29,6 @@
                 },
                 "chunksetId": {
                     "type": "integer"
-                },
-                "sqlDumpFilesetId": {
-                    "type": "string"
                 },
                 "pachydermVersion": {
                     "type": "string"

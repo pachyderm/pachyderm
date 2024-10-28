@@ -34,8 +34,8 @@ const (
 	selectJobRecordPrefix = `
 		SELECT 
 			j.*,
-			ARRAY_REMOVE(ARRAY_AGG(jf_input.fileset ORDER BY jf_input.array_position), NULL) as "inputs",
-			ARRAY_REMOVE(ARRAY_AGG(jf_output.fileset ORDER BY jf_output.array_position), NULL) as "outputs",
+			ARRAY_REMOVE(ARRAY_AGG(jf_input.fileset_pin ORDER BY jf_input.array_position), NULL) as "inputs",
+			ARRAY_REMOVE(ARRAY_AGG(jf_output.fileset_pin ORDER BY jf_output.array_position), NULL) as "outputs",
 			-- jc.job_id is redudant here and can be omitted.
 			jc.job_hash, 
 			-- if there is no cache entry for the job, return false.
@@ -50,12 +50,12 @@ const (
 
 var (
 	errorCodeToEnumString map[pjs.JobErrorCode]string
-	enumStringToErrorCode map[string]pjs.JobErrorCode
+	EnumStringToErrorCode map[string]pjs.JobErrorCode
 )
 
 func init() {
 	errorCodeToEnumString = make(map[pjs.JobErrorCode]string)
-	enumStringToErrorCode = make(map[string]pjs.JobErrorCode)
+	EnumStringToErrorCode = make(map[string]pjs.JobErrorCode)
 	// auto-generated errors are capitalized. This converts them into database error format
 	for code, name := range pjs.JobErrorCode_name {
 		if code == 0 {
@@ -63,7 +63,7 @@ func init() {
 		}
 		lower := strings.ToLower(name)
 		errorCodeToEnumString[pjs.JobErrorCode(code)] = lower
-		enumStringToErrorCode[lower] = pjs.JobErrorCode(code)
+		EnumStringToErrorCode[lower] = pjs.JobErrorCode(code)
 	}
 }
 
@@ -75,14 +75,10 @@ func init() {
 // In pfsdb, we used a pattern of forcing the caller to convert their resources to a _Info struct, but its problematic since
 // each database function only really needs a subset of the fields and it is not clear to the caller which fields are required.
 type CreateJobRequest struct {
-	Parent  JobID
-	Inputs  []fileset.PinnedFileset
-	Program fileset.PinnedFileset
-	// The user is responsible for supplying the hash.
-	// The hash ought to be computed with HashFileset() in the internal PJS package (src/internal/pjs.go)
+	Parent      JobID
+	Program     fileset.Pin
 	ProgramHash []byte
-	// InputHashes are required to use the server-side job cache.
-	// The hash ought to be computed with HashFileset() in the internal PJS package (src/internal/pjs.go)
+	Inputs      []fileset.Pin
 	InputHashes [][]byte // There is one array per input.
 
 	// CacheReadEnabled and CacheWriteEnabled are used to configure caching behavior for the server-side job cache.
@@ -99,13 +95,13 @@ func (req CreateJobRequest) IsSanitized(ctx context.Context, tx *pachsql.Tx) err
 }
 
 func (req CreateJobRequest) sanitize(ctx context.Context, tx *pachsql.Tx) (createJobRequest, error) {
-	defaultPin := fileset.PinnedFileset{}
-	if req.Program == defaultPin {
+	// TODO: Is this check really necessary? The gRPC layer should be responsible or this.
+	if req.Program == 0 {
 		return createJobRequest{}, errors.New("program cannot be nil")
 	}
 	sanitizedReq := createJobRequest{
-		Program:           []byte(fileset.Token(req.Program).HexString()), // there aren't real pins as of yet.
-		ProgramHash:       req.ProgramHash,                                // eventually the ID will be a hash.
+		Program:           int64(req.Program),
+		ProgramHash:       req.ProgramHash,
 		InputHashes:       req.InputHashes,
 		CacheReadEnabled:  req.CacheReadEnabled,
 		CacheWriteEnabled: req.CacheWriteEnabled,
@@ -123,14 +119,11 @@ func (req CreateJobRequest) sanitize(ctx context.Context, tx *pachsql.Tx) (creat
 		sanitizedReq.Parent.Valid = true
 	}
 	for i, input := range req.Inputs {
-		if input == defaultPin {
-			continue
-		}
 		sanitizedReq.Inputs = append(sanitizedReq.Inputs, jobFilesetsRow{
 			JobID:         0, // the job id is not known until the job row is inserted in create job.
 			Type:          "input",
 			ArrayPosition: i,
-			Fileset:       []byte(fileset.Token(input).HexString()),
+			Pin:           int64(input),
 		})
 	}
 	return sanitizedReq, nil
@@ -138,9 +131,9 @@ func (req CreateJobRequest) sanitize(ctx context.Context, tx *pachsql.Tx) (creat
 
 type createJobRequest struct {
 	Parent                              sql.NullInt64
-	Inputs                              []jobFilesetsRow
-	Program                             []byte
+	Program                             int64
 	ProgramHash                         []byte
+	Inputs                              []jobFilesetsRow
 	InputHashes                         [][]byte
 	CacheReadEnabled, CacheWriteEnabled bool
 }
@@ -175,8 +168,8 @@ func CreateJob(ctx context.Context, tx *pachsql.Tx, req CreateJobRequest) (JobID
 		input.JobID = id
 		_, err := sqlx.NamedExecContext(ctx, tx, `
 		INSERT INTO pjs.job_filesets 
-		(job_id, fileset_type, array_position, fileset) 
-		VALUES (:job_id, :fileset_type, :array_position, :fileset);`, input)
+		(job_id, fileset_type, array_position, fileset_pin) 
+		VALUES (:job_id, :fileset_type, :array_position, :fileset_pin);`, input)
 		if err != nil {
 			return 0, errors.Wrap(err, "create job: inserting job_filesets row")
 		}
@@ -275,14 +268,14 @@ const (
 )
 
 // WalkJob walks from job 'id' down to all of its children.
-func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID, algo WalkAlgorithm, depth uint64) ([]Job, error) {
+func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID, algo WalkAlgorithm, depth int64) ([]Job, error) {
 	pctx.Child(ctx, "walkJobPJSDB")
 	job, err := GetJob(ctx, tx, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "get job")
 	}
 	var records []jobRecord
-	var walker func(ctx context.Context, tx *pachsql.Tx, id JobID, maxDepth uint64) ([]jobRecord, error)
+	var walker func(ctx context.Context, tx *pachsql.Tx, id JobID, maxDepth int64) ([]jobRecord, error)
 	walkerName := ""
 	//exhaustive:enforce
 	switch algo {
@@ -316,7 +309,7 @@ func WalkJob(ctx context.Context, tx *pachsql.Tx, id JobID, algo WalkAlgorithm, 
 	return jobs, nil
 }
 
-func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
+func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth int64) (records []jobRecord, err error) {
 	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
 		INNER JOIN children c ON j.id = c.id
 		GROUP BY j.id, jc.job_hash, jc.cache_read, jc.cache_write
@@ -327,7 +320,7 @@ func walkLevelOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64)
 	return records, nil
 }
 
-func walkPreOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
+func walkPreOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth int64) (records []jobRecord, err error) {
 	if err = sqlx.SelectContext(ctx, tx, &records, recursiveTraverseChildren+selectJobRecordPrefix+`
 		INNER JOIN children c ON j.id = c.id
 		GROUP BY j.id, jc.job_hash, jc.cache_read, jc.cache_write, c.path
@@ -338,7 +331,7 @@ func walkPreOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (
 	return records, nil
 }
 
-func walkMirroredPostOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth uint64) (records []jobRecord, err error) {
+func walkMirroredPostOrder(ctx context.Context, tx *pachsql.Tx, id JobID, depth int64) (records []jobRecord, err error) {
 	if err = sqlx.SelectContext(ctx, tx, &records,
 		recursiveTraverseChildren+`,
 		post_order AS (
@@ -419,7 +412,7 @@ func ErrorJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, errCode pjs.JobE
 
 // CompleteJob is called when job processing without any error. It updates done timestamp
 // output filesets and in database.
-func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []string, option ...WriteToCacheOption) error {
+func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []fileset.Pin, option ...WriteToCacheOption) error {
 	ctx = pctx.Child(ctx, "completeJob")
 	result, err := tx.ExecContext(ctx, `
 		UPDATE pjs.jobs
@@ -443,8 +436,8 @@ func CompleteJob(ctx context.Context, tx *pachsql.Tx, jobID JobID, outputs []str
 	for pos, output := range outputs {
 		_, err := tx.ExecContext(ctx, `
 		INSERT INTO pjs.job_filesets
-		(job_id, fileset_type, array_position, fileset)
-		VALUES ($1, $2, $3, $4);`, jobID, "output", pos, []byte(output))
+		(job_id, fileset_type, array_position, fileset_pin)
+		VALUES ($1, $2, $3, $4);`, jobID, "output", pos, int64(output))
 		if err != nil {
 			return errors.Wrapf(err, "complete ok: insert output fileset")
 		}

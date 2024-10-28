@@ -31,6 +31,7 @@ func main() {
 	rootCmd.AddCommand(pachdev.CreateClusterCmd())
 	rootCmd.AddCommand(pachdev.LoadImageCmd())
 	rootCmd.AddCommand(pachdev.PushPachydermCmd())
+	rootCmd.AddCommand(pachdev.RestorePachydermCmd())
 	rootCmd.AddCommand(pachdev.ServeCoverageCmd())
 
 	// Run a command.

@@ -217,9 +217,6 @@ func (a *apiServer) relatedRepos(ctx context.Context, txnCtx *txncontext.Transac
 	if err != nil {
 		return nil, errors.Wrap(err, "list repo by name")
 	}
-	if err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary
-		return nil, errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
-	}
 	return related, nil
 }
 
@@ -234,7 +231,7 @@ func (a *apiServer) canDeleteRepo(ctx context.Context, txnCtx *txncontext.Transa
 	}
 	if _, err := a.env.GetPipelineInspector().InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(repo)); err == nil {
 		return false, errors.Errorf("cannot delete a repo associated with a pipeline - delete the pipeline instead")
-	} else if err != nil && !errutil.IsNotFoundError(err) {
+	} else if !errutil.IsNotFoundError(err) {
 		return false, errors.Wrapf(err, "inspect pipeline %q", pps.RepoPipeline(repo).String())
 	}
 	return true, nil

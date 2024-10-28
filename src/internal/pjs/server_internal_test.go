@@ -30,15 +30,27 @@ func TestCreateJob(t *testing.T) {
 	t.Run("valid/parent/nil", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		c, fc := setupTest(t)
-		testFileset := createFileSet(t, fc, map[string][]byte{
+		testFileset := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`!#/bin/bash; ls /input/;`),
 		})
-		_, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
-			Program: testFileset,
-			Input:   []string{testFileset},
-		})
-		require.NoError(t, err)
+		req := &pjs.CreateJobRequest{
+			Program: testFileset.HexString(),
+			Input:   []string{testFileset.HexString()},
+		}
+		createJob(ctx, t, c, req)
 	})
+}
+
+func createJob(ctx context.Context, t *testing.T, c pjs.APIClient, req *pjs.CreateJobRequest) (*pjs.CreateJobResponse, *fileset.Handle) {
+	createResp, err := c.CreateJob(ctx, req)
+	require.NoError(t, err)
+	inspectResp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{
+		Job: createResp.Job,
+	})
+	require.NoError(t, err)
+	program, err := fileset.ParseHandleKeepID(inspectResp.Details.JobInfo.Program)
+	require.NoError(t, err)
+	return createResp, program
 }
 
 func TestInspectJob(t *testing.T) {
@@ -47,30 +59,31 @@ func TestInspectJob(t *testing.T) {
 			env.GetPermissionser = &testPermitter{mode: permitterAllow}
 		})
 		ctx := pctx.TestContext(t)
-		programFileset := createFileSet(t, fc, map[string][]byte{
+		programFileset := createFileset(t, fc, map[string][]byte{
 			"file/path": []byte(`!#/bin/bash; ls /input/;`),
 		})
-		inputFileset := createFileSet(t, fc, map[string][]byte{
+		inputFileset := createFileset(t, fc, map[string][]byte{
 			"a.txt": []byte(`dummy input`),
 		})
-		createJobResp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
-			Program: programFileset,
-			Input:   []string{inputFileset},
-		})
-		require.NoError(t, err)
+		var createJobResp *pjs.CreateJobResponse
+		req := &pjs.CreateJobRequest{
+			Program: programFileset.HexString(),
+			Input:   []string{inputFileset.HexString()},
+		}
+		createJobResp, programFileset = createJob(ctx, t, c, req)
 		inspectJobResp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{
-			Job: createJobResp.Id,
+			Job: createJobResp.Job,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, inspectJobResp.Details)
 		require.NotNil(t, inspectJobResp.Details.JobInfo)
 		jobInfo := inspectJobResp.Details.JobInfo
-		require.Equal(t, jobInfo.Job.Id, createJobResp.Id.Id)
+		require.Equal(t, jobInfo.Job, createJobResp.Job)
 		// the job is queued
 		require.Equal(t, int32(jobInfo.State), int32(1))
-		require.Equal(t, jobInfo.Program, programFileset)
+		checkEqualHandleIDs(t, programFileset.HexString(), jobInfo.Program)
 		require.Equal(t, len(jobInfo.Input), 1)
-		require.Equal(t, jobInfo.Input[0], inputFileset)
+		checkEqualHandleIDs(t, inputFileset.HexString(), jobInfo.Input[0])
 	})
 	t.Run("invalid/inspect a non-existent job", func(t *testing.T) {
 		c, _ := setupTest(t)
@@ -86,20 +99,28 @@ func TestInspectJob(t *testing.T) {
 	})
 }
 
+func checkEqualHandleIDs(t *testing.T, handleStr1, handleStr2 string) {
+	handle1, err := fileset.ParseHandleKeepID(handleStr1)
+	require.NoError(t, err)
+	handle2, err := fileset.ParseHandleKeepID(handleStr2)
+	require.NoError(t, err)
+	require.Equal(t, handle1.ID(), handle2.ID())
+}
+
 // TestRunJob tests processQueue, AwaitJob, InspectJob as a whole
 func TestRunJob(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		c, fc := setupTest(t)
 		ctx := pctx.TestContext(t)
-		programFileset := createFileSet(t, fc, map[string][]byte{
+		programFileset := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`!#/bin/bash; ls /input/;`),
 		})
-		inputFileset := createFileSet(t, fc, map[string][]byte{
+		inputFileset := createFileset(t, fc, map[string][]byte{
 			"a.txt": []byte("dummy input"),
 		})
 		in := &pjs.CreateJobRequest{
-			Program: programFileset,
-			Input:   []string{inputFileset},
+			Program: programFileset.HexString(),
+			Input:   []string{inputFileset.HexString()},
 		}
 
 		out, err := runJob(t, ctx, c, fc, in, func(resp *pjs.ProcessQueueResponse) error {
@@ -108,20 +129,22 @@ func TestRunJob(t *testing.T) {
 			return nil
 		})
 		require.NoError(t, err)
-		require.Equal(t, in.Input, out.success.Output)
+		for i, input := range in.Input {
+			checkEqualHandleIDs(t, input, out.success.Output[i])
+		}
 	})
 	t.Run("run job callback fails", func(t *testing.T) {
 		c, fc := setupTest(t)
 		ctx := pctx.TestContext(t)
-		programFileset := createFileSet(t, fc, map[string][]byte{
+		programFileset := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`!#/bin/bash; ls /input/;`),
 		})
-		inputFileset := createFileSet(t, fc, map[string][]byte{
+		inputFileset := createFileset(t, fc, map[string][]byte{
 			"a.txt": []byte("dummy input"),
 		})
 		in := &pjs.CreateJobRequest{
-			Program: programFileset,
-			Input:   []string{inputFileset},
+			Program: programFileset.HexString(),
+			Input:   []string{inputFileset.HexString()},
 		}
 		out, err := runJob(t, ctx, c, fc, in, func(resp *pjs.ProcessQueueResponse) error {
 			// for now we do nothing here, simply return the input filesets
@@ -138,27 +161,28 @@ func TestDeleteJob(t *testing.T) {
 		ctx     context.Context
 		c       pjs.APIClient
 		fc      storage.FilesetClient
-		id      *pjs.Job
-		program string
+		job     *pjs.Job
+		program *fileset.Handle
 	}
 	setupJob := func() (s setup) {
 		s.ctx = pctx.TestContext(t)
 		s.c, s.fc = setupTest(t)
-		s.program = createFileSet(t, s.fc, map[string][]byte{
+		s.program = createFileset(t, s.fc, map[string][]byte{
 			"file": []byte(`!#/bin/bash; ls /input/;`),
 		})
-		resp, err := s.c.CreateJob(s.ctx, &pjs.CreateJobRequest{
-			Program: s.program,
-			Input:   []string{s.program},
-		})
-		require.NoError(t, err)
-		s.id = resp.Id
+		req := &pjs.CreateJobRequest{
+			Program: s.program.HexString(),
+			Input:   []string{s.program.HexString()},
+		}
+		var resp *pjs.CreateJobResponse
+		resp, s.program = createJob(s.ctx, t, s.c, req)
+		s.job = resp.Job
 		return s
 	}
 	attemptDelete := func(s setup) {
-		_, err := s.c.DeleteJob(s.ctx, &pjs.DeleteJobRequest{Job: s.id})
+		_, err := s.c.DeleteJob(s.ctx, &pjs.DeleteJobRequest{Job: s.job})
 		require.NoError(t, err)
-		_, err = s.c.InspectJob(s.ctx, &pjs.InspectJobRequest{Job: s.id})
+		_, err = s.c.InspectJob(s.ctx, &pjs.InspectJobRequest{Job: s.job})
 		require.YesError(t, err)
 		require.Equal(t, codes.NotFound, status.Convert(err).Code())
 	}
@@ -168,7 +192,7 @@ func TestDeleteJob(t *testing.T) {
 	})
 	t.Run("valid/single/done", func(t *testing.T) {
 		s := setupJob()
-		_, err := runJobFrom(t, s.ctx, s.c, s.fc, s.id.Id, s.program, func(resp *pjs.ProcessQueueResponse) error {
+		_, err := runJobFrom(t, s.ctx, s.c, s.fc, s.job, s.program, func(resp *pjs.ProcessQueueResponse) error {
 			return nil
 		})
 		require.NoError(t, err)
@@ -176,10 +200,10 @@ func TestDeleteJob(t *testing.T) {
 	})
 	t.Run("valid/single/cancelled", func(t *testing.T) {
 		s := setupJob()
-		_, err := runJobFrom(t, s.ctx, s.c, s.fc, s.id.Id, s.program, func(resp *pjs.ProcessQueueResponse) error {
+		_, err := runJobFrom(t, s.ctx, s.c, s.fc, s.job, s.program, func(resp *pjs.ProcessQueueResponse) error {
 			_, err := s.c.CancelJob(s.ctx, &pjs.CancelJobRequest{
 				Job: &pjs.Job{
-					Id: s.id.Id,
+					Id: s.job.Id,
 				},
 			})
 			require.NoError(t, err)
@@ -195,7 +219,7 @@ func TestDeleteJob(t *testing.T) {
 		childDone := make(chan struct{})
 		eg.Go(func() error {
 			// runJobFrom blocks, so it needs to be run in a separate goroutine.
-			_, err := runJobFrom(t, egCtx, s.c, s.fc, s.id.Id, s.program, func(resp *pjs.ProcessQueueResponse) error {
+			_, err := runJobFrom(t, egCtx, s.c, s.fc, s.job, s.program, func(resp *pjs.ProcessQueueResponse) error {
 				parentCtx <- resp.Context
 				<-childDone // wait for the child job to finish before parent can finish.
 				return nil
@@ -204,9 +228,9 @@ func TestDeleteJob(t *testing.T) {
 			return nil
 		})
 		jCtx := <-parentCtx // block on context being ready to read.
-		childJob, err := s.c.CreateJob(s.ctx, &pjs.CreateJobRequest{Context: jCtx, Program: s.program, Input: []string{s.program}})
+		childJob, err := s.c.CreateJob(s.ctx, &pjs.CreateJobRequest{Context: jCtx, Program: s.program.HexString(), Input: []string{s.program.HexString()}})
 		require.NoError(t, err)
-		_, err = runJobFrom(t, s.ctx, s.c, s.fc, childJob.Id.Id, s.program, func(resp *pjs.ProcessQueueResponse) error {
+		_, err = runJobFrom(t, s.ctx, s.c, s.fc, childJob.Job, s.program, func(resp *pjs.ProcessQueueResponse) error {
 			close(childDone) // mark child job as done.
 			return nil
 		})
@@ -214,7 +238,7 @@ func TestDeleteJob(t *testing.T) {
 		require.NoError(t, eg.Wait())
 		attemptDelete(s)
 		// also confirm the child job was deleted.
-		_, err = s.c.InspectJob(s.ctx, &pjs.InspectJobRequest{Job: childJob.Id})
+		_, err = s.c.InspectJob(s.ctx, &pjs.InspectJobRequest{Job: childJob.Job})
 		require.YesError(t, err)
 		require.Equal(t, codes.NotFound, status.Convert(err).Code())
 	})
@@ -224,7 +248,7 @@ func TestDeleteJob(t *testing.T) {
 		processing, done := make(chan struct{}), make(chan struct{})
 		eg.Go(func() error {
 			// runJobFrom blocks so it must be run in another goroutine.
-			_, err := runJobFrom(t, egCtx, s.c, s.fc, s.id.Id, s.program, func(resp *pjs.ProcessQueueResponse) error {
+			_, err := runJobFrom(t, egCtx, s.c, s.fc, s.job, s.program, func(resp *pjs.ProcessQueueResponse) error {
 				close(processing) //at this point, the job is in the 'processing' job state.
 				<-done            // wait for main thread to tell job to finish.
 				return nil
@@ -232,12 +256,12 @@ func TestDeleteJob(t *testing.T) {
 			return err
 		})
 		<-processing // wait for processing job state before attempting deletion.
-		_, err := s.c.DeleteJob(s.ctx, &pjs.DeleteJobRequest{Job: s.id})
+		_, err := s.c.DeleteJob(s.ctx, &pjs.DeleteJobRequest{Job: s.job})
 		require.YesError(t, err)
 		require.Equal(t, codes.FailedPrecondition, status.Convert(err).Code())
 		close(done) // tell the job it can finish.
 		require.NoError(t, eg.Wait())
-		_, err = s.c.InspectJob(s.ctx, &pjs.InspectJobRequest{Job: s.id})
+		_, err = s.c.InspectJob(s.ctx, &pjs.InspectJobRequest{Job: s.job})
 		require.NoError(t, err)
 		// test delete works after everything is done.
 		attemptDelete(s)
@@ -248,61 +272,47 @@ func TestCancelJob(t *testing.T) {
 	t.Run("cancel job before processing", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		c, fc := setupTest(t)
-		programFileset := createFileSet(t, fc, map[string][]byte{
+		programFileset := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`!#/bin/bash; ls /input/;`),
 		})
-		resp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
-			Program: programFileset,
-			Input:   []string{programFileset},
-		})
+		req := &pjs.CreateJobRequest{
+			Program: programFileset.HexString(),
+			Input:   []string{programFileset.HexString()},
+		}
+		resp, programFileset := createJob(ctx, t, c, req)
+		_, err := c.CancelJob(ctx, &pjs.CancelJobRequest{Job: resp.Job})
 		require.NoError(t, err)
-		jid := resp.Id.Id
-		_, err = c.CancelJob(ctx, &pjs.CancelJobRequest{
-			Job: &pjs.Job{
-				Id: jid,
-			},
-		})
-		require.NoError(t, err)
-		inspectJobResp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{
-			Job: &pjs.Job{
-				Id: jid,
-			},
-		})
+		inspectJobResp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{Job: resp.Job})
 		require.NoError(t, err)
 		require.NotNil(t, inspectJobResp.Details)
 		jobInfo := inspectJobResp.Details.JobInfo
 		require.Equal(t, pjs.JobState_DONE, jobInfo.State)
-		hash, err := HashFileset(ctx, fc, programFileset)
-		require.NoError(t, err)
-		inspectQueueResp, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
+		id := programFileset.ID()
+		_, err = c.InspectQueue(ctx, &pjs.InspectQueueRequest{
 			Queue: &pjs.Queue{
-				Id: hash,
+				Id: id[:],
 			},
 		})
-		require.Equal(t, int64(0), inspectQueueResp.Details.Size)
-		require.NoError(t, err)
+		require.YesError(t, err)
 	})
 	t.Run("cancel a processing job", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		c, fc := setupTest(t)
 
-		program := createFileSet(t, fc, map[string][]byte{"program": []byte("foo")})
-		createResp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
-			Program: program,
-			Input:   []string{program},
-		})
-		require.NoError(t, err)
+		program := createFileset(t, fc, map[string][]byte{"program": []byte("foo")})
+		req := &pjs.CreateJobRequest{
+			Program: program.HexString(),
+			Input:   []string{program.HexString()},
+		}
+		var createResp *pjs.CreateJobResponse
+		createResp, program = createJob(ctx, t, c, req)
 
 		cancel := func() {
-			_, err := c.CancelJob(ctx, &pjs.CancelJobRequest{
-				Job: &pjs.Job{
-					Id: createResp.Id.Id,
-				},
-			})
+			_, err := c.CancelJob(ctx, &pjs.CancelJobRequest{Job: createResp.Job})
 			require.NoError(t, err)
 		}
 
-		_, err = runJobFrom(t, ctx, c, fc, createResp.Id.Id, program, func(resp *pjs.ProcessQueueResponse) error {
+		_, err := runJobFrom(t, ctx, c, fc, createResp.Job, program, func(resp *pjs.ProcessQueueResponse) error {
 			cancel()
 			// simulate processing time and ensure cancelJob is finished
 			time.Sleep(5 * time.Second)
@@ -310,7 +320,7 @@ func TestCancelJob(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		inspectCancelledJob(t, ctx, c, createResp.Id.Id)
+		inspectCancelledJob(t, ctx, c, createResp.Job)
 	})
 	t.Run("cancel processing job tree", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
@@ -322,14 +332,15 @@ func TestCancelJob(t *testing.T) {
 		jobCProcessing := make(chan struct{})
 
 		var jobAContext string
-		programA := createFileSet(t, fc, map[string][]byte{"program": []byte("A")})
-		createRespA, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
-			Program: programA,
-			Input:   []string{programA},
-		})
-		require.NoError(t, err)
+		programA := createFileset(t, fc, map[string][]byte{"program": []byte("A")})
+		req := &pjs.CreateJobRequest{
+			Program: programA.HexString(),
+			Input:   []string{programA.HexString()},
+		}
+		var createRespA *pjs.CreateJobResponse
+		createRespA, programA = createJob(ctx, t, c, req)
 		eg.Go(func() error {
-			_, err := runJobFrom(t, egCtx, c, fc, createRespA.Id.Id, programA, func(resp *pjs.ProcessQueueResponse) error {
+			_, err := runJobFrom(t, egCtx, c, fc, createRespA.Job, programA, func(resp *pjs.ProcessQueueResponse) error {
 				jobAContext = resp.Context
 				close(jobAProcessing)
 				time.Sleep(5 * time.Second)
@@ -339,16 +350,17 @@ func TestCancelJob(t *testing.T) {
 		})
 		<-jobAProcessing
 
-		programB := createFileSet(t, fc, map[string][]byte{"program": []byte("B")})
-		createRespB, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
-			Program: programB,
-			Input:   []string{programB},
+		programB := createFileset(t, fc, map[string][]byte{"program": []byte("B")})
+		req = &pjs.CreateJobRequest{
+			Program: programB.HexString(),
+			Input:   []string{programB.HexString()},
 			Context: jobAContext,
-		})
-		require.NoError(t, err)
+		}
+		var createRespB *pjs.CreateJobResponse
+		createRespB, programB = createJob(ctx, t, c, req)
 		var jobBContext string
 		eg.Go(func() error {
-			_, err := runJobFrom(t, egCtx, c, fc, createRespB.Id.Id, programB, func(resp *pjs.ProcessQueueResponse) error {
+			_, err := runJobFrom(t, egCtx, c, fc, createRespB.Job, programB, func(resp *pjs.ProcessQueueResponse) error {
 				jobBContext = resp.Context
 				close(jobBProcessing)
 				time.Sleep(5 * time.Second)
@@ -358,15 +370,16 @@ func TestCancelJob(t *testing.T) {
 		})
 		<-jobBProcessing
 
-		programC := createFileSet(t, fc, map[string][]byte{"program": []byte("C")})
-		createRespC, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
-			Program: programC,
-			Input:   []string{programC},
+		programC := createFileset(t, fc, map[string][]byte{"program": []byte("C")})
+		req = &pjs.CreateJobRequest{
+			Program: programC.HexString(),
+			Input:   []string{programC.HexString()},
 			Context: jobBContext,
-		})
-		require.NoError(t, err)
+		}
+		var createRespC *pjs.CreateJobResponse
+		createRespC, programC = createJob(ctx, t, c, req)
 		eg.Go(func() error {
-			_, err := runJobFrom(t, egCtx, c, fc, createRespC.Id.Id, programC, func(resp *pjs.ProcessQueueResponse) error {
+			_, err := runJobFrom(t, egCtx, c, fc, createRespC.Job, programC, func(resp *pjs.ProcessQueueResponse) error {
 				close(jobCProcessing)
 				time.Sleep(5 * time.Second)
 				return nil
@@ -376,18 +389,14 @@ func TestCancelJob(t *testing.T) {
 		<-jobCProcessing
 
 		// Cancel job A while A, B, and C are all processing
-		_, err = c.CancelJob(ctx, &pjs.CancelJobRequest{
-			Job: &pjs.Job{
-				Id: createRespA.Id.Id,
-			},
-		})
+		_, err := c.CancelJob(ctx, &pjs.CancelJobRequest{Job: createRespA.Job})
 		require.NoError(t, err)
 
 		require.NoError(t, eg.Wait())
 
-		inspectCancelledJob(t, ctx, c, createRespA.Id.Id)
-		inspectCancelledJob(t, ctx, c, createRespB.Id.Id)
-		inspectCancelledJob(t, ctx, c, createRespC.Id.Id)
+		inspectCancelledJob(t, ctx, c, createRespA.Job)
+		inspectCancelledJob(t, ctx, c, createRespB.Job)
+		inspectCancelledJob(t, ctx, c, createRespC.Job)
 	})
 }
 
@@ -428,7 +437,7 @@ func TestWalkJob(t *testing.T) {
 		}
 		parentJob := resp.Details.JobInfo.ParentJob
 		if parentJob != nil && parentJob.Id != 0 {
-			actual[parentJob.Id] = append(actual[parentJob.Id], resp.Id.Id)
+			actual[parentJob.Id] = append(actual[parentJob.Id], resp.Job.Id)
 		}
 		require.NoError(t, err)
 	}
@@ -441,17 +450,14 @@ type jobInfoResult struct {
 }
 
 // runJob does work through PJS.
-func runJob(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient, in *pjs.CreateJobRequest,
+func runJob(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient, req *pjs.CreateJobRequest,
 	fn func(resp *pjs.ProcessQueueResponse) error) (*jobInfoResult, error) {
-	jres, err := c.CreateJob(ctx, in)
-	require.NoError(t, err)
-	return runJobFrom(t, ctx, c, fc, jres.Id.Id, in.Program, fn)
+	jres, handle := createJob(ctx, t, c, req)
+	return runJobFrom(t, ctx, c, fc, jres.Job, handle, fn)
 }
 
-func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient, from int64, programStr string,
+func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.FilesetClient, from *pjs.Job, programHandle *fileset.Handle,
 	fn func(resp *pjs.ProcessQueueResponse) error) (*jobInfoResult, error) {
-	programHash, err := HashFileset(ctx, fc, programStr)
-	require.NoError(t, err)
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	eg, ctx := errgroup.WithContext(ctx)
@@ -460,7 +466,8 @@ func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.F
 		defer cf()
 		pqc, err := c.ProcessQueue(ctx)
 		require.NoError(t, err)
-		err = processQueue(pqc, programHash, fn)
+		id := programHandle.ID()
+		err = processQueue(pqc, id[:], fn)
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
@@ -480,8 +487,7 @@ func runJobFrom(t *testing.T, ctx context.Context, c pjs.APIClient, fc storage.F
 		cf() // success, cancel the other gorountine
 		return nil
 	})
-	err = eg.Wait()
-	require.NoError(t, err)
+	require.NoError(t, eg.Wait())
 	return ret, nil
 }
 
@@ -522,17 +528,15 @@ func processQueue(pqc pjs.API_ProcessQueueClient, programHash []byte, fn func(re
 }
 
 // await blocks until a Job enters the DONE state
-func await(ctx context.Context, s pjs.APIClient, jid int64) (*pjs.JobInfo, error) {
-	_, err := s.Await(ctx, &pjs.AwaitRequest{
-		Job:          jid,
+func await(ctx context.Context, s pjs.APIClient, job *pjs.Job) (*pjs.JobInfo, error) {
+	_, err := s.AwaitJob(ctx, &pjs.AwaitJobRequest{
+		Job:          job,
 		DesiredState: pjs.JobState_DONE,
 	})
 	if err != nil {
 		return nil, err
 	}
-	resp, err := s.InspectJob(ctx, &pjs.InspectJobRequest{
-		Job: &pjs.Job{Id: jid},
-	})
+	resp, err := s.InspectJob(ctx, &pjs.InspectJobRequest{Job: job})
 	if err != nil {
 		return nil, err
 	}
@@ -543,8 +547,8 @@ func TestAwaitJob(t *testing.T) {
 	t.Run("invalid/job does not exist", func(t *testing.T) {
 		c, _ := setupTest(t)
 		ctx := pctx.TestContext(t)
-		_, err := c.Await(ctx, &pjs.AwaitRequest{
-			Job:          10,
+		_, err := c.AwaitJob(ctx, &pjs.AwaitJobRequest{
+			Job:          &pjs.Job{Id: 10},
 			DesiredState: pjs.JobState_DONE,
 		})
 		require.YesError(t, err)
@@ -554,16 +558,16 @@ func TestAwaitJob(t *testing.T) {
 	t.Run("invalid/time out", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		c, fc := setupTest(t)
-		testFileset := createFileSet(t, fc, map[string][]byte{
+		testFileset := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`!#/bin/bash; ls /input/;`),
 		})
 		_, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
-			Program: testFileset,
-			Input:   []string{testFileset},
+			Program: testFileset.HexString(),
+			Input:   []string{testFileset.HexString()},
 		})
 		require.NoError(t, err)
-		_, err = c.Await(ctx, &pjs.AwaitRequest{
-			Job:          1,
+		_, err = c.AwaitJob(ctx, &pjs.AwaitJobRequest{
+			Job:          &pjs.Job{Id: 1},
 			DesiredState: pjs.JobState_DONE,
 		})
 		require.YesError(t, err)
@@ -577,33 +581,25 @@ func TestInspectQueue(t *testing.T) {
 	t.Run("empty queue", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		c, _ := setupTest(t)
-		inspectQueueResp1, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
+		_, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
 			Queue: &pjs.Queue{
 				Id: []byte(`dummyHash`),
 			},
 		})
-		require.NoError(t, err)
-		require.Equal(t, int64(0), inspectQueueResp1.Details.Size)
+		require.YesError(t, err)
 	})
 	t.Run("multiple queues", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		c, fc := setupTest(t)
-		programFileset1 := createFileSet(t, fc, map[string][]byte{
+		programFileset1 := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`program1`),
 		})
-		programFileset2 := createFileSet(t, fc, map[string][]byte{
+		programFileset2 := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`program2`),
 		})
-		programFileset3 := createFileSet(t, fc, map[string][]byte{
+		programFileset3 := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`program3`),
 		})
-		hash1, err := HashFileset(ctx, fc, programFileset1)
-		require.NoError(t, err)
-		hash2, err := HashFileset(ctx, fc, programFileset2)
-		require.NoError(t, err)
-		hash3, err := HashFileset(ctx, fc, programFileset3)
-		require.NoError(t, err)
-		expected := make(map[string][]string)
 		inspect := func(hash []byte, i int) {
 			inspectQueueResp1, err := c.InspectQueue(ctx, &pjs.InspectQueueRequest{
 				Queue: &pjs.Queue{
@@ -611,34 +607,37 @@ func TestInspectQueue(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-			require.Equal(t, int64(i), inspectQueueResp1.Details.Size)
-			require.Equal(t, expected[string(hash)], inspectQueueResp1.Details.QueueInfo.Program)
 			require.Equal(t, hash, inspectQueueResp1.Details.QueueInfo.Queue.Id)
+			handle, err := fileset.ParseHandleKeepID(inspectQueueResp1.Details.QueueInfo.Program)
+			require.NoError(t, err)
+			id := handle.ID()
+			require.Equal(t, hash, id[:])
+			require.Equal(t, int64(i), inspectQueueResp1.Details.Size)
 		}
 		for i := 1; i <= 10; i++ {
-			expected[string(hash1)] = append(expected[string(hash1)], programFileset1)
-			_, err := c.CreateJob(ctx, &pjs.CreateJobRequest{
-				Program: programFileset1,
-				Input:   []string{programFileset1},
-			})
-			require.NoError(t, err)
-			inspect(hash1, i)
+			req := &pjs.CreateJobRequest{
+				Program: programFileset1.HexString(),
+				Input:   []string{programFileset1.HexString()},
+			}
+			_, program := createJob(ctx, t, c, req)
+			id := program.ID()
+			inspect(id[:], i)
 
-			expected[string(hash2)] = append(expected[string(hash2)], programFileset2)
-			_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{
-				Program: programFileset2,
-				Input:   []string{programFileset2},
-			})
-			require.NoError(t, err)
-			inspect(hash2, i)
+			req = &pjs.CreateJobRequest{
+				Program: programFileset2.HexString(),
+				Input:   []string{programFileset2.HexString()},
+			}
+			_, program = createJob(ctx, t, c, req)
+			id = program.ID()
+			inspect(id[:], i)
 
-			expected[string(hash3)] = append(expected[string(hash3)], programFileset3)
-			_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{
-				Program: programFileset3,
-				Input:   []string{programFileset3},
-			})
-			require.NoError(t, err)
-			inspect(hash3, i)
+			req = &pjs.CreateJobRequest{
+				Program: programFileset3.HexString(),
+				Input:   []string{programFileset3.HexString()},
+			}
+			_, program = createJob(ctx, t, c, req)
+			id = program.ID()
+			inspect(id[:], i)
 		}
 	})
 }
@@ -667,7 +666,7 @@ func TestListJob(t *testing.T) {
 					}
 					require.NoError(t, err)
 				}
-				actual = append(actual, resp.Id.Id)
+				actual = append(actual, resp.Job.Id)
 			}
 			require.NoDiff(t, expected, actual, nil)
 		}
@@ -690,7 +689,7 @@ func TestListJob(t *testing.T) {
 				}
 				require.NoError(t, err)
 			}
-			actual = append(actual, resp.Id.Id)
+			actual = append(actual, resp.Job.Id)
 		}
 		require.NoDiff(t, expected, actual, nil)
 	})
@@ -699,33 +698,26 @@ func TestListJob(t *testing.T) {
 func TestListQueue(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c, fc := setupTest(t)
-	inputFileset := createFileSet(t, fc, map[string][]byte{
+	inputFileset := createFileset(t, fc, map[string][]byte{
 		"a.txt": []byte(`dummy input`),
 	})
-	programFileset1 := createFileSet(t, fc, map[string][]byte{
+	programFileset1 := createFileset(t, fc, map[string][]byte{
 		"file": []byte(`program1`),
 	})
 	req1 := &pjs.CreateJobRequest{
-		Program: programFileset1,
-		Input:   []string{inputFileset},
+		Program: programFileset1.HexString(),
+		Input:   []string{inputFileset.HexString()},
 	}
-	programFileset2 := createFileSet(t, fc, map[string][]byte{
+	programFileset2 := createFileset(t, fc, map[string][]byte{
 		"file": []byte(`program2`),
 	})
 	req2 := &pjs.CreateJobRequest{
-		Program: programFileset2,
-		Input:   []string{inputFileset},
+		Program: programFileset2.HexString(),
+		Input:   []string{inputFileset.HexString()},
 	}
-	programFileset3 := createFileSet(t, fc, map[string][]byte{
+	programFileset3 := createFileset(t, fc, map[string][]byte{
 		"file": []byte(`program3`),
 	})
-	hash1, err := HashFileset(ctx, fc, programFileset1)
-	require.NoError(t, err)
-	hash2, err := HashFileset(ctx, fc, programFileset2)
-	require.NoError(t, err)
-	hash3, err := HashFileset(ctx, fc, programFileset3)
-	require.NoError(t, err)
-	expected := make(map[string][]string)
 	// ListQueue should return QueueIDs and lengths based on all jobs in all states.
 	// Length should come from counting only jobs in QUEUED state.
 	for i := 1; i <= 10; i++ {
@@ -739,16 +731,15 @@ func TestListQueue(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{
-			Program: programFileset3,
-			Input:   []string{inputFileset},
-		})
-		require.NoError(t, err)
-		expected[string(hash3)] = append(expected[string(hash3)], programFileset3)
+		req := &pjs.CreateJobRequest{
+			Program: programFileset3.HexString(),
+			Input:   []string{inputFileset.HexString()},
+		}
+		_, programFileset3 = createJob(ctx, t, c, req)
 	}
+	id3 := programFileset3.ID()
 	listC, err := c.ListQueue(ctx, &pjs.ListQueueRequest{})
 	require.NoError(t, err)
-
 	for {
 		resp, err := listC.Recv()
 		if err != nil {
@@ -758,12 +749,11 @@ func TestListQueue(t *testing.T) {
 			require.NoError(t, err)
 		}
 		require.NoError(t, err)
-		if idHashEqual(resp.Id.Id, hash1) || idHashEqual(resp.Id.Id, hash2) {
+		if !idHashEqual(resp.Queue.Id, id3[:]) {
 			require.Equal(t, int64(0), resp.Details.Size)
 		} else {
 			require.Equal(t, int64(10), resp.Details.Size)
 		}
-		require.Equal(t, expected[string(resp.Id.Id)], resp.Info.Program)
 	}
 }
 
@@ -776,11 +766,12 @@ func setupTest(t testing.TB, opts ...ClientOptions) (pjs.APIClient, storage.File
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
-	client := storagesrv.NewTestFilesetClient(t, db)
-	return NewTestClient(t, db, client, opts...), client
+	server := storagesrv.NewTestServer(t, db)
+	client := storagesrv.NewTestFilesetClient(t, server)
+	return NewTestClient(t, db, server, opts...), client
 }
 
-func createFileSet(t testing.TB, fc storage.FilesetClient, files map[string][]byte) string {
+func createFileset(t testing.TB, fc storage.FilesetClient, files map[string][]byte) *fileset.Handle {
 	ctx := pctx.TestContext(t)
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
@@ -800,9 +791,9 @@ func createFileSet(t testing.TB, fc storage.FilesetClient, files map[string][]by
 	}
 	resp, err := createFileClient.CloseAndRecv()
 	require.NoError(t, err)
-	handle, err := fileset.ParseHandle(resp.FilesetId)
+	handle, err := fileset.ParseHandleKeepID(resp.FilesetId)
 	require.NoError(t, err)
-	return handle.Token().HexString()
+	return handle
 }
 
 func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.APIClient, fc storage.FilesetClient) {
@@ -811,15 +802,15 @@ func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.AP
 	}
 
 	// create node at depth == 1
-	program := createFileSet(t, fc, map[string][]byte{"program": []byte("foo")})
+	program := createFileset(t, fc, map[string][]byte{"program": []byte("foo")})
 	req := &pjs.CreateJobRequest{
-		Program: program,
-		Input:   []string{program},
+		Program: program.HexString(),
+		Input:   []string{program.HexString()},
 	}
-	createResp, err := c.CreateJob(ctx, req)
-	require.NoError(t, err)
+	var createResp *pjs.CreateJobResponse
+	createResp, program = createJob(ctx, t, c, req)
 	var processResp *pjs.ProcessQueueResponse
-	_, err = runJobFrom(t, ctx, c, fc, createResp.Id.Id, program, func(resp *pjs.ProcessQueueResponse) error {
+	_, err := runJobFrom(t, ctx, c, fc, createResp.Job, program, func(resp *pjs.ProcessQueueResponse) error {
 		processResp = resp
 		return nil
 	})
@@ -833,16 +824,16 @@ func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.AP
 		newParents := make([]*pjs.ProcessQueueResponse, 0)
 		for _, p := range parents {
 			createChild := func() *pjs.ProcessQueueResponse {
-				prog := createFileSet(t, fc, map[string][]byte{"program": []byte(rand.String(32))})
+				prog := createFileset(t, fc, map[string][]byte{"program": []byte(rand.String(32))})
 				req := &pjs.CreateJobRequest{
 					Context: p.Context,
-					Program: prog,
-					Input:   []string{prog},
+					Program: prog.HexString(),
+					Input:   []string{prog.HexString()},
 				}
-				cResp, err := c.CreateJob(ctx, req)
-				require.NoError(t, err)
+				var cResp *pjs.CreateJobResponse
+				cResp, prog = createJob(ctx, t, c, req)
 				var pResp *pjs.ProcessQueueResponse
-				_, err = runJobFrom(t, ctx, c, fc, cResp.Id.Id, prog, func(resp *pjs.ProcessQueueResponse) error {
+				_, err = runJobFrom(t, ctx, c, fc, cResp.Job, prog, func(resp *pjs.ProcessQueueResponse) error {
 					pResp = resp
 					return nil
 				})
@@ -855,12 +846,8 @@ func fullBinaryJobTree(t *testing.T, ctx context.Context, maxDepth int, c pjs.AP
 	}
 }
 
-func inspectCancelledJob(t *testing.T, ctx context.Context, c pjs.APIClient, id int64) {
-	inspectJobResp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{
-		Job: &pjs.Job{
-			Id: id,
-		},
-	})
+func inspectCancelledJob(t *testing.T, ctx context.Context, c pjs.APIClient, job *pjs.Job) {
+	inspectJobResp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{Job: job})
 	require.NoError(t, err)
 	require.NotNil(t, inspectJobResp.Details)
 	jobInfo := inspectJobResp.Details.JobInfo
@@ -876,19 +863,19 @@ func TestAuth(t *testing.T) {
 			env.GetPermissionser = &testPermitter{mode: permitterAllow}
 		})
 		ctx := pctx.TestContext(t)
-		testFileset := createFileSet(t, fc, map[string][]byte{
+		testFileset := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`!#/bin/bash; ls /input/;`),
 		})
-		jobResp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{Program: testFileset, Input: []string{testFileset}})
+		jobResp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{Program: testFileset.HexString(), Input: []string{testFileset.HexString()}})
 		require.NoError(t, err)
-		walkClient, err := c.WalkJob(ctx, &pjs.WalkJobRequest{Job: jobResp.Id, Algorithm: pjs.WalkAlgorithm_LEVEL_ORDER})
+		walkClient, err := c.WalkJob(ctx, &pjs.WalkJobRequest{Job: jobResp.Job, Algorithm: pjs.WalkAlgorithm_LEVEL_ORDER})
 		require.NoError(t, err)
 		for _, err := walkClient.Recv(); err != io.EOF; _, err = walkClient.Recv() {
 			require.NoError(t, err)
 		}
-		_, err = c.CancelJob(ctx, &pjs.CancelJobRequest{Job: jobResp.Id})
+		_, err = c.CancelJob(ctx, &pjs.CancelJobRequest{Job: jobResp.Job})
 		require.NoError(t, err)
-		_, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Job: jobResp.Id})
+		_, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Job: jobResp.Job})
 		require.NoError(t, err)
 	})
 	t.Run("permission_denied", func(t *testing.T) {
@@ -897,25 +884,25 @@ func TestAuth(t *testing.T) {
 			env.GetPermissionser = p
 		})
 		ctx := pctx.TestContext(t)
-		testFileset := createFileSet(t, fc, map[string][]byte{
+		testFileset := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`!#/bin/bash; ls /input/;`),
 		})
 		// create one job as admin.
-		jobResp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{Program: testFileset, Input: []string{testFileset}})
+		jobResp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{Program: testFileset.HexString(), Input: []string{testFileset.HexString()}})
 		require.NoError(t, err)
 		// flip the permitter to deny
 		p.mode = permitterDeny
-		walkClient, err := c.WalkJob(ctx, &pjs.WalkJobRequest{Job: jobResp.Id, Algorithm: pjs.WalkAlgorithm_LEVEL_ORDER})
+		walkClient, err := c.WalkJob(ctx, &pjs.WalkJobRequest{Job: jobResp.Job, Algorithm: pjs.WalkAlgorithm_LEVEL_ORDER})
 		require.NoError(t, err)
 		_, err = walkClient.Recv()
 		require.YesError(t, err)
 		s := status.Convert(err)
 		require.Equal(t, codes.PermissionDenied, s.Code())
-		_, err = c.CancelJob(ctx, &pjs.CancelJobRequest{Job: jobResp.Id})
+		_, err = c.CancelJob(ctx, &pjs.CancelJobRequest{Job: jobResp.Job})
 		require.YesError(t, err)
 		s = status.Convert(err)
 		require.Equal(t, codes.PermissionDenied, s.Code())
-		_, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Job: jobResp.Id})
+		_, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Job: jobResp.Job})
 		require.YesError(t, err)
 		s = status.Convert(err)
 		require.Equal(t, codes.PermissionDenied, s.Code())
@@ -929,36 +916,39 @@ func TestAuth(t *testing.T) {
 			env.GetPermissionser = p
 		})
 		ctx := pctx.TestContext(t)
-		testFileset := createFileSet(t, fc, map[string][]byte{
+		testFileset := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`!#/bin/bash; ls /input/;`),
 		})
 		// create one job as admin.
-		jobResp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{Program: testFileset, Input: []string{testFileset}})
-		require.NoError(t, err)
-
+		req := &pjs.CreateJobRequest{
+			Program: testFileset.HexString(),
+			Input:   []string{testFileset.HexString()},
+		}
+		var jobResp *pjs.CreateJobResponse
+		jobResp, testFileset = createJob(ctx, t, c, req)
 		var jobContext string
 		// run process queue to get a job context token.
-		_, err = runJobFrom(t, ctx, c, fc, jobResp.Id.Id, testFileset, func(resp *pjs.ProcessQueueResponse) error {
+		_, err := runJobFrom(t, ctx, c, fc, jobResp.Job, testFileset, func(resp *pjs.ProcessQueueResponse) error {
 			jobContext = resp.Context
 			return nil
 		})
 		require.NoError(t, err)
 		// wait for the job to finish ourselves. runJobFrom calls await as well, but in another goroutine.
 		// await currently polls using the inspect RPC, which will require auth.
-		_, err = await(ctx, c, jobResp.Id.Id)
+		_, err = await(ctx, c, jobResp.Job)
 		// flip the permitter.
 		p.mode = permitterDeny
 		require.NoError(t, err)
-		jobResp, err = c.CreateJob(ctx, &pjs.CreateJobRequest{Context: jobContext, Program: testFileset, Input: []string{testFileset}})
+		jobResp, err = c.CreateJob(ctx, &pjs.CreateJobRequest{Context: jobContext, Program: testFileset.HexString(), Input: []string{testFileset.HexString()}})
 		require.NoError(t, err)
-		walkClient, err := c.WalkJob(ctx, &pjs.WalkJobRequest{Context: jobContext, Job: jobResp.Id, Algorithm: pjs.WalkAlgorithm_LEVEL_ORDER})
+		walkClient, err := c.WalkJob(ctx, &pjs.WalkJobRequest{Context: jobContext, Job: jobResp.Job, Algorithm: pjs.WalkAlgorithm_LEVEL_ORDER})
 		require.NoError(t, err)
 		for _, err := walkClient.Recv(); err != io.EOF; _, err = walkClient.Recv() {
 			require.NoError(t, err)
 		}
-		_, err = c.CancelJob(ctx, &pjs.CancelJobRequest{Context: jobContext, Job: jobResp.Id})
+		_, err = c.CancelJob(ctx, &pjs.CancelJobRequest{Context: jobContext, Job: jobResp.Job})
 		require.NoError(t, err)
-		_, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Context: jobContext, Job: jobResp.Id})
+		_, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Context: jobContext, Job: jobResp.Job})
 		require.NoError(t, err)
 	})
 	t.Run("invalid_job_context", func(t *testing.T) {
@@ -967,32 +957,32 @@ func TestAuth(t *testing.T) {
 			env.GetPermissionser = p
 		})
 		ctx := pctx.TestContext(t)
-		testFileset := createFileSet(t, fc, map[string][]byte{
+		testFileset := createFileset(t, fc, map[string][]byte{
 			"file": []byte(`!#/bin/bash; ls /input/;`),
 		})
 		// create one job without ctx as admin.
-		jobResp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{Program: testFileset, Input: []string{testFileset}})
+		jobResp, err := c.CreateJob(ctx, &pjs.CreateJobRequest{Program: testFileset.HexString(), Input: []string{testFileset.HexString()}})
 		require.NoError(t, err)
 		modes := []permitterEnum{permitterAllow, permitterDeny}
 		jobCtx := "00001111222233334444555566666777788889999aaaabbbbccccddddeeeefff"
 		for _, mode := range modes {
 			p.mode = mode
-			_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{Context: jobCtx, Program: testFileset, Input: []string{testFileset}})
+			_, err = c.CreateJob(ctx, &pjs.CreateJobRequest{Context: jobCtx, Program: testFileset.HexString(), Input: []string{testFileset.HexString()}})
 			require.YesError(t, err)
 			t.Log(err)
 			s := status.Convert(err)
 			require.Equal(t, codes.NotFound, s.Code())
-			walkClient, err := c.WalkJob(ctx, &pjs.WalkJobRequest{Context: jobCtx, Job: jobResp.Id, Algorithm: pjs.WalkAlgorithm_LEVEL_ORDER})
+			walkClient, err := c.WalkJob(ctx, &pjs.WalkJobRequest{Context: jobCtx, Job: jobResp.Job, Algorithm: pjs.WalkAlgorithm_LEVEL_ORDER})
 			require.NoError(t, err)
 			_, err = walkClient.Recv()
 			require.YesError(t, err)
 			s = status.Convert(err)
 			require.Equal(t, codes.NotFound, s.Code())
-			_, err = c.CancelJob(ctx, &pjs.CancelJobRequest{Context: jobCtx, Job: jobResp.Id})
+			_, err = c.CancelJob(ctx, &pjs.CancelJobRequest{Context: jobCtx, Job: jobResp.Job})
 			require.YesError(t, err)
 			s = status.Convert(err)
 			require.Equal(t, codes.NotFound, s.Code())
-			_, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Context: jobCtx, Job: jobResp.Id})
+			_, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Context: jobCtx, Job: jobResp.Job})
 			require.YesError(t, err)
 			s = status.Convert(err)
 			require.Equal(t, codes.NotFound, s.Code())
@@ -1003,15 +993,15 @@ func TestAuth(t *testing.T) {
 func TestJobCaching(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	c, fc := setupTest(t)
-	inputFileset := createFileSet(t, fc, map[string][]byte{
+	inputFileset := createFileset(t, fc, map[string][]byte{
 		"a.txt": []byte(`dummy input`),
 	})
-	programFileset1 := createFileSet(t, fc, map[string][]byte{
+	programFileset1 := createFileset(t, fc, map[string][]byte{
 		"file": []byte(`program1`),
 	})
 	req1 := &pjs.CreateJobRequest{
-		Program:    programFileset1,
-		Input:      []string{inputFileset},
+		Program:    programFileset1.HexString(),
+		Input:      []string{inputFileset.HexString()},
 		CacheWrite: true,
 		CacheRead:  true,
 	}
@@ -1024,7 +1014,7 @@ func TestJobCaching(t *testing.T) {
 	// job2 should be created from the cache.
 	job2, err := c.CreateJob(ctx, req1)
 	require.NoError(t, err)
-	resp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{Job: job2.Id})
+	resp, err := c.InspectJob(ctx, &pjs.InspectJobRequest{Job: job2.Job})
 	require.NoError(t, err)
 	require.Equal(t, pjs.JobState_DONE, resp.Details.JobInfo.State)
 	// now, delete the first job. The second job should be used for the cache.
@@ -1036,7 +1026,7 @@ func TestJobCaching(t *testing.T) {
 	// job3 should be created using job2.
 	job3, err := c.CreateJob(ctx, req1)
 	require.NoError(t, err)
-	resp, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Job: job3.Id})
+	resp, err = c.InspectJob(ctx, &pjs.InspectJobRequest{Job: job3.Job})
 	require.NoError(t, err)
 	require.Equal(t, pjs.JobState_DONE, resp.Details.JobInfo.State)
 

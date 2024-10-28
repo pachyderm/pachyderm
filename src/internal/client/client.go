@@ -636,7 +636,7 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 		if status.Code(err) == codes.Unimplemented {
 			// This is an older version check designed to detect 1.x vs. 2.x mismatch.
 			pachdVersion, versErr := client.Version()
-			if err != nil {
+			if versErr != nil {
 				return nil, errors.Join(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version"))
 			}
 			pachdMajVersion, convErr := strconv.Atoi(strings.Split(pachdVersion, ".")[0])

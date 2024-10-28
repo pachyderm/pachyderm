@@ -16,8 +16,8 @@ func init() {
 		"main": &depguard.List{
 			Files: []string{
 				"$all",
-				"!**/src/internal/log/*.go",
-				"!**/etc/**/*.go",
+				"!src/internal/log/*.go",
+				"!etc/**/*.go",
 			},
 			Deny: map[string]string{
 				"github.com/sirupsen/logrus":         "use the internal/log package",

@@ -2,17 +2,19 @@
 package snapshotdb
 
 import (
+	"database/sql"
+	"time"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	snapshotserver "github.com/pachyderm/pachyderm/v2/src/snapshot"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"time"
 )
 
 type snapshotRecord struct {
 	ID               int64                 `db:"id"`
-	ChunksetID       int64                 `db:"chunkset_id"`
-	SQLDumpFilesetID *fileset.ID           `db:"sql_dump_fileset_id"`
+	Chunkset         int64                 `db:"chunkset"`
+	SQLDumpPin       sql.NullInt64         `db:"sql_dump_pin"`
 	Metadata         pgjsontypes.StringMap `db:"metadata"`
 	PachydermVersion string                `db:"pachyderm_version"`
 	CreatedAt        time.Time             `db:"created_at"`
@@ -22,8 +24,8 @@ func (r snapshotRecord) toSnapshot() snapshot {
 	// Construct the Snapshot from the snapshotRecord
 	s := snapshot{
 		ID:               snapshotID(r.ID),
-		ChunksetID:       fileset.ChunkSetID(r.ChunksetID),
-		SQLDumpFilesetID: r.SQLDumpFilesetID,
+		ChunksetID:       fileset.ChunkSetID(r.Chunkset),
+		SQLDumpPin:       fileset.Pin(r.SQLDumpPin.Int64),
 		Metadata:         r.Metadata.Data,
 		PachydermVersion: r.PachydermVersion,
 		CreatedAt:        r.CreatedAt,
@@ -37,7 +39,7 @@ type snapshotID int64
 type snapshot struct {
 	ID               snapshotID
 	ChunksetID       fileset.ChunkSetID
-	SQLDumpFilesetID *fileset.ID
+	SQLDumpPin       fileset.Pin
 	Metadata         map[string]string
 	PachydermVersion string
 	CreatedAt        time.Time
@@ -51,8 +53,13 @@ func (s snapshot) toSnapshotInfo() *snapshotserver.SnapshotInfo {
 		CreatedAt:        timestamppb.New(s.CreatedAt),
 		Metadata:         s.Metadata,
 	}
-	if s.SQLDumpFilesetID != nil {
-		info.SqlDumpFilesetId = s.SQLDumpFilesetID.HexString()
-	}
 	return &info
+}
+
+type InternalSnapshotInfo struct {
+	SQLDumpPin fileset.Pin
+}
+
+func (s snapshot) toInteralSnapshotInfo() *InternalSnapshotInfo {
+	return &InternalSnapshotInfo{SQLDumpPin: s.SQLDumpPin}
 }

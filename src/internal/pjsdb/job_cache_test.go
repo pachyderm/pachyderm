@@ -1,12 +1,15 @@
 package pjsdb_test
 
 import (
-	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"testing"
+
+	"github.com/jmoiron/sqlx"
+
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pjsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 )
 
 func requireCacheCount(t *testing.T, expected int, d dependencies) {
@@ -22,7 +25,7 @@ func TestCaching(t *testing.T) {
 			createRequest := makeReq(t, d, 0, nil)
 			id, err := pjsdb.CreateJob(d.ctx, d.tx, createRequest)
 			require.NoError(t, err)
-			err = pjsdb.CompleteJob(d.ctx, d.tx, id, []string{}, pjsdb.WriteToCacheOption{
+			err = pjsdb.CompleteJob(d.ctx, d.tx, id, []fileset.Pin{}, pjsdb.WriteToCacheOption{
 				ProgramHash: createRequest.ProgramHash,
 				InputHashes: createRequest.InputHashes,
 			})

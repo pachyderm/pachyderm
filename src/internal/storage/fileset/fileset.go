@@ -146,6 +146,16 @@ func computeId(tx *pachsql.Tx, store MetadataStore, md *Metadata) (ID, error) {
 	}
 }
 
+func parseId(idBytes []byte) (ID, error) {
+	// TODO: Validation
+	id := ID{}
+	_, err := hex.Decode(id[:], idBytes)
+	if err != nil {
+		return ID{}, errors.EnsureStack(err)
+	}
+	return id, nil
+}
+
 type Handle struct {
 	token Token
 	// Stable fileset ID (optional)
@@ -157,12 +167,20 @@ type Handle struct {
 func NewHandle(token Token) *Handle {
 	return &Handle{token: token}
 }
+
 func (h *Handle) Token() Token {
 	return h.token
 }
 
+func (h *Handle) ID() ID {
+	return h.id
+}
+
 // HexString returns the handle encoded with the hex alphabet.
 func (h *Handle) HexString() string {
+	if h == nil {
+		return "<nil fileset.Handle>"
+	}
 	hexStr := h.token.HexString()
 	defaultId := ID{}
 	if h.id != defaultId {
@@ -180,6 +198,22 @@ func ParseHandle(handle string) (*Handle, error) {
 		return nil, err
 	}
 	return &Handle{token: token}, nil
+}
+
+func ParseHandleKeepID(handle string) (*Handle, error) {
+	tokenStr, idStr, _ := strings.Cut(handle, ".")
+	token, err := parseToken([]byte(tokenStr))
+	if err != nil {
+		return nil, err
+	}
+	id, err := parseId([]byte(idStr))
+	if err != nil {
+		return nil, err
+	}
+	return &Handle{
+		token: token,
+		id:    id,
+	}, nil
 }
 
 func HexStringsToHandles(hexStrs []string) ([]*Handle, error) {

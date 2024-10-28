@@ -19,18 +19,18 @@ func createPJSSchema(ctx context.Context, env migrations.Env) error {
 			'canceled'
 		);
 		CREATE TABLE pjs.jobs (
-				id BIGSERIAL PRIMARY KEY,
-				parent BIGINT REFERENCES pjs.jobs(id),
-				
-				program BYTEA NOT NULL,
-				program_hash BYTEA NOT NULL, -- the hash will be used to model the queues
-				context_hash BYTEA, -- the hash of the job context token
-				
-				error pjs.job_error_code,
-				
-				queued timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
-				processing timestamptz,
-				done timestamptz		
+			id BIGSERIAL PRIMARY KEY,
+			parent BIGINT REFERENCES pjs.jobs(id),
+			
+			program BIGINT NOT NULL,
+			program_hash BYTEA NOT NULL, -- the hash will be used to model the queues
+			context_hash BYTEA, -- the hash of the job context token
+			
+			error pjs.job_error_code,
+			
+			queued timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
+			processing timestamptz,
+			done timestamptz		
 		);
 		-- a reverse index will make the lookup using the job context faster.
 		CREATE INDEX ON pjs.jobs (
@@ -45,7 +45,7 @@ func createPJSSchema(ctx context.Context, env migrations.Env) error {
 			job_id BIGINT REFERENCES pjs.jobs(id) ON DELETE CASCADE PRIMARY KEY,
 			job_hash BYTEA,
 			cache_read BOOLEAN NOT NULL DEFAULT FALSE,
-		    cache_write BOOLEAN NOT NULL DEFAULT FALSE
+			cache_write BOOLEAN NOT NULL DEFAULT FALSE
 		);
 		CREATE INDEX hash_to_id ON pjs.job_cache (
 			job_hash, job_id
@@ -56,12 +56,12 @@ func createPJSSchema(ctx context.Context, env migrations.Env) error {
 			job_id BIGINT REFERENCES pjs.jobs(id) ON DELETE CASCADE,
 			fileset_type pjs.fileset_types NOT NULL,
 			array_position INT NOT NULL,
-			fileset BYTEA NOT NULL,
+			fileset_pin BIGINT NOT NULL,
 			PRIMARY KEY(job_id, fileset_type, array_position)
 		);
 		-- a reverse index here should make it faster to look up whether a fileset is used by a job.
 		CREATE INDEX ON pjs.job_filesets (
-		    fileset, job_id
+			fileset_pin, job_id
 		);
 	`)
 	if err != nil {

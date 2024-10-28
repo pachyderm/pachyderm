@@ -5,6 +5,7 @@ package pjsdb
 import (
 	"context"
 	"database/sql"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -61,8 +62,8 @@ func createJobFromCache(ctx context.Context, tx *pachsql.Tx, cachedJob Job) (Job
 	}
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO pjs.job_filesets
-		(job_id, fileset_type, array_position, fileset)
-			SELECT $1, fileset_type, array_position, fileset FROM pjs.job_filesets jf WHERE jf.job_id = $2
+		(job_id, fileset_type, array_position, fileset_pin)
+			SELECT $1, fileset_type, array_position, fileset_pin FROM pjs.job_filesets jf WHERE jf.job_id = $2
 	`, cachedJob.ID, id)
 	if err != nil {
 		return 0, errors.Wrap(err, "copying job_filesets rows")

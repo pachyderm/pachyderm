@@ -4,7 +4,7 @@
     "definitions": {
         "ListQueueResponse": {
             "properties": {
-                "id": {
+                "queue": {
                     "$ref": "#/definitions/pjs.Queue",
                     "additionalProperties": false
                 },
@@ -42,11 +42,7 @@
                     "description": "queue is the Queue's identity"
                 },
                 "program": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array",
-                    "description": "The current storage system supports cloned filesets with the same content hash."
+                    "type": "string"
                 }
             },
             "additionalProperties": false,

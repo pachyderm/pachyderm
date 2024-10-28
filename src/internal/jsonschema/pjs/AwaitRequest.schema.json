@@ -8,7 +8,8 @@
                     "type": "string"
                 },
                 "job": {
-                    "type": "integer"
+                    "$ref": "#/definitions/pjs.Job",
+                    "additionalProperties": false
                 },
                 "desiredState": {
                     "enum": [
@@ -24,6 +25,17 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Await Request"
+        },
+        "pjs.Job": {
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Job",
+            "description": "Job uniquely identifies a Job Job will be nil to indicate no Job, or an unset Job."
         }
     }
 }
