@@ -12,7 +12,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	recovery "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/snapshot"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -32,7 +34,7 @@ func TestListSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list snapshot RPC: %v", err)
 	}
-	allRows, err := grpcutil.Collect(listClient, 100)
+	allRows, err := grpcutil.Collect[*snapshot.ListSnapshotResponse](listClient, 100)
 	if err != nil {
 		t.Fatalf("grpcutil collect list response: %v", err)
 	}
@@ -45,7 +47,7 @@ func TestListSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list snapshot RPC: %v", err)
 	}
-	sinceSecondSnapshot, err := grpcutil.Collect(listClient2, 100)
+	sinceSecondSnapshot, err := grpcutil.Collect[*snapshot.ListSnapshotResponse](listClient2, 100)
 	if err != nil {
 		t.Fatalf("grpcutil collect list response: %v", err)
 	}
@@ -73,6 +75,22 @@ func TestInspectSnapshot(t *testing.T) {
 		PachydermVersion: version.Version.Canonical(),
 	}
 	require.NoDiff(t, want, got, []cmp.Option{protocmp.Transform()})
+
+	request := &storage.ReadFilesetRequest{FilesetId: inspectResp.Fileset}
+	rfc, err := c.FilesetClient.ReadFileset(ctx, request)
+	if err != nil {
+		t.Fatalf("read fileset: %v", err)
+	}
+	allFs, err := grpcutil.Collect[*storage.ReadFilesetResponse](rfc, 100)
+	if err != nil {
+		t.Fatalf("grpcutil collect read fileset response: %v", err)
+	}
+	if len(allFs) != 1 {
+		t.Fatalf("there should be only one fileset")
+	}
+	if allFs[0].Path != recovery.SQLDumpFilename {
+		t.Fatalf(`fileset path want: %v, got: %v`, recovery.SQLDumpFilename, allFs[0].Path)
+	}
 }
 
 func TestDeleteSnapshot(t *testing.T) {
