@@ -84,8 +84,8 @@ func TestInspectSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("grpcutil collect read fileset response: %v", err)
 	}
-	for _, f := range allFs{
-		if f.Path != "/dump.sql.zst"{
+	for _, f := range allFs {
+		if f.Path != "/dump.sql.zst" {
 			t.Fatalf(`fileset path want: "/dump.sql.zst", got: %v`, f.Path)
 		}
 	}
