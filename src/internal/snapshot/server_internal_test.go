@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/snapshot"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"google.golang.org/protobuf/testing/protocmp"
 )
@@ -73,6 +74,21 @@ func TestInspectSnapshot(t *testing.T) {
 		PachydermVersion: version.Version.Canonical(),
 	}
 	require.NoDiff(t, want, got, []cmp.Option{protocmp.Transform()})
+
+	request := &storage.ReadFilesetRequest{FilesetId: inspectResp.Fileset}
+	rfc, err := c.FilesetClient.ReadFileset(ctx, request)
+	if err != nil {
+		t.Fatalf("read fileset: %v", err)
+	}
+	allFs, err := grpcutil.Collect(rfc, 100)
+	if err != nil {
+		t.Fatalf("grpcutil collect read fileset response: %v", err)
+	}
+	for _, f := range allFs{
+		if f.Path != "/dump.sql.zst"{
+			t.Fatalf(`fileset path want: "/dump.sql.zst", got: %v`, f.Path)
+		}
+	}
 }
 
 func TestDeleteSnapshot(t *testing.T) {
