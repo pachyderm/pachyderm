@@ -4237,15 +4237,15 @@
         ]
       }
     },
-    "/pjs.API/Await": {
+    "/pjs.API/AwaitJob": {
       "post": {
         "summary": "Await blocks until the job has entered or passed the desired state.\nAwait returns the actual state of the job that met the criteria.\nAwait can timeout with DEADLINE_EXCEEDED.  In this case clients may\nretry in a new request.",
-        "operationId": "API_Await",
+        "operationId": "API_AwaitJob",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/pjsAwaitResponse"
+              "$ref": "#/definitions/pjsAwaitJobResponse"
             }
           },
           "default": {
@@ -4261,7 +4261,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/pjsAwaitRequest"
+              "$ref": "#/definitions/pjsAwaitJobRequest"
             }
           }
         ]
@@ -5666,6 +5666,131 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/proxyListenRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/snapshot.API/CreateSnapshot": {
+      "post": {
+        "operationId": "API_CreateSnapshot",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/snapshotCreateSnapshotResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/snapshotCreateSnapshotRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/snapshot.API/DeleteSnapshot": {
+      "post": {
+        "operationId": "API_DeleteSnapshot",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/snapshotDeleteSnapshotResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/snapshotDeleteSnapshotRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/snapshot.API/InspectSnapshot": {
+      "post": {
+        "operationId": "API_InspectSnapshot",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/snapshotInspectSnapshotResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/snapshotInspectSnapshotRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/snapshot.API/ListSnapshot": {
+      "post": {
+        "operationId": "API_ListSnapshot",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/snapshotListSnapshotResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of snapshotListSnapshotResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/snapshotListSnapshotRequest"
             }
           }
         ]
@@ -10218,22 +10343,21 @@
         }
       }
     },
-    "pjsAwaitRequest": {
+    "pjsAwaitJobRequest": {
       "type": "object",
       "properties": {
         "context": {
           "type": "string"
         },
         "job": {
-          "type": "string",
-          "format": "int64"
+          "$ref": "#/definitions/pjsJob"
         },
         "desiredState": {
           "$ref": "#/definitions/pjsJobState"
         }
       }
     },
-    "pjsAwaitResponse": {
+    "pjsAwaitJobResponse": {
       "type": "object",
       "properties": {
         "actualState": {
@@ -10285,9 +10409,8 @@
     "pjsCreateJobResponse": {
       "type": "object",
       "properties": {
-        "id": {
-          "$ref": "#/definitions/pjsJob",
-          "title": "TODO: id -\u003e job"
+        "job": {
+          "$ref": "#/definitions/pjsJob"
         }
       }
     },
@@ -10450,7 +10573,7 @@
     "pjsListJobResponse": {
       "type": "object",
       "properties": {
-        "id": {
+        "job": {
           "$ref": "#/definitions/pjsJob"
         },
         "info": {
@@ -10469,7 +10592,7 @@
     "pjsListQueueResponse": {
       "type": "object",
       "properties": {
-        "id": {
+        "queue": {
           "$ref": "#/definitions/pjsQueue"
         },
         "info": {
@@ -10592,7 +10715,7 @@
         },
         "maxDepth": {
           "type": "string",
-          "format": "uint64",
+          "format": "int64",
           "description": "The depth relative from the starting point to traverse to.\nA depth of 0 is interpreted as 10,000. A depth greater than 10,000 is capped at 10,000."
         }
       }
@@ -12676,6 +12799,107 @@
             "type": "object",
             "$ref": "#/definitions/protobufAny"
           }
+        }
+      }
+    },
+    "snapshotCreateSnapshotRequest": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "snapshotCreateSnapshotResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "snapshotDeleteSnapshotRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "snapshotDeleteSnapshotResponse": {
+      "type": "object"
+    },
+    "snapshotInspectSnapshotRequest": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "snapshotInspectSnapshotResponse": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "$ref": "#/definitions/snapshotSnapshotInfo"
+        },
+        "fileset": {
+          "type": "string"
+        }
+      }
+    },
+    "snapshotListSnapshotRequest": {
+      "type": "object",
+      "properties": {
+        "since": {
+          "type": "string",
+          "format": "date-time",
+          "title": "exclusive; nil = start at the present"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "int32",
+          "title": "0 = no limit"
+        }
+      }
+    },
+    "snapshotListSnapshotResponse": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "$ref": "#/definitions/snapshotSnapshotInfo"
+        }
+      }
+    },
+    "snapshotSnapshotInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "chunksetId": {
+          "type": "string",
+          "format": "int64"
+        },
+        "pachydermVersion": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },

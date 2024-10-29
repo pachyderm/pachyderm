@@ -169,6 +169,7 @@ type EnterpriseSpecificConfiguration struct {
 	AuthClientSecret          string `env:"AUTH_CLIENT_SECRET,default="`
 	AuthClusterRoleBindings   string `env:"AUTH_CLUSTER_RBAC,default="`
 	LicenseKey                string `env:"LICENSE_KEY,default="`
+	PJSWorkerAuthToken        string `env:"PJS_WORKER_AUTH_TOKEN,default="`
 	EnterpriseSecret          string `env:"ENTERPRISE_SECRET,default="`
 	EnterpriseMember          bool   `env:"ENTERPRISE_MEMBER,default=false"`
 	EnterpriseServerAddress   string `env:"ENTERPRISE_SERVER_ADDRESS,default="`

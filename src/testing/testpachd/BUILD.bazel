@@ -21,12 +21,13 @@ go_library(
 
 go_binary(
     name = "testpachd",
+    data = snapshot_data,
     embed = [":testpachd_lib"],
     visibility = ["//visibility:public"],
     x_defs = {
         "github.com/pachyderm/pachyderm/v2/src/version.AppVersion": "{STABLE_APP_VERSION}",
         "github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion": "{STABLE_ADDITIONAL_VERSION}",
-    },
+    } | snapshot_x_defs,
 )
 
 go_test(
@@ -35,8 +36,7 @@ go_test(
     srcs = ["main_test.go"],
     data = [
         "testpachd",
-    ] + snapshot_data,
-    x_defs = snapshot_x_defs,
+    ],
     deps = [
         "//src/internal/client",
         "//src/internal/grpcutil",

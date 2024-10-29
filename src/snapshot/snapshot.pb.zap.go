@@ -58,7 +58,6 @@ func (x *SnapshotInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}))
 	enc.AddInt64("chunkset_id", x.ChunksetId)
-	enc.AddString("sql_dump_fileset_id", x.SqlDumpFilesetId)
 	enc.AddString("pachyderm_version", x.PachydermVersion)
 	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
 	return nil
@@ -81,6 +80,7 @@ func (x *InspectSnapshotResponse) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	} else {
 		enc.AddReflected("info", x.Info)
 	}
+	enc.AddString("fileset", x.Fileset)
 	return nil
 }
 

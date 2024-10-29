@@ -449,8 +449,8 @@
     - [API](#pfs_v2-API)
   
 - [pjs/pjs.proto](#pjs_pjs-proto)
-    - [AwaitRequest](#pjs-AwaitRequest)
-    - [AwaitResponse](#pjs-AwaitResponse)
+    - [AwaitJobRequest](#pjs-AwaitJobRequest)
+    - [AwaitJobResponse](#pjs-AwaitJobResponse)
     - [CancelJobRequest](#pjs-CancelJobRequest)
     - [CancelJobResponse](#pjs-CancelJobResponse)
     - [CreateJobRequest](#pjs-CreateJobRequest)
@@ -700,6 +700,21 @@
     - [CreateSerialDatumsTaskResult](#pachyderm-worker-pipeline-transform-CreateSerialDatumsTaskResult)
     - [DatumSetTask](#pachyderm-worker-pipeline-transform-DatumSetTask)
     - [DatumSetTaskResult](#pachyderm-worker-pipeline-transform-DatumSetTaskResult)
+  
+- [snapshot/snapshot.proto](#snapshot_snapshot-proto)
+    - [CreateSnapshotRequest](#snapshot-CreateSnapshotRequest)
+    - [CreateSnapshotRequest.MetadataEntry](#snapshot-CreateSnapshotRequest-MetadataEntry)
+    - [CreateSnapshotResponse](#snapshot-CreateSnapshotResponse)
+    - [DeleteSnapshotRequest](#snapshot-DeleteSnapshotRequest)
+    - [DeleteSnapshotResponse](#snapshot-DeleteSnapshotResponse)
+    - [InspectSnapshotRequest](#snapshot-InspectSnapshotRequest)
+    - [InspectSnapshotResponse](#snapshot-InspectSnapshotResponse)
+    - [ListSnapshotRequest](#snapshot-ListSnapshotRequest)
+    - [ListSnapshotResponse](#snapshot-ListSnapshotResponse)
+    - [SnapshotInfo](#snapshot-SnapshotInfo)
+    - [SnapshotInfo.MetadataEntry](#snapshot-SnapshotInfo-MetadataEntry)
+  
+    - [API](#snapshot-API)
   
 - [storage/fileset.proto](#storage_fileset-proto)
     - [AppendFile](#storage-AppendFile)
@@ -7252,16 +7267,16 @@ These are the different places where a commit may be originated from
 
 
 
-<a name="pjs-AwaitRequest"></a>
+<a name="pjs-AwaitJobRequest"></a>
 
-### AwaitRequest
+### AwaitJobRequest
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | context | [string](#string) |  |  |
-| job | [int64](#int64) |  |  |
+| job | [Job](#pjs-Job) |  |  |
 | desired_state | [JobState](#pjs-JobState) |  |  |
 
 
@@ -7269,9 +7284,9 @@ These are the different places where a commit may be originated from
 
 
 
-<a name="pjs-AwaitResponse"></a>
+<a name="pjs-AwaitJobResponse"></a>
 
-### AwaitResponse
+### AwaitJobResponse
 
 
 
@@ -7337,7 +7352,7 @@ These are the different places where a commit may be originated from
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [Job](#pjs-Job) |  | TODO: id -&gt; job |
+| job | [Job](#pjs-Job) |  |  |
 
 
 
@@ -7527,7 +7542,7 @@ Info and Details may not be set depending on how much information was requested.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [Job](#pjs-Job) |  |  |
+| job | [Job](#pjs-Job) |  |  |
 | info | [JobInfo](#pjs-JobInfo) |  |  |
 | details | [JobInfoDetails](#pjs-JobInfoDetails) |  |  |
 
@@ -7556,7 +7571,7 @@ TODO:
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| id | [Queue](#pjs-Queue) |  |  |
+| queue | [Queue](#pjs-Queue) |  |  |
 | info | [QueueInfo](#pjs-QueueInfo) |  |  |
 | details | [QueueInfoDetails](#pjs-QueueInfoDetails) |  |  |
 
@@ -7674,7 +7689,7 @@ It contains a superset of the information in QueueInfo.
 | context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
 | job | [Job](#pjs-Job) |  | job is the job to start walking from. If unset, the context Job is assumed. |
 | algorithm | [WalkAlgorithm](#pjs-WalkAlgorithm) |  | A sane client should default to &#39;LEVEL_ORDER&#39;. |
-| maxDepth | [uint64](#uint64) |  | The depth relative from the starting point to traverse to. A depth of 0 is interpreted as 10,000. A depth greater than 10,000 is capped at 10,000. |
+| maxDepth | [int64](#int64) |  | The depth relative from the starting point to traverse to. A depth of 0 is interpreted as 10,000. A depth greater than 10,000 is capped at 10,000. |
 
 
 
@@ -7745,7 +7760,7 @@ Job API
 | ProcessQueue | [ProcessQueueRequest](#pjs-ProcessQueueRequest) stream | [ProcessQueueResponse](#pjs-ProcessQueueResponse) stream | ProcessQueue should be called by workers to process jobs in a queue. The protocol is as follows: Worker sends an initial request with the queue id. For each job: Server sends a response with a job context and the associated queue element. Worker processes the job. Worker sends a request with the job output or indicates that the job failed. This RPC should generally be run indefinitely. Workers will be scaled based on demand, so the expectation is that they should be processing queues while they are up. This RPC will be canceled by the server if the current job is canceled. Workers should generally retry the RPC when disconnects occur. |
 | ListQueue | [ListQueueRequest](#pjs-ListQueueRequest) | [ListQueueResponse](#pjs-ListQueueResponse) stream | ListQueue returns a list of queues and information about each queue. |
 | InspectQueue | [InspectQueueRequest](#pjs-InspectQueueRequest) | [InspectQueueResponse](#pjs-InspectQueueResponse) | InspectQueue returns detailed information about a queue. |
-| Await | [AwaitRequest](#pjs-AwaitRequest) | [AwaitResponse](#pjs-AwaitResponse) | Await blocks until the job has entered or passed the desired state. Await returns the actual state of the job that met the criteria. Await can timeout with DEADLINE_EXCEEDED. In this case clients may retry in a new request. |
+| AwaitJob | [AwaitJobRequest](#pjs-AwaitJobRequest) | [AwaitJobResponse](#pjs-AwaitJobResponse) | Await blocks until the job has entered or passed the desired state. Await returns the actual state of the job that met the criteria. Await can timeout with DEADLINE_EXCEEDED. In this case clients may retry in a new request. |
 
  
 
@@ -11263,6 +11278,203 @@ WellKnownRegex contain some well-known patterns.
  
 
  
+
+ 
+
+
+
+<a name="snapshot_snapshot-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## snapshot/snapshot.proto
+
+
+
+<a name="snapshot-CreateSnapshotRequest"></a>
+
+### CreateSnapshotRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| metadata | [CreateSnapshotRequest.MetadataEntry](#snapshot-CreateSnapshotRequest-MetadataEntry) | repeated |  |
+
+
+
+
+
+
+<a name="snapshot-CreateSnapshotRequest-MetadataEntry"></a>
+
+### CreateSnapshotRequest.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="snapshot-CreateSnapshotResponse"></a>
+
+### CreateSnapshotResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="snapshot-DeleteSnapshotRequest"></a>
+
+### DeleteSnapshotRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="snapshot-DeleteSnapshotResponse"></a>
+
+### DeleteSnapshotResponse
+
+
+
+
+
+
+
+<a name="snapshot-InspectSnapshotRequest"></a>
+
+### InspectSnapshotRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="snapshot-InspectSnapshotResponse"></a>
+
+### InspectSnapshotResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| info | [SnapshotInfo](#snapshot-SnapshotInfo) |  |  |
+| fileset | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="snapshot-ListSnapshotRequest"></a>
+
+### ListSnapshotRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| since | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | exclusive; nil = start at the present |
+| limit | [int32](#int32) |  | 0 = no limit |
+
+
+
+
+
+
+<a name="snapshot-ListSnapshotResponse"></a>
+
+### ListSnapshotResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| info | [SnapshotInfo](#snapshot-SnapshotInfo) |  |  |
+
+
+
+
+
+
+<a name="snapshot-SnapshotInfo"></a>
+
+### SnapshotInfo
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [int64](#int64) |  |  |
+| metadata | [SnapshotInfo.MetadataEntry](#snapshot-SnapshotInfo-MetadataEntry) | repeated |  |
+| chunkset_id | [int64](#int64) |  |  |
+| pachyderm_version | [string](#string) |  |  |
+| created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+
+
+
+
+
+
+<a name="snapshot-SnapshotInfo-MetadataEntry"></a>
+
+### SnapshotInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="snapshot-API"></a>
+
+### API
+
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| CreateSnapshot | [CreateSnapshotRequest](#snapshot-CreateSnapshotRequest) | [CreateSnapshotResponse](#snapshot-CreateSnapshotResponse) |  |
+| DeleteSnapshot | [DeleteSnapshotRequest](#snapshot-DeleteSnapshotRequest) | [DeleteSnapshotResponse](#snapshot-DeleteSnapshotResponse) |  |
+| InspectSnapshot | [InspectSnapshotRequest](#snapshot-InspectSnapshotRequest) | [InspectSnapshotResponse](#snapshot-InspectSnapshotResponse) |  |
+| ListSnapshot | [ListSnapshotRequest](#snapshot-ListSnapshotRequest) | [ListSnapshotResponse](#snapshot-ListSnapshotResponse) stream |  |
 
  
 

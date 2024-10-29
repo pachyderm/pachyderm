@@ -123,6 +123,9 @@ spec:
             resourceFieldRef:
               containerName: pachd
               resource: limits.memory
+        envFrom:
+          - secretRef:
+              name: pachyderm-storage-secret
         image: "{{ .Values.restoreSnapshot.image.repository }}:{{ default .Chart.AppVersion .Values.restoreSnapshot.image.tag }}"
         imagePullPolicy: {{ .Values.restoreSnapshot.image.pullPolicy }}
         name: pachd
@@ -140,5 +143,16 @@ spec:
         volumeMounts:
         - mountPath: /tmp
           name: tmp
+        - mountPath: /pach
+          name: pach-disk
+        - mountPath: /pachyderm-storage-secret
+          name: pachyderm-storage-secret
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: pach-disk
+      - name: pachyderm-storage-secret
+        secret:
+          secretName: pachyderm-storage-secret
 status: {}
 {{- end -}}

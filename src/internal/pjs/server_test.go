@@ -56,7 +56,7 @@ func TestCheckPermissions(t *testing.T) {
 		Input:   []string{createFileSetResp.FilesetId}},
 	)
 	require.NoError(t, err)
-	expected := jobResp.Id.Id
+	expected := jobResp.Job.Id
 	t.Run("invalid/projectCreator", func(t *testing.T) {
 		c := rootPachClientFromClient(t, c)
 
@@ -80,7 +80,7 @@ func TestCheckPermissions(t *testing.T) {
 		require.NoError(t, err)
 		resp, err := wc.Recv()
 		require.NoError(t, err)
-		require.NoDiff(t, expected, resp.Id.Id, nil)
+		require.NoDiff(t, expected, resp.Job.Id, nil)
 		_, err = wc.Recv()
 		require.YesError(t, err)
 		require.ErrorIs(t, err, io.EOF)

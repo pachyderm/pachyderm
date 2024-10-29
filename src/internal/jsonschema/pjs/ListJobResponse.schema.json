@@ -4,7 +4,7 @@
     "definitions": {
         "ListJobResponse": {
             "properties": {
-                "id": {
+                "job": {
                     "$ref": "#/definitions/pjs.Job",
                     "additionalProperties": false
                 },

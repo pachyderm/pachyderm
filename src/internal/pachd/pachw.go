@@ -9,11 +9,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 )
 
 // pachwBuilder builds a pachw-mode pachd instance.
@@ -84,6 +88,17 @@ func (pachwb *pachwBuilder) registerDebugServer(ctx context.Context) error {
 	return nil
 }
 
+func (pachwb *pachwBuilder) attemptPJSAuth(ctx context.Context) error {
+	pachClient := pachwb.env.GetPachClient(ctx)
+	pachClient.SetAuthToken(pachwb.env.Config().PJSWorkerAuthToken)
+	_, err := pachClient.ListQueue(ctx, &pjs.ListQueueRequest{})
+	if err != nil {
+		return errors.Wrap(err, "attempting auth to pjs: list queue")
+	}
+	log.Info(ctx, "was able to auth to PJS successfully")
+	return nil
+}
+
 // buildAndRun builds & starts a pachw-mode pachd.
 func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 	return pachwb.apply(ctx,
@@ -108,6 +123,7 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.startPFSWorker,
 		pachwb.startPPSWorker,
 		pachwb.startDebugWorker,
+		pachwb.attemptPJSAuth,
 		pachwb.daemon.serve,
 	)
 }

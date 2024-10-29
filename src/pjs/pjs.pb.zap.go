@@ -85,17 +85,17 @@ func (x *QueueInfoDetails) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *AwaitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *AwaitJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
 	enc.AddString("context", x.Context)
-	enc.AddInt64("job", x.Job)
+	enc.AddObject("job", x.Job)
 	enc.AddString("desired_state", x.DesiredState.String())
 	return nil
 }
 
-func (x *AwaitResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *AwaitJobResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
@@ -125,7 +125,7 @@ func (x *CreateJobResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddObject("id", x.Id)
+	enc.AddObject("job", x.Job)
 	return nil
 }
 
@@ -174,7 +174,7 @@ func (x *ListJobResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddObject("id", x.Id)
+	enc.AddObject("job", x.Job)
 	enc.AddObject("info", x.Info)
 	enc.AddObject("details", x.Details)
 	return nil
@@ -187,7 +187,7 @@ func (x *WalkJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("context", x.Context)
 	enc.AddObject("job", x.Job)
 	enc.AddString("algorithm", x.Algorithm.String())
-	enc.AddUint64("maxDepth", x.MaxDepth)
+	enc.AddInt64("maxDepth", x.MaxDepth)
 	return nil
 }
 
@@ -258,7 +258,7 @@ func (x *ListQueueResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddObject("id", x.Id)
+	enc.AddObject("queue", x.Queue)
 	enc.AddObject("info", x.Info)
 	enc.AddObject("details", x.Details)
 	return nil

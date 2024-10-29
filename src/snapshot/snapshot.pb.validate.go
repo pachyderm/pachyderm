@@ -520,8 +520,6 @@ func (m *SnapshotInfo) validate(all bool) error {
 
 	// no validation rules for ChunksetId
 
-	// no validation rules for SqlDumpFilesetId
-
 	// no validation rules for PachydermVersion
 
 	if all {
@@ -793,6 +791,8 @@ func (m *InspectSnapshotResponse) validate(all bool) error {
 			}
 		}
 	}
+
+	// no validation rules for Fileset
 
 	if len(errors) > 0 {
 		return InspectSnapshotResponseMultiError(errors)

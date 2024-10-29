@@ -2,9 +2,7 @@ package pachd
 
 import (
 	"context"
-
-	"github.com/pachyderm/pachyderm/v2/src/pjs"
-
+	"encoding/base64"
 	"math"
 	"path"
 	"runtime/debug"
@@ -14,38 +12,15 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/kubernetes"
 
-	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/auth"
-	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
-	"github.com/pachyderm/pachyderm/v2/src/identity"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
-	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
-	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
-	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
-	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
-	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery"
-	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
-	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
-	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
-	"github.com/pachyderm/pachyderm/v2/src/internal/restart"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	snapshot_server "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
-	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pjs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
@@ -67,6 +42,37 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/pachyderm/pachyderm/v2/src/admin"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	debugclient "github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/identity"
+	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
+	authmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
+	loggingmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/recovery"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
+	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/restart"
+	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	snapshot_server "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
+	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 )
 
 // An envBootstrapper is a type which needs to have some bootstrap code run
@@ -550,6 +556,57 @@ func (b *builder) startDebugWorker(ctx context.Context) error {
 			log.Error(ctx, "from debug worker", zap.Error(err))
 		}
 	}()
+	return nil
+}
+
+func (b *builder) ensurePJSWorkerSecret(ctx context.Context) error {
+	return ensurePJSWorkerSecret(ctx, b.env.AuthServer(), b.env.GetKubeClient(), b.env.Config())
+}
+
+func ensurePJSWorkerSecret(ctx context.Context, authServer auth.APIServer, kubeClient kubernetes.Interface,
+	config *pachconfig.Configuration) error {
+	secretName := "pachyderm-pjs-worker-authentication"
+	secretKey := "pjsWorkerAuthToken"
+	// First read the secret in case it exists.
+	existingSecret, err := kubeClient.CoreV1().Secrets(config.Namespace).Get(context.Background(), secretName, metav1.GetOptions{})
+	if err == nil {
+		// Secret exists, read the value from the specified key
+		if encodedValue, ok := existingSecret.Data[secretKey]; ok {
+			// Decode the value since it is stored as base64
+			token, err := base64.StdEncoding.DecodeString(string(encodedValue))
+			if err != nil {
+				return errors.Wrap(err, "decoding from base64")
+			}
+			config.PJSWorkerAuthToken = string(token)
+			return nil
+		}
+		// TODO: delete and recreate?
+		return errors.New(secretName + " does not contain expect secret key")
+	} else if !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err, "getting pjs worker auth secret")
+	}
+	// create the secret if it doesn't exist.
+	ctx = internalauth.AsInternalUser(ctx, authdb.InternalUser)
+	tokenResp, err := authServer.GetRobotToken(ctx, &auth.GetRobotTokenRequest{Robot: "pjs-worker"})
+	if err != nil {
+		return errors.Wrap(err, "getting robot token")
+	}
+	//TODO: TTL?
+	encodedSecret := base64.StdEncoding.EncodeToString([]byte(tokenResp.Token))
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: secretName,
+		},
+		Data: map[string][]byte{
+			secretKey: []byte(encodedSecret),
+		},
+		Type: v1.SecretTypeOpaque,
+	}
+	_, err = kubeClient.CoreV1().Secrets(config.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	if err != nil {
+		return errors.Wrap(err, "creating kubernetes secret")
+	}
+	config.PJSWorkerAuthToken = tokenResp.Token
 	return nil
 }
 

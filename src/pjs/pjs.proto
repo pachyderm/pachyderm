@@ -92,13 +92,13 @@ message QueueInfoDetails {
   int64 size = 2;
 }
 
-message AwaitRequest {
+message AwaitJobRequest {
   string context = 1;
-  int64 job = 2;
+  Job job = 2;
   JobState desired_state = 3;
 }
 
-message AwaitResponse {
+message AwaitJobResponse {
   JobState actual_state = 1;
 }
 
@@ -150,7 +150,7 @@ service API {
   // Await returns the actual state of the job that met the criteria.
   // Await can timeout with DEADLINE_EXCEEDED.  In this case clients may
   // retry in a new request.
-  rpc Await(AwaitRequest) returns (AwaitResponse) {}
+  rpc AwaitJob(AwaitJobRequest) returns (AwaitJobResponse) {}
 }
 
 // Job Messages
@@ -167,8 +167,7 @@ message CreateJobRequest {
 }
 
 message CreateJobResponse {
-  // TODO: id -> job
-  Job id = 1;
+  Job job = 1;
 }
 
 message CancelJobRequest {
@@ -202,7 +201,7 @@ message ListJobRequest {
 // ID will always be set.
 // Info and Details may not be set depending on how much information was requested.
 message ListJobResponse {
-  Job id = 1;
+  Job job = 1;
   JobInfo info = 2;
   JobInfoDetails details = 3;
 }
@@ -235,7 +234,7 @@ message WalkJobRequest {
   WalkAlgorithm algorithm = 3;
   // The depth relative from the starting point to traverse to.
   // A depth of 0 is interpreted as 10,000. A depth greater than 10,000 is capped at 10,000.
-  uint64 maxDepth = 4;
+  int64 maxDepth = 4;
 }
 
 message InspectJobRequest {
@@ -287,7 +286,7 @@ message ProcessQueueResponse {
 message ListQueueRequest {}
 
 message ListQueueResponse {
-  Queue id = 1;
+  Queue queue = 1;
   QueueInfo info = 2;
   QueueInfoDetails details = 3;
 }

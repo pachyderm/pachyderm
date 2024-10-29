@@ -21,26 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
-	"github.com/pachyderm/pachyderm/v2/src/internal/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
-	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	lokiclient "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
-	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
-	clientlog_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
-	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
-	"github.com/pachyderm/pachyderm/v2/src/internal/restart"
-	snapshot_server "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
-	storage_server "github.com/pachyderm/pachyderm/v2/src/internal/storage"
-	"github.com/pachyderm/pachyderm/v2/src/internal/task"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
@@ -69,6 +49,28 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version_server "github.com/pachyderm/pachyderm/v2/src/version"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	lokiclient "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	clientlog_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	pjs_server "github.com/pachyderm/pachyderm/v2/src/internal/pjs"
+	"github.com/pachyderm/pachyderm/v2/src/internal/restart"
+	snapshot_server "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
+	storage_server "github.com/pachyderm/pachyderm/v2/src/internal/storage"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 )
 
 // A fullBuilder builds a full-mode pachd.
@@ -168,6 +170,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.startPFSMaster,
 		fb.startPPSWorker,
 		fb.startDebugWorker,
+		fb.ensurePJSWorkerSecret,
 		fb.daemon.serve,
 	)
 }
@@ -546,7 +549,23 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 				return nil
 			},
 		},
-
+		setupStep{
+			Name: "initPJSWorkerAuthToken",
+			Fn: func(ctx context.Context) error {
+				if pd.config.PJSWorkerAuthToken == "" {
+					return nil
+				}
+				ctx = auth_interceptor.AsInternalUser(ctx, authdb.InternalUser)
+				_, err := pd.authServer.RestoreAuthToken(ctx, &auth.RestoreAuthTokenRequest{Token: &auth.TokenInfo{
+					HashedToken: auth.HashToken(pd.config.PJSWorkerAuthToken),
+					Subject:     auth.RobotPrefix + ":pjs-worker",
+				}})
+				if err != nil {
+					return errors.Wrap(err, "authServer.RestoreAuthToken")
+				}
+				return nil
+			},
+		},
 		// Workers
 		initPFSWorker(&pd.pfsWorker, config.StorageConfiguration, func() pfs_server.WorkerEnv {
 			etcdPrefix := path.Join(config.EtcdPrefix, config.PFSEtcdPrefix)
@@ -629,6 +648,9 @@ func bootstrapIfAble(ctx context.Context, x any) error {
 func (pd *Full) PachClient(ctx context.Context) (*client.APIClient, error) {
 	<-pd.pachClientReady
 	c := pd.pachClient.WithCtx(ctx)
+	if t := pd.config.PJSWorkerAuthToken; t != "" {
+		c.SetAuthToken(t)
+	}
 	if t := pd.config.AuthRootToken; t != "" {
 		c.SetAuthToken(t)
 	}
