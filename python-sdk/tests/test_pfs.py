@@ -610,7 +610,7 @@ class TestPFSFile:
             # This prevents a warning from being emitted.
             # ref: docs.python.org/3.12/library/tarfile.html#extraction-filters
             pfs_tar_file.extraction_filter = getattr(
-                tarfile, 'data_filter', (lambda member, path: member)
+                tarfile, "data_filter", (lambda member, path: member)
             )
             pfs_tar_file.extractall(tmp_path)
 
