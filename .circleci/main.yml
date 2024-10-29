@@ -1347,6 +1347,10 @@ jobs:
             until poetry run pachyderm-sdk-check-connection "$(minikube ip):30080"; do sleep 5; done
             until poetry run pachyderm-sdk-check-connection "$(minikube ip):30081"; do sleep 5; done
       - run:
+          name: Pachd Logs
+          command: kubectl logs -f -l app=pachd
+          background: true
+      - run:
           name: kubectl port-forward for minio
           command: kubectl port-forward service/minio 9000:9000
           background: true
