@@ -3,8 +3,12 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	mlc "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
+	"google.golang.org/grpc/credentials/insecure"
 	"strconv"
 
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -25,6 +29,7 @@ import (
 // instantiating the api and storage on the first request.
 type dexAPI struct {
 	api     dex_api.DexServer
+	client  dex_api.DexClient
 	storage dex_storage.Storage
 	logger  dex_log.Logger
 }
@@ -32,11 +37,30 @@ type dexAPI struct {
 func newDexAPI(sp dex_storage.Storage) *dexAPI {
 	ctx := pctx.Background("dexAPI")
 	logger := log.NewLogrus(ctx)
+	c, err := newDexClient("dex-test.default.svc.cluster.local:5557") // Temporary hard coding.
+	if err != nil {
+		return nil
+	}
 	return &dexAPI{
 		api:     dex_server.NewAPI(sp, logger, ""),
+		client:  c,
 		storage: sp,
 		logger:  logger,
 	}
+}
+
+// From: https://github.com/dexidp/dex/blob/master/examples/grpc-client/client.go
+func newDexClient(hostAndPort string) (dex_api.DexClient, error) {
+	// See client.connect
+	var opts = client.DefaultDialOptions()
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	opts = append(opts, grpc.WithChainUnaryInterceptor(mlc.LogUnary))
+	opts = append(opts, grpc.WithChainStreamInterceptor(mlc.LogStream))
+	conn, err := grpc.NewClient(hostAndPort, opts...)
+	if err != nil {
+		return nil, errors.Errorf("dial: %v", err)
+	}
+	return dex_api.NewDexClient(conn), nil
 }
 
 func (a *dexAPI) createClient(ctx context.Context, in *identity.CreateOIDCClientRequest) (*identity.OIDCClient, error) {
@@ -58,7 +82,7 @@ func (a *dexAPI) createClient(ctx context.Context, in *identity.CreateOIDCClient
 		},
 	}
 
-	resp, err := a.api.CreateClient(ctx, req)
+	resp, err := a.client.CreateClient(ctx, req)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
@@ -78,7 +102,7 @@ func (a *dexAPI) updateClient(ctx context.Context, in *identity.UpdateOIDCClient
 		TrustedPeers: in.Client.TrustedPeers,
 	}
 
-	resp, err := a.api.UpdateClient(ctx, req)
+	resp, err := a.client.UpdateClient(ctx, req)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -91,7 +115,7 @@ func (a *dexAPI) updateClient(ctx context.Context, in *identity.UpdateOIDCClient
 }
 
 func (a *dexAPI) deleteClient(ctx context.Context, id string) error {
-	resp, err := a.api.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: id})
+	resp, err := a.client.DeleteClient(ctx, &dex_api.DeleteClientReq{Id: id})
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -225,14 +249,14 @@ func (a *dexAPI) listClients() ([]*identity.OIDCClient, error) {
 }
 
 func (a *dexAPI) getClient(id string) (*identity.OIDCClient, error) {
-	client, err := a.storage.GetClient(id)
+	c, err := a.storage.GetClient(id)
 	if err != nil {
 		if errors.Is(err, dex_storage.ErrNotFound) {
 			return nil, identity.ErrInvalidID
 		}
 		return nil, errors.EnsureStack(err)
 	}
-	return storageClientToPach(client), nil
+	return storageClientToPach(c), nil
 }
 
 func (a *dexAPI) validateConnector(id, connType string, jsonConfig []byte) error {

@@ -348,8 +348,8 @@
                            "endpoint": {
                               "address": {
                                  "socket_address": {
-                                    "address": "pachd-proxy-backend",
-                                    "port_value": 1658
+                                    "address": "dex-test",
+                                    "port_value": 5556
                                  }
                               }
                            }
