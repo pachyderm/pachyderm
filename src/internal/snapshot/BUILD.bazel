@@ -62,6 +62,7 @@ go_test(
         "//src/internal/storage/fileset",
         "//src/internal/storage/kv",
         "//src/internal/storage/track",
+        "//src/pfs",
         "//src/snapshot",
         "//src/storage",
         "//src/version",
