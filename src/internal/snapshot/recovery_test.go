@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"io"
 	"strings"
 	"testing"
@@ -185,6 +187,14 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	}
 	if got, want := buf.String(), "this is a test"; got != want {
 		t.Errorf("test data in snapshotted fileset:\n  got: %v\n want: %v", got, want)
+	}
+
+	pachClient := pachd.NewTestPachd(t)
+	_, err = pachClient.CheckStorage(ctx, &pfs.CheckStorageRequest{
+		ReadChunkData: false,
+	})
+	if err != nil {
+		t.Fatalf("check storage: %v", err)
 	}
 }
 
