@@ -24,6 +24,11 @@ spec:
     protocol: TCP
     targetPort: http
   - appProtocol: http
+    name: grpc
+    port: 5557
+    protocol: TCP
+    targetPort: grpc
+  - appProtocol: http
     name: telemetry
     port: 5558
     protocol: TCP
