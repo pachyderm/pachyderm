@@ -9,8 +9,8 @@ grpc:
   addr: 127.0.0.1:5557
 issuer: {{ include "pachyderm.issuerURI" . | quote }}
 staticClients:
-  - id: example-app
-    name: Example App
+  - id: pachyderm-static
+    name: Pachyderm-Static
     redirectURIs:
       - http://127.0.0.1:5555/callback
     secret: ZXhhbXBsZS1hcHAtc2VjcmV0
