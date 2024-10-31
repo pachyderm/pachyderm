@@ -190,10 +190,9 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 		t.Errorf("test data in snapshotted fileset:\n  got: %v\n want: %v", got, want)
 	}
 	pachClient := pachd.NewTestPachd(t)
-	_, err = pachClient.CheckStorage(ctx, &pfs.CheckStorageRequest{
+	if _, err = pachClient.CheckStorage(ctx, &pfs.CheckStorageRequest{
 		ReadChunkData: false,
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatalf("check storage: %v", err)
 	}
 }
