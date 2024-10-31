@@ -19,6 +19,7 @@ spec:
   selector:
     matchLabels:
       app: {{ .Release.Name }}-dex
+      suite: pachyderm
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -28,6 +29,7 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}-dex
+        suite: pachyderm
     spec:
       containers:
       - args:
@@ -35,6 +37,8 @@ spec:
         - serve
         - --web-http-addr
         - 0.0.0.0:5556
+        - --grpc-addr
+        - 0.0.0.0:5557
         - --telemetry-addr
         - 0.0.0.0:5558
         - /etc/dex/config.yaml
@@ -53,6 +57,9 @@ spec:
         ports:
         - containerPort: 5556
           name: http
+          protocol: TCP
+        - containerPort: 5557
+          name: grpc
           protocol: TCP
         - containerPort: 5558
           name: telemetry
@@ -82,8 +89,6 @@ spec:
       terminationGracePeriodSeconds: 30
       volumes:
       - name: config
-        configMap:
-
         secret:
           defaultMode: 420
           secretName: {{ .Release.Name }}-dex

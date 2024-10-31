@@ -24,13 +24,18 @@ spec:
     protocol: TCP
     targetPort: http
   - appProtocol: http
+    name: grpc
+    port: 5557
+    protocol: TCP
+    targetPort: grpc
+  - appProtocol: http
     name: telemetry
     port: 5558
     protocol: TCP
     targetPort: telemetry
   selector:
-    app.kubernetes.io/instance: dex
-    app.kubernetes.io/name: dex
+    app: {{ .Release.Name }}-dex
+    suite: pachyderm
   sessionAffinity: None
   type: ClusterIP
 {{- end }}

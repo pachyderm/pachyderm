@@ -1,0 +1,31 @@
+# TODO Maybe merge this with the pachyderm-identity-config file
+{{- define "pachyderm.dex.config" }}
+connectors:
+  - id: mock
+    name: Example
+    type: mockCallback
+enablePasswordDB: true
+grpc:
+  addr: 127.0.0.1:5557
+issuer: {{ include "pachyderm.issuerURI" . | quote }}
+staticClients:
+  - id: pachyderm-static
+    name: Pachyderm-Static
+    redirectURIs:
+      - http://127.0.0.1:5555/callback
+    secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+storage:
+  type: postgres
+  config:
+    host: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
+    port: {{ required "postgresql port required" .Values.global.postgresql.postgresqlPort | int }}
+    database: {{ .Values.global.postgresql.identityDatabaseFullNameOverride | default "dex" | quote }}
+    user: {{ required "postgresql username required" .Values.global.postgresql.postgresqlUsername | quote }}
+    password: {{ required "postgres password required" .Values.global.postgresql.postgresqlPassword | quote }}
+    ssl:
+      mode: disable
+telemetry:
+  http: 127.0.0.1:5558
+web:
+  http: 127.0.0.1:5556
+{{ end -}}
