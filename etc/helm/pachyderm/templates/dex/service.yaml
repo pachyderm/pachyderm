@@ -34,8 +34,8 @@ spec:
     protocol: TCP
     targetPort: telemetry
   selector:
-    app.kubernetes.io/instance: dex
-    app.kubernetes.io/name: dex
+    app: {{ .Release.Name }}-dex
+    suite: pachyderm
   sessionAffinity: None
   type: ClusterIP
 {{- end }}

@@ -19,6 +19,7 @@ spec:
   selector:
     matchLabels:
       app: {{ .Release.Name }}-dex
+      suite: pachyderm
   strategy:
     rollingUpdate:
       maxSurge: 25%
@@ -28,6 +29,7 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}-dex
+        suite: pachyderm
     spec:
       containers:
       - args:
