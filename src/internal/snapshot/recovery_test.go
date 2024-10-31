@@ -1,4 +1,4 @@
-package snapshot
+package snapshot_test
 
 import (
 	"bufio"
@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	recovery "github.com/pachyderm/pachyderm/v2/src/internal/snapshot"
 	"github.com/pachyderm/pachyderm/v2/src/internal/snapshotdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -47,7 +48,7 @@ func validateDumpFileset(ctx context.Context, t *testing.T, db *pachsql.DB, s *f
 	}
 	var lines []string
 	if err := fs.Iterate(ctx, func(f fileset.File) error {
-		if got, want := f.Index().Path, SQLDumpFilename; got != want {
+		if got, want := f.Index().Path, recovery.SQLDumpFilename; got != want {
 			return errors.Errorf("invalid file in fileset:\n  got: %v\n want: %v", got, want)
 		}
 		r, w := io.Pipe()
@@ -109,9 +110,9 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	}
 
 	// Create a snapshot.
-	s := &Snapshotter{DB: db, Storage: storage}
+	s := &recovery.Snapshotter{DB: db, Storage: storage}
 
-	snapID, err := s.CreateSnapshot(ctx, CreateSnapshotOptions{})
+	snapID, err := s.CreateSnapshot(ctx, recovery.CreateSnapshotOptions{})
 	if err != nil {
 		t.Fatalf("CreateSnapshot: %v", err)
 	}
@@ -141,7 +142,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 	validateDumpFileset(ctx, t, db, storage, gotInternal.SQLDumpPin)
 
 	// Restore the snapshot.
-	if err := s.RestoreSnapshot(ctx, snapID, RestoreSnapshotOptions{}); err != nil {
+	if err := s.RestoreSnapshot(ctx, snapID, recovery.RestoreSnapshotOptions{}); err != nil {
 		t.Errorf("snapshot not restorable: %v", err)
 	}
 	got, gotInternal = nil, nil
@@ -160,7 +161,7 @@ func TestCreateAndRestoreSnaphot(t *testing.T) {
 
 	// Drop the snapshot and run GC, to ensure that restoring the snapshot is what kept the data
 	// alive.
-	if err := s.DropSnapshot(ctx, SnapshotID(got.Id)); err != nil {
+	if err := s.DropSnapshot(ctx, recovery.SnapshotID(got.Id)); err != nil {
 		t.Errorf("drop snapshot: %v", err)
 	}
 
@@ -224,7 +225,7 @@ func TestVersionCompatibility(t *testing.T) {
 	}
 
 	for _, test := range testData {
-		err := checkVersionCompatibility(test.snapshot, test.running)
+		err := recovery.CheckVersionCompatibility(test.snapshot, test.running)
 		if got, want := err == nil, test.ok; got != want {
 			t.Errorf("restore %v onto %v:\n  got: %v (%v)\n want: %v", test.snapshot, test.running, got, err, want)
 		}

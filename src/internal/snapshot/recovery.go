@@ -327,7 +327,7 @@ func restoreDatabase(ctx context.Context, db *pachsql.DB, r io.Reader) (retErr e
 
 var removeGitVersion = regexp.MustCompile(`-pre.g([0-9a-f]{10})$`)
 
-func checkVersionCompatibility(snapshot, running string) error {
+func CheckVersionCompatibility(snapshot, running string) error {
 	if !strings.HasPrefix(snapshot, "v") || !strings.HasPrefix(running, "v") {
 		// No version information available.
 		return nil
@@ -375,7 +375,7 @@ func (s *Snapshotter) RestoreSnapshot(rctx context.Context, id SnapshotID, opts 
 	log.Debug(rctx, "got snapshot metadata", log.Proto("snapshot", snap), zap.String("sql_dump_fileset_id", handle.HexString()))
 
 	if !opts.IgnoreVersionCompatibility {
-		if err := checkVersionCompatibility(snap.PachydermVersion, version.Version.Canonical()); err != nil {
+		if err := CheckVersionCompatibility(snap.PachydermVersion, version.Version.Canonical()); err != nil {
 			return err
 		}
 		log.Debug(rctx, "database dump is compatible with running pachyderm", zap.String("snapshot_version", snap.PachydermVersion), zap.String("running_version", version.Version.Canonical()))
