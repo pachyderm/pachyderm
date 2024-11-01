@@ -676,17 +676,10 @@ func (pd *Full) AwaitAuth(ctx context.Context) {
 	}
 }
 
+// Snapshotter is meant for use in tests which need to get a snapshot.Snapshotter.
 func (pd *Full) Snapshotter() *snapshot_server.Snapshotter {
 	return &snapshot_server.Snapshotter{
 		DB:      pd.env.DB,
 		Storage: pd.storageServer.Filesets,
 	}
-}
-
-func (pd *Full) CopyEnv(env *Env) {
-	*env = pd.env
-}
-
-func (pd *Full) CopyConfig(config *pachconfig.PachdFullConfiguration) {
-	*config = pd.config
 }
