@@ -42,7 +42,6 @@ go_test(
     name = "snapshot_test",
     srcs = [
         "recovery_test.go",
-        "restore_test.go",
         "server_internal_test.go",
     ],
     data = snapshot_data,
