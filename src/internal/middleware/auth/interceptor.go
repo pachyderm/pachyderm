@@ -197,6 +197,7 @@ var authHandlers = map[string]authHandler{
 	// PJS API
 	//
 
+	"/pjs.API/AwaitJob":     authDisabledOr(authenticated),
 	"/pjs.API/CreateJob":    authDisabledOr(authenticated),
 	"/pjs.API/CancelJob":    authDisabledOr(authenticated),
 	"/pjs.API/DeleteJob":    authDisabledOr(authenticated),
