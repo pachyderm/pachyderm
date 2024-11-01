@@ -562,7 +562,10 @@ func (a *apiServer) checkPermissions(ctx context.Context) error {
 	permissionResp, err := a.env.GetPermissionser.GetPermissions(ctx, &auth.GetPermissionsRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 	})
-	if err != nil && !errors.Is(err, auth.ErrNotActivated) {
+	if err != nil {
+		if errors.Is(err, auth.ErrNotActivated) {
+			return nil
+		}
 		return errors.Wrap(err, "get user permissions")
 	}
 	foundValidPermission := false
