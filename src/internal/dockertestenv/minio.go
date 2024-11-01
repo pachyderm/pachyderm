@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	minioPort = 9000
+	minioPort = 9002
 )
 
 // newTestMinioBucket creates a new bucket, which will be cleaned up when the test finishes
@@ -65,7 +65,7 @@ var minioLock sync.Mutex
 
 func ensureMinio(ctx context.Context, dclient docker.APIClient) error {
 	const (
-		containerName = "pach_test_minio"
+		containerName = "pach_test_minio_v2"
 		imageName     = "minio/minio"
 	)
 	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
@@ -80,8 +80,8 @@ func ensureMinio(ctx context.Context, dclient docker.APIClient) error {
 		Image: imageName,
 		Cmd:   []string{"server", "/data", `--console-address=:9001`},
 		PortMap: map[uint16]uint16{
-			minioPort:     minioPort,
-			minioPort + 1: minioPort + 1,
+			minioPort:     9000,
+			minioPort + 1: 9001,
 		},
 	})
 }
