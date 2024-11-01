@@ -18,6 +18,13 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
+	etcdcli "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/server/v3/embed"
+	etcdwal "go.etcd.io/etcd/server/v3/wal"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/cleanup"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -30,12 +37,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	etcdcli "go.etcd.io/etcd/client/v3"
-	"go.etcd.io/etcd/server/v3/embed"
-	etcdwal "go.etcd.io/etcd/server/v3/wal"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"k8s.io/client-go/kubernetes"
 )
 
 // TestPachdOption is used to customize a testpachd.
@@ -48,6 +49,7 @@ type TestPachdOption struct {
 	MutateFullOption func(fullOption *FullOption)
 	OnReady          func(ctx context.Context, full *Full) error
 	Cleanup          func(ctx context.Context) error
+	CopyDBConfig     *dockertestenv.DBConfig
 }
 
 // NoLogToFileOption is an option that disables NewTestPachd's default behavior of logging pachd
@@ -184,6 +186,9 @@ func NewTestPachd(t testing.TB, opts ...TestPachdOption) *client.APIClient {
 	}()
 	pd.AwaitAuth(ctx)
 	for _, opt := range opts {
+		if opt.CopyDBConfig != nil {
+			*opt.CopyDBConfig = dbcfg
+		}
 		if opt.OnReady != nil {
 			if err := opt.OnReady(ctx, pd); err != nil {
 				t.Fatalf("OnReady callback for option: %v", err)
