@@ -1,4 +1,5 @@
 import io
+import tarfile
 from pathlib import Path
 from typing import NamedTuple
 
@@ -605,6 +606,12 @@ class TestPFSFile:
         # Act
         root_path = pfs.File(commit=commit, path="/")
         with client.pfs.pfs_tar_file(file=root_path) as pfs_tar_file:
+            # TarFile extraction filters are a python12+ feature.
+            # This prevents a warning from being emitted.
+            # ref: docs.python.org/3.12/library/tarfile.html#extraction-filters
+            pfs_tar_file.extraction_filter = getattr(
+                tarfile, "data_filter", (lambda member, path: member)
+            )
             pfs_tar_file.extractall(tmp_path)
 
         # Assert
