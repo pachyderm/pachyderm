@@ -6,11 +6,12 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutilpachctl"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -94,7 +95,7 @@ func TestLogin(t *testing.T) {
 		var buf bytes.Buffer
 		cmd.Stderr = &buf
 
-		c = tu.UnauthenticatedPachClient(t, c)
+		c := tu.UnauthenticatedPachClient(t, c)
 		if err := cmd.Start(); err != nil {
 			return errors.Wrap(err, "cmd.Start")
 		}

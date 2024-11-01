@@ -675,3 +675,11 @@ func (pd *Full) AwaitAuth(ctx context.Context) {
 	case <-ctx.Done():
 	}
 }
+
+// Snapshotter is meant for use in tests which need to get a snapshot.Snapshotter.
+func (pd *Full) Snapshotter() *snapshot_server.Snapshotter {
+	return &snapshot_server.Snapshotter{
+		DB:      pd.env.DB,
+		Storage: pd.storageServer.Filesets,
+	}
+}
