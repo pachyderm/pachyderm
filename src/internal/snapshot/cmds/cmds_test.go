@@ -44,13 +44,11 @@ func TestRestore(t *testing.T) {
 	var (
 		ctx   = pctx.TestContext(t)
 		s     *snapshot.Snapshotter
-		pd    *pachd.Full
 		dbcfg dockertestenv.DBConfig
 	)
 	c := pachd.NewTestPachd(t, pachd.TestPachdOption{
 		OnReady: func(ctx context.Context, p *pachd.Full) error {
 			s = p.Snapshotter()
-			pd = p
 			return nil
 		},
 		CopyDBConfig: &dbcfg,
@@ -59,7 +57,6 @@ func TestRestore(t *testing.T) {
 		pachctl create repo foo
 		pachctl create snapshot
 		pachctl delete repo foo
-		
 		`,
 	).Run(); err != nil {
 		t.Fatalf("mutate, create snapshot & mutate RPC: %v", err)
@@ -68,7 +65,6 @@ func TestRestore(t *testing.T) {
 
 	c = pachd.NewTestPachd(t, pachd.TestPachdOption{
 		MutateEnv: func(env *pachd.Env) {
-			pd.CopyEnv(env)
 			db := testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...)
 			directDB := testutil.OpenDB(t, dbcfg.Direct.DBOptions()...)
 			dbListenerConfig := dbutil.GetDSN(
@@ -81,13 +77,12 @@ func TestRestore(t *testing.T) {
 			env.DirectDB = directDB
 			env.DBListenerConfig = dbListenerConfig
 		},
-		MutateConfig: pd.CopyConfig,
 	})
 	if err := tu.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl list repo
 		pachctl inspect repo foo
 		`,
 	).Run(); err != nil {
-		t.Fatalf("list snapshot RPC: %v", err)
+		t.Fatalf("post-restore check: %v", err)
 	}
 }
