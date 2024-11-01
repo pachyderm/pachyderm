@@ -57,6 +57,8 @@ func TestRestore(t *testing.T) {
 		pachctl create repo foo
 		pachctl create snapshot
 		pachctl delete repo foo
+		pachctl create repo bar
+		(pachctl inspect repo foo && (echo "repo foo exists" >&2; exit 1)) || true
 		`,
 	).Run(); err != nil {
 		t.Fatalf("mutate, create snapshot & mutate RPC: %v", err)
@@ -78,9 +80,11 @@ func TestRestore(t *testing.T) {
 			env.DBListenerConfig = dbListenerConfig
 		},
 	})
+	// check that foo exists and bar does not
 	if err := tu.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl list repo
 		pachctl inspect repo foo
+		(pachctl inspect repo bar && (echo "repo bar exists" >&2; exit 1)) || true
 		`,
 	).Run(); err != nil {
 		t.Fatalf("post-restore check: %v", err)
