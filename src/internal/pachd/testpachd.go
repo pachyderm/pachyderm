@@ -49,7 +49,7 @@ type TestPachdOption struct {
 	MutateFullOption func(fullOption *FullOption)
 	OnReady          func(ctx context.Context, full *Full) error
 	Cleanup          func(ctx context.Context) error
-	CopyDBConfig     *dockertestenv.DBConfig
+	CopyDBConfig     *dockertestenv.DBConfig // will copy the database configuration
 }
 
 // NoLogToFileOption is an option that disables NewTestPachd's default behavior of logging pachd
