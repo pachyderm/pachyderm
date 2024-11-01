@@ -335,7 +335,7 @@ func BuildTestPachd(ctx context.Context, opts ...TestPachdOption) (*Full, *clean
 	case <-etcd.Server.ReadyNotify():
 		level.SetLevel(zapcore.InfoLevel)
 	case <-ctx.Done():
-		return nil, cleaner, errors.Wrap(err, "wait for etcd startup")
+		return nil, cleaner, errors.Wrap(context.Cause(ctx), "wait for etcd startup")
 	}
 	cleaner.AddCleanup("shut up etcd", func() error {
 		level.SetLevel(zapcore.ErrorLevel)
