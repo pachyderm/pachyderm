@@ -181,6 +181,7 @@ determined:
   # is true. It allows users to use single sign-on with their organization’s identity provider.
   # clientSecretKey is the key of the secret contained in the secret.
   oidc:
+    deployDex: true # deploys a dex instance, generally for testing and development.
     enabled: false
     provider: ""
     idpRecipientUrl: ""
