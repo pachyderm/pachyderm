@@ -538,17 +538,17 @@ spec:
         runAsUser: 0 # Need to run as root local for hostpath support
       {{- else }}
         securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
+          runAsUser: 65532
+          runAsGroup: 65532
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           capabilities:
               drop:
               - all
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
