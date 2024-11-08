@@ -151,8 +151,8 @@ jobs:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
-    resource_class: 2xlarge
-    parallelism: 9
+    resource_class: large
+    parallelism: 5
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -190,7 +190,7 @@ jobs:
           paths:
             - cached-deps/
       - run: mkdir ${TEST_RESULTS}
-      - start-minikube-2xlarge
+      - start-minikube-large
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
