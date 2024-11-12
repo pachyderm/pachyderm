@@ -47,3 +47,13 @@ func ParseHex(x []byte) (*Output, error) {
 func EncodeHash(bytes []byte) string {
 	return hex.EncodeToString(bytes)
 }
+
+// XOR computes the bitwise XOR of all xs ( x[0] ^ x[1] ... x[n-2] ^ x[n-1] ) and returns the result.
+func XOR(xs ...Output) (ret Output) {
+	for _, x := range xs {
+		for i := range x {
+			ret[i] ^= x[i]
+		}
+	}
+	return ret
+}
