@@ -5,11 +5,15 @@ go 1.23.1
 require (
 	cloud.google.com/go/profiler v0.3.0
 	github.com/DATA-DOG/go-sqlmock v1.5.0
+	github.com/OpenPeeDeeP/depguard/v2 v2.2.0
 	github.com/adrg/xdg v0.4.0
 	github.com/alecthomas/participle/v2 v2.1.1
+	github.com/alingse/asasalint v0.0.11
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
+	github.com/bazelbuild/bazel-gazelle v0.38.0
 	github.com/bazelbuild/rules_go v0.50.1
+	github.com/breml/bidichk v0.2.7
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -32,11 +36,13 @@ require (
 	github.com/go-logr/zapr v1.2.3
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/golang/protobuf v1.5.4
+	github.com/golangci/gofmt v0.0.0-20240816233607-d8596aa466a9
 	github.com/google/btree v1.1.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-jsonnet v0.20.0
 	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.6.0
+	github.com/gordonklaus/ineffassign v0.1.0
 	github.com/gorilla/mux v1.8.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.1-0.20191002090509-6af20e3a5340
@@ -44,20 +50,24 @@ require (
 	github.com/gruntwork-io/terratest v0.38.8
 	github.com/hanwen/go-fuse/v2 v2.1.0
 	github.com/hashicorp/golang-lru/v2 v2.0.1
+	github.com/icholy/replace v0.6.0
 	github.com/instrumenta/kubeval v0.0.0-20201118090229-529b532b1ea1
 	github.com/itchyny/gojq v0.11.2
 	github.com/jackc/pgconn v1.14.3
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
 	github.com/jackc/pgx/v4 v4.18.2
+	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/json-iterator/go v1.1.12
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
+	github.com/kisielk/errcheck v1.7.1-0.20240702033320-b832de3f3c5a
 	github.com/klauspost/compress v1.16.4
 	github.com/lib/pq v1.10.7
 	github.com/mattn/go-isatty v0.0.18
 	github.com/minio/minio-go/v6 v6.0.57
 	github.com/minio/minio-go/v7 v7.0.42
 	github.com/modern-go/reflect2 v1.0.2
+	github.com/nishanths/exhaustive v0.12.0
 	github.com/opentracing-contrib/go-grpc v0.0.0-20210225150812-73cb765af46e
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pachyderm/ohmyglob v0.0.0-20210308211843-d5b47775fc36
@@ -80,7 +90,9 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
+	github.com/tdakkota/asciicheck v0.2.0
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
+	github.com/tomarrell/wrapcheck/v2 v2.9.0
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/wader/readline v0.0.0-20230307172220-bcb7158e7448
@@ -109,6 +121,7 @@ require (
 	google.golang.org/grpc v1.64.1
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/yaml.v3 v3.0.1
+	honnef.co/go/tools v0.5.1
 	k8s.io/api v0.29.2
 	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.2
@@ -117,44 +130,6 @@ require (
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/kind v0.22.0
 	sigs.k8s.io/yaml v1.4.0
-)
-
-require github.com/gordonklaus/ineffassign v0.1.0
-
-require github.com/tomarrell/wrapcheck/v2 v2.9.0
-
-require github.com/kisielk/errcheck v1.7.1-0.20240702033320-b832de3f3c5a
-
-require github.com/OpenPeeDeeP/depguard/v2 v2.2.0
-
-require github.com/alingse/asasalint v0.0.11
-
-require github.com/tdakkota/asciicheck v0.2.0
-
-require github.com/breml/bidichk v0.2.7
-
-require github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af
-
-require github.com/nishanths/exhaustive v0.12.0
-
-require (
-	github.com/golangci/gofmt v0.0.0-20240816233607-d8596aa466a9
-	github.com/icholy/replace v0.6.0
-)
-
-require (
-	github.com/containerd/containerd v1.6.26 // indirect
-	github.com/moby/patternmatcher v0.6.0 // indirect
-	github.com/moby/sys/sequential v0.5.0 // indirect
-	github.com/morikuni/aec v1.0.0 // indirect
-)
-
-require (
-	github.com/bazelbuild/bazel-gazelle v0.38.0
-	github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
-	golang.org/x/tools/go/vcs v0.1.0-deprecated // indirect
-	honnef.co/go/tools v0.5.1
 )
 
 require (
@@ -208,6 +183,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.10 // indirect
 	github.com/aws/smithy-go v1.12.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/bazelbuild/buildtools v0.0.0-20240313121412-66c605173954 // indirect
 	github.com/beevik/etree v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -221,6 +197,7 @@ require (
 	github.com/cheggaaa/pb v1.0.29 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
+	github.com/containerd/containerd v1.6.26 // indirect
 	github.com/coreos/go-oidc/v3 v3.5.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
@@ -250,7 +227,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/golang/glog v1.2.0 // indirect
@@ -310,10 +287,13 @@ require (
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
+	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
+	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/term v0.0.0-20221205130635-1aeaba878587 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
+	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/muesli/ansi v0.0.0-20211018074035-2e021307bc4b // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
@@ -375,10 +355,12 @@ require (
 	go.opentelemetry.io/otel/trace v1.27.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030 // indirect
 	golang.org/x/telemetry v0.0.0-20240522233618-39ace7a40ae7 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.24.0
+	golang.org/x/tools/go/vcs v0.1.0-deprecated // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/api v0.183.0 // indirect
 	google.golang.org/genproto v0.0.0-20240624140628-dc46fd24d27d // indirect
