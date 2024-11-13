@@ -400,3 +400,18 @@ Building container images might print a bunch of messages like:
     time="2024-10-18T18:38:38-04:00" level=warning msg="Changing credential host for registry" host=docker.io new="https://registry-1.docker.io" orig="https://index.docker.io/v1/"
 
 You can make this go away by deleting one of those entries from ~/.docker/config.json. Sigh!
+
+# Invalid PostgreSQL .deb
+
+## Symptom
+
+```
+ERROR: An error occurred during the fetch of repository 'rules_distroless~~apt~apt_postgresql-client-17_17.0-2.pgdg120-p-_20241030.135
+7.g936ab6d_amd64':
+```
+
+## Resolution
+
+```sh
+bazel run @apt//:lock
+```
