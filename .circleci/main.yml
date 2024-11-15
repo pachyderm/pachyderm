@@ -280,10 +280,6 @@ jobs:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
-      - upload-junit-datadog:
-          service: integration-tests
-          env: ci-minikube
-          path: /tmp/test-results/circle
       - store_test_results:
           path: "/tmp/test-results/circle"
       - store_artifacts:
@@ -580,11 +576,6 @@ jobs:
           name: Format code coverage
           when: always
           command: etc/testing/circle/format-coverage.sh
-      - upload-junit-datadog:
-          service: deploy-tests
-          env: ci-minikube
-          path: /tmp/test-results/junit-test-results.xml
-          amd: true
       - store_test_results:
           path: /tmp/test-results
       - store_artifacts:
@@ -1529,10 +1520,6 @@ jobs:
       - run:
           command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
           when: always
-      - upload-junit-datadog:
-          service: bazel-tests
-          env: ci-bazel
-          path: /tmp/bazel-testlogs/**/*.xml /tmp/bazel-testlogs/src/**/**/**/*.xml /tmp/bazel-testlogs/src/**/**/**/**/*.xml
       - store_test_results:
           path: /tmp/bazel-testlogs/
       - codecov/upload:
@@ -2372,32 +2359,6 @@ commands:
       - run:
           name: Wait for pachd
           command: until pachctl inspect cluster; do sleep 5; done
-  upload-junit-datadog:
-    parameters:
-      service:
-        type: string
-        default: ""
-      env:
-        type: string
-        default: "ci-local"
-      path:
-        type: string
-        default: "/tmp/test-results"
-      amd:
-        type: boolean
-        default: false
-    steps:
-      - run:
-          name: Upload Tests to DataDog
-          when: always
-          command: |
-            if [ "<< parameters.amd >>" = "true" ]; then
-              npm install -g @datadog/datadog-ci
-              datadog-ci junit upload --service "pachyderm/<< parameters.service >>" --env "<< parameters.env >>" << parameters.path >>
-            else
-              curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" --output "./datadog-ci" && chmod +x ./datadog-ci
-              ./datadog-ci junit upload --service "pachyderm/<< parameters.service >>" --env "<< parameters.env >>" << parameters.path >>
-            fi
   collect-test-results:
     steps:
       - run:
