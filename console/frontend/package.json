@@ -159,7 +159,7 @@
     "jest-fetch-mock": "^3.0.3",
     "jest-junit": "^16.0.0",
     "jest-raw-loader": "^1.0.1",
-    "msw": "^1.2.5",
+    "msw": "^2.6.5",
     "postcss-custom-media": "^8.0.2",
     "postcss-flexbugs-fixes": "^5.0.2",
     "postcss-normalize": "^10.0.1",
