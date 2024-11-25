@@ -24,7 +24,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/auth",
-        "//src/enterprise",
         "//src/internal/ancestry",
         "//src/internal/backoff",
         "//src/internal/client",
@@ -63,9 +62,6 @@ go_library(
         "//src/pfs",
         "//src/pps",
         "//src/server/auth",
-        "//src/server/enterprise/limits",
-        "//src/server/enterprise/metrics",
-        "//src/server/enterprise/text",
         "//src/server/pfs",
         "//src/server/pfs/pretty",
         "//src/server/pfs/s3",
