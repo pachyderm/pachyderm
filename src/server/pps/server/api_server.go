@@ -33,12 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	enterpriseclient "github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	enterpriselimits "github.com/pachyderm/pachyderm/v2/src/server/enterprise/limits"
-	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
-	enterprisetext "github.com/pachyderm/pachyderm/v2/src/server/enterprise/text"
 	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
@@ -1903,45 +1899,6 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	return nil
 }
 
-func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.CreatePipelineRequest) error {
-	if _, err := a.inspectPipeline(ctx, req.Pipeline, false); err == nil {
-		// Pipeline already exists so we allow people to update it even if
-		// they're over the limits.
-		return nil
-	} else if !errutil.IsNotFoundError(err) {
-		return err
-	}
-	pachClient := a.env.GetPachClient(ctx)
-	resp, err := pachClient.Enterprise.GetState(pachClient.Ctx(),
-		&enterpriseclient.GetStateRequest{})
-	if err != nil {
-		return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not get enterprise status")
-	}
-	if resp.State == enterpriseclient.State_ACTIVE {
-		// Enterprise is enabled so anything goes.
-		return nil
-	}
-	var info pps.PipelineInfo
-	seen := make(map[string]struct{})
-	if err := a.pipelines.ReadOnly().List(ctx, &info, col.DefaultOptions(), func(_ string) error {
-		seen[info.Pipeline.Name] = struct{}{}
-		return nil
-	}); err != nil {
-		return errors.EnsureStack(err)
-	}
-	if len(seen) >= enterpriselimits.Pipelines {
-		enterprisemetrics.IncEnterpriseFailures()
-		return errors.Errorf("%s requires an activation key to create more than %d total pipelines (you have %d). %s\n\n%s",
-			enterprisetext.OpenSourceProduct, enterpriselimits.Pipelines, len(seen), enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
-	}
-	if req.ParallelismSpec != nil && req.ParallelismSpec.Constant > enterpriselimits.Parallelism {
-		enterprisemetrics.IncEnterpriseFailures()
-		return errors.Errorf("%s requires an activation key to create pipelines with parallelism more than %d. %s\n\n%s",
-			enterprisetext.OpenSourceProduct, enterpriselimits.Parallelism, enterprisetext.ActivateCTA, enterprisetext.RegisterCTA)
-	}
-	return nil
-}
-
 func (a *apiServer) validateSecret(ctx context.Context, req *pps.CreatePipelineRequest) error {
 	for _, s := range req.GetTransform().GetSecrets() {
 		if s.EnvVar != "" && s.Key == "" {
@@ -2371,10 +2328,6 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 		tracing.TagAnySpan(span, "err", err)
 	}()
 	extended.PersistAny(ctx, a.env.EtcdClient, effectiveSpec.Pipeline)
-
-	if err := a.validateEnterpriseChecks(ctx, effectiveSpec); err != nil {
-		return "", err
-	}
 
 	if err := a.validateSecret(ctx, effectiveSpec); err != nil {
 		return "", err
