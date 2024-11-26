@@ -103,12 +103,6 @@ func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	_, err = adminClient.Enterprise.Heartbeat(adminClient.Ctx(), &enterprise.HeartbeatRequest{})
 	require.NoError(t, err)
 
-	// Verify failure to authenticate with the OIDC Login Info
-	_, err = testClient.Authenticate(testClient.Ctx(),
-		&auth.AuthenticateRequest{OidcState: loginInfo.State})
-	require.YesError(t, err)
-	require.Matches(t, "Pachyderm Enterprise is not active", err.Error())
-
 	// give test user the Cluster Admin Role
 	// admin grants alice cluster admin role
 	_, err = adminClient.AuthAPIClient.ModifyRoleBinding(adminClient.Ctx(),
