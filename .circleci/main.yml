@@ -648,8 +648,6 @@ jobs:
           command: |
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
-          command: bazel run @apt//:lock
-      - run:
           name: Build Docker
           command: |
             if << parameters.enableCoverage >>
@@ -2387,6 +2385,7 @@ commands:
             wget -O ./bazel "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
             chmod +x ./bazel
             sudo mv ./bazel /home/circleci/bin/bazel
+            bazel run @apt//:lock
   node-install-all:
     steps:
       - run:
