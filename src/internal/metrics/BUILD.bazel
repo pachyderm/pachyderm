@@ -14,7 +14,6 @@ go_library(
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/auth",
-        "//src/enterprise",
         "//src/internal/config",
         "//src/internal/errors",
         "//src/internal/log",
