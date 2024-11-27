@@ -24,7 +24,6 @@ go_library(
         "//src/server/config",
         "//src/server/debug/cmds",
         "//src/server/identity/cmds",
-        "//src/server/license/cmds",
         "//src/server/logs/cmds",
         "//src/server/metadata/cmds",
         "//src/server/misc/cmds",
