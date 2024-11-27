@@ -15,7 +15,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/auth",
-        "//src/enterprise",
         "//src/identity",
         "//src/internal/authdb",
         "//src/internal/backoff",
@@ -23,7 +22,6 @@ go_library(
         "//src/internal/collection",
         "//src/internal/dbutil",
         "//src/internal/errors",
-        "//src/internal/grpcutil",
         "//src/internal/keycache",
         "//src/internal/log",
         "//src/internal/middleware/auth",

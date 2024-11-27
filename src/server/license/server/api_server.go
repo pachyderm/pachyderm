@@ -165,17 +165,6 @@ func (a *apiServer) getLicenseRecord(ctx context.Context) (*lc.GetActivationCode
 	return resp, nil
 }
 
-func (a *apiServer) checkLicenseState(ctx context.Context) error {
-	record, err := a.getLicenseRecord(ctx)
-	if err != nil {
-		return err
-	}
-	if record.State != ec.State_ACTIVE {
-		return errors.Errorf("enterprise license is not valid - %v", record.State)
-	}
-	return nil
-}
-
 func (a *apiServer) validateClusterConfig(ctx context.Context, address string) error {
 	if address == "" {
 		return errors.New("no address provided for cluster")
@@ -186,10 +175,6 @@ func (a *apiServer) validateClusterConfig(ctx context.Context, address string) e
 // AddCluster registers a new pachd with this license server. Each pachd is configured with a shared secret
 // which is used to authenticate to the license server when heartbeating.
 func (a *apiServer) AddCluster(ctx context.Context, req *lc.AddClusterRequest) (resp *lc.AddClusterResponse, retErr error) {
-	// Make sure we have an active license
-	if err := a.checkLicenseState(ctx); err != nil {
-		return nil, err
-	}
 
 	// Validate the request
 	if req.Id == "" {

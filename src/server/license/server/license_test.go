@@ -284,22 +284,6 @@ func TestUpdateClusterAddressValidation(t *testing.T) {
 	require.Matches(t, "No cluster fields were provided to the UpdateCluster RPC", err.Error())
 }
 
-// TestAddClusterNoLicense tries to add a cluster with no license configured and
-// confirms there's an error
-func TestAddClusterNoLicense(t *testing.T) {
-	t.Parallel()
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	client := env.PachClient
-	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
-	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
-		Id:      "new",
-		Address: "grpc://localhost:" + peerPort,
-	})
-	require.YesError(t, err)
-	require.Matches(t, "enterprise license is not valid", err.Error())
-}
-
 // TestClusterCRUDNotAdmin confirms that AddCluster, ListClusters, DeleteCluster and
 // UpdateCluster require admin access when auth is enabled
 func TestClusterCRUDNotAdmin(t *testing.T) {

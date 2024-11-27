@@ -4,19 +4,19 @@
 			"arch": "amd64",
 			"dependencies": [
 				{
-					"key": "openssl_3.0.11-1_deb12u2_amd64",
+					"key": "openssl_3.0.14-1_deb12u2_amd64",
 					"name": "openssl",
-					"version": "3.0.11-1~deb12u2"
+					"version": "3.0.14-1~deb12u2"
 				},
 				{
-					"key": "libssl3_3.0.11-1_deb12u2_amd64",
+					"key": "libssl3_3.0.14-1_deb12u2_amd64",
 					"name": "libssl3",
-					"version": "3.0.11-1~deb12u2"
+					"version": "3.0.14-1~deb12u2"
 				},
 				{
-					"key": "libc6_2.36-9-p-deb12u7_amd64",
+					"key": "libc6_2.36-9-p-deb12u8_amd64",
 					"name": "libc6",
-					"version": "2.36-9+deb12u7"
+					"version": "2.36-9+deb12u8"
 				},
 				{
 					"key": "libgcc-s1_12.2.0-14_amd64",
@@ -38,29 +38,29 @@
 		{
 			"arch": "amd64",
 			"dependencies": [],
-			"key": "openssl_3.0.11-1_deb12u2_amd64",
+			"key": "openssl_3.0.14-1_deb12u2_amd64",
 			"name": "openssl",
-			"sha256": "ea063646d4f70d15be5ed52b67b5ac95d68dda823c60d808c7c25439c6d14e4d",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/o/openssl/openssl_3.0.11-1~deb12u2_amd64.deb",
-			"version": "3.0.11-1~deb12u2"
+			"sha256": "0bd921ff96a15479fcd98f47d418718bb0b92ae6a94cd93eccdf127899e8af6f",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/o/openssl/openssl_3.0.14-1~deb12u2_amd64.deb",
+			"version": "3.0.14-1~deb12u2"
 		},
 		{
 			"arch": "amd64",
 			"dependencies": [],
-			"key": "libssl3_3.0.11-1_deb12u2_amd64",
+			"key": "libssl3_3.0.14-1_deb12u2_amd64",
 			"name": "libssl3",
-			"sha256": "6e129c5814812b3516a656ae5b664b9970e2f8823250cd5b98190f21c0de2bca",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/o/openssl/libssl3_3.0.11-1~deb12u2_amd64.deb",
-			"version": "3.0.11-1~deb12u2"
+			"sha256": "b308a8fd9889fd7e57b801511e3f42a203675b6b0087455a977d25b7633a1296",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/o/openssl/libssl3_3.0.14-1~deb12u2_amd64.deb",
+			"version": "3.0.14-1~deb12u2"
 		},
 		{
 			"arch": "amd64",
 			"dependencies": [],
-			"key": "libc6_2.36-9-p-deb12u7_amd64",
+			"key": "libc6_2.36-9-p-deb12u8_amd64",
 			"name": "libc6",
-			"sha256": "eba944bd99c2f5142baf573e6294a70f00758083bc3c2dca4c9e445943a3f8e6",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/g/glibc/libc6_2.36-9+deb12u7_amd64.deb",
-			"version": "2.36-9+deb12u7"
+			"sha256": "dbb527d86181f4b50edf5790c34c4d0b4ceac7f199b1266a9336b5708f8e9798",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/g/glibc/libc6_2.36-9+deb12u8_amd64.deb",
+			"version": "2.36-9+deb12u8"
 		},
 		{
 			"arch": "amd64",
@@ -89,9 +89,9 @@
 					"version": "1:1.2.13.dfsg-1"
 				},
 				{
-					"key": "libc6_2.36-9-p-deb12u7_amd64",
+					"key": "libc6_2.36-9-p-deb12u8_amd64",
 					"name": "libc6",
-					"version": "2.36-9+deb12u7"
+					"version": "2.36-9+deb12u8"
 				},
 				{
 					"key": "libgcc-s1_12.2.0-14_amd64",
@@ -109,9 +109,9 @@
 					"version": "1.5.4+dfsg2-5"
 				},
 				{
-					"key": "libssl3_3.0.11-1_deb12u2_amd64",
+					"key": "libssl3_3.0.14-1_deb12u2_amd64",
 					"name": "libssl3",
-					"version": "3.0.11-1~deb12u2"
+					"version": "3.0.14-1~deb12u2"
 				},
 				{
 					"key": "libreadline8_8.2-1.3_amd64",
@@ -229,9 +229,9 @@
 					"version": "6.4"
 				},
 				{
-					"key": "libpq5_17.2-1.pgdg120-p-_20241119.2334.gc1ebef3_amd64",
+					"key": "libpq5_17.2-1.pgdg120-p-_20241125.1736.gf979197_amd64",
 					"name": "libpq5",
-					"version": "17.2-1.pgdg120+~20241119.2334.gc1ebef3"
+					"version": "17.2-1.pgdg120+~20241125.1736.gf979197"
 				},
 				{
 					"key": "libldap-2.5-0_2.5.13-p-dfsg-5_amd64",
@@ -249,9 +249,9 @@
 					"version": "2.1.28+dfsg-10"
 				},
 				{
-					"key": "libgnutls30_3.7.9-2-p-deb12u2_amd64",
+					"key": "libgnutls30_3.7.9-2-p-deb12u3_amd64",
 					"name": "libgnutls30",
-					"version": "3.7.9-2+deb12u2"
+					"version": "3.7.9-2+deb12u3"
 				},
 				{
 					"key": "libunistring2_1.0-2_amd64",
@@ -294,19 +294,19 @@
 					"version": "2:6.2.1+dfsg1-1.1"
 				},
 				{
-					"key": "libgssapi-krb5-2_1.20.1-2-p-deb12u1_amd64",
+					"key": "libgssapi-krb5-2_1.20.1-2-p-deb12u2_amd64",
 					"name": "libgssapi-krb5-2",
-					"version": "1.20.1-2+deb12u1"
+					"version": "1.20.1-2+deb12u2"
 				},
 				{
-					"key": "libkrb5support0_1.20.1-2-p-deb12u1_amd64",
+					"key": "libkrb5support0_1.20.1-2-p-deb12u2_amd64",
 					"name": "libkrb5support0",
-					"version": "1.20.1-2+deb12u1"
+					"version": "1.20.1-2+deb12u2"
 				},
 				{
-					"key": "libkrb5-3_1.20.1-2-p-deb12u1_amd64",
+					"key": "libkrb5-3_1.20.1-2-p-deb12u2_amd64",
 					"name": "libkrb5-3",
-					"version": "1.20.1-2+deb12u1"
+					"version": "1.20.1-2+deb12u2"
 				},
 				{
 					"key": "libkeyutils1_1.6.3-2_amd64",
@@ -314,9 +314,9 @@
 					"version": "1.6.3-2"
 				},
 				{
-					"key": "libk5crypto3_1.20.1-2-p-deb12u1_amd64",
+					"key": "libk5crypto3_1.20.1-2-p-deb12u2_amd64",
 					"name": "libk5crypto3",
-					"version": "1.20.1-2+deb12u1"
+					"version": "1.20.1-2+deb12u2"
 				},
 				{
 					"key": "libcom-err2_1.47.0-2_amd64",
@@ -324,11 +324,11 @@
 					"version": "1.47.0-2"
 				}
 			],
-			"key": "postgresql-client-17_17.2-1.pgdg120-p-_20241119.2334.gc1ebef3_amd64",
+			"key": "postgresql-client-17_17.2-1.pgdg120-p-_20241125.1736.gf979197_amd64",
 			"name": "postgresql-client-17",
-			"sha256": "22003576b01343d98a796b82e093cca843cfd6037d27d9016d4fde88281282be",
-			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.2-1.pgdg120+~20241119.2334.gc1ebef3_amd64.deb",
-			"version": "17.2-1.pgdg120+~20241119.2334.gc1ebef3"
+			"sha256": "b9891e681e8b92a27f92e93c77684cc47df8cb869a3c02bef25f725bc8f18c6a",
+			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.2-1.pgdg120+~20241125.1736.gf979197_amd64.deb",
+			"version": "17.2-1.pgdg120+~20241125.1736.gf979197"
 		},
 		{
 			"arch": "amd64",
@@ -558,11 +558,11 @@
 		{
 			"arch": "amd64",
 			"dependencies": [],
-			"key": "libpq5_17.2-1.pgdg120-p-_20241119.2334.gc1ebef3_amd64",
+			"key": "libpq5_17.2-1.pgdg120-p-_20241125.1736.gf979197_amd64",
 			"name": "libpq5",
-			"sha256": "fea39f00bf51104af7ca20b989f69457cd66893822555846ac064cd779d4a042",
-			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/libpq5_17.2-1.pgdg120+~20241119.2334.gc1ebef3_amd64.deb",
-			"version": "17.2-1.pgdg120+~20241119.2334.gc1ebef3"
+			"sha256": "46d21a6301148b0f7fd8ad6a551896911bfcace1fc4dbd736017aaecb4ac8319",
+			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/libpq5_17.2-1.pgdg120+~20241125.1736.gf979197_amd64.deb",
+			"version": "17.2-1.pgdg120+~20241125.1736.gf979197"
 		},
 		{
 			"arch": "amd64",
@@ -594,11 +594,11 @@
 		{
 			"arch": "amd64",
 			"dependencies": [],
-			"key": "libgnutls30_3.7.9-2-p-deb12u2_amd64",
+			"key": "libgnutls30_3.7.9-2-p-deb12u3_amd64",
 			"name": "libgnutls30",
-			"sha256": "b602f906a8de4488ab75434633524b71b8b12952272d4c3326bd6be8126832c4",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/g/gnutls28/libgnutls30_3.7.9-2+deb12u2_amd64.deb",
-			"version": "3.7.9-2+deb12u2"
+			"sha256": "cee417d4107bbe94ddcc124524366ea675e89d106b70969a7d508ef26e92a713",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/g/gnutls28/libgnutls30_3.7.9-2+deb12u3_amd64.deb",
+			"version": "3.7.9-2+deb12u3"
 		},
 		{
 			"arch": "amd64",
@@ -675,29 +675,29 @@
 		{
 			"arch": "amd64",
 			"dependencies": [],
-			"key": "libgssapi-krb5-2_1.20.1-2-p-deb12u1_amd64",
+			"key": "libgssapi-krb5-2_1.20.1-2-p-deb12u2_amd64",
 			"name": "libgssapi-krb5-2",
-			"sha256": "6631304ce4b5b9ba0af3fdebf088a734aed2d28ffad2a03ba79e4fcb2e226dd6",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/k/krb5/libgssapi-krb5-2_1.20.1-2+deb12u1_amd64.deb",
-			"version": "1.20.1-2+deb12u1"
+			"sha256": "454eb2ecb79e03682b176f04a54b8820ccf8868c074995d96fb6f4736f546cec",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/k/krb5/libgssapi-krb5-2_1.20.1-2+deb12u2_amd64.deb",
+			"version": "1.20.1-2+deb12u2"
 		},
 		{
 			"arch": "amd64",
 			"dependencies": [],
-			"key": "libkrb5support0_1.20.1-2-p-deb12u1_amd64",
+			"key": "libkrb5support0_1.20.1-2-p-deb12u2_amd64",
 			"name": "libkrb5support0",
-			"sha256": "e489a9282c4b765c29d9eda7c4747e1cb58be71161012c3a57e2a8bc63dc0f5a",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/k/krb5/libkrb5support0_1.20.1-2+deb12u1_amd64.deb",
-			"version": "1.20.1-2+deb12u1"
+			"sha256": "3bb1a8f9cfdd31f92e0cdd0a040c738a2de0d343afe7f830850e3ab7695e649c",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/k/krb5/libkrb5support0_1.20.1-2+deb12u2_amd64.deb",
+			"version": "1.20.1-2+deb12u2"
 		},
 		{
 			"arch": "amd64",
 			"dependencies": [],
-			"key": "libkrb5-3_1.20.1-2-p-deb12u1_amd64",
+			"key": "libkrb5-3_1.20.1-2-p-deb12u2_amd64",
 			"name": "libkrb5-3",
-			"sha256": "03ebdf235600f4a8a6d4fbc7080de0a776b1a701f43c4e9697944757591d7809",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/k/krb5/libkrb5-3_1.20.1-2+deb12u1_amd64.deb",
-			"version": "1.20.1-2+deb12u1"
+			"sha256": "9ce3d67db89417e1539f33a62ce85959dc96e3865ecad77606e2af1e6680d6da",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/k/krb5/libkrb5-3_1.20.1-2+deb12u2_amd64.deb",
+			"version": "1.20.1-2+deb12u2"
 		},
 		{
 			"arch": "amd64",
@@ -711,11 +711,11 @@
 		{
 			"arch": "amd64",
 			"dependencies": [],
-			"key": "libk5crypto3_1.20.1-2-p-deb12u1_amd64",
+			"key": "libk5crypto3_1.20.1-2-p-deb12u2_amd64",
 			"name": "libk5crypto3",
-			"sha256": "6a91eee690e6ad2207df3a355fc329a58d8e31bf5ca9a9dd4de8f7a1c812ddc5",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/k/krb5/libk5crypto3_1.20.1-2+deb12u1_amd64.deb",
-			"version": "1.20.1-2+deb12u1"
+			"sha256": "de8ae0c2bb31c926b24c374c1159e8b8d5f9817421f45dd29f22cd201982ee3d",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/k/krb5/libk5crypto3_1.20.1-2+deb12u2_amd64.deb",
+			"version": "1.20.1-2+deb12u2"
 		},
 		{
 			"arch": "amd64",
@@ -730,19 +730,19 @@
 			"arch": "arm64",
 			"dependencies": [
 				{
-					"key": "openssl_3.0.11-1_deb12u2_arm64",
+					"key": "openssl_3.0.14-1_deb12u2_arm64",
 					"name": "openssl",
-					"version": "3.0.11-1~deb12u2"
+					"version": "3.0.14-1~deb12u2"
 				},
 				{
-					"key": "libssl3_3.0.11-1_deb12u2_arm64",
+					"key": "libssl3_3.0.14-1_deb12u2_arm64",
 					"name": "libssl3",
-					"version": "3.0.11-1~deb12u2"
+					"version": "3.0.14-1~deb12u2"
 				},
 				{
-					"key": "libc6_2.36-9-p-deb12u7_arm64",
+					"key": "libc6_2.36-9-p-deb12u8_arm64",
 					"name": "libc6",
-					"version": "2.36-9+deb12u7"
+					"version": "2.36-9+deb12u8"
 				},
 				{
 					"key": "libgcc-s1_12.2.0-14_arm64",
@@ -764,29 +764,29 @@
 		{
 			"arch": "arm64",
 			"dependencies": [],
-			"key": "openssl_3.0.11-1_deb12u2_arm64",
+			"key": "openssl_3.0.14-1_deb12u2_arm64",
 			"name": "openssl",
-			"sha256": "ef8ec413c2bd866dbe7ab068cd45b28d22e6c586e3ab0bd8de127a3e8dfe650b",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/o/openssl/openssl_3.0.11-1~deb12u2_arm64.deb",
-			"version": "3.0.11-1~deb12u2"
+			"sha256": "ee49f2b51c699d628b3d49145b10f55c12231baa506b3254f2e713195dbeb442",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/o/openssl/openssl_3.0.14-1~deb12u2_arm64.deb",
+			"version": "3.0.14-1~deb12u2"
 		},
 		{
 			"arch": "arm64",
 			"dependencies": [],
-			"key": "libssl3_3.0.11-1_deb12u2_arm64",
+			"key": "libssl3_3.0.14-1_deb12u2_arm64",
 			"name": "libssl3",
-			"sha256": "4e05dfa7319f72c5598f29a39eaf568203e2ae2314d5ef434dbf764de6448462",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/o/openssl/libssl3_3.0.11-1~deb12u2_arm64.deb",
-			"version": "3.0.11-1~deb12u2"
+			"sha256": "87bc8092e38da779f63c7ef2bee76a49a0747c968c8e0129130a6403d7b575a8",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/o/openssl/libssl3_3.0.14-1~deb12u2_arm64.deb",
+			"version": "3.0.14-1~deb12u2"
 		},
 		{
 			"arch": "arm64",
 			"dependencies": [],
-			"key": "libc6_2.36-9-p-deb12u7_arm64",
+			"key": "libc6_2.36-9-p-deb12u8_arm64",
 			"name": "libc6",
-			"sha256": "84f9a8f8fa182c17e998c6094293ff0f4d504bfdb9b856802cf28b5d272ed303",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/g/glibc/libc6_2.36-9+deb12u7_arm64.deb",
-			"version": "2.36-9+deb12u7"
+			"sha256": "00b2c999ed76342824e26c46bb23133f07bba97e911d34b6855addc4e93e5638",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/g/glibc/libc6_2.36-9+deb12u8_arm64.deb",
+			"version": "2.36-9+deb12u8"
 		},
 		{
 			"arch": "arm64",
@@ -815,9 +815,9 @@
 					"version": "1:1.2.13.dfsg-1"
 				},
 				{
-					"key": "libc6_2.36-9-p-deb12u7_arm64",
+					"key": "libc6_2.36-9-p-deb12u8_arm64",
 					"name": "libc6",
-					"version": "2.36-9+deb12u7"
+					"version": "2.36-9+deb12u8"
 				},
 				{
 					"key": "libgcc-s1_12.2.0-14_arm64",
@@ -835,9 +835,9 @@
 					"version": "1.5.4+dfsg2-5"
 				},
 				{
-					"key": "libssl3_3.0.11-1_deb12u2_arm64",
+					"key": "libssl3_3.0.14-1_deb12u2_arm64",
 					"name": "libssl3",
-					"version": "3.0.11-1~deb12u2"
+					"version": "3.0.14-1~deb12u2"
 				},
 				{
 					"key": "libreadline8_8.2-1.3_arm64",
@@ -955,9 +955,9 @@
 					"version": "6.4"
 				},
 				{
-					"key": "libpq5_17.2-1.pgdg120-p-_20241119.2334.gc1ebef3_arm64",
+					"key": "libpq5_17.2-1.pgdg120-p-_20241125.1736.gf979197_arm64",
 					"name": "libpq5",
-					"version": "17.2-1.pgdg120+~20241119.2334.gc1ebef3"
+					"version": "17.2-1.pgdg120+~20241125.1736.gf979197"
 				},
 				{
 					"key": "libldap-2.5-0_2.5.13-p-dfsg-5_arm64",
@@ -975,9 +975,9 @@
 					"version": "2.1.28+dfsg-10"
 				},
 				{
-					"key": "libgnutls30_3.7.9-2-p-deb12u2_arm64",
+					"key": "libgnutls30_3.7.9-2-p-deb12u3_arm64",
 					"name": "libgnutls30",
-					"version": "3.7.9-2+deb12u2"
+					"version": "3.7.9-2+deb12u3"
 				},
 				{
 					"key": "libunistring2_1.0-2_arm64",
@@ -1020,19 +1020,19 @@
 					"version": "2:6.2.1+dfsg1-1.1"
 				},
 				{
-					"key": "libgssapi-krb5-2_1.20.1-2-p-deb12u1_arm64",
+					"key": "libgssapi-krb5-2_1.20.1-2-p-deb12u2_arm64",
 					"name": "libgssapi-krb5-2",
-					"version": "1.20.1-2+deb12u1"
+					"version": "1.20.1-2+deb12u2"
 				},
 				{
-					"key": "libkrb5support0_1.20.1-2-p-deb12u1_arm64",
+					"key": "libkrb5support0_1.20.1-2-p-deb12u2_arm64",
 					"name": "libkrb5support0",
-					"version": "1.20.1-2+deb12u1"
+					"version": "1.20.1-2+deb12u2"
 				},
 				{
-					"key": "libkrb5-3_1.20.1-2-p-deb12u1_arm64",
+					"key": "libkrb5-3_1.20.1-2-p-deb12u2_arm64",
 					"name": "libkrb5-3",
-					"version": "1.20.1-2+deb12u1"
+					"version": "1.20.1-2+deb12u2"
 				},
 				{
 					"key": "libkeyutils1_1.6.3-2_arm64",
@@ -1040,9 +1040,9 @@
 					"version": "1.6.3-2"
 				},
 				{
-					"key": "libk5crypto3_1.20.1-2-p-deb12u1_arm64",
+					"key": "libk5crypto3_1.20.1-2-p-deb12u2_arm64",
 					"name": "libk5crypto3",
-					"version": "1.20.1-2+deb12u1"
+					"version": "1.20.1-2+deb12u2"
 				},
 				{
 					"key": "libcom-err2_1.47.0-2_arm64",
@@ -1050,11 +1050,11 @@
 					"version": "1.47.0-2"
 				}
 			],
-			"key": "postgresql-client-17_17.2-1.pgdg120-p-_20241119.2334.gc1ebef3_arm64",
+			"key": "postgresql-client-17_17.2-1.pgdg120-p-_20241125.1736.gf979197_arm64",
 			"name": "postgresql-client-17",
-			"sha256": "f4a02248b763601fd84e1e26c1cb2934c38d1226c443f49df59bc492efe02b47",
-			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.2-1.pgdg120+~20241119.2334.gc1ebef3_arm64.deb",
-			"version": "17.2-1.pgdg120+~20241119.2334.gc1ebef3"
+			"sha256": "92afb6e52da177ea2678b99b2b614c75cf74f2f39b6a006e0733cf55506d287b",
+			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.2-1.pgdg120+~20241125.1736.gf979197_arm64.deb",
+			"version": "17.2-1.pgdg120+~20241125.1736.gf979197"
 		},
 		{
 			"arch": "arm64",
@@ -1284,11 +1284,11 @@
 		{
 			"arch": "arm64",
 			"dependencies": [],
-			"key": "libpq5_17.2-1.pgdg120-p-_20241119.2334.gc1ebef3_arm64",
+			"key": "libpq5_17.2-1.pgdg120-p-_20241125.1736.gf979197_arm64",
 			"name": "libpq5",
-			"sha256": "12aaf3a285d5c5be8658406932768bce14fafa482221ccbd51991ff12c5228a7",
-			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/libpq5_17.2-1.pgdg120+~20241119.2334.gc1ebef3_arm64.deb",
-			"version": "17.2-1.pgdg120+~20241119.2334.gc1ebef3"
+			"sha256": "a59411a81f2ddcd50a71b6a2f1674421a29880906e9bc8de523eead0fda3b328",
+			"url": "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/libpq5_17.2-1.pgdg120+~20241125.1736.gf979197_arm64.deb",
+			"version": "17.2-1.pgdg120+~20241125.1736.gf979197"
 		},
 		{
 			"arch": "arm64",
@@ -1320,11 +1320,11 @@
 		{
 			"arch": "arm64",
 			"dependencies": [],
-			"key": "libgnutls30_3.7.9-2-p-deb12u2_arm64",
+			"key": "libgnutls30_3.7.9-2-p-deb12u3_arm64",
 			"name": "libgnutls30",
-			"sha256": "6c3efcf48b24be49322127d0515ffd47828a7d578b089bf44a1053a2ff9fc6b9",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/g/gnutls28/libgnutls30_3.7.9-2+deb12u2_arm64.deb",
-			"version": "3.7.9-2+deb12u2"
+			"sha256": "c57211d73ef38e312eebb080210474f10dc66af736f866899190e1ee0a37ad9d",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/g/gnutls28/libgnutls30_3.7.9-2+deb12u3_arm64.deb",
+			"version": "3.7.9-2+deb12u3"
 		},
 		{
 			"arch": "arm64",
@@ -1401,29 +1401,29 @@
 		{
 			"arch": "arm64",
 			"dependencies": [],
-			"key": "libgssapi-krb5-2_1.20.1-2-p-deb12u1_arm64",
+			"key": "libgssapi-krb5-2_1.20.1-2-p-deb12u2_arm64",
 			"name": "libgssapi-krb5-2",
-			"sha256": "94bf0e0fd3c51bd3b082cd360facf1e1db39d825fe93b581d673283edb64c1d4",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/k/krb5/libgssapi-krb5-2_1.20.1-2+deb12u1_arm64.deb",
-			"version": "1.20.1-2+deb12u1"
+			"sha256": "b45d45af61d01bc2ec9418de43a0cd68b335eac09dcedfa50b51a4886050d719",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/k/krb5/libgssapi-krb5-2_1.20.1-2+deb12u2_arm64.deb",
+			"version": "1.20.1-2+deb12u2"
 		},
 		{
 			"arch": "arm64",
 			"dependencies": [],
-			"key": "libkrb5support0_1.20.1-2-p-deb12u1_arm64",
+			"key": "libkrb5support0_1.20.1-2-p-deb12u2_arm64",
 			"name": "libkrb5support0",
-			"sha256": "aa26a06447e38931ebd4c0a7ce2420b138c63558f4c6b5c736dda573b9deba30",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/k/krb5/libkrb5support0_1.20.1-2+deb12u1_arm64.deb",
-			"version": "1.20.1-2+deb12u1"
+			"sha256": "b07c71b63b6db1b8afff17cff9a9abb36a1a80272ccba71be6768f72b640d52e",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/k/krb5/libkrb5support0_1.20.1-2+deb12u2_arm64.deb",
+			"version": "1.20.1-2+deb12u2"
 		},
 		{
 			"arch": "arm64",
 			"dependencies": [],
-			"key": "libkrb5-3_1.20.1-2-p-deb12u1_arm64",
+			"key": "libkrb5-3_1.20.1-2-p-deb12u2_arm64",
 			"name": "libkrb5-3",
-			"sha256": "7f7a23e637eb7b4cfa1edd9a4cc07c61e6b3b440d74ffdc402e84eef5a7681ff",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/k/krb5/libkrb5-3_1.20.1-2+deb12u1_arm64.deb",
-			"version": "1.20.1-2+deb12u1"
+			"sha256": "5896a3ca948d7c287e2eaa19baeec7cd6873fd9cdebeeea7f4069420da028185",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/k/krb5/libkrb5-3_1.20.1-2+deb12u2_arm64.deb",
+			"version": "1.20.1-2+deb12u2"
 		},
 		{
 			"arch": "arm64",
@@ -1437,11 +1437,11 @@
 		{
 			"arch": "arm64",
 			"dependencies": [],
-			"key": "libk5crypto3_1.20.1-2-p-deb12u1_arm64",
+			"key": "libk5crypto3_1.20.1-2-p-deb12u2_arm64",
 			"name": "libk5crypto3",
-			"sha256": "750635caa352c1d1fee6189fd14956568105893ab287ef056729dc746bf36180",
-			"url": "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/k/krb5/libk5crypto3_1.20.1-2+deb12u1_arm64.deb",
-			"version": "1.20.1-2+deb12u1"
+			"sha256": "e10046d423820bff3e7aa9fda0f9f1a5344c2c4222db3ac539a606165c8275b6",
+			"url": "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/k/krb5/libk5crypto3_1.20.1-2+deb12u2_arm64.deb",
+			"version": "1.20.1-2+deb12u2"
 		},
 		{
 			"arch": "arm64",

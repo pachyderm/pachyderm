@@ -1973,11 +1973,6 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	_, err = adminClient.Enterprise.Heartbeat(adminClient.Ctx(), &enterprise.HeartbeatRequest{})
 	require.NoError(t, err)
 
-	// verify Alice can no longer operate on the system
-	_, err = aliceClient.ListRepo()
-	require.YesError(t, err)
-	require.True(t, strings.Contains(err.Error(), "Pachyderm Enterprise is not active"))
-
 	// verify that admin can still complete an operation (ex. ListRepo)
 	repoInfo, err = adminClient.ListRepo()
 	require.NoError(t, err)
