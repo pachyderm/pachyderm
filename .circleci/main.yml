@@ -648,6 +648,8 @@ jobs:
           command: |
             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
       - run:
+          command: bazel run @apt//:lock
+      - run:
           name: Build Docker
           command: |
             if << parameters.enableCoverage >>
