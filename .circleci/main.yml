@@ -2385,7 +2385,7 @@ commands:
             wget -O ./bazel "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
             chmod +x ./bazel
             sudo mv ./bazel /home/circleci/bin/bazel
-            sudo rm -f ~/.cache/bazel; bazel run @apt//:lock; bazel run @apt//:lock — —autofix
+            bazel run @apt//:lock — —autofix
   node-install-all:
     steps:
       - run:
