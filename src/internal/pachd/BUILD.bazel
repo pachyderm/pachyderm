@@ -79,7 +79,6 @@ go_library(
         "//src/server/auth/server",
         "//src/server/debug/server",
         "//src/server/enterprise",
-        "//src/server/enterprise/server",
         "//src/server/http",
         "//src/server/identity/server",
         "//src/server/logs/server",
