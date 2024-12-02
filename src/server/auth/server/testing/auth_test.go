@@ -2554,9 +2554,6 @@ func TestListRepoAfterAuthActivation(t *testing.T) {
 	}
 	ensureTestRepoExists(c)
 
-	// Prepare to activate auth.
-	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
-
 	// Then setup auth in a single transaction.
 	err = env.AuthServer.(interface {
 		ActivateAuthEverywhere(context.Context, []authserver.ActivationScope, string) error
