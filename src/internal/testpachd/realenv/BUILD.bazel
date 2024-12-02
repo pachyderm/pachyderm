@@ -35,7 +35,6 @@ go_library(
         "//src/server/auth",
         "//src/server/auth/server",
         "//src/server/debug/server",
-        "//src/server/enterprise",
         "//src/server/identity/server",
         "//src/server/logs/server",
         "//src/server/metadata/server",
