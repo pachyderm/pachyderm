@@ -2572,8 +2572,11 @@ func TestPreAuthProjects(t *testing.T) {
 	project := uuid.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
 
+	_, err := c.Activate(c.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
+	require.NoError(t, err)
+	c.SetAuthToken(tu.RootToken)
 	// activate pfs auth
-	_, err := c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{})
+	_, err = c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{})
 	require.NoError(t, err)
 
 	// default project's role binding should be created automatically via PFS auth activation
