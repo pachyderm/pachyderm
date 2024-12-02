@@ -625,9 +625,6 @@ func DetNodeportHttpUrl(t testing.TB, namespace string) *url.URL {
 func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
 	_, err := kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: licenseKeySecretName},
-		StringData: map[string]string{
-			"enterprise-license-key": testutil.GetTestEnterpriseCode(t),
-		},
 	}, metav1.CreateOptions{})
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
 }
