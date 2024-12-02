@@ -52,9 +52,7 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
-	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	identityserver "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
-	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -213,18 +211,6 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	realEnv.AuthServer, err = authserver.NewAuthServer(authEnv, true, false, true)
 	require.NoError(t, err)
 	realEnv.ServiceEnv.SetAuthServer(realEnv.AuthServer)
-
-	// ENTERPRISE
-	entEnv := pachd.EnterpriseEnv(realEnv.ServiceEnv, path.Join("", "enterprise"), txnEnv)
-	realEnv.EnterpriseServer, err = enterpriseserver.NewEnterpriseServer(entEnv, enterpriseserver.Config{Heartbeat: true})
-	require.NoError(t, err)
-	realEnv.ServiceEnv.SetEnterpriseServer(realEnv.EnterpriseServer)
-	mockEnv.MockPachd.GetAuthServer = realEnv.ServiceEnv.AuthServer
-
-	// LICENSE
-	licenseEnv := pachd.LicenseEnv(realEnv.ServiceEnv)
-	realEnv.LicenseServer, err = licenseserver.New(licenseEnv)
-	require.NoError(t, err)
 
 	// PFS
 	pfsEnv, err := pachd.PFSEnv(realEnv.ServiceEnv, txnEnv)
