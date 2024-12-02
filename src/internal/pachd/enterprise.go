@@ -67,8 +67,6 @@ func (eb *enterpriseBuilder) buildAndRun(ctx context.Context) error {
 		eb.maybeInitDexDB,
 		eb.initInternalServer,
 		eb.initExternalServer,
-		eb.registerLicenseServer,
-		eb.registerEnterpriseServer,
 		eb.registerIdentityServer,
 		eb.registerAuthServer,
 		eb.registerHealthServer,
