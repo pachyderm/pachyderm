@@ -82,7 +82,6 @@ go_library(
         "//src/server/enterprise/server",
         "//src/server/http",
         "//src/server/identity/server",
-        "//src/server/license/server",
         "//src/server/logs/server",
         "//src/server/metadata/server",
         "//src/server/pachw/server",
