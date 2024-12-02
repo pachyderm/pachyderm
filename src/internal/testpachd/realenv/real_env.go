@@ -51,7 +51,6 @@ import (
 	authapi "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
-	"github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	identityserver "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
@@ -77,7 +76,6 @@ type RealEnv struct {
 	AdminServer              adminapi.APIServer
 	AuthServer               authapi.APIServer
 	IdentityServer           identity.APIServer
-	EnterpriseServer         enterprise.APIServer
 	LogsServer               logs.APIServer
 	LicenseServer            license.APIServer
 	PPSServer                ppsapi.APIServer
@@ -336,8 +334,6 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	linkServers(&realEnv.MockPachd.Storage, realEnv.StorageServer)
 	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
-	linkServers(&realEnv.MockPachd.Enterprise, realEnv.EnterpriseServer)
-	linkServers(&realEnv.MockPachd.License, realEnv.LicenseServer)
 	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
 	linkServers(&realEnv.MockPachd.Version, realEnv.VersionServer)
 	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
