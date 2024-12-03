@@ -80,48 +80,6 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEnterpriseServerMember(t *testing.T) {
-	t.Parallel()
-	valueOverrides := make(map[string]string)
-	maps.Copy(valueOverrides, globalValueOverrides)
-	ns, portOffset := minikubetestenv.ClaimCluster(t)
-	k := testutil.GetKubeClient(t)
-	require.NoErrorWithinTRetryConstant(t, 300*time.Second, func() error {
-		if !minikubetestenv.LeaseNamespace(t, "enterprise") {
-			return errors.Errorf("Could not acquire Namespace lock on Enterprise namespace for deploy test.")
-		}
-		return nil
-	}, 5*time.Second)
-	valueOverrides["pachd.replicas"] = "2"
-	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
-		AuthUser:         auth.RootUser,
-		EnterpriseServer: true,
-		Enterprise:       true,
-		CleanupAfter:     true,
-		ValueOverrides:   valueOverrides,
-	})
-	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, auth.RootUser, whoami.Username)
-	mockIDPLogin(t, ec)
-	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
-		AuthUser:         auth.RootUser,
-		EnterpriseMember: true,
-		Enterprise:       true,
-		PortOffset:       portOffset,
-		CleanupAfter:     true,
-		ValueOverrides:   valueOverrides,
-	})
-	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, auth.RootUser, whoami.Username)
-	c.SetAuthToken("")
-	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
-	require.NoError(t, err)
-	require.True(t, strings.Contains(loginInfo.LoginUrl, ":31658"))
-	mockIDPLogin(t, c)
-}
-
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	require.NoErrorWithinTRetryConstant(t, 90*time.Second, func() (retErr error) {
 		// login using mock IDP admin

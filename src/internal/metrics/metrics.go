@@ -7,7 +7,6 @@ import (
 	"time"
 
 	auth_client "github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -15,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	enterprisemetrics "github.com/pachyderm/pachyderm/v2/src/server/enterprise/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"go.uber.org/zap"
 
@@ -254,12 +252,6 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 	// Activation code
 	ctx, cf := pctx.WithCancel(context.Background())
 	defer cf()
-
-	enterpriseState, err := r.env.EnterpriseServer().GetState(ctx, &enterprise.GetStateRequest{})
-	if err == nil {
-		metrics.ActivationCode = enterpriseState.ActivationCode
-	}
-	metrics.EnterpriseFailures = enterprisemetrics.GetEnterpriseFailures()
 
 	resp, err := r.env.AuthServer().GetRobotToken(ctx, &auth_client.GetRobotTokenRequest{
 		Robot: metricsUsername,

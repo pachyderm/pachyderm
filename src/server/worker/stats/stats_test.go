@@ -5,16 +5,16 @@ package stats
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
@@ -26,7 +26,6 @@ import (
 func TestPrometheusStats(t *testing.T) {
 	t.Skip() // DNJ - these have not run in years and need debugging
 	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateEnterprise(t, c)
 
 	dataRepo := uuid.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
@@ -236,7 +235,6 @@ func TestPrometheusStats(t *testing.T) {
 func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	t.Skip() // DNJ - these have not run in years and need debugging
 	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateEnterprise(t, c)
 
 	dataRepo := uuid.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))

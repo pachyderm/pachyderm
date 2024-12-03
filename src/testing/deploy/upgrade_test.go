@@ -13,7 +13,6 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
@@ -170,9 +169,6 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		},
 		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* postUpgrade */
 			c = testutil.AuthenticateClient(t, c, upgradeSubject)
-			state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
-			require.NoError(t, err)
-			require.Equal(t, enterprise.State_ACTIVE, state.State)
 			// check provenance migration
 			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, montage(from), "master", "")
 			require.NoError(t, err)

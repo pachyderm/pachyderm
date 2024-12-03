@@ -773,12 +773,6 @@ func (c APIClient) DeleteAll(ctx context.Context) error {
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
-	if _, err := c.License.DeleteAll(
-		ctx,
-		&license.DeleteAllRequest{},
-	); err != nil && !auth.IsErrNotActivated(err) {
-		return grpcutil.ScrubGRPC(err)
-	}
 	if _, err := c.PpsAPIClient.DeleteAll(
 		ctx,
 		&emptypb.Empty{},
@@ -813,12 +807,6 @@ func (c APIClient) DeleteAllEnterprise(ctx context.Context) error {
 	if _, err := c.AuthAPIClient.Deactivate(
 		ctx,
 		&auth.DeactivateRequest{},
-	); err != nil && !auth.IsErrNotActivated(err) {
-		return grpcutil.ScrubGRPC(err)
-	}
-	if _, err := c.License.DeleteAll(
-		ctx,
-		&license.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}

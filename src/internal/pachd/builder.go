@@ -16,7 +16,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 
-	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -26,10 +25,8 @@ import (
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
-	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/http"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
-	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pachw "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
@@ -93,8 +90,6 @@ type builder struct {
 	env                serviceenv.ServiceEnv
 	daemon             daemon
 	txnEnv             *transactionenv.TransactionEnv
-	licenseEnv         *licenseserver.Env
-	enterpriseEnv      *eprsserver.Env
 	reporter           *metrics.Reporter
 	authInterceptor    *authmw.Interceptor
 	loggingInterceptor *loggingmw.LoggingInterceptor
@@ -239,18 +234,6 @@ func (b builder) forGRPCServer(f func(*grpc.Server)) {
 	b.daemon.forGRPCServer(f)
 }
 
-func (b *builder) registerLicenseServer(ctx context.Context) error {
-	b.licenseEnv = LicenseEnv(b.env)
-	apiServer, err := licenseserver.New(b.licenseEnv)
-	if err != nil {
-		return err
-	}
-	b.forGRPCServer(func(s *grpc.Server) {
-		licenseclient.RegisterAPIServer(s, apiServer)
-	})
-	b.bootstrappers = append(b.bootstrappers, apiServer)
-	return nil
-}
 func (b *builder) registerIdentityServer(ctx context.Context) error {
 	apiServer := identity_server.NewIdentityServer(
 		identity_server.EnvFromServiceEnv(b.env),
@@ -274,7 +257,6 @@ func (b *builder) registerAuthServer(ctx context.Context) error {
 		auth.RegisterAPIServer(s, apiServer)
 	})
 	b.env.SetAuthServer(apiServer)
-	b.enterpriseEnv.AuthServer = apiServer
 	b.bootstrappers = append(b.bootstrappers, apiServer)
 	return nil
 }

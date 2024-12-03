@@ -2,16 +2,11 @@ package pachd
 
 import (
 	"context"
-	"os"
-	"path"
-
 	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	adminserver "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
-	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 )
 
 // A pausedBuilder builds a paused-mode pachd.
@@ -27,46 +22,6 @@ func newPausedBuilder(config any) *pausedBuilder {
 func (pb *pausedBuilder) registerAdminServer(ctx context.Context) error {
 	apiServer := adminserver.NewAPIServer(AdminEnv(pb.env, true))
 	pb.forGRPCServer(func(s *grpc.Server) { admin.RegisterAPIServer(s, apiServer) })
-	return nil
-}
-
-// registerEnterpriseServer registers a PAUSED-mode enterprise server.  This
-// differs from full mode in the mode option is set to paused; from enterprise
-// mode in that the mode & unpaused-mode options are passed; and from sidecar
-// mode in that the mode & unpaused-mode options are passed and the heartbeat is
-// true.
-//
-// TODO: refactor the four modes to have a cleaner license/enterprise server
-// abstraction.
-func (pb *pausedBuilder) registerEnterpriseServer(ctx context.Context) error {
-	pb.enterpriseEnv = EnterpriseEnv(
-		pb.env,
-		path.Join(pb.env.Config().EtcdPrefix, pb.env.Config().EnterpriseEtcdPrefix),
-		pb.txnEnv,
-	)
-	apiServer, err := eprsserver.NewEnterpriseServer(
-		pb.enterpriseEnv,
-		eprsserver.Config{
-			Heartbeat:    true,
-			Mode:         eprsserver.PausedMode,
-			UnpausedMode: os.Getenv("UNPAUSED_MODE"),
-		},
-	)
-	if err != nil {
-		return err
-	}
-	pb.forGRPCServer(func(s *grpc.Server) {
-		enterprise.RegisterAPIServer(s, apiServer)
-	})
-	pb.bootstrappers = append(pb.bootstrappers, apiServer)
-	pb.env.SetEnterpriseServer(apiServer)
-	pb.licenseEnv.EnterpriseServer = apiServer
-
-	// Stop workers because unpaused pachds in the process
-	// of rolling may have started them back up.
-	if err := eprsserver.StopWorkers(ctx, pb.enterpriseEnv.GetKubeClient(), pb.enterpriseEnv.Namespace); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -90,8 +45,6 @@ func (pb *pausedBuilder) buildAndRun(ctx context.Context) error {
 		pb.maybeInitDexDB,
 		pb.initInternalServer,
 		pb.initExternalServer,
-		pb.registerLicenseServer,
-		pb.registerEnterpriseServer,
 		pb.registerAdminServer,
 		pb.maybeRegisterIdentityServer,
 		pb.registerAuthServer,
