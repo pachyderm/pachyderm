@@ -12,7 +12,9 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/internal/errutil",
+        "//src/internal/log",
         "//src/internal/lokiutil/client",
+        "@org_uber_go_zap//:zap",
     ],
 )
 
