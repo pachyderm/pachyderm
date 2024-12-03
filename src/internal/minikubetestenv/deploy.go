@@ -753,6 +753,10 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			deleteRelease(t, context.Background(), namespace, kubeClient)
 		})
 	}
+	// enterprise server is deprecated
+	opts.EnterpriseServer = false
+	opts.Enterprise = false
+
 	version := getLocalImage()
 	chartPath := helmChartLocalPath(t)
 	helmOpts := withBase(namespace)
@@ -811,8 +815,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	waitForInstallFinished := func() {
 		createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
 
-		// enterprise server is deprecated
-		opts.EnterpriseServer = false
 		waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
 
 		if opts.EnableLoki {
