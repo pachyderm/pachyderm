@@ -265,8 +265,8 @@ determined:
     # snapshotSuffix:
 
     # restoreSnapshotSuffix refers to the volume snapshot name suffix which you wish to restore the database to.
-    # During an upgrade, a new persistent volume & claim will be created, named `determined-db-pvc-{{ .Values.determined.db.restoreSnapshotSuffix}}`, 
-    # restoring the data from `determined-db-snapsnot-{{ .Values.determined.db.restoreSnapshotSuffix}}`. MUST NOT be the name 
+    # During an upgrade, a new persistent volume & claim will be created, named `determined-db-pvc-{{ .Values.determined.db.restoreSnapshotSuffix}}`,
+    # restoring the data from `determined-db-snapsnot-{{ .Values.determined.db.restoreSnapshotSuffix}}`. MUST NOT be the name
     # of a persistent volume claim that already exists, e.g. the {{Release.Name}}.
     # restoreSnapshotSuffix:
 
