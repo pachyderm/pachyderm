@@ -62,7 +62,12 @@ spec:
       volumes:
         - name: determined-db-storage
           persistentVolumeClaim:
-            claimName: determined-db-pvc-{{ .Release.Name }}
+            claimName: 
+              {{ if .Values.determined.db.claimSuffix }}
+              determined-db-pvc-{{ .Values.determined.db.claimSuffix }}
+              {{- else -}}
+              determined-db-pvc-{{ .Release.Name }}
+              {{ end }}
             {{ end }}
       {{ end }}
 {{ end}}
