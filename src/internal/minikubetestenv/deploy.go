@@ -259,61 +259,6 @@ func withMinio() *helm.Options {
 	}
 }
 
-func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Options {
-	return &helm.Options{
-		SetValues: map[string]string{
-			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
-			"pachd.rootToken":                      rootToken,
-			// TODO: make these ports configurable to support IDP Login in parallel deployments
-			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
-			"oidc.issuerURI":                     fmt.Sprintf("http://pachd:%v/dex", issuerPort),
-			"proxy.host":                         fmt.Sprintf("%s:%v", host, clientPort),
-			// to test that the override works
-			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
-		},
-	}
-}
-
-func withEnterpriseServer(image, host string) *helm.Options {
-	return &helm.Options{SetValues: map[string]string{
-		"pachd.enabled":                           "false",
-		"enterpriseServer.enabled":                "true",
-		"enterpriseServer.image.tag":              image,
-		"oidc.mockIDP":                            "true",
-		"oidc.issuerURI":                          "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
-		"oidc.userAccessibleOauthIssuerHost":      fmt.Sprintf("%s:31658", host),
-		"pachd.oauthClientID":                     "enterprise-pach",
-		"pachd.oauthRedirectURI":                  fmt.Sprintf("http://%s:31657/authorization-code/callback", host),
-		"enterpriseServer.service.type":           "ClusterIP",
-		"enterpriseServer.resources.requests.cpu": "250m",
-		// For tests, traffic from outside the cluster is routed through the proxy,
-		// but we bind the internal k8s service ports to the same numbers for
-		// in-cluster traffic, like enterprise registration.
-		"proxy.enabled":                      "true",
-		"proxy.service.type":                 exposedServiceType(),
-		"proxy.service.httpPort":             "31650",
-		"proxy.service.httpNodePort":         "31650",
-		"pachd.service.apiGRPCPort":          "31650",
-		"proxy.service.legacyPorts.oidc":     "31657",
-		"pachd.service.oidcPort":             "31657",
-		"proxy.service.legacyPorts.identity": "31658",
-		"pachd.service.identityPort":         "31658",
-		"proxy.service.legacyPorts.metrics":  "31656",
-		"pachd.service.prometheusPort":       "31656",
-	}}
-}
-
-func withEnterpriseMember(host string, grpcPort int) *helm.Options {
-	return &helm.Options{SetValues: map[string]string{
-		"pachd.activateEnterpriseMember":     "true",
-		"pachd.enterpriseServerAddress":      "grpc://pach-enterprise.enterprise.svc.cluster.local:31650",
-		"pachd.enterpriseCallbackAddress":    fmt.Sprintf("grpc://pachd.default.svc.cluster.local:%v", grpcPort),
-		"pachd.enterpriseRootToken":          testutil.RootToken,
-		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
-		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
-	}}
-}
-
 func withPort(namespace string, port uint16, tls bool) *helm.Options {
 	opts := &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
@@ -622,13 +567,6 @@ func DetNodeportHttpUrl(t testing.TB, namespace string) *url.URL {
 	return detUrl
 }
 
-func createSecretEnterpriseKeySecret(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
-	_, err := kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: licenseKeySecretName},
-	}, metav1.CreateOptions{})
-	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists'", err)
-}
-
 // Create the secret kubernetes uses to pull the Determined image
 func createSecretDeterminedRegcred(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) {
 	require.NotEqual(t, "", detDockerUser, "Missing required user for Determined integration testing")
@@ -825,23 +763,11 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := GetPachAddress(t)
-	if opts.Enterprise {
-		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
-		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
-		if opts.EnterpriseMember {
-			issuerPort = 31658
-		}
-		helmOpts = union(helmOpts, withEnterprise(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port+opts.PortOffset)+7))
-	}
-	if opts.EnterpriseServer {
-		helmOpts = union(helmOpts, withEnterpriseServer(version, pachAddress.Host))
-		helmOpts = union(helmOpts, withMinio())
-		pachAddress.Port = uint16(31650)
-	} else {
-		helmOpts = union(helmOpts, withPachd(version))
-		// TODO(acohen4): apply minio deployment to this namespace
-		helmOpts = union(helmOpts, withMinio())
-	}
+
+	helmOpts = union(helmOpts, withPachd(version))
+	// TODO(acohen4): apply minio deployment to this namespace
+	helmOpts = union(helmOpts, withMinio())
+
 	if opts.Determined {
 		createSecretDeterminedRegcred(t, ctx, kubeClient, namespace)
 		createSecretDeterminedLogin(t, ctx, kubeClient, namespace)
@@ -860,9 +786,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
 		helmOpts = union(helmOpts, withPort(namespace, pachAddress.Port, opts.TLS))
-	}
-	if opts.EnterpriseMember {
-		helmOpts = union(helmOpts, withEnterpriseMember(pachAddress.Host, int(pachAddress.Port)))
 	}
 	if opts.Console {
 		helmOpts.SetValues["console.enabled"] = "true"
@@ -888,6 +811,8 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	waitForInstallFinished := func() {
 		createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
 
+		// enterprise server is deprecated
+		opts.EnterpriseServer = false
 		waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
 
 		if opts.EnableLoki {
