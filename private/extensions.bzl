@@ -1,6 +1,6 @@
 """Module extensions interfaces repositories.bzl with bzlmod."""
 
-load("//private:repositories.bzl", "dumb_init_deps", "etc_proto_deps", "helm_deps", "ibazel_deps", "kind_deps", "kubeconform_deps", "kubectl_deps", "loki_deps", "pachdev_deps", "skopeo_deps")
+load("//private:repositories.bzl", "dumb_init_deps", "etc_proto_deps", "helm_deps", "ibazel_deps", "kind_deps", "kubeconform_deps", "kubectl_deps", "loki_deps", "pachdev_deps", "postgres_deps", "skopeo_deps")
 
 def _non_module_deps_impl(_ctx):
     etc_proto_deps()
@@ -13,6 +13,7 @@ def _non_module_deps_impl(_ctx):
     kubeconform_deps()
     ibazel_deps()
     loki_deps()
+    postgres_deps()
 
 non_module_deps = module_extension(
     implementation = _non_module_deps_impl,
