@@ -197,6 +197,21 @@ stringData:
       fluent:
         {{- toYaml .Values.determined.fluent | nindent 8}}
       {{- end }}
+      {{- if .Values.determined.determinedMasterHost }}
+      {{- if .Values.determined.determinedMasterScheme }}
+      determined_master_scheme: {{ .Values.determined.determinedMasterScheme | quote }}
+      {{- else if .Values.determined.tlsSecret }}
+      determined_master_scheme: "https"
+      {{- else }}
+      determined_master_scheme: "http"
+      {{- end }}
+      determined_master_host: {{ .Values.determined.determinedMasterHost | quote }}
+      {{- if .Values.determined.determinedMasterPort }}
+      determined_master_port: {{ .Values.determined.determinedMasterPort }}
+      {{- else }}
+      determined_master_port: {{ .Values.determined.masterPort }}
+      {{- end }}
+      {{- end }}
 
       default_aux_resource_pool: {{.Values.determined.defaultAuxResourcePool}}
       default_compute_resource_pool: {{.Values.determined.defaultComputeResourcePool}}
