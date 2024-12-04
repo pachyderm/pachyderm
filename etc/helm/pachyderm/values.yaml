@@ -63,7 +63,7 @@ global:
 
 determined:
   enabled: false
-  detVersion: "0.37.0"
+  detVersion: "0.38.0"
   # The image registry to be used to pull the Master image.
   # Determined OSS edition uses the determinedai repository in DockerHub.
   imageRegistry: determinedai
@@ -94,8 +94,8 @@ determined:
 
     # default images for CPU and GPU environments
 
-    cpuImage: "determinedai/pytorch-ngc:0.37.0"
-    gpuImage: "determinedai/pytorch-ngc:0.37.0"
+    cpuImage: "determinedai/pytorch-ngc:0.38.0"
+    gpuImage: "determinedai/pytorch-ngc:0.38.0"
     rocmImage: "determinedai/environments:rocm-5.6-pytorch-1.3-tf-2.10-rocm-mpich-0736b6d"
 
   # Install Determined enterprise edition.
@@ -176,6 +176,10 @@ determined:
   # authz option (EE-only) sets the authorization mode.
   # authz:
   #   type: rbac
+  # access token option (EE-Only) allows to authenticate in automated workflows.
+  # token:
+  #   max_lifespan_days: -1
+  #   default_lifespan_days: 30
 
   # oidc (EE-only) enables OpenID Connect Integration, which is only available if enterpriseEdition
   # is true. It allows users to use single sign-on with their organization’s identity provider.
@@ -248,6 +252,23 @@ determined:
     # sslRootCert: <cert_name>
     # resourceType: <secret/configMap>
     # certResourceName: <secret/configMap name>
+
+    # claimSuffix refers to the persistent volume claim name suffix for the database.
+    # If left undefined, a new PVC is created, named "determined-db-pvc-{{ .Release.name }}".
+    # Otherwise, use the PVC provided, given that it exists in the current context.
+    # claimSuffix:
+
+    # snapshotSuffix refers to the volume snapshot name suffix, a backup of Determined's database persistent volume.
+    # If defined, Helm will "snapshot" the DB upon its next upgrade, creating a volumeSnapshot called
+    # `determined-db-snapsnot-{{ .Values.determined.db.snapshotSuffix}}`. This MUST NOT be the name of a persistent volume claim
+    # that already exists, such as `determined-db-pvc-{{Release.Name}}`.
+    # snapshotSuffix:
+
+    # restoreSnapshotSuffix refers to the volume snapshot name suffix which you wish to restore the database to.
+    # During an upgrade, a new persistent volume & claim will be created, named `determined-db-pvc-{{ .Values.determined.db.restoreSnapshotSuffix}}`,
+    # restoring the data from `determined-db-snapsnot-{{ .Values.determined.db.restoreSnapshotSuffix}}`. MUST NOT be the name
+    # of a persistent volume claim that already exists, e.g. the {{Release.Name}}.
+    # restoreSnapshotSuffix:
 
   # checkpointStorage controls where checkpoints are stored. Supported types include `shared_fs`,
   # `gcs`, and `s3`.
@@ -428,11 +449,51 @@ determined:
   ## Configure the resource pools in the Determined cluster.
   resourcePools:
     - pool_name: default
+  ## To set up multiple resource pools for Determined on your Kubernetes cluster
+  ## with custom pod spec or node selectors:
+  # resourcePools:
+  #   - pool_name: prod_pool
+  #     kubernetes_namespace: default
+  #     task_container_defaults:
+  #       gpu_pod_spec:
+  #         apiVersion: v1
+  #         kind: Pod
+  #         spec:
+  #           tolerations:
+  #             - key: "pool_taint"
+  #               operator: "Equal"
+  #               value: "prod"
+  #               effect: "NoSchedule"
+  #             affinity:
+  #             # Define an example node selector label.
+  #                nodeSelectorTerms:
+  #                   kubernetes.io/hostname: "foo"
+  #             # Define an example node affinity.
+  #                nodeAffinity:
+  #                requiredDuringSchedulingIgnoredDuringExecution:
+  #                   nodeSelectorTerms:
+  #                      - matchExpressions:
+  #                      - key: topology.kubernetes.io/zone
+  #                         operator: In
+  #                         values:
+  #                         - antarctica-west1
+  #                         - antarctica-east1
   # defaultAuxResourcePool: default
   # defaultComputeResourcePool: default
 
   ## Configure the initial user password for the cluster
   # initialUserPassword:
+
+  # determinedMasterHost configures the hostname that tasks launched by the primary resource manager use when
+  # communicating with our API server. This is useful when installations span multiple Kubernetes clusters and when there
+  # are proxies in between tasks and the master. It defaults to `<det_namespace>.<det_service_name>.svc.cluster.local`.
+  # determinedMasterHost:
+  # determinedMasterPort configures the port for the host above. It defaults to `masterPort` specified elsewhere. Must
+  # be used with determinedMasterHost or it is ineffective.
+  # determinedMasterPort:
+  # determinedMasterScheme configures the scheme for the host and port above. It defaults to `https` if our API server
+  # is deployed with TLS, else `http`. Must be used with determinedMasterHost or it is ineffective.
+  # determinedMasterScheme:
 
   # additional_resource_managers:
   #   - resource_manager:
@@ -442,7 +503,7 @@ determined:
   #       default_namespace: default
   #       kubeconfig_secret_name: additionalrm
   #       kubeconfig_secret_value: config
-  #       determined_master_ip: 10.11.12.13
+  #       determined_master_host: 10.11.12.13
   #       determined_master_port: 8080
   #     resource_pools:
   #       - pool_name: additional_pool

@@ -1,0 +1,19 @@
+{{- if and .Release.IsUpgrade .Values.determined.db.snapshotSuffix }}
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshot
+metadata:
+  name: determined-db-snapshot-{{ .Values.determined.db.snapshotSuffix }}
+  namespace: default
+  labels:
+    app: determined-db-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  volumeSnapshotClassName: determined-db-snapshot-class
+  source:
+    persistentVolumeClaimName: 
+      {{ if .Values.determined.db.claimSuffix }}
+      determined-db-pvc-{{ .Values.determined.db.claimSuffix }}
+      {{- else -}}
+      determined-db-pvc-{{ .Release.Name }}
+      {{ end }}
+{{ end }}

@@ -1,0 +1,8 @@
+{{- if and .Release.IsUpgrade .Values.determined.db.snapshotSuffix }}
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: determined-db-snapshot-class
+driver: pd.csi.storage.gke.io
+deletionPolicy: Retain
+{{ end }}
