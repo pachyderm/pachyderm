@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
+	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
 	"io"
 	"os"
 	"os/signal"
@@ -884,6 +886,8 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, authcmds.Cmds(pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, identitycmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, admincmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, enterprisecmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, licensecmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, debugcmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, txncmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, configcmds.Cmds(pachctlCfg)...)
