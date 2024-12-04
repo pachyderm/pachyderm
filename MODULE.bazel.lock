@@ -1989,6 +1989,17 @@
               "sha256": "454eb2ecb79e03682b176f04a54b8820ccf8868c074995d96fb6f4736f546cec"
             }
           },
+          "apt_libpq5_17.2-1.pgdg120-p-_20241204.1135.g83ce20d_amd64": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\ngenrule(\n    name = \"data\",\n    srcs = glob([\"data.tar*\"]),\n    outs = [\"layer.tar.gz\"],\n    cmd = \"\"\"\n    # Per the dpkg-dev man page:\n    # https://manpages.debian.org/bookworm/dpkg-dev/deb.5.en.html\n    #\n    # Debian data.tar files can be:\n    #  - .tar uncompressed, supported since dpkg 1.10.24\n    #  - .tar compressed with\n    #    *  gzip: .gz\n    #    * bzip2: .bz2, supported since dpkg 1.10.24\n    #    *  lzma: .lzma, supported since dpkg 1.13.25\n    #    *    xz: .xz, supported since dpkg 1.15.6\n    #    *  zstd: .zst, supported since dpkg 1.21.18\n    #\n    # ZSTD_BIN can decompress all formats except bzip2\n    #\n    # The OCI image spec supports .tar and .tar compressed with gzip or zstd.\n    # Bazel needs the output filename to be fixed in advanced so we settle for\n    # gzip compression.\n\n    data_file=\"$$(basename $<)\"\n\n    if [[ \"$$data_file\" == \"data.tar.bz2\" ]]; then\n      # TODO: support bz2\n      echo \"ERROR: unsupported compression: bz2\"\n      exit 1\n    elif [[ \"$$data_file\" == \"data.tar.gz\" ]]; then\n      mv $< $@\n    elif [[ \"$$data_file\" == \"data.tar\" ]]; then\n      $(ZSTD_BIN) --compress --format=gzip $< >$@\n    else\n      $(ZSTD_BIN) --force --decompress --stdout $< |\n      $(ZSTD_BIN) --compress --format=gzip - >$@\n    fi\n    \"\"\",\n    toolchains = [\"@zstd_toolchains//:resolved_toolchain\"],\n    visibility = [\"//visibility:public\"],\n)\n\nfilegroup(\n    name = \"control\",\n    srcs = glob([\"control.tar.*\"]),\n    visibility = [\"//visibility:public\"],\n)\n",
+              "urls": [
+                "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/libpq5_17.2-1.pgdg120+~20241204.1135.g83ce20d_amd64.deb"
+              ],
+              "sha256": "7687a6871d8505d13ffa89558b8f042e47c07eaf116bbb349d1dc77af21c2313"
+            }
+          },
           "apt": {
             "bzlFile": "@@rules_distroless~//apt/private:index.bzl",
             "ruleClassName": "deb_package_index",
@@ -2086,17 +2097,6 @@
               "sha256": "187aedef2ed763f425c1e523753b9719677633c7eede660401739e9c893482bd"
             }
           },
-          "apt_postgresql-client-17_17.2-1.pgdg120-p-_20241203.1135.g7a35052_arm64": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "build_file_content": "\ngenrule(\n    name = \"data\",\n    srcs = glob([\"data.tar*\"]),\n    outs = [\"layer.tar.gz\"],\n    cmd = \"\"\"\n    # Per the dpkg-dev man page:\n    # https://manpages.debian.org/bookworm/dpkg-dev/deb.5.en.html\n    #\n    # Debian data.tar files can be:\n    #  - .tar uncompressed, supported since dpkg 1.10.24\n    #  - .tar compressed with\n    #    *  gzip: .gz\n    #    * bzip2: .bz2, supported since dpkg 1.10.24\n    #    *  lzma: .lzma, supported since dpkg 1.13.25\n    #    *    xz: .xz, supported since dpkg 1.15.6\n    #    *  zstd: .zst, supported since dpkg 1.21.18\n    #\n    # ZSTD_BIN can decompress all formats except bzip2\n    #\n    # The OCI image spec supports .tar and .tar compressed with gzip or zstd.\n    # Bazel needs the output filename to be fixed in advanced so we settle for\n    # gzip compression.\n\n    data_file=\"$$(basename $<)\"\n\n    if [[ \"$$data_file\" == \"data.tar.bz2\" ]]; then\n      # TODO: support bz2\n      echo \"ERROR: unsupported compression: bz2\"\n      exit 1\n    elif [[ \"$$data_file\" == \"data.tar.gz\" ]]; then\n      mv $< $@\n    elif [[ \"$$data_file\" == \"data.tar\" ]]; then\n      $(ZSTD_BIN) --compress --format=gzip $< >$@\n    else\n      $(ZSTD_BIN) --force --decompress --stdout $< |\n      $(ZSTD_BIN) --compress --format=gzip - >$@\n    fi\n    \"\"\",\n    toolchains = [\"@zstd_toolchains//:resolved_toolchain\"],\n    visibility = [\"//visibility:public\"],\n)\n\nfilegroup(\n    name = \"control\",\n    srcs = glob([\"control.tar.*\"]),\n    visibility = [\"//visibility:public\"],\n)\n",
-              "urls": [
-                "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.2-1.pgdg120+~20241203.1135.g7a35052_arm64.deb"
-              ],
-              "sha256": "3db39f51cfd527049a3741f3082704d67db6fa5bc5d58456a49ac126a1510276"
-            }
-          },
           "apt_libsasl2-2_2.1.28-p-dfsg-10_amd64": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
@@ -2128,6 +2128,17 @@
                 "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/libx/libxcrypt/libcrypt1_4.4.33-2_amd64.deb"
               ],
               "sha256": "f5f60a5cdfd4e4eaa9438ade5078a57741a7a78d659fcb0c701204f523e8bd29"
+            }
+          },
+          "apt_libpq5_17.2-1.pgdg120-p-_20241204.1135.g83ce20d_arm64": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\ngenrule(\n    name = \"data\",\n    srcs = glob([\"data.tar*\"]),\n    outs = [\"layer.tar.gz\"],\n    cmd = \"\"\"\n    # Per the dpkg-dev man page:\n    # https://manpages.debian.org/bookworm/dpkg-dev/deb.5.en.html\n    #\n    # Debian data.tar files can be:\n    #  - .tar uncompressed, supported since dpkg 1.10.24\n    #  - .tar compressed with\n    #    *  gzip: .gz\n    #    * bzip2: .bz2, supported since dpkg 1.10.24\n    #    *  lzma: .lzma, supported since dpkg 1.13.25\n    #    *    xz: .xz, supported since dpkg 1.15.6\n    #    *  zstd: .zst, supported since dpkg 1.21.18\n    #\n    # ZSTD_BIN can decompress all formats except bzip2\n    #\n    # The OCI image spec supports .tar and .tar compressed with gzip or zstd.\n    # Bazel needs the output filename to be fixed in advanced so we settle for\n    # gzip compression.\n\n    data_file=\"$$(basename $<)\"\n\n    if [[ \"$$data_file\" == \"data.tar.bz2\" ]]; then\n      # TODO: support bz2\n      echo \"ERROR: unsupported compression: bz2\"\n      exit 1\n    elif [[ \"$$data_file\" == \"data.tar.gz\" ]]; then\n      mv $< $@\n    elif [[ \"$$data_file\" == \"data.tar\" ]]; then\n      $(ZSTD_BIN) --compress --format=gzip $< >$@\n    else\n      $(ZSTD_BIN) --force --decompress --stdout $< |\n      $(ZSTD_BIN) --compress --format=gzip - >$@\n    fi\n    \"\"\",\n    toolchains = [\"@zstd_toolchains//:resolved_toolchain\"],\n    visibility = [\"//visibility:public\"],\n)\n\nfilegroup(\n    name = \"control\",\n    srcs = glob([\"control.tar.*\"]),\n    visibility = [\"//visibility:public\"],\n)\n",
+              "urls": [
+                "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/libpq5_17.2-1.pgdg120+~20241204.1135.g83ce20d_arm64.deb"
+              ],
+              "sha256": "15862cbe374c61626cd91e2c48ec442adfb9d1d3183d7ca088b495178f51ff5e"
             }
           },
           "apt_libgdbm6_1.23-3_arm64": {
@@ -2238,17 +2249,6 @@
                 "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/c/cyrus-sasl2/libsasl2-modules-db_2.1.28+dfsg-10_amd64.deb"
               ],
               "sha256": "3ac4fd6cbe3b3b06e68d24b931bf3eb9385b42f15604a37ed25310e948ca0ee6"
-            }
-          },
-          "apt_libpq5_17.2-1.pgdg120-p-_20241203.1135.g7a35052_amd64": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "build_file_content": "\ngenrule(\n    name = \"data\",\n    srcs = glob([\"data.tar*\"]),\n    outs = [\"layer.tar.gz\"],\n    cmd = \"\"\"\n    # Per the dpkg-dev man page:\n    # https://manpages.debian.org/bookworm/dpkg-dev/deb.5.en.html\n    #\n    # Debian data.tar files can be:\n    #  - .tar uncompressed, supported since dpkg 1.10.24\n    #  - .tar compressed with\n    #    *  gzip: .gz\n    #    * bzip2: .bz2, supported since dpkg 1.10.24\n    #    *  lzma: .lzma, supported since dpkg 1.13.25\n    #    *    xz: .xz, supported since dpkg 1.15.6\n    #    *  zstd: .zst, supported since dpkg 1.21.18\n    #\n    # ZSTD_BIN can decompress all formats except bzip2\n    #\n    # The OCI image spec supports .tar and .tar compressed with gzip or zstd.\n    # Bazel needs the output filename to be fixed in advanced so we settle for\n    # gzip compression.\n\n    data_file=\"$$(basename $<)\"\n\n    if [[ \"$$data_file\" == \"data.tar.bz2\" ]]; then\n      # TODO: support bz2\n      echo \"ERROR: unsupported compression: bz2\"\n      exit 1\n    elif [[ \"$$data_file\" == \"data.tar.gz\" ]]; then\n      mv $< $@\n    elif [[ \"$$data_file\" == \"data.tar\" ]]; then\n      $(ZSTD_BIN) --compress --format=gzip $< >$@\n    else\n      $(ZSTD_BIN) --force --decompress --stdout $< |\n      $(ZSTD_BIN) --compress --format=gzip - >$@\n    fi\n    \"\"\",\n    toolchains = [\"@zstd_toolchains//:resolved_toolchain\"],\n    visibility = [\"//visibility:public\"],\n)\n\nfilegroup(\n    name = \"control\",\n    srcs = glob([\"control.tar.*\"]),\n    visibility = [\"//visibility:public\"],\n)\n",
-              "urls": [
-                "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/libpq5_17.2-1.pgdg120+~20241203.1135.g7a35052_amd64.deb"
-              ],
-              "sha256": "673bbb3737da1a4fde47bb552c9a40fafe09f1739294bf38a55764b07a3f7745"
             }
           },
           "apt_libgnutls30_3.7.9-2-p-deb12u3_arm64": {
@@ -2625,6 +2625,17 @@
               "sha256": "95fe4a1336532450e67bd067892f46eaa484139919ea8d067a9ffcbf5a4bf883"
             }
           },
+          "apt_postgresql-client-17_17.2-1.pgdg120-p-_20241204.1135.g83ce20d_amd64": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\ngenrule(\n    name = \"data\",\n    srcs = glob([\"data.tar*\"]),\n    outs = [\"layer.tar.gz\"],\n    cmd = \"\"\"\n    # Per the dpkg-dev man page:\n    # https://manpages.debian.org/bookworm/dpkg-dev/deb.5.en.html\n    #\n    # Debian data.tar files can be:\n    #  - .tar uncompressed, supported since dpkg 1.10.24\n    #  - .tar compressed with\n    #    *  gzip: .gz\n    #    * bzip2: .bz2, supported since dpkg 1.10.24\n    #    *  lzma: .lzma, supported since dpkg 1.13.25\n    #    *    xz: .xz, supported since dpkg 1.15.6\n    #    *  zstd: .zst, supported since dpkg 1.21.18\n    #\n    # ZSTD_BIN can decompress all formats except bzip2\n    #\n    # The OCI image spec supports .tar and .tar compressed with gzip or zstd.\n    # Bazel needs the output filename to be fixed in advanced so we settle for\n    # gzip compression.\n\n    data_file=\"$$(basename $<)\"\n\n    if [[ \"$$data_file\" == \"data.tar.bz2\" ]]; then\n      # TODO: support bz2\n      echo \"ERROR: unsupported compression: bz2\"\n      exit 1\n    elif [[ \"$$data_file\" == \"data.tar.gz\" ]]; then\n      mv $< $@\n    elif [[ \"$$data_file\" == \"data.tar\" ]]; then\n      $(ZSTD_BIN) --compress --format=gzip $< >$@\n    else\n      $(ZSTD_BIN) --force --decompress --stdout $< |\n      $(ZSTD_BIN) --compress --format=gzip - >$@\n    fi\n    \"\"\",\n    toolchains = [\"@zstd_toolchains//:resolved_toolchain\"],\n    visibility = [\"//visibility:public\"],\n)\n\nfilegroup(\n    name = \"control\",\n    srcs = glob([\"control.tar.*\"]),\n    visibility = [\"//visibility:public\"],\n)\n",
+              "urls": [
+                "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.2-1.pgdg120+~20241204.1135.g83ce20d_amd64.deb"
+              ],
+              "sha256": "f4b4e845567eb383dc54265e1dc319f2f368997fedd4e656dc10a7b816a0c44c"
+            }
+          },
           "apt_libzstd1_1.5.4-p-dfsg2-5_arm64": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
@@ -2634,17 +2645,6 @@
                 "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/libz/libzstd/libzstd1_1.5.4+dfsg2-5_arm64.deb"
               ],
               "sha256": "95e173c9538f96ede4fc275ec7863f395a97dd0ea62454be9bc914efa1b9be93"
-            }
-          },
-          "apt_libpq5_17.2-1.pgdg120-p-_20241203.1135.g7a35052_arm64": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "build_file_content": "\ngenrule(\n    name = \"data\",\n    srcs = glob([\"data.tar*\"]),\n    outs = [\"layer.tar.gz\"],\n    cmd = \"\"\"\n    # Per the dpkg-dev man page:\n    # https://manpages.debian.org/bookworm/dpkg-dev/deb.5.en.html\n    #\n    # Debian data.tar files can be:\n    #  - .tar uncompressed, supported since dpkg 1.10.24\n    #  - .tar compressed with\n    #    *  gzip: .gz\n    #    * bzip2: .bz2, supported since dpkg 1.10.24\n    #    *  lzma: .lzma, supported since dpkg 1.13.25\n    #    *    xz: .xz, supported since dpkg 1.15.6\n    #    *  zstd: .zst, supported since dpkg 1.21.18\n    #\n    # ZSTD_BIN can decompress all formats except bzip2\n    #\n    # The OCI image spec supports .tar and .tar compressed with gzip or zstd.\n    # Bazel needs the output filename to be fixed in advanced so we settle for\n    # gzip compression.\n\n    data_file=\"$$(basename $<)\"\n\n    if [[ \"$$data_file\" == \"data.tar.bz2\" ]]; then\n      # TODO: support bz2\n      echo \"ERROR: unsupported compression: bz2\"\n      exit 1\n    elif [[ \"$$data_file\" == \"data.tar.gz\" ]]; then\n      mv $< $@\n    elif [[ \"$$data_file\" == \"data.tar\" ]]; then\n      $(ZSTD_BIN) --compress --format=gzip $< >$@\n    else\n      $(ZSTD_BIN) --force --decompress --stdout $< |\n      $(ZSTD_BIN) --compress --format=gzip - >$@\n    fi\n    \"\"\",\n    toolchains = [\"@zstd_toolchains//:resolved_toolchain\"],\n    visibility = [\"//visibility:public\"],\n)\n\nfilegroup(\n    name = \"control\",\n    srcs = glob([\"control.tar.*\"]),\n    visibility = [\"//visibility:public\"],\n)\n",
-              "urls": [
-                "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/libpq5_17.2-1.pgdg120+~20241203.1135.g7a35052_arm64.deb"
-              ],
-              "sha256": "68fd252671cf331550e61a3062138d2b853795c9ed5b2da3ea35d946cbf25707"
             }
           },
           "apt_liblzma5_5.4.1-0.2_arm64": {
@@ -2777,17 +2777,6 @@
                 "https://snapshot-cloudflare.debian.org/archive/debian-security/20241003T000000Z/pool/updates/main/o/openssl/libssl3_3.0.14-1~deb12u2_amd64.deb"
               ],
               "sha256": "b308a8fd9889fd7e57b801511e3f42a203675b6b0087455a977d25b7633a1296"
-            }
-          },
-          "apt_postgresql-client-17_17.2-1.pgdg120-p-_20241203.1135.g7a35052_amd64": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "build_file_content": "\ngenrule(\n    name = \"data\",\n    srcs = glob([\"data.tar*\"]),\n    outs = [\"layer.tar.gz\"],\n    cmd = \"\"\"\n    # Per the dpkg-dev man page:\n    # https://manpages.debian.org/bookworm/dpkg-dev/deb.5.en.html\n    #\n    # Debian data.tar files can be:\n    #  - .tar uncompressed, supported since dpkg 1.10.24\n    #  - .tar compressed with\n    #    *  gzip: .gz\n    #    * bzip2: .bz2, supported since dpkg 1.10.24\n    #    *  lzma: .lzma, supported since dpkg 1.13.25\n    #    *    xz: .xz, supported since dpkg 1.15.6\n    #    *  zstd: .zst, supported since dpkg 1.21.18\n    #\n    # ZSTD_BIN can decompress all formats except bzip2\n    #\n    # The OCI image spec supports .tar and .tar compressed with gzip or zstd.\n    # Bazel needs the output filename to be fixed in advanced so we settle for\n    # gzip compression.\n\n    data_file=\"$$(basename $<)\"\n\n    if [[ \"$$data_file\" == \"data.tar.bz2\" ]]; then\n      # TODO: support bz2\n      echo \"ERROR: unsupported compression: bz2\"\n      exit 1\n    elif [[ \"$$data_file\" == \"data.tar.gz\" ]]; then\n      mv $< $@\n    elif [[ \"$$data_file\" == \"data.tar\" ]]; then\n      $(ZSTD_BIN) --compress --format=gzip $< >$@\n    else\n      $(ZSTD_BIN) --force --decompress --stdout $< |\n      $(ZSTD_BIN) --compress --format=gzip - >$@\n    fi\n    \"\"\",\n    toolchains = [\"@zstd_toolchains//:resolved_toolchain\"],\n    visibility = [\"//visibility:public\"],\n)\n\nfilegroup(\n    name = \"control\",\n    srcs = glob([\"control.tar.*\"]),\n    visibility = [\"//visibility:public\"],\n)\n",
-              "urls": [
-                "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.2-1.pgdg120+~20241203.1135.g7a35052_amd64.deb"
-              ],
-              "sha256": "fc6d43503697e10e966e91397ae9178f31a0b23d588127523bd258cf7d905f9b"
             }
           },
           "apt_libreadline8_8.2-1.3_amd64": {
@@ -2953,6 +2942,17 @@
                 "https://snapshot-cloudflare.debian.org/archive/debian/20241003T000000Z/pool/main/libi/libidn2/libidn2-0_2.3.3-1+b1_arm64.deb"
               ],
               "sha256": "12a3efc056671bf1c1bed4c3444c2559c8d5e0c158a13316fc728f263b83ddc4"
+            }
+          },
+          "apt_postgresql-client-17_17.2-1.pgdg120-p-_20241204.1135.g83ce20d_arm64": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\ngenrule(\n    name = \"data\",\n    srcs = glob([\"data.tar*\"]),\n    outs = [\"layer.tar.gz\"],\n    cmd = \"\"\"\n    # Per the dpkg-dev man page:\n    # https://manpages.debian.org/bookworm/dpkg-dev/deb.5.en.html\n    #\n    # Debian data.tar files can be:\n    #  - .tar uncompressed, supported since dpkg 1.10.24\n    #  - .tar compressed with\n    #    *  gzip: .gz\n    #    * bzip2: .bz2, supported since dpkg 1.10.24\n    #    *  lzma: .lzma, supported since dpkg 1.13.25\n    #    *    xz: .xz, supported since dpkg 1.15.6\n    #    *  zstd: .zst, supported since dpkg 1.21.18\n    #\n    # ZSTD_BIN can decompress all formats except bzip2\n    #\n    # The OCI image spec supports .tar and .tar compressed with gzip or zstd.\n    # Bazel needs the output filename to be fixed in advanced so we settle for\n    # gzip compression.\n\n    data_file=\"$$(basename $<)\"\n\n    if [[ \"$$data_file\" == \"data.tar.bz2\" ]]; then\n      # TODO: support bz2\n      echo \"ERROR: unsupported compression: bz2\"\n      exit 1\n    elif [[ \"$$data_file\" == \"data.tar.gz\" ]]; then\n      mv $< $@\n    elif [[ \"$$data_file\" == \"data.tar\" ]]; then\n      $(ZSTD_BIN) --compress --format=gzip $< >$@\n    else\n      $(ZSTD_BIN) --force --decompress --stdout $< |\n      $(ZSTD_BIN) --compress --format=gzip - >$@\n    fi\n    \"\"\",\n    toolchains = [\"@zstd_toolchains//:resolved_toolchain\"],\n    visibility = [\"//visibility:public\"],\n)\n\nfilegroup(\n    name = \"control\",\n    srcs = glob([\"control.tar.*\"]),\n    visibility = [\"//visibility:public\"],\n)\n",
+              "urls": [
+                "https://apt.postgresql.org/pub/repos/apt/pool/main/p/postgresql-17/postgresql-client-17_17.2-1.pgdg120+~20241204.1135.g83ce20d_arm64.deb"
+              ],
+              "sha256": "68afa97c19ba5426e1130f3df69024111753dbf0b348f7b5a8bfee0a73bd185b"
             }
           },
           "apt_libsasl2-modules-db_2.1.28-p-dfsg-10_arm64": {
