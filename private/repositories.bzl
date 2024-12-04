@@ -507,3 +507,13 @@ def loki_deps():
         sha256 = "81dafec9d6357fa3303bc3d913df45e11a364dbc2577fa6b948f2bd0620ab565",
         build_file_content = """exports_files(["logcli-darwin-arm64"])""",
     )
+
+def postgres_deps():
+    """Postgres binaries for Mac OS (linux binaries are from rules_distroless + apt)."""
+    http_archive(
+        name = "com_enterprisedb_get_postgresql_macos",
+        url = "https://get.enterprisedb.com/postgresql/postgresql-17.0-1-osx-binaries.zip",
+        integrity = "sha256-p/AEohFAe6Ny1kUsspBPbV1OHeyhi+rAq6d5L3267WI=",
+        build_file_content = """exports_files(glob(["**"]))""",
+        strip_prefix = "pgsql",
+    )
