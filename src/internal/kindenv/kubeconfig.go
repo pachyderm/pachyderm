@@ -73,7 +73,7 @@ func (k *Kubeconfig) Close() error {
 
 // KubectlCommand returns an exec.Cmd that will run kubectl.
 func (k Kubeconfig) KubectlCommand(ctx context.Context, args ...string) *exec.Cmd {
-	path, ok := bazel.FindBinary("//tools/kubectl", "_kubectl")
+	path, ok := bazel.FindBinary("//tools/kubectl", "_kubectl") //nolint:staticcheck
 	if !ok {
 		log.Error(ctx, "binary not built with bazel; falling back to host kubectl")
 		path = "kubectl"
@@ -89,7 +89,7 @@ func (k Kubeconfig) KubectlCommand(ctx context.Context, args ...string) *exec.Cm
 
 // HelmCommand returns an exec.Cmd that will run helm.
 func (k Kubeconfig) HelmCommand(ctx context.Context, args ...string) *exec.Cmd {
-	path, ok := bazel.FindBinary("//tools/helm", "_helm")
+	path, ok := bazel.FindBinary("//tools/helm", "_helm") //nolint:staticcheck
 	if !ok {
 		log.Error(ctx, "binary not built with bazel; falling back to host helm")
 		path = "helm"

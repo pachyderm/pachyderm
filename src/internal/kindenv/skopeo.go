@@ -13,7 +13,7 @@ import (
 )
 
 func SkopeoCommand(ctx context.Context, args ...string) *exec.Cmd {
-	skopeo, ok := bazel.FindBinary("//tools/skopeo", "_skopeo")
+	skopeo, ok := bazel.FindBinary("//tools/skopeo", "_skopeo") //nolint:staticcheck
 	if !ok {
 		log.Error(ctx, "binary not built with bazel; falling back to host skopeo")
 		skopeo = "skopeo"

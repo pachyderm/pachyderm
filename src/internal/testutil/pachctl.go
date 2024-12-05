@@ -191,7 +191,7 @@ func (p Pachctl) RunCommand(ctx context.Context, command string) (string, error)
 	env := os.Environ()
 
 	// Adjust PATH to point at pachctl if it's in the runfiles for this invocation.
-	if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok {
+	if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok { //nolint:staticcheck
 		for i, entry := range env {
 			if strings.HasPrefix(entry, "PATH=") {
 				oldPath := entry[len("PATH="):]
