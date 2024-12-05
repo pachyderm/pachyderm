@@ -87,12 +87,10 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset       uint16
-	EnableLoki       bool
-	EnterpriseMember bool
-	EnterpriseServer bool
-	Determined       bool
-	ValueOverrides   map[string]string
+	PortOffset     uint16
+	EnableLoki     bool
+	Determined     bool
+	ValueOverrides map[string]string
 	// ValuesStrOverrides is used to override SetStrValues map.
 	ValuesStrOverrides map[string]string
 	TLS                bool
@@ -255,6 +253,20 @@ func withMinio() *helm.Options {
 		},
 		SetStrValues: map[string]string{
 			"pachd.storage.storageURL": fmt.Sprintf("s3://%s?endpoint=%s&disableSSL=true&region=dummy-region", MinioBucket, MinioEndpoint),
+		},
+	}
+}
+
+func withAuth(host, rootToken string, issuerPort, clientPort int) *helm.Options {
+	return &helm.Options{
+		SetValues: map[string]string{
+			"pachd.rootToken": rootToken,
+			// TODO: make these ports configurable to support IDP Login in parallel deployments
+			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
+			"oidc.issuerURI":                     fmt.Sprintf("http://pachd:%v/dex", issuerPort),
+			"proxy.host":                         fmt.Sprintf("%s:%v", host, clientPort),
+			// to test that the override works
+			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
 		},
 	}
 }
@@ -753,9 +765,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			deleteRelease(t, context.Background(), namespace, kubeClient)
 		})
 	}
-	// enterprise server is deprecated
-	opts.EnterpriseServer = false
-	opts.Enterprise = false
 
 	version := getLocalImage()
 	chartPath := helmChartLocalPath(t)
@@ -767,6 +776,10 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := GetPachAddress(t)
+	if opts.Enterprise {
+		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
+		helmOpts = union(helmOpts, withAuth(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port+opts.PortOffset)+7))
+	}
 
 	helmOpts = union(helmOpts, withPachd(version))
 	// TODO(acohen4): apply minio deployment to this namespace
@@ -815,7 +828,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	waitForInstallFinished := func() {
 		createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
 
-		waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
+		waitForPachd(t, ctx, kubeClient, namespace, version, false)
 
 		if opts.EnableLoki {
 			waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
@@ -827,7 +840,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		}
 	}
 	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
-	pachdExists, err := checkForPachd(t, ctx, kubeClient, namespace, opts.EnterpriseServer)
+	pachdExists, err := checkForPachd(t, ctx, kubeClient, namespace, false)
 	require.NoError(t, err)
 	if mustUpgrade {
 		t.Logf("Test must upgrade cluster in place, upgrading cluster with new opts in %v", namespace)
