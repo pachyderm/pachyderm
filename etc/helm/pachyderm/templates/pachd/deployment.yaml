@@ -219,12 +219,6 @@ spec:
         - name: TLS_CERT_SECRET_NAME
           value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
         {{- end }}
-        {{- if (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
-        - name: LICENSE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: {{ (include "pachyderm.enterpriseLicenseKeySecretName" . ) | trim | quote }}
-              key: "enterprise-license-key"
           {{- if (include "pachyderm.upstreamIDPsSecretName" .) }}
         - name: IDP_CONNECTORS
           valueFrom:
@@ -237,15 +231,7 @@ spec:
               name: "pachyderm-identity-config"
               key: "identity-config"
           {{- end }}
-        {{- end }}
-        {{- if (include "pachyderm.enterpriseSecretSecretName" . ) }}
-        - name: ENTERPRISE_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
-              key: "enterprise-secret"
-        {{- end }}
-        {{- if and (include "pachyderm.withEnterprise" .) .Values.pachd.activateAuth }}
+        {{- if .Values.pachd.activateAuth }}
         - name: ACTIVATE_AUTH
           value: "true"
         - name: AUTH_ROOT_TOKEN
