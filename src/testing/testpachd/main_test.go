@@ -17,7 +17,7 @@ import (
 
 func TestMain_(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	testpachd, ok := bazel.FindBinary("//src/testing/testpachd", "testpachd")
+	testpachd, ok := bazel.FindBinary("//src/testing/testpachd", "testpachd") //nolint:staticcheck
 	if !ok {
 		t.Log("cannot find testpachd binary; using version in $PATH")
 		testpachd = "testpachd"

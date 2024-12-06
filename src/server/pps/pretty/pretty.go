@@ -237,7 +237,7 @@ func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTi
 	if workerStatus.DatumStatus != nil {
 		datumStatus := workerStatus.DatumStatus
 		for _, datum := range datumStatus.Data {
-			fmt.Fprintf(w, datum.Path)
+			fmt.Fprintf(w, datum.Path) //nolint:printf
 		}
 		fmt.Fprintf(w, "\t")
 		if fullTimestamps {
