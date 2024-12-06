@@ -4,7 +4,12 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: determined-db-pvc-{{ .Release.Name }}
+  name: 
+    {{ if and .Release.IsUpgrade .Values.determined.db.restoreSnapshotSuffix }}
+    determined-db-pvc-{{ .Values.determined.db.restoreSnapshotSuffix }}
+    {{- else -}}
+    determined-db-pvc-{{ .Release.Name }}
+    {{ end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: determined-db-{{ .Release.Name }}
@@ -12,6 +17,12 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  {{- if and .Release.IsUpgrade  .Values.determined.db.restoreSnapshotSuffix }}
+  dataSource:
+    name: determined-db-snapshot-{{ .Values.determined.db.restoreSnapshotSuffix }}
+    kind: VolumeSnapshot
+    apiGroup: snapshot.storage.k8s.io
+  {{ end }}
   resources:
     requests:
       storage: {{ required  "A valid Values.db.storageSize entry is required!" .Values.determined.db.storageSize }}
