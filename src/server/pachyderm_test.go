@@ -4237,7 +4237,6 @@ func TestLokiLogs(t *testing.T) {
 	}
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.EnableLokiOption)
-	tu.ActivateEnterprise(t, c)
 	// create repos
 	dataRepo := uuid.UniqueString("data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))

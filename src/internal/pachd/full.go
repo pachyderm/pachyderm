@@ -3,7 +3,6 @@ package pachd
 import (
 	"context"
 	"net"
-	"os"
 	"path"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -33,8 +32,6 @@ import (
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debug_server "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	entiface "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
-	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
-	license_server "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	logs_server "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfsiface "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -85,41 +82,6 @@ func (fb *fullBuilder) maybeRegisterIdentityServer(ctx context.Context) error {
 	return fb.builder.registerIdentityServer(ctx)
 }
 
-// registerEnterpriseServer registers a FULL-mode enterprise server.  This
-// differs from enterprise mode in that the mode & unpaused-mode options are
-// passed; it differs from sidecar mode in that the mode & unpaused-mode options
-// are passed, the heartbeat is enabled and the license environment’s enterprise
-// server is set; it differs from paused mode in that the mode option is in full
-// mode.
-//
-// TODO: refactor the four modes to have a cleaner license/enterprise server
-// abstraction.
-func (fb *fullBuilder) registerEnterpriseServer(ctx context.Context) error {
-	fb.enterpriseEnv = EnterpriseEnv(
-		fb.env,
-		path.Join(fb.env.Config().EtcdPrefix, fb.env.Config().EnterpriseEtcdPrefix),
-		fb.txnEnv,
-	)
-	apiServer, err := ent_server.NewEnterpriseServer(
-		fb.enterpriseEnv,
-		ent_server.Config{
-			Heartbeat:    true,
-			Mode:         ent_server.FullMode,
-			UnpausedMode: os.Getenv("UNPAUSED_MODE"),
-		},
-	)
-	if err != nil {
-		return err
-	}
-	fb.forGRPCServer(func(s *grpc.Server) {
-		enterprise.RegisterAPIServer(s, apiServer)
-	})
-	fb.bootstrappers = append(fb.bootstrappers, apiServer)
-	fb.env.SetEnterpriseServer(apiServer)
-	fb.licenseEnv.EnterpriseServer = apiServer
-	return nil
-}
-
 // newFullBuilder returns a new initialized FullBuilder.
 func newFullBuilder(config any) *fullBuilder {
 	return &fullBuilder{newBuilder(config, "pachyderm-pachd-full")}
@@ -139,8 +101,6 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.maybeInitReporter,
 		fb.initInternalServer,
 		fb.initExternalServer,
-		fb.registerLicenseServer,
-		fb.registerEnterpriseServer,
 		fb.maybeRegisterIdentityServer,
 		fb.registerAuthServer,
 		fb.registerPFSServer,
@@ -416,62 +376,6 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration, opt *FullOption)
 					Paused:    false,
 					DB:        env.DB,
 				})
-				return nil
-			},
-		},
-		setupStep{
-			Name: "initEnterpriseServer",
-			Fn: func(ctx context.Context) error {
-				var err error
-				pd.enterpriseServer, err = ent_server.NewEnterpriseServer(
-					&ent_server.Env{
-						DB:         env.DB,
-						Listener:   pd.dbListener,
-						TxnEnv:     pd.txnEnv,
-						EtcdClient: env.EtcdClient,
-						EtcdPrefix: path.Join(config.EtcdPrefix, config.EnterpriseEtcdPrefix),
-						AuthServer: pd.authServer.(auth_server.APIServer),
-						GetKubeClient: func() kubernetes.Interface {
-							return pd.kubeClient
-						},
-						GetPachClient:     pd.mustGetPachClient,
-						Namespace:         "default",
-						BackgroundContext: pctx.Background("enterprise"),
-						Config: pachconfig.Configuration{
-							GlobalConfiguration:             &config.GlobalConfiguration,
-							PachdSpecificConfiguration:      &config.PachdSpecificConfiguration,
-							EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
-						},
-					},
-					ent_server.Config{
-						Heartbeat:    false,
-						Mode:         ent_server.FullMode,
-						UnpausedMode: "full",
-					},
-				)
-				if err != nil {
-					return errors.Wrap(err, "NewEnterpriseServer")
-				}
-				return nil
-			},
-		},
-		setupStep{
-			Name: "initLicenseServer",
-			Fn: func(ctx context.Context) error {
-				var err error
-				pd.licenseServer, err = license_server.New(&license_server.Env{
-					DB:       env.DB,
-					Listener: nil,
-					Config: &pachconfig.Configuration{
-						GlobalConfiguration:             &config.GlobalConfiguration,
-						PachdSpecificConfiguration:      &config.PachdSpecificConfiguration,
-						EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
-					},
-					EnterpriseServer: pd.enterpriseServer,
-				})
-				if err != nil {
-					return errors.Wrap(err, "license_server.New")
-				}
 				return nil
 			},
 		},
