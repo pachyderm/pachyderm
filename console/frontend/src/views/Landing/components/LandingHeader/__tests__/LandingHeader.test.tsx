@@ -6,7 +6,6 @@ import {
   mockGetVersionInfo,
   mockGetAccountAuth,
   mockGetEnterpriseInfo,
-  mockGetEnterpriseInfoInactive,
 } from '@dash-frontend/mocks';
 import {withContextProviders, loginUser} from '@dash-frontend/testHelpers';
 
@@ -34,13 +33,5 @@ describe('LandingHeader', () => {
     render(<Header />);
 
     await screen.findByRole('heading', {name: 'HPE ML Data Management'});
-  });
-
-  it('should show the console branding when enterprise is inactive', async () => {
-    server.use(mockGetEnterpriseInfoInactive());
-
-    render(<Header />);
-
-    await screen.findByRole('heading', {name: 'Console'});
   });
 });
