@@ -3,124 +3,21 @@
 package main
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"golang.org/x/exp/maps"
 )
 
 var globalValueOverrides map[string]string = make(map[string]string)
-
-func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
-	t.Parallel()
-	valueOverrides := make(map[string]string)
-	maps.Copy(valueOverrides, globalValueOverrides)
-	ns, portOffset := minikubetestenv.ClaimCluster(t)
-	k := testutil.GetKubeClient(t)
-	opts := &minikubetestenv.DeployOpts{
-		AuthUser:     auth.RootUser,
-		Enterprise:   true,
-		PortOffset:   portOffset,
-		Determined:   true,
-		CleanupAfter: false,
-	}
-	detUserPassword := "Password1"
-	valueOverrides["determined.initialUserPassword"] = detUserPassword
-	valueOverrides["pachd.replicas"] = "1"
-	opts.ValueOverrides = valueOverrides
-	// Test Install
-	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
-	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, auth.RootUser, whoami.Username)
-	c.SetAuthToken("")
-	mockIDPLogin(t, c)
-	// Test Upgrade
-	opts.CleanupAfter = true
-	// set new root token via env
-	opts.AuthUser = ""
-	token := "new-root-token"
-	opts.ValueOverrides = valueOverrides
-	opts.ValueOverrides["pachd.rootToken"] = token
-	// add config file with trusted peers & new clients
-	opts.ValuesFiles = []string{createAdditionalClientsFile(t), createTrustedPeersFile(t)}
-	// apply upgrade
-	c = minikubetestenv.UpgradeRelease(t, context.Background(), ns, k, opts)
-	c.SetAuthToken(token)
-	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, auth.RootUser, whoami.Username)
-	// old token should no longer work
-	c.SetAuthToken(testutil.RootToken)
-	_, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-	require.YesError(t, err)
-	c.SetAuthToken("")
-	mockIDPLogin(t, c)
-	// assert new trusted peer and client
-	resp, err := c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "pachd"})
-	require.NoError(t, err)
-	require.EqualOneOf(t, resp.Client.TrustedPeers, "example-app")
-	require.EqualOneOf(t, resp.Client.TrustedPeers, "determined-local")
-	_, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "example-app"})
-	require.NoError(t, err)
-	_, err = c.IdentityAPIClient.GetOIDCClient(c.Ctx(), &identity.GetOIDCClientRequest{Id: "determined-local"})
-	require.NoError(t, err)
-}
-
-func TestEnterpriseServerMember(t *testing.T) {
-	t.Parallel()
-	valueOverrides := make(map[string]string)
-	maps.Copy(valueOverrides, globalValueOverrides)
-	ns, portOffset := minikubetestenv.ClaimCluster(t)
-	k := testutil.GetKubeClient(t)
-	require.NoErrorWithinTRetryConstant(t, 300*time.Second, func() error {
-		if !minikubetestenv.LeaseNamespace(t, "enterprise") {
-			return errors.Errorf("Could not acquire Namespace lock on Enterprise namespace for deploy test.")
-		}
-		return nil
-	}, 5*time.Second)
-	valueOverrides["pachd.replicas"] = "2"
-	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
-		AuthUser:         auth.RootUser,
-		EnterpriseServer: true,
-		Enterprise:       true,
-		CleanupAfter:     true,
-		ValueOverrides:   valueOverrides,
-	})
-	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, auth.RootUser, whoami.Username)
-	mockIDPLogin(t, ec)
-	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
-		AuthUser:         auth.RootUser,
-		EnterpriseMember: true,
-		Enterprise:       true,
-		PortOffset:       portOffset,
-		CleanupAfter:     true,
-		ValueOverrides:   valueOverrides,
-	})
-	whoami, err = c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
-	require.NoError(t, err)
-	require.Equal(t, auth.RootUser, whoami.Username)
-	c.SetAuthToken("")
-	loginInfo, err := c.GetOIDCLogin(c.Ctx(), &auth.GetOIDCLoginRequest{})
-	require.NoError(t, err)
-	require.True(t, strings.Contains(loginInfo.LoginUrl, ":31658"))
-	mockIDPLogin(t, c)
-}
 
 func mockIDPLogin(t testing.TB, c *client.APIClient) {
 	require.NoErrorWithinTRetryConstant(t, 90*time.Second, func() (retErr error) {
@@ -179,32 +76,4 @@ func mockIDPLogin(t testing.TB, c *client.APIClient) {
 		}
 		return nil
 	}, 5*time.Second, "Attempting login through mock IDP")
-}
-
-func createTrustedPeersFile(t testing.TB) string {
-	data := []byte(`pachd:
-  additionalTrustedPeers:
-    - example-app
-`)
-	tf, err := os.CreateTemp("", "pachyderm-trusted-peers-*.yaml")
-	require.NoError(t, err)
-	_, err = tf.Write(data)
-	require.NoError(t, err)
-	return tf.Name()
-}
-
-func createAdditionalClientsFile(t testing.TB) string {
-	data := []byte(`oidc:
-  additionalClients:
-    - id: example-app
-      secret: example-app-secret
-      name: 'Example App'
-      redirectURIs:
-      - 'http://127.0.0.1:5555/callback'
-`)
-	tf, err := os.CreateTemp("", "pachyderm-additional-clients-*.yaml")
-	require.NoError(t, err)
-	_, err = tf.Write(data)
-	require.NoError(t, err)
-	return tf.Name()
 }

@@ -20,6 +20,8 @@ or
 port install pkgconfig cairo pango libpng jpeg giflib librsvg
 ```
 
+### 12/6/2024 Note: Node 20 is recommended
+
 ### Running console locally
 
 1. [Deploy Pachyderm locally](./README_Pachyderm.md) in either Enterprise or Community Edition.

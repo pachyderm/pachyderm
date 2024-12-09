@@ -16,7 +16,6 @@ import (
 	"github.com/minio/minio-go/v6"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -31,14 +30,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	at "github.com/pachyderm/pachyderm/v2/src/server/auth/server/testing"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestGetSetBasic creates two users, alice and bob, and gives bob gradually
@@ -1959,20 +1956,6 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(repoInfo))
 
-	// set Enterprise Token value to have expired
-	ts := &timestamppb.Timestamp{Seconds: time.Now().Unix() - 100}
-	resp, err := adminClient.License.Activate(adminClient.Ctx(),
-		&license.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(t),
-			Expires:        ts,
-		})
-	require.NoError(t, err)
-	require.True(t, resp.GetInfo().Expires.Seconds == ts.Seconds)
-
-	// Heartbeat forces Enterprise Service to refresh it's view of the LicenseRecord
-	_, err = adminClient.Enterprise.Heartbeat(adminClient.Ctx(), &enterprise.HeartbeatRequest{})
-	require.NoError(t, err)
-
 	// verify that admin can still complete an operation (ex. ListRepo)
 	repoInfo, err = adminClient.ListRepo()
 	require.NoError(t, err)
@@ -2571,21 +2554,6 @@ func TestListRepoAfterAuthActivation(t *testing.T) {
 	}
 	ensureTestRepoExists(c)
 
-	// Prepare to activate auth.
-	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
-
-	// Enterprise needs a license.
-	tu.ActivateLicense(t, c, peerPort)
-
-	// Activate enterprise.
-	_, err = env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
-		&enterprise.ActivateRequest{
-			LicenseServer: "grpc://localhost:" + peerPort,
-			Id:            "localhost",
-			Secret:        "localhost",
-		})
-	require.NoError(t, err, "should activate enterprise")
-
 	// Then setup auth in a single transaction.
 	err = env.AuthServer.(interface {
 		ActivateAuthEverywhere(context.Context, []authserver.ActivationScope, string) error
@@ -2604,20 +2572,9 @@ func TestPreAuthProjects(t *testing.T) {
 	project := uuid.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
 
-	// activate enterprise + auth
-	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
-	tu.ActivateLicense(t, c, peerPort)
-	_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
-		&enterprise.ActivateRequest{
-			LicenseServer: "grpc://localhost:" + peerPort,
-			Id:            "localhost",
-			Secret:        "localhost",
-		})
-	require.NoError(t, err)
-	_, err = c.Activate(c.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
+	_, err := c.Activate(c.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
 	require.NoError(t, err)
 	c.SetAuthToken(tu.RootToken)
-
 	// activate pfs auth
 	_, err = c.PfsAPIClient.ActivateAuth(c.Ctx(), &pfs.ActivateAuthRequest{})
 	require.NoError(t, err)

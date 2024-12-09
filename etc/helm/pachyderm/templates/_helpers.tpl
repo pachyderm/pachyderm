@@ -169,28 +169,6 @@ http://localhost
 {{- end }}
 {{- end }}
 
-{{- define "pachyderm.withEnterprise" }}
-{{- if or (include "pachyderm.enterpriseLicenseKeySecretName" . ) .Values.pachd.activateEnterpriseMember }}
-true
-{{- end }}
-{{- end }}
-
-{{- define "pachyderm.enterpriseLicenseKeySecretName" -}}
-{{- if .Values.pachd.enterpriseLicenseKeySecretName }}
-{{ .Values.pachd.enterpriseLicenseKeySecretName }}
-{{- else if .Values.pachd.enterpriseLicenseKey }}
-pachyderm-license
-{{- end }}
-{{- end }}
-
-{{- define "pachyderm.enterpriseSecretSecretName" -}}
-{{- if .Values.pachd.enterpriseSecretSecretName }}
-{{ .Values.pachd.enterpriseSecretSecretName }}
-{{- else if or .Values.pachd.enterpriseSecret (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
-pachyderm-enterprise
-{{- end }}
-{{- end }}
-
 {{- define "pachyderm.upstreamIDPsSecretName" -}}
 {{- if .Values.oidc.upstreamIDPsSecretName }}
 {{ .Values.oidc.upstreamIDPsSecretName }}

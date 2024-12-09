@@ -3,9 +3,6 @@ SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
 {{- if ( and .Values.pachd.enabled ( not .Values.restoreSnapshot.enabled ) ) -}}
-{{- if .Values.enterpriseServer.enabled -}}
-{{- fail "pachd and enterpriseServer shall not be enabled at the same time in the same namespace" -}}
-{{- end -}}
 {{- $randHostPath := printf "/var/pachyderm-%s/" (randAlphaNum 5) -}}
 apiVersion: apps/v1
 kind: Deployment
@@ -219,12 +216,6 @@ spec:
         - name: TLS_CERT_SECRET_NAME
           value: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
         {{- end }}
-        {{- if (include "pachyderm.enterpriseLicenseKeySecretName" . ) }}
-        - name: LICENSE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: {{ (include "pachyderm.enterpriseLicenseKeySecretName" . ) | trim | quote }}
-              key: "enterprise-license-key"
           {{- if (include "pachyderm.upstreamIDPsSecretName" .) }}
         - name: IDP_CONNECTORS
           valueFrom:
@@ -237,15 +228,7 @@ spec:
               name: "pachyderm-identity-config"
               key: "identity-config"
           {{- end }}
-        {{- end }}
-        {{- if (include "pachyderm.enterpriseSecretSecretName" . ) }}
-        - name: ENTERPRISE_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: {{ (include "pachyderm.enterpriseSecretSecretName" . ) | trim | quote }}
-              key: "enterprise-secret"
-        {{- end }}
-        {{- if and (include "pachyderm.withEnterprise" .) .Values.pachd.activateAuth }}
+        {{- if .Values.pachd.activateAuth }}
         - name: ACTIVATE_AUTH
           value: "true"
         - name: AUTH_ROOT_TOKEN

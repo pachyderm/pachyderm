@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
+	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
 	"io"
 	"os"
 	"os/signal"
@@ -38,9 +40,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/shell"
 	configcmds "github.com/pachyderm/pachyderm/v2/src/server/config"
 	debugcmds "github.com/pachyderm/pachyderm/v2/src/server/debug/cmds"
-	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
 	identitycmds "github.com/pachyderm/pachyderm/v2/src/server/identity/cmds"
-	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
 	logscmds "github.com/pachyderm/pachyderm/v2/src/server/logs/cmds"
 	metadatacmds "github.com/pachyderm/pachyderm/v2/src/server/metadata/cmds"
 	misccmds "github.com/pachyderm/pachyderm/v2/src/server/misc/cmds"
@@ -884,10 +884,10 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, pfscmds.Cmds(pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, ppscmds.Cmds(pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, authcmds.Cmds(pachCtx, pachctlCfg)...)
-	subcommands = append(subcommands, enterprisecmds.Cmds(pachctlCfg)...)
-	subcommands = append(subcommands, licensecmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, identitycmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, admincmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, enterprisecmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, licensecmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, debugcmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, txncmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, configcmds.Cmds(pachctlCfg)...)

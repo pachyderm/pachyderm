@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -25,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
@@ -721,89 +719,6 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// make sure the cron is working
 	require.NoError(t, checkCronCommits(5))
-}
-
-func TestPipelinesRunAfterExpiration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
-	tu.ActivateAuthClient(t, c)
-	alice := tu.Robot(uuid.UniqueString("alice"))
-	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
-
-	// alice creates a repo
-	repo := uuid.UniqueString("TestPipelinesRunAfterExpiration")
-	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
-
-	// alice creates a pipeline
-	pipeline := uuid.UniqueString("alice-pipeline")
-	require.NoError(t, aliceClient.CreatePipeline(pfs.DefaultProjectName,
-		pipeline,
-		"", // default image: DefaultUserImage
-		[]string{"bash"},
-		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
-		"",    // default output branch: master
-		false, // no update
-	))
-	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
-	// check that alice owns the output repo too,
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, pipeline))
-
-	// Make sure alice's pipeline runs successfully
-	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
-	require.NoError(t, err)
-	err = aliceClient.PutFile(commit, uuid.UniqueString("/file1"),
-		strings.NewReader("test data"))
-	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
-		return err
-	})
-
-	// Make current enterprise token expire
-	_, err = rootClient.License.Activate(rootClient.Ctx(),
-		&license.ActivateRequest{
-			ActivationCode: tu.GetTestEnterpriseCode(t),
-			Expires:        tu.TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
-		})
-	require.NoError(t, err)
-	_, err = rootClient.Enterprise.Activate(rootClient.Ctx(),
-		&enterprise.ActivateRequest{
-			LicenseServer: "localhost:1650",
-			Id:            "localhost",
-			Secret:        "localhost",
-		})
-	require.NoError(t, err)
-
-	// wait for Enterprise token to expire
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := rootClient.Enterprise.GetState(rootClient.Ctx(),
-			&enterprise.GetStateRequest{})
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		if resp.State == enterprise.State_ACTIVE {
-			return errors.New("Pachyderm Enterprise is still active")
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-
-	// Make sure alice's pipeline still runs successfully
-	commit, err = rootClient.StartCommit(pfs.DefaultProjectName, repo, "master")
-	require.NoError(t, err)
-	err = rootClient.PutFile(commit, uuid.UniqueString("/file2"),
-		strings.NewReader("test data"))
-	require.NoError(t, err)
-	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := rootClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
-		return err
-	})
 }
 
 // TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)

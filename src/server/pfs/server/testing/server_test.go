@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -33,7 +32,6 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -602,16 +600,7 @@ func TestCreateRepoWithSameNameAndAuthInDifferentProjects(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	pachClient := env.PachClient
 	// activate auth
-	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
-	tu.ActivateLicense(t, pachClient, peerPort)
-	_, err := pachClient.Enterprise.Activate(pachClient.Ctx(),
-		&enterprise.ActivateRequest{
-			LicenseServer: "grpc://localhost:" + peerPort,
-			Id:            "localhost",
-			Secret:        "localhost",
-		})
-	require.NoError(t, err, "activate client should work")
-	_, err = env.AuthServer.Activate(pachClient.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
+	_, err := env.AuthServer.Activate(pachClient.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
 	require.NoError(t, err, "activate server should work")
 	pachClient.SetAuthToken(tu.RootToken)
 	require.NoError(t, config.WritePachTokenToConfig(tu.RootToken, false))

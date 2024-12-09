@@ -1,19 +1,5 @@
 // Any tests that need an enterprise license to work.
 describe('Enterprise Features', () => {
-
-  describe('Community Edition banner', () => {
-    before(() => {
-      cy.login();
-      cy.visit('/');
-    });
-
-    it('should hide the community edition banner', () => {
-      cy.findByText('Project Preview', {timeout: 12000}).should('exist');
-      cy.findByText('Community Edition').should('not.exist');
-    });
-  });
-
-
   describe('Dag Node', () => {
     // NOTE: This test must live here because we must have an enterprise key to
     // be able to set parallelism to a number more than 8.

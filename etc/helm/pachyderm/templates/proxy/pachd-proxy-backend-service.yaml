@@ -34,11 +34,7 @@ spec:
     port: 1659
     targetPort: archive-port
   selector:
-    {{- if .Values.enterpriseServer.enabled }}
-    app: pach-enterprise
-    {{- else }}
     app: pachd
-    {{- end }}
     suite: pachyderm
   type: ClusterIP
   clusterIP: None
