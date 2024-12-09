@@ -255,7 +255,7 @@ func (a *apiServer) DeleteOIDCClient(ctx context.Context, req *identity.DeleteOI
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllRequest) (resp *identity.DeleteAllResponse, retErr error) {
-	clients, err := a.api.listClients()
+	/* clients, err := a.api.listClients()
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +279,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *identity.DeleteAllReques
 
 	if _, err := a.env.DB.ExecContext(ctx, `DELETE FROM identity.config`); err != nil {
 		return nil, errors.EnsureStack(err)
-	}
+	} */
 
 	return &identity.DeleteAllResponse{}, nil
 }

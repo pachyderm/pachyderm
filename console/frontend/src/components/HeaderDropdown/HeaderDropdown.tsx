@@ -19,7 +19,7 @@ type HeaderDropdownProps = {
 };
 
 const HeaderDropdown: React.FC<HeaderDropdownProps> = ({errorPage}) => {
-  const {enterpriseActive} = useEnterpriseActive(errorPage);
+  const {enterpriseActive} = useEnterpriseActive();
   const {version} = useVersion({enabled: !errorPage});
   const consoleVersion = getReleaseVersion();
 
