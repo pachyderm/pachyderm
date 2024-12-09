@@ -31,21 +31,6 @@ describe('BrandedDocLink', () => {
 
   afterAll(() => server.close());
 
-  it('should show the pachyderm docs when enterprise is inactive', async () => {
-    render(<BrandedDocLink pathWithoutDomain="fruit" />);
-
-    await waitFor(() =>
-      expect(
-        screen.getByRole('link', {
-          name: /click here/i,
-        }),
-      ).toHaveAttribute(
-        'href',
-        'https://docs.pachyderm.com/products/mldm/0.0.x/fruit',
-      ),
-    );
-  });
-
   it('removes leading slashes from to path', async () => {
     render(<BrandedDocLink pathWithoutDomain="/fruit" />);
 

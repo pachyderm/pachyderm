@@ -4,7 +4,6 @@ import React from 'react';
 
 import {
   mockGetVersionInfo,
-  mockGetEnterpriseInfoInactive,
   mockGetEnterpriseInfo,
   mockGetAccountAuth,
 } from '@dash-frontend/mocks';
@@ -28,15 +27,6 @@ describe('BrandedTitle', () => {
   });
 
   afterAll(() => server.close());
-
-  it('should show the pachyderm title when enterprise is inactive', async () => {
-    server.use(mockGetEnterpriseInfoInactive());
-    render(<BrandedTitle title="Project" />);
-
-    await waitFor(() => {
-      expect(document.title).toBe('Project - Pachyderm Console');
-    });
-  });
 
   it('should show the HPE title when enterprise is active', async () => {
     server.use(mockGetAccountAuth());

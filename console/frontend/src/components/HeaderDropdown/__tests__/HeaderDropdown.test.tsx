@@ -6,12 +6,8 @@ import React from 'react';
 import {account} from '@dash-frontend/api/auth';
 import {Empty} from '@dash-frontend/api/googleTypes';
 import {Version} from '@dash-frontend/api/version';
-import {EMAIL_SUPPORT, SLACK_SUPPORT} from '@dash-frontend/constants/links';
-import {
-  mockGetVersionInfo,
-  mockGetEnterpriseInfo,
-  mockGetEnterpriseInfoInactive,
-} from '@dash-frontend/mocks';
+import {EMAIL_SUPPORT} from '@dash-frontend/constants/links';
+import {mockGetVersionInfo, mockGetEnterpriseInfo} from '@dash-frontend/mocks';
 import {
   withContextProviders,
   click,
@@ -163,29 +159,6 @@ describe('HeaderDropdown', () => {
       expect(window.open).toHaveBeenCalledWith(
         expect.stringMatching(new RegExp(EMAIL_SUPPORT)),
       );
-    });
-  });
-
-  describe('without Auth', () => {
-    beforeEach(() => {
-      server.resetHandlers();
-      server.use(mockGetVersionInfo());
-      server.use(mockGetEnterpriseInfoInactive());
-    });
-
-    it('should direct users to slack if enterprise is inactive', async () => {
-      window.open = jest.fn();
-
-      render(<HeaderDropdown />);
-      await click(
-        screen.getByRole('button', {
-          name: /header menu/i,
-        }),
-      );
-      await click(screen.getByRole('menuitem', {name: 'open slack support'}));
-
-      expect(window.open).toHaveBeenCalledTimes(1);
-      expect(window.open).toHaveBeenCalledWith(SLACK_SUPPORT);
     });
   });
 });
