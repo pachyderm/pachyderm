@@ -13,9 +13,10 @@ run-test-program:
 	label-studio -b --username user@domain --password pass --user-token abcdef &
 
 install-test-deps:
-	python -m venv env
-	. env/bin/activate
+	python -m venv venv
+	. venv/bin/activate
 	pip install -r requirements.txt
+	pip install ../python-sdk
 
 run-tests:
 	# Add PACHD_ADDRESS env variable to below line

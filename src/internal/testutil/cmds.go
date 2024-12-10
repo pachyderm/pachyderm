@@ -80,7 +80,7 @@ func dedent(cmd string) string {
 // rather than "exit status 1")
 func Command(name string, args ...string) *exec.Cmd {
 	if name == "pachctl" {
-		if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok {
+		if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok { //nolint:staticcheck
 			name = pachctl
 		}
 	}

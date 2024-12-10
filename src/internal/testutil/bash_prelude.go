@@ -19,14 +19,14 @@ func writeBashPrelude(w io.Writer) error {
 	}
 
 	// runfiles
-	if match, ok := bazel.FindBinary("//src/testing/match", "match"); ok {
+	if match, ok := bazel.FindBinary("//src/testing/match", "match"); ok { //nolint:staticcheck
 		// Running with Bazel; stick built-for-this-invocation match binary in $PATH in the
 		// generated prelude.  It is unlikely that Bazel will be misconfigured; the match
 		// binary is a data dependency of this file, so if this code is running, match is in
 		// the runfiles directory.
 		path = append(path, filepath.Dir(match))
 	}
-	if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok {
+	if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok { //nolint:staticcheck
 		path = append(path, filepath.Dir(pachctl))
 	}
 	if len(path) > 0 {

@@ -57,7 +57,7 @@ func New(ctx context.Context, tmp string, opts ...Option) (*TestLoki, error) {
 }
 
 func buildAndStart(ctx context.Context, tmp string, opts ...Option) (*TestLoki, error) {
-	bin, ok := bazel.FindBinary("//tools/loki", "loki")
+	bin, ok := bazel.FindBinary("//tools/loki", "loki") //nolint:staticcheck
 	if !ok {
 		log.Debug(ctx, "can't find //tools/loki via bazel, using loki in $PATH")
 		bin = "loki"
