@@ -1315,7 +1315,8 @@ jobs:
               --set pachd.storage.amazon.id=minioadmin \
               --set pachd.storage.amazon.secret=minioadmin \
               --set proxy.service.type=NodePort \
-              --set pachd.image.tag=${CIRCLE_SHA1}
+              --set pachd.image.tag=${CIRCLE_SHA1} \
+              --set pachd.rootToken=roottoken1234
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
             helm install pachd-enterprise ../etc/helm/pachyderm \
               --namespace enterprise \
@@ -1328,7 +1329,6 @@ jobs:
               --set proxy.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1} \
               --set proxy.service.httpNodePort=30081 \
-              --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
               --set pachd.rootToken=roottoken1234
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
@@ -1352,7 +1352,6 @@ jobs:
             PACH_PYTHON_TEST_PORT="30080" \
             PACH_PYTHON_TEST_PORT_ENTERPRISE="30081" \
             PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
-            ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
             PYTHON_SDK_TESTING_IMAGE="pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1" \
             poetry run pytest -vvv pachyderm_sdk tests
   python-sdk-test-publish:
