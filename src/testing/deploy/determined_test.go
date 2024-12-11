@@ -79,6 +79,8 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 		CleanupAfter: true, // this cluster is likely to not be re-used
 	}
 	valueOverrides["pachd.replicas"] = "1"
+	valueOverrides["pachd.activateAuth"] = "true"
+	valueOverrides["oidc.mockIDP"] = "true"
 	detUserPassword := "Password1"
 	valueOverrides["determined.initialUserPassword"] = detUserPassword
 	opts.ValueOverrides = valueOverrides
