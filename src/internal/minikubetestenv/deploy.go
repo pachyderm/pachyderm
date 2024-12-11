@@ -210,10 +210,12 @@ func withBase(namespace string) *helm.Options {
 			"pachd.defaultSidecarCPURequest":      "100m",
 			"pachd.defaultSidecarMemoryRequest":   "64M",
 			"pachd.defaultSidecarStorageRequest":  "100Mi",
+			"pachd.activateAuth":                  "false",
 			"console.enabled":                     "false",
 			"postgresql.persistence.size":         "5Gi",
 			"etcd.storageSize":                    "5Gi",
 			"pachw.resources.requests.cpu":        "250m",
+			"oidc.mockIDP":                        "false",
 		},
 	}
 }
@@ -779,7 +781,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.Enterprise {
 		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
 		helmOpts = union(helmOpts, withAuth(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port+opts.PortOffset)+7))
+		fmt.Println("--- issuer port", issuerPort)
 	}
+	fmt.Println("--- pach address", pachAddress)
 
 	helmOpts = union(helmOpts, withPachd(version))
 	// TODO(acohen4): apply minio deployment to this namespace
