@@ -259,7 +259,15 @@ func withMinio() *helm.Options {
 	}
 }
 
-func withAuth(host, rootToken string, issuerPort, clientPort int) *helm.Options {
+func withAuth(rootToken string) *helm.Options {
+	return &helm.Options{
+		SetValues: map[string]string{
+			"pachd.rootToken": rootToken,
+		},
+	}
+}
+
+func withEnterpriseAuth(host, rootToken string, issuerPort, clientPort int) *helm.Options {
 	return &helm.Options{
 		SetValues: map[string]string{
 			"pachd.rootToken": rootToken,
@@ -778,10 +786,12 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := GetPachAddress(t)
+
 	if opts.Enterprise {
 		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
-		helmOpts = union(helmOpts, withAuth(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port+opts.PortOffset)+7))
-		fmt.Println("--- issuer port", issuerPort)
+		helmOpts = union(helmOpts, withEnterpriseAuth(pachAddress.Host, testutil.RootToken, issuerPort, int(pachAddress.Port+opts.PortOffset)+7))
+	} else {
+		helmOpts = union(helmOpts, withAuth(testutil.RootToken))
 	}
 	fmt.Println("--- pach address", pachAddress)
 
