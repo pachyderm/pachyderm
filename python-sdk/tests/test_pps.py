@@ -52,17 +52,17 @@ class TestUnitJob:
     """Unit tests for the job management API."""
 
     @staticmethod
-    def test_list_subjob(client: TestClient, default_project: bool):
-        pipeline_info, job_info = client.new_pipeline(default_project)
+    def test_list_subjob(auth_client: TestClient, default_project: bool):
+        pipeline_info, job_info = auth_client.new_pipeline(default_project)
         pipeline = pipeline_info.pipeline
 
-        jobs = client.pps.list_job(pipeline=pipeline)
+        jobs = auth_client.pps.list_job(pipeline=pipeline)
         assert count(jobs) >= 1
 
-        jobs = client.pps.list_job(pipeline=pipeline, projects=[pipeline.project])
+        jobs = auth_client.pps.list_job(pipeline=pipeline, projects=[pipeline.project])
         assert count(jobs) >= 1
 
-        jobs = client.pps.list_job(
+        jobs = auth_client.pps.list_job(
             pipeline=pipeline,
             projects=[pipeline.project],
             input_commit=pipeline_info.spec_commit,
