@@ -119,7 +119,7 @@ func (a *apiServer) EnvBootstrap(ctx context.Context) error {
 
 func (a *apiServer) SetIdentityServerConfig(ctx context.Context, req *identity.SetIdentityServerConfigRequest) (resp *identity.SetIdentityServerConfigResponse, retErr error) {
 	if a.env.Config.IdentityConfig != "" {
-		return nil, errors.New("identity.SetIdentityServerConfig() is disable when the Identity Config is set via environment.")
+		return nil, errors.New("identity.SetIdentityServerConfig() is disabled when the Identity Config is set via environment.")
 	}
 	return a.setIdentityServerConfig(ctx, req)
 }
