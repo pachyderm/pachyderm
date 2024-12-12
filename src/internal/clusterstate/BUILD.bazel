@@ -19,6 +19,7 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate",
     visibility = ["//src:__subpackages__"],
     deps = [
+        "//src/enterprise",
         "//src/internal/authdb",
         "//src/internal/clusterstate/v2.10.0:v2_10_0",
         "//src/internal/clusterstate/v2.11.0:v2_11_0",
@@ -38,10 +39,10 @@ go_library(
         "//src/internal/transactiondb",
         "//src/pfs",
         "//src/server/auth",
-        "//src/server/enterprise/server",
         "//src/server/identity",
         "//src/server/license",
         "//src/server/license/server",
+        "@io_etcd_go_etcd_client_v3//:client",
         "@org_golang_google_protobuf//proto",
     ],
 )

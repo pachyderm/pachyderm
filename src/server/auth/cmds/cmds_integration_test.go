@@ -29,7 +29,6 @@ func TestActivate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateEnterprise(t, c)
 	require.NoError(t, testutilpachctl.PachctlBashCmd(t, c, `
 		echo '{{.token}}' | pachctl auth activate --supply-root-token
 		pachctl auth whoami | match {{.user}}
@@ -49,7 +48,6 @@ func TestActivateFailureRollback(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	tu.ActivateEnterprise(t, c)
 	clientId := uuid.UniqueString("clientId")
 	// activation fails to activate with bad issuer URL
 	require.YesError(t, testutilpachctl.PachctlBashCmd(t, c, `

@@ -32,8 +32,6 @@ func TSProtoOrDie(t testing.TB, ts time.Time) *timestamppb.Timestamp {
 func activateAuthHelper(tb testing.TB, client *client.APIClient, port ...string) {
 	client.SetAuthToken(RootToken)
 
-	ActivateEnterprise(tb, client, port...)
-
 	_, err := client.Activate(client.Ctx(),
 		&auth.ActivateRequest{RootToken: RootToken},
 	)
