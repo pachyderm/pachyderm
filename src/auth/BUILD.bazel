@@ -16,7 +16,7 @@ go_library(
         "//src/constants",
         "//src/internal/errors",
         "//src/protoextensions",
-        "@com_github_coreos_go_oidc//:go-oidc",
+        "@com_github_coreos_go_oidc_v3//oidc",
         "@com_github_envoyproxy_protoc_gen_validate//validate",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//utilities",
