@@ -17,7 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"go.uber.org/zap"
 
-	oidc "github.com/coreos/go-oidc"
+	oidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 )
 
