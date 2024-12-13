@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "cypress:ci-build-e2e": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config retries=2,video=true,baseUrl=http://localhost:80 --spec 'cypress/e2e/unauthenticated/**/*' --record --parallel --group e2e",
+    "cypress:ci-build-e2e": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config retries=2,video=true,baseUrl=http://127.0.0.1:80 --spec 'cypress/e2e/unauthenticated/**/*' --record --parallel --group e2e",
     "cypress:ci-build-auth": "NODE_ENV=test dotenv-flow -- cypress run --browser chrome --config retries=2,video=true,baseUrl=http://127.0.0.1:80 --spec 'cypress/e2e/authenticated/**/*' --record --parallel --group e2e-auth",
     "cypress:local": "NODE_ENV=development dotenv-flow -- cypress open --e2e --config '{\"e2e\": {\"specPattern\": \"cypress/e2e/unauthenticated/**/*\"}}'",
     "cypress:local-auth": "NODE_ENV=development dotenv-flow -- cypress open --e2e --config '{\"e2e\": {\"specPattern\": \"cypress/e2e/authenticated/**/*\"}}'",
