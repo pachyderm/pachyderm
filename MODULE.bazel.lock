@@ -1608,7 +1608,7 @@
         "bzlTransitiveDigest": "SAvduU1mz3auZTzTm3EvlvMh575cyos6hDHPQ5uaaaU=",
         "usagesDigest": "j63gsTnjiY/tZF+LtOayvaOSCIF80AcUv2uehu6NqCY=",
         "recordedFileInputs": {
-          "@@//private/apt/apt.lock.json": "8c0640a743fa020eb1ae038ba95bcf0eb3c88c3c72d430f0bf15b9e7788449eb"
+          "@@//private/apt/apt.lock.json": "cc4de69383eb58be462bc171192c29f59c3db56b51ac002efadf68b0e3a8a52a"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
