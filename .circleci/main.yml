@@ -1001,7 +1001,7 @@ jobs:
       - setup_remote_docker
       - run:
           name: docker login
-          command: echo "$TMP_DOCKER" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: docker pull
           command: docker pull pachyderm/notebooks-user:$CIRCLE_SHA1
