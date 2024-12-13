@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	docker "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"go.uber.org/zap"
@@ -66,7 +66,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 			return nil
 		}
 		log.Info(ctx, "container exists, but is not running. deleting...", zap.String("container", containerName))
-		if err := dclient.ContainerRemove(ctx, containerName, types.ContainerRemoveOptions{}); err != nil {
+		if err := dclient.ContainerRemove(ctx, containerName, container.RemoveOptions{}); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -108,7 +108,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 		log.Info(ctx, "warnings from docker", zap.Strings("warnings", resp.Warnings))
 	}
 	log.Info(ctx, "created container", zap.String("container", containerName))
-	if err := dclient.ContainerStart(ctx, containerName, types.ContainerStartOptions{}); err != nil {
+	if err := dclient.ContainerStart(ctx, containerName, container.StartOptions{}); err != nil {
 		return errors.EnsureStack(err)
 	}
 	log.Info(ctx, "started container", zap.String("container", containerName))
@@ -116,7 +116,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 }
 
 func ensureImage(ctx context.Context, dclient docker.APIClient, imageName string) (retErr error) {
-	rc, err := dclient.ImagePull(ctx, imageName, types.ImagePullOptions{})
+	rc, err := dclient.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
