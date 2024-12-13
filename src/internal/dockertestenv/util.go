@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
 	docker "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"go.uber.org/zap"
@@ -116,7 +116,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 }
 
 func ensureImage(ctx context.Context, dclient docker.APIClient, imageName string) (retErr error) {
-	rc, err := dclient.ImagePull(ctx, imageName, image.PullOptions{})
+	rc, err := dclient.ImagePull(ctx, imageName, types.ImagePullOptions{})
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
