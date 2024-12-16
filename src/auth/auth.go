@@ -320,6 +320,7 @@ func GetAuthToken(ctx context.Context) (string, error) {
 		fmt.Println("Muyang: the function reaches here")
 		return "", ErrNotSignedIn
 	}
+	fmt.Println("Muyang debugging get authToken final:", md[ContextTokenKey][0][0:6])
 	return md[ContextTokenKey][0], nil
 }
 
