@@ -106,11 +106,11 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 		hc.Binds = []string{registryVolume + ":/var/lib/registry"}
 		cc.User = strconv.Itoa(os.Getuid()) // So zot can read files in our homedir (registryVolume).
 	}
-	container, err := dc.ContainerCreate(ctx, cc, hc, nc, pc, name)
+	c, err := dc.ContainerCreate(ctx, cc, hc, nc, pc, name)
 	if err != nil {
 		return "", errors.Wrap(err, "create zot container")
 	}
-	if err := dc.ContainerStart(ctx, container.ID, container.StartOptions{}); err != nil {
+	if err := dc.ContainerStart(ctx, c.ID, container.StartOptions{}); err != nil {
 		return "", errors.Wrap(err, "start zot container")
 	}
 	log.Info(ctx, "registry started ok")
