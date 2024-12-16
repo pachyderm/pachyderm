@@ -43,7 +43,7 @@ func unauthenticated(ctx context.Context, _ authiface.APIServer, fullMethod stri
 // authenticated permits an RPC if auth is fully enabled and the user is authenticated
 func authenticated(ctx context.Context, authApi authiface.APIServer, fullMethod string) (string, error) {
 	r, err := authApi.WhoAmI(ctx, &auth.WhoAmIRequest{})
-	fmt.Println("Muyang djanicek: who am I?:", r.Username)
+	fmt.Println("Muyang djanicek: who am I?:", err)
 	fmt.Println("Muyang djanicek: who am I in ctx?:", GetWhoAmI(ctx))
 	fmt.Println("Muyang djanicek: who am I stack?:", string(debug.Stack()))
 	var username string
