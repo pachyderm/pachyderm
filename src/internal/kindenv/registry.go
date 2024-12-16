@@ -9,7 +9,6 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/bazelbuild/rules_go/go/runfiles"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/strslice"
@@ -111,7 +110,7 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 	if err != nil {
 		return "", errors.Wrap(err, "create zot container")
 	}
-	if err := dc.ContainerStart(ctx, container.ID, types.ContainerStartOptions{}); err != nil {
+	if err := dc.ContainerStart(ctx, container.ID, container.StartOptions{}); err != nil {
 		return "", errors.Wrap(err, "start zot container")
 	}
 	log.Info(ctx, "registry started ok")
@@ -137,7 +136,7 @@ func destroyRegistry(ctx context.Context, name string) error {
 	if err != nil {
 		return errors.Wrap(err, "create docker client")
 	}
-	if err := dc.ContainerRemove(ctx, name, types.ContainerRemoveOptions{Force: true}); err != nil {
+	if err := dc.ContainerRemove(ctx, name, container.RemoveOptions{Force: true}); err != nil {
 		return errors.Wrapf(err, "docker rm -f %v", name)
 	}
 	return nil
