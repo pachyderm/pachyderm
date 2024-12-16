@@ -885,7 +885,7 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 	// service discovery forever.
 	dialOptions = append(dialOptions, grpc.WithDisableServiceConfig())
 
-	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...)
+	clientConn, err := grpc.DialContext(ctx, c.addr.Target(), dialOptions...) //nolint:SA1019
 	if err != nil {
 		return err
 	}
