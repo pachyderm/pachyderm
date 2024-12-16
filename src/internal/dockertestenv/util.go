@@ -66,7 +66,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 			return nil
 		}
 		log.Info(ctx, "container exists, but is not running. deleting...", zap.String("container", containerName))
-		if err := dclient.ContainerRemove(ctx, containerName, types.ContainerRemoveOptions{}); err != nil {
+		if err := dclient.ContainerRemove(ctx, containerName, container.RemoveOptions{}); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -108,7 +108,7 @@ func ensureContainer(ctx context.Context, dclient docker.APIClient, containerNam
 		log.Info(ctx, "warnings from docker", zap.Strings("warnings", resp.Warnings))
 	}
 	log.Info(ctx, "created container", zap.String("container", containerName))
-	if err := dclient.ContainerStart(ctx, containerName, types.ContainerStartOptions{}); err != nil {
+	if err := dclient.ContainerStart(ctx, containerName, container.StartOptions{}); err != nil {
 		return errors.EnsureStack(err)
 	}
 	log.Info(ctx, "started container", zap.String("container", containerName))
