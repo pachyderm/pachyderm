@@ -422,7 +422,7 @@ jobs:
           version: << pipeline.parameters.go-version >>
       - install-pulumi-deps
       - run: |
-          echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           command: etc/testing/circle/run_all_load_tests.sh
           no_output_timeout: 1h
@@ -611,7 +611,7 @@ jobs:
       - run:
           name: pachydermbuildbot docker login
           command: |
-            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+            echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Build Docker
           command: |
@@ -646,7 +646,7 @@ jobs:
       - run:
           name: pachydermbuildbot docker login
           command: |
-            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+            echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Build Docker
           command: |
@@ -990,7 +990,7 @@ jobs:
       - setup_remote_docker
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Build Docker image
           command: docker build -t pachyderm/notebooks-user:$CIRCLE_SHA1 .
@@ -1007,7 +1007,7 @@ jobs:
       - setup_remote_docker
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: docker pull
           command: docker pull pachyderm/notebooks-user:$CIRCLE_SHA1
@@ -1220,7 +1220,7 @@ jobs:
       - run:
           name: pachydermbuildbot docker login
           command: |
-            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+            echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Push release manifests
           command: |
@@ -1271,7 +1271,7 @@ jobs:
       - setup_remote_docker
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: docker build
           command: docker build -t pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 -f Dockerfile.datum-batching-test .
@@ -1397,7 +1397,7 @@ jobs:
           docker_layer_caching: true
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Clone Label Studio repo
           command: git clone https://github.com/pachyderm/label-studio.git label-studio
@@ -1626,7 +1626,7 @@ jobs:
       - checkout
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Build application Docker image
           command: make -C ./console circle-docker-build
@@ -1637,7 +1637,7 @@ jobs:
       - checkout
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Create Multiarch Manifest
           command: |
@@ -1710,7 +1710,7 @@ jobs:
       - checkout
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: docker pull
           command: |
