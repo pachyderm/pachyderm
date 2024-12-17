@@ -53,10 +53,7 @@ class TestUnitJob:
 
     @staticmethod
     def test_list_subjob(client: TestClient, default_project: bool):
-        client.auth_token=os.environ.get(AUTH_TOKEN_ENV)
-        print("Muyang: Auth token in test_list_subjob:", client.auth_token)
         pipeline_info, job_info = client.new_pipeline(default_project)
-        print("Muyang: pipeline_info.commit:", pipeline_info.spec_commit)
         pipeline = pipeline_info.pipeline
 
         jobs = client.pps.list_job(pipeline=pipeline)
@@ -68,13 +65,12 @@ class TestUnitJob:
         jobs = client.pps.list_job(
             pipeline=pipeline,
             projects=[pipeline.project],
-            input_commit=pipeline_info.spec_commit,
+            input_commit=job_info.details.input.pfs.commit,
         )
         assert count(jobs) >= 1
 
     @staticmethod
     def test_list_job(client: TestClient, default_project: bool):
-        print("Muyang: Auth token in test_list_job:", client.auth_token)
         _pipeline_info_1, _job_info_1 = client.new_pipeline(default_project)
         _pipeline_info_2, _job_info_2 = client.new_pipeline(default_project)
 

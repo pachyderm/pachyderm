@@ -2,8 +2,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
-	"runtime/debug"
 	"strings"
 
 	"go.uber.org/zap"
@@ -46,12 +44,7 @@ func authenticated(ctx context.Context, authApi authiface.APIServer, fullMethod 
 	var username string
 	if err == nil {
 		username = r.Username
-	} else {
-		fmt.Println("Muyang djanicek: who am I?:", err)
-		fmt.Println("Muyang djanicek: who am I in ctx?:", GetWhoAmI(ctx))
-		fmt.Println("Muyang djanicek: who am I stack?:", string(debug.Stack()))
 	}
-
 	return username, errors.EnsureStack(err)
 }
 

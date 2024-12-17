@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"runtime/debug"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/constants"
@@ -309,7 +308,6 @@ func HashToken(token string) string {
 // GetAuthToken extracts the auth token embedded in 'ctx', if there is one
 func GetAuthToken(ctx context.Context) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
-	fmt.Println("Muyang debugging get authToken:", string(debug.Stack()))
 
 	if !ok {
 		return "", errors.EnsureStack(ErrNoMetadata)
@@ -317,17 +315,14 @@ func GetAuthToken(ctx context.Context) (string, error) {
 	if len(md[ContextTokenKey]) > 1 {
 		return "", errors.Errorf("multiple authentication token keys found in context")
 	} else if len(md[ContextTokenKey]) == 0 {
-		fmt.Println("Muyang: the function reaches here")
 		return "", ErrNotSignedIn
 	}
-	fmt.Println("Muyang debugging get authToken final:", md[ContextTokenKey][0][0:6])
 	return md[ContextTokenKey][0], nil
 }
 
 // GetAuthTokenOutgoing is the same as GetAuthToken, but it checks the outgoing metadata in the context.
 // TODO: It may make sense to merge GetAuthToken and GetAuthTokenOutgoing?
 func GetAuthTokenOutgoing(ctx context.Context) (string, error) {
-	fmt.Println("Muyang debugging get authTokenOutgoing:", string(debug.Stack()))
 	md, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
 		return "", errors.EnsureStack(ErrNoMetadata)
@@ -335,7 +330,6 @@ func GetAuthTokenOutgoing(ctx context.Context) (string, error) {
 	if len(md[ContextTokenKey]) > 1 {
 		return "", errors.Errorf("multiple authentication token keys found in context")
 	} else if len(md[ContextTokenKey]) == 0 {
-		fmt.Println("Muyang: the function reaches here")
 		return "", ErrNotSignedIn
 	}
 	return md[ContextTokenKey][0], nil
