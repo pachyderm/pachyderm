@@ -33,7 +33,6 @@ go_test(
         ":testing",
         "//src/auth",
         "//src/debug",
-        "//src/enterprise",
         "//src/internal/authdb",
         "//src/internal/backoff",
         "//src/internal/client",
@@ -49,14 +48,12 @@ go_test(
         "//src/internal/testpachd/realenv",
         "//src/internal/testutil",
         "//src/internal/uuid",
-        "//src/license",
         "//src/pfs",
         "//src/pps",
         "//src/server/auth/server",
         "//src/server/pfs",
         "@com_github_minio_minio_go_v6//:minio-go",
         "@org_golang_google_protobuf//types/known/emptypb",
-        "@org_golang_google_protobuf//types/known/timestamppb",
     ],
 )
 
@@ -88,14 +85,11 @@ go_test(
     pure = "on",
     deps = [
         "//src/auth",
-        "//src/enterprise",
         "//src/internal/dockertestenv",
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/testpachd/realenv",
         "//src/internal/testutil",
-        "//src/license",
-        "@org_golang_google_protobuf//types/known/timestamppb",
     ],
 )
 
@@ -106,7 +100,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/auth",
-        "//src/enterprise",
         "//src/internal/config",
         "//src/internal/dockertestenv",
         "//src/internal/pctx",

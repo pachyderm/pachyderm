@@ -14,7 +14,6 @@ go_library(
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/auth",
-        "//src/enterprise",
         "//src/internal/config",
         "//src/internal/errors",
         "//src/internal/log",
@@ -22,7 +21,6 @@ go_library(
         "//src/internal/serviceenv",
         "//src/internal/uuid",
         "//src/pps",
-        "//src/server/enterprise/metrics",
         "//src/version",
         "@com_github_segmentio_analytics_go//:analytics-go",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",

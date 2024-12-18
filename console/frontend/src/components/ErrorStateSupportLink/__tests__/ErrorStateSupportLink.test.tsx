@@ -2,7 +2,7 @@ import {render, screen, waitFor} from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {EMAIL_SUPPORT, SLACK_SUPPORT} from '@dash-frontend/constants/links';
+import {EMAIL_SUPPORT} from '@dash-frontend/constants/links';
 import {
   mockGetVersionInfo,
   mockGetEnterpriseInfo,
@@ -29,12 +29,6 @@ describe('ErrorStateSupportLink', () => {
   });
 
   afterAll(() => server.close());
-
-  it('should show a slack link if enterprise is inactive', async () => {
-    render(<ErrorStateSupportLink />);
-    const link = screen.getByRole('link');
-    expect(link).toHaveAttribute('href', SLACK_SUPPORT);
-  });
 
   it('should show an email link if enterprise is active', async () => {
     server.use(mockGetEnterpriseInfo());
