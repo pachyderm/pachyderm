@@ -15,6 +15,7 @@ require (
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/chrusty/protoc-gen-jsonschema v0.0.0-20230418203306-956cc32e45d6
+	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/determined-ai/determined/proto v0.0.0-20230615001349-d3aff5bab560
 	github.com/dexidp/dex v2.36.0+incompatible
 	github.com/dexidp/dex/api/v2 v2.1.0
@@ -118,12 +119,14 @@ require (
 	sigs.k8s.io/yaml v1.4.0
 )
 
-require github.com/go-jose/go-jose/v4 v4.0.2 // indirect
+require (
+	cloud.google.com/go/auth v0.6.0 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
+)
 
 require (
 	cloud.google.com/go v0.115.0 // indirect
-	cloud.google.com/go/auth v0.6.0 // indirect
-	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.9 // indirect
 	dario.cat/mergo v1.0.0 // indirect
@@ -149,7 +152,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/Microsoft/hcsshim v0.9.3 // indirect
-	github.com/ProtonMail/go-crypto v0.0.0-20230828082145-3c4c8a2d2371 // indirect
+	github.com/ProtonMail/go-crypto v1.0.0 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
@@ -187,15 +190,14 @@ require (
 	github.com/charmbracelet/bubbletea v0.24.2 // indirect
 	github.com/charmbracelet/lipgloss v0.7.1 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
-	github.com/cloudflare/circl v1.3.3 // indirect
+	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/containerd/cgroups v1.0.4 // indirect
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
-	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
-	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
+	github.com/cyphar/filepath-securejoin v0.2.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/djherbis/times v1.5.0 // indirect
 	github.com/dlclark/regexp2 v1.2.0 // indirect
@@ -209,7 +211,7 @@ require (
 	github.com/go-errors/errors v1.1.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect
-	github.com/go-git/go-git/v5 v5.11.0 // indirect
+	github.com/go-git/go-git/v5 v5.12.0 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -309,9 +311,9 @@ require (
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.0.0 // indirect
 	github.com/segmentio/backo-go v0.0.0-20160424052352-204274ad699c // indirect
-	github.com/sergi/go-diff v1.2.0 // indirect
+	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
-	github.com/skeema/knownhosts v1.2.1 // indirect
+	github.com/skeema/knownhosts v1.2.2 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/texttheater/golang-levenshtein v1.0.1 // indirect
