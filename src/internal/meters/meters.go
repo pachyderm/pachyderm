@@ -84,6 +84,7 @@ package meters
 import (
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"sync"
 	"time"
@@ -214,6 +215,7 @@ func Sample[T any](ctx context.Context, meter string, val T) {
 type aggregateOptions struct {
 	flushInterval time.Duration // How long to wait, at a minimum, before reporting the value of the meter.
 	doneCh        chan struct{} // only for testing
+	skip          int
 }
 
 // Option supplies optional configuration to aggregated meters.
@@ -238,6 +240,13 @@ func Deferred() Option {
 func withDoneCh(ch chan struct{}) Option {
 	return func(o *aggregateOptions) {
 		o.doneCh = ch
+	}
+}
+
+// withCallerSkip sets the number of stack frames to skip on each log event.
+func withCallerSkip(skip int) Option {
+	return func(o *aggregateOptions) {
+		o.skip = skip
 	}
 }
 
@@ -330,7 +339,7 @@ func (g *gauge[T]) set(ctx context.Context, val T) {
 	g.value = val
 	g.dirty = true
 	g.Unlock()
-	g.flush(ctx, 2, false)
+	g.flush(ctx, 2+g.skip, false)
 }
 
 func (c *counter[T]) inc(ctx context.Context, val T) {
@@ -338,7 +347,7 @@ func (c *counter[T]) inc(ctx context.Context, val T) {
 	c.delta += val // val == 0 means to try flushing
 	c.dirty = true
 	c.Unlock()
-	c.flush(ctx, 2, false)
+	c.flush(ctx, 2+c.skip, false)
 }
 
 func (d *delta[T]) set(ctx context.Context, val T) {
@@ -348,7 +357,7 @@ func (d *delta[T]) set(ctx context.Context, val T) {
 		d.dirty = true
 	}
 	d.Unlock()
-	d.flush(ctx, 2, false)
+	d.flush(ctx, 2+d.skip, false)
 }
 
 func (g *gauge[T]) String() string {
@@ -451,4 +460,35 @@ func WithNewFields(ctx context.Context) context.Context {
 		ctx = create(ctx)
 	}
 	return context.WithValue(ctx, allParentMeters{}, creators)
+}
+
+// writer is an io.Writer that emits metrics on successfully-written bytes.
+type writer struct {
+	io.Writer
+	context.Context
+	meter string
+}
+
+var _ io.Writer = (*writer)(nil)
+
+// Write implements io.Writer.
+func (w *writer) Write(p []byte) (n int, err error) {
+	n, err = w.Writer.Write(p)
+	if err != nil {
+		return
+	}
+	Inc(w.Context, w.meter, uint64(n))
+	return
+}
+
+// NewWriter returns an io.Writer that reports metrics on bytes successfully written to w.  The
+// meter parameter should end with "_bytes" for stylistic purposes.
+func NewWriter(rctx context.Context, meter string, w io.Writer, options ...Option) io.Writer {
+	options = append(options, withCallerSkip(1))
+	ctx := NewAggregatedCounter(rctx, meter, uint64(0), options...)
+	return &writer{
+		Writer:  w,
+		Context: ctx,
+		meter:   meter,
+	}
 }
