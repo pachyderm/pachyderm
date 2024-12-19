@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "03ab1bb797ca9c58544aba1f6b1ea420058998f6f1b7cebd2bde1d4641f291c5",
+  "moduleFileHash": "acfa39be08e6c1ccd8f36c6c812072c1fff9aca516fb171fa4afab355bda1948",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -88,7 +88,7 @@
             "com_github_cevaris_ordered_map": "com_github_cevaris_ordered_map",
             "com_github_chmduquesne_rollinghash": "com_github_chmduquesne_rollinghash",
             "com_github_chrusty_protoc_gen_jsonschema": "com_github_chrusty_protoc_gen_jsonschema",
-            "com_github_coreos_go_oidc": "com_github_coreos_go_oidc",
+            "com_github_coreos_go_oidc_v3": "com_github_coreos_go_oidc_v3",
             "com_github_data_dog_go_sqlmock": "com_github_data_dog_go_sqlmock",
             "com_github_determined_ai_determined_proto": "com_github_determined_ai_determined_proto",
             "com_github_dexidp_dex": "com_github_dexidp_dex",
