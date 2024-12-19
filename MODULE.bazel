@@ -204,7 +204,7 @@ use_repo(
     "com_github_cevaris_ordered_map",
     "com_github_chmduquesne_rollinghash",
     "com_github_chrusty_protoc_gen_jsonschema",
-    "com_github_coreos_go_oidc",
+    "com_github_coreos_go_oidc_v3",
     "com_github_data_dog_go_sqlmock",
     "com_github_determined_ai_determined_proto",
     "com_github_dexidp_dex",
