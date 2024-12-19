@@ -30,17 +30,18 @@ orbs:
   kubernetes: circleci/kubernetes@1.3.0
   aws-eks: circleci/aws-eks@2.2.0
   tools: gotest/tools@0.0.14
+  browser-tools: circleci/browser-tools@1.2.3
 
 parameters:
   machine_image:
     type: string
-    default: ubuntu-2204:2023.04.2
+    default: ubuntu-2404:2024.05.1
   ci_runner_image:
     type: string
-    default: docker.io/pachyderm/ci-runner:20240327-e244f4987bb95479ace93f62388b267c5afc12ef@sha256:6eca53ba260096076ae7decbfb66a779b3d78984ae5f249c8d28514f34c02ef4
+    default: docker.io/pachyderm/ci-runner:20240614-f19663ebdd4f8a08829ef251b9375c594ad866fe@sha256:1446c14f98c9de7de078ee7b5dac34643e138d1c190be9558f49cfa731206e3c
   go-version:
     type: string
-    default: "1.22.4"
+    default: "1.23.1"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -62,6 +63,9 @@ parameters:
   run-label-studio-jobs:
     type: boolean
     default: false
+  run-console-jobs:
+    type: boolean
+    default: false
 
 executors:
   docker-go:
@@ -70,6 +74,18 @@ executors:
   python:
     docker:
       - image: cimg/python:3.10-node
+  small-node:
+    resource_class: small
+    docker:
+      - image: cimg/node:20.11.0
+  medium-node:
+    resource_class: medium
+    docker:
+      - image: cimg/node:20.11.0
+  xlarge-node:
+    resource_class: xlarge
+    docker:
+      - image: cimg/node:20.11.0
 
 jobs:
   static-go-checks:
@@ -406,7 +422,7 @@ jobs:
           version: << pipeline.parameters.go-version >>
       - install-pulumi-deps
       - run: |
-          echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           command: etc/testing/circle/run_all_load_tests.sh
           no_output_timeout: 1h
@@ -545,6 +561,7 @@ jobs:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run: etc/testing/circle/wait-minikube.sh
+      - run: go install gotest.tools/gotestsum@latest
       - run:
           name: Run Tests
           command: etc/testing/circle/deploy_test.sh | ts '%Y-%m-%dT%H:%M:%S'
@@ -552,15 +569,9 @@ jobs:
           command: etc/testing/circle/upload_stats.sh
           when: always
       - run:
-          name: Format test results for upload
-          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
-          when: always
-      - run:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
-      - store_artifacts:
-          path: /tmp/test-results
       - run:
           name: Format code coverage
           when: always
@@ -572,9 +583,9 @@ jobs:
       - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
-  # build pachctl and push to GCS bucket, so that it can be bundled into the
-  # Jupyter-Pachyderm extension
   build-docker-images:
+    # This builds a tree that can be released, and then builds and pushes docker images.  The name
+    # is kept for compatability but it is wrong.
     parameters:
       appVersion:
         type: string
@@ -585,7 +596,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
       docker_layer_caching: true
-    resource_class: xlarge
+    resource_class: 2xlarge
     steps:
       - go/install:
           version: << pipeline.parameters.go-version >>
@@ -594,36 +605,56 @@ jobs:
           name: Download utilities
           command: |
             sudo apt update
-            sudo apt install qemu binfmt-support qemu-user-static
+            sudo apt install binfmt-support qemu-user-static
       - install-go-releaser
+      - install-bazel
       - run:
           name: pachydermbuildbot docker login
           command: |
-            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+            echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Build Docker
           command: |
             v=<< parameters.appVersion >>
             additional=${v%%-*}
             index=${#additional}
+            make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+
             if << parameters.enableCoverage >>
             then
-              make docker-build-coverage VERSION=${v} VERSION_ADDITIONAL=${v:index}
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push_coverage
             else
-              make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push
             fi
       - persist_to_workspace:
           root: ../
           paths:
             - dist-pach/docker/*
+  build-only-docker-images:
+    # This builds only docker images, no dist-pach bundle.
+    parameters:
+      enableCoverage:
+        type: boolean
+        default: false
+    machine:
+      image: << pipeline.parameters.machine_image >>
+      docker_layer_caching: true
+    resource_class: 2xlarge
+    steps:
+      - checkout
+      - install-bazel
       - run:
-          name: Push docker
-          command: |-
+          name: pachydermbuildbot docker login
+          command: |
+            echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
+      - run:
+          name: Build Docker
+          command: |
             if << parameters.enableCoverage >>
             then
-              make docker-push VERSION=cover-${CIRCLE_SHA1}
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push_coverage
             else
-              make docker-push VERSION=${CIRCLE_SHA1}
+              bazel run --stamp --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:push
             fi
   build-pachctl-bin:
     parameters:
@@ -698,20 +729,6 @@ jobs:
       - checkout
       - run: sudo npm install -g prettier
       - run: prettier -c etc/helm/pachyderm/values.yaml .circleci/config.yml .circleci/main.yml
-  jsonnet-lint:
-    resource_class: small
-    docker:
-      - image: cimg/go:<< pipeline.parameters.go-version >>
-    steps:
-      - checkout
-      - run:
-          name: Install go-jsonnet
-          command: |
-            go install github.com/google/go-jsonnet/cmd/jsonnet-lint@latest
-      - run:
-          name: lint all jsonnet files
-          command: |
-            find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
       - image: envoyproxy/envoy:v1.29.3
@@ -724,22 +741,7 @@ jobs:
       - run: tar xzvf jsonnet-bin-v0.17.0-linux.tar.gz
       - run: mv jsonnet jsonnetfmt /usr/local/bin
       - run: make -C etc/generate-envoy-config test
-  govulncheck:
-    executor: docker-go
-    resource_class: xlarge
-    steps:
-      - checkout
-      - run:
-          name: Install govulncheck
-          command: go install golang.org/x/vuln/cmd/govulncheck@latest
-      - run:
-          name: Check for known security vulnerabilities
-          command: |
-            find -name go.mod -print0 | xargs -0 -I{} sh -c 'cd $(dirname {}); echo; echo '---'; echo $PWD; exec govulncheck ./...'
   jupyter-extension-test:
-    parameters:
-      python-version:
-        type: string
     docker:
       - image: cimg/node:20.11.0
     resource_class: large
@@ -799,7 +801,6 @@ jobs:
           name: "Integration tests"
           command: |
             set -eux
-
             python3 -m venv venv
             . venv/bin/activate
             python3 -m pip install '.'
@@ -837,9 +838,9 @@ jobs:
 
             python3 -m venv venv
             . venv/bin/activate
-            python -m pip install --upgrade pip
+            python -m pip install pip==24.0
 
-            pip install jupyterlab==3.2.2
+            pip install jupyterlab==4.0.11
             pip install `find dist/ -name \*.whl`
 
             # Install just what need to run cypress tests
@@ -989,7 +990,7 @@ jobs:
       - setup_remote_docker
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Build Docker image
           command: docker build -t pachyderm/notebooks-user:$CIRCLE_SHA1 .
@@ -1006,7 +1007,7 @@ jobs:
       - setup_remote_docker
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: docker pull
           command: docker pull pachyderm/notebooks-user:$CIRCLE_SHA1
@@ -1189,61 +1190,6 @@ jobs:
                 echo "regular release."
                 gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/docker/pachyderm_*_linux_amd64.tar.gz ./dist-pach/docker/pachyderm_*linux_arm64.tar.gz --generate-notes
             fi
-  console-release-draft:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - add_ssh_keys:
-          fingerprints:
-            - "23:49:d3:11:ea:69:de:6f:c3:29:e3:09:ff:01:b1:f0"
-      - run:
-          name: setup pachydermbuildbot git
-          command: |
-            git config --global user.email "buildbot@pachyderm.io"
-            git config --global user.name "pachydermbuildbot"
-      - gh/setup:
-          version: 2.13.0
-      - run:
-          name: create github console release draft
-          command: |
-            if [[ $CIRCLE_TAG == *"alpha"* ]];
-              then
-                  echo "based on git tag assuming its a alpha release."
-                  parentBranch=master
-              else
-                  echo "using console's release branch for RCs and patch releases."
-                  parentBranch=$(echo ${CIRCLE_TAG:1} | cut -f -2 -d ".").x
-              fi
-            git clone https://github.com/pachyderm/haberdashery.git haberdashery
-            cd haberdashery
-            git fetch origin
-            git checkout -b release-${CIRCLE_TAG:1} origin/${parentBranch}
-            tmp=$(mktemp)
-            jq --arg val "${CIRCLE_TAG:1}-${CIRCLE_SHA1}" '.pachyderm = $val' version.json > "$tmp" && mv "$tmp" version.json
-            jq --arg val "${CIRCLE_SHA1}" '.pachReleaseCommit = $val' version.json > "$tmp" && mv "$tmp" version.json
-            jq --arg val "${CIRCLE_TAG:1}" '.pachctl = $val' version.json > "$tmp" && mv "$tmp" version.json
-            git add --all
-            git commit -m "bump pachyderm version"
-            git push origin release-${CIRCLE_TAG:1}
-            PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --reviewer pachydermbuildbot --repo pachyderm/haberdashery)
-            sleep 10 # give it a bit time for checks to attach
-            gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
-            gh pr merge ${PR} --rebase --admin --repo pachyderm/haberdashery
-            sleep 2 # give it quick sec to merge, make sure we get right state.
-            IS_MERGED=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
-            if [[ "${IS_MERGED}" != "MERGED" ]]; then
-              echo "review console PR ${PR} for failures. It did not merge."
-              exit 1
-            fi
-            sleep 2 # in case we create release to fast
-            if [[ $CIRCLE_TAG == *"-"* ]];
-              then
-                  echo "git tag has - assuming prerelease."
-                  gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --prerelease --repo pachyderm/haberdashery
-              else
-                  echo "regular release."
-                  gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --repo pachyderm/haberdashery
-              fi
   release-github:
     parameters:
       repo:
@@ -1264,30 +1210,6 @@ jobs:
           name: create github release
           command: |
             gh release edit << parameters.tag >> --draft=false --repo << parameters.repo >>
-      - when:
-          condition:
-            and:
-              - equal: ["pachyderm/haberdashery", << parameters.repo >>]
-          steps:
-            - setup_remote_docker:
-                docker_layer_caching: true
-                version: "20.10.12"
-            - run:
-                name: pachydermbuildbot docker login
-                command: |
-                  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-            - run:
-                name: check if console docker image released
-                command: |
-                  SECONDS=0
-                  while :; do
-                      docker pull pachyderm/haberdashery:<< parameters.tag >> 2>/dev/null && break
-                      if (( $SECONDS > 600 )); then
-                          printf 'Waited 10 minutes for console docker image to appear in the registry, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures or delays\n' >&2
-                          exit 1
-                      fi
-                      sleep 1
-                  done
   release-docker-hub:
     docker:
       - image: cimg/base:stable
@@ -1298,7 +1220,7 @@ jobs:
       - run:
           name: pachydermbuildbot docker login
           command: |
-            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+            echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Push release manifests
           command: |
@@ -1349,7 +1271,7 @@ jobs:
       - setup_remote_docker
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: docker build
           command: docker build -t pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 -f Dockerfile.datum-batching-test .
@@ -1377,7 +1299,7 @@ jobs:
       - install-poetry
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
-          command: poetry --no-ansi install
+          command: poetry --no-ansi install -E cdr
       - wait-for-minikube
       - run:
           name: Install minio
@@ -1416,6 +1338,14 @@ jobs:
             until poetry run pachyderm-sdk-check-connection "$(minikube ip):30080"; do sleep 5; done
             until poetry run pachyderm-sdk-check-connection "$(minikube ip):30081"; do sleep 5; done
       - run:
+          name: Pachd Logs
+          command: kubectl logs -f -l app=pachd
+          background: true
+      - run:
+          name: kubectl port-forward for minio
+          command: kubectl port-forward service/minio 9000:9000
+          background: true
+      - run:
           name: Run Tests
           command: |
             PACH_PYTHON_TEST_HOST="$(minikube ip)" \
@@ -1423,7 +1353,7 @@ jobs:
             PACH_PYTHON_TEST_PORT_ENTERPRISE="30081" \
             PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
             ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
-            PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
+            PYTHON_SDK_TESTING_IMAGE="pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1" \
             poetry run pytest -vvv pachyderm_sdk tests
   python-sdk-test-publish:
     executor: python
@@ -1467,7 +1397,7 @@ jobs:
           docker_layer_caching: true
       - run:
           name: docker login
-          command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
       - run:
           name: Clone Label Studio repo
           command: git clone https://github.com/pachyderm/label-studio.git label-studio
@@ -1533,6 +1463,7 @@ jobs:
           name: Run tests
           command: |
             pip3 install -r requirements.txt
+            pip3 install ../python-sdk
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
   bazel-style-tests:
     resource_class: xlarge
@@ -1551,6 +1482,20 @@ jobs:
           when: always
       - store_test_results:
           path: /tmp/bazel-testlogs/
+  bazel-govulncheck:
+    resource_class: xlarge
+    docker:
+      - image: << pipeline.parameters.ci_runner_image >>
+    steps:
+      - checkout
+      - run: |
+          bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+                     --test_env=GOMEMLIMIT=12GiB //src/testing/govulncheck:govulncheck_test
+      - run:
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
+      - store_test_results:
+          path: /tmp/bazel-testlogs/
   bazel-tests:
     resource_class: 2xlarge+
     docker:
@@ -1564,6 +1509,7 @@ jobs:
           //src/testing/cmds/dockertestenv
       - run: |
           SKIP_DOCKER_POSTGRES_CREATE=1 \
+          SKIP_DOCKER_MINIO_CREATE=1 \
           DOCKER_MACHINE_NAME=172.17.0.1 \
           bazel \
           coverage \
@@ -1605,6 +1551,7 @@ jobs:
           docker run \
           -e ENT_ACT_CODE \
           -e SKIP_DOCKER_POSTGRES_CREATE=1 \
+          -e SKIP_DOCKER_MINIO_CREATE=1 \
           -e DOCKER_MACHINE_NAME=172.17.0.1 \
           -v /home/circleci/out:/home/circleci/out \
           -v /home/circleci/project:/home/circleci/project \
@@ -1621,13 +1568,174 @@ jobs:
           path: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/
       - codecov/upload:
           file: /home/circleci/out/execroot/_main/bazel-out/_coverage/_coverage_report.dat
-
+  console-lint-frontend:
+    executor: small-node
+    steps:
+      - checkout
+      - run: cd ./console/frontend && npm ci
+      - run: cd ./console/frontend && npm run lint:js:no-fix
+      - run: cd ./console/frontend && npm run lint:css:no-fix
+  console-lint-backend:
+    executor: small-node
+    steps:
+      - checkout
+      - run: cd ./console/backend && npm ci
+      - run: cd ./console/backend && npm run lint:no-fix
+  console-lint-cypress:
+    executor: small-node
+    steps:
+      - checkout
+      - run: npm ci --prefix ./console/cypress
+      - run: npm run lint --prefix ./console/cypress
+  console-test-backend:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node-install-frontend-backend
+      - run: npm run test --prefix ./console/backend -- --coverage
+      - codecov/upload:
+          file: ./console/backend/coverage/lcov.info
+  console-test-frontend-components:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node-install-frontend-backend
+      - run: npm run test:components --prefix ./console/frontend
+  console-test-frontend-react:
+    executor: xlarge-node
+    steps:
+      - checkout
+      - node-install-frontend-backend
+      - run: npm run test:frontend --prefix ./console/frontend -- --coverage
+      - codecov/upload:
+          file: ./console/frontend/src/coverage/lcov.info
+  console-build:
+    executor: small-node
+    steps:
+      - checkout
+      - node-install-all
+      - run: cd console && make build
+  console-docker-build:
+    parameters:
+      resource_class:
+        type: string
+    resource_class: << parameters.resource_class >>
+    machine:
+      image: default
+    steps:
+      - checkout
+      - run:
+          name: docker login
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
+      - run:
+          name: Build application Docker image
+          command: make -C ./console circle-docker-build
+  console-docker-manifest:
+    machine:
+      image: default
+    steps:
+      - checkout
+      - run:
+          name: docker login
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
+      - run:
+          name: Create Multiarch Manifest
+          command: |
+            cd console
+            make circle-docker-manifest
+  console-test-docker-e2e-community-edition:
+    resource_class: xlarge
+    parallelism: 3
+    machine:
+      image: default
+    working_directory: ~/project/console
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - run: npm ci
+      - install-bazel
+      - install-console-e2e-deps
+      - run:
+          name: Install pachd without auth
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
+            unset ENT_ACT_CODE # deactivate enterprise and auth
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
+      - run: touch .env.development.local
+      - run:
+          name: Run Community Edition Cypress tests against built console image
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build-e2e
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
+      - store_artifacts:
+          path: /tmp/cypress-debug
+  console-test-docker-e2e-enterprise-edition:
+    resource_class: xlarge
+    parallelism: 3
+    machine:
+      image: default
+    working_directory: ~/project/console
+    steps:
+      - checkout:
+          path: ~/project
+      - attach_workspace:
+          at: .
+      - run: npm ci
+      - install-bazel
+      - install-console-e2e-deps
+      - run:
+          name: Install pachd with auth
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
+            mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
+      - run: touch .env.development.local
+      - run:
+          name: Run Enterprise Edition Cypress tests against built console image
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build-auth
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
+  console-docker-push-tag:
+    machine:
+      image: default
+    steps:
+      - checkout
+      - run:
+          name: docker login
+          command: echo "$TMP_DOCKER" | docker login --username aisolutionsdev --password-stdin
+      - run:
+          name: docker pull
+          command: |
+            docker pull pachyderm/haberdashery:$CIRCLE_SHA1-amd64
+            docker pull pachyderm/haberdashery:$CIRCLE_SHA1-arm64
+      - run:
+          name: Docker create manifest
+          command: |
+            docker manifest create pachyderm/haberdashery:${CIRCLE_TAG:1} docker.io/pachyderm/haberdashery:$CIRCLE_SHA1-amd64 docker.io/pachyderm/haberdashery:$CIRCLE_SHA1-arm64
+            docker manifest annotate "pachyderm/haberdashery:${CIRCLE_TAG:1}" "docker.io/pachyderm/haberdashery:$CIRCLE_SHA1-amd64" --arch amd64
+            docker manifest annotate "pachyderm/haberdashery:${CIRCLE_TAG:1}" "docker.io/pachyderm/haberdashery:$CIRCLE_SHA1-arm64" --arch arm64
+            docker manifest inspect pachyderm/haberdashery:${CIRCLE_TAG:1}
+      - run:
+          name: Docker push manifest
+          command: docker manifest push pachyderm/haberdashery:${CIRCLE_TAG:1}
 workflows:
   functional-tests:
-    when: << pipeline.parameters.run-core-jobs >>
+    when:
+      or:
+        - << pipeline.parameters.run-core-jobs >>
+        - << pipeline.parameters.run-jupyter-jobs >>
+        - << pipeline.parameters.run-console-jobs >>
     jobs:
-      - build-docker-images
-      - build-docker-images:
+      - build-only-docker-images
+      - build-only-docker-images:
           enableCoverage: true
       - bazel-tests
       - bazel-privileged-tests
@@ -1637,8 +1745,7 @@ workflows:
     jobs:
       - check-prettier
       - bazel-style-tests
-      - jsonnet-lint
-      - govulncheck
+      - bazel-govulncheck
       - static-go-checks
       - test-envoy
   helm-tests:
@@ -1788,11 +1895,8 @@ workflows:
   jupyter-extension:
     when: << pipeline.parameters.run-jupyter-jobs >>
     jobs:
-      - build-docker-images
-      - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
+      - build-only-docker-images
+      - jupyter-extension-test
       - jupyter-extension-frontend-test
       - jupyter-extension-integration-test
       - jupyter-extension-e2e-test:
@@ -1813,10 +1917,10 @@ workflows:
     jobs:
       - test-python-sdk:
           requires:
-            - build-docker-images
+            - build-only-docker-images
             - build-pachctl-bin
             - python-sdk-testing-docker-build
-      - build-docker-images
+      - build-only-docker-images
       - python-sdk-build
       - python-sdk-testing-docker-build:
           requires:
@@ -1831,10 +1935,10 @@ workflows:
     jobs:
       - test-label-studio:
           requires:
-            - build-docker-images
+            - build-only-docker-images
             - build-pachctl-bin
             - build-label-studio-ci-testing-image
-      - build-docker-images
+      - build-only-docker-images
       - build-pachctl-bin:
           version: $CIRCLE_SHA1
       - build-label-studio-ci-testing-image
@@ -1875,9 +1979,6 @@ workflows:
             - build-docker-images
             - helm-build
       - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
           filters: *only-release-tags
       - jupyter-extension-frontend-test:
           filters: *only-release-tags
@@ -1926,13 +2027,6 @@ workflows:
           filters: *only-release-tags
           requires:
             - aws-testing
-      - console-release-draft:
-          filters: *only-release-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
       - sign-off:
           filters: *only-release-tags
           type: approval
@@ -1951,13 +2045,6 @@ workflows:
       #      - sign-off
       - release-github:
           name: github-release-pach-core
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - release-github:
-          name: github-release-console
-          repo: pachyderm/haberdashery
-          tag: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - sign-off
@@ -1999,6 +2086,39 @@ workflows:
             - test-python-sdk
             - python-sdk-test-publish
             - sign-off
+          filters: *only-release-tags
+      - console-test-backend:
+          filters: *only-release-tags
+      - console-test-frontend-components:
+          filters: *only-release-tags
+      - console-test-frontend-react:
+          filters: *only-release-tags
+      - console-docker-build:
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
+          filters: *only-release-tags
+      - console-docker-manifest:
+          requires:
+            - console-docker-build
+          filters: *only-release-tags
+      - console-test-docker-e2e-community-edition:
+          requires:
+            - console-docker-manifest
+            - build-pachctl-bin
+          filters: *only-release-tags
+      - console-test-docker-e2e-enterprise-edition:
+          requires:
+            - console-docker-manifest
+            - build-pachctl-bin
+          filters: *only-release-tags
+      - console-docker-push-tag:
+          requires:
+            - sign-off
+            - console-test-docker-e2e-community-edition
+            - console-test-docker-e2e-enterprise-edition
           filters: *only-release-tags
   nightly-release:
     jobs:
@@ -2075,7 +2195,37 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - aws-prerelease-testing
-
+  console-regression-tests:
+    when:
+      or:
+        - << pipeline.parameters.run-console-jobs >>
+        - << pipeline.parameters.run-core-jobs >>
+    jobs:
+      - console-docker-build:
+          matrix:
+            parameters:
+              resource_class:
+                - large
+                - arm.large
+      - console-docker-manifest:
+          requires:
+            - console-docker-build
+      - console-test-docker-e2e-community-edition:
+          requires:
+            - console-docker-manifest
+      - console-test-docker-e2e-enterprise-edition:
+          requires:
+            - console-docker-manifest
+  console:
+    when: << pipeline.parameters.run-console-jobs >>
+    jobs:
+      - console-lint-backend
+      - console-lint-frontend
+      - console-lint-cypress
+      - console-build
+      - console-test-backend
+      - console-test-frontend-components
+      - console-test-frontend-react
 commands:
   install-helm:
     steps:
@@ -2114,6 +2264,12 @@ commands:
       - attach_workspace:
           at: ./
       - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
+      - run:
+          name: Downgrade python
+          command: |-
+            set -euxo pipefail
+            pyenv install 3.11
+            pyenv global 3.11
       - run:
           name: Install kubectl
           command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install
@@ -2229,3 +2385,28 @@ commands:
             wget -O ./bazel "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
             chmod +x ./bazel
             sudo mv ./bazel /home/circleci/bin/bazel
+  node-install-all:
+    steps:
+      - run:
+          name: Npm install project root, frontend and backend
+          command: npm ci --prefix ./console && npm ci --prefix ./console/backend && npm ci --prefix ./console/frontend
+  node-install-frontend-backend:
+    steps:
+      - run:
+          name: Npm install frontend and backend
+          command: npm ci --prefix ./console/backend && npm ci --prefix ./console/frontend
+  install-console-e2e-deps:
+    steps:
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install kubectl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install
+      - run:
+          name: Install pachctl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/server/cmd/pachctl:install
+      - run:
+          name: Setup k8s cluster
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100
