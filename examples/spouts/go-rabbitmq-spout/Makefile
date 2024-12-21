@@ -6,7 +6,7 @@ CONTAINER_VERSION := 1.12.2
 CONTAINER_TAG := $(DOCKER_ACCOUNT)/$(CONTAINER_NAME):$(CONTAINER_VERSION)
 
 docker-image:
-	@docker build -t $(CONTAINER_TAG) .
+	@cd ../../..; docker build -t $(CONTAINER_TAG) --build-context examples=examples -f Dockerfile.go-rabbitmq-spout .
 	@docker push $(CONTAINER_TAG)
 
 create-pipeline:
