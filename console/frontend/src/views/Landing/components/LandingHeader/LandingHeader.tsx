@@ -14,7 +14,7 @@ type LandingHeaderProps = {
 export const LandingHeader: React.FC<LandingHeaderProps> = ({
   disableBranding = false,
 }) => {
-  const {enterpriseActive, loading} = useEnterpriseActive(disableBranding);
+  const {enterpriseActive, loading} = useEnterpriseActive();
 
   const logo = enterpriseActive ? (
     <LogoHpe aria-describedby="logo-title" />

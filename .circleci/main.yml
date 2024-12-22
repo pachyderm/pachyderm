@@ -1315,7 +1315,8 @@ jobs:
               --set pachd.storage.amazon.id=minioadmin \
               --set pachd.storage.amazon.secret=minioadmin \
               --set proxy.service.type=NodePort \
-              --set pachd.image.tag=${CIRCLE_SHA1}
+              --set pachd.image.tag=${CIRCLE_SHA1} \
+              --set pachd.rootToken=roottoken1234
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
             helm install pachd-enterprise ../etc/helm/pachyderm \
               --namespace enterprise \
@@ -1328,7 +1329,6 @@ jobs:
               --set proxy.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1} \
               --set proxy.service.httpNodePort=30081 \
-              --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
               --set pachd.rootToken=roottoken1234
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
@@ -1352,7 +1352,6 @@ jobs:
             PACH_PYTHON_TEST_PORT="30080" \
             PACH_PYTHON_TEST_PORT_ENTERPRISE="30081" \
             PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
-            ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
             PYTHON_SDK_TESTING_IMAGE="pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1" \
             poetry run pytest -vvv pachyderm_sdk tests
   python-sdk-test-publish:
@@ -1434,7 +1433,7 @@ jobs:
             sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
       - run:
           name: Install pach
-          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort
+          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort,pachd.activateAuth=false
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
@@ -1661,8 +1660,8 @@ jobs:
           name: Install pachd without auth
           command: |
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
-            export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values
-            unset ENT_ACT_CODE # deactivate enterprise and auth
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/console-test-helm-values-noauth
+            unset ENT_ACT_CODE # deactivate enterprise just in case, auth now in helm values
             bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --console=${CIRCLE_SHA1} -v
       - run: touch .env.development.local
       - run:

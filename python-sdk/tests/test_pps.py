@@ -65,7 +65,7 @@ class TestUnitJob:
         jobs = client.pps.list_job(
             pipeline=pipeline,
             projects=[pipeline.project],
-            input_commit=pipeline_info.spec_commit,
+            input_commit=job_info.details.input.pfs.commit,
         )
         assert count(jobs) >= 1
 

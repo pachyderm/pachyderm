@@ -15,8 +15,6 @@ import (
 	admin_server "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debug_server "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
-	enterprise_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
-	license_server "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	pachw_server "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -46,35 +44,6 @@ func AuthEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) auth_ser
 
 		BackgroundContext: pctx.Child(senv.Context(), "auth"),
 		Config:            *senv.Config(),
-	}
-}
-
-func EnterpriseEnv(senv serviceenv.ServiceEnv, etcdPrefix string, txEnv *txnenv.TransactionEnv) *enterprise_server.Env {
-	e := &enterprise_server.Env{
-		DB:       senv.GetDBClient(),
-		Listener: senv.GetPostgresListener(),
-		TxnEnv:   txEnv,
-
-		EtcdClient: senv.GetEtcdClient(),
-		EtcdPrefix: etcdPrefix,
-
-		AuthServer:    senv.AuthServer(),
-		GetPachClient: senv.GetPachClient,
-		GetKubeClient: senv.GetKubeClient,
-
-		BackgroundContext: senv.Context(),
-		Namespace:         senv.Config().Namespace,
-		Config:            *senv.Config(),
-	}
-	return e
-}
-
-func LicenseEnv(senv serviceenv.ServiceEnv) *license_server.Env {
-	return &license_server.Env{
-		DB:               senv.GetDBClient(),
-		Listener:         senv.GetPostgresListener(),
-		Config:           senv.Config(),
-		EnterpriseServer: senv.EnterpriseServer(),
 	}
 }
 

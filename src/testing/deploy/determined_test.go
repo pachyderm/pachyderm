@@ -37,6 +37,8 @@ func TestDeterminedUserSync(t *testing.T) {
 	detUserPassword := "Password1"
 	valueOverrides["determined.initialUserPassword"] = detUserPassword
 	valueOverrides["pachd.replicas"] = "1"
+	valueOverrides["pachd.activateAuth"] = "true"
+	valueOverrides["oidc.mockIDP"] = "true"
 	opts.ValueOverrides = valueOverrides
 	minikubetestenv.PutNamespace(t, ns)
 	t.Logf("Determined installing in namespace %s", ns)
@@ -79,6 +81,8 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 		CleanupAfter: true, // this cluster is likely to not be re-used
 	}
 	valueOverrides["pachd.replicas"] = "1"
+	valueOverrides["pachd.activateAuth"] = "true"
+	valueOverrides["oidc.mockIDP"] = "true"
 	detUserPassword := "Password1"
 	valueOverrides["determined.initialUserPassword"] = detUserPassword
 	opts.ValueOverrides = valueOverrides
