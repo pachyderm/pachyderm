@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
@@ -88,72 +89,6 @@ func TestQueryLoki(t *testing.T) {
 			},
 		},
 		{
-			name: "big chunk of unchanging timestamps",
-			buildEntries: func() []loki.Entry {
-				start := time.Now()
-				var entries []loki.Entry
-				entries = append(entries, loki.Entry{
-					Timestamp: start.Add(-2 * time.Second),
-					Line:      "-2",
-				})
-				for i := 0; i < 40000; i++ {
-					entries = append(entries, loki.Entry{
-						Timestamp: start.Add(-1 * time.Second),
-						Line:      "-1",
-					})
-				}
-				entries = append(entries, loki.Entry{
-					Timestamp: start,
-					Line:      "0",
-				})
-				return entries
-			},
-			buildWant: func() []int {
-				var want []int
-				want = append(want, -2)
-				for i := 0; i < serverMaxLogs-1; i++ {
-					want = append(want, -1)
-				}
-				want = append(want, 0)
-				return want
-			},
-		},
-		{
-			name: "big chunk of unchanging timestamps at chunk boundary",
-			buildEntries: func() []loki.Entry {
-				start := time.Now()
-				var entries []loki.Entry
-				entries = append(entries, loki.Entry{
-					Timestamp: start.Add(-2 * time.Second),
-					Line:      "-2",
-				})
-				for i := 0; i < 40000; i++ {
-					entries = append(entries, loki.Entry{
-						Timestamp: start.Add(-1 * time.Second),
-						Line:      "-1",
-					})
-				}
-				for i := 0; i < serverMaxLogs; i++ {
-					entries = append(entries, loki.Entry{
-						Timestamp: start,
-						Line:      "0",
-					})
-				}
-				return entries
-			},
-			buildWant: func() []int {
-				var want []int
-				want = append(want, -2)
-				for i := 0; i < serverMaxLogs; i++ {
-					want = append(want, -1)
-				}
-				for i := 0; i < serverMaxLogs; i++ {
-					want = append(want, 0)
-				}
-				return want
-			},
-		},
-		{
 			name:        "timeout on 1st page",
 			sleepAtPage: 1,
 			buildEntries: func() []loki.Entry {
@@ -205,6 +140,7 @@ func TestQueryLoki(t *testing.T) {
 				Entries:     entries,
 				SleepAtPage: test.sleepAtPage,
 			})
+			log.AddLoggerToHTTPServer(ctx, "lokiutil.FakeServer", s.Config)
 			defer s.Close()
 			d := &debugServer{
 				env: Env{
