@@ -141,6 +141,7 @@ require (
 	github.com/containerd/containerd v1.6.26 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/distribution/reference v0.5.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.4 // indirect
 	github.com/moby/sys/user v0.3.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.53.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0 // indirect
@@ -374,7 +375,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/cli-runtime v0.29.2 // indirect
@@ -388,4 +388,4 @@ require (
 )
 
 // until the changes in github.com/pachyderm/dex are upstreamed to github.com/dexidp/dex, we swap in our repo
-replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20230426001747-706aec218aba
+replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20250103170744-292f1ae604a3
