@@ -1,6 +1,6 @@
 module github.com/pachyderm/pachyderm/examples/spouts/go-rabbitmq-spout/source
 
-go 1.22.5
+go 1.23.4
 
 require (
 	github.com/pachyderm/pachyderm/v2 v2.9.1
