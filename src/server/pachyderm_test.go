@@ -8560,11 +8560,11 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
 		jobs, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
 		if err != nil {
-			return fmt.Errorf("list job: %w", err) //nolint:wrapcheck
+			return fmt.Errorf("list job: %w", err)
 
 		}
 		if got, want := len(jobs), 1; got != want {
-			return fmt.Errorf("job count: got %v want %v (jobs: %v)", got, want, jobs) //nolint:wrapcheck
+			return fmt.Errorf("job count: got %v want %v (jobs: %v)", got, want, jobs)
 		}
 		job = jobs[0]
 		return nil

@@ -1155,7 +1155,6 @@ func TestJobDatumCount(t *testing.T) {
 	`, "pipeline", tu.UniqueString("p-")).Run())
 	// need some time for the pod to spin up
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-		//nolint:wrapcheck
 		return tu.PachctlBashCmd(t, c, `
 pachctl list job -x | match ' / 1'
 `).Run()
@@ -1164,7 +1163,6 @@ pachctl list job -x | match ' / 1'
 	// with the new datum, should see the pipeline run another job with two datums
 
 	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-		//nolint:wrapcheck
 		return tu.PachctlBashCmd(t, c, `
 pachctl list job -x | match ' / 2'
 `).Run()

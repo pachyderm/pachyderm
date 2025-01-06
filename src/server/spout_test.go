@@ -145,10 +145,10 @@ func TestSpoutPachctl(t *testing.T) {
 		require.NoErrorWithinTRetry(t, time.Minute, func() error {
 			commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 			if err != nil {
-				return fmt.Errorf("inspect commit: %w", err) //nolint:wrapcheck
+				return fmt.Errorf("inspect commit: %w", err)
 			}
 			if err := c.DropCommitSet(commitInfo.Commit.Id); err != nil {
-				return fmt.Errorf("drop commit set: %w", err) //nolint:wrapcheck
+				return fmt.Errorf("drop commit set: %w", err)
 			}
 			return nil
 		}, "should be able to drop the latest commit")
