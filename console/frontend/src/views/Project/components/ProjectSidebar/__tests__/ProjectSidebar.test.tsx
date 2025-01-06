@@ -1065,7 +1065,7 @@ description: >-
 
       expect(docsLink).toHaveAttribute(
         'href',
-        'https://docs.pachyderm.com/products/mldm/0.0.x/prepare-data/ingest-data/',
+        'https://docs.ai-solutions.ext.hpe.com/products/mldm/0.0.x/prepare-data/ingest-data/',
       );
       expect(docsLink).toHaveAttribute('target', '_blank');
       expect(docsLink).toHaveAttribute('rel', 'noopener noreferrer');

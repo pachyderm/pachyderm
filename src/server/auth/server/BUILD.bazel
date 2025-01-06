@@ -40,7 +40,7 @@ go_library(
         "//src/server/enterprise",
         "//src/server/pfs",
         "//src/server/pps",
-        "@com_github_coreos_go_oidc//:go-oidc",
+        "@com_github_coreos_go_oidc_v3//oidc",
         "@io_etcd_go_etcd_client_v3//:client",
         "@io_k8s_sigs_yaml//:yaml",
         "@org_golang_google_protobuf//proto",

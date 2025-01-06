@@ -833,12 +833,10 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *
 	if err := a.isActive(ctx); err != nil {
 		return nil, err
 	}
-
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-
 	return &auth.WhoAmIResponse{
 		Username:   callerInfo.Subject,
 		Expiration: callerInfo.Expiration,
@@ -1453,14 +1451,13 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		return &auth.TokenInfo{
 			Subject: subject,
 		}, nil
-	}
 
+	}
 	// otherwise, we need a token
 	token, err := auth.GetAuthToken(ctx)
 	if err != nil {
 		return nil, err
 	}
-
 	tokenInfo, lookupErr := a.lookupAuthTokenInfo(ctx, auth.HashToken(token))
 	if lookupErr != nil {
 		if col.IsErrNotFound(lookupErr) {
@@ -1468,7 +1465,6 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*auth.TokenInfo, 
 		}
 		return nil, lookupErr
 	}
-
 	// verify token hasn't expired
 	if tokenInfo.Expiration != nil {
 		t := tokenInfo.Expiration.AsTime()

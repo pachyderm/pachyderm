@@ -9,7 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/constants"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
-	oidc "github.com/coreos/go-oidc"
+	oidc "github.com/coreos/go-oidc/v3/oidc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -308,6 +308,7 @@ func HashToken(token string) string {
 // GetAuthToken extracts the auth token embedded in 'ctx', if there is one
 func GetAuthToken(ctx context.Context) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
+
 	if !ok {
 		return "", errors.EnsureStack(ErrNoMetadata)
 	}
