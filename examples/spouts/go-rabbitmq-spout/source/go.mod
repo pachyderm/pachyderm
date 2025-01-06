@@ -118,7 +118,7 @@ require (
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/exp v0.0.0-20240314144324-c7f7c6466f7f // indirect
 	golang.org/x/mod v0.20.0 // indirect
-	golang.org/x/net v0.28.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
@@ -147,6 +147,6 @@ require (
 )
 
 // until the changes in github.com/pachyderm/dex are upstreamed to github.com/dexidp/dex, we swap in our repo
-replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20230426001747-706aec218aba
+replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20250103170744-292f1ae604a3
 
 replace github.com/pachyderm/pachyderm/v2 => ../../../..
