@@ -300,7 +300,7 @@ jobs:
           path: /tmp/bazel-testlogs/
   helm-build:
     docker:
-      - image: gcr.io/public-builds/chart-releaser:v1.2.1
+      - image: quay.io/helmpack/chart-releaser:v1.2.1
     steps:
       - checkout
       - run:
@@ -356,7 +356,7 @@ jobs:
         type: boolean
         default: false
     docker:
-      - image: gcr.io/public-builds/chart-releaser:v1.2.1
+      - image: quay.io/helmpack/chart-releaser:v1.2.1
     steps:
       - attach_workspace:
           at: ./
