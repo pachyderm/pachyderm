@@ -570,7 +570,7 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return err
 			}
-			if context.PortForwarders != nil && len(context.PortForwarders) > 0 {
+			if len(context.PortForwarders) > 0 {
 				fmt.Println("Port forwarding appears to already be running for this context. Running multiple forwarders may not work correctly.")
 				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
 					return err

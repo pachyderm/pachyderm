@@ -20,7 +20,7 @@ go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.nogo(nogo = "//:nogo")
 go_sdk.download(
     name = "go_sdk",
-    version = "1.22.7",
+    version = "1.23.4",
 )
 use_repo(go_sdk, "go_sdk")
 

@@ -49,7 +49,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	d.Resolver = r
 	r.Dial = func(ctx context.Context, network, address string) (_ net.Conn, retErr error) {
 		defer log.Span(ctx, "DialDNS", zap.String("network", network), zap.String("address", address))(log.Errorp(&retErr))
-		return d.DialContext(ctx, network, address) //nolint:wrapcheck
+		return d.DialContext(ctx, network, address)
 	}
 
 	t := http.DefaultTransport.(*http.Transport).Clone()

@@ -132,7 +132,9 @@ func buildAndStart(ctx context.Context, tmp string, opts ...Option) (*TestLoki, 
 	loki.Stdout = io.Discard
 	loki.Stderr = log.WriterAt(pctx.Child(ctx, "loki.stderr"), log.DebugLevel)
 	if err := loki.Start(); err != nil {
-		return nil, errors.Wrap(err, "start loki")
+		err := errors.Wrap(err, "start loki")
+		killLoki(err)
+		return nil, err
 	}
 	go func() {
 		if err := loki.Wait(); err != nil {
