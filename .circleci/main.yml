@@ -2002,30 +2002,6 @@ workflows:
           requires:
             - build-docker-images
             - build-pachctl-bin
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-1
-          env: qa1
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-release-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - aws-prerelease-testing:
-          name: aws-testing
-          filters: *only-release-tags
-          requires:
-            - aws-prerelease-testing-env-1
-      - pulumi-aws-test-env:
-          name: destroy-aws-prerelease-testing-env-1
-          env: qa1
-          action: destroy
-          filters: *only-release-tags
-          requires:
-            - aws-testing
       - sign-off:
           filters: *only-release-tags
           type: approval
