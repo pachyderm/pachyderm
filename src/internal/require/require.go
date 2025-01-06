@@ -2,7 +2,6 @@ package require
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"regexp"
 	"runtime/debug"
@@ -86,7 +85,7 @@ func NoDiff(tb testing.TB, expected any, actual any, opts []cmp.Option, msgAndAr
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()
 	if err := EqualOrErr(expected, actual); err != nil {
-		fatal(tb, msgAndArgs, err.Error())
+		fatal(tb, msgAndArgs, "%v", err.Error())
 	}
 }
 
@@ -240,11 +239,11 @@ func ImagesEqual(tb testing.TB, expecteds interface{}, actuals interface{}, f fu
 
 	// Check if 'actuals' is empty; if so, just pass nil (no need to transform)
 	if actuals != nil && !as.IsNil() && as.Kind() != reflect.Slice {
-		fatal(tb, msgAndArgs, fmt.Sprintf("\"actuals\" must be a slice, but was %s", as.Type().String()))
+		fatal(tb, msgAndArgs, "\"actuals\" must be a slice, but was %s", as.Type().String())
 	} else if actuals == nil || as.IsNil() || as.Len() == 0 {
 		// Just pass 'nil' for 'actuals'
 		if err := ElementsEqualOrErr(expecteds, nil); err != nil {
-			fatal(tb, msgAndArgs, err.Error())
+			fatal(tb, msgAndArgs, "%v", err.Error())
 		}
 		return
 	}
@@ -252,9 +251,9 @@ func ImagesEqual(tb testing.TB, expecteds interface{}, actuals interface{}, f fu
 	// Check if 'expecteds' is empty: if so, return an error (since 'actuals' is
 	// not empty)
 	if expecteds != nil && !es.IsNil() && es.Kind() != reflect.Slice {
-		fatal(tb, msgAndArgs, fmt.Sprintf("\"expecteds\" must be a slice, but was %s", as.Type().String()))
+		fatal(tb, msgAndArgs, "\"expecteds\" must be a slice, but was %s", as.Type().String())
 	} else if expecteds == nil || es.IsNil() || es.Len() == 0 {
-		fatal(tb, msgAndArgs, fmt.Sprintf("expected 0 distinct elements, but got %d\n elements (before function is applied): %v", as.Len(), actuals))
+		fatal(tb, msgAndArgs, "expected 0 distinct elements, but got %d\n elements (before function is applied): %v", as.Len(), actuals)
 	}
 
 	// Make sure expecteds and actuals are slices of the same type, modulo
@@ -297,7 +296,7 @@ func ImagesEqual(tb testing.TB, expecteds interface{}, actuals interface{}, f fu
 		newActuals = append(newActuals, f(as.Index(i).Interface()))
 	}
 	if err := ElementsEqualOrErr(newExpecteds, newActuals); err != nil {
-		fatal(tb, msgAndArgs, err.Error())
+		fatal(tb, msgAndArgs, "%v", err.Error())
 	}
 }
 
@@ -317,11 +316,11 @@ func ElementsEqualUnderFn(tb testing.TB, expecteds interface{}, actuals interfac
 
 	// Check if 'actuals' is empty; if so, just pass nil (no need to transform)
 	if actuals != nil && !as.IsNil() && as.Kind() != reflect.Slice {
-		fatal(tb, msgAndArgs, fmt.Sprintf("\"actuals\" must be a slice, but was %s", as.Type().String()))
+		fatal(tb, msgAndArgs, "\"actuals\" must be a slice, but was %s", as.Type().String())
 	} else if actuals == nil || as.IsNil() || as.Len() == 0 {
 		// Just pass 'nil' for 'actuals'
 		if err := ElementsEqualOrErr(expecteds, nil); err != nil {
-			fatal(tb, msgAndArgs, err.Error())
+			fatal(tb, msgAndArgs, "%v", err.Error())
 		}
 		return
 	}
@@ -329,9 +328,9 @@ func ElementsEqualUnderFn(tb testing.TB, expecteds interface{}, actuals interfac
 	// Check if 'expecteds' is empty: if so, return an error (since 'actuals' is
 	// not empty)
 	if expecteds != nil && !es.IsNil() && es.Kind() != reflect.Slice {
-		fatal(tb, msgAndArgs, fmt.Sprintf("\"expecteds\" must be a slice, but was %s", as.Type().String()))
+		fatal(tb, msgAndArgs, "\"expecteds\" must be a slice, but was %s", as.Type().String())
 	} else if expecteds == nil || es.IsNil() || es.Len() == 0 {
-		fatal(tb, msgAndArgs, fmt.Sprintf("expected 0 distinct elements, but got %d\n elements (before function is applied): %v", as.Len(), actuals))
+		fatal(tb, msgAndArgs, "expected 0 distinct elements, but got %d\n elements (before function is applied): %v", as.Len(), actuals)
 	}
 
 	// Neither 'expecteds' nor 'actuals' is empty--apply 'f' to 'actuals'
@@ -340,7 +339,7 @@ func ElementsEqualUnderFn(tb testing.TB, expecteds interface{}, actuals interfac
 		newActuals.Index(i).Set(reflect.ValueOf(f(as.Index(i).Interface())))
 	}
 	if err := ElementsEqualOrErr(expecteds, newActuals.Interface()); err != nil {
-		fatal(tb, msgAndArgs, err.Error())
+		fatal(tb, msgAndArgs, "%v", err.Error())
 	}
 }
 
@@ -358,7 +357,7 @@ func ElementsEqualUnderFn(tb testing.TB, expecteds interface{}, actuals interfac
 func ElementsEqual(tb testing.TB, expecteds interface{}, actuals interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()
 	if err := ElementsEqualOrErr(expecteds, actuals); err != nil {
-		fatal(tb, msgAndArgs, err.Error())
+		fatal(tb, msgAndArgs, "%v", err.Error())
 	}
 }
 
@@ -395,7 +394,7 @@ func EqualOneOf(tb testing.TB, expecteds interface{}, actual interface{}, msgAnd
 	tb.Helper()
 	equal, err := oneOfEquals("expecteds", expecteds, actual)
 	if err != nil {
-		fatal(tb, msgAndArgs, err.Error())
+		fatal(tb, msgAndArgs, "%v", err.Error())
 	}
 	if !equal {
 		fatal(
@@ -412,7 +411,7 @@ func OneOfEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAn
 	tb.Helper()
 	equal, err := oneOfEquals("actuals", actuals, expected)
 	if err != nil {
-		fatal(tb, msgAndArgs, err.Error())
+		fatal(tb, msgAndArgs, "%v", err.Error())
 	}
 	if !equal {
 		fatal(tb, msgAndArgs,
@@ -427,7 +426,7 @@ func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAnd
 	tb.Helper()
 	equal, err := oneOfEquals("actuals", actuals, expected)
 	if err != nil {
-		fatal(tb, msgAndArgs, err.Error())
+		fatal(tb, msgAndArgs, "%v", err.Error())
 	}
 	if equal {
 		fatal(tb, msgAndArgs,
@@ -587,7 +586,7 @@ func Len(tb testing.TB, x interface{}, l int, msgAndArgs ...interface{}) {
 func logMessage(tb testing.TB, msgAndArgs []interface{}) {
 	tb.Helper()
 	if len(msgAndArgs) == 1 {
-		tb.Logf(msgAndArgs[0].(string))
+		tb.Log(msgAndArgs[0].(string))
 	}
 	if len(msgAndArgs) > 1 {
 		tb.Logf(msgAndArgs[0].(string), msgAndArgs[1:]...)

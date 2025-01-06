@@ -22,6 +22,7 @@ func NewTestClient(t testing.TB, regFunc func(*grpc.Server)) *grpc.ClientConn {
 	eg.Go(func() error {
 		return errors.EnsureStack(gserv.Serve(listener))
 	})
+	//nolint:staticcheck
 	gconn, err := grpc.DialContext(ctx, "", grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		res, err := listener.Dial()
 		return res, errors.EnsureStack(err)

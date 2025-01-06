@@ -382,7 +382,7 @@ func linkServers(mockServerPtr interface{}, realServer interface{}) {
 			realMethod := realValue.MethodByName(field.Name)
 
 			// We need a pointer to the mock field to call the right method
-			mockPtr := reflect.New(reflect.PtrTo(mock.Type()))
+			mockPtr := reflect.New(reflect.PointerTo(mock.Type()))
 			mockPtrValue := mockPtr.Elem()
 			mockPtrValue.Set(mock.Addr())
 
