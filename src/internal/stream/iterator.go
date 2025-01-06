@@ -80,9 +80,6 @@ func Read[T any](ctx context.Context, it Iterator[T], buf []T) (n int, _ error) 
 // Collect reads at most max from the iterator into a buffer and returns it.
 func Collect[T any](ctx context.Context, it Iterator[T], max int) (ret []T, _ error) {
 	for {
-		if len(ret) > max {
-			return nil, errors.Errorf("stream.Collect: iterator produced too many elements. max=%d", max)
-		}
 		if err := appendNext(ctx, it, &ret); err != nil {
 			if IsEOS(err) {
 				break
