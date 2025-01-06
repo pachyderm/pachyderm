@@ -104,6 +104,7 @@ func NewClient(address string) (Client, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
+	//nolint:staticcheck
 	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),
 		append(client.DefaultDialOptions(), grpc.WithTransportCredentials(insecure.NewCredentials()))...)
 	if err != nil {
@@ -141,6 +142,7 @@ func forEachWorker(ctx context.Context, pipelineInfo *pps.PipelineInfo, etcdClie
 func withClient(ctx context.Context, address string, port uint16, cb func(Client) error) (retErr error) {
 	ctx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
+	//nolint:staticcheck
 	conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", address, port),
 		append(client.DefaultDialOptions(), grpc.WithTransportCredentials(insecure.NewCredentials()))...)
 	if err != nil {
