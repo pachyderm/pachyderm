@@ -32,6 +32,9 @@ func TestMicrosoft(t *testing.T) {
 }
 
 func TestGoogle(t *testing.T) {
+	if os.Getenv("GOOGLE_CLIENT_CREDS") == "" || os.Getenv("GOOGLE_CLIENT_BUCKET") == "" {
+		t.Skip("no GCP resources to test against")
+	}
 	integrationtests.LoadGoogleParameters(t)
 	credFile := path.Join(t.TempDir(), "tmp-google-cred")
 	require.NoError(t, os.WriteFile(credFile, []byte(os.Getenv("GOOGLE_CLIENT_CREDS")), 0666))
@@ -54,6 +57,9 @@ func TestAmazon(t *testing.T) {
 }
 
 func TestGoogleHMAC(t *testing.T) {
+	if os.Getenv("GOOGLE_CLIENT_REGION") == "" || os.Getenv("GOOGLE_CLIENT_BUCKET") == "" {
+		t.Skip("no GCP resources to test against")
+	}
 	integrationtests.LoadGoogleHMACParameters(t)
 	require.NoError(t, os.Setenv("AWS_REGION", os.Getenv("GOOGLE_CLIENT_REGION")))
 	require.NoError(t, os.Setenv("AWS_SECRET_ACCESS_KEY", os.Getenv("GOOGLE_CLIENT_HMAC_SECRET")))
