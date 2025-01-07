@@ -6,8 +6,6 @@ package integrationtests
 import (
 	"os"
 	"testing"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 // The Load.*Parameters functions in this file are where we get the credentials
@@ -17,6 +15,16 @@ import (
 // Object Storage Credentials". These should all be scoped to the smallest set
 // of permissions necessary, which is just object create/read/delete within a
 // specific bucket.
+//
+// If the credentials are missing, the tests will be skipped.
+
+func getenvOrSkip(t *testing.T, name string) string {
+	val := os.Getenv(name)
+	if val == "" {
+		t.Skipf("env var %s is empty", name)
+	}
+	return val
+}
 
 // LoadAmazonParameters loads the test parameters for S3 object storage:
 //
@@ -25,14 +33,10 @@ import (
 //	bucket - the S3 bucket to issue requests towards
 //	region - the S3 region that the bucket is in
 func LoadAmazonParameters(t *testing.T) (string, string, string, string) {
-	id := os.Getenv("AMAZON_CLIENT_ID")
-	secret := os.Getenv("AMAZON_CLIENT_SECRET")
-	bucket := os.Getenv("AMAZON_CLIENT_BUCKET")
-	region := os.Getenv("AMAZON_CLIENT_REGION")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", region)
+	id := getenvOrSkip(t, "AMAZON_CLIENT_ID")
+	secret := getenvOrSkip(t, "AMAZON_CLIENT_SECRET")
+	bucket := getenvOrSkip(t, "AMAZON_CLIENT_BUCKET")
+	region := getenvOrSkip(t, "AMAZON_CLIENT_REGION")
 
 	return id, secret, bucket, region
 }
@@ -46,14 +50,10 @@ func LoadAmazonParameters(t *testing.T) (string, string, string, string) {
 //	region - a dummy region - some clients require this but it is unused with 'endpoint'
 //	endpoint - the S3-compatible server to send requests to
 func LoadECSParameters(t *testing.T) (string, string, string, string, string) {
-	id := os.Getenv("ECS_CLIENT_ID")
-	secret := os.Getenv("ECS_CLIENT_SECRET")
-	bucket := os.Getenv("ECS_CLIENT_BUCKET")
-	endpoint := os.Getenv("ECS_CLIENT_CUSTOM_ENDPOINT")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", endpoint)
+	id := getenvOrSkip(t, "ECS_CLIENT_ID")
+	secret := getenvOrSkip(t, "ECS_CLIENT_SECRET")
+	bucket := getenvOrSkip(t, "ECS_CLIENT_BUCKET")
+	endpoint := getenvOrSkip(t, "ECS_CLIENT_CUSTOM_ENDPOINT")
 
 	return id, secret, bucket, "dummy-region", endpoint
 }
@@ -63,10 +63,8 @@ func LoadECSParameters(t *testing.T) (string, string, string, string, string) {
 //	bucket - the GCS bucket to issue requests towards
 //	creds - the JSON GCP credentials to use
 func LoadGoogleParameters(t *testing.T) (string, string) {
-	bucket := os.Getenv("GOOGLE_CLIENT_BUCKET")
-	creds := os.Getenv("GOOGLE_CLIENT_CREDS")
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", creds)
+	bucket := getenvOrSkip(t, "GOOGLE_CLIENT_BUCKET")
+	creds := getenvOrSkip(t, "GOOGLE_CLIENT_CREDS")
 
 	return bucket, creds
 }
@@ -80,14 +78,10 @@ func LoadGoogleParameters(t *testing.T) (string, string) {
 //	region - the GCS region that the bucket is in
 //	endpoint - the S3-compatible server to send requests to
 func LoadGoogleHMACParameters(t *testing.T) (string, string, string, string, string) {
-	id := os.Getenv("GOOGLE_CLIENT_HMAC_ID")
-	secret := os.Getenv("GOOGLE_CLIENT_HMAC_SECRET")
-	bucket := os.Getenv("GOOGLE_CLIENT_BUCKET")
-	region := os.Getenv("GOOGLE_CLIENT_REGION")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", bucket)
-	require.NotEqual(t, "", region)
+	id := getenvOrSkip(t, "GOOGLE_CLIENT_HMAC_ID")
+	secret := getenvOrSkip(t, "GOOGLE_CLIENT_HMAC_SECRET")
+	bucket := getenvOrSkip(t, "GOOGLE_CLIENT_BUCKET")
+	region := getenvOrSkip(t, "GOOGLE_CLIENT_REGION")
 
 	return id, secret, bucket, region, "storage.googleapis.com"
 }
