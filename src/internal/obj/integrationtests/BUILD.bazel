@@ -5,5 +5,4 @@ go_library(
     srcs = ["util.go"],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/obj/integrationtests",
     visibility = ["//src:__subpackages__"],
-    deps = ["//src/internal/require"],
 )
