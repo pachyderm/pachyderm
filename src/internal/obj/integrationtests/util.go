@@ -89,12 +89,9 @@ func LoadGoogleHMACParameters(t *testing.T) (string, string, string, string, str
 //	secret - the key secret credential
 //	container - the Azure blob container to issue requests towards
 func LoadMicrosoftParameters(t *testing.T) (string, string, string) {
-	id := os.Getenv("MICROSOFT_CLIENT_ID")
-	secret := os.Getenv("MICROSOFT_CLIENT_SECRET")
-	container := os.Getenv("MICROSOFT_CLIENT_CONTAINER")
-	require.NotEqual(t, "", id)
-	require.NotEqual(t, "", secret)
-	require.NotEqual(t, "", container)
+	id := getenvOrSkip(t, "MICROSOFT_CLIENT_ID")
+	secret := getenvOrSkip(t, "MICROSOFT_CLIENT_SECRET")
+	container := getenvOrSkip(t, "MICROSOFT_CLIENT_CONTAINER")
 
 	return id, secret, container
 }
