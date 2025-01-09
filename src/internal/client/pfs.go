@@ -123,7 +123,7 @@ func (c APIClient) ListProjectRepo(r *pfs.ListRepoRequest) ([]*pfs.RepoInfo, err
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return grpcutil.Collect[*pfs.RepoInfo](client, 1000)
+	return grpcutil.Collect[*pfs.RepoInfo](client)
 }
 
 // DeleteRepo deletes a repo and reclaims the storage space it was using.
