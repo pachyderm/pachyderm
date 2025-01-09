@@ -1,0 +1,77 @@
+{{- $head_commit := hexsha 40 .Title "(head commit)" -}}
+{
+  "url": "https://api.github.com/repos/pachyderm/pachyderm/pulls/{{.Number}}",
+  "id": {{intsha 9 .Title}},
+  "node_id": "PR_{{b64sha 16 .Title}}",
+  "html_url": "https://github.com/pachyderm/pachyderm/pull/{{.Number}}",
+  "diff_url": "https://github.com/pachyderm/pachyderm/pull/{{.Number}}.diff",
+  "patch_url": "https://github.com/pachyderm/pachyderm/pull/{{.Number}}.patch",
+  "issue_url": "https://api.github.com/repos/pachyderm/pachyderm/issues/{{.Number}}",
+  "number": {{.Number}},
+  "state": "open",
+  "locked": false,
+  "title": "{{.Title}}",
+  "user": {{template "user.json.tmpl" .Author}},
+  {{- /* GitHub seems to encode empty PR bodies with 'null' */ -}}
+  "body": {{if eq .Body ""}}null{{else}}"{{.Body}}"{{end}},
+  "created_at": "{{ .Created.UTC.Format "2006-01-02T15:04:05Z07:00" }}",
+  "updated_at": "2023-07-24T22:26:24Z",
+  "closed_at": null,
+  "merged_at": null,
+  "merge_commit_sha": "{{.Title | hexsha 40}}",
+  "assignee": null,
+  "assignees": [],
+  "requested_reviewers": [],
+  "requested_teams": [],
+  "labels": [],
+  "milestone": null,
+  "draft": false,
+  "commits_url": "https://api.github.com/repos/pachyderm/pachyderm/pulls/{{.Number}}/commits",
+  "review_comments_url": "https://api.github.com/repos/pachyderm/pachyderm/pulls/{{.Number}}/comments",
+  "review_comment_url": "https://api.github.com/repos/pachyderm/pachyderm/pulls/comments{/number}",
+  "comments_url": "https://api.github.com/repos/pachyderm/pachyderm/issues/{{.Number}}/comments",
+  "statuses_url": "https://api.github.com/repos/pachyderm/pachyderm/statuses/{{$head_commit}}",
+  "head": {
+    "label": "pachyderm:pachyderm/2023-07-24/master/extension_review",
+    "ref": "pachyderm/2023-07-24/master/extension_review",
+    "sha": "{{$head_commit}}",
+    "user": {{pachuser}},
+    "repo": {{pachrepo}}
+  },
+  "base": {
+    "label": "pachyderm:master",
+    "ref": "master",
+    "sha": "{{hexsha 40 .Title "(base commit)"}}",
+    "user": {{pachuser}},
+    "repo": {{pachrepo}}
+  },
+  "_links": {
+    "self": {
+      "href": "https://api.github.com/repos/pachyderm/pachyderm/pulls/{{.Number}}"
+    },
+    "html": {
+      "href": "https://github.com/pachyderm/pachyderm/pull/{{.Number}}"
+    },
+    "issue": {
+      "href": "https://api.github.com/repos/pachyderm/pachyderm/issues/{{.Number}}"
+    },
+    "comments": {
+      "href": "https://api.github.com/repos/pachyderm/pachyderm/issues/{{.Number}}/comments"
+    },
+    "review_comments": {
+      "href": "https://api.github.com/repos/pachyderm/pachyderm/pulls/{{.Number}}/comments"
+    },
+    "review_comment": {
+      "href": "https://api.github.com/repos/pachyderm/pachyderm/pulls/comments{/number}"
+    },
+    "commits": {
+      "href": "https://api.github.com/repos/pachyderm/pachyderm/pulls/{{.Number}}/commits"
+    },
+    "statuses": {
+    "href": "https://api.github.com/repos/pachyderm/pachyderm/statuses/{{$head_commit}}"
+    }
+  },
+  "author_association": "MEMBER",
+  "auto_merge": null,
+  "active_lock_reason": null
+}
