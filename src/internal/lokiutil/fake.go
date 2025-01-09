@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"go.uber.org/zap"
 )
 
 type FakeServer struct {
@@ -42,13 +44,14 @@ func mustParseQuerystringInt64(r *http.Request, field string) int64 {
 
 func (l *FakeServer) serveConfig(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, `limits_config:
-  max_entries_limit_per_query: 5000`)
+  max_entries_limit_per_query: 1000`)
 }
 
 func (l *FakeServer) serveQuery(w http.ResponseWriter, r *http.Request) {
 	// Simulate the bug where Loki server hangs due to large logs.
 	l.Page++
 	if l.SleepAtPage > 0 && l.Page >= l.SleepAtPage {
+		log.Info(r.Context(), "sleeping until context is done")
 		// wait for request to time out on purpose
 		<-r.Context().Done()
 		return
@@ -148,6 +151,7 @@ func (l *FakeServer) serveQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (l *FakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Info(r.Context(), "incoming fake loki request", zap.String("url", r.URL.String()))
 	switch r.URL.Path {
 	case "/config":
 		l.serveConfig(w, r)

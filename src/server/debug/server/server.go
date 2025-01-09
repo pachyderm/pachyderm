@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1209,17 +1210,20 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, dfs DumpFS, app *debu
 				MaxLogs: maxLogs,
 			}
 		}
-		logs, err := s.queryLoki(ctx, queryStr, lokiConfig.MaxLogs)
+		if lokiConfig.MaxLogs > math.MaxInt {
+			lokiConfig.MaxLogs = math.MaxInt
+		}
+		logs, err := s.queryLoki(ctx, queryStr, int(lokiConfig.MaxLogs))
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
-		var cursor *loki.LabelSet
+		var cursor loki.LabelSet
 		for _, entry := range logs {
 			// Print the stream labels in %v format whenever they are different from the
 			// previous line. The pointer comparison is a fast path to avoid
 			// reflect.DeepEqual when both log lines are from the same chunk of logs
 			// returned by Loki.
-			if cursor != entry.Labels && !reflect.DeepEqual(cursor, entry.Labels) {
+			if !reflect.DeepEqual(cursor, entry.Labels) {
 				if _, err := fmt.Fprintf(w, "%v\n", entry.Labels); err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -1309,10 +1313,10 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, p *pps.Pipeline) (m
 		if l.Labels == nil {
 			continue
 		}
-		labels := *l.Labels
+		labels := l.Labels
 		pod, ok := labels["pod"]
 		if !ok {
-			log.Debug(ctx, "pod label missing from loki labelset", zap.Any("log", l))
+			log.Info(ctx, "pod label missing from loki labelset", zap.Any("log", l))
 			continue
 		}
 		pods[pod] = struct{}{}
@@ -1325,17 +1329,14 @@ const (
 	// and that was too small, so now it's 300,000.  If it still seems too small, bump it up
 	// again.
 	maxLogs = 300_000
-	// 5,000 is the maximum value of "limit" in queries that Loki seems to accept.
-	// We set serverMaxLogs below the actual limit because of a bug in Loki where it hangs when you request too much data from it.
-	serverMaxLogs = 1000
 )
 
 type lokiLog struct {
-	Labels *loki.LabelSet
+	Labels loki.LabelSet
 	Entry  *loki.Entry
 }
 
-func (s *debugServer) queryLoki(ctx context.Context, queryStr string, wantNumLogs uint64) (retResult []lokiLog, retErr error) {
+func (s *debugServer) queryLoki(ctx context.Context, queryStr string, wantNumLogs int) (retResult []lokiLog, retErr error) {
 	ctx, finishSpan := log.SpanContext(ctx, "queryLoki", zap.String("queryStr", queryStr))
 	defer func() {
 		finishSpan(zap.Error(retErr), zap.Int("logs", len(retResult)))
@@ -1343,6 +1344,9 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string, wantNumLog
 
 	sortLogs := func(logs []lokiLog) {
 		sort.Slice(logs, func(i, j int) bool {
+			if logs[i].Entry == nil || logs[j].Entry == nil {
+				return false
+			}
 			return logs[i].Entry.Timestamp.Before(logs[j].Entry.Timestamp)
 		})
 	}
@@ -1361,55 +1365,19 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string, wantNumLog
 	// of time.Time) = 68MiB.  That seems reasonable to keep in memory, with the benefit of
 	// providing lines in chronological order even when the app uses both stdout and stderr.
 	var result []lokiLog
-
-	var end time.Time
-	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
-
-	for numLogs := uint64(0); (end.IsZero() || start.Before(end)) && numLogs < wantNumLogs; {
-		// Loki requests can hang if the size of the log lines is too big.
-		ctx, cancel := context.WithTimeout(ctx, time.Minute)
-		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0 /* step */, 0 /* interval */, true /* quiet */)
-		cancel()
-		if err != nil {
-			// Note: the error from QueryRange has a stack.
-			if errors.Is(err, context.DeadlineExceeded) {
-				log.Debug(ctx, "loki query range timed out", zap.Int("serverMaxLogs", serverMaxLogs), zap.Time("start", start), zap.Time("end", end), zap.Int("logs", len(result)))
-				sortLogs(result)
-				return result, nil
-			}
-			return nil, errors.Errorf("query range (query=%v, limit=%v, start=%v, end=%v): %+v", queryStr, serverMaxLogs, start.Format(time.RFC3339), end.Format(time.RFC3339), err)
+	if _, _, _, _, err := c.BatchedQueryRange(ctx, queryStr, time.Time{}, time.Now(), 0, wantNumLogs, func(ctx context.Context, labels loki.LabelSet, e *loki.Entry) (count bool, retErr error) {
+		result = append(result, lokiLog{
+			Labels: labels,
+			Entry:  e,
+		})
+		return true, nil
+	}); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Info(ctx, "loki query range timed out", zap.Int("logsReceived", len(result)))
+			sortLogs(result)
+			return result, nil
 		}
-
-		streams, ok := resp.Data.Result.(loki.Streams)
-		if !ok {
-			return nil, errors.Errorf("resp.Data.Result must be of type loki.Streams")
-		}
-
-		var readThisIteration int
-		for _, s := range streams {
-			stream := s // Alias for pointer later.
-			for _, e := range stream.Entries {
-				entry := e
-				numLogs++
-				readThisIteration++
-				if end.IsZero() || entry.Timestamp.Before(end) {
-					// Because end is an "exclusive" range, if we read any logs
-					// at all we are guaranteed to not read them in the next
-					// iteration.  (If all 5000 logs are at the same time, we
-					// still advance past them on the next iteration, which is
-					// the best we can do under those circumstances.)
-					end = entry.Timestamp
-				}
-				result = append(result, lokiLog{
-					Labels: &stream.Labels,
-					Entry:  &entry,
-				})
-			}
-		}
-		if readThisIteration == 0 {
-			break
-		}
-		cancel()
+		return nil, errors.Wrap(err, "BatchedQueryRange(0 -> now())")
 	}
 	sortLogs(result)
 	return result, nil
