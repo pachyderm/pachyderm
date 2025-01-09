@@ -20,6 +20,7 @@ go_test(
     deps = [
         "//src/internal/log",
         "@com_github_google_go_cmp//cmp",
+        "@com_github_zeebo_blake3//:blake3",
         "@org_uber_go_zap//:zap",
     ],
 )
