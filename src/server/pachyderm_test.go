@@ -3829,7 +3829,7 @@ func TestStartInternalPipeline(t *testing.T) {
 		All:  true,
 	})
 	require.NoError(t, err)
-	allBmetaCommits, err := grpcutil.Collect[*pfs.CommitInfo](listClient, 1000)
+	allBmetaCommits, err := grpcutil.Collect[*pfs.CommitInfo](listClient)
 	require.NoError(t, err)
 	require.Equal(t, allBmetaCommits[0].Commit.Id, cCommits[0].Commit.Id)
 }
@@ -6699,7 +6699,7 @@ func TestListJobSetPaged(t *testing.T) {
 	listJobSetRequest := &pps.ListJobSetRequest{}
 	client, err := c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 	require.NoError(t, err)
-	allJobSetInfos, err := grpcutil.Collect[*pps.JobSetInfo](client, 1000)
+	allJobSetInfos, err := grpcutil.Collect[*pps.JobSetInfo](client)
 	require.NoError(t, err)
 	require.Equal(t, 9, len(allJobSetInfos))
 
@@ -6709,7 +6709,7 @@ func TestListJobSetPaged(t *testing.T) {
 	listJobSetRequest = &pps.ListJobSetRequest{Number: 3}
 	client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 	require.NoError(t, err)
-	jsis, err := grpcutil.Collect[*pps.JobSetInfo](client, 1000)
+	jsis, err := grpcutil.Collect[*pps.JobSetInfo](client)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jsis))
 	pagedJSIs = append(pagedJSIs, jsis...)
@@ -6718,7 +6718,7 @@ func TestListJobSetPaged(t *testing.T) {
 		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, PaginationMarker: jsis[len(jsis)-1].Jobs[1].Created}
 		client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 		require.NoError(t, err)
-		jsis, err = grpcutil.Collect[*pps.JobSetInfo](client, 1000)
+		jsis, err = grpcutil.Collect[*pps.JobSetInfo](client)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(jsis))
 		pagedJSIs = append(pagedJSIs, jsis...)
@@ -6729,7 +6729,7 @@ func TestListJobSetPaged(t *testing.T) {
 	listJobSetRequest = &pps.ListJobSetRequest{Number: 3, Reverse: true}
 	client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 	require.NoError(t, err)
-	jsis, err = grpcutil.Collect[*pps.JobSetInfo](client, 1000)
+	jsis, err = grpcutil.Collect[*pps.JobSetInfo](client)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jsis))
 	reverseJIs = append(reverseJIs, jsis...)
@@ -6738,7 +6738,7 @@ func TestListJobSetPaged(t *testing.T) {
 		listJobSetRequest = &pps.ListJobSetRequest{Number: 3, Reverse: true, PaginationMarker: jsis[2].Jobs[0].Created}
 		client, err = c.PpsAPIClient.ListJobSet(c.Ctx(), listJobSetRequest)
 		require.NoError(t, err)
-		jsis, err = grpcutil.Collect[*pps.JobSetInfo](client, 1000)
+		jsis, err = grpcutil.Collect[*pps.JobSetInfo](client)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(jsis))
 		reverseJIs = append(reverseJIs, jsis...)
@@ -6916,7 +6916,7 @@ func TestListJobPaged(t *testing.T) {
 	listJobRequest := &pps.ListJobRequest{Pipeline: pipeline}
 	client, err := c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
 	require.NoError(t, err)
-	allJobInfos, err := grpcutil.Collect[*pps.JobInfo](client, 1000)
+	allJobInfos, err := grpcutil.Collect[*pps.JobInfo](client)
 	require.NoError(t, err)
 	require.Equal(t, 9, len(allJobInfos))
 
@@ -6926,7 +6926,7 @@ func TestListJobPaged(t *testing.T) {
 	listJobRequest = &pps.ListJobRequest{Pipeline: pipeline, Number: 3}
 	client, err = c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
 	require.NoError(t, err)
-	jis, err := grpcutil.Collect[*pps.JobInfo](client, 1000)
+	jis, err := grpcutil.Collect[*pps.JobInfo](client)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jis))
 	pagedJIs = append(pagedJIs, jis...)
@@ -6935,7 +6935,7 @@ func TestListJobPaged(t *testing.T) {
 		listJobRequest = &pps.ListJobRequest{Pipeline: pipeline, Number: 3, PaginationMarker: jis[len(jis)-1].Created}
 		client, err = c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
 		require.NoError(t, err)
-		jis, err = grpcutil.Collect[*pps.JobInfo](client, 1000)
+		jis, err = grpcutil.Collect[*pps.JobInfo](client)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(jis))
 		pagedJIs = append(pagedJIs, jis...)
@@ -6948,7 +6948,7 @@ func TestListJobPaged(t *testing.T) {
 	listJobRequest = &pps.ListJobRequest{Pipeline: pipeline, Number: 3, Reverse: true}
 	client, err = c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
 	require.NoError(t, err)
-	jis, err = grpcutil.Collect[*pps.JobInfo](client, 1000)
+	jis, err = grpcutil.Collect[*pps.JobInfo](client)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jis))
 	reverseJIs = append(reverseJIs, jis...)
@@ -6957,7 +6957,7 @@ func TestListJobPaged(t *testing.T) {
 		listJobRequest = &pps.ListJobRequest{Pipeline: pipeline, Number: 3, Reverse: true, PaginationMarker: jis[2].Created}
 		client, err = c.PpsAPIClient.ListJob(c.Ctx(), listJobRequest)
 		require.NoError(t, err)
-		jis, err = grpcutil.Collect[*pps.JobInfo](client, 1000)
+		jis, err = grpcutil.Collect[*pps.JobInfo](client)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(jis))
 		reverseJIs = append(reverseJIs, jis...)

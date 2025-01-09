@@ -57,7 +57,7 @@ func TestListDatum(t *testing.T) {
 	request := &pps.ListDatumRequest{Input: input}
 	listDatumClient, err := pachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
-	dis, err := grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
+	dis, err := grpcutil.Collect[*pps.DatumInfo](listDatumClient)
 	require.NoError(t, err)
 	require.Equal(t, 9, len(dis))
 	var datumIDs []string
@@ -69,7 +69,7 @@ func TestListDatum(t *testing.T) {
 	request = &pps.ListDatumRequest{Input: input, Number: 3}
 	listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
-	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
+	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(dis))
 	for _, di := range dis {
@@ -80,7 +80,7 @@ func TestListDatum(t *testing.T) {
 		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.Id}
 		listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 		require.NoError(t, err)
-		dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
+		dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(dis))
 		for _, di := range dis {
@@ -92,7 +92,7 @@ func TestListDatum(t *testing.T) {
 	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.Id}
 	listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
-	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
+	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(dis))
 	// Test getting the datums in three pages of 3 in reverse order
@@ -101,7 +101,7 @@ func TestListDatum(t *testing.T) {
 	request = &pps.ListDatumRequest{Input: input, Number: 3, Reverse: true}
 	listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
-	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
+	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(dis))
 	for _, di := range dis {
@@ -112,7 +112,7 @@ func TestListDatum(t *testing.T) {
 		request = &pps.ListDatumRequest{Input: input, Number: 3, PaginationMarker: dis[2].Datum.Id, Reverse: true}
 		listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 		require.NoError(t, err)
-		dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
+		dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(dis))
 		for _, di := range dis {
@@ -122,7 +122,7 @@ func TestListDatum(t *testing.T) {
 	request = &pps.ListDatumRequest{Input: input, Number: 1, PaginationMarker: dis[2].Datum.Id, Reverse: true}
 	listDatumClient, err = pachClient.PpsAPIClient.ListDatum(ctx, request)
 	require.NoError(t, err)
-	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient, 1000)
+	dis, err = grpcutil.Collect[*pps.DatumInfo](listDatumClient)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(dis))
 	for i, di := range datumIDs {
@@ -1020,7 +1020,7 @@ func TestListPipelinePagination(t *testing.T) {
 			Projects: prjs,
 		})
 		require.NoError(t, err)
-		pis, err := grpcutil.Collect[*pps.PipelineInfo](piClient, 1000)
+		pis, err := grpcutil.Collect[*pps.PipelineInfo](piClient)
 		require.NoError(t, err)
 		return pis
 	}

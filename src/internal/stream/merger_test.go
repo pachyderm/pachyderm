@@ -25,7 +25,7 @@ func TestMerger(t *testing.T) {
 		return a < b
 	})
 
-	actual, err := Collect[Merged[string]](pctx.TestContext(t), m, 100)
+	actual, err := Collect[Merged[string]](pctx.TestContext(t), m)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 }

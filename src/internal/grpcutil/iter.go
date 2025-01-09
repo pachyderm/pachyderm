@@ -47,7 +47,7 @@ func Read[T proto.Message](cs ClientStream[T], buf []T) (int, error) {
 	return stream.Read[T](cs.Context(), newIterator(cs), buf)
 }
 
-// Collect reads at most max elements from cs, and returns them as a slice.
-func Collect[T proto.Message](cs ClientStream[T], max int) (ret []T, _ error) {
-	return stream.Collect[T](cs.Context(), newIterator(cs), max)
+// Collect reads elements from cs, and returns them as a slice.
+func Collect[T proto.Message](cs ClientStream[T]) (ret []T, _ error) {
+	return stream.Collect[T](cs.Context(), newIterator(cs))
 }
