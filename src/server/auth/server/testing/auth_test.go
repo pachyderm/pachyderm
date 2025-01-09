@@ -951,7 +951,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	// above. Bob's access to those should be NONE
 	lrClient, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(), &pfs.ListRepoRequest{})
 	require.NoError(t, err)
-	repoInfos, err := grpcutil.Collect[*pfs.RepoInfo](lrClient, 1000)
+	repoInfos, err := grpcutil.Collect[*pfs.RepoInfo](lrClient)
 	require.NoError(t, err)
 	expectedPermissions := map[string][]auth.Permission{
 		repoOwner: {
@@ -1052,7 +1052,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	c, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
 		&pfs.ListRepoRequest{})
 	require.NoError(t, err)
-	_, err = grpcutil.Collect[*pfs.RepoInfo](c, 1000)
+	_, err = grpcutil.Collect[*pfs.RepoInfo](c)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 }
@@ -2726,7 +2726,7 @@ func TestListRepoWithProjectAccessControl(t *testing.T) {
 			defer cancel()
 			lrClient, err := tc.user.PfsAPIClient.ListRepo(ctx, &pfs.ListRepoRequest{Type: pfs.UserRepoType, Projects: tc.filterBy})
 			require.NoError(t, err)
-			repoInfos, err := grpcutil.Collect[*pfs.RepoInfo](lrClient, 1000)
+			repoInfos, err := grpcutil.Collect[*pfs.RepoInfo](lrClient)
 			require.NoError(t, err)
 			var repos []string
 			for _, repoInfo := range repoInfos {
@@ -2792,7 +2792,7 @@ func TestListPipelinesWithProjectAccessControl(t *testing.T) {
 			defer cancel()
 			lpClient, err := tc.c.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{Projects: tc.projects})
 			require.NoError(t, err)
-			pipelineInfos, err := grpcutil.Collect[*pps.PipelineInfo](lpClient, 10)
+			pipelineInfos, err := grpcutil.Collect[*pps.PipelineInfo](lpClient)
 			require.NoError(t, err)
 			var pipelines []string
 			for _, pipelineInfo := range pipelineInfos {

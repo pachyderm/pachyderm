@@ -123,7 +123,7 @@ func (c APIClient) ListProjectRepo(r *pfs.ListRepoRequest) ([]*pfs.RepoInfo, err
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return grpcutil.Collect[*pfs.RepoInfo](client, 1000)
+	return grpcutil.Collect[*pfs.RepoInfo](client)
 }
 
 // DeleteRepo deletes a repo and reclaims the storage space it was using.
@@ -378,7 +378,7 @@ func (c APIClient) ListBranch(projectName, repoName string) ([]*pfs.BranchInfo, 
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return grpcutil.Collect[*pfs.BranchInfo](client, 1000)
+	return grpcutil.Collect[*pfs.BranchInfo](client)
 }
 
 // DeleteBranch deletes a branch, but leaves the commits themselves
@@ -447,7 +447,7 @@ func (c APIClient) ListProject() (_ []*pfs.ProjectInfo, retErr error) {
 	if err != nil {
 		return nil, err
 	}
-	return grpcutil.Collect[*pfs.ProjectInfo](client, 1000)
+	return grpcutil.Collect[*pfs.ProjectInfo](client)
 }
 
 // DeleteProject deletes a project.

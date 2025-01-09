@@ -34,7 +34,7 @@ func TestListSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list snapshot RPC: %v", err)
 	}
-	allRows, err := grpcutil.Collect[*snapshot.ListSnapshotResponse](listClient, 100)
+	allRows, err := grpcutil.Collect[*snapshot.ListSnapshotResponse](listClient)
 	if err != nil {
 		t.Fatalf("grpcutil collect list response: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestListSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list snapshot RPC: %v", err)
 	}
-	sinceSecondSnapshot, err := grpcutil.Collect[*snapshot.ListSnapshotResponse](listClient2, 100)
+	sinceSecondSnapshot, err := grpcutil.Collect[*snapshot.ListSnapshotResponse](listClient2)
 	if err != nil {
 		t.Fatalf("grpcutil collect list response: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestInspectSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read fileset: %v", err)
 	}
-	allFs, err := grpcutil.Collect[*storage.ReadFilesetResponse](rfc, 100)
+	allFs, err := grpcutil.Collect[*storage.ReadFilesetResponse](rfc)
 	if err != nil {
 		t.Fatalf("grpcutil collect read fileset response: %v", err)
 	}

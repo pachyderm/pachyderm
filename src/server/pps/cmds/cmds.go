@@ -1204,7 +1204,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			pipelineInfos, err := grpcutil.Collect[*pps.PipelineInfo](lpClient, 1000)
+			pipelineInfos, err := grpcutil.Collect[*pps.PipelineInfo](lpClient)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -1276,7 +1276,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
-			pipelineInfos, err := grpcutil.Collect[*pps.PipelineInfo](lpClient, 1000)
+			pipelineInfos, err := grpcutil.Collect[*pps.PipelineInfo](lpClient)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
