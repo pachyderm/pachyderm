@@ -111,7 +111,8 @@ func WithS3Server(t *testing.T, addr *string) TestPachdOption {
 				if err != nil {
 					return errors.Wrapf(err, "wait for s3: attempt %d", i)
 				}
-				if _, err := http.DefaultClient.Do(req); err == nil {
+				_, err = http.DefaultClient.Do(req)
+				if err == nil {
 					break
 				}
 				log.Debug(ctx, "s3 server not ready yet", zap.Error(err))
