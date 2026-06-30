@@ -10,12 +10,14 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/fileblob"
 	"gocloud.dev/blob/s3blob"
@@ -114,7 +116,21 @@ func amazonSession(ctx context.Context, objURL *ObjectStoreURL) (*session.Sessio
 	if err != nil {
 		return nil, errors.Wrap(err, "creating amazon session")
 	}
+	// Identify Pachyderm in the S3 User-Agent. PushBack appends to the
+	// SDK-built value rather than replacing it.
+	sess.Handlers.Build.PushBack(
+		request.MakeAddToUserAgentHandler("pachyderm", userAgentVersion()),
+	)
 	return sess, nil
+}
+
+// userAgentVersion returns the Pachyderm version for the S3 User-Agent,
+// resolved at build time. It falls back to "dev" for unstamped builds.
+func userAgentVersion() string {
+	if v := version.PrettyVersion(); v != "" && v != "0.0.0" {
+		return v
+	}
+	return "dev"
 }
 
 // AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
