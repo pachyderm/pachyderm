@@ -7,18 +7,26 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.uber.org/zap"
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/fileblob"
 	"gocloud.dev/blob/s3blob"
+	"golang.org/x/net/http/httpguts"
 )
 
 // Bucket represents access to a single object storage bucket.
@@ -32,6 +40,20 @@ const (
 	Google    = "GOOGLE"
 	Microsoft = "MICROSOFT"
 	Local     = "LOCAL"
+)
+
+const (
+	s3UserAgentProduct         = "pachyderm"
+	s3UserAgentFallbackVersion = "dev"
+	unstampedVersion           = "0.0.0"
+)
+
+var (
+	s3UserAgentFallbackLogOnce sync.Once
+	s3UserAgentFallbackMetric  = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "s3_user_agent_version_fallback",
+		Help: "Whether the S3 User-Agent Pachyderm version token fell back to dev.",
+	})
 )
 
 // NewBucket creates a Bucket using the given backend and storage root (for
@@ -114,7 +136,81 @@ func amazonSession(ctx context.Context, objURL *ObjectStoreURL) (*session.Sessio
 	if err != nil {
 		return nil, errors.Wrap(err, "creating amazon session")
 	}
+	rawVersion, uaVersion, fellBack := userAgentVersion()
+	if fellBack {
+		s3UserAgentFallbackMetric.Set(1)
+		s3UserAgentFallbackLogOnce.Do(func() {
+			log.Info(ctx, "using fallback S3 User-Agent version",
+				zap.String("user_agent_product", s3UserAgentProduct),
+				zap.String("user_agent_version", uaVersion),
+				zap.String("raw_version", rawVersion))
+		})
+	}
+	// Identify cluster-side S3 traffic by appending pachyderm/<version> to every
+	// S3 request, including AWS and custom S3-compatible endpoints. This
+	// discloses only the major.minor Pachyderm version so provider-side access
+	// logs can attribute traffic without precise patch/rc fingerprinting.
+	// PushBack appends to the SDK-built value rather than replacing it.
+	sess.Handlers.Build.PushBack(
+		request.MakeAddToUserAgentHandler(s3UserAgentProduct, uaVersion),
+	)
 	return sess, nil
+}
+
+// userAgentVersion returns the raw Pachyderm version resolved at build time and
+// the version token to use in the S3 User-Agent. Release versions are coarsened
+// to major.minor; the token falls back to "dev" for unstamped builds or
+// malformed/non-token version strings.
+func userAgentVersion() (rawVersion, uaVersion string, fellBack bool) {
+	rawVersion = version.PrettyVersion()
+	uaVersion, fellBack = userAgentVersionToken(rawVersion)
+	return rawVersion, uaVersion, fellBack
+}
+
+func userAgentVersionToken(v string) (string, bool) {
+	if v == unstampedVersion || !isHTTPToken(v) {
+		return s3UserAgentFallbackVersion, true
+	}
+	majorMinor, ok := majorMinorVersion(v)
+	if !ok {
+		return s3UserAgentFallbackVersion, true
+	}
+	return majorMinor, false
+}
+
+func majorMinorVersion(v string) (string, bool) {
+	parts := strings.SplitN(v, ".", 3)
+	if len(parts) < 2 || !isDigits(parts[0]) || !isDigits(parts[1]) {
+		return "", false
+	}
+	return parts[0] + "." + parts[1], true
+}
+
+func isDigits(v string) bool {
+	if v == "" {
+		return false
+	}
+	for _, r := range v {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// isHTTPToken reports whether v is a valid HTTP token per RFC 7230 Section
+// 3.2.6 (tchar), safe to embed in a User-Agent product version without header
+// injection or malformed-header risk.
+func isHTTPToken(v string) bool {
+	if v == "" {
+		return false
+	}
+	for _, r := range v {
+		if !httpguts.IsTokenRune(r) {
+			return false
+		}
+	}
+	return true
 }
 
 // AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
