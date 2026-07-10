@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "obj",
@@ -18,11 +18,26 @@ go_library(
         "//src/internal/promutil",
         "//src/internal/stream",
         "//src/internal/uuid",
+        "//src/version",
         "@com_github_aws_aws_sdk_go//aws",
+        "@com_github_aws_aws_sdk_go//aws/request",
         "@com_github_aws_aws_sdk_go//aws/session",
         "@dev_gocloud//blob",
         "@dev_gocloud//blob/fileblob",
         "@dev_gocloud//blob/s3blob",
         "@dev_gocloud//gcerrors",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "obj_test",
+    size = "small",
+    srcs = ["bucket_test.go"],
+    embed = [":obj"],
+    deps = [
+        "@com_github_aws_aws_sdk_go//aws/client",
+        "@com_github_aws_aws_sdk_go//aws/client/metadata",
+        "@com_github_aws_aws_sdk_go//aws/request",
     ],
 )

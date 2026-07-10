@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/version"
+	"go.uber.org/zap"
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/fileblob"
 	"gocloud.dev/blob/s3blob"
@@ -35,6 +36,8 @@ const (
 	Microsoft = "MICROSOFT"
 	Local     = "LOCAL"
 )
+
+const s3UserAgentProduct = "pachyderm"
 
 // NewBucket creates a Bucket using the given backend and storage root (for
 // local backends).
@@ -116,10 +119,16 @@ func amazonSession(ctx context.Context, objURL *ObjectStoreURL) (*session.Sessio
 	if err != nil {
 		return nil, errors.Wrap(err, "creating amazon session")
 	}
-	// Identify Pachyderm in the S3 User-Agent. PushBack appends to the
-	// SDK-built value rather than replacing it.
+	uaVersion := userAgentVersion()
+	log.Info(ctx, "installing S3 User-Agent token",
+		zap.String("user_agent_product", s3UserAgentProduct),
+		zap.String("user_agent_version", uaVersion))
+	// Identify cluster-side S3 traffic. Custom S3-compatible endpoints receive
+	// this token in their request logs, and the version is included intentionally
+	// for storage-side attribution. PushBack appends to the SDK-built value
+	// rather than replacing it.
 	sess.Handlers.Build.PushBack(
-		request.MakeAddToUserAgentHandler("pachyderm", userAgentVersion()),
+		request.MakeAddToUserAgentHandler(s3UserAgentProduct, uaVersion),
 	)
 	return sess, nil
 }
@@ -127,10 +136,32 @@ func amazonSession(ctx context.Context, objURL *ObjectStoreURL) (*session.Sessio
 // userAgentVersion returns the Pachyderm version for the S3 User-Agent,
 // resolved at build time. It falls back to "dev" for unstamped builds.
 func userAgentVersion() string {
-	if v := version.PrettyVersion(); v != "" && v != "0.0.0" {
-		return v
+	return userAgentVersionToken(version.PrettyVersion())
+}
+
+func userAgentVersionToken(v string) string {
+	if v == "0.0.0" || !isUserAgentToken(v) {
+		return "dev"
 	}
-	return "dev"
+	return v
+}
+
+func isUserAgentToken(v string) bool {
+	if v == "" {
+		return false
+	}
+	for _, r := range v {
+		switch {
+		case r >= '0' && r <= '9':
+		case r >= 'A' && r <= 'Z':
+		case r >= 'a' && r <= 'z':
+		case r == '!' || r == '#' || r == '$' || r == '%' || r == '&' || r == '\'' || r == '*':
+		case r == '+' || r == '-' || r == '.' || r == '^' || r == '_' || r == '`' || r == '|' || r == '~':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // AmazonAdvancedConfiguration contains the advanced configuration for the amazon client.
