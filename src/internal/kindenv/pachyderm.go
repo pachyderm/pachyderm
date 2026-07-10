@@ -247,7 +247,7 @@ func (c *Cluster) InstallPachyderm(ctx context.Context, install *HelmConfig) err
 	}
 
 	// Now wait for pachd.
-	if version.AppVersion == version.UnstampedVersion || version.AppVersion == "" {
+	if version.AppVersion == "0.0.0" || version.AppVersion == "" {
 		// If unstamped, the version comparison will end too early.  Do a `kubectl rollout
 		// status` first to ensure that k8s has at least started the new code.
 		if err := k.KubectlCommand(ctx, "--namespace="+install.Namespace, "rollout", "status", "deployment", "pachd").Run(); err != nil {

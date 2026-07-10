@@ -11,13 +11,9 @@ import (
 	pb "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
-// UnstampedVersion is AppVersion's default value when the binary is not stamped
-// at build time.
-const UnstampedVersion = "0.0.0"
-
 var (
 	// Overwritten at build time by linker
-	AppVersion = UnstampedVersion
+	AppVersion = "0.0.0"
 
 	MajorVersion, MinorVersion, MicroVersion = getVersions()
 

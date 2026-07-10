@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/client/metadata"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 // TestUserAgentSuffix verifies that an Amazon session built by this package
@@ -41,7 +40,7 @@ func TestUserAgentSuffix(t *testing.T) {
 	req.Handlers.Build.Run(req)
 
 	ua := req.HTTPRequest.Header.Get("User-Agent")
-	_, uaVersion := userAgentVersion()
+	_, uaVersion, _ := userAgentVersion()
 	if !strings.Contains(ua, s3UserAgentProduct+"/"+uaVersion) {
 		t.Fatalf("User-Agent missing pachyderm token, got: %q", ua)
 	}
@@ -53,19 +52,25 @@ func TestUserAgentSuffix(t *testing.T) {
 
 func TestUserAgentVersionToken(t *testing.T) {
 	for _, test := range []struct {
-		name string
-		in   string
-		want string
+		name     string
+		in       string
+		want     string
+		fellBack bool
 	}{
-		{name: "release", in: "2.9.1", want: "2.9.1"},
-		{name: "release candidate", in: "2.9.1rc1", want: "2.9.1rc1"},
-		{name: "unstamped", in: version.UnstampedVersion, want: s3UserAgentFallbackVersion},
-		{name: "space", in: "2.9.1 dirty", want: s3UserAgentFallbackVersion},
-		{name: "newline", in: "2.9.1\r\nX-Test: injected", want: s3UserAgentFallbackVersion},
+		{name: "release", in: "2.9.1", want: "2.9"},
+		{name: "release candidate", in: "2.9.1rc1", want: "2.9"},
+		{name: "unstamped", in: unstampedVersion, want: s3UserAgentFallbackVersion, fellBack: true},
+		{name: "space", in: "2.9.1 dirty", want: s3UserAgentFallbackVersion, fellBack: true},
+		{name: "newline", in: "2.9.1\r\nX-Test: injected", want: s3UserAgentFallbackVersion, fellBack: true},
+		{name: "malformed", in: "release-2.9.1", want: s3UserAgentFallbackVersion, fellBack: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := userAgentVersionToken(test.in); got != test.want {
+			got, fellBack := userAgentVersionToken(test.in)
+			if got != test.want {
 				t.Fatalf("userAgentVersionToken(%q) = %q, want %q", test.in, got, test.want)
+			}
+			if fellBack != test.fellBack {
+				t.Fatalf("userAgentVersionToken(%q) fellBack = %v, want %v", test.in, fellBack, test.fellBack)
 			}
 		})
 	}

@@ -22,10 +22,13 @@ go_library(
         "@com_github_aws_aws_sdk_go//aws",
         "@com_github_aws_aws_sdk_go//aws/request",
         "@com_github_aws_aws_sdk_go//aws/session",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
         "@dev_gocloud//blob",
         "@dev_gocloud//blob/fileblob",
         "@dev_gocloud//blob/s3blob",
         "@dev_gocloud//gcerrors",
+        "@org_golang_x_net//http/httpguts",
         "@org_uber_go_zap//:zap",
     ],
 )
@@ -36,7 +39,6 @@ go_test(
     srcs = ["bucket_test.go"],
     embed = [":obj"],
     deps = [
-        "//src/version",
         "@com_github_aws_aws_sdk_go//aws/client",
         "@com_github_aws_aws_sdk_go//aws/client/metadata",
         "@com_github_aws_aws_sdk_go//aws/request",
