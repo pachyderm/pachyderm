@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/client/metadata"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 // TestUserAgentSuffix verifies that an Amazon session built by this package
@@ -40,7 +41,8 @@ func TestUserAgentSuffix(t *testing.T) {
 	req.Handlers.Build.Run(req)
 
 	ua := req.HTTPRequest.Header.Get("User-Agent")
-	if !strings.Contains(ua, s3UserAgentProduct+"/"+userAgentVersion()) {
+	_, uaVersion := userAgentVersion()
+	if !strings.Contains(ua, s3UserAgentProduct+"/"+uaVersion) {
 		t.Fatalf("User-Agent missing pachyderm token, got: %q", ua)
 	}
 	// The handler must append, not replace: the SDK base token must survive.
@@ -57,9 +59,9 @@ func TestUserAgentVersionToken(t *testing.T) {
 	}{
 		{name: "release", in: "2.9.1", want: "2.9.1"},
 		{name: "release candidate", in: "2.9.1rc1", want: "2.9.1rc1"},
-		{name: "unstamped", in: "0.0.0", want: "dev"},
-		{name: "space", in: "2.9.1 dirty", want: "dev"},
-		{name: "newline", in: "2.9.1\r\nX-Test: injected", want: "dev"},
+		{name: "unstamped", in: version.UnstampedVersion, want: s3UserAgentFallbackVersion},
+		{name: "space", in: "2.9.1 dirty", want: s3UserAgentFallbackVersion},
+		{name: "newline", in: "2.9.1\r\nX-Test: injected", want: s3UserAgentFallbackVersion},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := userAgentVersionToken(test.in); got != test.want {

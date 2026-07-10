@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -37,7 +39,12 @@ const (
 	Local     = "LOCAL"
 )
 
-const s3UserAgentProduct = "pachyderm"
+const (
+	s3UserAgentProduct         = "pachyderm"
+	s3UserAgentFallbackVersion = "dev"
+)
+
+var s3UserAgentFallbackLogOnce sync.Once
 
 // NewBucket creates a Bucket using the given backend and storage root (for
 // local backends).
@@ -119,34 +126,45 @@ func amazonSession(ctx context.Context, objURL *ObjectStoreURL) (*session.Sessio
 	if err != nil {
 		return nil, errors.Wrap(err, "creating amazon session")
 	}
-	uaVersion := userAgentVersion()
-	log.Info(ctx, "installing S3 User-Agent token",
-		zap.String("user_agent_product", s3UserAgentProduct),
-		zap.String("user_agent_version", uaVersion))
-	// Identify cluster-side S3 traffic. Custom S3-compatible endpoints receive
-	// this token in their request logs, and the version is included intentionally
-	// for storage-side attribution. PushBack appends to the SDK-built value
-	// rather than replacing it.
+	rawVersion, uaVersion := userAgentVersion()
+	if uaVersion != rawVersion {
+		s3UserAgentFallbackLogOnce.Do(func() {
+			log.Info(ctx, "using fallback S3 User-Agent version",
+				zap.String("user_agent_product", s3UserAgentProduct),
+				zap.String("user_agent_version", uaVersion),
+				zap.String("raw_version", rawVersion))
+		})
+	}
+	// Identify cluster-side S3 traffic by appending pachyderm/<version> to every
+	// S3 request, including AWS and custom S3-compatible endpoints. This
+	// intentionally discloses the exact Pachyderm version to the configured
+	// object-store backend so provider-side access logs can attribute traffic.
+	// PushBack appends to the SDK-built value rather than replacing it.
 	sess.Handlers.Build.PushBack(
 		request.MakeAddToUserAgentHandler(s3UserAgentProduct, uaVersion),
 	)
 	return sess, nil
 }
 
-// userAgentVersion returns the Pachyderm version for the S3 User-Agent,
-// resolved at build time. It falls back to "dev" for unstamped builds.
-func userAgentVersion() string {
-	return userAgentVersionToken(version.PrettyVersion())
+// userAgentVersion returns the raw Pachyderm version resolved at build time and
+// the version token to use in the S3 User-Agent. The token falls back to "dev"
+// for unstamped builds or malformed/non-token version strings.
+func userAgentVersion() (rawVersion, uaVersion string) {
+	rawVersion = version.PrettyVersion()
+	return rawVersion, userAgentVersionToken(rawVersion)
 }
 
 func userAgentVersionToken(v string) string {
-	if v == "0.0.0" || !isUserAgentToken(v) {
-		return "dev"
+	if v == version.UnstampedVersion || !isHTTPToken(v) {
+		return s3UserAgentFallbackVersion
 	}
 	return v
 }
 
-func isUserAgentToken(v string) bool {
+// isHTTPToken reports whether v is a valid HTTP token per RFC 7230 Section
+// 3.2.6 (tchar), safe to embed in a User-Agent product version without header
+// injection or malformed-header risk.
+func isHTTPToken(v string) bool {
 	if v == "" {
 		return false
 	}
@@ -155,8 +173,7 @@ func isUserAgentToken(v string) bool {
 		case r >= '0' && r <= '9':
 		case r >= 'A' && r <= 'Z':
 		case r >= 'a' && r <= 'z':
-		case r == '!' || r == '#' || r == '$' || r == '%' || r == '&' || r == '\'' || r == '*':
-		case r == '+' || r == '-' || r == '.' || r == '^' || r == '_' || r == '`' || r == '|' || r == '~':
+		case strings.ContainsRune("!#$%&'*+-.^_`|~", r):
 		default:
 			return false
 		}

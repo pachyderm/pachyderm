@@ -36,6 +36,7 @@ go_test(
     srcs = ["bucket_test.go"],
     embed = [":obj"],
     deps = [
+        "//src/version",
         "@com_github_aws_aws_sdk_go//aws/client",
         "@com_github_aws_aws_sdk_go//aws/client/metadata",
         "@com_github_aws_aws_sdk_go//aws/request",
