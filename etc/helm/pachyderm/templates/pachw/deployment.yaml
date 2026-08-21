@@ -3,7 +3,6 @@ SPDX-FileCopyrightText: Pachyderm, Inc. <info@pachyderm.com>
 SPDX-License-Identifier: Apache-2.0
 */ -}}
 {{- if .Values.pachd.enabled -}}
-{{- $randHostPath := printf "/var/pachyderm-%s/" (randAlphaNum 5) -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -95,7 +94,7 @@ spec:
         {{- end }}
         {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
         - name: STORAGE_HOST_PATH
-          value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
+          value: {{ include "pachyderm.storageHostPath" . }}
         {{- end }}
         {{- if .Values.global.imagePullSecrets }}
         - name: IMAGE_PULL_SECRETS
@@ -275,7 +274,7 @@ spec:
         - name: pach-disk
         {{- if eq (include "pachyderm.storageBackend" . ) "LOCAL" }}
           hostPath:
-            path: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
+            path: {{ include "pachyderm.storageHostPath" . }}
             type: DirectoryOrCreate
         {{- end }}
         - name: pachyderm-storage-secret

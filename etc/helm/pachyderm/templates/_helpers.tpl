@@ -23,6 +23,10 @@ LOCAL
 {{- end -}}
 {{- end -}}
 
+{{- define "pachyderm.storageHostPath" -}}
+{{ .Values.pachd.storage.local.hostPath | default (printf "/var/lib/pachyderm/%s/" .Release.Namespace) }}pachd
+{{- end -}}
+
 {{- define "pachyderm.clusterDeploymentId" -}}
 {{ default (randAlphaNum 32) .Values.pachd.clusterDeploymentID }}
 {{- end -}}
